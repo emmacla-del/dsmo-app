@@ -14,6 +14,8 @@ import { count, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-s
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
+import { listCompanyRegistrations } from "@/lib/user-directory";
+import { APPROVAL_ROLES } from "@/lib/roles";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -346,10 +348,26 @@ export default function PilotagePage() {
     refetchInterval: 30000,
   });
 
+  // Registration queue head-count for the "Inscriptions en attente" tile.
+  // GET /auth/company-registrations is territory-scoped server-side, and its
+  // `counts` are computed over the whole queue rather than the requested page,
+  // so pageSize: 1 fetches the figure without paying for a row set.
+  // Its @Roles excludes AUDITOR, which reaches this page as the /admin
+  // fallback route: left ungated the query would 403 every 30s. Disabled, it
+  // keeps `registrations` undefined, so the tile renders the honest absence.
+  const canReadRegistrations = !!userRole && APPROVAL_ROLES.includes(userRole);
+  const registrationsQuery = useQuery({
+    queryKey: ["auth", "company-registrations", "pending-count"],
+    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
+    refetchInterval: 30000,
+    enabled: canReadRegistrations,
+  });
+
   // Authoritative data only. null until loaded or if query errors.
   const queues = queuesQuery.data ?? null;
   const stats = statsQuery.data ?? null;
   const quality = qualityQuery.data ?? null;
+  const registrations = registrationsQuery.data ?? null;
 
   // Zero is data: if queues returns 0 submissions, totalSubmissions is 0.
   // Never substitute national figures for an empty territorial result.
@@ -403,8 +421,9 @@ export default function PilotagePage() {
     { label: "Exportables", value: readyCount, highlighted: false },
   ];
 
-  // 4 "À TRAITER" tiles: null renders "—" when no dedicated metric exists yet
-  const inscriptionsPending = null;
+  // 4 "À TRAITER" tiles: null renders "—" when the source is absent for
+  // this actor. Zero is data: an available-but-empty source renders 0.
+  const inscriptionsPending = registrations ? registrations.counts.pending : null;
   const declarationsReview = queues ? (queues.pendingNationalVisasCount ?? 0) : null;
   const correctionsCount = queues ? queues.correctionsUnderReviewCount : null;
   const anomaliesCount = queues ? queues.blockingAnomaliesCount : null;
