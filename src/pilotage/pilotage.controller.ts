@@ -56,10 +56,22 @@ export class PilotageController {
     );
   }
 
+  /**
+   * RETIRED (Phase 4c). The bare path meant "annual" by convention; the fold
+   * it served is now reached by its own name at coverage/annual, added in 4a
+   * with the same response shape. Path and @Roles gate stay for one release,
+   * on the same terms as the 4b retirements above: an authorized caller gets
+   * 410, an unauthorized one still gets 403.
+   *
+   * PilotageService.getCoverage is untouched — it IS the annual fold, and
+   * getAnnualCoverage below still calls it.
+   */
   @Get('coverage')
   @Roles(...PILOTAGE_READ_ROLES)
-  getCoverage(@Query('year') year: string, @Req() req: any) {
-    return this.pilotage.getCoverage(territoryFromUser(req.user), year);
+  getCoverage() {
+    throw new GoneException(
+      'La couverture annuelle a désormais sa propre route. Utilisez GET /admin/pilotage/coverage/annual?year=YYYY.',
+    );
   }
 
   /**

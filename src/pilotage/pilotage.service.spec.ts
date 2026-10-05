@@ -1122,7 +1122,7 @@ describe('PilotageService coverage', () => {
       .rejects.toThrow(BadRequestException);
   });
 
-  it('serves the annual roll-up from its route, identical to the year-scoped coverage route', async () => {
+  it('annual coverage route delegates to the same fold as the service method', async () => {
     const harness = createHarness();
     const ids = seedQuarters(harness);
     harness.campaignQuotas.push(
@@ -1135,9 +1135,11 @@ describe('PilotageService coverage', () => {
     );
     const controller = new PilotageController(harness.service);
 
+    // The retired year-scoped route is no longer the reference (Phase 4c): the
+    // route is compared against the service fold it delegates to, which is
+    // what the old comparison was really asserting through that route.
     const annualRoute = await controller.getAnnualCoverage('2026', { user: national });
-    const yearRoute = await controller.getCoverage('2026', { user: national });
-    expect(annualRoute).toEqual(yearRoute);
+    expect(annualRoute).toEqual(await harness.service.getCoverage(national, '2026'));
     expect(annualRoute.period).toEqual({
       year: 2026,
       quarter: null,

@@ -27,9 +27,9 @@ import {
   canWritePilotageTargets,
   doualaCalendarYear,
   formatApiError,
+  getAnnualCoverage,
   getCampaignQuotas,
   getCampaignReturns,
-  getCoverage,
   parseYearParam,
   putCampaignQuotas,
   YEAR_MAX,
@@ -380,7 +380,7 @@ function TargetsPanel({
 function CoveragePanel({ year }: { year: number }) {
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year],
-    queryFn: () => getCoverage(year),
+    queryFn: () => getAnnualCoverage(year),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
