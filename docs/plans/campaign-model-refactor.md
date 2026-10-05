@@ -1,6 +1,6 @@
 # Campaign Model Refactor — Design Plan
 
-**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b landed. Phase 3c next.
+**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b/3c landed. Phase 3d-bis landed. Phase 3e next.
 **Date:** 2026-10-05 (rev 4)
 **Supersedes:** the annual-target vs campaign-quota split that exists today.
 
@@ -78,6 +78,7 @@ Target shape:
 CampaignQuota
   id             UUID
   campaignId     FK → DataCampaign
+  scopeKind      enum TERRITORIAL | ADMINISTRATION
   regionId       FK → Region    (nullable)
   departmentId   FK → Department (nullable)
   submissionTarget Int        (name kept — see §12)
@@ -87,7 +88,9 @@ CampaignQuota
 
 **Region-level row:** `regionId` set, `departmentId` null.
 **Department-level row:** both set.
-**National total:** never stored. Computed as `SUM(submissionTarget) WHERE campaignId = X`.
+**National total:** never stored. Computed as `SUM(submissionTarget) WHERE campaignId = X AND scopeKind = 'TERRITORIAL'`.
+The ADMINISTRATION row is deliberately excluded — summing it in would
+silently add the ministries' cohort target to the national figure.
 
 **Validation** (in the service, not the schema):
 - The sum of a region's department quotas must equal the region's own quota if the region has one.
@@ -97,22 +100,32 @@ CampaignQuota
 
 ### 3.1 Constraints are enforced in migration SQL, not Prisma
 
-The schema comment at `prisma/schema.prisma:2449-2460` documents that uniqueness on `CampaignQuota` cannot be expressed as `@@unique` because of the nullable `departmentId`. Postgres treats NULLs as distinct, so `@@unique([campaignId, regionId, departmentId])` would permit two region-level rows.
+The schema comment at `prisma/schema.prisma:2517-2535` documents that uniqueness on `CampaignQuota` cannot be expressed as `@@unique` because of the nullable `departmentId` and now `regionId` too. Postgres treats NULLs as distinct, so `@@unique([campaignId, regionId, departmentId])` would permit two region-level rows.
 
-The constraints already exist in
-`prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`:
+The uniqueness rules and the scope shape live in
+`prisma/migrations/20261008120000_campaign_quota_scope_kind/migration.sql`, which replaced the two original `campaign_quotas` indexes from `20261001153000_add_territory_targets_and_campaign_quotas` (that migration is applied and stays byte-identical):
 
-| Constraint | Line | Purpose |
-|---|---|---|
-| `campaign_quotas_campaign_region_level_uidx` | 142 | `(campaignId, regionId) WHERE departmentId IS NULL` |
-| `campaign_quotas_campaign_region_department_uidx` | 137 | `(campaignId, regionId, departmentId) WHERE departmentId IS NOT NULL` |
-| `campaign_quotas_submission_target_nonneg` | 151-153 | `CHECK ("submissionTarget" >= 0)` |
+| Constraint | Purpose |
+|---|---|
+| `campaign_quotas_administration_uidx` | `(campaignId) WHERE scopeKind = 'ADMINISTRATION'` |
+| `campaign_quotas_territorial_region_uidx` | `(campaignId, regionId) WHERE departmentId IS NULL AND scopeKind = 'TERRITORIAL'` |
+| `campaign_quotas_territorial_department_uidx` | `(campaignId, regionId, departmentId) WHERE departmentId IS NOT NULL AND scopeKind = 'TERRITORIAL'` |
+| `campaign_quotas_scope_shape` | `CHECK` — `ADMINISTRATION` => both FKs NULL; `TERRITORIAL` => `regionId` NOT NULL |
+| `campaign_quotas_submission_target_nonneg` | `CHECK ("submissionTarget" >= 0)` — unchanged, from `20261001153000` |
+
+The `scopeKind` predicate on the two territorial indexes is not decoration: `departmentId IS NULL` is the region-level marker, and the ADMINISTRATION row also has a NULL `departmentId`, so without it the cohort row would collide with a region-level quota.
 
 **Do not add `@@unique` to the Prisma model.** It would generate a different (weaker) constraint and duplicate the existing ones. Any future schema edit must preserve the hand-written SQL pattern.
 
-### Why no national row
+### Why no national row — and why the ADMINISTRATION row is not one
 
-Storing it would require a special-case row with both FKs null, which makes the composite unique constraint awkward in Postgres. Computing it instead guarantees the national figure is always consistent with the regional sum.
+The national *total* is still not stored. Computing it as the sum of territorial quotas guarantees the national figure is always consistent with its parts, and that has not changed.
+
+What this section originally got wrong is treating "a row with both FKs null" as necessarily a national total. The ADMINISTRATION row is not a roll-up of anything: ministries answer the questionnaire as one cohort, their returns are counted in the `central` bucket of `getCampaignReturns` and excluded from every territorial bucket, so no sum over regions can ever produce their target. It is a leaf, not a parent.
+
+**Resolved via Path 1 (scopeKind discriminator), landed in Phase 3d-bis.** Cohort is the permanent granularity for ADMINISTRATION — one row per campaign. Per-ministry targets, if they ever arrive, are a new `scopeKind` value, not a nullable ministry column.
+
+The "awkward composite unique constraint" objection was real and is answered by making the predicate explicit rather than by refusing the row: see the three scope-qualified partial indexes in §3.1.
 
 ---
 
@@ -155,7 +168,11 @@ A semester has no separate quota editor. An annual figure has no separate quota 
 | `territory_targets` | **Deprecated.** Deprecation comment added in Phase 1. |
 | `central_inscription_targets` | **Deprecated.** Deprecation comment added in Phase 1. |
 | `campaign_quotas` | **Kept.** Extended in place; becomes the unified table. |
-| `central_campaign_quotas` | **Deprecated.** Deprecation comment added in Phase 1. |
+| `central_campaign_quotas` | **Deprecated and inert.** Deprecation comment added in Phase 1; last writer removed in Phase 3d-bis. |
+
+The ADMINISTRATION cohort target is not part of that sum — it is non-territorial. It moves into `CampaignQuota` as a row with `scopeKind = 'ADMINISTRATION'` (see §9 Phase 3d-bis).
+
+> The deprecation header on `model CentralCampaignQuota` (`prisma/schema.prisma`) still reads "National totals are now computed as the sum of CampaignQuota rows," which is the claim this paragraph corrects. Fixing that comment is a code edit and is out of scope for this doc pass — carry it into the Phase 6 drop.
 
 **No data migration is required.** All five tables (`campaign_quotas`, `central_campaign_quotas`, `territory_targets`, `central_inscription_targets`, `data_campaigns`) were verified empty in the live Supabase project on 2026-10-05. There is nothing to backfill.
 
@@ -290,6 +307,19 @@ Split into sub-phases once the rename turned out to touch the wire contract of t
 
 Two readers of the JSON key `type`: the Flutter admin and the Flutter company workspace. Both must read `periodicity` with the same fallback. Flutter changes are the user's to commit.
 
+**3d-bis — ADMINISTRATION cohort target** ✅ Landed ahead of schedule
+
+- New enum `CampaignQuotaScope { TERRITORIAL | ADMINISTRATION }`.
+- `CampaignQuota.regionId` becomes nullable; `region` relation becomes optional.
+- Three scope-qualified partial unique indexes replace the two originals.
+- `campaign_quotas_scope_shape` CHECK added.
+- `getCampaignQuotas` / `getCampaignReturns` read the ADMINISTRATION row from the unified table; `central` response shape unchanged.
+- `writeQuotas` writes the ADMINISTRATION row via `writeAdministrationQuota`.
+- `CENTRAL_CAMPAIGN_QUOTA_*` audit actions removed.
+- `CentralCampaignQuota` becomes inert; retires in Phase 6.
+
+Numbered out of sequence because it is independent of the `periodicity` alias work in 3b–3d and was unblocked first. It does not depend on 3c, and 3d does not depend on it.
+
 **3d — Drop the aliases**
 
 Only once 3b and 3c have both shipped: delete `toCampaignWire()`'s legacy `type` line, the request-side `?? data.type`, the `?? type` list filter, their pinning tests in `campaign.service.spec.ts`, and `buildCreateCampaignPayload`'s `type` key plus the `Campaign.type` field in react-web.
@@ -298,7 +328,7 @@ Only once 3b and 3c have both shipped: delete `toCampaignWire()`'s legacy `type`
 
 - Add `publishedAt`.
 - `PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota` only.
-- Remove the `applyCentral` write path (`pilotage.service.ts:577`) that still writes to `CentralCampaignQuota`.
+- ~~Remove the `applyCentral` write path (`pilotage.service.ts:577`) that still writes to `CentralCampaignQuota`.~~ Absorbed into 3d-bis.
 - Add semester and annual roll-up computations.
 - `getCampaignReturns` unchanged.
 
@@ -314,7 +344,11 @@ The IA changes in §8. `/admin/cibles` becomes campaign detail tabs.
 
 **Phase 6 — Drop deprecated tables**
 
+Drop `central_campaign_quotas`, `territory_targets`, and `central_inscription_targets`.
+
 Only after Phase 4 is verified in production and no caller references `CentralCampaignQuota`, `TerritoryTarget`, or `CentralInscriptionTarget`.
+
+`CentralCampaignQuota` already has no writers as of 3d-bis. One reader remains — the `centralQuota` delete-blocker in `campaign.service.ts` — and it can no longer fire, because no row can be created. Drop the model, the relation on `DataCampaign`, that blocker condition, and correct the stale "sum of CampaignQuota rows" deprecation header noted in §6.
 
 **Phase 7 — WB UI port**
 
@@ -358,6 +392,14 @@ The unified quota table is the existing `CampaignQuota` model. Chosen over creat
 
 ---
 
+### R7 — ADMINISTRATION cohort target moves into `CampaignQuota`
+
+`SUM(CampaignQuota)` could not express the ministry cohort's target: `regionId` was NOT NULL and administration returns are excluded from every territorial bucket. The options were a nullable-FK row in the unified table behind a discriminator (Path 1), keeping `CentralCampaignQuota` alive indefinitely (Path 2), or dropping the cohort target altogether (Path 3).
+
+**Path 1.** Rationale in §3 "Why no national row"; implementation in §9 Phase 3d-bis. The same `scopeKind` slot will serve the central registration target when Phase 4 folds `CentralInscriptionTarget` into synthetic annual campaigns, so the discriminator is paid for once.
+
+---
+
 ## 11. What this does not do
 
 - Does not change the `OnefopSubmission` or `Company` models.
@@ -380,11 +422,13 @@ The reason is that `submissionTarget` is not only a column name. The same litera
 
 - `parseTargetBody` reads `record[field]` off the `PUT` body (`src/pilotage/pilotage-validation.ts`).
 - `labelTargets` emits `[field]: target` into the `GET` response (`src/pilotage/pilotage.service.ts`).
-- `replaceScoped` / `applyCentral` use the same literal as the Prisma column key.
+- `replaceScoped` / `applyCentral` / `writeAdministrationQuota` use the same literal as the Prisma column key.
 
 `react-web` mirrors the wire name against `GET|PUT /admin/pilotage/campaigns/:id/quotas` in `pilotage-targets.ts`, `pilotage-target-payload.ts` and `admin/cibles/page.tsx`. Renaming the column alone would either break the Cibles page or require splitting the conflated `TargetField` into separate database and wire types. Either way it is a coordinated frontend and backend release, which is out of scope for a schema-comment phase.
 
-A further wrinkle: `CentralCampaignQuota.submissionTarget` is deprecated but still written to (see Phase 3), so `TargetField` cannot drop the old literal until that model's write path is removed.
+~~A further wrinkle: `CentralCampaignQuota.submissionTarget` is deprecated but still written to (see Phase 3), so `TargetField` cannot drop the old literal until that model's write path is removed.~~
+
+That wrinkle is gone as of Phase 3d-bis — `CentralCampaignQuota` has no writers. `TargetField` is now blocked only by the wire contract described above, and `CampaignQuota.scopeKind` adds nothing to the rename: it is a new column, not another alias for `submissionTarget`.
 
 ### The CHECK constraint name will need renaming too
 
