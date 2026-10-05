@@ -63,17 +63,23 @@ describe('PilotageController roles', () => {
     }
   });
 
-  it('answers the retired inscription-target routes with 410, still behind their roles gate', async () => {
+  it('answers the retired routes with 410, still behind their roles gate', async () => {
     const controller = new PilotageController({} as never);
     expect(() => controller.getInscriptionTargets()).toThrow(GoneException);
     expect(() => controller.putInscriptionTargets()).toThrow(GoneException);
+    // Retired in 4c, replaced by getAnnualCoverage.
+    expect(() => controller.getCoverage()).toThrow(GoneException);
 
-    // The gate is asserted above for both handlers; repeated here only to
+    // The gate is asserted above for every handler; repeated here only to
     // state that 410 did not replace it with an open route.
-    for (const role of [UserRole.COMPANY, UserRole.AUDITOR]) {
-      await expect(
-        guard.canActivate(contextFor(PilotageController.prototype.getInscriptionTargets, role)),
-      ).resolves.toBe(false);
+    const retired = [
+      PilotageController.prototype.getInscriptionTargets,
+      PilotageController.prototype.getCoverage,
+    ];
+    for (const handler of retired) {
+      for (const role of [UserRole.COMPANY, UserRole.AUDITOR]) {
+        await expect(guard.canActivate(contextFor(handler, role))).resolves.toBe(false);
+      }
     }
   });
 

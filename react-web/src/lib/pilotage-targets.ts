@@ -142,6 +142,15 @@ export interface CoverageBucket extends StockCounts {
 
 export interface CoverageResponse {
   year: number;
+  // Returned by the API since 3e; not yet rendered by CoverageTable.
+  // quarter and semester are null on this view — only campaignIds is
+  // populated for the annual fold.
+  period: {
+    year: number;
+    quarter: number | null;
+    semester: number | null;
+    campaignIds: string[];
+  };
   central: CoverageBucket | null;
   unassigned: StockCounts | null;
   nullEntityType: StockCounts | null;
@@ -183,9 +192,9 @@ export function formatApiError(error: unknown): string {
   return "La requête a échoué.";
 }
 
-export function getCoverage(year: number) {
+export function getAnnualCoverage(year: number) {
   return apiFetch<CoverageResponse>(
-    `/admin/pilotage/coverage?year=${encodeURIComponent(String(year))}`,
+    `/admin/pilotage/coverage/annual?year=${encodeURIComponent(String(year))}`,
   );
 }
 
