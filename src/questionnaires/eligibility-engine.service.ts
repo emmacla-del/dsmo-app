@@ -807,23 +807,33 @@ export class EligibilityEngineService {
   }
 
   /**
-   * List anomalies with filtering and pagination
+   * Legacy `flags` -> `OnefopAnomaly` migration sweep, run before an anomaly
+   * listing is served.
+   *
+   * `anomalies: { none: {} }` is the real duplicate guard: a submission that
+   * already has anomaly rows can never be selected again, so the sweep is safe
+   * to repeat. The previous gate was a global `onefopAnomaly.count() === 0`,
+   * which stopped the sweep for good as soon as the live engine wrote its very
+   * first anomaly row anywhere — every legacy submission still carrying only
+   * `flags` was then skipped silently and for ever.
+   *
+   * To avoid paying for the scan on every read, the sweep latches off for the
+   * lifetime of the process once a pass creates nothing: either the backlog is
+   * drained, or what is left holds no usable flags. A restart clears the latch,
+   * which costs one bounded scan per process. A backlog larger than the page
+   * size is drained a page per read. `evaluateDossier` keeps doing the same
+   * backfill for a single dossier on demand.
    */
-  async listAnomalies(filters: {
-    submissionId?: string;
-    status?: AnomalyStatus;
-    isBlocking?: boolean;
-    limit?: number;
-    offset?: number;
-  }, territory?: Territory) {
-    const where: any = {};
-    if (filters.submissionId) where.submissionId = filters.submissionId;
-    if (filters.status) where.status = filters.status;
-    if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
-    where.submission = territoryWhere(territory);
+  private legacyFlagSweepDone = false;
+  private legacyFlagSweepInFlight: Promise<void> | null = null;
 
-    const totalExisting = await this.prisma.onefopAnomaly.count();
-    if (totalExisting === 0) {
+  private async backfillLegacyFlagAnomalies(): Promise<void> {
+    if (this.legacyFlagSweepDone) return;
+    // One pass at a time: concurrent reads would otherwise select the same
+    // submissions and create their anomalies twice.
+    if (this.legacyFlagSweepInFlight) return this.legacyFlagSweepInFlight;
+
+    this.legacyFlagSweepInFlight = (async () => {
       try {
         const unmigrated = await this.prisma.onefopSubmission.findMany({
           where: {
@@ -833,6 +843,8 @@ export class EligibilityEngineService {
           select: { id: true, flags: true },
           take: 100,
         });
+
+        let created = 0;
         for (const sub of unmigrated) {
           if (Array.isArray(sub.flags) && sub.flags.length > 0) {
             const flags = sub.flags as Array<{ code: string; message: string }>;
@@ -852,12 +864,40 @@ export class EligibilityEngineService {
                 };
               }),
             });
+            created += flags.length;
           }
         }
+
+        // Nothing migrated: a further pass would select the same rows and do
+        // the same nothing.
+        if (created === 0) this.legacyFlagSweepDone = true;
       } catch (err: any) {
         this.logger.warn(`Anomaly synchronization failed: ${err?.message}`);
+      } finally {
+        this.legacyFlagSweepInFlight = null;
       }
-    }
+    })();
+
+    return this.legacyFlagSweepInFlight;
+  }
+
+  /**
+   * List anomalies with filtering and pagination
+   */
+  async listAnomalies(filters: {
+    submissionId?: string;
+    status?: AnomalyStatus;
+    isBlocking?: boolean;
+    limit?: number;
+    offset?: number;
+  }, territory?: Territory) {
+    const where: any = {};
+    if (filters.submissionId) where.submissionId = filters.submissionId;
+    if (filters.status) where.status = filters.status;
+    if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
+    where.submission = territoryWhere(territory);
+
+    await this.backfillLegacyFlagAnomalies();
 
     const [total, items] = await Promise.all([
       this.prisma.onefopAnomaly.count({ where }),

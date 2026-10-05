@@ -134,10 +134,42 @@ export class DsmoService {
     return company;
   }
 
-  /** Total establishment counts by registration account status, scoped to territory. */
+  /**
+   * Total establishment counts by registration account status, scoped to
+   * territory.
+   *
+   * The buckets partition the repertory. Company.userId is required and
+   * unique, so every establishment has exactly one account, lands in exactly
+   * one bucket, and `active + pendingValidation + rejected + suspended`
+   * equals `total`. Mapping of UserStatus (x user.isActive):
+   *
+   *   active             ACTIVE, isActive true
+   *   suspended          ACTIVE, isActive false  (account deactivated)
+   *   rejected           REJECTED
+   *   pendingValidation  PENDING_APPROVAL, UNDER_REVIEW, COMPLEMENTS_REQUESTED,
+   *                      DOCUMENTS_INCOMPLETE, DRAFT
+   *
+   * `isActive` is only read for ACTIVE accounts: a rejected or still-pending
+   * registration is reported by the stage it has reached, not as a suspension.
+   * DRAFT is a registration that was never submitted; it is grouped with the
+   * pending stages because the response shape has no bucket of its own, and it
+   * is the one label that is an imperfect fit.
+   *
+   * The previous bucketing counted a deactivated REJECTED account twice (once
+   * as `rejected`, once as `suspended`) and gave an active UNDER_REVIEW, DRAFT
+   * or DOCUMENTS_INCOMPLETE account no bucket at all, so the tiles never added
+   * up to the total.
+   */
   async getCompanyStats(territory?: Territory) {
     const where: any = territoryWhere(territory);
-    const [total, active, pendingApproval, complementsRequested, rejected, suspended] = await Promise.all([
+    const pendingStatuses = [
+      UserStatus.PENDING_APPROVAL,
+      UserStatus.UNDER_REVIEW,
+      UserStatus.COMPLEMENTS_REQUESTED,
+      UserStatus.DOCUMENTS_INCOMPLETE,
+      UserStatus.DRAFT,
+    ];
+    const [total, active, suspended, pendingValidation, rejected] = await Promise.all([
       this.prisma.company.count({ where }),
       this.prisma.company.count({
         where: {
@@ -148,13 +180,13 @@ export class DsmoService {
       this.prisma.company.count({
         where: {
           ...where,
-          user: { status: UserStatus.PENDING_APPROVAL },
+          user: { status: UserStatus.ACTIVE, isActive: false },
         },
       }),
       this.prisma.company.count({
         where: {
           ...where,
-          user: { status: UserStatus.COMPLEMENTS_REQUESTED },
+          user: { status: { in: pendingStatuses } },
         },
       }),
       this.prisma.company.count({
@@ -163,20 +195,11 @@ export class DsmoService {
           user: { status: UserStatus.REJECTED },
         },
       }),
-      this.prisma.company.count({
-        where: {
-          ...where,
-          user: {
-            isActive: false,
-            status: { not: UserStatus.PENDING_APPROVAL },
-          },
-        },
-      }),
     ]);
     return {
       total,
       active,
-      pendingValidation: pendingApproval + complementsRequested,
+      pendingValidation,
       rejected,
       suspended,
     };

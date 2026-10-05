@@ -378,6 +378,12 @@ export class PilotageService {
       }
     }
 
+    // Quota-relative fields (gap, quotaRate, onTimeRate) are measured only over
+    // the territories that actually have a quota — see withQuotaScope. The
+    // subtotals are accumulated as the rows are built, because a finished row
+    // no longer says how much of its `received` was quota-backed.
+    const quotaBacked = { received: 0, onTime: 0 };
+
     // Build department and region rows
     const regionRows: RegionReturnRow[] = regions.map((region) => {
       const departments: DepartmentReturnRow[] = region.departments.map((department) => {
@@ -408,8 +414,29 @@ export class PilotageService {
       );
       const summedStock = departments.reduce((acc, d) => acc + d.registeredStock, 0);
 
-      // Region quota is region.target (sum of depts or explicit region target)
-      const regionMetrics = buildMetrics(region.target, summedCounts, summedStock);
+      // Region quota is region.target (sum of depts or explicit region target).
+      // An explicit region target covers the whole region, so every return in
+      // it is quota-backed; a target summed from departments only covers the
+      // departments that have one.
+      const regionQuotaBacked =
+        region.target === null
+          ? { received: 0, onTime: 0 }
+          : region.mode === 'REGION'
+            ? { received: summedCounts.received, onTime: summedCounts.onTime }
+            : departments.reduce(
+                (acc, d) =>
+                  d.quota === null
+                    ? acc
+                    : { received: acc.received + d.received, onTime: acc.onTime + d.onTime },
+                { received: 0, onTime: 0 },
+              );
+      quotaBacked.received += regionQuotaBacked.received;
+      quotaBacked.onTime += regionQuotaBacked.onTime;
+
+      const regionMetrics = withQuotaScope(
+        buildMetrics(region.target, summedCounts, summedStock),
+        regionQuotaBacked,
+      );
       return {
         regionId: region.regionId,
         name: region.name,
@@ -425,6 +452,10 @@ export class PilotageService {
       const centralCounts = countsByBucket.get('central') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
       const centralStock = registeredStockByBucket.get('central') ?? 0;
       central = buildMetrics(centralQuota?.submissionTarget ?? null, centralCounts, centralStock);
+      if (centralQuota?.submissionTarget != null) {
+        quotaBacked.received += centralCounts.received;
+        quotaBacked.onTime += centralCounts.onTime;
+      }
     }
 
     // Unassigned bucket (National only)
@@ -442,9 +473,13 @@ export class PilotageService {
       if (central) allMetrics.push(central as any);
       if (unassigned && unassigned.received > 0) allMetrics.push(unassigned as any);
 
-      totals = allMetrics.reduce(
-        (acc, m) => addMetrics(acc, m),
-        emptyMetrics(),
+      // addMetrics sums the actuals and the quotas that are set; the rates and
+      // the gap are then re-derived over the quota-backed returns alone, so the
+      // `unassigned` bucket and any territory without a quota cannot inflate
+      // them.
+      totals = withQuotaScope(
+        allMetrics.reduce((acc, m) => addMetrics(acc, m), emptyMetrics()),
+        quotaBacked,
       );
     } else if (scope.kind === 'region') {
       totals = regionRows.length > 0 ? regionRows[0] : emptyMetrics();
@@ -838,4 +873,31 @@ async function writeAudit(
       details: details as Prisma.InputJsonValue,
     },
   });
+}
+
+/**
+ * Re-derives the quota-relative fields of a rollup from the quota-backed
+ * returns alone.
+ *
+ * `received`, `approved`, `onTime` and `late` stay the true actuals of the
+ * whole territory. A department or region with no quota set still contributes
+ * to those, but it must contribute to neither side of `quotaRate`,
+ * `onTimeRate` or `gap`: it adds nothing to the denominator (its quota is
+ * unknown, not zero), so counting its returns in the numerator measured them
+ * against other territories' quotas and overstated the rate while hiding part
+ * of the gap.
+ */
+function withQuotaScope(
+  metrics: ReturnMetrics,
+  backed: { received: number; onTime: number },
+): ReturnMetrics {
+  const quota = metrics.quota;
+  // No quota anywhere in the rollup: the three fields are already null.
+  if (quota === null) return metrics;
+  return {
+    ...metrics,
+    gap: Math.max(0, quota - backed.received),
+    quotaRate: quota > 0 ? backed.received / quota : null,
+    onTimeRate: quota > 0 ? backed.onTime / quota : null,
+  };
 }
