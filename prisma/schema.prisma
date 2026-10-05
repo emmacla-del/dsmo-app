@@ -641,6 +641,13 @@ model DataCampaign {
   // opened/closed alongside the campaign's lifecycle (see SubmissionRound.module).
   collectionType    SubmissionModule     @default(ONEFOP)
   status            CampaignStatus       @default(DRAFT)
+  // When this campaign's data became official, distinct from `status`: a
+  // campaign can be closed to new submissions while its figures are still
+  // under review, and only a published campaign may be cited as official
+  // statistics. Nullable with no default — an unpublished campaign has no
+  // publication instant, which is not the same as being published at
+  // creation time. Not yet exposed on the wire.
+  publishedAt       DateTime?
   reminders         CampaignReminder[]
   submissions       CampaignSubmission[]
   freezes           CampaignFreeze[]

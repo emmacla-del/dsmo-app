@@ -41,9 +41,22 @@ function createHarness() {
   const campaigns: Array<Record<string, unknown>> = [];
   let seq = 1;
 
+  /**
+   * Strict equality, with one exception: `{ in: [...] }`. The coverage
+   * roll-ups fold several campaigns at once and name their quarters
+   * explicitly, so both `campaignId` and `referenceQuarter` arrive as `in`
+   * filters. Everything else stays strict on purpose — a quota fixture that
+   * omits `scopeKind` must stay invisible to the service's filtered reads.
+   */
   function match(row: Record<string, unknown>, where?: Record<string, unknown>) {
     if (!where) return true;
-    return Object.entries(where).every(([key, value]) => value === undefined || row[key] === value);
+    return Object.entries(where).every(([key, value]) => {
+      if (value === undefined) return true;
+      if (value !== null && typeof value === 'object' && Array.isArray((value as { in?: unknown }).in)) {
+        return (value as { in: unknown[] }).in.includes(row[key]);
+      }
+      return row[key] === value;
+    });
   }
 
   function collection(rows: Array<Record<string, unknown>>) {
@@ -113,6 +126,11 @@ function createHarness() {
       findUnique: jest.fn(async (args: { where: { id: string } }) =>
         campaigns.find((campaign) => campaign.id === args.where.id) ?? null,
       ),
+      // orderBy is not honoured: the roll-ups report campaignIds in the order
+      // the rows come back, so fixtures are seeded in quarter order.
+      findMany: jest.fn(async (args?: { where?: Record<string, unknown> }) =>
+        campaigns.filter((campaign) => match(campaign, args?.where)),
+      ),
     },
     territoryTarget: collection(territoryTargets as unknown as Array<Record<string, unknown>>),
     campaignQuota: collection(campaignQuotas as unknown as Array<Record<string, unknown>>),
@@ -167,6 +185,10 @@ function createHarness() {
 
 function asRegions(regions: unknown): Array<Record<string, any>> {
   return regions as Array<Record<string, any>>;
+}
+
+function centreOf(result: { regions: unknown }): Record<string, any> {
+  return asRegions(result.regions).find((region) => region.name === 'Centre')!;
 }
 
 const national = { role: 'ADMIN_ONEFOP', region: 'Littoral' };
@@ -611,13 +633,87 @@ describe('PilotageService coverage', () => {
     };
   }
 
+  /** An ONEFOP campaign for one quarter of 2026. */
+  function campaign(quarter: number | null, overrides: Record<string, unknown> = {}) {
+    return {
+      id: quarter === null ? 'c-tnull' : `c-t${quarter}`,
+      name: `Collecte 2026 T${quarter ?? 'x'}`,
+      code: `ON-2026-T${quarter ?? 'X'}`,
+      collectionType: SubmissionModule.ONEFOP,
+      status: 'ACTIVE',
+      startDate: null,
+      endDate: null,
+      referenceYear: 2026,
+      referenceQuarter: quarter,
+      ...overrides,
+    };
+  }
+
+  /** Seeds the year's quarters in order and returns their ids. */
+  function seedQuarters(harness: ReturnType<typeof createHarness>, quarters = [1, 2, 3, 4]) {
+    for (const quarter of quarters) harness.campaigns.push(campaign(quarter));
+    return quarters.map((quarter) => `c-t${quarter}`);
+  }
+
+  /** A territorial quota row. scopeKind is explicit because match() is strict. */
+  function quota(
+    campaignId: string,
+    regionId: string,
+    departmentId: string | null,
+    submissionTarget: number,
+  ): TargetRow {
+    return {
+      id: `q-${campaignId}-${regionId}-${departmentId ?? 'region'}`,
+      campaignId,
+      scopeKind: 'TERRITORIAL',
+      regionId,
+      departmentId,
+      submissionTarget,
+    };
+  }
+
+  /** The ministry cohort row: one per campaign, no region, no department. */
+  function cohort(campaignId: string, submissionTarget: number): TargetRow {
+    return {
+      id: `q-${campaignId}-adm`,
+      campaignId,
+      scopeKind: 'ADMINISTRATION',
+      regionId: null,
+      departmentId: null,
+      submissionTarget,
+    };
+  }
+
+  /** The semester and quarter views are private; Phase 4 adds their routes. */
+  interface CoverageViews {
+    getSemesterCoverage(territory: unknown, year: number, semester: number): Promise<any>;
+    getQuarterCoverage(territory: unknown, campaignId: string): Promise<any>;
+  }
+  function views(service: PilotageService): CoverageViews {
+    return service as unknown as CoverageViews;
+  }
+
+  function campaignQueries(harness: ReturnType<typeof createHarness>) {
+    return (harness.prisma.dataCampaign as { findMany: jest.Mock }).findMany.mock.calls.map(
+      ([args]: [{ where: Record<string, unknown> }]) => args.where,
+    );
+  }
+
+  function mfoundiOf(region: Record<string, any>): Record<string, any> {
+    return region.departments.find((department: { name: string }) => department.name === 'Mfoundi');
+  }
+
   it('computes stock, in-year, pending, and rate for a national reader', async () => {
     const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
-      { id: 'lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 0 },
+    const [t1, t2] = seedQuarters(harness);
+    // Mfoundi 6 + 4 = 10 across two quarters; T3 and T4 carry no quota at all.
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 6),
+      quota(t2, 'r-centre', 'd-mfoundi', 4),
+      quota(t1, 'r-centre', 'd-lekie', 0),
+      cohort(t1, 1),
+      cohort(t2, 3),
     );
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 4 });
     harness.companies.push(
       company(),
       company({ establishmentId: 'EN25000100', establishmentIdGeneratedAt: new Date('2025-03-01T00:00:00.000Z') }),
@@ -632,6 +728,14 @@ describe('PilotageService coverage', () => {
       company({ user: { status: 'DRAFT', isActive: true } }),
     );
     const result = await harness.service.getCoverage(national, '2026');
+    // Every matched campaign is reported, the quota-less quarters included.
+    expect(result.period).toEqual({
+      year: 2026,
+      quarter: null,
+      semester: null,
+      campaignIds: ['c-t1', 'c-t2', 'c-t3', 'c-t4'],
+    });
+    expect(result.year).toBe(2026);
     expect(result.central).toMatchObject({
       registered: 1,
       registeredInYear: 1,
@@ -640,7 +744,7 @@ describe('PilotageService coverage', () => {
     });
     expect(result.unassigned).toMatchObject({ registered: 1, pendingApproval: 0 });
     expect(result.nullEntityType).toMatchObject({ registered: 1 });
-    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    const centre = centreOf(result);
     expect(centre).toMatchObject({
       mode: 'DEPARTMENT',
       companyCount: 8,
@@ -652,8 +756,7 @@ describe('PilotageService coverage', () => {
       inscriptionTarget: 10,
       rate: 0.3,
     });
-    const mfoundi = centre!.departments.find((department: { name: string }) => department.name === 'Mfoundi');
-    expect(mfoundi).toMatchObject({
+    expect(mfoundiOf(centre)).toMatchObject({
       companyCount: 7,
       registered: 2,
       registeredInYear: 1,
@@ -663,8 +766,150 @@ describe('PilotageService coverage', () => {
       inscriptionTarget: 10,
       rate: 0.2,
     });
-    const lekie = centre!.departments.find((department: { name: string }) => department.name === 'Lékié');
+    const lekie = centre.departments.find((department: { name: string }) => department.name === 'Lékié');
     expect(lekie).toMatchObject({ companyCount: 1, registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('sums the four quarters for the annual view and the right two for a semester', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    harness.campaignQuotas.push(
+      ...ids.map((id, index) => quota(id, 'r-centre', 'd-mfoundi', 2 ** index)),
+    );
+    const annual = await harness.service.getCoverage(national, '2026');
+    // 1 + 2 + 4 + 8
+    expect(mfoundiOf(centreOf(annual))).toMatchObject({ inscriptionTarget: 15 });
+    expect(centreOf(annual)).toMatchObject({ mode: 'DEPARTMENT', inscriptionTarget: 15 });
+
+    const first = await views(harness.service).getSemesterCoverage(national, 2026, 1);
+    // Q1 + Q2 only.
+    expect(mfoundiOf(centreOf(first))).toMatchObject({ inscriptionTarget: 3 });
+    expect(first.period).toEqual({ year: 2026, quarter: null, semester: 1, campaignIds: ['c-t1', 'c-t2'] });
+
+    const second = await views(harness.service).getSemesterCoverage(national, 2026, 2);
+    // Q3 + Q4 only.
+    expect(mfoundiOf(centreOf(second))).toMatchObject({ inscriptionTarget: 12 });
+    expect(second.period).toEqual({ year: 2026, quarter: null, semester: 2, campaignIds: ['c-t3', 'c-t4'] });
+  });
+
+  it('reads one campaign for the quarter view and derives its semester', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    harness.campaignQuotas.push(
+      quota(ids[0], 'r-centre', 'd-mfoundi', 11),
+      quota(ids[2], 'r-centre', 'd-mfoundi', 99),
+    );
+    harness.companies.push(company());
+    const result = await views(harness.service).getQuarterCoverage(national, 'c-t3');
+    expect(result.period).toEqual({ year: 2026, quarter: 3, semester: 2, campaignIds: ['c-t3'] });
+    expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 99, registered: 1 });
+    // One campaign, read by id: the year is never swept.
+    expect((harness.prisma.dataCampaign as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+  });
+
+  it('lets a quarter with no quota contribute nothing instead of zero-padding the year', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    // One quota, on Q2 alone. The annual target is 7: the three silent
+    // quarters are absent, not targets of zero.
+    harness.campaignQuotas.push(quota(ids[1], 'r-centre', 'd-mfoundi', 7));
+    const result = await harness.service.getCoverage(national, '2026');
+    const centre = centreOf(result);
+    expect(centre).toMatchObject({ mode: 'DEPARTMENT', inscriptionTarget: 7 });
+    expect(mfoundiOf(centre)).toMatchObject({ inscriptionTarget: 7 });
+    // Nothing was ever stored for Lékié, which is not a target of zero.
+    expect(centre.departments.find((d: { name: string }) => d.name === 'Lékié'))
+      .toMatchObject({ inscriptionTarget: null, rate: null });
+    // No cohort row anywhere in the year.
+    expect(result.central).toMatchObject({ inscriptionTarget: null, rate: null });
+  });
+
+  it('keeps a folded quota of zero as a real target with no rate', async () => {
+    const harness = createHarness();
+    const [t1, t2] = seedQuarters(harness, [1, 2]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 0),
+      quota(t2, 'r-centre', 'd-mfoundi', 0),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(mfoundiOf(centreOf(result)))
+      .toMatchObject({ registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('sums the ADMINISTRATION quotas of the folded quarters into the central bucket', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    harness.campaignQuotas.push(
+      cohort(ids[0], 5),
+      cohort(ids[1], 7),
+      cohort(ids[2], 0),
+      quota(ids[0], 'r-centre', 'd-mfoundi', 2),
+    );
+    harness.companies.push(
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000100' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000200' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000300' }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    // 5 + 7 + 0; T4 has no cohort row and adds nothing.
+    expect(result.central).toMatchObject({ registered: 3, inscriptionTarget: 12, rate: 0.25 });
+  });
+
+  it('keeps the ADMINISTRATION quota out of regions[] at national scope', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      cohort(t1, 4242),
+      quota(t1, 'r-centre', 'd-mfoundi', 5),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(JSON.stringify(result.regions)).not.toContain('4242');
+    expect(centreOf(result)).toMatchObject({ mode: 'DEPARTMENT', inscriptionTarget: 5 });
+    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
+    expect(littoral).toMatchObject({ mode: 'UNSET', inscriptionTarget: null, rate: null });
+    // It is read for the central bucket by design, from its own query.
+    expect(result.central).toMatchObject({ inscriptionTarget: 4242 });
+    expect((harness.prisma.campaignQuota as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ scopeKind: 'TERRITORIAL' }) }),
+    );
+  });
+
+  it('folds a region-level quarter and a department-level quarter into MIXED', async () => {
+    const harness = createHarness();
+    const [t1, t2] = seedQuarters(harness, [1, 2]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', null, 50),
+      quota(t2, 'r-centre', 'd-mfoundi', 20),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    // Two incomparable rows survive the fold, so the region is reported as
+    // MIXED with no target rather than added up.
+    expect(centreOf(result)).toMatchObject({ mode: 'MIXED', inscriptionTarget: null, rate: null, registered: 1 });
+    expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 20 });
+  });
+
+  it('never asks for a campaign whose reference quarter is null', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign(1), campaign(null), campaign(3));
+    harness.campaignQuotas.push(
+      quota('c-t1', 'r-centre', 'd-mfoundi', 1),
+      quota('c-tnull', 'r-centre', 'd-mfoundi', 1000),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(result.period.campaignIds).toEqual(['c-t1', 'c-t3']);
+    // The malformed campaign's quota cannot reach the annual sum.
+    expect(centreOf(result)).toMatchObject({ inscriptionTarget: 1 });
+    const queries = campaignQueries(harness);
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toEqual({
+      collectionType: SubmissionModule.ONEFOP,
+      referenceYear: 2026,
+      referenceQuarter: { in: [1, 2, 3, 4] },
+    });
+    await views(harness.service).getSemesterCoverage(national, 2026, 1);
+    expect(campaignQueries(harness)[1].referenceQuarter).toEqual({ in: [1, 2] });
   });
 
   it('separates a department with no companies from one whose companies are all unregistered', async () => {
@@ -674,24 +919,45 @@ describe('PilotageService coverage', () => {
       company({ user: { status: 'REJECTED', isActive: true }, establishmentId: null }),
     );
     const result = await harness.service.getCoverage(national, '2026');
-    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    const centre = centreOf(result);
     // Mfoundi holds companies that have registered nothing: a measured zero.
-    expect(centre!.departments.find((department: { name: string }) => department.name === 'Mfoundi'))
-      .toMatchObject({ companyCount: 2, registered: 0 });
-    // Lekie holds no companies at all: there is nothing to measure.
-    expect(centre!.departments.find((department: { name: string }) => department.name === 'Lékié'))
+    expect(mfoundiOf(centre)).toMatchObject({ companyCount: 2, registered: 0 });
+    // Lékié holds no companies at all: there is nothing to measure.
+    expect(centre.departments.find((department: { name: string }) => department.name === 'Lékié'))
       .toMatchObject({ companyCount: 0, registered: 0 });
     expect(centre).toMatchObject({ companyCount: 2, registered: 0 });
     const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
     expect(littoral).toMatchObject({ companyCount: 0, registered: 0 });
   });
 
+  it('reports real stock with null targets and null rates when no campaign exists', async () => {
+    const harness = createHarness();
+    harness.companies.push(company(), company({ establishmentId: 'EN26000200' }));
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(result.period).toEqual({ year: 2026, quarter: null, semester: null, campaignIds: [] });
+    expect(result.central).toMatchObject({ registered: 0, inscriptionTarget: null, rate: null });
+    expect(centreOf(result)).toMatchObject({
+      mode: 'UNSET',
+      companyCount: 2,
+      registered: 2,
+      inscriptionTarget: null,
+      rate: null,
+    });
+    expect(mfoundiOf(centreOf(result)))
+      .toMatchObject({ registered: 2, inscriptionTarget: null, rate: null });
+    // No campaign matched, so no quota query was worth issuing.
+    expect((harness.prisma.campaignQuota as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+  });
+
   it('hides central, unassigned, and other regions from a regional reader', async () => {
     const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
+    const [t1, t2] = seedQuarters(harness, [1, 2]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 4),
+      quota(t2, 'r-centre', 'd-mfoundi', 6),
+      quota(t1, 'r-littoral', 'd-wouri', 99),
+      cohort(t1, 40),
     );
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 4 });
     harness.companies.push(
       company(),
       company({ regionId: 'r-littoral', departmentId: 'd-wouri', departmentRef: { regionId: 'r-littoral' } }),
@@ -702,8 +968,14 @@ describe('PilotageService coverage', () => {
     expect(result.unassigned).toBeNull();
     expect(result.nullEntityType).toBeNull();
     expect(result.regions).toHaveLength(1);
-    expect(result.regions[0]).toMatchObject({ name: 'Centre', registered: 1, rate: 0.1 });
-    expect((harness.prisma.centralInscriptionTarget as { findUnique: jest.Mock }).findUnique).not.toHaveBeenCalled();
+    expect(result.regions[0]).toMatchObject({ name: 'Centre', registered: 1, inscriptionTarget: 10, rate: 0.1 });
+    // The cohort target is a national figure and is not even queried.
+    expect((harness.prisma.campaignQuota as { findMany: jest.Mock }).findMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ scopeKind: 'ADMINISTRATION' }) }),
+    );
+    expect((harness.prisma.campaignQuota as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ regionId: 'r-centre', scopeKind: 'TERRITORIAL' }) }),
+    );
     expect((harness.prisma.company as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { regionId: 'r-centre' } }),
     );
@@ -711,9 +983,11 @@ describe('PilotageService coverage', () => {
 
   it('shows a divisional reader only their department stock and hides the region stock and rate', async () => {
     const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
-      { id: 'lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 15 },
+    const [t1, t2] = seedQuarters(harness, [1, 2]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 4),
+      quota(t2, 'r-centre', 'd-mfoundi', 6),
+      quota(t1, 'r-centre', 'd-lekie', 15),
     );
     harness.companies.push(
       company(),
@@ -743,6 +1017,8 @@ describe('PilotageService coverage', () => {
       }),
     ]);
     expect(JSON.stringify(result)).not.toContain('Lékié');
+    // The sibling department's quota is not in the payload either.
+    expect(JSON.stringify(result.regions)).not.toContain('15');
     expect((harness.prisma.company as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { departmentId: 'd-mfoundi' } }),
     );
@@ -750,8 +1026,11 @@ describe('PilotageService coverage', () => {
 
   it('keeps the region target visible to a divisional reader in REGION mode and still hides region stock', async () => {
     const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'region', year: 2026, regionId: 'r-centre', departmentId: null, inscriptionTarget: 80 },
+    const [t1, t2] = seedQuarters(harness, [1, 2]);
+    // Region-level rows fold exactly as department-level ones do.
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', null, 50),
+      quota(t2, 'r-centre', null, 30),
     );
     harness.companies.push(company());
     const result = await harness.service.getCoverage(divisional, '2026');
@@ -766,14 +1045,36 @@ describe('PilotageService coverage', () => {
 
   it('returns an empty grid when scope fails closed', async () => {
     const harness = createHarness();
+    seedQuarters(harness);
+    harness.campaignQuotas.push(quota('c-t1', 'r-centre', 'd-mfoundi', 10));
     await expect(harness.service.getCoverage(undefined, '2026')).resolves.toEqual({
       year: 2026,
+      period: { year: 2026, quarter: null, semester: null, campaignIds: [] },
       central: null,
       unassigned: null,
       nullEntityType: null,
       regions: [],
     });
     expect((harness.prisma.company as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+    // The campaign query is deferred into loadGrid's row loader, which a
+    // fail-closed scope never reaches.
+    expect((harness.prisma.dataCampaign as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+    expect((harness.prisma.campaignQuota as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a semester outside 1 and 2', async () => {
+    const harness = createHarness();
+    await expect(views(harness.service).getSemesterCoverage(national, 2026, 3)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rejects a quarter view on a campaign with no reference year', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign(2, { referenceYear: null }));
+    await expect(views(harness.service).getQuarterCoverage(national, 'c-t2')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });
 

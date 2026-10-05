@@ -313,10 +313,19 @@ export class ActorSummaryService {
    * dashboard can never disagree with /admin/cibles. A national territory is
    * passed on purpose: this is an internal read, and the caller's own scope is
    * applied to *which admins* are listed, not to the figures about them.
+   *
+   * What the reused getCoverage returns changed in Phase 3e: it is now the
+   * annual sum of the year's quarterly campaign submission targets, not a
+   * stored annual inscription target. The targets this column compares against
+   * are therefore only as complete as the quarters that have quotas — a year
+   * with quotas on two quarters yields a two-quarter target, not a padded one.
    */
   private async loadCoverage(now: Date) {
     // Douala calendar year (UTC+1), matching the registration-year bounds.
     const year = new Date(now.getTime() + 60 * 60 * 1000).getUTCFullYear();
+    // `inscriptionTarget` is the response field name, kept deliberately: the
+    // literal is the HTTP wire name shared with /admin/cibles, and renaming it
+    // is deferred naming debt (campaign-model-refactor.md §12).
     const result = await this.pilotage.getCoverage({ role: 'SUPER_ADMIN' }, year);
     return { year, regions: result.regions };
   }
