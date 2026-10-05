@@ -132,21 +132,117 @@ export class PilotageService {
     };
   }
 
+  /**
+   * ANNUAL coverage roll-up for the requested year.
+   *
+   * The signature is unchanged, but the target source is not. This used to
+   * read TerritoryTarget: one stored row per territory per year. It now folds
+   * the year's quarterly campaigns, so the annual figure is the sum of the
+   * four quarters' CampaignQuota rows and no stored annual number can disagree
+   * with its parts (docs/plans/campaign-model-refactor.md §4).
+   */
   async getCoverage(territory: Territory | null | undefined, yearRaw: unknown) {
     const year = parseYear(yearRaw);
-    const { scope, regions } = await this.loadGrid(territory, (current) =>
-      this.prisma.territoryTarget
-        .findMany({ where: { year, ...regionFilter(current) } })
-        .then((rows) => rows.map((row) => ({ regionId: row.regionId, departmentId: row.departmentId, target: row.inscriptionTarget }))),
+    return this.coverageFrom(
+      territory,
+      year,
+      () => this.onefopCampaignIds(year, ANNUAL_QUARTERS),
+      { quarter: null, semester: null },
     );
+  }
+
+  /** Semester roll-up: Q1+Q2 or Q3+Q4, folded through the same body. */
+  private async getSemesterCoverage(
+    territory: Territory | null | undefined,
+    year: number,
+    semester: number,
+  ) {
+    const quarters = semesterQuarters(semester);
+    return this.coverageFrom(
+      territory,
+      year,
+      () => this.onefopCampaignIds(year, quarters),
+      { quarter: null, semester },
+    );
+  }
+
+  /** Quarter view: one campaign, nothing to fold. */
+  private async getQuarterCoverage(territory: Territory | null | undefined, campaignId: string) {
+    const campaign = await this.requireOnefopCampaign(campaignId);
+    if (campaign.referenceYear == null) {
+      throw new BadRequestException("Cette campagne n'a pas d'année de référence.");
+    }
+    return this.coverageFrom(territory, campaign.referenceYear, () => Promise.resolve([campaign.id]), {
+      quarter: campaign.referenceQuarter,
+      semester: campaign.referenceQuarter == null ? null : semesterOf(campaign.referenceQuarter),
+    });
+  }
+
+  /**
+   * The ONEFOP campaigns of one year whose reference quarter is in `quarters`.
+   *
+   * The quarters are named explicitly rather than left out of the predicate.
+   * Omitting it would also admit a campaign with referenceQuarter IS NULL,
+   * which belongs to no quarter and must not leak into a roll-up. No status
+   * filter and no purpose filter: this matches the ONEFOP scope that
+   * requireOnefopCampaign enforces for the per-campaign reads, so a DRAFT or
+   * ARCHIVED campaign's quotas count exactly as its returns do.
+   */
+  private async onefopCampaignIds(year: number, quarters: readonly number[]): Promise<string[]> {
+    const campaigns = await this.prisma.dataCampaign.findMany({
+      where: {
+        collectionType: SubmissionModule.ONEFOP,
+        referenceYear: year,
+        referenceQuarter: { in: [...quarters] },
+      },
+      select: { id: true },
+      orderBy: [{ referenceQuarter: 'asc' }, { code: 'asc' }],
+    });
+    return campaigns.map((campaign) => campaign.id);
+  }
+
+  /**
+   * The one coverage body. The quarter, semester and annual views differ only
+   * in which campaigns they fold, so the stock tally and the row shaping below
+   * exist exactly once.
+   *
+   * `resolveCampaignIds` is a thunk, not a list, because loadGrid skips its
+   * row loader entirely when the scope fails closed. Deferring the campaign
+   * query into the callback keeps a reader with no territory from touching
+   * campaign data at all, which is what the TerritoryTarget read it replaces
+   * also did. The ids are captured on the way through, for the ADMINISTRATION
+   * read and for `period`.
+   */
+  private async coverageFrom(
+    territory: Territory | null | undefined,
+    year: number,
+    resolveCampaignIds: () => Promise<string[]>,
+    bounds: { quarter: number | null; semester: number | null },
+  ) {
+    let campaignIds: string[] = [];
+    const { scope, regions } = await this.loadGrid(territory, async (current) => {
+      campaignIds = await resolveCampaignIds();
+      if (campaignIds.length === 0) return [];
+      const rows = await this.prisma.campaignQuota.findMany({
+        where: { campaignId: { in: campaignIds }, scopeKind: 'TERRITORIAL', ...regionFilter(current) },
+      });
+      return foldQuotas(rows.filter(hasRegion));
+    });
+    const period = { year, quarter: bounds.quarter, semester: bounds.semester, campaignIds };
+
     if (scope.kind === 'none') {
-      return { year, central: null, unassigned: null, nullEntityType: null, regions: [] };
+      return { year, period, central: null, unassigned: null, nullEntityType: null, regions: [] };
     }
 
     const national = scope.kind === 'national';
     const hideRegionStock = scope.kind === 'department';
-    const [centralTarget, companies] = await Promise.all([
-      national ? this.prisma.centralInscriptionTarget.findUnique({ where: { year } }) : Promise.resolve(null),
+    const [administrationQuotas, companies] = await Promise.all([
+      national && campaignIds.length > 0
+        ? this.prisma.campaignQuota.findMany({
+            where: { campaignId: { in: campaignIds }, scopeKind: 'ADMINISTRATION' },
+            select: { submissionTarget: true },
+          })
+        : Promise.resolve([] as Array<{ submissionTarget: number }>),
       this.prisma.company.findMany({
         where: companyWhere(scope),
         select: {
@@ -162,6 +258,16 @@ export class PilotageService {
       }),
     ]);
 
+    /**
+     * The ministry cohort's target for the folded period: the ADMINISTRATION
+     * rows of the same campaigns, summed. These answer as one national
+     * respondent group and are counted in the `central` bucket, never in a
+     * territorial one, so reading them here cannot double-count into the grid
+     * — and the reverse exclusion, keeping them out of regions[], is the
+     * scopeKind: 'TERRITORIAL' filter plus hasRegion in the loader above.
+     */
+    const centralTarget = sumTargets(administrationQuotas);
+
     const tallies = new Map<string, StockCounts>();
     for (const company of companies) {
       const row = toStockRow(company);
@@ -173,9 +279,8 @@ export class PilotageService {
 
     return {
       year,
-      central: national
-        ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget?.inscriptionTarget ?? null)
-        : null,
+      period,
+      central: national ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget) : null,
       unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
       nullEntityType: national ? tallies.get('nullEntityType') ?? emptyCounts() : null,
       regions: regions.map((region) => {
@@ -847,6 +952,66 @@ export class PilotageService {
     }
     throw new ConflictException('Un objectif existe déjà pour ce territoire.');
   }
+}
+
+/**
+ * Every quarter, for the annual roll-up.
+ *
+ * Spelled out rather than expressed as "any quarter" so the campaign query
+ * carries a positive predicate: a campaign whose referenceQuarter is NULL is
+ * excluded by construction and cannot contribute to an annual sum.
+ */
+const ANNUAL_QUARTERS = [1, 2, 3, 4] as const;
+
+function semesterQuarters(semester: number): readonly number[] {
+  if (semester === 1) return [1, 2];
+  if (semester === 2) return [3, 4];
+  throw new BadRequestException('Le semestre doit valoir 1 ou 2.');
+}
+
+function semesterOf(quarter: number): number {
+  return quarter <= 2 ? 1 : 2;
+}
+
+/**
+ * Collapses the folded period's quota rows to one row per territory.
+ *
+ * loadGrid reads a department's target with `find`, not a sum, so handing it
+ * four per-campaign rows for the same department would report Q1's figure on
+ * the department line while summarizeRegion summed all four on the region
+ * line. Pre-aggregating per (regionId, departmentId) is what makes the two
+ * agree.
+ *
+ * It is also what produces an honest MIXED: a region with a region-level Q1
+ * row and a department-level Q2 row keeps two distinct keys — departmentId
+ * null and departmentId set — so summarizeRegion sees both and reports MIXED
+ * with a null target rather than adding incomparable rows together.
+ */
+function foldQuotas(
+  rows: Array<{ regionId: string; departmentId: string | null; submissionTarget: number }>,
+): Array<{ regionId: string; departmentId: string | null; target: number }> {
+  const folded = new Map<string, { regionId: string; departmentId: string | null; target: number }>();
+  for (const row of rows) {
+    const key = `${row.regionId}\u0000${row.departmentId ?? ''}`;
+    const current = folded.get(key);
+    if (current) current.target += row.submissionTarget;
+    else folded.set(key, { regionId: row.regionId, departmentId: row.departmentId, target: row.submissionTarget });
+  }
+  return [...folded.values()];
+}
+
+/**
+ * Sums the quota rows of a folded period, or null when there are none.
+ *
+ * Zero is data and absent is not: a quarter with a quota of 0 states a target
+ * of zero, while a quarter with no quota row states nothing. No zero-padding,
+ * so an annual figure is the sum of only the quarters that have quotas, and a
+ * period with none reads as "—" rather than as a target of 0 that nothing
+ * can ever be measured against.
+ */
+function sumTargets(rows: Array<{ submissionTarget: number }>): number | null {
+  if (rows.length === 0) return null;
+  return rows.reduce((total, row) => total + row.submissionTarget, 0);
 }
 
 function requireActor(actorId: string): void {

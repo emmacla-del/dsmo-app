@@ -1,0 +1,12 @@
+-- Phase 3e: publication instant for a campaign, distinct from its lifecycle.
+--
+-- `status` says whether the campaign still accepts submissions. `publishedAt`
+-- says whether its figures are official. The two are independent: a CLOSED
+-- campaign under review is not published, and an ARCHIVED campaign normally
+-- is.
+--
+-- Nullable with no DEFAULT on purpose. A DEFAULT now() would backdate every
+-- existing campaign to this migration's run time and assert that unreviewed
+-- data is official. NULL means "not published", which is what every current
+-- row is.
+ALTER TABLE "data_campaigns" ADD COLUMN "publishedAt" TIMESTAMP(3);
