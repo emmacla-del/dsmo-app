@@ -301,7 +301,6 @@ export class CampaignService {
                             freezes: true,
                         },
                     },
-                    centralQuota: { select: { id: true } },
                 },
             });
 
@@ -327,9 +326,6 @@ export class CampaignService {
             }
             if (campaign._count.quotas > 0) {
                 blockers.push(`${campaign._count.quotas} quota(s) territorial(aux)`);
-            }
-            if (campaign.centralQuota) {
-                blockers.push('1 quota central');
             }
             if (campaign._count.freezes > 0) {
                 blockers.push(`${campaign._count.freezes} gel(s) statistique(s)`);
