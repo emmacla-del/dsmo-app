@@ -631,7 +631,12 @@ model DataCampaign {
   targetDepartments String[]             @default([])
   targetEntityTypes String[]             @default([])
   targetRegions     String[]             @default([])
-  type              String?
+  // Renamed from `type`. The legacy wire key `type` is still emitted by the
+  // response mappers in src/campaign/campaign.service.ts for backward
+  // compatibility, and will be dropped once react-web, the Flutter admin and
+  // the Flutter company workspace all read `periodicity`.
+  periodicity       CampaignPeriodicity?
+  purpose           CampaignPurpose      @default(COLLECTION)
   // Which form this campaign actually gates — drives the SubmissionRound
   // opened/closed alongside the campaign's lifecycle (see SubmissionRound.module).
   collectionType    SubmissionModule     @default(ONEFOP)
@@ -2366,6 +2371,20 @@ enum CampaignStatus {
   PAUSED
   CLOSED
   ARCHIVED
+}
+
+// How often the campaign recurs. Replaces the former free-text
+// DataCampaign.type column; the values are unchanged.
+enum CampaignPeriodicity {
+  QUARTERLY
+  SEMESTER
+  ANNUAL
+}
+
+// What the campaign is for — a distinct axis from periodicity.
+enum CampaignPurpose {
+  COLLECTION
+  REGISTRATION
 }
 
 enum SubmissionStatus {
