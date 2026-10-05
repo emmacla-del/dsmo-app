@@ -13,13 +13,18 @@ import {
   deleteCampaign,
   sendCampaignReminder,
   CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_PERIODICITIES,
+  CAMPAIGN_PERIODICITY_LABELS,
+  CAMPAIGN_PURPOSE_LABELS,
   REMINDER_TYPES,
+  campaignPeriodicityLabel,
   formatCampaignDate,
   canActivate,
   canArchive,
   canDelete,
   type Campaign,
   type CampaignDetail,
+  type CampaignPeriodicity,
 } from "@/lib/campaigns";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -287,7 +292,7 @@ export default function CampagnesPage() {
                         </td>
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
-                            {c.collectionType ?? c.type ?? "—"}
+                            {c.collectionType ?? campaignPeriodicityLabel(c) ?? "—"}
                           </span>
                           {c.referenceYear && c.referenceQuarter && (
                             <div style={{ fontSize: "11px", color: "var(--cam-text-muted)", marginTop: "2px" }}>
@@ -673,7 +678,14 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
             {d.referenceYear && d.referenceQuarter && (
               <div><dt>Période de référence</dt><dd>{d.referenceYear}-T{d.referenceQuarter}</dd></div>
             )}
-            <div><dt>Type</dt><dd>{d.type ?? "—"}</dd></div>
+            <div>
+              <dt>Périodicité</dt>
+              <dd>{campaignPeriodicityLabel(d) ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Objet</dt>
+              <dd>{d.purpose ? CAMPAIGN_PURPOSE_LABELS[d.purpose] : "—"}</dd>
+            </div>
             <div><dt>Ouverture</dt><dd>{fmt(d.startDate)}</dd></div>
             <div><dt>Échéance</dt><dd>{fmt(d.deadline)}</dd></div>
             <div><dt>Prorogation</dt><dd>{d.extendedDeadline ? fmt(d.extendedDeadline) : "—"}</dd></div>
@@ -727,7 +739,7 @@ function CreateCampaignDialog({
   onCreated: (msg: string) => void;
 }) {
   const [collectionType, setCollectionType] = useState<"DSMO" | "ONEFOP">("DSMO");
-  const [type, setType] = useState<"QUARTERLY" | "ANNUAL" | "SPECIAL">("QUARTERLY");
+  const [periodicity, setPeriodicity] = useState<CampaignPeriodicity>("QUARTERLY");
 
   const todayStr = new Date().toISOString().split("T")[0];
   const defaultDeadline = new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0];
@@ -744,7 +756,7 @@ function CreateCampaignDialog({
     mutationFn: () =>
       createCampaign({
         collectionType,
-        type,
+        periodicity,
         startDate: new Date(startDate).toISOString(),
         deadline: new Date(deadline).toISOString(),
         description: description.trim() || undefined,
@@ -866,12 +878,14 @@ function CreateCampaignDialog({
           <select
             id="cam-freq-type"
             className="cam-select"
-            value={type}
-            onChange={(e) => setType(e.target.value as "QUARTERLY" | "ANNUAL" | "SPECIAL")}
+            value={periodicity}
+            onChange={(e) => setPeriodicity(e.target.value as CampaignPeriodicity)}
           >
-            <option value="QUARTERLY">Trimestrielle</option>
-            <option value="ANNUAL">Annuelle</option>
-            <option value="SPECIAL">Spéciale / Ponctuelle</option>
+            {CAMPAIGN_PERIODICITIES.map((value) => (
+              <option key={value} value={value}>
+                {CAMPAIGN_PERIODICITY_LABELS[value]}
+              </option>
+            ))}
           </select>
         </div>
 
