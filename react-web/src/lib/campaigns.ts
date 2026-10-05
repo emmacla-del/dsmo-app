@@ -12,12 +12,38 @@
 // separately-authorized testing.
 import { apiFetch } from "./api-client";
 
+/**
+ * Mirrors the Prisma `CampaignPeriodicity` enum (prisma/schema.prisma).
+ * Note there is no `SPECIAL`: the enum migration
+ * (20261007120000_rename_campaign_type_and_add_purpose) folded any legacy
+ * free-text value — `SPECIAL` included — into `QUARTERLY`.
+ */
+export type CampaignPeriodicity = "QUARTERLY" | "SEMESTER" | "ANNUAL";
+
+/** Mirrors the Prisma `CampaignPurpose` enum — a distinct axis from periodicity. */
+export type CampaignPurpose = "COLLECTION" | "REGISTRATION";
+
 export interface Campaign {
   id: string;
   code: string;
   name: string;
   description?: string | null;
   status: string;
+  /** What period the campaign covers. Read it through campaignPeriodicity(). */
+  periodicity?: CampaignPeriodicity | null;
+  /** What the campaign is for. Absent on a pre-rename backend. */
+  purpose?: CampaignPurpose | null;
+  /**
+   * @deprecated Legacy wire alias for `periodicity`.
+   *
+   * `DataCampaign.type` was renamed to `periodicity` in the backend;
+   * `campaign.service.ts#toCampaignWire()` dual-emits both keys so the three
+   * clients (this app, the Flutter admin, the Flutter company workspace) keep
+   * working until each has migrated. Never read this directly — use
+   * campaignPeriodicity(), which prefers the new key and falls back to this
+   * one for a backend deploy that still predates the rename. Delete once the
+   * backend drops the alias.
+   */
   type?: string | null;
   collectionType?: string;
   startDate?: string | null;
@@ -72,9 +98,10 @@ export function getCampaign(id: string) {
   return apiFetch<CampaignDetail>(`/campaigns/${id}`);
 }
 
-export function createCampaign(data: {
+export interface CreateCampaignInput {
   collectionType: "ONEFOP" | "DSMO";
-  type: "QUARTERLY" | "ANNUAL" | "SPECIAL";
+  periodicity: CampaignPeriodicity;
+  purpose?: CampaignPurpose;
   startDate: string;
   deadline: string;
   description?: string;
@@ -84,10 +111,28 @@ export function createCampaign(data: {
   autoReminders?: boolean;
   referenceYear?: number;
   referenceQuarter?: number;
-}) {
+}
+
+/**
+ * The POST /campaigns body.
+ *
+ * `createCampaign` on the backend reads `data.periodicity ?? data.type`, so
+ * the new key alone is enough there — but a deploy that still predates the
+ * rename reads only `data.type`, and silently falls back to `QUARTERLY` when
+ * it is missing. Sending both keys with the same value means the stored
+ * periodicity is correct against either backend. Drop `type` here in the same
+ * release that drops the response alias.
+ */
+export function buildCreateCampaignPayload(
+  data: CreateCampaignInput,
+): CreateCampaignInput & { type: CampaignPeriodicity } {
+  return { ...data, type: data.periodicity };
+}
+
+export function createCampaign(data: CreateCampaignInput) {
   return apiFetch<Campaign>("/campaigns", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(buildCreateCampaignPayload(data)),
   });
 }
 
@@ -123,6 +168,42 @@ export function deleteCampaign(id: string) {
 
 export function archiveCampaign(id: string) {
   return apiFetch<Campaign>(`/campaigns/${id}/archive`, { method: "POST" });
+}
+
+export const CAMPAIGN_PERIODICITIES: CampaignPeriodicity[] = ["QUARTERLY", "SEMESTER", "ANNUAL"];
+export const CAMPAIGN_PERIODICITY_LABELS: Record<CampaignPeriodicity, string> = {
+  QUARTERLY: "Trimestrielle",
+  SEMESTER: "Semestrielle",
+  ANNUAL: "Annuelle",
+};
+
+export const CAMPAIGN_PURPOSE_LABELS: Record<CampaignPurpose, string> = {
+  COLLECTION: "Collecte",
+  REGISTRATION: "Inscription",
+};
+
+/**
+ * The campaign's periodicity, preferring the renamed field and falling back to
+ * the legacy `type` alias. Returns null when neither is set — a campaign row
+ * may legitimately carry a null periodicity, which the backend passes through
+ * rather than inventing a value.
+ */
+export function campaignPeriodicity(
+  c: Pick<Campaign, "periodicity" | "type">,
+): CampaignPeriodicity | null {
+  const raw = c.periodicity ?? c.type ?? null;
+  if (raw === null) return null;
+  return CAMPAIGN_PERIODICITIES.includes(raw as CampaignPeriodicity)
+    ? (raw as CampaignPeriodicity)
+    : null;
+}
+
+/** The periodicity as a French label, or null when the campaign has none. */
+export function campaignPeriodicityLabel(
+  c: Pick<Campaign, "periodicity" | "type">,
+): string | null {
+  const value = campaignPeriodicity(c);
+  return value === null ? null : CAMPAIGN_PERIODICITY_LABELS[value];
 }
 
 // Mirrors campaign_constants.dart's campaignStatuses/campaignStatusLabels.
