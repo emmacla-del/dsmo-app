@@ -1,7 +1,7 @@
 # Campaign Model Refactor — Design Plan
 
-**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3 next.
-**Date:** 2026-10-05 (rev 3)
+**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b landed. Phase 3c next.
+**Date:** 2026-10-05 (rev 4)
 **Supersedes:** the annual-target vs campaign-quota split that exists today.
 
 ---
@@ -266,9 +266,37 @@ Deprecation headers added to `CentralCampaignQuota`, `TerritoryTarget`, `Central
 
 All five source tables verified empty on 2026-10-05. No backfill needed. The synthetic-campaign mechanism is documented in §6.1 for the record.
 
-**Phase 3 — Service layer** ⏳ Next
+**Phase 3 — Field rename and service layer**
 
-- Rename `DataCampaign.type` → `purpose` (enum `COLLECTION | REGISTRATION`). Add `publishedAt`.
+Split into sub-phases once the rename turned out to touch the wire contract of three clients.
+
+**3a — Schema and backend** ✅ Done (`a18bf69a`)
+
+- `DataCampaign.type` renamed to `periodicity` (enum `CampaignPeriodicity`: `QUARTERLY | SEMESTER | ANNUAL`).
+- New `purpose` (enum `CampaignPurpose`: `COLLECTION | REGISTRATION`, default `COLLECTION`).
+- Migration `20261007120000_rename_campaign_type_and_add_purpose`. Any legacy free-text value, `SPECIAL` included, folds into `QUARTERLY`.
+- `campaign.service.ts#toCampaignWire()` **dual-emits** both `periodicity` and the legacy `type` on every response; the request side accepts either key.
+
+**Correction to §2.1:** the earlier draft said `type` → `purpose`. What shipped is `type` → `periodicity` *plus* a new `purpose` field. The two are separate axes and both are kept: periodicity is what period the campaign covers, purpose is what it is for. §2's table lists `purpose` only because every campaign is quarterly in the target model — `periodicity` survives as the field the existing code and campaign codes are built on, and collapsing it is not part of this refactor.
+
+**3b — react-web client** ✅ Done (`822fbcf3`)
+
+- `Campaign.periodicity` and `Campaign.purpose` added; legacy `type` kept but `@deprecated` and read only through `campaignPeriodicity()`.
+- `createCampaign` sends **both** keys with the same value. A backend deploy predating 3a reads only `type` and would otherwise store a silent `QUARTERLY`. The client dual-emit is the mirror of the server's, and both halves retire together.
+- The create dialog's periodicity options derive from the enum, which drops the no-longer-valid `SPECIAL` option.
+- `campaigns.test.ts` pins the contract: prefer the new key, fall back to the old, reject off-enum values, never invent a periodicity.
+
+**3c — Flutter clients** ⏳ Next
+
+Two readers of the JSON key `type`: the Flutter admin and the Flutter company workspace. Both must read `periodicity` with the same fallback. Flutter changes are the user's to commit.
+
+**3d — Drop the aliases**
+
+Only once 3b and 3c have both shipped: delete `toCampaignWire()`'s legacy `type` line, the request-side `?? data.type`, the `?? type` list filter, their pinning tests in `campaign.service.spec.ts`, and `buildCreateCampaignPayload`'s `type` key plus the `Campaign.type` field in react-web.
+
+**3e — Service layer** (the original Phase 3 body, unblocked by the rename)
+
+- Add `publishedAt`.
 - `PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota` only.
 - Remove the `applyCentral` write path (`pilotage.service.ts:577`) that still writes to `CentralCampaignQuota`.
 - Add semester and annual roll-up computations.
