@@ -43,11 +43,10 @@ import {
 
 type GridResponse = InscriptionTargetsResponse | CampaignQuotasResponse;
 
-type Vue = "inscriptions" | "couverture" | "quotas" | "retours";
+type Vue = "quotas" | "couverture" | "retours";
 const VUES: { id: Vue; label: string }[] = [
-  { id: "inscriptions", label: "Objectifs d'inscription" },
-  { id: "couverture", label: "Couverture" },
   { id: "quotas", label: "Quotas de campagne" },
+  { id: "couverture", label: "Couverture" },
   { id: "retours", label: "Suivi des retours" },
 ];
 
@@ -67,7 +66,8 @@ function CiblesContent() {
   const canWrite = canWritePilotageTargets(user?.role);
   const canList = canListCampaigns(user?.role);
 
-  const vue = parseVue(searchParams.get("vue"));
+  const rawVue = searchParams.get("vue");
+  const vue = parseVue(rawVue);
   const yearFromUrl = parseYearParam(searchParams.get("annee"));
   const year = yearFromUrl ?? doualaCalendarYear();
   const campagneParam = searchParams.get("campagne")?.trim() || "";
@@ -89,12 +89,21 @@ function CiblesContent() {
     router.replace(`${pathname}?${params.toString()}`);
   }
 
+  // A retired or unknown vue (e.g. the former ?vue=inscriptions tab) normalizes
+  // to the default tab, so the deep link lands on Quotas rather than an empty panel.
+  useEffect(() => {
+    if (rawVue == null || rawVue === vue) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("vue", vue);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [rawVue, vue, searchParams, pathname, router]);
+
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Supervision" }, { label: "Cibles et couverture" }]}
         title="Cibles et couverture"
-        subtitle="Objectifs d'inscription par année, couverture du répertoire et quotas des campagnes ONEFOP."
+        subtitle="Quotas des campagnes ONEFOP, couverture du répertoire et suivi des retours."
         actions={<AdminHeaderActions />}
       />
 
@@ -145,15 +154,6 @@ function CiblesContent() {
         )}
       </div>
 
-      {vue === "inscriptions" && (
-        <TargetsPanel
-          kind="inscriptions"
-          field="inscriptionTarget"
-          year={year}
-          canWrite={canWrite}
-          showCentral={isNational(user?.role)}
-        />
-      )}
       {vue === "couverture" && <CoveragePanel year={year} />}
       {vue === "quotas" && (
         <QuotasPanel
@@ -632,8 +632,8 @@ function defaultExpanded(regions: { regionId: string; mode: string }[]): Set<str
 }
 
 function parseVue(raw: string | null): Vue {
-  if (raw === "couverture" || raw === "quotas" || raw === "inscriptions" || raw === "retours") return raw;
-  return "inscriptions";
+  if (raw === "quotas" || raw === "couverture" || raw === "retours") return raw;
+  return "quotas";
 }
 
 function isNational(role: string | undefined): boolean {
