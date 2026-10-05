@@ -549,8 +549,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
   it('computes status and region counts server-side over the whole territory', async () => {
     const prisma: any = {
       onefopSubmission: {
-        count: jest.fn(async () => 1200),
-        findMany: jest.fn(async () => [{ id: 'a', _count: { anomalies: 0 } }, { id: 'b', _count: { anomalies: 2 } }]),
+        count: jest.fn(async () => 650),
         groupBy: jest.fn(async ({ by }: any) =>
           by[0] === 'status'
             ? [
@@ -576,10 +575,56 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     // Aggregates use the same territory filter as the other queue counts,
     // and never count drafts (unsubmitted work).
     const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { not: 'DRAFT' } }] };
-    expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({ where: scoped });
     for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
       expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
     }
+  });
+
+  // The per-status queue counts are derived from the status groupBy rather than
+  // issued as their own queries, to keep the endpoint's connection high-water
+  // mark low against Supabase's session-mode pool. These assertions pin both
+  // halves of that: the figures stay correct, and the extra queries stay gone.
+  it('derives the total and per-status queue counts from the status groupBy', async () => {
+    const prisma: any = {
+      onefopSubmission: {
+        count: jest.fn(async () => 650),
+        findMany: jest.fn(async () => {
+          throw new Error('getPilotageQueues must not fetch submission rows');
+        }),
+        groupBy: jest.fn(async ({ by }: any) =>
+          by[0] === 'status'
+            ? [
+                { status: 'APPROVED', _count: { _all: 700 } },
+                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
+                { status: 'CORRECTION_REQUESTED', _count: { _all: 80 } },
+                { status: 'REJECTED', _count: { _all: 100 } },
+              ]
+            : [{ region: 'Littoral', _count: { _all: 1280 } }],
+        ),
+      },
+      onefopAnomaly: { count: jest.fn(async () => 3) },
+    };
+    const engine = new EligibilityEngineService(prisma);
+
+    const queues = await engine.getPilotageQueues();
+
+    // OnefopStatus has five members and DRAFT is excluded, so the four
+    // remaining buckets partition the result set and the total is their sum.
+    expect(queues.totalSubmissionsCount).toBe(1280);
+    expect(queues.pendingNationalVisasCount).toBe(400);
+    expect(queues.correctionsUnderReviewCount).toBe(80);
+    expect(prisma.onefopSubmission.groupBy).toHaveBeenCalledTimes(2);
+    expect(prisma.onefopSubmission.findMany).not.toHaveBeenCalled();
+    // The one remaining submission count is the statistically-ready figure,
+    // computed in the database with a `none` anomaly filter.
+    expect(prisma.onefopSubmission.count).toHaveBeenCalledTimes(1);
+    expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: 'APPROVED',
+        anomalies: { none: { status: 'OPEN', isBlocking: true } },
+      }),
+    });
+    expect(queues.statisticallyReadyCount).toBe(650);
   });
 });
 

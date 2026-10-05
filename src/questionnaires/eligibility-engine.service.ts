@@ -248,22 +248,29 @@ export class EligibilityEngineService {
     // Drafts are respondents' unsubmitted work: never counted as submissions.
     const baseWhere: any = { AND: [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }] };
 
+    // Kept deliberately narrow: four round trips, not seven.
+    //
+    // DATABASE_URL points at Supabase's pooler in *session* mode, where each
+    // client connection pins a backend for its whole life and the tenant pool
+    // is capped (pool_size 15). Prisma grows its own pool to meet concurrent
+    // demand, so a `Promise.all` of N queries forces N connections open at
+    // once. The admin dashboard refetches this endpoint plus the quality
+    // summary every 30s from every open tab, which drove the pool to its
+    // ceiling and surfaced as `EMAXCONNSESSION ... max clients reached in
+    // session mode`.
+    //
+    // The three per-status counts that used to be separate `count()` calls are
+    // derived from the status groupBy instead. OnefopStatus has exactly five
+    // members and `baseWhere` excludes DRAFT, so the four remaining buckets
+    // partition the result set exactly and the total is their sum — identical
+    // figures, no extra connections. Do not reintroduce the separate counts
+    // without re-checking that invariant against the enum.
     const [
-      totalSubmissionsCount,
-      pendingNationalVisasCount,
-      correctionsUnderReviewCount,
       blockingAnomaliesCount,
-      approvedCandidates,
+      statisticallyReadyCount,
       statusGroups,
       regionGroups,
     ] = await Promise.all([
-      this.prisma.onefopSubmission.count({ where: baseWhere }),
-      this.prisma.onefopSubmission.count({
-        where: { ...baseWhere, status: OnefopStatus.PENDING_REVIEW },
-      }),
-      this.prisma.onefopSubmission.count({
-        where: { ...baseWhere, status: OnefopStatus.CORRECTION_REQUESTED },
-      }),
       this.prisma.onefopAnomaly.count({
         where: {
           status: AnomalyStatus.OPEN,
@@ -271,17 +278,14 @@ export class EligibilityEngineService {
           submission: baseWhere,
         },
       }),
-      this.prisma.onefopSubmission.findMany({
-        where: { ...baseWhere, status: OnefopStatus.APPROVED },
-        select: {
-          id: true,
-          _count: {
-            select: {
-              anomalies: {
-                where: { status: AnomalyStatus.OPEN, isBlocking: true },
-              },
-            },
-          },
+      // Statistically ready = APPROVED and ZERO open blocking anomalies.
+      // Counted in the database rather than by fetching every approved row
+      // and filtering in process.
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          status: OnefopStatus.APPROVED,
+          anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
         },
       }),
       // Dashboard aggregates are computed here, over the whole territory, so
@@ -304,19 +308,18 @@ export class EligibilityEngineService {
       CORRECTION_REQUESTED: 0,
       REJECTED: 0,
     };
+    let totalSubmissionsCount = 0;
     for (const g of statusGroups) {
+      totalSubmissionsCount += g._count._all;
       if (g.status in statusCounts) statusCounts[g.status as keyof typeof statusCounts] = g._count._all;
     }
     const regionCounts = regionGroups.map((g) => ({ region: g.region, count: g._count._all }));
 
-    // Statistically ready = APPROVED and ZERO open blocking anomalies
-    const statisticallyReadyCount = approvedCandidates.filter((s) => s._count.anomalies === 0).length;
-
     return {
       totalSubmissionsCount,
       blockingAnomaliesCount,
-      pendingNationalVisasCount,
-      correctionsUnderReviewCount,
+      pendingNationalVisasCount: statusCounts.PENDING_REVIEW,
+      correctionsUnderReviewCount: statusCounts.CORRECTION_REQUESTED,
       statisticallyReadyCount,
       statusCounts,
       approvedCount: statusCounts.APPROVED,
@@ -345,7 +348,7 @@ export class EligibilityEngineService {
       submissionsWithCoherenceAnomalies,
       blockingAnomaliesCount,
       warningsCount,
-      approvedCandidates,
+      statisticallyReadyCount,
       familyGroups,
       anomalyRegions,
     ] = await Promise.all([
@@ -390,17 +393,14 @@ export class EligibilityEngineService {
           submission: baseWhere,
         },
       }),
-      this.prisma.onefopSubmission.findMany({
-        where: { ...baseWhere, status: OnefopStatus.APPROVED },
-        select: {
-          id: true,
-          _count: {
-            select: {
-              anomalies: {
-                where: { status: AnomalyStatus.OPEN, isBlocking: true },
-              },
-            },
-          },
+      // Counted in the database rather than by fetching every approved row and
+      // filtering in process: the old findMany pulled one row per approved
+      // submission on every 30s dashboard refetch.
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          status: OnefopStatus.APPROVED,
+          anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
         },
       }),
       this.prisma.onefopAnomaly.groupBy({
@@ -424,8 +424,6 @@ export class EligibilityEngineService {
         },
       }),
     ]);
-
-    const statisticallyReadyCount = approvedCandidates.filter((s) => s._count.anomalies === 0).length;
 
     // Rates: 0-100% or null if 0 submissions
     const completenessRate = totalSubmissions > 0
