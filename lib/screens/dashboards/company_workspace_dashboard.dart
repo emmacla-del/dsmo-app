@@ -1250,7 +1250,9 @@ class _CampaignCardState extends State<_CampaignCard> {
             (startDate == null || !startDate.isAfter(now)) &&
             (deadline == null || !deadline.isBefore(now));
         final statusColor = isActive ? UltraTheme.success : UltraTheme.textMuted;
-        final type = campaign?['type'] as String?;
+        // 'periodicity' is the current key; 'type' is the legacy alias.
+        final type =
+            (campaign?['periodicity'] ?? campaign?['type']) as String?;
         final collectionType =
             campaign?['collectionType'] as String? ?? widget.collectionType;
         final statusLabel = campaign == null

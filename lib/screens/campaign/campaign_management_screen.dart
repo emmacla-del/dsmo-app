@@ -586,10 +586,15 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
 
       // name is intentionally omitted — the backend always derives the
       // full official title (base title + period) from collectionType,
-      // type and startDate, so anything sent here would just be ignored.
+      // periodicity and startDate, so anything sent here would just be
+      // ignored.
       await widget.api.post('/campaigns', data: {
         'description':
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        // The backend reads periodicity ?? type, so sending both keeps this
+        // request valid against either deploy. 'type' is the legacy alias
+        // and can be dropped once the backend stops accepting it.
+        'periodicity': _selectedType,
         'type': _selectedType,
         'collectionType': _selectedCollectionType,
         'startDate': _startDate!.toIso8601String(),
