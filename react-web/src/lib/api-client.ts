@@ -11,14 +11,32 @@
 // No production backend origin is hardcoded elsewhere in this app — this is
 // the single source, matching how lib/data/api_client.dart centralizes it
 // on the Flutter side.
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === "development" ||
-  (typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"))
-    ? "http://localhost:3001/api"
-    : "https://dsmo-app-2.onrender.com/api");
+//
+// NEXT_PUBLIC_API_URL is required for any non-development build: the value is
+// baked into the bundle at build time, so an unset variable must fail loudly
+// instead of silently pointing the frontend at an arbitrary host. Every route
+// here is dynamically rendered, so this throws on the first render after
+// deploy rather than during `next build`.
+// Local development keeps the localhost convenience — server-side there is no
+// hostname to inspect, in the browser it must be localhost/127.0.0.1.
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+const isLocalDevelopment =
+  process.env.NODE_ENV !== "production" &&
+  (typeof window === "undefined" ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
+const resolvedApiUrl =
+  configuredApiUrl ?? (isLocalDevelopment ? "http://localhost:3001/api" : undefined);
+
+if (!resolvedApiUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not set. Set it on the deployment environment " +
+      "and rebuild — NEXT_PUBLIC_* values are baked in at build time.",
+  );
+}
+
+export const API_BASE_URL = resolvedApiUrl;
 
 import type { Department, LocationRegion, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
 
