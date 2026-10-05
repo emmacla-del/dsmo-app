@@ -30,18 +30,13 @@ import {
   getCampaignQuotas,
   getCampaignReturns,
   getCoverage,
-  getInscriptionTargets,
   parseYearParam,
   putCampaignQuotas,
-  putInscriptionTargets,
   YEAR_MAX,
   YEAR_MIN,
   type CampaignQuotasResponse,
-  type InscriptionTargetsResponse,
   type TargetField,
 } from "@/lib/pilotage-targets";
-
-type GridResponse = InscriptionTargetsResponse | CampaignQuotasResponse;
 
 type Vue = "quotas" | "couverture" | "retours";
 const VUES: { id: Vue; label: string }[] = [
@@ -175,29 +170,29 @@ function CiblesContent() {
   );
 }
 
+/**
+ * The campaign quota editor. It was once shared with the year-scoped
+ * inscription targets, which is why `field` is still threaded through
+ * buildTargetPayload and normalizeRegions rather than hard-coded: the payload
+ * helpers remain written for either field. The panel itself only ever reads
+ * and writes campaign quotas.
+ */
 function TargetsPanel({
-  kind,
   field,
-  year,
   canWrite,
   showCentral,
   campaignId,
 }: {
-  kind: "inscriptions" | "quotas";
   field: TargetField;
-  year?: number;
-  campaignId?: string;
+  campaignId: string;
   canWrite: boolean;
   showCentral: boolean;
 }) {
   const queryClient = useQueryClient();
-  const query = useQuery<GridResponse>({
-    queryKey: kind === "inscriptions" ? ["admin", "pilotage", "inscriptions", year] : ["admin", "pilotage", "quotas", campaignId],
-    queryFn: () =>
-      kind === "inscriptions"
-        ? getInscriptionTargets(year as number)
-        : getCampaignQuotas(campaignId as string),
-    enabled: kind === "inscriptions" ? year != null : !!campaignId,
+  const query = useQuery<CampaignQuotasResponse>({
+    queryKey: ["admin", "pilotage", "quotas", campaignId],
+    queryFn: () => getCampaignQuotas(campaignId),
+    enabled: !!campaignId,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -206,7 +201,7 @@ function TargetsPanel({
     () => (query.data ? normalizeRegions(query.data.regions, field) : []),
     [query.data, field],
   );
-  const originalCentral = readCentral(query.data?.central, field);
+  const originalCentral = readCentral(query.data?.central);
 
   const [drafts, setDrafts] = useState<Record<string, RegionDraft>>({});
   const [centralInput, setCentralInput] = useState("");
@@ -235,7 +230,7 @@ function TargetsPanel({
     setExpanded(defaultExpanded(regions));
   }, [query.data, regions, originalCentral]);
 
-  const mutation = useMutation<GridResponse, unknown, void>({
+  const mutation = useMutation<CampaignQuotasResponse, unknown, void>({
     mutationFn: () => {
       const built = buildTargetPayload({
         field,
@@ -245,15 +240,10 @@ function TargetsPanel({
         centralInput,
       });
       if (!built.ok) throw new Error(built.errors.join(" "));
-      return kind === "inscriptions"
-        ? putInscriptionTargets(year as number, built.body)
-        : putCampaignQuotas(campaignId as string, built.body);
+      return putCampaignQuotas(campaignId, built.body);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(
-        kind === "inscriptions" ? ["admin", "pilotage", "inscriptions", year] : ["admin", "pilotage", "quotas", campaignId],
-        data,
-      );
+      queryClient.setQueryData(["admin", "pilotage", "quotas", campaignId], data);
       draftsBeforeClear.current = null;
       setConfirmOpen(false);
       setClientErrors([]);
@@ -306,7 +296,6 @@ function TargetsPanel({
   }
 
   const saveError = mutation.isError ? formatApiError(mutation.error) : null;
-  const scope = kind === "inscriptions" ? `l'année ${year}` : "cette campagne";
 
   return (
     <>
@@ -324,7 +313,7 @@ function TargetsPanel({
         <div className="cam-admin-notice cam-admin-notice--error" role="alert">{saveError}</div>
       )}
 
-      {kind === "quotas" && query.data && "campaign" in query.data && (
+      {query.data && (
         <p className="cam-admin-lede">
           {query.data.campaign.name} ({query.data.campaign.code}) — {query.data.campaign.status}
         </p>
@@ -374,7 +363,7 @@ function TargetsPanel({
           </>
         }
       >
-        <p>Ces objectifs remplaceront les valeurs enregistrées pour {scope}.</p>
+        <p>Ces objectifs remplaceront les valeurs enregistrées pour cette campagne.</p>
         <ul className="cam-target-changes">
           {pendingChanges.map((change) => (
             <li key={`${change.kind}-${change.name}`}>
@@ -497,7 +486,6 @@ function QuotasPanel({
       )}
       {campaignId && (
         <TargetsPanel
-          kind="quotas"
           field="submissionTarget"
           campaignId={campaignId}
           canWrite={canWrite}
@@ -640,12 +628,9 @@ function isNational(role: string | undefined): boolean {
   return hasRole(role, NATIONAL_ROLES);
 }
 
-function readCentral(
-  central: { inscriptionTarget?: number; submissionTarget?: number } | null | undefined,
-  field: TargetField,
-): number | null {
+function readCentral(central: { submissionTarget?: number } | null | undefined): number | null {
   if (!central) return null;
-  const value = central[field];
+  const value = central.submissionTarget;
   return typeof value === "number" ? value : null;
 }
 
