@@ -1,7 +1,7 @@
 # Campaign Model Refactor — Design Plan
 
-**Status:** Design agreed. Not implemented.
-**Date:** 2026-10-05
+**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3 next.
+**Date:** 2026-10-05 (rev 3)
 **Supersedes:** the annual-target vs campaign-quota split that exists today.
 
 ---
@@ -31,7 +31,7 @@ A campaign is one quarter of collection or registration work. It is the atomic p
 |---|---|---|
 | `id` | UUID | |
 | `name` | string | Human label |
-| `type` | enum | `COLLECTION` \| `REGISTRATION` |
+| `purpose` | enum | `COLLECTION` \| `REGISTRATION`. **Renamed from `type` (see §2.1).** |
 | `referenceYear` | int | e.g. 2026 |
 | `referenceQuarter` | int | 1–4 |
 | `startDate` | date | |
@@ -44,11 +44,21 @@ A campaign is one quarter of collection or registration work. It is the atomic p
 | `publishedAt` | timestamp? | Nullable. Distinct from lifecycle. |
 | `createdAt`, `updatedAt` | timestamp | |
 
-**Uniqueness:** one campaign per `(type, referenceYear, referenceQuarter)`. Enforced by a database unique constraint.
+**Uniqueness:** one campaign per `(purpose, referenceYear, referenceQuarter)`. Enforced by a database unique constraint.
 
 **No granularity field.** Every campaign is quarterly. Semester and annual views are computed, not stored.
 
 **No objectives field. No targets field. One concept: quotas.**
+
+### 2.1 The `type` → `purpose` rename
+
+The existing `DataCampaign.type String?` field currently holds periodicity values (e.g. `'QUARTERLY'`). Under this model every campaign is quarterly, so periodicity is redundant. The field is repurposed:
+
+- **Rename:** `type` → `purpose`
+- **Values change:** from free-text periodicity to enum `COLLECTION | REGISTRATION`
+- **Timing:** made in Phase 3 alongside the service-layer work, not in Phase 1
+
+The existing `collectionType: SubmissionModule` field is a **different axis** (ONEFOP vs DSMO) and stays as-is.
 
 ### Why quarters only
 
@@ -60,28 +70,45 @@ This also matches the existing system: `SubmissionRound.quarterCode` is already 
 
 ## 3. Quotas
 
-One table. Replaces four.
+**The unified quota table is the existing `CampaignQuota` model, extended in place.** No new model, no rename of the model. `CentralCampaignQuota`, `TerritoryTarget`, and `CentralInscriptionTarget` are deprecated (§6).
+
+Target shape:
 
 ```
 CampaignQuota
   id             UUID
-  campaignId     FK → Campaign
+  campaignId     FK → DataCampaign
   regionId       FK → Region    (nullable)
   departmentId   FK → Department (nullable)
-  quantity       Int
-
-  @@unique([campaignId, regionId, departmentId])
+  submissionTarget Int        (name kept — see §12)
+  createdBy, updatedBy
+  createdAt, updatedAt
 ```
 
 **Region-level row:** `regionId` set, `departmentId` null.
 **Department-level row:** both set.
-**National total:** never stored. Computed as `SUM(quantity) WHERE campaignId = X`.
+**National total:** never stored. Computed as `SUM(submissionTarget) WHERE campaignId = X`.
 
 **Validation** (in the service, not the schema):
 - The sum of a region's department quotas must equal the region's own quota if the region has one.
 - If a region has no quota set, its departments' quotas stand alone.
-- Negative quantities rejected.
+- Negative quantities rejected (enforced by CHECK constraint, §3.1).
 - A quota cannot be set for a region outside the campaign's `scopeRegions`.
+
+### 3.1 Constraints are enforced in migration SQL, not Prisma
+
+The schema comment at `prisma/schema.prisma:2449-2460` documents that uniqueness on `CampaignQuota` cannot be expressed as `@@unique` because of the nullable `departmentId`. Postgres treats NULLs as distinct, so `@@unique([campaignId, regionId, departmentId])` would permit two region-level rows.
+
+The constraints already exist in
+`prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`:
+
+| Constraint | Line | Purpose |
+|---|---|---|
+| `campaign_quotas_campaign_region_level_uidx` | 142 | `(campaignId, regionId) WHERE departmentId IS NULL` |
+| `campaign_quotas_campaign_region_department_uidx` | 137 | `(campaignId, regionId, departmentId) WHERE departmentId IS NOT NULL` |
+| `campaign_quotas_submission_target_nonneg` | 151-153 | `CHECK ("submissionTarget" >= 0)` |
+
+**Do not add `@@unique` to the Prisma model.** It would generate a different (weaker) constraint and duplicate the existing ones. Any future schema edit must preserve the hand-written SQL pattern.
 
 ### Why no national row
 
@@ -125,34 +152,32 @@ A semester has no separate quota editor. An annual figure has no separate quota 
 
 | Existing table | After refactor |
 |---|---|
-| `territory_targets` | Deprecated. Data migrates to `CampaignQuota`. |
-| `central_inscription_targets` | Deprecated. |
-| `campaign_quotas` | Deprecated. Data migrates to `CampaignQuota`. |
-| `central_campaign_quotas` | Deprecated. |
+| `territory_targets` | **Deprecated.** Deprecation comment added in Phase 1. |
+| `central_inscription_targets` | **Deprecated.** Deprecation comment added in Phase 1. |
+| `campaign_quotas` | **Kept.** Extended in place; becomes the unified table. |
+| `central_campaign_quotas` | **Deprecated.** Deprecation comment added in Phase 1. |
 
-**Do not drop the old tables in the first migration.** Deprecate first, migrate data, verify, then drop in a follow-up. Reversibility matters.
+**No data migration is required.** All five tables (`campaign_quotas`, `central_campaign_quotas`, `territory_targets`, `central_inscription_targets`, `data_campaigns`) were verified empty in the live Supabase project on 2026-10-05. There is nothing to backfill.
 
-### Synthetic campaigns on migration
+### 6.1 The synthetic-campaign mechanism is not needed
 
-If `territory_targets` or `central_inscription_targets` contain rows, the migration creates one synthetic annual REGISTRATION campaign per year present:
+The earlier draft specified creating synthetic annual campaigns from rows in `territory_targets` / `central_inscription_targets`. With both tables empty, no synthetic campaigns are created.
 
+The mechanism is documented here for the record — if the tables ever have rows before Phase 6 drops them, the same rule applies:
+
+- One synthetic campaign per year present
 - `name`: `"Campagne d'inscription annuelle [YYYY]"`
-- `type`: `REGISTRATION`
+- `purpose`: `REGISTRATION`
 - `referenceYear`: the year
-- `referenceQuarter`: 4 (the campaign is treated as ending in Q4)
+- `referenceQuarter`: 4
 - `startDate`: YYYY-01-01
 - `deadline`: YYYY-12-31
 - `lifecycle`: `CLOSED`
 - `publishedAt`: null
 
-Quota rows are attached to the matching synthetic campaign.
+Quota rows attach to the matching synthetic campaign.
 
-**Note:** the synthetic campaign's quarterly representation is a migration artifact, not a real quarterly planning unit. It exists only to give the historical annual target a parent. If the source tables are empty (expected given the earlier data reset), no synthetic campaigns are created and the migration only touches `campaign_quotas` and `central_campaign_quotas`, which already reference real campaigns.
-
-Migration verification:
-- Row counts in `CampaignQuota` match the sum of rows in the four source tables.
-- Every region-level row maps to a `CampaignQuota` row with `regionId` set, `departmentId` null.
-- Every department-level row maps to a row with both FKs set.
+**Do not drop the deprecated tables in Phase 1 or Phase 3.** Keep them for rollback safety until Phase 4 is verified in production.
 
 ---
 
@@ -223,9 +248,9 @@ The Supervision "Objectifs" tab disappears. What it held — annual registration
 
 ### Pages deleted
 
-- `/admin/activite` — every section duplicated elsewhere
-- `/admin/files-attente` — queues redistributed
-- `/admin/cibles` — content becomes campaign detail tabs
+- `/admin/activite` — **deleted** (Phase 5 / IA Part A, 2026-10-05)
+- `/admin/files-attente` — **deleted** (Phase 5 / IA Part A, 2026-10-05)
+- `/admin/cibles` — content becomes campaign detail tabs (pending Phase 3–4)
 
 ---
 
@@ -233,25 +258,38 @@ The Supervision "Objectifs" tab disappears. What it held — annual registration
 
 This is a multi-phase refactor. Each phase is independently verifiable.
 
-**Phase 1 — Schema**
-Add `CampaignQuota`. Add `type`, `referenceYear`, `referenceQuarter`, `publishedAt` to the campaign model. Enforce unique `(type, referenceYear, referenceQuarter)`. Deprecate the four old tables but do not drop them.
+**Phase 1 — Schema comments** ✅ Done (`08618fba`, `53863f4b` chain)
 
-**Phase 2 — Data migration**
-Backfill `CampaignQuota` from the four old tables. Create synthetic campaigns only if the annual source tables contain rows. Verify counts match.
+Deprecation headers added to `CentralCampaignQuota`, `TerritoryTarget`, `CentralInscriptionTarget`. No field renames. No migrations. No code changes.
 
-**Phase 3 — Service layer**
-`PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota`. Add semester and annual roll-up computations. `getCampaignReturns` unchanged.
+**Phase 2 — Data migration** ⏭ **Skipped**
+
+All five source tables verified empty on 2026-10-05. No backfill needed. The synthetic-campaign mechanism is documented in §6.1 for the record.
+
+**Phase 3 — Service layer** ⏳ Next
+
+- Rename `DataCampaign.type` → `purpose` (enum `COLLECTION | REGISTRATION`). Add `publishedAt`.
+- `PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota` only.
+- Remove the `applyCentral` write path (`pilotage.service.ts:577`) that still writes to `CentralCampaignQuota`.
+- Add semester and annual roll-up computations.
+- `getCampaignReturns` unchanged.
 
 **Phase 4 — Endpoints**
-Retire the year-scoped quota endpoints. Add campaign-scoped and roll-up equivalents. Keep the old ones returning 410 Gone for one release.
+
+- Retire the year-scoped quota endpoints. Add campaign-scoped and roll-up equivalents.
+- Keep old endpoints returning 410 Gone for one release.
+- Remove readers of `TerritoryTarget` / `CentralInscriptionTarget`.
 
 **Phase 5 — UI restructure**
-The IA changes in §8. Both tabs and pages.
+
+The IA changes in §8. `/admin/cibles` becomes campaign detail tabs.
 
 **Phase 6 — Drop deprecated tables**
-Only after Phase 4 is verified in production and no caller references them.
+
+Only after Phase 4 is verified in production and no caller references `CentralCampaignQuota`, `TerritoryTarget`, or `CentralInscriptionTarget`.
 
 **Phase 7 — WB UI port**
+
 The pilotage page redesign, on top of the now-stable IA.
 
 ---
@@ -274,13 +312,21 @@ Only these two roles may create campaigns and edit quotas. Regional and division
 
 ### R4 — No overlap rule needed
 
-Uniqueness on `(type, referenceYear, referenceQuarter)` prevents two campaigns of the same type in the same quarter by construction. Registration and collection campaigns may coexist in the same quarter. No granularity caveat because every campaign is quarterly.
+Uniqueness on `(purpose, referenceYear, referenceQuarter)` prevents two campaigns of the same purpose in the same quarter by construction. Registration and collection campaigns may coexist in the same quarter. No granularity caveat because every campaign is quarterly.
 
 There is no "annual campaign vs quarterly campaign" ambiguity because annual campaigns do not exist. (§2, §4)
 
-### R5 — Synthetic campaigns on migration
+### R5 — Synthetic campaigns not needed
 
-One synthetic annual REGISTRATION campaign per year present in `territory_targets` or `central_inscription_targets`, with `referenceQuarter = 4` and `lifecycle = CLOSED`. If the source tables are empty, no synthetic campaigns are created. (§6)
+The mechanism is documented in §6.1 for the record but not implemented. Source tables are empty.
+
+### R6 — Extend `CampaignQuota` in place, do not rename
+
+The unified quota table is the existing `CampaignQuota` model. Chosen over creating a new model (`CampaignTarget`) or renaming the existing one (`CampaignTerritoryQuota`) because:
+
+- It produces one deprecated artifact at the end, not two.
+- Existing callers of `prisma.campaignQuota.*` keep working — no field-rename churn.
+- The name is already correct for the unified concept.
 
 ---
 
@@ -293,43 +339,25 @@ One synthetic annual REGISTRATION campaign per year present in `territory_target
 - Does not touch the DSMO module.
 
 The refactor is scoped to campaigns and their quotas.
+
 ---
 
 ## 12. Deferred naming debt
 
 ### `CampaignQuota.submissionTarget` keeps its narrow name
 
-The unified quota table holds both collection quotas and registration
-targets, so `submissionTarget` is too narrow a name for the field. The
-rename to `target` is **deferred**, not rejected.
+The unified quota table holds both collection quotas and registration targets, so `submissionTarget` is too narrow a name for the field. The rename to `target` is **deferred**, not rejected.
 
-The reason is that `submissionTarget` is not only a column name. The same
-literal is the HTTP wire field on both request and response:
+The reason is that `submissionTarget` is not only a column name. The same literal is the HTTP wire field on both request and response:
 
-- `parseTargetBody` reads `record[field]` off the `PUT` body
-  (`src/pilotage/pilotage-validation.ts`).
-- `labelTargets` emits `[field]: target` into the `GET` response
-  (`src/pilotage/pilotage.service.ts`).
-- `replaceScoped` / `applyCentral` use the same literal as the Prisma
-  column key.
+- `parseTargetBody` reads `record[field]` off the `PUT` body (`src/pilotage/pilotage-validation.ts`).
+- `labelTargets` emits `[field]: target` into the `GET` response (`src/pilotage/pilotage.service.ts`).
+- `replaceScoped` / `applyCentral` use the same literal as the Prisma column key.
 
-`react-web` mirrors the wire name against
-`GET|PUT /admin/pilotage/campaigns/:id/quotas` in
-`pilotage-targets.ts`, `pilotage-target-payload.ts` and
-`admin/cibles/page.tsx`. Renaming the column alone would either break the
-Cibles page or require splitting the conflated `TargetField` into separate
-database and wire types. Either way it is a coordinated frontend and
-backend release, which is out of scope for a schema-comment phase.
+`react-web` mirrors the wire name against `GET|PUT /admin/pilotage/campaigns/:id/quotas` in `pilotage-targets.ts`, `pilotage-target-payload.ts` and `admin/cibles/page.tsx`. Renaming the column alone would either break the Cibles page or require splitting the conflated `TargetField` into separate database and wire types. Either way it is a coordinated frontend and backend release, which is out of scope for a schema-comment phase.
 
-A further wrinkle: `CentralCampaignQuota.submissionTarget` is deprecated
-but still written to, so `TargetField` cannot drop the old literal until
-that model's write path is removed.
+A further wrinkle: `CentralCampaignQuota.submissionTarget` is deprecated but still written to (see Phase 3), so `TargetField` cannot drop the old literal until that model's write path is removed.
 
 ### The CHECK constraint name will need renaming too
 
-`campaign_quotas_submission_target_nonneg` (defined in
-`prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`)
-is named after the column. PostgreSQL carries a `CHECK` expression through
-`ALTER TABLE ... RENAME COLUMN` automatically, so the constraint keeps
-working, but its name goes stale. Rename it in the same migration that
-renames the column.
+`campaign_quotas_submission_target_nonneg` (defined in `prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`) is named after the column. PostgreSQL carries a `CHECK` expression through `ALTER TABLE ... RENAME COLUMN` automatically, so the constraint keeps working, but its name goes stale. Rename it in the same migration that renames the column.
