@@ -148,3 +148,67 @@ None of these three gates is documented as load-bearing for this, and
 `getDataStats` declares `const where: any`, which erases the mismatch at compile
 time. That is the actual defect: not a live 500, but a shape contract held only
 by coincidence and invisible to the type checker.
+
+## Correction — 2026-10-04 (finding #7, actor-summary coverage scope)
+
+Re-verified 2026-10-05, in the session that committed the other three audit
+fixes (`fix(backend): correct three data-integrity defects from the 2026-10-04
+audit`). Finding #7 was queued in "Deferred to a fix branch" as
+*`/audit/actor-summary` coverage scope*. **That half of the finding is
+misstated: the code was already correct, and no fix was applied.** The second
+half — the `period` mismatch — is real and remains open. The distinction
+matters, because the queued item named only the scope.
+
+### What the finding got wrong
+
+The row reads: *"`coverage.*` is read through a hardcoded national
+`getCoverage({role:'SUPER_ADMIN'})` that bypasses `territoryWhere`"*, and
+finding 4 adds that #7 *"compounds it by sourcing those figures from a
+hardcoded national scope"*.
+
+The literal is really there — `actor-summary.service.ts:320` does pass
+`{ role: 'SUPER_ADMIN' }`. But that is the scope of **one fetch**, not the scope
+of the **values reported per row**. `loadCoverage` reads the national coverage
+set once per request; `coverageFor(user, coverage)` then indexes it by each
+listed admin's own ressort:
+
+- `REGIONAL_ADMIN` → that admin's region row (`inscriptionTarget`,
+  `registered`, `rate`)
+- `DIVISIONAL_ADMIN` → that admin's department row within its region
+- no name match, or no target set → `{target: null, current: null,
+  percent: null}`, which the page renders as "—" rather than a false zero
+
+So `coverage.target` / `current` / `percent` are already per-actor. Reading them
+as national conflated the fetch with the figure. Three tests in
+`actor-summary.service.spec.ts` already pin this behaviour (region match is
+case-insensitive, department wins for a divisional admin, unknown ressort gives
+nulls), and the intent is documented in the method comment at
+`actor-summary.service.ts:311-316`.
+
+Applying the queued "fix" would have scoped the fetch to the caller and changed
+nothing about the reported numbers, while breaking the single-read design that
+keeps the dashboard in agreement with `/admin/cibles`.
+
+### Nor is the national fetch a disclosure
+
+`loadMonitoredUsers` constrains a `REGIONAL_ADMIN` caller to
+`region = <own region>` before any aggregation, so `coverageFor` can only ever
+resolve a territory that caller is already entitled to see. The national read is
+internal: the caller's own scope is applied to *which admins are listed*, not to
+the figures about them.
+
+### Still open: `coverage.*` ignores `period`
+
+The other claim in the row is correct and is **not** fixed.
+`loadCoverage` derives its year from the clock — the Douala calendar year — and
+passes that to `getCoverage`, so `coverage.*` is always year-to-date while
+`field.*` and `processing.*` honour the `period` query parameter (`7d`, `30d`,
+`90d`, `12m`). A row viewed at `period=7d` therefore mixes a 7-day field count
+with a year-to-date coverage percentage, with nothing in the payload saying so.
+
+That is a presentation-level inconsistency rather than a wrong number — the
+coverage figure is a correct year-to-date one — but it is a real finding and
+should keep its place in the queue, restated as *"actor-summary coverage ignores
+the period filter"* rather than as a scope defect. The zero-fill concern in
+finding 4 (a reference department with no establishments is indistinguishable
+from a measured zero) also stands; it originates in `PilotageService`, not here.
