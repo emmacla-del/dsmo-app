@@ -293,3 +293,43 @@ One synthetic annual REGISTRATION campaign per year present in `territory_target
 - Does not touch the DSMO module.
 
 The refactor is scoped to campaigns and their quotas.
+---
+
+## 12. Deferred naming debt
+
+### `CampaignQuota.submissionTarget` keeps its narrow name
+
+The unified quota table holds both collection quotas and registration
+targets, so `submissionTarget` is too narrow a name for the field. The
+rename to `target` is **deferred**, not rejected.
+
+The reason is that `submissionTarget` is not only a column name. The same
+literal is the HTTP wire field on both request and response:
+
+- `parseTargetBody` reads `record[field]` off the `PUT` body
+  (`src/pilotage/pilotage-validation.ts`).
+- `labelTargets` emits `[field]: target` into the `GET` response
+  (`src/pilotage/pilotage.service.ts`).
+- `replaceScoped` / `applyCentral` use the same literal as the Prisma
+  column key.
+
+`react-web` mirrors the wire name against
+`GET|PUT /admin/pilotage/campaigns/:id/quotas` in
+`pilotage-targets.ts`, `pilotage-target-payload.ts` and
+`admin/cibles/page.tsx`. Renaming the column alone would either break the
+Cibles page or require splitting the conflated `TargetField` into separate
+database and wire types. Either way it is a coordinated frontend and
+backend release, which is out of scope for a schema-comment phase.
+
+A further wrinkle: `CentralCampaignQuota.submissionTarget` is deprecated
+but still written to, so `TargetField` cannot drop the old literal until
+that model's write path is removed.
+
+### The CHECK constraint name will need renaming too
+
+`campaign_quotas_submission_target_nonneg` (defined in
+`prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`)
+is named after the column. PostgreSQL carries a `CHECK` expression through
+`ALTER TABLE ... RENAME COLUMN` automatically, so the constraint keeps
+working, but its name goes stale. Rename it in the same migration that
+renames the column.

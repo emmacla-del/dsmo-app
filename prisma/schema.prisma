@@ -2459,6 +2459,9 @@ model CampaignFreeze {
 // "Niveau central" is not a Region and not a null regionId. Administrations
 // use CentralInscriptionTarget / CentralCampaignQuota.
 
+// DEPRECATED 2026-10-05. Registration targets are now CampaignQuota rows
+// attached to a synthetic annual campaign. Kept for migration rollback;
+// do not write.
 model TerritoryTarget {
   id                String      @id @default(uuid())
   year              Int
@@ -2506,6 +2509,8 @@ model CampaignQuota {
   @@map("campaign_quotas")
 }
 
+// DEPRECATED 2026-10-05. National registration targets are now the sum of
+// CampaignQuota rows. Kept for migration rollback; do not write.
 model CentralInscriptionTarget {
   id                String   @id @default(uuid())
   year              Int      @unique
@@ -2522,6 +2527,8 @@ model CentralInscriptionTarget {
   @@map("central_inscription_targets")
 }
 
+// DEPRECATED 2026-10-05. National totals are now computed as the sum of
+// CampaignQuota rows. Kept for migration rollback; do not write.
 model CentralCampaignQuota {
   id               String       @id @default(uuid())
   campaignId       String       @unique
