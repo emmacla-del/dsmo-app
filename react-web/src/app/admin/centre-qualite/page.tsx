@@ -210,38 +210,35 @@ export default function CentreQualitePage() {
           >
             Centre Qualité
           </Link>
-          <Link
-            href="/admin/files-attente?tab=anomalies"
+          {/* "Anomalies" pointed at /admin/files-attente?tab=anomalies, which
+              rendered the same registry and the same resolution dialog this
+              page carries further down. That page is deleted, so the pill
+              scrolls to the registry instead of leaving for a copy of it. */}
+          <button
+            type="button"
+            onClick={scrollToRegistry}
             style={{
               padding: "7px 18px",
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 500,
-              textDecoration: "none",
+              fontFamily: "inherit",
+              cursor: "pointer",
               color: "#475569",
               background: "#ffffff",
               border: "1px solid #e2e8f0",
               boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
             }}
           >
-            Anomalies
-          </Link>
-          <Link
-            href="/admin/centre-qualite?tab=regional"
-            style={{
-              padding: "7px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              color: "#475569",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-            }}
-          >
-            Contrôle régional
-          </Link>
+            Registre des anomalies
+          </button>
+          {/* A "Contrôle régional" pill sat here, pointing at ?tab=regional —
+              a parameter this page never read, so it re-rendered the same
+              unscoped view. A real regional view needs a `region` filter on
+              GET quality/summary and anomalies/registry, which the backend
+              does not accept yet (both are already territory-scoped by
+              territoryFromUser, so a REGIONAL_ADMIN cannot widen past its own
+              ressort). The pill returns with that backend change. */}
         </nav>
       </header>
 

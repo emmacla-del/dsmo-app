@@ -528,7 +528,7 @@ function SubmissionDetailContent() {
           Dossiers en instance
         </Link>
         <Link
-          href="/admin/activite"
+          href="/admin/journal-audit"
           style={{
             padding: "6px 14px",
             borderRadius: 6,
@@ -538,7 +538,7 @@ function SubmissionDetailContent() {
             textDecoration: "none",
           }}
         >
-          Activité & alertes
+          Traçabilité
         </Link>
       </div>
 

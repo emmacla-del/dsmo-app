@@ -1,6 +1,7 @@
 import type { UserRole } from "@/lib/roles";
 import {
   ADMIN_ROLES,
+  ALL_ROLES,
   APPROVAL_ROLES,
   AUDIT_ROLES,
   CAMPAIGN_ROLES,
@@ -59,11 +60,10 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/pilotage",
     iconName: "dashboard",
     badgeKey: "pending",
-    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/activite", "/admin/cibles"],
+    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/cibles"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
       { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
-      { label: "Activité & alertes", href: "/admin/activite" },
       { label: "Cibles et couverture", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
     ],
   },
@@ -89,11 +89,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     subRoutes: [
       { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
       // Admin-assisted registration (Phase 2 of the territorial admin
-      // monitoring plan). Listed after Inscriptions so the hub keeps landing
-      // on the queue rather than on a blank form. Its path nests under
-      // /admin/inscriptions, and getAllowedRoles() takes the longest matching
-      // prefix, so this entry — not the queue's — gates it.
-      { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES },
+      // monitoring plan). `hidden` keeps it out of the sidebar and the tab
+      // row: it is a form, not a destination, and /admin/inscriptions' own
+      // "Nouvelle inscription" button is the way in. The entry stays because
+      // its path nests under /admin/inscriptions and getAllowedRoles() takes
+      // the longest matching prefix, so this entry — not the queue's — gates
+      // it.
+      { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES, hidden: true },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
       // Detail pages reached from Établissements. Listed so getAllowedRoles()
@@ -111,10 +113,14 @@ export const ADMIN_HUBS: AdminHub[] = [
     iconName: "quality",
     badgeKey: "anomalies",
     allowedRoles: ADMIN_ROLES,
-    matchPrefixes: ["/admin/centre-qualite", "/admin/files-attente"],
+    matchPrefixes: ["/admin/centre-qualite"],
     subRoutes: [
       { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
-      { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies", allowedRoles: ADMIN_ROLES },
+      // The "Anomalies" entry pointed at /admin/files-attente?tab=anomalies.
+      // That page rendered the same blocking-anomaly registry and the same
+      // resolution dialog /admin/centre-qualite already carries, so it was
+      // deleted rather than re-pointed: two entries for one table is what the
+      // hub had, not two destinations.
       // The "Contrôle régional" entry pointed at ?tab=regional, which
       // /admin/centre-qualite never read — it rendered the same unscoped view.
       // Removed rather than re-pointed: a real regional view needs a `region`
@@ -132,8 +138,8 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: NATIONAL_ROLES,
     matchPrefixes: ["/admin/diffusion", "/admin/sectors"],
     subRoutes: [
-      { label: "Gestion & Exports", href: "/admin/diffusion", allowedRoles: NATIONAL_ROLES },
-      { label: "Jeux de données (Secteurs)", href: "/admin/sectors", allowedRoles: NATIONAL_ROLES },
+      { label: "Exports", href: "/admin/diffusion", allowedRoles: NATIONAL_ROLES },
+      { label: "Nomenclatures", href: "/admin/sectors", allowedRoles: NATIONAL_ROLES },
     ],
   },
   {
@@ -145,12 +151,21 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...MONITORING_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit", "/admin/equipe"],
     subRoutes: [
-      { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Utilisateurs", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
       // Territorial admin monitoring (Phase 4 of the territorial admin
       // monitoring plan). REGIONAL_ADMIN reaches this hub through it alone.
-      { label: "Équipe", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
-      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
+      { label: "Administrateurs territoriaux", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
+      { label: "Traçabilité", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
+      // The caller's own notification inbox, reached from the header bell.
+      // `hidden` keeps it out of the sidebar and the tab row — it is not a
+      // destination inside this hub. It is listed only so
+      // getAllowedRoles("/admin/notifications") returns a list instead of
+      // null: the server scopes every notification route to req.user.id, so
+      // every role may read its own inbox (ALL_ROLES), but an unrecognised
+      // role string now fails closed at RequireAdminRole rather than falling
+      // through an absent gate.
+      { label: "Notifications", href: "/admin/notifications", allowedRoles: ALL_ROLES, hidden: true },
     ],
   },
 ];

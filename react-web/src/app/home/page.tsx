@@ -73,7 +73,7 @@ export default function HomeLandingPage() {
               <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>Indicateurs de performance</div>
             </Link>
             <Link
-              href="/admin/files-attente"
+              href="/admin/dossiers?status=PENDING_REVIEW"
               style={{
                 display: "block",
                 padding: "12px 14px",

@@ -67,7 +67,12 @@ export interface NavItem {
 }
 
 // Every role's tab list, ported field-for-field from _buildTabs — labels,
-// order, and grouping preserved. The cross-cutting "Nouveau questionnaire"
+// order, and grouping preserved. One exception: each administrative list had a
+// "Dossiers en Instance" item pointing at /admin/files-attente, whose three
+// queues were redistributed (blocking anomalies to /admin/centre-qualite,
+// visas and corrections to /admin/dossiers as in-page tabs) and whose page was
+// deleted. The item is gone rather than re-pointed, because every one of those
+// lists already carries /admin/dossiers on the next line. The cross-cutting "Nouveau questionnaire"
 // item (home_screen.dart's drawer, shown for every `!isCompany` role) is
 // appended separately below rather than duplicated into each list.
 const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
@@ -79,13 +84,11 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   ],
   DIVISIONAL_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord Territorial", route: "/admin/pilotage" },
-    { slug: "files-attente", label: "Dossiers en Instance", route: "/admin/files-attente" },
     { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
     { slug: "analytics", label: "Statistiques Territoriales" },
   ],
   REGIONAL_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord Régional", route: "/admin/pilotage" },
-    { slug: "files-attente", label: "Dossiers en Instance", route: "/admin/files-attente" },
     { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
     { slug: "analytics-dsmo", label: "Statistiques DSMO" },
     // REGIONAL_ADMIN will be able to send notifications when the ONEFOP
@@ -96,7 +99,6 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   // Union of the former CENTRAL and SUPER_ADMIN_ONEFOP lists (see header).
   ADMIN_ONEFOP: [
     { slug: "pilotage", label: "Tableau de Bord National", route: "/admin/pilotage" },
-    { slug: "files-attente", label: "Dossiers en Instance", route: "/admin/files-attente" },
     { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
@@ -106,7 +108,6 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   ],
   SUPER_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord National", route: "/admin/pilotage" },
-    { slug: "files-attente", label: "Dossiers en Instance", route: "/admin/files-attente" },
     { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },

@@ -8,6 +8,7 @@ import {
   API_BASE_URL,
   bulkVisaDeclarations,
   bulkRejectDeclarations,
+  getPilotageQueues,
   getToken,
   listAdminQuestionnaires,
 } from "@/lib/api-client";
@@ -61,6 +62,40 @@ const PERIODS: Array<{ value: string; label: string }> = [
   { value: "12m", label: "12 derniers mois" },
 ];
 const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * The three queues this page now serves, absorbed from the deleted
+ * /admin/files-attente. Each one is this same list under a `status` filter —
+ * the former page's "Visas en instance" and "Corrections demandées" panels
+ * carried no table of their own, only a count and a link into here — so a tab
+ * sets `statusFilter` rather than navigating.
+ *
+ * `status: ""` is the unfiltered queue. `queueKey` names the counter on
+ * GET /admin/questionnaires/pilotage/queues that counts the same rows; the
+ * first tab has none, because no counter counts "all statuses".
+ */
+const QUEUE_TABS: Array<{
+  status: string;
+  label: string;
+  queueKey?: "pendingNationalVisasCount" | "correctionsUnderReviewCount";
+  note?: string;
+}> = [
+  { status: "", label: "File d'attente" },
+  {
+    status: "PENDING_REVIEW",
+    label: "Visas",
+    queueKey: "pendingNationalVisasCount",
+    note:
+      "Le visa confirme la conformité légale du déclarant. Un dossier visé reste exclu du lot statistique tant qu'une anomalie bloquante persiste.",
+  },
+  {
+    status: "CORRECTION_REQUESTED",
+    label: "Corrections",
+    queueKey: "correctionsUnderReviewCount",
+    note:
+      "Ces déclarations ont été renvoyées aux employeurs avec un motif de non-conformité. Elles reviennent dans la file dès leur nouvelle soumission.",
+  },
+];
 
 // Suspense because useSearchParams() requires it in the app router.
 export default function DossiersPage() {
@@ -162,6 +197,18 @@ function DossiersContent() {
       }),
     placeholderData: keepPreviousData,
   });
+
+  /**
+   * Queue counters for the tab row. Source: GET /admin/questionnaires/
+   * pilotage/queues, territory-scoped server-side. `null` until the server
+   * answers — an unreachable queue is not an empty queue, so a tab badge shows
+   * an em dash rather than a number the server never gave.
+   */
+  const queuesQuery = useQuery({
+    queryKey: ["admin", "pilotage", "queues"],
+    queryFn: getPilotageQueues,
+  });
+  const queues = queuesQuery.data ?? null;
 
   // Bulk visa mutation
   const bulkMutation = useMutation({
@@ -432,6 +479,37 @@ function DossiersContent() {
           </div>
         }
       />
+
+      {/* ── Queue tabs, absorbed from the deleted /admin/files-attente ── */}
+      <nav className="cam-admin-tabs" aria-label="Files de traitement" style={{ marginBottom: 12 }}>
+        {QUEUE_TABS.map((tab) => (
+          <button
+            key={tab.label}
+            type="button"
+            role="tab"
+            aria-selected={statusFilter === tab.status}
+            className="cam-admin-tab"
+            onClick={() => changeFilter(() => setStatusFilter(tab.status))}
+          >
+            {tab.label}
+            {tab.queueKey && (
+              <span className="cam-admin-tab-count">{count(queues ? queues[tab.queueKey] : null)}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* The queue's own note, carried over from the page these tabs replace.
+          Shown only for the queue it describes; the unfiltered list needs
+          none. */}
+      {QUEUE_TABS.filter((tab) => tab.note && tab.status === statusFilter).map((tab) => (
+        <p
+          key={tab.label}
+          style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.45, color: "#6b7280", maxWidth: 820 }}
+        >
+          {tab.note}
+        </p>
+      ))}
 
       {/* ── 5-Column Filter Card (matching Figma) ── */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
