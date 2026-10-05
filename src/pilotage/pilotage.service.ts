@@ -152,7 +152,7 @@ export class PilotageService {
   }
 
   /** Semester roll-up: Q1+Q2 or Q3+Q4, folded through the same body. */
-  private async getSemesterCoverage(
+  async getSemesterCoverage(
     territory: Territory | null | undefined,
     year: number,
     semester: number,

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { PilotageService } from './pilotage.service';
+import { PilotageController } from './pilotage.controller';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface TargetRow {
@@ -684,7 +685,11 @@ describe('PilotageService coverage', () => {
     };
   }
 
-  /** The semester and quarter views are private; Phase 4 adds their routes. */
+  /**
+   * Casts past the class's visibility. getQuarterCoverage is still private;
+   * getSemesterCoverage became public with its Phase 4a route, and is reached
+   * this way only by the tests written before that route existed.
+   */
   interface CoverageViews {
     getSemesterCoverage(territory: unknown, year: number, semester: number): Promise<any>;
     getQuarterCoverage(territory: unknown, campaignId: string): Promise<any>;
@@ -1075,6 +1080,73 @@ describe('PilotageService coverage', () => {
     await expect(views(harness.service).getQuarterCoverage(national, 'c-t2')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  /**
+   * The two Phase 4a roll-up routes, driven through the controller itself.
+   *
+   * The guards are asserted in pilotage.controller.spec.ts; what these cover
+   * is the part the handler owns — parsing the query parameters and picking
+   * the right service view. Wrapping each call in an async thunk keeps a
+   * synchronous 400 from the handler and a rejected promise from the service
+   * indistinguishable to the assertion.
+   */
+  function call<T>(work: () => T | Promise<T>): Promise<T> {
+    return (async () => work())();
+  }
+
+  it('serves the semester roll-up from its route: Q1+Q2 for 1, Q3+Q4 for 2', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    harness.campaignQuotas.push(
+      ...ids.map((id, index) => quota(id, 'r-centre', 'd-mfoundi', 2 ** index)),
+    );
+    const controller = new PilotageController(harness.service);
+
+    // 1 + 2
+    const first = await controller.getSemesterCoverage('2026', '1', { user: national });
+    expect(mfoundiOf(centreOf(first))).toMatchObject({ inscriptionTarget: 3 });
+    expect(first.period).toEqual({ year: 2026, quarter: null, semester: 1, campaignIds: ['c-t1', 'c-t2'] });
+
+    // 4 + 8
+    const second = await controller.getSemesterCoverage('2026', '2', { user: national });
+    expect(mfoundiOf(centreOf(second))).toMatchObject({ inscriptionTarget: 12 });
+    expect(second.period).toEqual({ year: 2026, quarter: null, semester: 2, campaignIds: ['c-t3', 'c-t4'] });
+
+    // A semester outside {1, 2}, or none at all, is a 400 at the boundary.
+    for (const bad of ['0', '3', '1.5', 'un', '']) {
+      await expect(call(() => controller.getSemesterCoverage('2026', bad, { user: national })))
+        .rejects.toThrow(BadRequestException);
+    }
+    await expect(call(() => controller.getSemesterCoverage('nope', '1', { user: national })))
+      .rejects.toThrow(BadRequestException);
+  });
+
+  it('serves the annual roll-up from its route, identical to the year-scoped coverage route', async () => {
+    const harness = createHarness();
+    const ids = seedQuarters(harness);
+    harness.campaignQuotas.push(
+      ...ids.map((id, index) => quota(id, 'r-centre', 'd-mfoundi', 2 ** index)),
+      cohort(ids[0], 5),
+    );
+    harness.companies.push(
+      company(),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000100' }),
+    );
+    const controller = new PilotageController(harness.service);
+
+    const annualRoute = await controller.getAnnualCoverage('2026', { user: national });
+    const yearRoute = await controller.getCoverage('2026', { user: national });
+    expect(annualRoute).toEqual(yearRoute);
+    expect(annualRoute.period).toEqual({
+      year: 2026,
+      quarter: null,
+      semester: null,
+      campaignIds: ['c-t1', 'c-t2', 'c-t3', 'c-t4'],
+    });
+    // 1 + 2 + 4 + 8, and the cohort target read from the ADMINISTRATION row.
+    expect(mfoundiOf(centreOf(annualRoute))).toMatchObject({ inscriptionTarget: 15 });
+    expect(annualRoute.central).toMatchObject({ registered: 1, inscriptionTarget: 5 });
   });
 });
 
