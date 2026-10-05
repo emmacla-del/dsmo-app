@@ -19,37 +19,42 @@ Today the system carries **two parallel target concepts**:
 
 That produces the confusion the IA scan surfaced: `/admin/cibles` has four in-page tabs mixing annual and per-campaign work, and users cannot tell which number applies.
 
-The refactor collapses the two into one. **The campaign is the primary entity. Quotas belong to a campaign. There is no separate annual concept.**
+The refactor collapses the two into one. **The quarterly campaign is the primary entity. Quotas belong to a campaign. There is no separate annual concept — the annual figure is computed.**
 
 ---
 
 ## 2. The campaign
 
-A campaign is the unit of collection or registration work. It carries:
+A campaign is one quarter of collection or registration work. It is the atomic planning unit.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
 | `name` | string | Human label |
 | `type` | enum | `COLLECTION` \| `REGISTRATION` |
-| `granularity` | enum | `QUARTERLY` \| `SEMESTER` \| `ANNUAL` |
+| `referenceYear` | int | e.g. 2026 |
+| `referenceQuarter` | int | 1–4 |
 | `startDate` | date | |
 | `deadline` | date | |
-| `referenceYear` | int | For reporting; a Q1 2026 campaign has year 2026 |
 | `scopeRegions` | relation | Which regions this campaign covers |
 | `scopeEntityTypes` | enum[] | Which entity types it covers |
 | `lifecycle` | enum | `DRAFT` \| `ACTIVE` \| `PAUSED` \| `CLOSED` \| `ARCHIVED` |
 | `createdBy` | FK User | |
 | `ownerRole` | enum | Which role manages it |
+| `publishedAt` | timestamp? | Nullable. Distinct from lifecycle. |
 | `createdAt`, `updatedAt` | timestamp | |
+
+**Uniqueness:** one campaign per `(type, referenceYear, referenceQuarter)`. Enforced by a database unique constraint.
+
+**No granularity field.** Every campaign is quarterly. Semester and annual views are computed, not stored.
 
 **No objectives field. No targets field. One concept: quotas.**
 
-### Granularity and the "active campaign" question
+### Why quarters only
 
-A campaign can be quarterly, semester or annual. **Overlapping campaigns of the same type are prevented at creation time.** Rule: no two campaigns of the same `type` may have overlapping `[startDate, deadline]` windows. Quarterly + annual *of the same type* is rejected. Quarterly registration + annual collection is allowed.
+The alternative — annual campaigns with quarterly sub-campaigns — produces two independent sets of numbers for the same period and a permanent ambiguity about which one is authoritative. Splitting into quarters makes every quota traceable to a specific period, and the semester/annual views become simple sums.
 
-If a future requirement needs overlapping campaigns, this rule is the thing to revisit — not the schema.
+This also matches the existing system: `SubmissionRound.quarterCode` is already quarterly (`2026-T4`), and the register wizard and submission flow assume quarter windows.
 
 ---
 
@@ -80,11 +85,27 @@ CampaignQuota
 
 ### Why no national row
 
-Storing it would require a special-case row with both FKs null, which makes the composite unique constraint awkward in Postgres. Computing it instead guarantees the national figure is always consistent with the regional sum. If a national number is displayed, it is a display of the sum, not a stored number.
+Storing it would require a special-case row with both FKs null, which makes the composite unique constraint awkward in Postgres. Computing it instead guarantees the national figure is always consistent with the regional sum.
 
 ---
 
-## 4. Lifecycle states
+## 4. Computed roll-ups — semester and annual
+
+Neither is stored. Both are `SUM` over the underlying quarterly campaigns.
+
+| View | Source | Example |
+|---|---|---|
+| **Quarter** | The campaign itself | "Centre's Q2 registration quota is 300" |
+| **Semester** | Sum of two quarters | "H1 = Q1 + Q2" |
+| **Annual** | Sum of four quarters (or two semesters) | "2026 = Q1 + Q2 + Q3 + Q4" |
+
+A semester has no separate quota editor. An annual figure has no separate quota editor. They are read-only views over the quarterlies.
+
+**This is what eliminates the double-count risk.** There is only one stored number per territory per quarter. Every higher-level figure is a sum of those. No two sources can disagree.
+
+---
+
+## 5. Lifecycle states
 
 | State | Meaning |
 |---|---|
@@ -94,13 +115,13 @@ Storing it would require a special-case row with both FKs null, which makes the 
 | `CLOSED` | No new submissions. Reviews and corrections continue. |
 | `ARCHIVED` | Frozen. Read-only. Included in statistical reports. |
 
-**Open decision:** should `CLOSED` allow reviews, or freeze everything? Current proposal: `CLOSED` stops new submissions but allows review work; `ARCHIVED` freezes everything. Confirm before implementation.
+**Resolved:** `CLOSED` stops new submissions but allows review work. `ARCHIVED` freezes everything. This matches the standard statistical workflow: submission window, review period, publication freeze.
 
-**Open decision:** a `PUBLISHED` flag distinct from lifecycle? Statistical offices often distinguish "campaign closed" from "campaign included in published statistics." If yes, add `publishedAt: DateTime?`.
+**Resolved:** a `publishedAt: DateTime?` flag is added, distinct from lifecycle. It lets the reporting layer distinguish "campaign closed" from "data official," and feeds the provenance strip.
 
 ---
 
-## 5. What this replaces
+## 6. What this replaces
 
 | Existing table | After refactor |
 |---|---|
@@ -109,13 +130,33 @@ Storing it would require a special-case row with both FKs null, which makes the 
 | `campaign_quotas` | Deprecated. Data migrates to `CampaignQuota`. |
 | `central_campaign_quotas` | Deprecated. |
 
-The migration is the risky part. Every existing row must be attached to a campaign. For annual targets, the migration creates a synthetic campaign per year if none exists.
-
 **Do not drop the old tables in the first migration.** Deprecate first, migrate data, verify, then drop in a follow-up. Reversibility matters.
+
+### Synthetic campaigns on migration
+
+If `territory_targets` or `central_inscription_targets` contain rows, the migration creates one synthetic annual REGISTRATION campaign per year present:
+
+- `name`: `"Campagne d'inscription annuelle [YYYY]"`
+- `type`: `REGISTRATION`
+- `referenceYear`: the year
+- `referenceQuarter`: 4 (the campaign is treated as ending in Q4)
+- `startDate`: YYYY-01-01
+- `deadline`: YYYY-12-31
+- `lifecycle`: `CLOSED`
+- `publishedAt`: null
+
+Quota rows are attached to the matching synthetic campaign.
+
+**Note:** the synthetic campaign's quarterly representation is a migration artifact, not a real quarterly planning unit. It exists only to give the historical annual target a parent. If the source tables are empty (expected given the earlier data reset), no synthetic campaigns are created and the migration only touches `campaign_quotas` and `central_campaign_quotas`, which already reference real campaigns.
+
+Migration verification:
+- Row counts in `CampaignQuota` match the sum of rows in the four source tables.
+- Every region-level row maps to a `CampaignQuota` row with `regionId` set, `departmentId` null.
+- Every department-level row maps to a row with both FKs set.
 
 ---
 
-## 6. Endpoint changes
+## 7. Endpoint changes
 
 Every quota endpoint becomes campaign-scoped. Signature changes:
 
@@ -126,13 +167,19 @@ Every quota endpoint becomes campaign-scoped. Signature changes:
 | `GET /admin/pilotage/campaigns/:id/quotas` | Unchanged, but reads the unified table |
 | `GET /admin/pilotage/coverage?year=2026` | `GET /admin/pilotage/campaigns/:id/coverage` |
 
-**The pilotage dashboard reads the active campaign's coverage**, not an annual target. If multiple campaigns are active (registration + collection), the dashboard shows one at a time with a selector.
+**New roll-up endpoints:**
+- `GET /admin/pilotage/coverage/semester?year=2026&semester=1` — SUM of two quarters
+- `GET /admin/pilotage/coverage/annual?year=2026` — SUM of four quarters
 
-`actor-summary.service.ts` coverage column reads the same source — campaign quotas for the actor's own region/department.
+Both are read-only. Neither has a write endpoint.
+
+**The pilotage dashboard** shows the current quarter by default, with a toggle to semester and annual views. Coverage reads from the same source in all three cases — the quarterly campaigns.
+
+`actor-summary.service.ts` coverage column reads the campaign quotas for the actor's own region/department, matching the current quarter by default.
 
 ---
 
-## 7. UI implications
+## 8. UI implications
 
 The IA restructure follows directly from the model.
 
@@ -144,19 +191,19 @@ The IA restructure follows directly from the model.
 | Questionnaires | Unchanged |
 
 Campaign **detail** view gains in-page tabs:
-- **Quotas** — region and department quota editor
-- **Retours** — completed campaign returns
-- **Couverture** — progress against quotas, per region
+- **Quotas** — region and department quota editor for that quarter
+- **Retours** — that campaign's returns
+- **Couverture** — progress against that campaign's quotas
 
 ### Supervision hub
 
 | Tab | Content |
 |---|---|
-| Tableau de bord | KPI tiles; coverage section reads the **active campaign** |
+| Tableau de bord | KPI tiles; coverage section reads the current quarter, with a semester/annual toggle |
 | Dossiers | In-page tabs: File d'attente · Visas · Corrections |
 | ~~Objectifs~~ | Deleted. Annual targets no longer exist as a concept. |
 
-The Supervision "Objectifs" tab disappears. What it held — annual registration targets — is now a campaign's quotas, under Collecte.
+The Supervision "Objectifs" tab disappears. What it held — annual registration targets — is now a quarter's quotas, under Collecte.
 
 ### Contrôle Qualité
 
@@ -182,24 +229,24 @@ The Supervision "Objectifs" tab disappears. What it held — annual registration
 
 ---
 
-## 8. Sequence
+## 9. Sequence
 
 This is a multi-phase refactor. Each phase is independently verifiable.
 
 **Phase 1 — Schema**
-Add `CampaignQuota`. Add `type`, `granularity`, `referenceYear` to the campaign model if missing. Deprecate the four old tables but do not drop them.
+Add `CampaignQuota`. Add `type`, `referenceYear`, `referenceQuarter`, `publishedAt` to the campaign model. Enforce unique `(type, referenceYear, referenceQuarter)`. Deprecate the four old tables but do not drop them.
 
 **Phase 2 — Data migration**
-Backfill `CampaignQuota` from the four old tables. For annual targets, create a synthetic annual campaign per reference year. Verify counts match.
+Backfill `CampaignQuota` from the four old tables. Create synthetic campaigns only if the annual source tables contain rows. Verify counts match.
 
 **Phase 3 — Service layer**
-`PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota`. `getCampaignReturns` unchanged.
+`PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota`. Add semester and annual roll-up computations. `getCampaignReturns` unchanged.
 
 **Phase 4 — Endpoints**
-Retire the year-scoped quota endpoints. Add campaign-scoped equivalents. Keep the old ones returning 410 Gone for one release.
+Retire the year-scoped quota endpoints. Add campaign-scoped and roll-up equivalents. Keep the old ones returning 410 Gone for one release.
 
 **Phase 5 — UI restructure**
-The IA changes in §7. Both tabs and pages.
+The IA changes in §8. Both tabs and pages.
 
 **Phase 6 — Drop deprecated tables**
 Only after Phase 4 is verified in production and no caller references them.
@@ -209,17 +256,35 @@ The pilotage page redesign, on top of the now-stable IA.
 
 ---
 
-## 9. Open questions
+## 10. Resolutions — 2026-10-05
 
-Before implementation:
+All open questions from the earlier draft have been decided.
 
-1. **CLOSED vs ARCHIVED** — does CLOSED allow reviews, or freeze everything? (§4)
-2. **Publication flag** — separate from lifecycle? (§4)
-3. **Owner role** — which role creates and manages a campaign? `SUPER_ADMIN` only, or `ADMIN_ONEFOP` too?
-4. **Overlap rule** — confirmed: same-type campaigns cannot overlap in time. Different types may. (§2)
-5. **Synthetic campaigns on migration** — if a year has `territory_targets` but no matching campaign, the migration must create one. What `name` and `type` should it carry?
+### R1 — CLOSED allows reviews; ARCHIVED freezes
 
-## 10. What this does not do
+`CLOSED` stops new submissions; review work continues. `ARCHIVED` is the frozen, read-only, publication-ready state. (§5)
+
+### R2 — Publication flag added
+
+`publishedAt: DateTime?` on the Campaign model, nullable. Distinct from lifecycle. (§5)
+
+### R3 — Owner role limited to SUPER_ADMIN and ADMIN_ONEFOP
+
+Only these two roles may create campaigns and edit quotas. Regional and divisional admins work toward quotas but cannot set them. Rationale: quotas are a national planning decision; local actors setting their own targets is the wrong incentive. (§2)
+
+### R4 — No overlap rule needed
+
+Uniqueness on `(type, referenceYear, referenceQuarter)` prevents two campaigns of the same type in the same quarter by construction. Registration and collection campaigns may coexist in the same quarter. No granularity caveat because every campaign is quarterly.
+
+There is no "annual campaign vs quarterly campaign" ambiguity because annual campaigns do not exist. (§2, §4)
+
+### R5 — Synthetic campaigns on migration
+
+One synthetic annual REGISTRATION campaign per year present in `territory_targets` or `central_inscription_targets`, with `referenceQuarter = 4` and `lifecycle = CLOSED`. If the source tables are empty, no synthetic campaigns are created. (§6)
+
+---
+
+## 11. What this does not do
 
 - Does not change the `OnefopSubmission` or `Company` models.
 - Does not change the anomaly registry.
