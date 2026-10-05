@@ -42,6 +42,8 @@ describe('PilotageController roles', () => {
     const handlers = [
       ['getInscriptionTargets', read],
       ['getCoverage', read],
+      ['getSemesterCoverage', read],
+      ['getAnnualCoverage', read],
       ['getCampaignQuotas', read],
       ['getCampaignReturns', read],
       ['putInscriptionTargets', write],

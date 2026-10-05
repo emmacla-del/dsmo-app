@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Put, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UserRole } from '../types/prisma.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -6,6 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { territoryFromUser } from '../auth/territory';
 import { PilotageService } from './pilotage.service';
+import { parseYear } from './pilotage-validation';
 
 export const PILOTAGE_WRITE_ROLES = [
   UserRole.ADMIN_ONEFOP,
@@ -38,6 +49,39 @@ export class PilotageController {
     return this.pilotage.getCoverage(territoryFromUser(req.user), year);
   }
 
+  /**
+   * SEMESTER coverage roll-up: Q1+Q2 or Q3+Q4 of the requested year.
+   *
+   * The year is parsed here rather than in the service, because
+   * getSemesterCoverage takes an already-parsed number while getCoverage
+   * parses its own raw value. It is the service's own parseYear, so both
+   * routes reject the same years with the same message.
+   */
+  @Get('coverage/semester')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getSemesterCoverage(
+    @Query('year') year: string,
+    @Query('semester') semester: string,
+    @Req() req: any,
+  ) {
+    return this.pilotage.getSemesterCoverage(
+      territoryFromUser(req.user),
+      parseYear(year),
+      parseSemester(semester),
+    );
+  }
+
+  /**
+   * ANNUAL coverage roll-up — the same handler body as GET coverage, under an
+   * explicit path so a client can name the period it wants instead of relying
+   * on the bare route meaning "annual".
+   */
+  @Get('coverage/annual')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getAnnualCoverage(@Query('year') year: string, @Req() req: any) {
+    return this.pilotage.getCoverage(territoryFromUser(req.user), year);
+  }
+
   @Put('targets/inscriptions')
   @Roles(...PILOTAGE_WRITE_ROLES)
   putInscriptionTargets(@Query('year') year: string, @Body() body: unknown, @Req() req: any) {
@@ -61,4 +105,23 @@ export class PilotageController {
   putCampaignQuotas(@Param('id') id: string, @Body() body: unknown, @Req() req: any) {
     return this.pilotage.putCampaignQuotas(req.user.id, territoryFromUser(req.user), id, body);
   }
+}
+
+/**
+ * The « semester » query parameter: 1 or 2, nothing else.
+ *
+ * Validated at the boundary because getSemesterCoverage takes a number it
+ * trusts. The service's semesterQuarters raises on a bad value too — this is
+ * the outer guard, not a replacement for it, and the wording is kept in the
+ * same register so either message reads the same to a client.
+ */
+function parseSemester(raw: unknown): number {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+    throw new BadRequestException('Le paramètre « semester » est obligatoire.');
+  }
+  const text = String(raw).trim();
+  if (text !== '1' && text !== '2') {
+    throw new BadRequestException('Le paramètre « semester » doit valoir 1 ou 2.');
+  }
+  return Number(text);
 }
