@@ -5,6 +5,7 @@ import {
   applyEditMode,
   buildTargetPayload,
   clearRegionDraft,
+  formatCoverageCount,
   hasUnsavedChanges,
   initDrafts,
   normalizeRegions,
@@ -552,3 +553,18 @@ test("hasUnsavedChanges detects region input, department input, or central input
   );
 });
 
+test("formatCoverageCount separates a measured zero from an absent one", () => {
+  // The motivating case: 47 companies, nothing registered yet. Zero is data.
+  assert.equal(formatCoverageCount(0, 47), "0");
+  // No companies in the territory: nothing to measure.
+  assert.equal(formatCoverageCount(0, 0), "—");
+  // Real figures print, grouped in fr-FR.
+  assert.equal(formatCoverageCount(47, 47), "47");
+  assert.equal(formatCoverageCount(1234, 2000), (1234).toLocaleString("fr-FR"));
+  // A null count is already an absence (scope hides region-level stock).
+  assert.equal(formatCoverageCount(null, null), "—");
+  assert.equal(formatCoverageCount(null, 47), "—");
+  // A non-zero count under a zero companyCount would be incoherent; the
+  // territory still has nothing underneath it, so absence wins.
+  assert.equal(formatCoverageCount(3, 0), "—");
+});

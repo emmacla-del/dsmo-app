@@ -6,6 +6,7 @@ import {
   type TargetPutEntry,
   type TargetRegionRow,
 } from "./pilotage-targets";
+import { NOT_PROVIDED } from "./admin-data-state";
 
 export type EditMode = "DEPARTMENT" | "REGION";
 
@@ -158,6 +159,25 @@ export function modeLabel(mode: TargetMode | EditMode | null): string {
   if (mode === "REGION") return "Région seule";
   if (mode === "MIXED") return "Mixte";
   return "Non défini";
+}
+
+/**
+ * Renders one coverage count cell.
+ *
+ * A coverage count is a measurement over the Company rows of a territory, so
+ * it only means something when there are rows underneath it. With no companies
+ * in the territory there is nothing to measure and the cell shows the absence
+ * marker; with companies present the real figure is printed, including a
+ * genuine 0 (47 companies and 0 registered is a measured zero, not absence).
+ * A null count is already an absence (the reader's scope hides the figure).
+ */
+export function formatCoverageCount(
+  value: number | null | undefined,
+  companyCount: number | null | undefined,
+): string {
+  if (value == null) return NOT_PROVIDED;
+  if (companyCount === 0) return NOT_PROVIDED;
+  return fmt(value);
 }
 
 export function describeStored(region: NormalizedRegion): string {

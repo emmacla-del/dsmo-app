@@ -105,6 +105,12 @@ export interface TargetPutBody {
 }
 
 export interface StockCounts {
+  /**
+   * Every Company row in the territory, whatever its status. `registered` and
+   * the pending counts are measurements over those rows, so companyCount === 0
+   * means there is nothing to measure — distinct from a measured zero.
+   */
+  companyCount: number;
   registered: number;
   registeredInYear: number;
   pendingApproval: number;
@@ -123,6 +129,8 @@ export interface CoverageRegionRow {
   regionId: string;
   name: string;
   mode: TargetMode;
+  /** null when the reader's scope hides region-level stock. */
+  companyCount: number | null;
   registered: number | null;
   registeredInYear: number | null;
   pendingApproval: number | null;

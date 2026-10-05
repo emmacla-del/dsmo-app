@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import type { CoverageResponse, StockCounts } from "@/lib/pilotage-targets";
-import { modeLabel } from "@/lib/pilotage-target-payload";
+import { formatCoverageCount, modeLabel } from "@/lib/pilotage-target-payload";
 
 export function CoverageTable({
   data,
@@ -51,6 +51,7 @@ export function CoverageTable({
                   </th>
                   <td>{modeLabel(region.mode)}</td>
                   <CountCells
+                    companyCount={region.companyCount}
                     registered={region.registered}
                     target={region.inscriptionTarget}
                     rate={region.rate}
@@ -66,6 +67,7 @@ export function CoverageTable({
                       <th scope="row">{department.name}</th>
                       <td></td>
                       <CountCells
+                        companyCount={department.companyCount}
                         registered={department.registered}
                         target={department.inscriptionTarget}
                         rate={department.rate}
@@ -114,6 +116,7 @@ function BucketRow({
       <th scope="row">{name}</th>
       <td>—</td>
       <CountCells
+        companyCount={counts.companyCount}
         registered={counts.registered}
         target={target}
         rate={rate}
@@ -127,6 +130,7 @@ function BucketRow({
 }
 
 function CountCells({
+  companyCount,
   registered,
   target,
   rate,
@@ -135,6 +139,7 @@ function CountCells({
   pendingReview,
   complementsRequested,
 }: {
+  companyCount: number | null;
   registered: number | null;
   target: number | null;
   rate: number | null;
@@ -145,13 +150,13 @@ function CountCells({
 }) {
   return (
     <>
-      <td className="is-num">{fmt(registered)}</td>
+      <td className="is-num">{formatCoverageCount(registered, companyCount)}</td>
       <td className="is-num">{fmt(target)}</td>
       <td className="is-num">{fmtRate(rate)}</td>
-      <td className="is-num">{fmt(registeredInYear)}</td>
-      <td className="is-num">{fmt(pendingApproval)}</td>
-      <td className="is-num">{fmt(pendingReview)}</td>
-      <td className="is-num">{fmt(complementsRequested)}</td>
+      <td className="is-num">{formatCoverageCount(registeredInYear, companyCount)}</td>
+      <td className="is-num">{formatCoverageCount(pendingApproval, companyCount)}</td>
+      <td className="is-num">{formatCoverageCount(pendingReview, companyCount)}</td>
+      <td className="is-num">{formatCoverageCount(complementsRequested, companyCount)}</td>
     </>
   );
 }

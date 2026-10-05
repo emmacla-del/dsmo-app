@@ -526,6 +526,7 @@ describe('PilotageService coverage', () => {
     const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
     expect(centre).toMatchObject({
       mode: 'DEPARTMENT',
+      companyCount: 8,
       registered: 3,
       registeredInYear: 2,
       pendingApproval: 1,
@@ -536,6 +537,7 @@ describe('PilotageService coverage', () => {
     });
     const mfoundi = centre!.departments.find((department: { name: string }) => department.name === 'Mfoundi');
     expect(mfoundi).toMatchObject({
+      companyCount: 7,
       registered: 2,
       registeredInYear: 1,
       pendingApproval: 1,
@@ -545,7 +547,26 @@ describe('PilotageService coverage', () => {
       rate: 0.2,
     });
     const lekie = centre!.departments.find((department: { name: string }) => department.name === 'Lékié');
-    expect(lekie).toMatchObject({ registered: 1, inscriptionTarget: 0, rate: null });
+    expect(lekie).toMatchObject({ companyCount: 1, registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('separates a department with no companies from one whose companies are all unregistered', async () => {
+    const harness = createHarness();
+    harness.companies.push(
+      company({ user: { status: 'DRAFT', isActive: true }, establishmentId: null }),
+      company({ user: { status: 'REJECTED', isActive: true }, establishmentId: null }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    // Mfoundi holds companies that have registered nothing: a measured zero.
+    expect(centre!.departments.find((department: { name: string }) => department.name === 'Mfoundi'))
+      .toMatchObject({ companyCount: 2, registered: 0 });
+    // Lekie holds no companies at all: there is nothing to measure.
+    expect(centre!.departments.find((department: { name: string }) => department.name === 'Lékié'))
+      .toMatchObject({ companyCount: 0, registered: 0 });
+    expect(centre).toMatchObject({ companyCount: 2, registered: 0 });
+    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
+    expect(littoral).toMatchObject({ companyCount: 0, registered: 0 });
   });
 
   it('hides central, unassigned, and other regions from a regional reader', async () => {

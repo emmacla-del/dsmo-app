@@ -188,6 +188,7 @@ export class PilotageService {
           regionId: region.regionId,
           name: region.name,
           mode: region.mode,
+          companyCount: hideRegionStock ? null : summed.companyCount,
           registered: hideRegionStock ? null : summed.registered,
           registeredInYear: hideRegionStock ? null : summed.registeredInYear,
           pendingApproval: hideRegionStock ? null : summed.pendingApproval,

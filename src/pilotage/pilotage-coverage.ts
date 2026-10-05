@@ -17,6 +17,14 @@ export type CoverageBucket =
   | { kind: 'department'; regionId: string; departmentId: string };
 
 export interface StockCounts {
+  /**
+   * Every Company row in the territory, whatever its status. Distinct from
+   * `registered`, which only counts rows meeting the registration predicate:
+   * a territory with companies but no registrations has companyCount > 0 and
+   * registered === 0, which is a measured zero. companyCount === 0 means there
+   * is nothing to measure at all.
+   */
+  companyCount: number;
   registered: number;
   registeredInYear: number;
   pendingApproval: number;
@@ -26,6 +34,7 @@ export interface StockCounts {
 
 export function emptyCounts(): StockCounts {
   return {
+    companyCount: 0,
     registered: 0,
     registeredInYear: 0,
     pendingApproval: 0,
@@ -70,6 +79,7 @@ export function classifyBucket(row: CompanyStockRow): CoverageBucket {
 }
 
 export function applyRow(counts: StockCounts, row: CompanyStockRow, year: number): void {
+  counts.companyCount += 1;
   if (isRegistered(row)) {
     counts.registered += 1;
     if (isInDoualaYear(registeredAt(row), year)) counts.registeredInYear += 1;
@@ -92,6 +102,7 @@ export function bucketKey(bucket: CoverageBucket): string {
 
 export function addCounts(left: StockCounts, right: StockCounts): StockCounts {
   return {
+    companyCount: left.companyCount + right.companyCount,
     registered: left.registered + right.registered,
     registeredInYear: left.registeredInYear + right.registeredInYear,
     pendingApproval: left.pendingApproval + right.pendingApproval,
