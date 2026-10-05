@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  GoneException,
   Param,
   Put,
   Query,
@@ -37,10 +38,22 @@ export const PILOTAGE_READ_ROLES = [
 export class PilotageController {
   constructor(private readonly pilotage: PilotageService) {}
 
+  /**
+   * RETIRED (Phase 4b). The year-scoped inscription target is replaced by the
+   * per-campaign quota, and the coverage roll-ups added in 4a cover the
+   * reading side. The route and its @Roles gate stay for one release so an
+   * authorized caller gets 410 rather than 404, and an unauthorized one still
+   * gets 403 — the retirement does not widen what the path discloses.
+   *
+   * PilotageService.getInscriptionTargets survives until Phase 6, when
+   * TerritoryTarget and CentralInscriptionTarget are dropped.
+   */
   @Get('targets/inscriptions')
   @Roles(...PILOTAGE_READ_ROLES)
-  getInscriptionTargets(@Query('year') year: string, @Req() req: any) {
-    return this.pilotage.getInscriptionTargets(territoryFromUser(req.user), year);
+  getInscriptionTargets() {
+    throw new GoneException(
+      "Les objectifs d'inscription annuels sont retirés. Utilisez GET /admin/pilotage/coverage/annual ou GET /admin/pilotage/campaigns/:id/quotas.",
+    );
   }
 
   @Get('coverage')
@@ -82,10 +95,13 @@ export class PilotageController {
     return this.pilotage.getCoverage(territoryFromUser(req.user), year);
   }
 
+  /** RETIRED (Phase 4b), on the same terms as the GET above. */
   @Put('targets/inscriptions')
   @Roles(...PILOTAGE_WRITE_ROLES)
-  putInscriptionTargets(@Query('year') year: string, @Body() body: unknown, @Req() req: any) {
-    return this.pilotage.putInscriptionTargets(req.user.id, territoryFromUser(req.user), year, body);
+  putInscriptionTargets() {
+    throw new GoneException(
+      "Les objectifs d'inscription annuels sont retirés. Utilisez PUT /admin/pilotage/campaigns/:id/quotas.",
+    );
   }
 
   @Get('campaigns/:id/quotas')

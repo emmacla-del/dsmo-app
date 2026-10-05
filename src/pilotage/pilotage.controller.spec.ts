@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, GoneException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/roles.guard';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
@@ -60,6 +60,20 @@ describe('PilotageController roles', () => {
       for (const role of Object.values(UserRole)) {
         await expect(guard.canActivate(contextFor(handler, role))).resolves.toBe(allowed.has(role));
       }
+    }
+  });
+
+  it('answers the retired inscription-target routes with 410, still behind their roles gate', async () => {
+    const controller = new PilotageController({} as never);
+    expect(() => controller.getInscriptionTargets()).toThrow(GoneException);
+    expect(() => controller.putInscriptionTargets()).toThrow(GoneException);
+
+    // The gate is asserted above for both handlers; repeated here only to
+    // state that 410 did not replace it with an open route.
+    for (const role of [UserRole.COMPANY, UserRole.AUDITOR]) {
+      await expect(
+        guard.canActivate(contextFor(PilotageController.prototype.getInscriptionTargets, role)),
+      ).resolves.toBe(false);
     }
   });
 

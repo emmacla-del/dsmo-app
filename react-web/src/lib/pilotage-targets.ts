@@ -26,12 +26,6 @@ export interface TargetRegionRow {
   departments: TargetDepartmentRow[];
 }
 
-export interface InscriptionTargetsResponse {
-  year: number;
-  central: { inscriptionTarget: number } | null;
-  regions: TargetRegionRow[];
-}
-
 export interface CampaignQuotaSummary {
   id: string;
   name: string;
@@ -187,19 +181,6 @@ export function formatApiError(error: unknown): string {
   }
   if (error instanceof Error && error.message.trim()) return error.message;
   return "La requête a échoué.";
-}
-
-export function getInscriptionTargets(year: number) {
-  return apiFetch<InscriptionTargetsResponse>(
-    `/admin/pilotage/targets/inscriptions?year=${encodeURIComponent(String(year))}`,
-  );
-}
-
-export function putInscriptionTargets(year: number, body: TargetPutBody) {
-  return apiFetch<InscriptionTargetsResponse>(
-    `/admin/pilotage/targets/inscriptions?year=${encodeURIComponent(String(year))}`,
-    { method: "PUT", body: JSON.stringify(body) },
-  );
 }
 
 export function getCoverage(year: number) {
