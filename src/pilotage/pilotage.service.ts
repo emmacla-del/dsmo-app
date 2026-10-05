@@ -47,23 +47,11 @@ import {
 } from './pilotage-validation';
 
 export const PilotageAuditAction = {
-  INSCRIPTION_TARGET_UPSERT: 'INSCRIPTION_TARGET_UPSERT',
-  INSCRIPTION_TARGET_DELETE: 'INSCRIPTION_TARGET_DELETE',
   CAMPAIGN_QUOTA_UPSERT: 'CAMPAIGN_QUOTA_UPSERT',
   CAMPAIGN_QUOTA_DELETE: 'CAMPAIGN_QUOTA_DELETE',
-  CENTRAL_INSCRIPTION_TARGET_UPSERT: 'CENTRAL_INSCRIPTION_TARGET_UPSERT',
-  CENTRAL_INSCRIPTION_TARGET_DELETE: 'CENTRAL_INSCRIPTION_TARGET_DELETE',
 } as const;
 
-type ScopeKey = { year: number } | { campaignId: string };
-type ScopedDelegate = 'territoryTarget' | 'campaignQuota';
-/**
- * Only CentralInscriptionTarget remains. CentralCampaignQuota left this union
- * when the ADMINISTRATION cohort target moved into CampaignQuota behind
- * scopeKind; applyCentral and this alias retire together in Phase 4, with the
- * year-scoped inscription endpoints.
- */
-type CentralDelegate = 'centralInscriptionTarget';
+type ScopeKey = { campaignId: string };
 
 interface StoredRow {
   id: string;
@@ -78,28 +66,18 @@ interface StoredRow {
    */
   regionId: string;
   departmentId: string | null;
-  inscriptionTarget?: number;
   submissionTarget?: number;
 }
 
-/** The two scoped tables share this shape. Prisma's generated delegates do not share a call signature. */
+/**
+ * CampaignQuota's rows as replaceScoped handles them. The generated delegate
+ * is reached through this shape because the write below addresses its target
+ * column by name, which Prisma's own types do not admit.
+ */
 interface ScopedTable {
   findMany(args: { where: Record<string, unknown> }): Promise<StoredRow[]>;
   create(args: { data: Record<string, unknown> }): Promise<StoredRow>;
   update(args: { where: { id: string }; data: Record<string, unknown> }): Promise<StoredRow>;
-  delete(args: { where: { id: string } }): Promise<unknown>;
-}
-
-interface CentralRow {
-  id: string;
-  inscriptionTarget?: number;
-  submissionTarget?: number;
-}
-
-interface CentralTable {
-  findUnique(args: { where: ScopeKey }): Promise<CentralRow | null>;
-  create(args: { data: Record<string, unknown> }): Promise<CentralRow>;
-  update(args: { where: { id: string }; data: Record<string, unknown> }): Promise<unknown>;
   delete(args: { where: { id: string } }): Promise<unknown>;
 }
 
@@ -114,23 +92,6 @@ interface ShapedRegion {
 @Injectable()
 export class PilotageService {
   constructor(private readonly prisma: PrismaService) {}
-
-  async getInscriptionTargets(territory: Territory | null | undefined, yearRaw: unknown) {
-    const year = parseYear(yearRaw);
-    const { scope, regions } = await this.loadGrid(territory, (current) =>
-      this.prisma.territoryTarget
-        .findMany({ where: { year, ...regionFilter(current) } })
-        .then((rows) => rows.map((row) => ({ regionId: row.regionId, departmentId: row.departmentId, target: row.inscriptionTarget }))),
-    );
-    const central = scope.kind === 'national'
-      ? await this.prisma.centralInscriptionTarget.findUnique({ where: { year } })
-      : null;
-    return {
-      year,
-      central: central ? { inscriptionTarget: central.inscriptionTarget } : null,
-      regions: labelTargets(regions, 'inscriptionTarget'),
-    };
-  }
 
   /**
    * ANNUAL coverage roll-up for the requested year.
@@ -318,20 +279,6 @@ export class PilotageService {
         };
       }),
     };
-  }
-
-  async putInscriptionTargets(
-    actorId: string,
-    territory: Territory | null | undefined,
-    yearRaw: unknown,
-    body: unknown,
-  ) {
-    requireActor(actorId);
-    const year = parseYear(yearRaw);
-    const parsed = parseTargetBody(body, 'inscriptionTarget');
-    await this.prepare(parsed);
-    await this.transaction((tx) => this.writeInscriptions(tx, actorId, year, parsed));
-    return this.getInscriptionTargets(territory, year);
   }
 
   async getCampaignQuotas(territory: Territory | null | undefined, campaignId: string) {
@@ -677,22 +624,6 @@ export class PilotageService {
     assertNoMixedClear(parsed.entries, parsed.clearedRegionIds, regionNames);
   }
 
-  private async writeInscriptions(
-    tx: Prisma.TransactionClient,
-    actorId: string,
-    year: number,
-    parsed: ParsedTargetBody,
-  ): Promise<void> {
-    await this.replaceScoped(
-      tx, actorId, { year }, parsed.entries, parsed.clearedRegionIds, 'territoryTarget', 'inscriptionTarget', 'TerritoryTarget',
-      PilotageAuditAction.INSCRIPTION_TARGET_UPSERT, PilotageAuditAction.INSCRIPTION_TARGET_DELETE,
-    );
-    await this.applyCentral(
-      tx, actorId, { year }, 'centralInscriptionTarget', 'inscriptionTarget', parsed.central, 'CentralInscriptionTarget',
-      PilotageAuditAction.CENTRAL_INSCRIPTION_TARGET_UPSERT, PilotageAuditAction.CENTRAL_INSCRIPTION_TARGET_DELETE,
-    );
-  }
-
   private async writeQuotas(
     tx: Prisma.TransactionClient,
     actorId: string,
@@ -700,7 +631,7 @@ export class PilotageService {
     parsed: ParsedTargetBody,
   ): Promise<void> {
     await this.replaceScoped(
-      tx, actorId, { campaignId }, parsed.entries, parsed.clearedRegionIds, 'campaignQuota', 'submissionTarget', 'CampaignQuota',
+      tx, actorId, { campaignId }, parsed.entries, parsed.clearedRegionIds, 'submissionTarget', 'CampaignQuota',
       PilotageAuditAction.CAMPAIGN_QUOTA_UPSERT, PilotageAuditAction.CAMPAIGN_QUOTA_DELETE,
     );
     await this.writeAdministrationQuota(tx, actorId, campaignId, parsed.central);
@@ -711,11 +642,11 @@ export class PilotageService {
    * cohort, which answers as one national respondent group and is excluded
    * from every territorial bucket in getCampaignReturns.
    *
-   * Symmetric to applyCentral, which still serves CentralInscriptionTarget,
-   * but writes into CampaignQuota rather than the deprecated
-   * CentralCampaignQuota. The row carries no region and no department; one per
-   * campaign, enforced by campaign_quotas_administration_uidx, with the shape
-   * enforced by campaign_quotas_scope_shape.
+   * The cohort target lives in CampaignQuota like every other quota, keyed by
+   * scopeKind rather than in a table of its own. The row carries no region and
+   * no department; one per campaign, enforced by
+   * campaign_quotas_administration_uidx, with the shape enforced by
+   * campaign_quotas_scope_shape.
    */
   private async writeAdministrationQuota(
     tx: Prisma.TransactionClient,
@@ -772,8 +703,7 @@ export class PilotageService {
     scope: ScopeKey,
     entries: TargetEntry[],
     clearedRegionIds: string[],
-    delegate: ScopedDelegate,
-    field: TargetField,
+    field: 'submissionTarget',
     resourceType: string,
     upsertAction: string,
     deleteAction: string,
@@ -788,9 +718,9 @@ export class PilotageService {
       byRegion.set(entry.regionId, list);
     }
 
-    const table = tx[delegate] as unknown as ScopedTable;
+    const table = tx.campaignQuota as unknown as ScopedTable;
     for (const [regionId, desired] of byRegion) {
-      const existing = await table.findMany({ where: { ...scope, regionId, ...scopedWhere(delegate) } });
+      const existing = await table.findMany({ where: { ...scope, regionId, ...TERRITORIAL_SCOPE } });
       const wanted = new Set(desired.map((entry) => entry.departmentId));
       for (const row of existing) {
         if (wanted.has(row.departmentId)) continue;
@@ -810,7 +740,7 @@ export class PilotageService {
           const previous = numberOrNull(current[field]);
           await table.update({
             where: { id: current.id },
-            data: { [field]: entry.target, updatedBy: actorId, ...scopedWhere(delegate) },
+            data: { [field]: entry.target, updatedBy: actorId, ...TERRITORIAL_SCOPE },
           });
           await writeAudit(tx, actorId, upsertAction, resourceType, current.id, previous, entry.target, details);
         } else {
@@ -822,50 +752,13 @@ export class PilotageService {
               [field]: entry.target,
               createdBy: actorId,
               updatedBy: actorId,
-              ...scopedWhere(delegate),
+              ...TERRITORIAL_SCOPE,
             },
           });
           await writeAudit(tx, actorId, upsertAction, resourceType, created.id, null, entry.target, details);
         }
       }
     }
-  }
-
-  private async applyCentral(
-    tx: Prisma.TransactionClient,
-    actorId: string,
-    where: ScopeKey,
-    delegate: CentralDelegate,
-    field: TargetField,
-    value: number | null | undefined,
-    resourceType: string,
-    upsertAction: string,
-    deleteAction: string,
-  ): Promise<void> {
-    if (value === undefined) return;
-    const table = tx[delegate] as unknown as CentralTable;
-    const existing = await table.findUnique({ where });
-    if (value === null) {
-      if (!existing) return;
-      const previous = numberOrNull(existing[field]);
-      await table.delete({ where: { id: existing.id } });
-      await writeAudit(tx, actorId, deleteAction, resourceType, existing.id, previous, null, where);
-      return;
-    }
-    if (existing && existing[field] === value) return;
-    if (existing) {
-      const previous = numberOrNull(existing[field]);
-      await table.update({
-        where: { id: existing.id },
-        data: { [field]: value, updatedBy: actorId },
-      });
-      await writeAudit(tx, actorId, upsertAction, resourceType, existing.id, previous, value, where);
-      return;
-    }
-    const created = await table.create({
-      data: { ...where, [field]: value, createdBy: actorId, updatedBy: actorId },
-    });
-    await writeAudit(tx, actorId, upsertAction, resourceType, created.id, null, value, where);
   }
 
   private async loadGrid(
@@ -1024,14 +917,11 @@ function requireActor(actorId: string): void {
  *
  * CampaignQuota holds both TERRITORIAL rows and the one ADMINISTRATION row per
  * campaign, so every territorial read and write has to say which it means.
- * TerritoryTarget has no such column. Sending the value explicitly on create
- * and update — instead of relying on @default(TERRITORIAL) — keeps the row the
- * ORM returns identical to the row the database stores, which a default the
- * client never sends does not.
+ * Sending the value explicitly on create and update — instead of relying on
+ * @default(TERRITORIAL) — keeps the row the ORM returns identical to the row
+ * the database stores, which a default the client never sends does not.
  */
-function scopedWhere(delegate: ScopedDelegate): { scopeKind?: 'TERRITORIAL' } {
-  return delegate === 'campaignQuota' ? { scopeKind: 'TERRITORIAL' } : {};
-}
+const TERRITORIAL_SCOPE = { scopeKind: 'TERRITORIAL' } as const;
 
 /**
  * Narrows a quota row to one that carries a region.

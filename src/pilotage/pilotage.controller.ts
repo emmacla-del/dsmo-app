@@ -45,8 +45,9 @@ export class PilotageController {
    * authorized caller gets 410 rather than 404, and an unauthorized one still
    * gets 403 — the retirement does not widen what the path discloses.
    *
-   * PilotageService.getInscriptionTargets survives until Phase 6, when
-   * TerritoryTarget and CentralInscriptionTarget are dropped.
+   * PilotageService.getInscriptionTargets went with Phase 6a. TerritoryTarget
+   * and CentralInscriptionTarget themselves survive until Phase 6b drops the
+   * tables; nothing reads them any more.
    */
   @Get('targets/inscriptions')
   @Roles(...PILOTAGE_READ_ROLES)

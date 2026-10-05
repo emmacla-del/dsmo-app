@@ -256,7 +256,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-active')).rejects.toThrow(
@@ -278,7 +277,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-paused')).rejects.toThrow(
@@ -300,7 +298,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-closed')).rejects.toThrow(
@@ -322,7 +319,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-archived')).rejects.toThrow(
@@ -344,7 +340,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-draft-1')).rejects.toThrow(
@@ -366,7 +361,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-draft-2')).rejects.toThrow(
@@ -388,7 +382,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-draft-3')).rejects.toThrow(
@@ -410,34 +403,11 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 4,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-draft-4')).rejects.toThrow(
                 new ConflictException(
                     'Impossible de supprimer la campagne "Brouillon avec quotas territoriaux" : des données liées existent (4 quota(s) territorial(aux)).',
-                ),
-            );
-        });
-
-        it('throws 409 ConflictException when campaign has a linked CentralCampaignQuota', async () => {
-            prisma.dataCampaign.findUnique.mockResolvedValue({
-                id: 'c-draft-5',
-                name: 'Brouillon avec quota central',
-                status: 'DRAFT',
-                _count: {
-                    submissions: 0,
-                    onefopSubmissions: 0,
-                    declarations: 0,
-                    quotas: 0,
-                    freezes: 0,
-                },
-                centralQuota: { id: 'cq-1' },
-            });
-
-            await expect(service.deleteCampaign('c-draft-5')).rejects.toThrow(
-                new ConflictException(
-                    'Impossible de supprimer la campagne "Brouillon avec quota central" : des données liées existent (1 quota central).',
                 ),
             );
         });
@@ -454,7 +424,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 1,
                 },
-                centralQuota: null,
             });
 
             await expect(service.deleteCampaign('c-draft-6')).rejects.toThrow(
@@ -476,12 +445,11 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 6,
                     freezes: 1,
                 },
-                centralQuota: { id: 'cq-central' },
             });
 
             await expect(service.deleteCampaign('c-draft-multi')).rejects.toThrow(
                 new ConflictException(
-                    'Impossible de supprimer la campagne "Brouillon Multi-Bloqué" : des données liées existent (10 soumission(s) de campagne, 4 soumission(s) ONEFOP, 2 déclaration(s) DSMO, 6 quota(s) territorial(aux), 1 quota central, 1 gel(s) statistique(s)).',
+                    'Impossible de supprimer la campagne "Brouillon Multi-Bloqué" : des données liées existent (10 soumission(s) de campagne, 4 soumission(s) ONEFOP, 2 déclaration(s) DSMO, 6 quota(s) territorial(aux), 1 gel(s) statistique(s)).',
                 ),
             );
         });
@@ -498,7 +466,6 @@ describe('CampaignService - reference period and lateness gating', () => {
                     quotas: 0,
                     freezes: 0,
                 },
-                centralQuota: null,
             });
             prisma.submissionRound.updateMany.mockResolvedValue({ count: 1 });
             prisma.dataCampaign.delete.mockResolvedValue({ id: 'c-clean-draft', name: 'Brouillon Propre' });

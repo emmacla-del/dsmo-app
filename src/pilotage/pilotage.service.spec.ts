@@ -14,9 +14,7 @@ interface TargetRow {
   scopeKind?: 'TERRITORIAL' | 'ADMINISTRATION';
   regionId: string | null;
   departmentId: string | null;
-  inscriptionTarget?: number;
   submissionTarget?: number;
-  year?: number;
   campaignId?: string;
   createdBy?: string;
   updatedBy?: string;
@@ -32,9 +30,7 @@ function createHarness() {
     { id: 'd-lekie', name: 'Lékié', regionId: 'r-centre' },
     { id: 'd-wouri', name: 'Wouri', regionId: 'r-littoral' },
   ];
-  const territoryTargets: TargetRow[] = [];
   const campaignQuotas: TargetRow[] = [];
-  const centralInscriptions: Array<Record<string, unknown>> = [];
   const centralQuotas: Array<Record<string, unknown>> = [];
   const companies: Array<Record<string, unknown>> = [];
   const onefopSubmissions: Array<Record<string, unknown>> = [];
@@ -133,9 +129,9 @@ function createHarness() {
         campaigns.filter((campaign) => match(campaign, args?.where)),
       ),
     },
-    territoryTarget: collection(territoryTargets as unknown as Array<Record<string, unknown>>),
     campaignQuota: collection(campaignQuotas as unknown as Array<Record<string, unknown>>),
-    centralInscriptionTarget: collection(centralInscriptions),
+    // CentralCampaignQuota keeps its delegate until Phase 6b drops the model:
+    // the assertion that pilotage never writes it needs something to watch.
     centralCampaignQuota: collection(centralQuotas),
     company: {
       findMany: jest.fn(async (args?: { where?: { regionId?: string; departmentId?: string } }) =>
@@ -172,9 +168,7 @@ function createHarness() {
   return {
     service: new PilotageService(prisma as unknown as PrismaService),
     prisma,
-    territoryTargets,
     campaignQuotas,
-    centralInscriptions,
     centralQuotas,
     companies,
     onefopSubmissions,
@@ -201,136 +195,64 @@ function knownError(code: string) {
 }
 
 describe('PilotageService writes', () => {
-  it('replaces one region, keeps an unchanged value unaudited, and leaves other regions stored', async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'keep', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10, createdBy: 'old', updatedBy: 'old' },
-      { id: 'drop-dept', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 20, createdBy: 'old', updatedBy: 'old' },
-      { id: 'drop-region', year: 2026, regionId: 'r-centre', departmentId: null, inscriptionTarget: 100, createdBy: 'old', updatedBy: 'old' },
-      { id: 'other', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7, createdBy: 'old', updatedBy: 'old' },
-    );
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 40, createdBy: 'old', updatedBy: 'old' });
-
-    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 }],
-    });
-
-    expect(harness.territoryTargets.map((row) => row.id).sort()).toEqual(['keep', 'other']);
-    expect(harness.territoryTargets.find((row) => row.id === 'keep')).toMatchObject({ createdBy: 'old', updatedBy: 'old' });
-    expect(harness.audits.map((row) => row.action).sort()).toEqual(['INSCRIPTION_TARGET_DELETE', 'INSCRIPTION_TARGET_DELETE']);
-    expect(harness.audits).toEqual(expect.arrayContaining([
-      expect.objectContaining({ resourceId: 'drop-dept', previousValue: '20', newValue: null, userId: 'actor-1', resourceType: 'TerritoryTarget' }),
-      expect.objectContaining({ resourceId: 'drop-region', previousValue: '100', newValue: null }),
-    ]));
-    expect(harness.centralInscriptions).toHaveLength(1);
-    expect(harness.transactionOptions).toEqual([{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }]);
-    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
-    expect(centre).toMatchObject({ mode: 'DEPARTMENT', inscriptionTarget: 10 });
-    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
-    expect(littoral).toMatchObject({ inscriptionTarget: 7 });
-    expect(result.central).toEqual({ inscriptionTarget: 40 });
-  });
-
-  it('updates a changed target and stores zero as a real target', async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'keep', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10, createdBy: 'old', updatedBy: 'old' },
-    );
-    await harness.service.putInscriptionTargets('actor-1', national, 2026, {
-      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 0 }],
-      central: { inscriptionTarget: 0 },
-    });
-    expect(harness.territoryTargets[0]).toMatchObject({ inscriptionTarget: 0, createdBy: 'old', updatedBy: 'actor-1' });
-    expect(harness.centralInscriptions[0]).toMatchObject({ inscriptionTarget: 0, createdBy: 'actor-1' });
-    expect(harness.audits).toEqual(expect.arrayContaining([
-      expect.objectContaining({ action: 'INSCRIPTION_TARGET_UPSERT', previousValue: '10', newValue: '0' }),
-      expect.objectContaining({ action: 'CENTRAL_INSCRIPTION_TARGET_UPSERT', previousValue: null, newValue: '0', resourceType: 'CentralInscriptionTarget' }),
-    ]));
-  });
-
-  it('switches a region to a single regional target and can clear the central row', async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'dept', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10, createdBy: 'old', updatedBy: 'old' },
-    );
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 40 });
-    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', departmentId: null, inscriptionTarget: 80 }],
-      central: null,
-    });
-    expect(harness.territoryTargets).toEqual([
-      expect.objectContaining({ regionId: 'r-centre', departmentId: null, inscriptionTarget: 80 }),
-    ]);
-    expect(harness.centralInscriptions).toEqual([]);
-    expect(harness.audits.map((row) => row.action).sort()).toEqual([
-      'CENTRAL_INSCRIPTION_TARGET_DELETE',
-      'INSCRIPTION_TARGET_DELETE',
-      'INSCRIPTION_TARGET_UPSERT',
-    ]);
-    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
-    expect(centre).toMatchObject({ mode: 'REGION', inscriptionTarget: 80 });
-    expect(result.central).toBeNull();
-  });
-
-  it('does not audit a central value that is already stored', async () => {
-    const harness = createHarness();
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 40, createdBy: 'old', updatedBy: 'old' });
-    await harness.service.putInscriptionTargets('actor-1', national, '2026', { entries: [], central: { inscriptionTarget: 40 } });
-    expect(harness.audits).toEqual([]);
-    expect(harness.centralInscriptions[0]).toMatchObject({ updatedBy: 'old' });
-  });
-
+  // prepare() is shared by every target write. It was covered through the
+  // year-scoped inscription endpoint until Phase 6a retired it; the assertions
+  // are unchanged, re-pointed at the surviving campaign-quota writer.
   it('rejects a bad body, a department outside its region, an unknown region, and an oversized body before opening a transaction', async () => {
     const harness = createHarness();
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: -1 }],
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: -1 }],
     })).rejects.toThrow('entier positif ou nul');
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
       entries: [
-        { regionId: 'r-centre', departmentId: null, inscriptionTarget: 1 },
-        { regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 1 },
+        { regionId: 'r-centre', departmentId: null, submissionTarget: 1 },
+        { regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 1 },
       ],
     })).rejects.toThrow('mélange un objectif régional');
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-littoral', departmentId: 'd-mfoundi', inscriptionTarget: 1 }],
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-littoral', departmentId: 'd-mfoundi', submissionTarget: 1 }],
     })).rejects.toThrow("Le département 'Mfoundi' n'appartient pas à la région 'Littoral'.");
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'missing', departmentId: null, inscriptionTarget: 1 }],
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'missing', departmentId: null, submissionTarget: 1 }],
     })).rejects.toThrow("Région introuvable (ID: 'missing').");
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
       entries: [{ regionId: 'missing', clear: true }],
     })).rejects.toThrow("Région introuvable (ID: 'missing').");
     (harness.prisma.region as { count: jest.Mock }).count.mockResolvedValue(1);
     (harness.prisma.department as { count: jest.Mock }).count.mockResolvedValue(1);
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
       entries: [
-        { regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 1 },
-        { regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 1 },
-        { regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 1 },
+        { regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 1 },
+        { regionId: 'r-centre', departmentId: 'd-lekie', submissionTarget: 1 },
+        { regionId: 'r-littoral', departmentId: 'd-wouri', submissionTarget: 1 },
       ],
     })).rejects.toThrow('au-delà des 2 territoires connus');
     expect(harness.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  // transaction()'s retry and conflict mapping, likewise re-pointed off the
+  // retired inscription writer onto the campaign-quota one.
   it('retries a serialization conflict once and turns a unique violation into a 409', async () => {
     const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
     let attempts = 0;
     (harness.prisma.$transaction as jest.Mock).mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => {
       attempts += 1;
       if (attempts === 1) throw knownError('P2034');
       return work(harness.prisma);
     });
-    await harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 4 }],
+    await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 4 }],
     });
     expect(attempts).toBe(2);
-    expect(harness.territoryTargets).toEqual([expect.objectContaining({ inscriptionTarget: 4 })]);
+    expect(harness.campaignQuotas).toEqual([expect.objectContaining({ submissionTarget: 4 })]);
 
     (harness.prisma.$transaction as jest.Mock).mockImplementation(async () => {
       throw knownError('P2002');
     });
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 5 }],
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 5 }],
     })).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -382,8 +304,8 @@ describe('PilotageService writes', () => {
       createdBy: 'actor-1', updatedBy: 'actor-1',
     });
 
-    // The deprecated table keeps its delegate — campaign.service still reads
-    // the relation for its delete-blocker — but pilotage must not write it.
+    // The deprecated table has no reader left after Phase 6a and no writer
+    // since 3d-bis; this holds pilotage to that until 6b drops the model.
     expect(harness.centralQuotas).toHaveLength(0);
     const centralDelegate = harness.prisma.centralCampaignQuota as Record<string, jest.Mock>;
     expect(centralDelegate.create).not.toHaveBeenCalled();
@@ -465,31 +387,6 @@ describe('PilotageService writes', () => {
     expect(quotas.central).toEqual({ submissionTarget: 99 });
   });
 
-  it("clears a region's inscription targets back to UNSET, auditing each deleted row", async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 't-mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10, createdBy: 'old', updatedBy: 'old' },
-      { id: 't-lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 20, createdBy: 'old', updatedBy: 'old' },
-      { id: 't-wouri', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7, createdBy: 'old', updatedBy: 'old' },
-    );
-    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', clear: true }],
-    });
-    expect(harness.territoryTargets.map((row) => row.id)).toEqual(['t-wouri']);
-    expect(harness.audits.map((row) => row.action).sort()).toEqual([
-      'INSCRIPTION_TARGET_DELETE',
-      'INSCRIPTION_TARGET_DELETE',
-    ]);
-    expect(harness.audits).toEqual(expect.arrayContaining([
-      expect.objectContaining({ resourceId: 't-mf', previousValue: '10', newValue: null, userId: 'actor-1' }),
-      expect.objectContaining({ resourceId: 't-lek', previousValue: '20', newValue: null, userId: 'actor-1' }),
-    ]));
-    const centre = asRegions(result.regions).find((r) => r.name === 'Centre');
-    expect(centre).toMatchObject({ mode: 'UNSET', inscriptionTarget: null });
-    const littoral = asRegions(result.regions).find((r) => r.name === 'Littoral');
-    expect(littoral).toMatchObject({ inscriptionTarget: 7 });
-  });
-
   it("clears a region's campaign quotas and is a safe no-op when already UNSET", async () => {
     const harness = createHarness();
     harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
@@ -515,107 +412,14 @@ describe('PilotageService writes', () => {
 
   it('rejects clear combined with a value for the same region before opening a transaction', async () => {
     const harness = createHarness();
-    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    await expect(harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
       entries: [
         { regionId: 'r-centre', clear: true },
-        { regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 5 },
+        { regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 5 },
       ],
     })).rejects.toThrow('La région « Centre » ne peut pas combiner « clear » avec d\'autres lignes.');
     expect(harness.prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it('does not write or audit when clearing an already UNSET region', async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'other', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7 },
-    );
-    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
-      entries: [{ regionId: 'r-centre', clear: true }],
-    });
-    expect(harness.territoryTargets.map((row) => row.id)).toEqual(['other']);
-    expect(harness.audits).toEqual([]);
-    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
-    expect(centre).toMatchObject({ mode: 'UNSET', inscriptionTarget: null });
-  });
-});
-
-describe('PilotageService reads', () => {
-  function seed(harness: ReturnType<typeof createHarness>) {
-    harness.territoryTargets.push(
-      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
-      { id: 'lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 15 },
-      { id: 'wouri', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7 },
-    );
-    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 40 });
-  }
-
-  it('sums a region for a regional reader and hides the central target', async () => {
-    const harness = createHarness();
-    seed(harness);
-    const result = await harness.service.getInscriptionTargets(regional, '2026');
-    expect(result.central).toBeNull();
-    expect(result.regions).toHaveLength(1);
-    expect(result.regions[0]).toMatchObject({ name: 'Centre', mode: 'DEPARTMENT', inscriptionTarget: 25 });
-    expect(result.regions[0].departments).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'Mfoundi', inscriptionTarget: 10 }),
-      expect.objectContaining({ name: 'Lékié', inscriptionTarget: 15 }),
-    ]));
-  });
-
-  it('shows a divisional reader only their department, with no sibling targets and no region sum', async () => {
-    const harness = createHarness();
-    seed(harness);
-    const result = await harness.service.getInscriptionTargets(divisional, '2026');
-    expect(result.central).toBeNull();
-    expect(result.regions).toEqual([
-      expect.objectContaining({
-        name: 'Centre',
-        mode: 'DEPARTMENT',
-        inscriptionTarget: null,
-        departments: [{ departmentId: 'd-mfoundi', name: 'Mfoundi', inscriptionTarget: 10 }],
-      }),
-    ]);
-    expect(JSON.stringify(result)).not.toContain('Lékié');
-    expect(JSON.stringify(result)).not.toContain('Wouri');
-    expect((harness.prisma.centralInscriptionTarget as { findUnique: jest.Mock }).findUnique).not.toHaveBeenCalled();
-  });
-
-  it('shows the regional target to a divisional reader when the region is in regional mode', async () => {
-    const harness = createHarness();
-    harness.territoryTargets.push(
-      { id: 'region', year: 2026, regionId: 'r-centre', departmentId: null, inscriptionTarget: 80 },
-    );
-    const result = await harness.service.getInscriptionTargets(divisional, '2026');
-    expect(result.regions[0]).toMatchObject({
-      mode: 'REGION',
-      inscriptionTarget: 80,
-      departments: [expect.objectContaining({ name: 'Mfoundi', inscriptionTarget: null })],
-    });
-  });
-
-  it('returns every region and the central target to a national reader, and an empty grid when scope fails closed', async () => {
-    const harness = createHarness();
-    seed(harness);
-    harness.territoryTargets.push(
-      { id: 'mixed-region', year: 2026, regionId: 'r-littoral', departmentId: null, inscriptionTarget: 3 },
-    );
-    const result = await harness.service.getInscriptionTargets(national, '2026');
-    expect(result.central).toEqual({ inscriptionTarget: 40 });
-    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
-    expect(littoral).toMatchObject({ mode: 'MIXED', inscriptionTarget: null });
-
-    await expect(harness.service.getInscriptionTargets(undefined, '2026')).resolves.toEqual({ year: 2026, central: null, regions: [] });
-    await expect(harness.service.getInscriptionTargets({ role: 'AUDITOR', region: 'Centre' }, '2026'))
-      .resolves.toEqual({ year: 2026, central: null, regions: [] });
-    await expect(harness.service.getInscriptionTargets({ role: 'REGIONAL_ADMIN', region: 'Extreme-Nord' }, '2026'))
-      .resolves.toEqual({ year: 2026, central: null, regions: [] });
-  });
-
-  it('reports an unset region when nothing has been stored', async () => {
-    const harness = createHarness();
-    const result = await harness.service.getInscriptionTargets(regional, '2026');
-    expect(result.regions[0]).toMatchObject({ name: 'Centre', mode: 'UNSET', inscriptionTarget: null });
-    expect(asRegions(result.regions)[0].departments.every((department: { inscriptionTarget: number | null }) => department.inscriptionTarget === null)).toBe(true);
   });
 });
 
