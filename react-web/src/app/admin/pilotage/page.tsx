@@ -321,23 +321,27 @@ export default function PilotagePage() {
   const isTerritorial = isRegional || isDivisional;
   const userRegion = user?.region?.trim().toLowerCase();
 
+  // These figures move at administrative pace, not every 30s. Each poll of the
+  // five queries below opens Prisma connections against Supabase's session-mode
+  // pooler, whose ceiling this page was hitting (intermittent EMAXCONNSESSION
+  // 500s on /admin/pilotage), so they refetch every 2 minutes.
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   // GET /data-management/stats is territory-scoped server-side (territoryWhere).
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
     queryFn: getDataManagementStats,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const recentQuery = useQuery({
     queryKey: ["admin", "questionnaires", "recent", 8],
     queryFn: () => listAdminQuestionnaires({ limit: 8, offset: 0 }),
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const { activeCampaign } = useActiveCampaign();
@@ -345,7 +349,7 @@ export default function PilotagePage() {
   const qualityQuery = useQuery({
     queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
     queryFn: () => getQualitySummary(activeCampaign?.id),
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   // Registration queue head-count for the "Inscriptions en attente" tile.
@@ -353,13 +357,13 @@ export default function PilotagePage() {
   // `counts` are computed over the whole queue rather than the requested page,
   // so pageSize: 1 fetches the figure without paying for a row set.
   // Its @Roles excludes AUDITOR, which reaches this page as the /admin
-  // fallback route: left ungated the query would 403 every 30s. Disabled, it
+  // fallback route: left ungated the query would 403 on every poll. Disabled, it
   // keeps `registrations` undefined, so the tile renders the honest absence.
   const canReadRegistrations = !!userRole && APPROVAL_ROLES.includes(userRole);
   const registrationsQuery = useQuery({
     queryKey: ["auth", "company-registrations", "pending-count"],
     queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
-    refetchInterval: 30000,
+    refetchInterval: 120000,
     enabled: canReadRegistrations,
   });
 
