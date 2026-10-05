@@ -901,4 +901,185 @@ describe('PilotageService.getCampaignReturns', () => {
     expect(divRes.regions[0].departments[0].departmentId).toBe('d-mfoundi');
     expect(divRes.totals.received).toBe(1);
   });
+
+  // ── Quota scope (2026-10-04 audit, finding #4) ────────────────────────────
+  //
+  // A territory with no quota set still contributes its returns to the
+  // actuals, but must contribute to neither side of quotaRate / onTimeRate /
+  // gap: its quota is unknown, not zero, so counting its returns in the
+  // numerator measured them against other territories' quotas — overstating
+  // the rate and hiding part of the gap.
+  //
+  // Exercised through getCampaignReturns rather than against the private
+  // helper, so these assert the payload the endpoint actually serves.
+  //
+  // Fixture:
+  //              quota   received  onTime   quota-backed
+  //   Mfoundi        10          2       1   yes
+  //   Lékié        none          1       1   no
+  //   Wouri        none          2       2   no
+  //   ---------------------------------------------------
+  //   national       10          5       4   received 2, onTime 1
+  //
+  // Before the fix the national rollup read gap 5, quotaRate 0.5 and
+  // onTimeRate 0.3 — all three computed over returns the quota never covered.
+  function mixedQuotaHarness() {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // Mfoundi alone carries a quota; Lékié and all of Littoral carry none.
+    harness.campaignQuotas.push({
+      id: 'q1',
+      campaignId: 'c1',
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      submissionTarget: 10,
+    });
+
+    // companyId, regionId, departmentId, isLate
+    const placements: Array<[string, string, string, boolean]> = [
+      ['comp-mf-1', 'r-centre', 'd-mfoundi', false],
+      ['comp-mf-2', 'r-centre', 'd-mfoundi', true],
+      ['comp-lk-1', 'r-centre', 'd-lekie', false],
+      ['comp-wo-1', 'r-littoral', 'd-wouri', false],
+      ['comp-wo-2', 'r-littoral', 'd-wouri', false],
+    ];
+    for (const [companyId, regionId, departmentId, isLate] of placements) {
+      harness.companies.push(registeredCompany(companyId, regionId, departmentId));
+      harness.onefopSubmissions.push({
+        id: `sub-${companyId}`,
+        campaignId: 'c1',
+        companyId,
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.PENDING_REVIEW,
+        isLate,
+        regionId,
+        departmentId,
+        createdAt: new Date('2026-02-10'),
+      });
+    }
+    return harness;
+  }
+
+  it('excludes a department with no quota from its region quotaRate and gap', async () => {
+    const res = await mixedQuotaHarness().service.getCampaignReturns(national, 'c1');
+    const centre = res.regions.find((r) => r.regionId === 'r-centre')!;
+
+    // Lékié's return is in the actuals.
+    expect(centre.received).toBe(3);
+    expect(centre.onTime).toBe(2);
+
+    // ...but only Mfoundi's 2 are measured against the quota of 10.
+    expect(centre.quota).toBe(10);
+    expect(centre.quotaRate).toBe(0.2); // 2/10, not 3/10
+    expect(centre.gap).toBe(8); // 10-2, not 10-3
+    expect(centre.onTimeRate).toBe(0.1); // 1/10, not 2/10
+  });
+
+  it('excludes a whole region with no quota from the national quotaRate numerator and denominator', async () => {
+    const res = await mixedQuotaHarness().service.getCampaignReturns(national, 'c1');
+    const littoral = res.regions.find((r) => r.regionId === 'r-littoral')!;
+
+    // Littoral has no quota at all: the three quota-relative fields are null
+    // rather than a rate measured against nothing.
+    expect(littoral.quota).toBeNull();
+    expect(littoral.quotaRate).toBeNull();
+    expect(littoral.onTimeRate).toBeNull();
+    expect(littoral.gap).toBeNull();
+    expect(littoral.received).toBe(2);
+
+    // It adds nothing to either side of the national rate: the denominator is
+    // Mfoundi's 10, and the numerator is Mfoundi's 2.
+    expect(res.totals.quota).toBe(10);
+    expect(res.totals.quotaRate).toBe(0.2);
+  });
+
+  it('computes the national gap over quota-backed returns only', async () => {
+    const res = await mixedQuotaHarness().service.getCampaignReturns(national, 'c1');
+    expect(res.totals.gap).toBe(8); // 10-2, not 10-5
+  });
+
+  it('uses the same quota-backed denominator for onTimeRate', async () => {
+    const res = await mixedQuotaHarness().service.getCampaignReturns(national, 'c1');
+    // 4 of the 5 returns were on time, but only 1 of them is quota-backed.
+    expect(res.totals.onTime).toBe(4);
+    expect(res.totals.onTimeRate).toBe(0.1); // 1/10, not 4/10
+  });
+
+  it('keeps the quota-less returns in the national actuals', async () => {
+    const res = await mixedQuotaHarness().service.getCampaignReturns(national, 'c1');
+    // Narrowing the rates must not narrow the counts: every return is here.
+    expect(res.totals.received).toBe(5);
+    expect(res.totals.onTime).toBe(4);
+    expect(res.totals.late).toBe(1);
+    expect(res.totals.approved).toBe(0);
+  });
+
+  it('reports null, not zero, for every quota-relative field when no quota is set anywhere', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // Returns but no quota rows at all, and no central quota.
+    harness.companies.push(registeredCompany('comp-1', 'r-centre', 'd-mfoundi'));
+    harness.onefopSubmissions.push({
+      id: 's1',
+      campaignId: 'c1',
+      companyId: 'comp-1',
+      formType: OnefopEntityType.ENTREPRISE,
+      status: OnefopStatus.PENDING_REVIEW,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      createdAt: new Date('2026-02-10'),
+    });
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    expect(res.totals.quota).toBeNull();
+    expect(res.totals.quotaRate).toBeNull();
+    expect(res.totals.onTimeRate).toBeNull();
+    expect(res.totals.gap).toBeNull();
+    // The return itself is still counted.
+    expect(res.totals.received).toBe(1);
+  });
+
+  it('treats an explicit region-level quota as covering the whole region', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // departmentId null = a region-level row (summarizeRegion -> mode REGION),
+    // so every return in the region is quota-backed, including returns from
+    // departments that have no row of their own.
+    harness.campaignQuotas.push({
+      id: 'q-region',
+      campaignId: 'c1',
+      regionId: 'r-centre',
+      departmentId: null,
+      submissionTarget: 20,
+    });
+    const placements: Array<[string, string]> = [
+      ['comp-mf-1', 'd-mfoundi'],
+      ['comp-lk-1', 'd-lekie'],
+    ];
+    for (const [companyId, departmentId] of placements) {
+      harness.companies.push(registeredCompany(companyId, 'r-centre', departmentId));
+      harness.onefopSubmissions.push({
+        id: `sub-${companyId}`,
+        campaignId: 'c1',
+        companyId,
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.PENDING_REVIEW,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId,
+        createdAt: new Date('2026-02-10'),
+      });
+    }
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    const centre = res.regions.find((r) => r.regionId === 'r-centre')!;
+    expect(centre.quota).toBe(20);
+    expect(centre.received).toBe(2);
+    // Both returns count toward the rate: the region target covers them even
+    // though neither department carries a quota of its own.
+    expect(centre.quotaRate).toBe(0.1); // 2/20
+    expect(centre.gap).toBe(18); // 20-2
+    expect(centre.onTimeRate).toBe(0.1); // 2/20
+  });
 });
