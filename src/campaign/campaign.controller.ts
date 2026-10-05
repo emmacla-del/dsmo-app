@@ -24,10 +24,11 @@ export class CampaignController {
     @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
     async listCampaigns(
         @Query('status') status?: string,
-        @Query('type') type?: string,
+        @Query('type') type?: string,                 // legacy wire key
         @Req() req?: any,
+        @Query('periodicity') periodicity?: string,   // new wire key
     ) {
-        return this.campaignService.listCampaigns(status, type, req?.user);
+        return this.campaignService.listCampaigns(status, type, req?.user, periodicity);
     }
 
     // FIX 2: static routes must come BEFORE param routes (:id)

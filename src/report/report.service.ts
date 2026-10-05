@@ -1029,7 +1029,7 @@ export class ReportService {
     ): Promise<Record<string, any>> {
         const campaign = await this.prisma.dataCampaign.findUnique({
             where: { id: campaignId },
-            select: { startDate: true, deadline: true, type: true, name: true },
+            select: { startDate: true, deadline: true, periodicity: true, name: true },
         });
 
         if (!campaign) return overrides;
@@ -1042,7 +1042,7 @@ export class ReportService {
         const toQ = (d: Date) => Math.ceil((d.getMonth() + 1) / 3);
         const fromQuarter = `${year}-T${toQ(start)}`;
         const toQuarter = `${endYear}-T${toQ(end)}`;
-        const periodLabel = this.derivePeriodLabel(fromQuarter, toQuarter, campaign.type);
+        const periodLabel = this.derivePeriodLabel(fromQuarter, toQuarter, campaign.periodicity ?? undefined);
 
         return {
             year,

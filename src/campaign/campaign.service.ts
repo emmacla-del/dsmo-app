@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 
-import { Prisma, DataCampaign, OnefopEntityType } from '@prisma/client';
+import { Prisma, DataCampaign, OnefopEntityType, CampaignPeriodicity } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
@@ -118,15 +118,17 @@ export class CampaignService {
         const refPeriod = referenceYear !== undefined && referenceQuarter !== undefined
             ? { year: referenceYear, quarter: referenceQuarter }
             : undefined;
-        const code = await this.generateCampaignCode(data.type, startDate, refPeriod);
+        const periodicity: CampaignPeriodicity = data.periodicity ?? data.type ?? 'QUARTERLY';
+        const code = await this.generateCampaignCode(periodicity, startDate, refPeriod);
 
         const campaign = await this.prisma.dataCampaign.create({
             data: {
                 code,
                 name: `${this.campaignNameByCollectionType[collectionType]} ` +
-                    this.buildPeriodSuffix(data.type, startDate, refPeriod),
+                    this.buildPeriodSuffix(periodicity, startDate, refPeriod),
                 description: data.description,
-                type: data.type,
+                periodicity,
+                purpose: data.purpose ?? 'COLLECTION',
                 collectionType,
                 referenceYear,
                 referenceQuarter,
@@ -148,10 +150,16 @@ export class CampaignService {
     }
 
 
-    async listCampaigns(status?: string, type?: string, user?: any) {
+    async listCampaigns(
+        status?: string,
+        type?: string,        // legacy wire key, still sent by the Flutter clients
+        user?: any,
+        periodicity?: string, // new wire key
+    ) {
         const where: any = {};
         if (status) where.status = status;
-        if (type) where.type = type;
+        const periodicityFilter = periodicity ?? type;
+        if (periodicityFilter) where.periodicity = periodicityFilter;
 
         if (user?.role === UserRole.REGIONAL_ADMIN && user.region) {
             // An empty targetRegions means "all regions", so it must still
@@ -200,7 +208,7 @@ export class CampaignService {
             progressMap.set(id, this._buildProgress(rows));
         }
 
-        return campaigns.map(c => ({
+        return campaigns.map(c => this.toCampaignWire({
             ...c,
             progress: progressMap.get(c.id) ?? this._buildProgress([]),
         }));
@@ -217,7 +225,7 @@ export class CampaignService {
         });
 
         if (!campaign) throw new NotFoundException('Campaign not found');
-        return campaign;
+        return this.toCampaignWire(campaign);
     }
 
     async updateCampaign(id: string, data: any) {
@@ -605,12 +613,12 @@ export class CampaignService {
             }
         }
 
-        return [...latestByModule.values()].map(c => ({
+        return [...latestByModule.values()].map(c => this.toCampaignWire({
             id: c.id,
             code: c.code,
             name: c.name,
             description: c.description,
-            type: c.type,
+            periodicity: c.periodicity,
             collectionType: c.collectionType,
             startDate: c.startDate,
             deadline: c.deadline,
@@ -622,6 +630,26 @@ export class CampaignService {
     // ═══════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Response shaper for every endpoint that returns a campaign object.
+     *
+     * DataCampaign.type was renamed to `periodicity`, but react-web, the
+     * Flutter admin and the Flutter company workspace all still read the
+     * JSON key `type`. GET /campaigns and GET /campaigns/:id used to return
+     * the raw Prisma row by spread, so the wire key was simply the Prisma
+     * field name — renaming the column would have silently renamed the key
+     * and broken all three clients at once.
+     *
+     * So we dual-emit: `periodicity` is the real field, and `type` is
+     * re-added explicitly with the same value. Drop the legacy key once all
+     * three clients read `periodicity`.
+     */
+    private toCampaignWire<T extends { periodicity: CampaignPeriodicity | null }>(
+        c: T,
+    ): T & { type: CampaignPeriodicity | null } {
+        return { ...c, type: c.periodicity };
+    }
 
     /**
      * Opens (or reopens) the SubmissionRound that gates the campaign's
@@ -648,7 +676,7 @@ export class CampaignService {
         // fixed at round-open time and never altered by extending the
         // submission deadline. See computeCollectionPeriod().
         const { periodStart, periodEnd } = computeCollectionPeriod(
-            campaign.type ?? 'QUARTERLY',
+            campaign.periodicity ?? 'QUARTERLY',
             campaign.startDate ?? new Date(),
         );
 

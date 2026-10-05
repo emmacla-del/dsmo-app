@@ -9,9 +9,13 @@ describe('CampaignService - reference period and lateness gating', () => {
         dataCampaign: {
             findFirst: jest.Mock;
             findUnique: jest.Mock;
+            findMany: jest.Mock;
             create: jest.Mock;
             update: jest.Mock;
             delete: jest.Mock;
+        };
+        campaignSubmission: {
+            groupBy: jest.Mock;
         };
         submissionRound: {
             findUnique: jest.Mock;
@@ -26,9 +30,13 @@ describe('CampaignService - reference period and lateness gating', () => {
             dataCampaign: {
                 findFirst: jest.fn(),
                 findUnique: jest.fn(),
+                findMany: jest.fn(),
                 create: jest.fn(),
                 update: jest.fn(),
                 delete: jest.fn(),
+            },
+            campaignSubmission: {
+                groupBy: jest.fn().mockResolvedValue([]),
             },
             submissionRound: {
                 findUnique: jest.fn(),
@@ -551,5 +559,163 @@ describe('CampaignService - reference period and lateness gating', () => {
             });
         });
     });
-});
+    // ───────────────────────────────────────────────────────────
+    // DataCampaign.type was renamed to `periodicity`. react-web, the Flutter
+    // admin and the Flutter company workspace all still read the JSON key
+    // `type`, so every campaign response dual-emits both keys and the request
+    // side accepts either. These tests pin that contract — delete them only
+    // when the legacy `type` key is actually retired.
+    // ───────────────────────────────────────────────────────────
+    describe('periodicity / type wire compatibility', () => {
+        const futureDeadline = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
+        it('getCampaign emits both `periodicity` and the legacy `type` key with the same value', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-1',
+                code: 'QUARTERLY_2026_T3_001',
+                periodicity: 'QUARTERLY',
+                purpose: 'COLLECTION',
+                status: 'ACTIVE',
+            });
+
+            const result: any = await service.getCampaign('c-1');
+
+            expect(result.periodicity).toBe('QUARTERLY');
+            expect(result.type).toBe('QUARTERLY');
+            expect(result.purpose).toBe('COLLECTION');
+        });
+
+        it('getCampaign carries a null periodicity through to both keys rather than inventing a value', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-null',
+                code: 'QUARTERLY_2026_T3_002',
+                periodicity: null,
+                purpose: 'COLLECTION',
+                status: 'ACTIVE',
+            });
+
+            const result: any = await service.getCampaign('c-null');
+
+            expect(result.periodicity).toBeNull();
+            expect(result.type).toBeNull();
+        });
+
+        it('listCampaigns emits both keys on every row', async () => {
+            prisma.dataCampaign.findMany.mockResolvedValue([
+                {
+                    id: 'c-1',
+                    code: 'ANNUAL_2026_AN_001',
+                    periodicity: 'ANNUAL',
+                    purpose: 'COLLECTION',
+                    status: 'ACTIVE',
+                    deadline: futureDeadline,
+                },
+            ]);
+
+            const result: any[] = await service.listCampaigns();
+
+            expect(result).toHaveLength(1);
+            expect(result[0].periodicity).toBe('ANNUAL');
+            expect(result[0].type).toBe('ANNUAL');
+            // the mapper must not swallow anything else the endpoint returns
+            expect(result[0].progress).toBeDefined();
+            expect(result[0].code).toBe('ANNUAL_2026_AN_001');
+        });
+
+        it('listCampaigns filters on periodicity whether the caller sends `type` or `periodicity`', async () => {
+            prisma.dataCampaign.findMany.mockResolvedValue([]);
+
+            await service.listCampaigns(undefined, 'SEMESTER');
+            expect(prisma.dataCampaign.findMany).toHaveBeenLastCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ periodicity: 'SEMESTER' }) }),
+            );
+
+            await service.listCampaigns(undefined, undefined, undefined, 'ANNUAL');
+            expect(prisma.dataCampaign.findMany).toHaveBeenLastCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ periodicity: 'ANNUAL' }) }),
+            );
+        });
+
+        it('listCampaigns prefers the new `periodicity` key when a client sends both', async () => {
+            prisma.dataCampaign.findMany.mockResolvedValue([]);
+
+            await service.listCampaigns(undefined, 'QUARTERLY', undefined, 'ANNUAL');
+
+            expect(prisma.dataCampaign.findMany).toHaveBeenLastCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ periodicity: 'ANNUAL' }) }),
+            );
+        });
+
+        it('createCampaign stores periodicity from the legacy `type` request key', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+            prisma.submissionRound.findUnique.mockResolvedValue(null);
+            prisma.dataCampaign.create.mockImplementation(async ({ data }: any) => ({ id: 'c-new', ...data }));
+
+            await service.createCampaign({
+                collectionType: 'DSMO',
+                type: 'ANNUAL',
+                startDate: '2026-10-15',
+                deadline: '2026-12-31',
+                createdBy: 'user-1',
+            });
+
+            const createCall = prisma.dataCampaign.create.mock.calls[0][0];
+            expect(createCall.data.periodicity).toBe('ANNUAL');
+            expect(createCall.data).not.toHaveProperty('type');
+        });
+
+        it('createCampaign accepts the new `periodicity` request key', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+            prisma.submissionRound.findUnique.mockResolvedValue(null);
+            prisma.dataCampaign.create.mockImplementation(async ({ data }: any) => ({ id: 'c-new', ...data }));
+
+            await service.createCampaign({
+                collectionType: 'DSMO',
+                periodicity: 'SEMESTER',
+                startDate: '2026-10-15',
+                deadline: '2026-12-31',
+                createdBy: 'user-1',
+            });
+
+            const createCall = prisma.dataCampaign.create.mock.calls[0][0];
+            expect(createCall.data.periodicity).toBe('SEMESTER');
+            // the code and name are derived from the same value, whichever key carried it
+            expect(createCall.data.code).toMatch(/^SEMESTER_2026_S2_\d{3}$/);
+            expect(createCall.data.name).toContain('POUR LE DEUXIEME SEMESTRE 2026');
+        });
+
+        it('createCampaign defaults purpose to COLLECTION and falls back to QUARTERLY periodicity', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+            prisma.submissionRound.findUnique.mockResolvedValue(null);
+            prisma.dataCampaign.create.mockImplementation(async ({ data }: any) => ({ id: 'c-new', ...data }));
+
+            await service.createCampaign({
+                collectionType: 'DSMO',
+                startDate: '2026-10-15',
+                deadline: '2026-12-31',
+                createdBy: 'user-1',
+            });
+
+            const createCall = prisma.dataCampaign.create.mock.calls[0][0];
+            expect(createCall.data.periodicity).toBe('QUARTERLY');
+            expect(createCall.data.purpose).toBe('COLLECTION');
+        });
+
+        it('createCampaign honours an explicit REGISTRATION purpose', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+            prisma.submissionRound.findUnique.mockResolvedValue(null);
+            prisma.dataCampaign.create.mockImplementation(async ({ data }: any) => ({ id: 'c-new', ...data }));
+
+            await service.createCampaign({
+                collectionType: 'DSMO',
+                periodicity: 'QUARTERLY',
+                purpose: 'REGISTRATION',
+                startDate: '2026-10-15',
+                deadline: '2026-12-31',
+                createdBy: 'user-1',
+            });
+
+            expect(prisma.dataCampaign.create.mock.calls[0][0].data.purpose).toBe('REGISTRATION');
+        });
+    });
+});
