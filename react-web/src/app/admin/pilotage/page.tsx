@@ -154,7 +154,7 @@ function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count:
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Couverture Régionale</h3>
-        <Link href="/admin/centre-qualite?tab=regional" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir toutes les régions →</Link>
+        <Link href="/admin/centre-qualite" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir toutes les régions →</Link>
       </div>
       <div className="cam-dash-table-wrap">
         <table className="cam-dash-table" style={{ width: "100%", borderCollapse: "collapse" }}>

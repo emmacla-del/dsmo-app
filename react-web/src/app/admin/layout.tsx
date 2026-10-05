@@ -23,7 +23,6 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 // `detail` labels a sub-route: its breadcrumb becomes group › nav (linking
 // back to the list) › detail. A sub-route without `detail` renders its own.
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
-  "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité", group: "Données", nav: "Jeux de données" },
 };
 

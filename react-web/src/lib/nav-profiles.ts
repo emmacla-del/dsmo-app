@@ -75,9 +75,9 @@ export interface NavProfile {
  * SETTINGS_ROLES) include it. REGIONAL_ADMIN is in MONITORING_ROLES, so it
  * gets the hub for /admin/equipe.
  *
- * AUDITOR is the one deliberate exception. It can open the two ungated
- * sub-routes under "supervision" (/admin/pilotage and /admin/activite have no
- * allowedRoles), so the principle would give it that hub too. Its nav is held
+ * AUDITOR is the one deliberate exception. It can open the one ungated
+ * sub-route under "supervision" (/admin/pilotage has no allowedRoles), so the
+ * principle would give it that hub too. Its nav is held
  * to the audit journal alone until the role is designed properly — see the
  * note on its entry below.
  */

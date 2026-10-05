@@ -297,12 +297,6 @@ export default function EtablissementsPage() {
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />}
       />
 
-      {/* Title & Subtitle block matching Figma declarants/etablissements.png */}
-      <div style={{ marginTop: 24, marginBottom: 16 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0 }}>Déclarants</h1>
-        <p style={{ fontSize: 14, color: "#6b7280", margin: "4px 0 0" }}>Gestion des comptes, établissements et annuaire</p>
-      </div>
-
       {/* Subnav Pills & Right Action Buttons */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", gap: 10 }}>

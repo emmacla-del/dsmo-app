@@ -18,10 +18,14 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
  * The caller's own notification inbox — Phase 3 of
  * docs/plans/territorial-admin-monitoring.md.
  *
- * No role gate. Every authenticated user reads their own notifications, and
- * the server scopes every route to req.user.id, so there is nothing here a
- * role could widen. _routes.ts deliberately carries no entry for this path:
- * an entry would make it a nav destination inside a hub and gate it by role.
+ * Every authenticated user reads their own notifications, and the server
+ * scopes every route to req.user.id, so there is nothing here a role could
+ * widen. _routes.ts carries a `hidden` entry for this path with ALL_ROLES:
+ * hidden keeps it out of the sidebar and the tab row, so it is still not a
+ * nav destination inside a hub, while the entry gives
+ * getAllowedRoles("/admin/notifications") a list to return instead of null —
+ * an unrecognised role string then fails closed at RequireAdminRole rather
+ * than falling through an absent gate.
  */
 export default function NotificationsPage() {
   const status = useAuthStore((s) => s.status);
