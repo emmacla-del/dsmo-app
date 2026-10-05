@@ -97,12 +97,23 @@ describe('applyRow', () => {
     applyRow(counts, row({ isActive: false }), 2026);
     applyRow(counts, row({ establishmentId: null }), 2026);
     expect(counts).toEqual({
+      companyCount: 10,
       registered: 2,
       registeredInYear: 1,
       pendingApproval: 1,
       pendingReview: 1,
       complementsRequested: 1,
     });
+  });
+
+  it('counts every row in companyCount, including the ones excluded from registered', () => {
+    const counts = emptyCounts();
+    applyRow(counts, row({ status: 'DRAFT' }), 2026);
+    applyRow(counts, row({ status: 'REJECTED' }), 2026);
+    applyRow(counts, row({ isActive: false }), 2026);
+    // Companies exist, none of them registered: a measured zero, not absence.
+    expect(counts.companyCount).toBe(3);
+    expect(counts.registered).toBe(0);
   });
 });
 
