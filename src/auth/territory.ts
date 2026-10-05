@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 
 /**
  * Geographic jurisdiction of a staff account. Administrative boundaries are
@@ -93,6 +93,51 @@ export function territoryWhere(territory?: Territory | null): Record<string, unk
  */
 export function territoryWhereForExport(territory?: Territory | null): Record<string, unknown> {
   return territoryWhereWithRoles(territory, EXPORT_NATIONAL_ROLES);
+}
+
+/**
+ * territoryWhere narrowed to the Declaration model.
+ *
+ * Declaration does not have the columns territoryWhere emits for the id
+ * branches (`regionId`, `departmentId`), and it names the second
+ * administrative tier `division`, not `department`. Passing the generic
+ * where to a declaration query therefore raises
+ * PrismaClientValidationError at runtime. This sibling emits only columns
+ * Declaration actually declares, and its return type is
+ * Prisma.DeclarationWhereInput so a future mismatch is a compile error.
+ *
+ * Scoping is otherwise identical to territoryWhere: national roles read
+ * nationally, territorial roles match by name (case-insensitively), and
+ * anything unassigned or unknown fails closed. DIVISIONAL_ADMIN matches
+ * region AND division for the same reason territoryWhere matches region AND
+ * department — division names repeat across regions.
+ */
+export function territoryWhereForDeclaration(
+  territory?: Territory | null,
+): Prisma.DeclarationWhereInput {
+  if (territory === undefined || territory === null) return {};
+
+  const role = territory.role;
+  if (role && NATIONAL_ROLES.includes(role)) return {};
+
+  if (role === UserRole.REGIONAL_ADMIN) {
+    // No regionId branch: Declaration has no regionId column, and a
+    // region name is the only assignment a User record can carry.
+    const region = cleanName(territory.region);
+    if (region) return { region: nameEquals(region) };
+    return NO_ROWS;
+  }
+
+  if (role === UserRole.DIVISIONAL_ADMIN) {
+    // Likewise no departmentId branch — an account holding only a
+    // departmentId fails closed rather than reading nationally.
+    const region = cleanName(territory.region);
+    const department = cleanName(territory.department);
+    if (region && department) return { region: nameEquals(region), division: nameEquals(department) };
+    return NO_ROWS;
+  }
+
+  return NO_ROWS;
 }
 
 function territoryWhereWithRoles(

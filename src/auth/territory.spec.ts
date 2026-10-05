@@ -1,5 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
-import { assertTerritorialAuthority, territoryFromUser, territoryWhere, territoryWhereForExport } from './territory';
+import {
+  assertTerritorialAuthority,
+  territoryFromUser,
+  territoryWhere,
+  territoryWhereForDeclaration,
+  territoryWhereForExport,
+} from './territory';
 
 const NO_ROWS = { id: { in: [] } };
 const ieq = (value: string) => ({ equals: value, mode: 'insensitive' });
@@ -196,6 +202,66 @@ describe('territoryWhereForExport', () => {
   it('applies no restriction to internal calls with no territory', () => {
     expect(territoryWhereForExport(undefined)).toEqual({});
     expect(territoryWhereForExport(null)).toEqual({});
+  });
+});
+
+// Declaration has neither regionId nor departmentId, and names the second
+// administrative tier `division`. territoryWhereForDeclaration exists so the
+// where handed to a declaration query only ever mentions columns that model
+// actually declares — the id branches of territoryWhere would make Prisma
+// throw at runtime.
+describe('territoryWhereForDeclaration', () => {
+  it('emits no column Declaration does not declare, for every territory shape', () => {
+    const shapes = [
+      { role: 'SUPER_ADMIN' },
+      { role: 'ADMIN_ONEFOP' },
+      { role: 'REGIONAL_ADMIN', ...LITTORAL },
+      { role: 'REGIONAL_ADMIN', region: 'Centre' },
+      { role: 'REGIONAL_ADMIN', regionId: 'reg-lt' },
+      { role: 'DIVISIONAL_ADMIN', ...CENTRE },
+      { role: 'DIVISIONAL_ADMIN', departmentId: 'dep-wouri' },
+      { role: 'AUDITOR', region: 'Littoral' },
+      {},
+    ];
+    for (const shape of shapes) {
+      const keys = Object.keys(territoryWhereForDeclaration(shape));
+      expect(keys.sort()).toEqual(keys.filter((k) => ['id', 'region', 'division'].includes(k)).sort());
+    }
+  });
+
+  it('scopes REGIONAL by region name only — never by regionId', () => {
+    expect(territoryWhereForDeclaration({ role: 'REGIONAL_ADMIN', region: 'Littoral' })).toEqual({ region: ieq('Littoral') });
+    // regionId present alongside the name must not change the emitted shape.
+    expect(territoryWhereForDeclaration({ role: 'REGIONAL_ADMIN', regionId: 'reg-lt', region: 'Littoral' })).toEqual({
+      region: ieq('Littoral'),
+    });
+    // regionId alone cannot be translated to a Declaration column: fail closed.
+    expect(territoryWhereForDeclaration({ role: 'REGIONAL_ADMIN', regionId: 'reg-lt' })).toEqual(NO_ROWS);
+  });
+
+  it('scopes DIVISIONAL by region AND division, never by department or departmentId', () => {
+    expect(territoryWhereForDeclaration({ role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' })).toEqual({
+      region: ieq('Littoral'),
+      division: ieq('Wouri'),
+    });
+    // departmentId alone fails closed rather than reading nationally.
+    expect(territoryWhereForDeclaration({ role: 'DIVISIONAL_ADMIN', departmentId: 'dep-wouri' })).toEqual(NO_ROWS);
+    // Division names repeat across regions, so a division alone is not enough.
+    expect(territoryWhereForDeclaration({ role: 'DIVISIONAL_ADMIN', department: 'Wouri' })).toEqual(NO_ROWS);
+  });
+
+  it('matches territoryWhere on the national and no-territory cases, and fails closed elsewhere', () => {
+    expect(territoryWhereForDeclaration(undefined)).toEqual({});
+    expect(territoryWhereForDeclaration(null)).toEqual({});
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
+      expect(territoryWhereForDeclaration({ role })).toEqual({});
+      expect(territoryWhereForDeclaration({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual({});
+    }
+    for (const role of ['AUDITOR', 'COMPANY', 'not-a-role']) {
+      expect(territoryWhereForDeclaration({ role, region: 'Littoral' })).toEqual(NO_ROWS);
+    }
+    expect(territoryWhereForDeclaration({})).toEqual(NO_ROWS);
+    expect(territoryWhereForDeclaration(territoryFromUser(undefined))).toEqual(NO_ROWS);
   });
 });
 

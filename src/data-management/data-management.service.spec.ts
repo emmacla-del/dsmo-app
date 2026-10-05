@@ -626,3 +626,76 @@ describe('DataManagementService — VOCATIONAL_TRAINING breakdown sheets (VT-8)'
   });
 });
 
+// getDataStats fans one territory out over three models. Company and
+// OnefopSubmission accept every key territoryWhere emits; Declaration has
+// neither regionId nor departmentId and calls the second administrative tier
+// `division`. These cases pin the where each declaration query receives, so
+// a key Declaration cannot accept can no longer reach Prisma as a 500.
+describe('DataManagementService — getDataStats territory scoping', () => {
+  function makeStatsService() {
+    const groupBy = () => jest.fn().mockResolvedValue([]);
+    const prisma = {
+      company: { count: jest.fn().mockResolvedValue(0), groupBy: groupBy() },
+      declaration: { count: jest.fn().mockResolvedValue(0), groupBy: groupBy() },
+      onefopSubmission: { count: jest.fn().mockResolvedValue(0), groupBy: groupBy() },
+      user: { count: jest.fn().mockResolvedValue(0) },
+    };
+    return { service: new DataManagementService(prisma as any) as any, prisma };
+  }
+
+  /** The two where clauses the declaration queries were actually given. */
+  function declarationWheres(prisma: any) {
+    return [
+      prisma.declaration.count.mock.calls[0][0].where,
+      prisma.declaration.groupBy.mock.calls[0][0].where,
+    ];
+  }
+
+  it('runs the declaration queries unscoped for the national roles', async () => {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
+      const { service, prisma } = makeStatsService();
+      await expect(service.getDataStats({ role })).resolves.toBeDefined();
+      expect(prisma.declaration.count).toHaveBeenCalledTimes(1);
+      expect(prisma.declaration.groupBy).toHaveBeenCalledTimes(1);
+      for (const where of declarationWheres(prisma)) expect(where).toEqual({});
+    }
+  });
+
+  it('scopes a REGIONAL_ADMIN by region, not regionId', async () => {
+    const { service, prisma } = makeStatsService();
+    await service.getDataStats({ role: 'REGIONAL_ADMIN', region: 'Littoral', regionId: 'reg-lt' });
+
+    for (const where of declarationWheres(prisma)) {
+      expect(where).toEqual({ region: { equals: 'Littoral', mode: 'insensitive' } });
+      expect(where).not.toHaveProperty('regionId');
+    }
+    // Company still gets the full shape — its model has the id column.
+    expect(prisma.company.count.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
+  });
+
+  it('scopes a DIVISIONAL_ADMIN by division — not department, not departmentId', async () => {
+    const { service, prisma } = makeStatsService();
+    await service.getDataStats({ role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' });
+
+    for (const where of declarationWheres(prisma)) {
+      expect(where).toEqual({
+        region: { equals: 'Littoral', mode: 'insensitive' },
+        division: { equals: 'Wouri', mode: 'insensitive' },
+      });
+      expect(where).not.toHaveProperty('department');
+      expect(where).not.toHaveProperty('departmentId');
+    }
+  });
+
+  it('fails closed for a DIVISIONAL_ADMIN carrying only a departmentId', async () => {
+    const { service, prisma } = makeStatsService();
+    await service.getDataStats({ role: 'DIVISIONAL_ADMIN', departmentId: 'dep-wouri' });
+
+    for (const where of declarationWheres(prisma)) {
+      expect(where).toEqual({ id: { in: [] } });
+      expect(where).not.toHaveProperty('departmentId');
+    }
+    // The id branch is still correct for Company, which does have the column.
+    expect(prisma.company.count.mock.calls[0][0].where).toEqual({ departmentId: 'dep-wouri' });
+  });
+});
