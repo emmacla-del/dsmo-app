@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEFOP — Tableau de bord de pilotage</title>
+<style>
+  /* ==========================================================================
+     DESIGN TOKENS
+     ========================================================================== */
+  :root {
+    /* Colour — restrained, cool neutrals, single accent */
+    --c-primary:        #1a5c3a;
+    --c-primary-hover:  #124529;
+    --c-primary-subtle: #e8f1ec;
+    --c-primary-border: #b8d4c5;
+
+    --c-navy:           #1e3a5f;   /* provenance, secondary header */
+    --c-navy-subtle:    #eef2f7;
+
+    --c-text:           #1a1f2e;
+    --c-text-muted:     #5a6478;
+    --c-text-subtle:    #8a93a3;
+    --c-text-inverse:   #ffffff;
+
+    --c-bg:             #f7f8fa;   /* cool off-white */
+    --c-surface:        #ffffff;
+    --c-surface-alt:    #fafbfc;
+    --c-border:         #e0e4eb;
+    --c-border-strong:  #c8cfd9;
+
+    --c-danger:         #b3261e;
+    --c-danger-bg:      #fbeae9;
+    --c-warning:        #8a5a00;
+    --c-warning-bg:     #fbf3e3;
+    --c-success:        #1a5c3a;
+    --c-success-bg:     #e8f1ec;
+    --c-info:           #1e3a5f;
+    --c-info-bg:        #eef2f7;
+
+    /* Flag stripe */
+    --c-flag-green:     #1a5c3a;
+    --c-flag-red:       #c8102e;
+    --c-flag-yellow:    #d4a017;
+
+    /* Typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+
+    /* Density (comfortable default) */
+    --d-font-body:      13px;
+    --d-font-label:     11.5px;
+    --d-font-title:     20px;
+    --d-font-kpi:       26px;
+    --d-row-pad-y:      10px;
+    --d-card-pad:       20px 22px;
+    --d-gap:            20px;
+
+    /* Shape */
+    --radius-sm:        4px;
+    --radius:           6px;
+    --radius-lg:        8px;
+
+    /* Elevation — minimal */
+    --shadow-sm:        0 1px 2px rgba(20,30,50,0.04);
+    --shadow:           0 1px 3px rgba(20,30,50,0.06), 0 1px 2px rgba(20,30,50,0.04);
+
+    /* Focus — visible and consistent */
+    --focus-ring:       0 0 0 3px rgba(26,92,58,0.25);
+  }
+
+  /* Density variations */
+  body[data-density="compact"] {
+    --d-font-body: 12px;
+    --d-font-label: 11px;
+    --d-font-title: 18px;
+    --d-font-kpi: 22px;
+    --d-row-pad-y: 6px;
+    --d-card-pad: 14px 16px;
+    --d-gap: 14px;
+  }
+  body[data-density="spacious"] {
+    --d-font-body: 14px;
+    --d-font-label: 12px;
+    --d-font-title: 22px;
+    --d-font-kpi: 30px;
+    --d-row-pad-y: 14px;
+    --d-card-pad: 24px 26px;
+    --d-gap: 24px;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ==========================================================================
+     RESET
+     ========================================================================== */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--d-font-body);
+    line-height: 1.5;
+    color: var(--c-text);
+    background: var(--c-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button, select, input {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+  a { color: var(--c-primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Focus — always visible, never outline: none */
+  *:focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+    border-radius: 2px;
+  }
+  *:focus:not(:focus-visible) { outline: none; }
+
+  /* Screen-reader-only */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Skip link */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 8px;
+    background: var(--c-primary);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    z-index: 9999;
+    font-weight: 600;
+    transition: top 0.15s;
+  }
+  .skip-link:focus { top: 8px; text-decoration: none; }
+
+  /* ==========================================================================
+     APP SHELL
+     ========================================================================== */
+  .app { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: #f0f3f6;
+    border-right: 1px solid var(--c-border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .brand-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--c-primary);
+    letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.1em;
+    margin-top: 1px;
+  }
+  .brand-flag {
+    display: flex;
+    height: 2px;
+    margin-top: 10px;
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .brand-flag span { flex: 1; }
+  .nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+  .nav-group { margin-bottom: 2px; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--c-text);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    transition: background 0.1s;
+  }
+  .nav-item:hover { background: #e2e8ee; }
+  .nav-item[aria-current="true"] {
+    background: var(--c-primary);
+    color: #fff;
+    font-weight: 600;
+  }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .nav-sub {
+    padding: 2px 0 2px 36px;
+    margin: 0;
+    list-style: none;
+  }
+  .nav-sub button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 3px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    color: var(--c-text-muted);
+    cursor: pointer;
+  }
+  .nav-sub button:hover { background: #e2e8ee; color: var(--c-text); }
+  .nav-sub button[aria-current="true"] {
+    background: var(--c-primary-subtle);
+    color: var(--c-primary);
+    font-weight: 600;
+  }
+  .sidebar-footer {
+    padding: 12px 14px;
+    border-top: 1px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  /* Main */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  /* Toolbar (top of header, always-on controls) */
+  .topbar {
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    padding: 8px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+  }
+  .topbar-group { display: flex; align-items: center; gap: 4px; }
+  .topbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 9px;
+    border-radius: 3px;
+    border: none;
+    background: none;
+    color: var(--c-text-muted);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .topbar-btn:hover { background: var(--c-surface-alt); color: var(--c-text); }
+  .topbar-btn[aria-pressed="true"] {
+    background: var(--c-primary-subtle);
+    color: var(--c-primary);
+    font-weight: 600;
+  }
+  .topbar-btn svg { width: 12px; height: 12px; }
+  .lang-switch {
+    display: flex;
+    border: 1px solid var(--c-border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .lang-switch button {
+    padding: 4px 9px;
+    border: none;
+    background: var(--c-surface);
+    color: var(--c-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .lang-switch button[aria-pressed="true"] {
+    background: var(--c-navy);
+    color: #fff;
+  }
+
+  /* Page header */
+  .page-header {
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    padding: 18px 24px 0;
+  }
+  .page-head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 12px;
+  }
+  .breadcrumb {
+    font-size: 11.5px;
+    color: var(--c-text-subtle);
+    margin-bottom: 4px;
+  }
+  .breadcrumb a { color: var(--c-text-subtle); }
+  .breadcrumb span { color: var(--c-text-muted); }
+  h1.page-title {
+    font-size: var(--d-font-title);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 0 0 4px;
+    color: var(--c-text);
+    line-height: 1.2;
+  }
+  .page-desc {
+    font-size: var(--d-font-body);
+    color: var(--c-text-muted);
+    margin: 0;
+    max-width: 720px;
+  }
+  .page-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* Provenance strip — critical WB-standard element */
+  .provenance {
+    display: flex;
+    align-items: center;
+    gap: 6px 14px;
+    flex-wrap: wrap;
+    padding: 9px 0;
+    margin: 0 -24px;
+    padding-left: 24px;
+    padding-right: 24px;
+    background: var(--c-navy-subtle);
+    border-top: 1px solid #d7e0eb;
+    font-size: 11px;
+    color: var(--c-text-muted);
+    line-height: 1.5;
+  }
+  .provenance-item { display: inline-flex; align-items: center; gap: 4px; }
+  .provenance-item strong {
+    color: var(--c-navy);
+    font-weight: 600;
+  }
+  .provenance a { color: var(--c-navy); text-decoration: underline; }
+  .provenance svg { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.7; }
+
+  /* Tabs — accessible pattern */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 24px;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    overflow-x: auto;
+    margin-top: -1px;
+  }
+  .tab {
+    padding: 11px 14px;
+    font-size: 12.5px;
+    color: var(--c-text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .tab:hover { color: var(--c-text); }
+  .tab[aria-selected="true"] {
+    color: var(--c-primary);
+    font-weight: 600;
+    border-bottom-color: var(--c-primary);
+  }
+
+  /* Content */
+  .content {
+    flex: 1;
+    padding: var(--d-gap) 24px 48px;
+    max-width: 1440px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* ==========================================================================
+     PANELS — the WB standard pattern
+     ========================================================================== */
+  .panel {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    margin-bottom: var(--d-gap);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-text);
+    margin: 0 0 2px;
+    letter-spacing: -0.005em;
+  }
+  .panel-desc {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    margin: 0;
+    max-width: 640px;
+  }
+  .panel-tools {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .tool-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: var(--c-text-subtle);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .tool-btn:hover { background: var(--c-surface-alt); color: var(--c-text); }
+  .tool-btn svg { width: 14px; height: 14px; }
+  .panel-body { padding: var(--d-card-pad); }
+  .panel-body.flush { padding: 0; }
+
+  /* Panel provenance footer — every panel gets one */
+  .panel-source {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 20px;
+    background: var(--c-surface-alt);
+    border-top: 1px solid var(--c-border);
+    font-size: 10.5px;
+    color: var(--c-text-subtle);
+  }
+  .panel-source strong { color: var(--c-text-muted); font-weight: 600; }
+  .panel-source a { color: var(--c-text-muted); text-decoration: underline; }
+
+  /* ==========================================================================
+     KPI TILES
+     ========================================================================== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--d-gap);
+    margin-bottom: var(--d-gap);
+  }
+  @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .kpi-grid { grid-template-columns: 1fr; } }
+
+  .kpi {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 16px 18px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .kpi-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .kpi-label {
+    font-size: var(--d-font-label);
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .kpi-value {
+    font-size: var(--d-font-kpi);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text);
+    margin-bottom: 4px;
+  }
+  .kpi-target {
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+    margin-bottom: 8px;
+  }
+  .kpi-spark {
+    height: 28px;
+    margin: 4px 0 6px;
+  }
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .kpi-delta.up   { color: var(--c-success); background: var(--c-success-bg); }
+  .kpi-delta.down { color: var(--c-danger);  background: var(--c-danger-bg); }
+  .kpi-delta.flat { color: var(--c-text-muted); background: #eef0f3; }
+
+  /* ==========================================================================
+     DATA TABLE
+     ========================================================================== */
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--d-font-body);
+    font-variant-numeric: tabular-nums;
+  }
+  table.data caption {
+    caption-side: top;
+    text-align: left;
+    padding: 0 0 8px;
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+  }
+  table.data th {
+    text-align: left;
+    font-weight: 600;
+    font-size: var(--d-font-label);
+    color: var(--c-text-muted);
+    padding: 8px 12px;
+    background: var(--c-surface-alt);
+    border-bottom: 1px solid var(--c-border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  table.data th.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+  table.data th.sortable:hover { color: var(--c-text); }
+  table.data th .sort-icon {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    margin-left: 4px;
+    vertical-align: middle;
+    opacity: 0.4;
+  }
+  table.data th[aria-sort="ascending"] .sort-icon  { border-bottom: 4px solid currentColor; opacity: 1; }
+  table.data th[aria-sort="descending"] .sort-icon { border-top: 4px solid currentColor; opacity: 1; }
+  table.data td {
+    padding: var(--d-row-pad-y) 12px;
+    border-bottom: 1px solid var(--c-border);
+    vertical-align: middle;
+  }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data tbody tr:hover td { background: var(--c-surface-alt); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+  /* ==========================================================================
+     BAR CHART (horizontal, target-overlay)
+     ========================================================================== */
+  .hbar-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 100px;
+    gap: 14px;
+    align-items: center;
+    padding: 7px 0;
+    font-size: 12.5px;
+  }
+  .hbar-label { font-weight: 500; }
+  .hbar-track {
+    position: relative;
+    height: 18px;
+    background: #eef1f5;
+    border-radius: 2px;
+    overflow: visible;
+  }
+  .hbar-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: var(--c-primary);
+    border-radius: 2px;
+    transition: width 0.4s ease-out;
+  }
+  .hbar-fill.below { background: #c47a00; }
+  .hbar-fill.critical { background: var(--c-danger); }
+  .hbar-target {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 2px;
+    background: var(--c-text);
+    opacity: 0.7;
+  }
+  .hbar-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text-muted);
+    font-size: 12px;
+  }
+  .hbar-value strong { color: var(--c-text); font-weight: 600; }
+
+  /* ==========================================================================
+     LINE CHART (inline SVG)
+     ========================================================================== */
+  .chart-svg { display: block; width: 100%; height: auto; }
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 8px 0 0;
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+  }
+  .chart-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .chart-legend-swatch {
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .chart-legend-swatch.dashed {
+    background-image: linear-gradient(to right, currentColor 60%, transparent 40%);
+    background-size: 6px 2px;
+  }
+
+  /* ==========================================================================
+     FORM CONTROLS
+     ========================================================================== */
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .toolbar-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: 3px;
+    background: var(--c-surface);
+    font-size: 12px;
+    color: var(--c-text);
+    cursor: pointer;
+  }
+  .control:hover { border-color: var(--c-text-muted); }
+  select.control {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a6478' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn-primary {
+    background: var(--c-primary);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--c-primary-hover); }
+  .btn-secondary {
+    background: var(--c-surface);
+    color: var(--c-text);
+    border-color: var(--c-border-strong);
+  }
+  .btn-secondary:hover { background: var(--c-surface-alt); }
+  .btn-sm { padding: 5px 10px; font-size: 11.5px; }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* ==========================================================================
+     EMPTY / LOADING / ERROR STATES
+     ========================================================================== */
+  .state-empty {
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--c-text-muted);
+  }
+  .state-empty-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 4px;
+  }
+  .state-empty-desc {
+    font-size: 12.5px;
+    max-width: 400px;
+    margin: 0 auto 12px;
+    line-height: 1.5;
+  }
+
+  .state-error {
+    padding: 20px 24px;
+    background: var(--c-danger-bg);
+    border-left: 3px solid var(--c-danger);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin: 0;
+  }
+  .state-error-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--c-danger);
+    margin: 0 0 4px;
+  }
+  .state-error-desc { font-size: 12.5px; color: var(--c-text); margin: 0 0 10px; }
+
+  /* Skeleton loader */
+  .skeleton {
+    display: inline-block;
+    background: linear-gradient(90deg, #eef1f5 25%, #e2e8ee 50%, #eef1f5 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.4s ease-in-out infinite;
+    border-radius: 3px;
+    height: 1em;
+    width: 100%;
+  }
+  @keyframes skeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ==========================================================================
+     BADGES
+     ========================================================================== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+  .badge-success { background: var(--c-success-bg); color: var(--c-success); }
+  .badge-warn    { background: var(--c-warning-bg); color: var(--c-warning); }
+  .badge-danger  { background: var(--c-danger-bg);  color: var(--c-danger); }
+  .badge-info    { background: var(--c-info-bg);    color: var(--c-info); }
+  .badge-neutral { background: #eef0f3; color: var(--c-text-muted); }
+
+  /* Metadata / methodology panel */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px 16px;
+    font-size: 12.5px;
+  }
+  .meta-grid dt { color: var(--c-text-muted); font-weight: 500; }
+  .meta-grid dd { margin: 0; color: var(--c-text); }
+
+  /* ==========================================================================
+     PRINT — the one thing most console apps forget
+     ========================================================================== */
+  @media print {
+    body { background: #fff; font-size: 10pt; }
+    .skip-link, .topbar, .sidebar, .page-actions, .panel-tools,
+    .tabs, .toolbar { display: none !important; }
+    .app { display: block; }
+    .main { display: block; }
+    .content { padding: 0; max-width: none; }
+    .page-header {
+      border-bottom: 2px solid #000;
+      padding: 0 0 8px;
+      margin-bottom: 12px;
+    }
+    .provenance {
+      background: none;
+      border: 1px solid #999;
+      margin: 8px 0;
+      padding: 6px 8px;
+      color: #000;
+    }
+    .panel {
+      border: 1px solid #999;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 10mm;
+    }
+    .panel-header { border-bottom: 1px solid #999; }
+    .panel-source {
+      background: none;
+      border-top: 1px solid #999;
+      color: #000;
+    }
+    table.data th {
+      background: #eee !important;
+      border-bottom: 1px solid #333;
+    }
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 6mm; }
+    .kpi { border: 1px solid #999; }
+    a { color: #000; text-decoration: underline; }
+    a[href]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #666; }
+    .print-footer {
+      display: block !important;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 4mm 0;
+      border-top: 1px solid #999;
+      font-size: 8pt;
+      color: #333;
+      text-align: center;
+    }
+  }
+  .print-footer { display: none; }
+
+  /* Focus visible print header */
+  .focus-banner {
+    display: none;
+  }
+</style>
+</head>
+<body data-density="comfortable">
+
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
+
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" aria-label="Navigation principale">
+    <div class="brand">
+      <div class="brand-name">NEFOP</div>
+      <div class="brand-sub">OBSERVATOIRE NATIONAL</div>
+      <div class="brand-flag">
+        <span style="background:var(--c-flag-green)"></span>
+        <span style="background:var(--c-flag-red)"></span>
+        <span style="background:var(--c-flag-yellow)"></span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <button class="nav-item" aria-current="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span data-i18n="nav.supervision">Supervision</span>
+        </button>
+        <ul class="nav-sub">
+          <li><button aria-current="true" data-i18n="nav.pilotage">Tableau de bord</button></li>
+          <li><button data-i18n="nav.dossiers">Dossiers</button></li>
+          <li><button data-i18n="nav.activite">Activité</button></li>
+          <li><button data-i18n="nav.objectifs">Objectifs</button></li>
+        </ul>
+      </div>
+      <div class="nav-group">
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <span data-i18n="nav.collecte">Collecte</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span data-i18n="nav.declarants">Déclarants</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span data-i18n="nav.qualite">Contrôle Qualité</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <span data-i18n="nav.donnees">Données</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="nav.administration">Administration</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">SA</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;">Super Admin</div>
+        <div style="font-size:10.5px;color:var(--c-text-subtle);" data-i18n="role.superadmin">Super administrateur</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <!-- Toolbar -->
+    <div class="topbar" role="region" aria-label="Préférences d'affichage">
+      <div class="topbar-group">
+        <span data-i18n="topbar.updated">Données à jour au</span>
+        <strong id="header-updated" style="color:var(--c-text);">4 octobre 2026, 14h32</strong>
+      </div>
+      <div class="topbar-group">
+        <div class="lang-switch" role="group" aria-label="Langue">
+          <button id="lang-fr" aria-pressed="true">FR</button>
+          <button id="lang-en" aria-pressed="false">EN</button>
+        </div>
+        <button class="topbar-btn" id="density-btn" aria-pressed="false" title="Basculer la densité">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+          <span data-i18n="topbar.density">Densité</span>
+        </button>
+        <button class="topbar-btn" onclick="window.print()" title="Imprimer ou exporter en PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span data-i18n="topbar.print">Imprimer</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page header -->
+    <header class="page-header">
+      <div class="page-head-row">
+        <div>
+          <nav class="breadcrumb" aria-label="Fil d'ariane">
+            <a href="#" data-i18n="nav.supervision">Supervision</a>
+            <span> › </span>
+            <span aria-current="page" data-i18n="nav.pilotage">Tableau de bord</span>
+          </nav>
+          <h1 class="page-title" data-i18n="pilotage.title">Tableau de bord de pilotage</h1>
+          <p class="page-desc" data-i18n="pilotage.desc">
+            Indicateurs de collecte et couverture territoriale contre les objectifs annuels de l'Observatoire National de l'Emploi et de la Formation Professionnelle.
+          </p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="action.export">Exporter</span>
+          </button>
+          <button class="btn btn-primary btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span data-i18n="action.refresh">Actualiser</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Provenance strip -->
+      <div class="provenance" role="region" aria-label="Provenance des données">
+        <span class="provenance-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span data-i18n="prov.source">Source</span> : <strong>ONEFOP — Module de collecte</strong>
+        </span>
+        <span class="provenance-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span data-i18n="prov.period">Période</span> : <strong>2026 — Trimestre 4</strong>
+        </span>
+        <span class="provenance-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span data-i18n="prov.methodology">Méthodologie</span> :
+          <a href="#" data-i18n="prov.methodologyLink">Note technique ONEFOP 2026</a>
+        </span>
+        <span class="provenance-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span data-i18n="prov.next">Prochaine mise à jour</span> : <strong>5 octobre 2026, 06h00</strong>
+        </span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" role="tablist" aria-label="Sections du tableau de bord">
+        <button class="tab" role="tab" aria-selected="true" id="tab-overview">Vue d'ensemble</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-regional">Couverture régionale</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-trend">Tendance</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-methodology">Méthodologie</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main id="main-content" class="content" role="main">
+
+      <!-- KPI ROW -->
+      <section class="kpi-grid" aria-label="Indicateurs clés">
+        <!-- KPI 1 -->
+        <article class="kpi" aria-labelledby="kpi1-label">
+          <div class="kpi-head">
+            <span class="kpi-label" id="kpi1-label" data-i18n="kpi.submitted">Dossiers soumis</span>
+          </div>
+          <div class="kpi-value">1 284</div>
+          <div class="kpi-target" data-i18n="kpi.vsLastPeriod">+12,4 % vs. période précédente</div>
+          <svg class="kpi-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,22 15,20 30,18 45,19 60,14 75,12 90,10 105,8 120,6"
+              fill="none" stroke="var(--c-primary)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+            <polygon points="0,22 15,20 30,18 45,19 60,14 75,12 90,10 105,8 120,6 120,28 0,28"
+              fill="var(--c-primary)" opacity="0.08"/>
+          </svg>
+          <div><span class="kpi-delta up">▲ 12,4 %</span></div>
+        </article>
+
+        <!-- KPI 2 -->
+        <article class="kpi" aria-labelledby="kpi2-label">
+          <div class="kpi-head">
+            <span class="kpi-label" id="kpi2-label" data-i18n="kpi.approved">Dossiers approuvés</span>
+          </div>
+          <div class="kpi-value">1 058</div>
+          <div class="kpi-target" data-i18n="kpi.rate">82,4 % du total soumis</div>
+          <svg class="kpi-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,20 15,18 30,16 45,15 60,13 75,11 90,9 105,8 120,7"
+              fill="none" stroke="var(--c-primary)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+            <polygon points="0,20 15,18 30,16 45,15 60,13 75,11 90,9 105,8 120,7 120,28 0,28"
+              fill="var(--c-primary)" opacity="0.08"/>
+          </svg>
+          <div><span class="kpi-delta up">▲ 3,1 pts</span></div>
+        </article>
+
+        <!-- KPI 3 -->
+        <article class="kpi" aria-labelledby="kpi3-label">
+          <div class="kpi-head">
+            <span class="kpi-label" id="kpi3-label" data-i18n="kpi.pending">En attente d'instruction</span>
+          </div>
+          <div class="kpi-value">162</div>
+          <div class="kpi-target" data-i18n="kpi.pendingWarn">dont 34 en souffrance &gt; 7 jours</div>
+          <svg class="kpi-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,8 15,9 30,10 45,12 60,11 75,13 90,14 105,15 120,17"
+              fill="none" stroke="var(--c-warning)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+            <polygon points="0,8 15,9 30,10 45,12 60,11 75,13 90,14 105,15 120,17 120,28 0,28"
+              fill="var(--c-warning)" opacity="0.08"/>
+          </svg>
+          <div><span class="kpi-delta down">▲ 8,7 %</span></div>
+        </article>
+
+        <!-- KPI 4 -->
+        <article class="kpi" aria-labelledby="kpi4-label">
+          <div class="kpi-head">
+            <span class="kpi-label" id="kpi4-label" data-i18n="kpi.anomalies">Anomalies bloquantes</span>
+          </div>
+          <div class="kpi-value">27</div>
+          <div class="kpi-target" data-i18n="kpi.anomaliesDesc">sur 9 régions couvertes</div>
+          <svg class="kpi-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,18 15,17 30,15 45,16 60,12 75,13 90,10 105,11 120,9"
+              fill="none" stroke="var(--c-danger)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+            <polygon points="0,18 15,17 30,15 45,16 60,12 75,13 90,10 105,11 120,9 120,28 0,28"
+              fill="var(--c-danger)" opacity="0.06"/>
+          </svg>
+          <div><span class="kpi-delta up">▼ 4,2 %</span></div>
+        </article>
+      </section>
+
+      <!-- REGIONAL COVERAGE PANEL -->
+      <section class="panel" aria-labelledby="panel-coverage-title">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="panel-coverage-title" data-i18n="coverage.title">Couverture régionale</h2>
+            <p class="panel-desc" data-i18n="coverage.desc">Inscriptions validées contre les cibles annuelles fixées par la direction générale de l'ONEFOP. La barre verticale indique le niveau de la cible.</p>
+          </div>
+          <div class="panel-tools" role="group" aria-label="Actions sur le panneau">
+            <button class="tool-btn" title="Télécharger CSV">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="tool-btn" title="Télécharger PNG">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+            <button class="tool-btn" title="Copier la citation">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="coverage-bars"></div>
+          <div style="margin-top:14px;font-size:11.5px;color:var(--c-text-muted);display:flex;gap:20px;flex-wrap:wrap;">
+            <span><span style="display:inline-block;width:12px;height:3px;background:var(--c-primary);vertical-align:middle;margin-right:5px;border-radius:1px;"></span><span data-i18n="coverage.legend.progress">≥ 80 % de la cible</span></span>
+            <span><span style="display:inline-block;width:12px;height:3px;background:#c47a00;vertical-align:middle;margin-right:5px;border-radius:1px;"></span><span data-i18n="coverage.legend.warn">50–79 %</span></span>
+            <span><span style="display:inline-block;width:12px;height:3px;background:var(--c-danger);vertical-align:middle;margin-right:5px;border-radius:1px;"></span><span data-i18n="coverage.legend.danger">&lt; 50 %</span></span>
+            <span><span style="display:inline-block;width:2px;height:12px;background:var(--c-text);vertical-align:middle;margin-right:5px;"></span><span data-i18n="coverage.legend.target">Cible annuelle</span></span>
+          </div>
+        </div>
+        <div class="panel-source">
+          <span><strong data-i18n="panel.source">Source</strong> : ONEFOP · Table TerritoryTarget, exercice 2026</span>
+          <span>·</span>
+          <span><strong data-i18n="panel.updated">Mis à jour</strong> : 4 oct. 2026, 14h32 (UTC+1)</span>
+          <span>·</span>
+          <a href="#" data-i18n="panel.method">Méthodologie</a>
+        </div>
+      </section>
+
+      <!-- TREND PANEL -->
+      <section class="panel" aria-labelledby="panel-trend-title">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="panel-trend-title" data-i18n="trend.title">Tendance des soumissions</h2>
+            <p class="panel-desc" data-i18n="trend.desc">Volume mensuel de dossiers soumis par les déclarants, avec la ligne de référence trimestrielle.</p>
+          </div>
+          <div class="panel-tools" role="group" aria-label="Actions sur le panneau">
+            <button class="tool-btn" title="Télécharger CSV">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="tool-btn" title="Télécharger PNG">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="trend-chart" role="img" aria-labelledby="trend-caption"></div>
+          <p id="trend-caption" class="sr-only">
+            Graphique linéaire : soumissions mensuelles. Janvier 89, Février 105, Mars 132, Avril 148, Mai 156, Juin 172, Juillet 163, Août 141, Septembre 178, Octobre 200 (en cours).
+          </p>
+          <div class="chart-legend">
+            <span class="chart-legend-item">
+              <span class="chart-legend-swatch" style="background:var(--c-primary)"></span>
+              <span data-i18n="trend.legend.submissions">Dossiers soumis</span>
+            </span>
+            <span class="chart-legend-item">
+              <span class="chart-legend-swatch" style="background:var(--c-text-muted);height:1px;border-top:1px dashed var(--c-text-muted);"></span>
+              <span data-i18n="trend.legend.ref">Référence trimestrielle (moyenne 3 mois)</span>
+            </span>
+          </div>
+        </div>
+        <div class="panel-source">
+          <span><strong data-i18n="panel.source">Source</strong> : ONEFOP · Table OnefopSubmission, agrégation mensuelle</span>
+          <span>·</span>
+          <span><strong data-i18n="panel.updated">Mis à jour</strong> : 4 oct. 2026, 14h32 (UTC+1)</span>
+          <span>·</span>
+          <a href="#" data-i18n="panel.method">Méthodologie</a>
+        </div>
+      </section>
+
+      <!-- DETAILED TABLE PANEL -->
+      <section class="panel" aria-labelledby="panel-table-title">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="panel-table-title" data-i18n="table.title">Détail par région</h2>
+            <p class="panel-desc" data-i18n="table.desc">Données détaillées de couverture, complétion et qualité. Cliquez sur une colonne pour trier.</p>
+          </div>
+          <div class="panel-tools" role="group" aria-label="Actions sur le panneau">
+            <button class="tool-btn" title="Télécharger CSV">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body flush">
+          <table class="data" id="regional-table">
+            <caption class="sr-only">Détail par région, exercice 2026</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-sort="region">Région <span class="sort-icon"></span></th>
+                <th scope="col" class="sortable num" data-sort="submitted">Soumis <span class="sort-icon"></span></th>
+                <th scope="col" class="sortable num" data-sort="target">Cible <span class="sort-icon"></span></th>
+                <th scope="col" class="sortable num" data-sort="pct">Atteinte <span class="sort-icon"></span></th>
+                <th scope="col" class="sortable num" data-sort="completion">Complétion <span class="sort-icon"></span></th>
+                <th scope="col" class="sortable num" data-sort="anomalies">Anomalies <span class="sort-icon"></span></th>
+              </tr>
+            </thead>
+            <tbody id="regional-tbody"></tbody>
+          </table>
+        </div>
+        <div class="panel-source">
+          <span><strong data-i18n="panel.source">Source</strong> : ONEFOP · Tables OnefopSubmission, TerritoryTarget, OnefopAnomaly</span>
+          <span>·</span>
+          <span><strong data-i18n="panel.updated">Mis à jour</strong> : 4 oct. 2026, 14h32 (UTC+1)</span>
+          <span>·</span>
+          <a href="#" data-i18n="panel.method">Méthodologie</a>
+        </div>
+      </section>
+
+      <!-- METHODOLOGY / METADATA PANEL -->
+      <section class="panel" aria-labelledby="panel-meta-title">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="panel-meta-title" data-i18n="meta.title">Métadonnées et méthodologie</h2>
+            <p class="panel-desc" data-i18n="meta.desc">Informations de référence pour citer ces données.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <dl class="meta-grid">
+            <dt data-i18n="meta.producer">Producteur</dt>
+            <dd>Observatoire National de l'Emploi et de la Formation Professionnelle (ONEFOP)</dd>
+
+            <dt data-i18n="meta.dataset">Jeu de données</dt>
+            <dd>Enquête ONEFOP — Collecte trimestrielle</dd>
+
+            <dt data-i18n="meta.period">Période de référence</dt>
+            <dd>1<sup>er</sup> janvier – 4 octobre 2026</dd>
+
+            <dt data-i18n="meta.universe">Univers</dt>
+            <dd>Établissements enregistrés au répertoire national</dd>
+
+            <dt data-i18n="meta.coverage">Couverture</dt>
+            <dd>10 régions · 360 arrondissements</dd>
+
+            <dt data-i18n="meta.mode">Mode de collecte</dt>
+            <dd>Formulaire électronique, auto-déclaration avec assistance territoriale</dd>
+
+            <dt data-i18n="meta.eligibility">Base statistique</dt>
+            <dd>Dossiers approuvés sans anomalie bloquante ouverte</dd>
+
+            <dt data-i18n="meta.revision">Politique de révision</dt>
+            <dd>Mise à jour quotidienne à 06h00 (UTC+1). Les données des 48 dernières heures sont provisoires.</dd>
+
+            <dt data-i18n="meta.contact">Contact</dt>
+            <dd><a href="mailto:data@onefop.cm">data@onefop.cm</a></dd>
+
+            <dt data-i18n="meta.citation">Citation recommandée</dt>
+            <dd style="font-family:var(--font-mono);font-size:11.5px;background:var(--c-surface-alt);padding:8px 10px;border-radius:3px;">
+              ONEFOP (2026). <em>Tableau de bord de pilotage de la collecte</em>. Yaoundé : Observatoire National de l'Emploi. Données au 4 octobre 2026.
+            </dd>
+          </dl>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div class="print-footer">
+  NEFOP · Tableau de bord de pilotage · Données au 4 octobre 2026, 14h32 (UTC+1) · Source : ONEFOP
+</div>
+
+<script>
+/* ============================================================================
+   i18n — FR/EN
+   ============================================================================ */
+const I18N = {
+  fr: {
+    'nav.supervision': 'Supervision',
+    'nav.pilotage': 'Tableau de bord',
+    'nav.dossiers': 'Dossiers',
+    'nav.activite': 'Activité',
+    'nav.objectifs': 'Objectifs',
+    'nav.collecte': 'Collecte',
+    'nav.declarants': 'Déclarants',
+    'nav.qualite': 'Contrôle Qualité',
+    'nav.donnees': 'Données',
+    'nav.administration': 'Administration',
+    'role.superadmin': 'Super administrateur',
+    'topbar.updated': 'Données à jour au',
+    'topbar.density': 'Densité',
+    'topbar.print': 'Imprimer',
+    'pilotage.title': 'Tableau de bord de pilotage',
+    'pilotage.desc': "Indicateurs de collecte et couverture territoriale contre les objectifs annuels de l'Observatoire National de l'Emploi et de la Formation Professionnelle.",
+    'action.export': 'Exporter',
+    'action.refresh': 'Actualiser',
+    'prov.source': 'Source',
+    'prov.period': 'Période',
+    'prov.methodology': 'Méthodologie',
+    'prov.methodologyLink': 'Note technique ONEFOP 2026',
+    'prov.next': 'Prochaine mise à jour',
+    'kpi.submitted': 'Dossiers soumis',
+    'kpi.vsLastPeriod': '+12,4 % vs. période précédente',
+    'kpi.approved': 'Dossiers approuvés',
+    'kpi.rate': '82,4 % du total soumis',
+    'kpi.pending': "En attente d'instruction",
+    'kpi.pendingWarn': 'dont 34 en souffrance > 7 jours',
+    'kpi.anomalies': 'Anomalies bloquantes',
+    'kpi.anomaliesDesc': 'sur 9 régions couvertes',
+    'coverage.title': 'Couverture régionale',
+    'coverage.desc': "Inscriptions validées contre les cibles annuelles fixées par la direction générale de l'ONEFOP. La barre verticale indique le niveau de la cible.",
+    'coverage.legend.progress': '≥ 80 % de la cible',
+    'coverage.legend.warn': '50–79 %',
+    'coverage.legend.danger': '< 50 %',
+    'coverage.legend.target': 'Cible annuelle',
+    'trend.title': 'Tendance des soumissions',
+    'trend.desc': 'Volume mensuel de dossiers soumis par les déclarants, avec la ligne de référence trimestrielle.',
+    'trend.legend.submissions': 'Dossiers soumis',
+    'trend.legend.ref': 'Référence trimestrielle (moyenne 3 mois)',
+    'table.title': 'Détail par région',
+    'table.desc': 'Données détaillées de couverture, complétion et qualité. Cliquez sur une colonne pour trier.',
+    'table.region': 'Région',
+    'table.submitted': 'Soumis',
+    'table.target': 'Cible',
+    'table.pct': 'Atteinte',
+    'table.completion': 'Complétion',
+    'table.anomalies': 'Anomalies',
+    'meta.title': 'Métadonnées et méthodologie',
+    'meta.desc': 'Informations de référence pour citer ces données.',
+    'meta.producer': 'Producteur',
+    'meta.dataset': 'Jeu de données',
+    'meta.period': 'Période de référence',
+    'meta.universe': 'Univers',
+    'meta.coverage': 'Couverture',
+    'meta.mode': 'Mode de collecte',
+    'meta.eligibility': 'Base statistique',
+    'meta.revision': 'Politique de révision',
+    'meta.contact': 'Contact',
+    'meta.citation': 'Citation recommandée',
+    'panel.source': 'Source',
+    'panel.updated': 'Mis à jour',
+    'panel.method': 'Méthodologie',
+  },
+  en: {
+    'nav.supervision': 'Supervision',
+    'nav.pilotage': 'Dashboard',
+    'nav.dossiers': 'Files',
+    'nav.activite': 'Activity',
+    'nav.objectifs': 'Targets',
+    'nav.collecte': 'Collection',
+    'nav.declarants': 'Respondents',
+    'nav.qualite': 'Quality Control',
+    'nav.donnees': 'Data',
+    'nav.administration': 'Administration',
+    'role.superadmin': 'Super administrator',
+    'topbar.updated': 'Data as of',
+    'topbar.density': 'Density',
+    'topbar.print': 'Print',
+    'pilotage.title': 'Collection oversight dashboard',
+    'pilotage.desc': "Collection indicators and territorial coverage against the annual targets of the National Employment and Vocational Training Observatory.",
+    'action.export': 'Export',
+    'action.refresh': 'Refresh',
+    'prov.source': 'Source',
+    'prov.period': 'Period',
+    'prov.methodology': 'Methodology',
+    'prov.methodologyLink': 'ONEFOP Technical Note 2026',
+    'prov.next': 'Next update',
+    'kpi.submitted': 'Submissions received',
+    'kpi.vsLastPeriod': '+12.4% vs. previous period',
+    'kpi.approved': 'Submissions approved',
+    'kpi.rate': '82.4% of total received',
+    'kpi.pending': 'Awaiting review',
+    'kpi.pendingWarn': '34 backlogged > 7 days',
+    'kpi.anomalies': 'Blocking anomalies',
+    'kpi.anomaliesDesc': 'across 9 covered regions',
+    'coverage.title': 'Regional coverage',
+    'coverage.desc': "Validated registrations against annual targets set by ONEFOP management. The vertical bar indicates the target level.",
+    'coverage.legend.progress': '≥ 80% of target',
+    'coverage.legend.warn': '50–79%',
+    'coverage.legend.danger': '< 50%',
+    'coverage.legend.target': 'Annual target',
+    'trend.title': 'Submission trend',
+    'trend.desc': 'Monthly volume of submissions received, with the quarterly reference line.',
+    'trend.legend.submissions': 'Submissions',
+    'trend.legend.ref': 'Quarterly reference (3-month average)',
+    'table.title': 'Regional detail',
+    'table.desc': 'Detailed coverage, completion and quality data. Click a column header to sort.',
+    'table.region': 'Region',
+    'table.submitted': 'Received',
+    'table.target': 'Target',
+    'table.pct': 'Achieved',
+    'table.completion': 'Completion',
+    'table.anomalies': 'Anomalies',
+    'meta.title': 'Metadata and methodology',
+    'meta.desc': 'Reference information for citing these data.',
+    'meta.producer': 'Producer',
+    'meta.dataset': 'Dataset',
+    'meta.period': 'Reference period',
+    'meta.universe': 'Universe',
+    'meta.coverage': 'Coverage',
+    'meta.mode': 'Collection mode',
+    'meta.eligibility': 'Statistical base',
+    'meta.revision': 'Revision policy',
+    'meta.contact': 'Contact',
+    'meta.citation': 'Recommended citation',
+    'panel.source': 'Source',
+    'panel.updated': 'Updated',
+    'panel.method': 'Methodology',
+  }
+};
+
+function setLang(lang) {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (I18N[lang][key]) el.textContent = I18N[lang][key];
+  });
+  document.getElementById('lang-fr').setAttribute('aria-pressed', lang === 'fr');
+  document.getElementById('lang-en').setAttribute('aria-pressed', lang === 'en');
+  document.documentElement.lang = lang;
+}
+document.getElementById('lang-fr').addEventListener('click', () => setLang('fr'));
+document.getElementById('lang-en').addEventListener('click', () => setLang('en'));
+
+/* ============================================================================
+   DENSITY TOGGLE
+   ============================================================================ */
+const densities = ['comfortable', 'compact', 'spacious'];
+let densityIndex = 0;
+document.getElementById('density-btn').addEventListener('click', () => {
+  densityIndex = (densityIndex + 1) % densities.length;
+  const d = densities[densityIndex];
+  document.body.setAttribute('data-density', d);
+  document.getElementById('density-btn').setAttribute('aria-pressed', d !== 'comfortable');
+});
+
+/* ============================================================================
+   SAMPLE DATA — realistic values
+   ============================================================================ */
+const REGIONS = [
+  { region: 'Adamaoua',     submitted: 62,  target: 150, completion: 74, anomalies: 1 },
+  { region: 'Centre',       submitted: 340, target: 500, completion: 82, anomalies: 3 },
+  { region: 'Est',          submitted: 48,  target: 130, completion: 61, anomalies: 4 },
+  { region: 'Extrême-Nord', submitted: 95,  target: 250, completion: 58, anomalies: 8 },
+  { region: 'Littoral',     submitted: 385, target: 400, completion: 96, anomalies: 2 },
+  { region: 'Nord',         submitted: 71,  target: 200, completion: 63, anomalies: 3 },
+  { region: 'Nord-Ouest',   submitted: 88,  target: 180, completion: 71, anomalies: 4 },
+  { region: 'Ouest',        submitted: 210, target: 300, completion: 78, anomalies: 1 },
+  { region: 'Sud',          submitted: 55,  target: 140, completion: 68, anomalies: 0 },
+  { region: 'Sud-Ouest',    submitted: 130, target: 200, completion: 79, anomalies: 1 }
+];
+
+const TREND = {
+  labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct'],
+  values: [89, 105, 132, 148, 156, 172, 163, 141, 178, 200]
+};
+
+/* ============================================================================
+   RENDER COVERAGE BARS — horizontal bar chart with target marker
+   ============================================================================ */
+function renderCoverage() {
+  const container = document.getElementById('coverage-bars');
+  const maxTarget = Math.max(...REGIONS.map(r => r.target));
+  // Add 15% headroom for the longest bar
+  const scale = maxTarget * 1.15;
+
+  REGIONS.forEach(r => {
+    const pct = Math.round((r.submitted / r.target) * 100);
+    const fillClass = pct < 50 ? 'critical' : pct < 80 ? 'below' : '';
+    const fillWidth = (r.submitted / scale) * 100;
+    const targetPos = (r.target / scale) * 100;
+
+    const row = document.createElement('div');
+    row.className = 'hbar-row';
+    row.innerHTML = `
+      <div class="hbar-label">${r.region}</div>
+      <div class="hbar-track" role="img" aria-label="${r.region} : ${r.submitted} soumis sur une cible de ${r.target}, soit ${pct} %">
+        <div class="hbar-fill ${fillClass}" style="width:${fillWidth}%"></div>
+        <div class="hbar-target" style="left:${targetPos}%" aria-hidden="true"></div>
+      </div>
+      <div class="hbar-value"><strong>${r.submitted}</strong> / ${r.target} · <strong>${pct}%</strong></div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+/* ============================================================================
+   RENDER TREND CHART — inline SVG line chart
+   ============================================================================ */
+function renderTrend() {
+  const container = document.getElementById('trend-chart');
+  const W = 720, H = 240;
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const maxV = Math.ceil(Math.max(...TREND.values) / 50) * 50; // round up to 50
+  const xStep = innerW / (TREND.values.length - 1);
+  const yScale = v => padT + innerH - (v / maxV) * innerH;
+
+  // Gridlines
+  const gridlines = [];
+  for (let v = 0; v <= maxV; v += maxV / 4) {
+    const y = yScale(v);
+    gridlines.push(`<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#e0e4eb" stroke-width="1"/>`);
+    gridlines.push(`<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#8a93a3" font-family="system-ui">${v}</text>`);
+  }
+
+  // X-axis labels
+  const xLabels = TREND.labels.map((l, i) =>
+    `<text x="${padL + i * xStep}" y="${H - padB + 18}" text-anchor="middle" font-size="10" fill="#5a6478" font-family="system-ui">${l}</text>`
+  ).join('');
+
+  // The line path
+  const points = TREND.values.map((v, i) => `${padL + i * xStep},${yScale(v)}`).join(' ');
+  // Area under the line
+  const area = `M ${padL},${yScale(0)} L ${points.split(' ').join(' L ')} L ${padL + innerW},${yScale(0)} Z`;
+
+  // Reference line — 3-month average (simple)
+  const avg = Math.round(TREND.values.slice(-6, -3).reduce((a,b)=>a+b,0) / 3);
+  const refY = yScale(avg);
+
+  // Data point dots
+  const dots = TREND.values.map((v, i) =>
+    `<circle cx="${padL + i * xStep}" cy="${yScale(v)}" r="3" fill="#fff" stroke="#1a5c3a" stroke-width="2"/>`
+  ).join('');
+
+  const svg = `
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img">
+      ${gridlines.join('')}
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + innerH}" stroke="#c8cfd9"/>
+      <line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="#c8cfd9"/>
+      <path d="${area}" fill="#1a5c3a" opacity="0.08"/>
+      <line x1="${padL}" y1="${refY}" x2="${W - padR}" y2="${refY}" stroke="#5a6478" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>
+      <polyline points="${points}" fill="none" stroke="#1a5c3a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+      ${xLabels}
+    </svg>
+  `;
+  container.innerHTML = svg;
+}
+
+/* ============================================================================
+   RENDER REGIONAL TABLE WITH SORTING
+   ============================================================================ */
+let sortKey = 'pct', sortDir = 'asc';
+function renderTable() {
+  const tbody = document.getElementById('regional-tbody');
+  const rows = [...REGIONS].map(r => ({ ...r, pct: Math.round((r.submitted / r.target) * 100) }));
+  rows.sort((a, b) => {
+    const va = a[sortKey], vb = b[sortKey];
+    if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  tbody.innerHTML = rows.map(r => {
+    const badge = r.pct >= 80 ? 'badge-success' : r.pct >= 50 ? 'badge-warn' : 'badge-danger';
+    const anomBadge = r.anomalies === 0 ? 'badge-success' : r.anomalies <= 3 ? 'badge-warn' : 'badge-danger';
+    return `
+      <tr>
+        <td>${r.region}</td>
+        <td class="num">${r.submitted.toLocaleString('fr-FR')}</td>
+        <td class="num">${r.target.toLocaleString('fr-FR')}</td>
+        <td class="num"><span class="badge ${badge}">${r.pct}%</span></td>
+        <td class="num">${r.completion}%</td>
+        <td class="num"><span class="badge ${anomBadge}">${r.anomalies}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  // Update aria-sort attributes
+  document.querySelectorAll('#regional-table th.sortable').forEach(th => {
+    const key = th.getAttribute('data-sort');
+    if (key === sortKey) {
+      th.setAttribute('aria-sort', sortDir === 'asc' ? 'ascending' : 'descending');
+    } else {
+      th.removeAttribute('aria-sort');
+    }
+  });
+}
+
+document.querySelectorAll('#regional-table th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.getAttribute('data-sort');
+    if (key === sortKey) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = 'asc';
+    }
+    renderTable();
+  });
+});
+
+/* ============================================================================
+   BOOT
+   ============================================================================ */
+renderCoverage();
+renderTrend();
+renderTable();
+</script>
+
+</body>
+</html>
