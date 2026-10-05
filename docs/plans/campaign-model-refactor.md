@@ -1,6 +1,6 @@
 # Campaign Model Refactor — Design Plan
 
-**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b/3c landed. Phase 3d-bis landed. Phase 3e landed. Phase 4a landed. Phase 5a partial. Phase 4b next.
+**Status:** Design agreed. Phases 1, 3a, 3b, 3c, 3d-bis, 3e, 4a, 4b, 5a, 5b landed. 4c/5c next.
 **Date:** 2026-10-05 (rev 5)
 **Supersedes:** the annual-target vs campaign-quota split that exists today.
 
@@ -303,7 +303,7 @@ Split into sub-phases once the rename turned out to touch the wire contract of t
 - The create dialog's periodicity options derive from the enum, which drops the no-longer-valid `SPECIAL` option.
 - `campaigns.test.ts` pins the contract: prefer the new key, fall back to the old, reject off-enum values, never invent a periodicity.
 
-**3c — Flutter clients** ⏳ Next
+**3c — Flutter clients** ✅ Done (`e3081480`)
 
 Two readers of the JSON key `type`: the Flutter admin and the Flutter company workspace. Both must read `periodicity` with the same fallback. Flutter changes are the user's to commit.
 
@@ -349,19 +349,22 @@ Split, because the 410 half cannot ship until react-web stops calling the old ro
   three fold through `coverageFrom`.
 - **410 Gone on the year-scoped endpoint is 4b, pending react-web 5a.**
 
-**4b — Retire the year-scoped endpoints**
+**4b — Retire targets/inscriptions** ✅ Done (`3576887b`)
 
-- Keep old endpoints returning 410 Gone for one release.
-- Remove readers of `TerritoryTarget` / `CentralInscriptionTarget`.
-- Blocked on 5a's dead `targets/inscriptions` call being removed from
-  `admin/cibles/page.tsx` — the page no longer renders that tab but still
-  carries the fetch (see Phase 5a).
+- `GET|PUT /admin/pilotage/targets/inscriptions` return 410 Gone behind
+  their original `@Roles` gate, so an unauthorized caller gets 403 first.
+- `TerritoryTarget` and `CentralInscriptionTarget` survive until Phase 6.
+
+**4c — Retire GET coverage?year=** ⏳ Pending
+
+- Replace `GET /admin/pilotage/coverage?year=` with 410 Gone, same gate
+  pattern as 4b.
+- Blocked on 5c: `CoveragePanel` and `actor-summary.service.ts#loadCoverage`
+  must read `coverage/annual` first.
 
 **Phase 5 — UI restructure**
 
-The IA changes in §8. `/admin/cibles` becomes campaign detail tabs.
-
-**5a — Cibles tab strip cut from four to three** ✅ Done
+**5a — Cibles tab strip cut from four to three** ✅ Done (`3de86f1d`)
 
 - **`Objectifs d'inscription` tab removed; `Quotas de campagne` is now the
   primary editor** and the default tab (`parseVue` defaults to `quotas`).
@@ -373,21 +376,20 @@ The IA changes in §8. `/admin/cibles` becomes campaign detail tabs.
   surface actually becomes campaign-detail tabs.
 - The page header subtitle was rewritten, since it advertised the removed tab.
 
-**5b — Remove the dead inscription-targets path**
+**5b — Remove the dead inscription-targets path** ✅ Done (`3576887b`)
 
-Deliberately left in place by 5a and still live code:
+- `TargetsPanel` is campaign-only (`kind` and `year` props removed).
+- `readCentral` reads `central.submissionTarget` directly.
+- `getInscriptionTargets` / `putInscriptionTargets` / `InscriptionTargetsResponse`
+  deleted from `lib/pilotage-targets.ts`.
+- `TargetField` and coverage-side `inscriptionTarget` fields stay live.
 
-- `TargetsPanel`'s entire `kind === "inscriptions"` branch is unreachable —
-  the sole call site passes `kind="quotas"`.
-- `TargetsPanel`'s `year` prop is passed by no caller.
-- The `inscriptionTarget` arm of `readCentral` and of
-  `pilotage-target-payload` is unexercised from this page.
-- The `["admin","pilotage","inscriptions",year]` query key is never
-  populated or invalidated again.
-- `getInscriptionTargets` / `putInscriptionTargets` in `pilotage-targets.ts`
-  have no remaining caller on this page.
+**5c — CoveragePanel and actor-summary read coverage/annual** ⏳ Pending
 
-This is the client half of 4b and should land with it.
+- `react-web/.../cibles/page.tsx` (CoveragePanel) reads `coverage/annual`
+  instead of the year-scoped route.
+- `src/report/actor-summary.service.ts#loadCoverage` reads the annual fold.
+- Unblocks 4c.
 
 **Phase 6 — Drop deprecated tables**
 
