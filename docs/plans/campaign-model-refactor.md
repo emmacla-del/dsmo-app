@@ -1,7 +1,7 @@
 # Campaign Model Refactor — Design Plan
 
-**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b/3c landed. Phase 3d-bis landed. Phase 3e next.
-**Date:** 2026-10-05 (rev 4)
+**Status:** Design agreed. Phase 1 landed. Phase 2 skipped. Phase 3a/3b/3c landed. Phase 3d-bis landed. Phase 3e landed. Phase 4a landed. Phase 5a partial. Phase 4b next.
+**Date:** 2026-10-05 (rev 5)
 **Supersedes:** the annual-target vs campaign-quota split that exists today.
 
 ---
@@ -324,7 +324,7 @@ Numbered out of sequence because it is independent of the `periodicity` alias wo
 
 Only once 3b and 3c have both shipped: delete `toCampaignWire()`'s legacy `type` line, the request-side `?? data.type`, the `?? type` list filter, their pinning tests in `campaign.service.spec.ts`, and `buildCreateCampaignPayload`'s `type` key plus the `Campaign.type` field in react-web.
 
-**3e — Service layer** (the original Phase 3 body, unblocked by the rename)
+**3e — Service layer** ✅ Done (`744cbd97`, `1a7a003f` chain) — the original Phase 3 body, unblocked by the rename
 
 - Add `publishedAt`.
 - `PilotageService.getCoverage` and `actor-summary.service.ts` read `CampaignQuota` only.
@@ -334,13 +334,60 @@ Only once 3b and 3c have both shipped: delete `toCampaignWire()`'s legacy `type`
 
 **Phase 4 — Endpoints**
 
-- Retire the year-scoped quota endpoints. Add campaign-scoped and roll-up equivalents.
+Split, because the 410 half cannot ship until react-web stops calling the old route.
+
+**4a — Roll-up endpoints added** ✅ Done
+
+- `GET /admin/pilotage/coverage/semester?year=YYYY&semester=N` and
+  `GET /admin/pilotage/coverage/annual?year=YYYY`, both read-only, both on
+  `PILOTAGE_READ_ROLES` with territory from `territoryFromUser`.
+- `PilotageService.getSemesterCoverage` made public; no method body changed.
+  `getCoverage` was already public.
+- `semester` is validated at the controller boundary (400 outside {1, 2});
+  the service's own `semesterQuarters` guard stays as the inner check.
+- Response shape is identical to the year-scoped `GET coverage`, since all
+  three fold through `coverageFrom`.
+- **410 Gone on the year-scoped endpoint is 4b, pending react-web 5a.**
+
+**4b — Retire the year-scoped endpoints**
+
 - Keep old endpoints returning 410 Gone for one release.
 - Remove readers of `TerritoryTarget` / `CentralInscriptionTarget`.
+- Blocked on 5a's dead `targets/inscriptions` call being removed from
+  `admin/cibles/page.tsx` — the page no longer renders that tab but still
+  carries the fetch (see Phase 5a).
 
 **Phase 5 — UI restructure**
 
 The IA changes in §8. `/admin/cibles` becomes campaign detail tabs.
+
+**5a — Cibles tab strip cut from four to three** ✅ Done
+
+- **`Objectifs d'inscription` tab removed; `Quotas de campagne` is now the
+  primary editor** and the default tab (`parseVue` defaults to `quotas`).
+- `?vue=inscriptions` normalizes to `?vue=quotas` rather than 404ing or
+  rendering an empty panel; `annee` / `campagne` are preserved.
+- Tab order shipped as Quotas → Couverture → Retours, keeping the previous
+  relative order of the two survivors. §8 specifies Quotas → Retours →
+  Couverture for the eventual campaign-detail view; reconcile when this
+  surface actually becomes campaign-detail tabs.
+- The page header subtitle was rewritten, since it advertised the removed tab.
+
+**5b — Remove the dead inscription-targets path**
+
+Deliberately left in place by 5a and still live code:
+
+- `TargetsPanel`'s entire `kind === "inscriptions"` branch is unreachable —
+  the sole call site passes `kind="quotas"`.
+- `TargetsPanel`'s `year` prop is passed by no caller.
+- The `inscriptionTarget` arm of `readCentral` and of
+  `pilotage-target-payload` is unexercised from this page.
+- The `["admin","pilotage","inscriptions",year]` query key is never
+  populated or invalidated again.
+- `getInscriptionTargets` / `putInscriptionTargets` in `pilotage-targets.ts`
+  have no remaining caller on this page.
+
+This is the client half of 4b and should land with it.
 
 **Phase 6 — Drop deprecated tables**
 
@@ -400,6 +447,22 @@ The unified quota table is the existing `CampaignQuota` model. Chosen over creat
 
 ---
 
+### R8 — Lifecycle states verified aligned, nothing to reconcile
+
+§5's lifecycle table was checked against the schema on 2026-10-05 because a
+drift was suspected. There is none. `DataCampaign.status` is
+`CampaignStatus @default(DRAFT)` (`prisma/schema.prisma:643`) and that enum is
+exactly `DRAFT | ACTIVE | PAUSED | CLOSED | ARCHIVED`
+(`prisma/schema.prisma:2375`) — the same five states §5 lists, in the same
+order. The backend agrees (`campaign.service.ts:357` gates activation on
+`DRAFT`/`PAUSED`, `:397` writes `PAUSED`) and so does the client
+(`react-web/src/lib/campaigns.ts:210` `CAMPAIGN_STATUSES`).
+
+Recorded so the question is not re-opened: no lifecycle reconciliation is
+owed before Phase 6.
+
+---
+
 ## 11. What this does not do
 
 - Does not change the `OnefopSubmission` or `Company` models.
@@ -433,3 +496,50 @@ That wrinkle is gone as of Phase 3d-bis — `CentralCampaignQuota` has no writer
 ### The CHECK constraint name will need renaming too
 
 `campaign_quotas_submission_target_nonneg` (defined in `prisma/migrations/20261001153000_add_territory_targets_and_campaign_quotas/migration.sql`) is named after the column. PostgreSQL carries a `CHECK` expression through `ALTER TABLE ... RENAME COLUMN` automatically, so the constraint keeps working, but its name goes stale. Rename it in the same migration that renames the column.
+
+### Prisma connection topology — session pooler where a transaction pooler belongs
+
+`PrismaService` builds its client from `process.env.DIRECT_URL || process.env.DATABASE_URL`
+(`src/prisma/prisma.service.ts:33`), so the direct endpoint wins whenever it is
+set. Combined with Supabase's pooler running in **session** mode, each Prisma
+connection holds a backend for its whole lifetime, and wide `Promise.all`
+fan-outs exhaust the pool — the intermittent `EMAXCONNSESSION` 500s on
+`/admin/pilotage`.
+
+The intended fix: point `DATABASE_URL` at the **transaction** pooler on port
+`6543` with `pgbouncer=true` and `connection_limit=1`, and let `DIRECT_URL`
+serve only migrations.
+
+One wrinkle to handle in the same change: `withPoolDefaults`
+(`src/prisma/prisma.service.ts:16`) currently appends
+`connection_limit=10&pool_timeout=60` whenever the URL does not already carry a
+`connection_limit`. A transaction-pooler URL that spells out
+`connection_limit=1` is therefore respected, but the helper's default and the
+target topology disagree — so the helper's comment and its chosen default both
+need revisiting rather than just the environment variable.
+
+**Deferred.** It is an environment and infrastructure change, not a code-only
+one, and §21 of the engineering constitution puts infrastructure changes behind
+human review.
+
+### `getQualitySummary` groups anomalies by region in JS
+
+`anomalyRegions` (`src/questionnaires/eligibility-engine.service.ts:415`) is a
+`findMany` over **every** open anomaly, joined to its submission purely to read
+`submission.region`, which is then counted into a `Map` in process
+(`:455`). One row per open anomaly crosses the wire on every dashboard refetch
+to produce what is ultimately a handful of `{region, count}` pairs.
+
+It wants `$queryRaw` with a `GROUP BY` on the joined region, returning only the
+grouped counts. Note the precedent sitting directly above it: the
+`statisticallyReadyCount` branch (`:399`) carries a comment recording that
+exactly this pattern was already replaced by a database-side `count` for the
+same reason.
+
+The reason it is not a trivial swap: `baseWhere` is an untyped Prisma predicate
+assembled from `territoryWhere(territory)` plus optional status and
+`campaignId` filters, so hand-writing the SQL means hand-writing the territory
+scoping too — and territory scoping is a security boundary under §14, not a
+performance detail. It needs its own tests.
+
+**Deferred.**
