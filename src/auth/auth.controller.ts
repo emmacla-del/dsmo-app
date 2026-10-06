@@ -307,25 +307,6 @@ export class AuthController {
     );
   }
 
-  @Get('users/:id/documents')
-  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
-  async getUserDocuments(@Param('id') id: string) {
-    return this.authService.getUserDocuments(id);
-  }
-
-  @Patch('users/:id/documents/:kind/verify')
-  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
-  async verifyUserDocument(
-    @Param('id') id: string,
-    @Param('kind') kind: string,
-    @Body('state') state: string,
-    @Request() req: any,
-  ) {
-    return this.authService.verifyUserDocument(id, kind, state, req.user.id);
-  }
-
   @Get('company-registrations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
