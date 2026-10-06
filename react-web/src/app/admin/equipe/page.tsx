@@ -135,8 +135,8 @@ function EquipeContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Équipe" }]}
-        title="Supervision de l'Équipe Territoriale"
+        breadcrumb={[{ label: "Supervision" }, { label: "Équipe territoriale" }]}
+        title="Équipe territoriale"
         subtitle="Activité de terrain, couverture des ressorts et débit de traitement des administrateurs régionaux et départementaux."
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
