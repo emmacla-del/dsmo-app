@@ -1,6 +1,15 @@
 import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
+// The entity types whose registration must carry a CNPS number.
+const CNPS_REQUIRED_ENTITY_TYPES: readonly string[] = [
+  'ENTREPRISE',
+  'COOPERATIVE',
+  'CTD',
+  'ONG',
+  'VOCATIONAL_TRAINING',
+];
+
 /**
  * Every company-registration field except the password.
  *
@@ -44,7 +53,6 @@ export class CompanyRegistrationFieldsDto {
   @IsOptional() @IsString() departmentId?: string;
   @IsOptional() @IsString() subdivisionId?: string;
   @IsOptional() @IsString() taxNumber?: string;
-  @IsOptional() @IsString() cnpsNumber?: string;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) socialCapital?: number;
   @IsOptional() @IsString() contactName?: string;
   // Required: the establishment ID prefix derives from it. The list is the
@@ -55,6 +63,16 @@ export class CompanyRegistrationFieldsDto {
   @IsDefined()
   @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING'])
   entityType!: string;
+  // Required for the five types that declare it on the registration form
+  // (react-web ENTITY_CONFIGS); administration and project/programme do not
+  // collect it. @IsDefined because the global pipe runs with
+  // skipMissingProperties, which skips @IsString/@IsNotEmpty on a missing key;
+  // @ValidateIf gates @IsDefined too, so the other two types may omit it.
+  @ValidateIf((o) => CNPS_REQUIRED_ENTITY_TYPES.includes(o.entityType))
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  cnpsNumber?: string;
   @IsOptional() @IsString() area?: string;
   @IsOptional() @IsString() sectorId?: string;
   @IsOptional() @IsString() phone?: string;
