@@ -208,8 +208,12 @@ export default function LoginPage() {
                   <div className="input-row">
                     <input
                       id="email"
-                      type="email"
+                      type="text"
                       autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder={t("loginPage.identifierPlaceholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
