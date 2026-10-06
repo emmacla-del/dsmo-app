@@ -168,7 +168,10 @@ export function listCompanyRegistrations(params: {
   from?: string;
   to?: string;
   search?: string;
+  /** A UserStatus, or "ALL" to lift the default queue filter (pending + complements). */
   status?: string;
+  /** Only files registered by this admin (User.createdBy). */
+  createdBy?: string;
   page?: number;
   pageSize?: number;
 }) {
@@ -179,6 +182,7 @@ export function listCompanyRegistrations(params: {
   if (params.to) query.set("to", params.to);
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
+  if (params.createdBy) query.set("createdBy", params.createdBy);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   const qs = query.toString();
