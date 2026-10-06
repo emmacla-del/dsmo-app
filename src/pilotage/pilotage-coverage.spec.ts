@@ -17,6 +17,7 @@ function row(overrides: Partial<CompanyStockRow> = {}): CompanyStockRow {
     departmentRegionId: 'r1',
     establishmentId: 'EN26000100',
     establishmentIdGeneratedAt: new Date('2026-06-01T10:00:00.000Z'),
+    approvedAt: null,
     createdAt: new Date('2026-01-15T10:00:00.000Z'),
     status: 'ACTIVE',
     isActive: true,
@@ -71,7 +72,31 @@ describe('classifyBucket', () => {
 });
 
 describe('applyRow', () => {
-  it('falls back to createdAt when establishmentIdGeneratedAt is missing', () => {
+  it('counts a row in the year it was approved, not the year its ID was generated', () => {
+    const counts = emptyCounts();
+    // Registered (ID generated) in December, approved in January.
+    const r = row({
+      establishmentIdGeneratedAt: new Date('2026-12-20T10:00:00.000Z'),
+      approvedAt: new Date('2027-01-05T10:00:00.000Z'),
+    });
+    applyRow(counts, r, 2026);
+    expect(counts.registeredInYear).toBe(0);
+    const next = emptyCounts();
+    applyRow(next, r, 2027);
+    expect(next.registeredInYear).toBe(1);
+  });
+
+  it('falls back to establishmentIdGeneratedAt when approvedAt is missing (legacy row)', () => {
+    const counts = emptyCounts();
+    applyRow(counts, row({
+      approvedAt: null,
+      establishmentIdGeneratedAt: new Date('2025-06-01T00:00:00.000Z'),
+      createdAt: new Date('2024-06-01T00:00:00.000Z'),
+    }), 2025);
+    expect(counts.registeredInYear).toBe(1);
+  });
+
+  it('falls back to createdAt when approvedAt and establishmentIdGeneratedAt are missing', () => {
     const counts = emptyCounts();
     applyRow(counts, row({
       establishmentIdGeneratedAt: null,

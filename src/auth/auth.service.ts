@@ -698,8 +698,30 @@ export class AuthService {
       { requireSubdivision: true },
     );
 
-    // Establishment IDs are issued at staff approval, except for the entity
-    // types in AUTO_APPROVE_ENTITY_TYPES, which get theirs below.
+    // The establishment ID is generated here, at registration, for every
+    // file: public, assisted and auto-approved alike. Both inputs are checked
+    // before any write, so a refused registration consumes no serial. A
+    // failure after generate() (an email or NIU race) leaves a gap, which the
+    // policy allows. The -01 Establishment row stays approval-time.
+    if (!EstablishmentIdGenerator.isKnownEntityType(companyData.entityType)) {
+      throw new BadRequestException("Type d'entité inconnu.");
+    }
+    const subdivision = await this.prisma.subdivision.findUnique({
+      where: { id: resolvedTerritory.subdivisionId as string },
+      select: { code: true },
+    });
+    const subdivisionCode = subdivision?.code?.trim();
+    if (!subdivisionCode) {
+      // Every subdivision is coded (360/360, frozen by 20261003120000), so
+      // this is a data fault, not a user error: no fallback ID is made up.
+      throw new Error(`Subdivision ${resolvedTerritory.subdivisionId} has no code`);
+    }
+    const establishmentId = await EstablishmentIdGenerator.generate(
+      this.prisma,
+      companyData.entityType as string,
+      subdivisionCode.slice(-2),
+    );
+
     const autoApprove =
       !attribution.skipAutoApproval &&
       !!companyData.entityType &&
@@ -782,18 +804,18 @@ export class AuthService {
           promoterSex: companyData.promoterSex,
           promoterPhone1: companyData.promoterPhone1,
           promoterPhone2: companyData.promoterPhone2,
+          establishmentId,
+          establishmentIdGeneratedAt: new Date(),
         },
       });
 
-      // Auto-approval: activate the account and allocate its establishment ID
-      // in one transaction, so a failure here leaves a normal PENDING_APPROVAL
-      // file for staff review rather than an active account with no ID.
+      // Auto-approval: activate the account and create its -01 Establishment
+      // in one transaction, reusing the ID generated above, so a failure here
+      // leaves a normal PENDING_APPROVAL file for staff review.
       let activeUser = user;
-      let autoApprovedEstablishmentId: string | null = null;
       if (autoApprove) {
         const approved = await this.autoApproveRegistration(user, company);
         activeUser = approved.user;
-        autoApprovedEstablishmentId = approved.establishmentId;
       }
 
       const rawToken = await this.issueEmailVerificationToken(user.id);
@@ -808,7 +830,7 @@ export class AuthService {
 
       // activeUser, not user: callers echo `status` back to the client, and an
       // auto-approved account has to report ACTIVE, not PENDING_APPROVAL.
-      return { user: activeUser, company, establishmentId: autoApprovedEstablishmentId };
+      return { user: activeUser, company, establishmentId: company.establishmentId as string };
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Email ou numéro contribuable déjà utilisé');
@@ -944,11 +966,13 @@ export class AuthService {
 
   /**
    * Activates a freshly self-registered account whose entity type is in
-   * AUTO_APPROVE_ENTITY_TYPES and allocates its establishment ID.
+   * AUTO_APPROVE_ENTITY_TYPES. Its establishment ID was generated at
+   * registration; the `if (!issued)` branch below only serves a row that
+   * has none (a legacy file), and is the same fallback approval keeps.
    *
-   * Deliberately the same five writes, in the same order, as the transaction
-   * inside approveCompanyRegistration — establishment ID, Company update,
-   * principal Establishment row, user ACTIVE, audit row — so an
+   * Deliberately the same writes, in the same order, as the transaction
+   * inside approveCompanyRegistration — (legacy: establishment ID and
+   * Company update), principal Establishment row, user ACTIVE, audit row — so an
    * auto-approved file is indistinguishable downstream from a staff-approved
    * one. The only differences: the audit action records that no reviewer was
    * involved, and the audit row is attributed to the registrant because
@@ -1266,8 +1290,8 @@ export class AuthService {
   /**
    * The company fields a company may correct itself when complements were
    * requested. An explicit allowlist, copied field by field below rather than
-   * spread from the body, so establishmentId stays unreachable: it is issued
-   * by a reviewer at approval. Territory is handled separately because it has
+   * spread from the body, so establishmentId stays unreachable: it is
+   * generated at registration and is permanent. Territory is handled separately because it has
    * to be resolved against the canonical records first.
    */
   private static readonly CORRECTABLE_COMPANY_FIELDS = [
@@ -1630,7 +1654,7 @@ export class AuthService {
     // a missing, null or merely truthy flag is refused, so the confirmation
     // has to be deliberate rather than a side effect of how a client
     // serialises its form. Checked before the transaction, so a refusal
-    // issues no establishment ID and writes no audit row.
+    // creates no Establishment and writes no audit row.
     if (company.entityType === 'ADMINISTRATION' && options?.centralStructureConfirmed !== true) {
       throw new BadRequestException(
         "La confirmation « structure centrale » est obligatoire pour approuver une administration.",
@@ -1653,6 +1677,9 @@ export class AuthService {
             throw new BadRequestException("Code d'arrondissement introuvable pour cet établissement.");
           }
           const subdivisionCode = subdivision.code.slice(-2);
+          // New files carry the ID generated at registration. Only a legacy
+          // file (registered before IDs moved to registration) has none and
+          // gets one here, with YY = the approval year.
           let issued = company.establishmentId;
           if (!issued) {
             issued = await EstablishmentIdGenerator.generate(tx, company.entityType as string, subdivisionCode);
@@ -1696,7 +1723,7 @@ export class AuthService {
         });
         establishmentId = result.establishmentId;
         // Both of these run after COMMIT and swallow their own failures: the
-        // approval and the establishment ID are already durable, and neither
+        // approval is already durable, and neither
         // the mail server nor the PDF pipeline may undo them.
         this.notificationService
           .sendRegistrationApprovedEmail(user.email, company.name, result.establishmentId)

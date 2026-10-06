@@ -8,6 +8,19 @@ import { AuthService } from './auth.service';
  * project can reach is production.
  */
 
+/**
+ * The establishment ID generator's two raw statements (ensure, then
+ * nextval) against an in-memory sequence: serials 1, 2, 3...
+ */
+function sequenceQueryRaw() {
+  let last = 0;
+  return jest.fn(async (strings: TemplateStringsArray) => {
+    if (strings.join('?').includes('establishment_serial_ensure')) return [{ seq: 'public.establishment_serial_test' }];
+    last += 1;
+    return [{ serial: BigInt(last) }];
+  });
+}
+
 function makePrisma(existing: Record<string, unknown> | null = null) {
   const prisma: any = {
     user: {
@@ -30,12 +43,15 @@ function makePrisma(existing: Record<string, unknown> | null = null) {
       findFirst: jest.fn(async () => null),
     },
     subdivision: {
+      // Every subdivision is coded; the ID suffix is the code's last two digits.
+      findUnique: jest.fn(async () => ({ code: '5812' })),
       findMany: jest.fn(async () => [
         { id: 'subdiv-douala1', name: 'Douala 1', departmentId: 'dept-wouri' },
       ]),
       findFirst: jest.fn(async () => null),
     },
     auditLog: { create: jest.fn(async () => ({})) },
+    $queryRaw: sequenceQueryRaw(),
   };
   prisma.$transaction = jest.fn(async (fn: any) => (typeof fn === 'function' ? fn(prisma) : fn));
   return prisma;

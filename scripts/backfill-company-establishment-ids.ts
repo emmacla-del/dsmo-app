@@ -12,8 +12,9 @@
  *  - companies that already hold an establishmentId (idempotent: a second
  *    run finds nothing to do)
  *  - companies whose user is PENDING_APPROVAL, COMPLEMENTS_REQUESTED,
- *    REJECTED or any other status — those get their ID from the normal
- *    approval path (AuthService.approveUser)
+ *    REJECTED or any other status. New files get their ID at registration;
+ *    a legacy pending file without one gets it at approval
+ *    (AuthService.approveUser); a rejected legacy file never gets one
  *  - entityType / subdivision / territory, or any other company column
  *
  * Rows missing the data the ID is derived from (entityType or subdivisionId,

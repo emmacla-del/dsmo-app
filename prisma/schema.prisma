@@ -301,10 +301,11 @@ model Company {
   promoterPhone1             String?
   promoterPhone2             String?
   // Unique: the ID is the establishment's public identifier, printed on the
-  // attestation and used as a search key. Allocation is serialised by
-  // pg_advisory_xact_lock in EstablishmentIdGenerator; this is the database
-  // backstop behind it. Nullable, and Postgres allows repeated NULLs, so
-  // companies still awaiting approval are unaffected.
+  // attestation and used as a search key. Generated at registration from a
+  // per-(prefix, year) Postgres sequence (EstablishmentIdGenerator, migration
+  // 20261011120000); this index is the database backstop. Nullable only for
+  // legacy rows registered before that change; Postgres allows repeated
+  // NULLs.
   establishmentId            String?                 @unique
   establishmentIdGeneratedAt DateTime?               @db.Timestamp(6)
   attestationUrl             String?
