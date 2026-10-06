@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import { getMyCompany, type CompanyProfile } from "@/lib/api-client";
 import { resubmitRegistration, type RegistrationCorrections } from "@/lib/user-directory";
+import { useEmailAvailability } from "@/lib/use-email-availability";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 
 // The ONEFOP entity types, in the backend's own enum spelling. The same seven
@@ -88,6 +89,9 @@ export default function InscriptionEnAttentePage() {
   const [form, setForm] = useState<FormState>({});
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The public wizard's debounced check. The account's own address is not a
+  // conflict, so it is passed as ownEmail and never checked.
+  const emailAvailable = useEmailAvailability(form[EMAIL_KEY] ?? "", initial[EMAIL_KEY]);
 
   // Prefill once the profile lands, and leave the reviewer's own edits alone
   // on any later refetch.
@@ -143,10 +147,11 @@ export default function InscriptionEnAttentePage() {
     if (changed("entityType") && (form.entityType ?? "") !== "") {
       out.entityType = form.entityType;
     }
-    // Compared trimmed, and left out when cleared: the route validates it as
-    // an email, and an empty one would only be a 400.
+    // Compared trimmed and case-insensitively (the server stores it
+    // lowercased), and left out when cleared: the route validates it as an
+    // email, and an empty one would only be a 400.
     const email = (form[EMAIL_KEY] ?? "").trim();
-    if (email !== "" && email !== (initial[EMAIL_KEY] ?? "").trim()) {
+    if (email !== "" && email.toLowerCase() !== (initial[EMAIL_KEY] ?? "").trim().toLowerCase()) {
       out.email = email;
     }
     // Territory resolves as a chain server-side and requires a subdivision,
@@ -164,6 +169,10 @@ export default function InscriptionEnAttentePage() {
     const movingTerritory = corrections.region !== undefined;
     if (movingTerritory && !(corrections.subdivision ?? "").trim()) {
       setError("Choisissez l'arrondissement pour déplacer le dossier.");
+      return;
+    }
+    if (corrections.email !== undefined && emailAvailable === false) {
+      setError("Cette adresse e-mail est déjà utilisée par un autre compte.");
       return;
     }
     setError(null);
@@ -230,6 +239,10 @@ export default function InscriptionEnAttentePage() {
                   value={form[EMAIL_KEY] ?? ""}
                   onChange={(e) => set(EMAIL_KEY, e.target.value)}
                 />
+                <span aria-live="polite" aria-atomic="true">
+                  {emailAvailable === false && <span className="field-status is-error">⚠ Adresse déjà utilisée</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ Disponible</span>}
+                </span>
                 <span id="correction-email-hint" className="cam-admin-choice-hint">
                   Votre identifiant de connexion et le contact de l&apos;entité auprès de l&apos;ONEFOP.
                 </span>
