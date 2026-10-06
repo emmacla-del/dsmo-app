@@ -19,9 +19,10 @@ import { hrefWith } from "@/lib/admin-url";
 // here. Access is unchanged: USER_ADMIN_ROLES, as before.
 
 function AnnuaireHeader({ title }: { title: string }) {
+  const t = useTranslations();
   return (
     <AdminPageHeader
-      breadcrumb={[{ label: "Administration" }, { label: title }]}
+      breadcrumb={[{ label: t("adminNav.hubs.administration") }, { label: title }]}
       title={title}
       actions={<AdminHeaderActions />}
     />
@@ -75,7 +76,7 @@ function AnnuaireContent() {
 
       <div>
         <ViewSwitch
-          label="Listes de l'annuaire"
+          label={t("homeAnnuairePage.listsAriaLabel")}
           items={(["companies", "users"] as const).map((tabKey) => ({
             key: tabKey,
             label: tabKey === "companies" ? t("homeAnnuairePage.companiesTabLabel") : t("homeAnnuairePage.usersTabLabel"),

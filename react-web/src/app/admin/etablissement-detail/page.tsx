@@ -608,11 +608,11 @@ function EtablissementDetail() {
                 {(auditQuery.data?.items ?? []).map((e) => (
                   <div key={e.id}>
                     <div style={{ color: "#6b7280" }}>{stamp(e.timestamp, true, locale)}</div>
-                    <div style={{ fontWeight: 600, color: "#111827" }}>{auditActorName(e)}</div>
-                    <div style={{ color: "#4b5563" }}>{auditActionLabel(e.action)}</div>
-                    <div style={{ color: "#6b7280" }}>{auditDetailsSummary(e)}</div>
-                    {auditTransition(e) && (
-                      <div style={{ color: "#6b7280", fontStyle: "italic" }}>{auditTransition(e)}</div>
+                    <div style={{ fontWeight: 600, color: "#111827" }}>{auditActorName(e, locale)}</div>
+                    <div style={{ color: "#4b5563" }}>{auditActionLabel(e.action, locale)}</div>
+                    <div style={{ color: "#6b7280" }}>{auditDetailsSummary(e, locale)}</div>
+                    {auditTransition(e, locale) && (
+                      <div style={{ color: "#6b7280", fontStyle: "italic" }}>{auditTransition(e, locale)}</div>
                     )}
                   </div>
                 ))}

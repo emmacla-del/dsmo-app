@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   STATUS_FILTERS,
@@ -78,6 +79,7 @@ interface UsersDirectoryProps {
 
 export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ADMIN_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const { regions: directoryRegions } = useTerritoryRegions();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -175,7 +177,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
           </div>
         </div>
         <div className="cam-field">
-          <label className="cam-label" htmlFor="users-role">Rôle</label>
+          <label className="cam-label" htmlFor="users-role">{t("usersDirectory.roleLabel")}</label>
           <select
             id="users-role"
             className="cam-select"
@@ -190,7 +192,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
               <>
                 <option value="">{t("usersDirectory.allRolesOption")}</option>
                 {assignableRoles.map((r: string) => (
-                  <option key={r} value={r}>{directoryRoleLabel(r)}</option>
+                  <option key={r} value={r}>{directoryRoleLabel(r, locale)}</option>
                 ))}
               </>
             )}
@@ -198,14 +200,14 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
         </div>
         {showRegionFilter && (
           <div className="cam-field">
-            <label className="cam-label" htmlFor="users-region">Région</label>
+            <label className="cam-label" htmlFor="users-region">{t("usersDirectory.regionLabel")}</label>
             <select
               id="users-region"
               className="cam-select"
               value={regionFilter}
               onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
             >
-              <option value="">Toutes les régions</option>
+              <option value="">{t("usersDirectory.allRegionsOption")}</option>
               {directoryRegions.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -215,7 +217,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
-        <div className="cam-admin-chips" role="group" aria-label="Statut du compte">
+        <div className="cam-admin-chips" role="group" aria-label={t("usersDirectory.statusFilterAriaLabel")}>
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.key}
@@ -224,7 +226,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
               aria-pressed={statusFilter === f.key}
               onClick={() => { setStatusFilter(f.key); setPage(1); }}
             >
-              {f.label}
+              {locale === "en" ? f.labelEn : f.label}
             </button>
           ))}
         </div>
@@ -238,7 +240,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
 
       {filterIgnored && (
         <p role="alert" style={{ color: "var(--cam-warning)", fontSize: "var(--cam-font-size-sm)", marginBottom: "var(--cam-space-3)" }}>
-          Le serveur n&apos;applique pas encore ce filtre : la liste ci-dessous contient des comptes hors du rôle ou de la région choisis.
+          {t("usersDirectory.filterIgnoredWarning")}
         </p>
       )}
       {query.isLoading && <p className="cam-admin-empty">{t("common.loading")}</p>}
@@ -260,7 +262,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
               </thead>
               <tbody>
                 {query.data.users.map((u) => {
-                  const meta = rowStatusMeta(u);
+                  const meta = rowStatusMeta(u, locale);
                   const location = [u.region, u.department].filter(Boolean).join(" · ");
                   const name = directoryUserName(u);
                   return (
@@ -301,7 +303,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                       </td>
                       <td>
                         <span className="cam-badge cam-badge-neutral" style={{ color: directoryRoleColor(u.role), borderColor: "var(--cam-border)" }}>
-                          {directoryRoleLabel(u.role)}
+                          {directoryRoleLabel(u.role, locale)}
                         </span>
                       </td>
                       <td>
@@ -583,6 +585,7 @@ function RejectModal({ user, pending, error, onCancel, onConfirm }: { user: Dire
 
 function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user: DirectoryUser; roles: readonly string[]; pending: boolean; error: Error | null; onCancel: () => void; onConfirm: (role: string) => void }) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   return (
     <div style={modalBodyStyle}>
       <h2 style={modalTitleStyle}>{t("usersDirectory.editRoleTitle")}</h2>
@@ -598,7 +601,7 @@ function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user:
               cursor: "pointer", fontWeight: r === user.role ? 700 : 500, color: r === user.role ? "var(--cam-green)" : "var(--cam-text)",
             }}
           >
-            {directoryRoleLabel(r)} {r === user.role && "✓"}
+            {directoryRoleLabel(r, locale)} {r === user.role && "✓"}
           </button>
         ))}
       </div>
@@ -619,6 +622,7 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
   onConfirm: (v: { role: string; region: string; department: string }) => void;
 }) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const { regions: directoryRegions } = useTerritoryRegions();
   const [role, setRole] = useState(roles.includes(user.role) ? user.role : roles[0]);
   const [region, setRegion] = useState(user.region ?? "");
@@ -638,7 +642,7 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
       <div style={fieldStyle}>
         <label className="cam-label" htmlFor="reassign-role">{t("usersDirectory.roleColumn")}</label>
         <select id="reassign-role" className="cam-select" value={role} onChange={(e) => setRole(e.target.value)}>
-          {roles.map((r) => <option key={r} value={r}>{directoryRoleLabel(r)}</option>)}
+          {roles.map((r) => <option key={r} value={r}>{directoryRoleLabel(r, locale)}</option>)}
         </select>
       </div>
       <div style={fieldStyle}>
