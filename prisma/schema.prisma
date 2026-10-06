@@ -767,6 +767,7 @@ model SubmissionRound {
 }
 
 model SubmissionDraft {
+  id              String           @id @default(uuid())
   // Holds 13-character site code (e.g. EN26000100-01), unlike OnefopSubmission UUID FK.
   // Recommended future cleanup: rename column to siteCode.
   establishmentId String
