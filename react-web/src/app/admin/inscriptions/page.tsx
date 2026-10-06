@@ -49,6 +49,8 @@ const FIELD_LABELS: Record<string, string> = {
   secondaryActivity: "Activité secondaire",
   parentCompany: "Société mère",
   address: "Adresse",
+  phone: "Téléphone / WhatsApp",
+  email: "Email",
   cnpsNumber: "Numéro CNPS",
   fax: "Fax",
   socialCapital: "Capital social",
