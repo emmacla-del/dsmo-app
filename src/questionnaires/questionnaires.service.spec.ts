@@ -2129,3 +2129,60 @@ describe('QuestionnairesService — Phase E.1 Establishment Resolution', () => {
   });
 });
 
+// Audit D1 (fe-be-contract-2026-10-05): the dossier review panel falls back
+// to the registered founding year when the questionnaire collects none, so
+// GET /admin/questionnaires/:id carries it as a top-level yearOfCreation.
+describe('QuestionnairesService.getById — registered founding year', () => {
+  function buildService(row: unknown) {
+    const prisma: any = { onefopSubmission: { findFirst: jest.fn().mockResolvedValue(row) } };
+    return { prisma, service: new QuestionnairesService(prisma) };
+  }
+
+  it('returns the company yearOfCreation reached through the establishment', async () => {
+    const { prisma, service } = buildService({
+      id: 'sub-1',
+      enterpriseDetail: { companyName: 'ACME', locality: 'Akwa', legalStatus: 'SARL/ LLC' },
+      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: '1998' } },
+    });
+
+    const result: any = await service.getById('sub-1');
+
+    expect(result.yearOfCreation).toBe('1998');
+    expect(result.enterpriseDetail).toEqual({ companyName: 'ACME', locality: 'Akwa', legalStatus: 'SARL/ LLC' });
+    expect(prisma.onefopSubmission.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          establishment: { include: { company: { select: { yearOfCreation: true } } } },
+        }),
+      }),
+    );
+  });
+
+  it('does not expose the establishment row itself', async () => {
+    const { service } = buildService({
+      id: 'sub-1',
+      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: '1998' } },
+    });
+
+    const result: any = await service.getById('sub-1');
+
+    expect(result).not.toHaveProperty('establishment');
+  });
+
+  it('returns null, not "" or a placeholder, when the company has no yearOfCreation', async () => {
+    const { service } = buildService({
+      id: 'sub-1',
+      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: null } },
+    });
+
+    const result: any = await service.getById('sub-1');
+
+    expect(result.yearOfCreation).toBeNull();
+  });
+
+  it('still reports an unknown or out-of-territory id as not found', async () => {
+    const { service } = buildService(null);
+    await expect(service.getById('missing')).rejects.toThrow(NotFoundException);
+  });
+});
+
