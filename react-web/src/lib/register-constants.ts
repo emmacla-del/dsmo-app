@@ -148,7 +148,7 @@ import {
 // CFP") still declares its own.
 const PHONE: EntityField = {
   key: "phone",
-  label: { fr: "Téléphone", en: "Phone" },
+  label: { fr: "Téléphone / WhatsApp", en: "Phone / WhatsApp" },
   hint: { fr: "Ex : 655000000", en: "E.g. 655000000" },
   required: true,
   kind: "tel",

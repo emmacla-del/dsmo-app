@@ -197,3 +197,11 @@ test("cnpsNumber is required for the five CNPS-affiliated types, absent for the 
     assert.ok(!keysOf(type).includes("cnpsNumber"), `${type}: unexpectedly declares cnpsNumber`);
   }
 });
+
+test("every type's entity phone is labelled Téléphone / WhatsApp", () => {
+  for (const type of Object.keys(ENTITY_CONFIGS) as EntityType[]) {
+    const field = ENTITY_CONFIGS[type].fields.find((f) => f.key === "phone");
+    assert.ok(field, `${type}: no phone field`);
+    assert.deepEqual(field.label, { fr: "Téléphone / WhatsApp", en: "Phone / WhatsApp" }, `${type}: phone label`);
+  }
+});
