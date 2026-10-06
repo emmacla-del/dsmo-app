@@ -15,7 +15,6 @@ import {
 import { DataState } from "@/components/admin/DataState";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole } from "@/lib/roles";
-import { hasRealNiu } from "@/lib/companies-directory";
 import {
   METRIC_UNAVAILABLE,
   NOT_RECORDED,
@@ -896,33 +895,6 @@ function SubmissionDetailContent() {
                     gap: 16,
                   }}
                 >
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      Numéro de contribuable
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {factOr(hasRealNiu(dossier.taxNumber) ? dossier.taxNumber : null, NOT_RECORDED)}
-                    </div>
-                  </div>
-
                   <div>
                     <label
                       style={{
