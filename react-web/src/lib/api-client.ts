@@ -660,6 +660,8 @@ export interface AdminDossier {
   administrationDetail: Record<string, unknown> | null;
   projectProgramDetail: Record<string, unknown> | null;
   vocationalTrainingDetail: Record<string, unknown> | null;
+  /** Registered founding year (Company.yearOfCreation), reached through the submission's establishment. */
+  yearOfCreation?: string | null;
 }
 
 export function getAdminDossier(id: string) {

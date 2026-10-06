@@ -77,6 +77,24 @@ function entityDetail(d: AdminDossier): Detail {
   );
 }
 
+/**
+ * S1Q01 « Régime/statut juridique » (onefop_ast.dart, path
+ * enterprise.legalStatus) stores the bilingual option value; the reviewer
+ * sees the AST's French label. A value outside the option list is shown as
+ * stored rather than dropped: it is still the respondent's answer.
+ */
+const LEGAL_STATUS_LABELS: Record<string, string> = {
+  "Société unipersonnelle/ Single-member company": "Société unipersonnelle",
+  "SARL/ LLC": "SARL",
+  "SA/ PLC": "SA",
+  "Autres/ Others": "Autres",
+};
+
+function factLegalStatus(value: unknown): string {
+  const stored = fact(value);
+  return LEGAL_STATUS_LABELS[stored] ?? stored;
+}
+
 function entityName(detail: Detail): string | null {
   const n = detail.companyName ?? detail.cooperativeName ?? detail.ongName ?? detail.name ?? detail.ctdType;
   return n ? String(n) : null;
@@ -1080,7 +1098,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {fact(detail.address)}
+                      {fact(detail.locality)}
                     </div>
                   </div>
 
@@ -1094,7 +1112,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Date de création
+                      Année de création
                     </label>
                     <div
                       style={{
@@ -1107,7 +1125,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {fact(detail.creationDate)}
+                      {fact(detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation)}
                     </div>
                   </div>
 
@@ -1121,7 +1139,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Régime d&apos;imposition
+                      Régime/statut juridique
                     </label>
                     <div
                       style={{
@@ -1134,7 +1152,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {fact(detail.taxRegime)}
+                      {factLegalStatus(detail.legalStatus)}
                     </div>
                   </div>
                 </div>
