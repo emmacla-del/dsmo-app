@@ -58,7 +58,6 @@ model Region {
   companies         Company[]
   departments       Department[]
   onefopSubmissions OnefopSubmission[]
-  territoryTargets  TerritoryTarget[]
   campaignQuotas    CampaignQuota[]
   establishments    Establishment[]
 
@@ -77,7 +76,6 @@ model Department {
   region            Region             @relation(fields: [regionId], references: [id])
   onefopSubmissions OnefopSubmission[]
   subdivisions      Subdivision[]
-  territoryTargets  TerritoryTarget[]
   campaignQuotas    CampaignQuota[]
   establishments    Establishment[]
 
@@ -200,14 +198,8 @@ model User {
   minefopService             MinefopService?    @relation(fields: [serviceCode], references: [code])
   resolvedAnomalies          OnefopAnomaly[]    @relation("AnomalyResolver")
   frozenCampaigns            CampaignFreeze[]   @relation("CampaignFrozenBy")
-  territoryTargetsCreated          TerritoryTarget[]          @relation("TerritoryTargetCreatedBy")
-  territoryTargetsUpdated          TerritoryTarget[]          @relation("TerritoryTargetUpdatedBy")
   campaignQuotasCreated            CampaignQuota[]            @relation("CampaignQuotaCreatedBy")
   campaignQuotasUpdated            CampaignQuota[]            @relation("CampaignQuotaUpdatedBy")
-  centralInscriptionTargetsCreated CentralInscriptionTarget[] @relation("CentralInscriptionTargetCreatedBy")
-  centralInscriptionTargetsUpdated CentralInscriptionTarget[] @relation("CentralInscriptionTargetUpdatedBy")
-  centralCampaignQuotasCreated     CentralCampaignQuota[]     @relation("CentralCampaignQuotaCreatedBy")
-  centralCampaignQuotasUpdated     CentralCampaignQuota[]     @relation("CentralCampaignQuotaUpdatedBy")
 
   @@index([role])
   @@index([serviceCode])
@@ -656,7 +648,6 @@ model DataCampaign {
   onefopSubmissions OnefopSubmission[]
   declarations      Declaration[]
   quotas            CampaignQuota[]
-  centralQuota      CentralCampaignQuota?
 
   @@index([status])
   @@map("data_campaigns")
@@ -2482,45 +2473,6 @@ model CampaignFreeze {
   @@map("campaign_freezes")
 }
 
-// Territorial inscription targets and campaign quotas.
-//
-// departmentId is null on a region-level row. PostgreSQL unique constraints
-// treat those NULLs as distinct, so a plain @@unique([year, regionId,
-// departmentId]) would allow two region-level rows for the same year.
-// Uniqueness is two partial indexes in the migration SQL, same approach as
-// onefop_submissions_company_quarter_live_uidx. Do not add @@unique for
-// this key: Prisma cannot express the WHERE clause and would generate a
-// different constraint. Non-negative checks are SQL CHECKs for the same reason.
-//
-// "Niveau central" is not a Region and not a null regionId. Administrations
-// use CentralInscriptionTarget / CentralCampaignQuota.
-
-// DEPRECATED 2026-10-05. Registration targets are now CampaignQuota rows
-// attached to a synthetic annual campaign. Kept for migration rollback;
-// do not write.
-model TerritoryTarget {
-  id                String      @id @default(uuid())
-  year              Int
-  regionId          String
-  departmentId      String?
-  inscriptionTarget Int
-  createdBy         String
-  updatedBy         String
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  region            Region      @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  department        Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  createdByUser     User        @relation("TerritoryTargetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updatedByUser     User        @relation("TerritoryTargetUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-
-  @@index([year])
-  @@index([regionId])
-  @@index([departmentId])
-  @@index([createdBy])
-  @@index([updatedBy])
-  @@map("territory_targets")
-}
-
 // The unified quota table. A row is either TERRITORIAL — one per region,
 // or one per department — or the single ADMINISTRATION row for the campaign,
 // which holds the target for the ministry cohort and carries no region or
@@ -2563,42 +2515,5 @@ model CampaignQuota {
   @@index([createdBy])
   @@index([updatedBy])
   @@map("campaign_quotas")
-}
-
-// DEPRECATED 2026-10-05. National registration targets are now the sum of
-// CampaignQuota rows. Kept for migration rollback; do not write.
-model CentralInscriptionTarget {
-  id                String   @id @default(uuid())
-  year              Int      @unique
-  inscriptionTarget Int
-  createdBy         String
-  updatedBy         String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdByUser     User     @relation("CentralInscriptionTargetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updatedByUser     User     @relation("CentralInscriptionTargetUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-
-  @@index([createdBy])
-  @@index([updatedBy])
-  @@map("central_inscription_targets")
-}
-
-// DEPRECATED 2026-10-05. National totals are now computed as the sum of
-// CampaignQuota rows. Kept for migration rollback; do not write.
-model CentralCampaignQuota {
-  id               String       @id @default(uuid())
-  campaignId       String       @unique
-  submissionTarget Int
-  createdBy        String
-  updatedBy        String
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  campaign         DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  createdByUser    User         @relation("CentralCampaignQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updatedByUser    User         @relation("CentralCampaignQuotaUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-
-  @@index([createdBy])
-  @@index([updatedBy])
-  @@map("central_campaign_quotas")
 }
 

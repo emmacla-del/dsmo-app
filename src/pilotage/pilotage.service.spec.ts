@@ -31,7 +31,6 @@ function createHarness() {
     { id: 'd-wouri', name: 'Wouri', regionId: 'r-littoral' },
   ];
   const campaignQuotas: TargetRow[] = [];
-  const centralQuotas: Array<Record<string, unknown>> = [];
   const companies: Array<Record<string, unknown>> = [];
   const onefopSubmissions: Array<Record<string, unknown>> = [];
   const audits: Array<Record<string, unknown>> = [];
@@ -130,9 +129,6 @@ function createHarness() {
       ),
     },
     campaignQuota: collection(campaignQuotas as unknown as Array<Record<string, unknown>>),
-    // CentralCampaignQuota keeps its delegate until Phase 6b drops the model:
-    // the assertion that pilotage never writes it needs something to watch.
-    centralCampaignQuota: collection(centralQuotas),
     company: {
       findMany: jest.fn(async (args?: { where?: { regionId?: string; departmentId?: string } }) =>
         companies.filter((company) => {
@@ -169,7 +165,6 @@ function createHarness() {
     service: new PilotageService(prisma as unknown as PrismaService),
     prisma,
     campaignQuotas,
-    centralQuotas,
     companies,
     onefopSubmissions,
     audits,
@@ -266,12 +261,10 @@ describe('PilotageService writes', () => {
     expect(harness.campaignQuotas[0]).toMatchObject({
       campaignId: 'camp-1', scopeKind: 'TERRITORIAL', submissionTarget: 4, departmentId: 'd-wouri',
     });
-    // The central key now lands in CampaignQuota as the ADMINISTRATION row,
-    // not in the deprecated CentralCampaignQuota table.
+    // The central key lands in CampaignQuota as the ADMINISTRATION row.
     expect(harness.campaignQuotas[1]).toMatchObject({
       campaignId: 'camp-1', scopeKind: 'ADMINISTRATION', regionId: null, departmentId: null, submissionTarget: 9,
     });
-    expect(harness.centralQuotas).toHaveLength(0);
     expect(harness.audits.map((row) => row.action).sort()).toEqual(['CAMPAIGN_QUOTA_UPSERT', 'CAMPAIGN_QUOTA_UPSERT']);
     expect(result.campaign).toMatchObject({ id: 'camp-1', collectionType: 'ONEFOP', status: 'DRAFT' });
     // The response keeps its shape: central is still { submissionTarget } | null.
@@ -288,7 +281,7 @@ describe('PilotageService writes', () => {
     expect(harness.campaignQuotas).toHaveLength(2);
   });
 
-  it('writes the central key as one ADMINISTRATION row and never touches CentralCampaignQuota', async () => {
+  it('writes the central key as one ADMINISTRATION row', async () => {
     const harness = createHarness();
     harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
 
@@ -303,14 +296,6 @@ describe('PilotageService writes', () => {
       campaignId: 'camp-1', regionId: null, departmentId: null, submissionTarget: 12,
       createdBy: 'actor-1', updatedBy: 'actor-1',
     });
-
-    // The deprecated table has no reader left after Phase 6a and no writer
-    // since 3d-bis; this holds pilotage to that until 6b drops the model.
-    expect(harness.centralQuotas).toHaveLength(0);
-    const centralDelegate = harness.prisma.centralCampaignQuota as Record<string, jest.Mock>;
-    expect(centralDelegate.create).not.toHaveBeenCalled();
-    expect(centralDelegate.update).not.toHaveBeenCalled();
-    expect(centralDelegate.delete).not.toHaveBeenCalled();
 
     // The retired audit actions must not reappear under a new writer.
     const actions = harness.audits.map((row) => row.action);
