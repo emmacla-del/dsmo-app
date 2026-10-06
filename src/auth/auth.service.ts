@@ -71,10 +71,11 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
 const AUTO_APPROVE_ENTITY_TYPES = ['ADMINISTRATION'] as const;
 
 /**
- * The stored form of a company login email: trimmed and lowercased. Applied on
- * every company write (registration, assisted registration, correction), so
- * Jean@x.cm and jean@x.cm cannot become two accounts. Staff account creation
- * is not normalised yet; the lookups below therefore stay case-insensitive.
+ * The stored form of a login email: trimmed and lowercased. Applied on every
+ * company write (registration, assisted registration, correction) and on both
+ * staff account creations (register, adminCreateMinefopUser), so Jean@x.cm
+ * and jean@x.cm cannot become two accounts. Accounts created before that keep
+ * their typed case; the lookups below therefore stay case-insensitive.
  */
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -509,7 +510,8 @@ export class AuthService {
     poste?: string,
     serviceCode?: string,
   ) {
-    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    email = normalizeEmail(email);
+    const existingUser = await this.prisma.user.findFirst({ where: emailMatch(email) });
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
@@ -598,7 +600,8 @@ export class AuthService {
     }
     // D1: ADMIN_ONEFOP may create ONEFOP staff only.
     assertCanManageRole(actorRole, dto.role);
-    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const email = normalizeEmail(dto.email);
+    const existingUser = await this.prisma.user.findFirst({ where: emailMatch(email) });
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
@@ -613,7 +616,7 @@ export class AuthService {
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          email,
           passwordHash: hashed,
           firstName: dto.firstName,
           lastName: dto.lastName,
