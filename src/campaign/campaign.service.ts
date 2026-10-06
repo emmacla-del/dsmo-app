@@ -357,6 +357,14 @@ export class CampaignService {
                 );
             }
 
+            // A registration campaign's only possible link is its targets; say
+            // how to remove them rather than listing a "quota" blocker.
+            if (campaign.purpose === CampaignPurpose.REGISTRATION && campaign._count.quotas > 0) {
+                throw new ConflictException(
+                    `Impossible de supprimer la campagne d'inscription "${campaign.name}" : elle porte ${campaign._count.quotas} cible(s). Supprimez d'abord ses cibles dans Cibles et couverture.`,
+                );
+            }
+
             const blockers: string[] = [];
             if (campaign._count.submissions > 0) {
                 blockers.push(`${campaign._count.submissions} soumission(s) de campagne`);
@@ -457,6 +465,7 @@ export class CampaignService {
     }
 
     async archiveCampaign(id: string, actorUserId?: string) {
+        // Not guarded for purpose: a DRAFT registration campaign is archivable only by a direct API call; the UI does not offer it.
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id } });
         if (!campaign) {
             throw new NotFoundException('Campagne introuvable');

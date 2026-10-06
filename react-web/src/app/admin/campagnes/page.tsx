@@ -22,9 +22,12 @@ import {
   canActivate,
   canArchive,
   canDelete,
+  isRegistrationCampaign,
+  REGISTRATION_STATUS_LABEL,
   type Campaign,
   type CampaignDetail,
   type CampaignPeriodicity,
+  type CampaignPurpose,
 } from "@/lib/campaigns";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -62,7 +65,12 @@ function daysLeft(c: Campaign): { value: string; hint: string; tone?: "is-alert"
   return { value: `${days} jour${days > 1 ? "s" : ""}`, hint: `jusqu'au ${fmt(deadline)}`, tone: days <= 7 ? "is-warn" : "is-good" };
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, registration = false }: { status: string; registration?: boolean }) {
+  // A registration campaign is DRAFT for life; "Brouillon" would suggest it is
+  // waiting to be launched.
+  if (registration) {
+    return <span className="cam-badge cam-badge-neutral">{REGISTRATION_STATUS_LABEL}</span>;
+  }
   return (
     <span className={`cam-badge ${STATUS_BADGE[status] ?? "cam-badge-neutral"}`}>
       {CAMPAIGN_STATUS_LABELS[status] ?? status}
@@ -272,19 +280,28 @@ export default function CampagnesPage() {
                     {otherCampaigns.map((c) => (
                       <tr key={c.id}>
                         <td style={{ maxWidth: 360, padding: "10px 14px", verticalAlign: "middle" }}>
-                          <div
-                            className="cam-admin-strong"
-                            title={c.name}
-                            style={{
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              color: "var(--cam-text)",
-                            }}
-                          >
-                            {formatCampaignDisplayName(c.name)}
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                            <div
+                              className="cam-admin-strong"
+                              title={c.name}
+                              style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "var(--cam-text)",
+                                minWidth: 0,
+                              }}
+                            >
+                              {formatCampaignDisplayName(c.name)}
+                            </div>
+                            {/* Same name as the collection campaign of the quarter; the tag tells them apart. Collection rows stay untagged. */}
+                            {isRegistrationCampaign(c) && (
+                              <span className="cam-badge cam-badge-info" style={{ fontSize: "11px", fontWeight: 600, flexShrink: 0 }}>
+                                {CAMPAIGN_PURPOSE_LABELS.REGISTRATION}
+                              </span>
+                            )}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
                             <span className="cam-admin-code cam-admin-muted" style={{ fontSize: "11px" }}>{c.code}</span>
@@ -307,10 +324,10 @@ export default function CampagnesPage() {
                             <div className="cam-admin-meta" style={{ color: "var(--cam-info)", fontSize: "11px" }}>Prorogée (était {fmt(c.deadline)})</div>
                           )}
                         </td>
-                        <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} /></td>
+                        <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
                         <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center", justifyContent: "flex-end" }}>
-                            {canActivate(c.status) && (
+                            {canActivate(c.status) && !isRegistrationCampaign(c) && (
                               <Gated allowed={canMutate}>
                                 {(disabled) => (
                                   <button
@@ -340,7 +357,7 @@ export default function CampagnesPage() {
                                 )}
                               </Gated>
                             )}
-                            {c.status !== "DRAFT" && c.status !== "ARCHIVED" && (
+                            {c.status !== "DRAFT" && c.status !== "ARCHIVED" && !isRegistrationCampaign(c) && (
                               <Gated allowed={canMutate}>
                                 {(disabled) => (
                                   <button
@@ -673,7 +690,7 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
       {d && (
         <>
           <dl className="cam-admin-kv">
-            <div><dt>Statut</dt><dd><StatusBadge status={d.status} /></dd></div>
+            <div><dt>Statut</dt><dd><StatusBadge status={d.status} registration={isRegistrationCampaign(d)} /></dd></div>
             <div><dt>Module</dt><dd>{MODULE_LABELS[d.collectionType ?? ""] ?? d.collectionType ?? "—"}</dd></div>
             {d.referenceYear && d.referenceQuarter && (
               <div><dt>Période de référence</dt><dd>{d.referenceYear}-T{d.referenceQuarter}</dd></div>
@@ -738,8 +755,14 @@ function CreateCampaignDialog({
   onClose: () => void;
   onCreated: (msg: string) => void;
 }) {
+  const [purpose, setPurpose] = useState<CampaignPurpose>("COLLECTION");
   const [collectionType, setCollectionType] = useState<"DSMO" | "ONEFOP">("DSMO");
   const [periodicity, setPeriodicity] = useState<CampaignPeriodicity>("QUARTERLY");
+  const registration = purpose === "REGISTRATION";
+  // Registration targets feed the ONEFOP Couverture roll-up only, so an
+  // inscription campaign is always ONEFOP. Derived rather than written into
+  // collectionType, so switching back to Collecte restores the user's choice.
+  const effectiveModule: "DSMO" | "ONEFOP" = registration ? "ONEFOP" : collectionType;
 
   const todayStr = new Date().toISOString().split("T")[0];
   const defaultDeadline = new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0];
@@ -755,17 +778,23 @@ function CreateCampaignDialog({
   const mutation = useMutation({
     mutationFn: () =>
       createCampaign({
-        collectionType,
+        collectionType: effectiveModule,
         periodicity,
+        purpose,
         startDate: new Date(startDate).toISOString(),
         deadline: new Date(deadline).toISOString(),
         description: description.trim() || undefined,
-        autoReminders,
-        referenceYear: collectionType === "ONEFOP" ? Number(referenceYear) : undefined,
-        referenceQuarter: collectionType === "ONEFOP" ? Number(referenceQuarter) : undefined,
+        // A registration campaign reaches no respondent, so it sends no reminder.
+        autoReminders: registration ? false : autoReminders,
+        referenceYear: effectiveModule === "ONEFOP" ? Number(referenceYear) : undefined,
+        referenceQuarter: effectiveModule === "ONEFOP" ? Number(referenceQuarter) : undefined,
       }),
     onSuccess: () => {
-      onCreated("Campagne créée et activée avec succès.");
+      onCreated(
+        registration
+          ? "Campagne d'inscription créée. Saisissez ses cibles dans Cibles et couverture."
+          : "Campagne créée et activée avec succès.",
+      );
       onClose();
     },
     onError: (e: Error) => setError(e.message),
@@ -781,7 +810,7 @@ function CreateCampaignDialog({
       setError("La date limite doit être postérieure à la date de début.");
       return;
     }
-    if (collectionType === "ONEFOP") {
+    if (effectiveModule === "ONEFOP") {
       if (!referenceYear || !referenceQuarter) {
         setError("Veuillez renseigner l'année et le trimestre de référence.");
         return;
@@ -795,8 +824,8 @@ function CreateCampaignDialog({
     <AdminDialog
       open={open}
       onClose={onClose}
-      eyebrow="Nouvelle collecte"
-      title="Lancer une campagne de recensement"
+      eyebrow={registration ? "Nouvelle cible" : "Nouvelle collecte"}
+      title={registration ? "Définir une campagne d'inscription" : "Lancer une campagne de recensement"}
       footer={
         <>
           <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose} disabled={mutation.isPending}>
@@ -808,7 +837,7 @@ function CreateCampaignDialog({
             onClick={handleSubmit}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? "Création en cours…" : "Lancer la campagne"}
+            {mutation.isPending ? "Création en cours…" : registration ? "Créer la campagne" : "Lancer la campagne"}
           </button>
         </>
       }
@@ -821,19 +850,42 @@ function CreateCampaignDialog({
         )}
 
         <div className="cam-field">
+          <label className="cam-admin-label" htmlFor="cam-purpose">Objet de la campagne</label>
+          <select
+            id="cam-purpose"
+            className="cam-select"
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value as CampaignPurpose)}
+            aria-describedby="cam-purpose-hint"
+          >
+            <option value="COLLECTION">Collecte — Campagne de collecte</option>
+            <option value="REGISTRATION">Inscription — Campagne d&apos;inscription</option>
+          </select>
+          <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
+            Une campagne d&apos;inscription porte des cibles d&apos;inscription ; elle n&apos;ouvre pas de collecte.
+          </p>
+        </div>
+
+        {/* A disabled <select> shows no tooltip of its own, so the reason sits on the field wrapper. */}
+        <div
+          className="cam-field"
+          title={registration ? "Les campagnes d'inscription concernent uniquement le module ONEFOP." : undefined}
+        >
           <label className="cam-admin-label" htmlFor="cam-col-type">Module de collecte</label>
           <select
             id="cam-col-type"
             className="cam-select"
-            value={collectionType}
+            value={effectiveModule}
             onChange={(e) => setCollectionType(e.target.value as "DSMO" | "ONEFOP")}
+            disabled={registration}
+            style={registration ? { pointerEvents: "none" } : undefined}
           >
             <option value="DSMO">Déclaration sur la situation de la main d&apos;œuvre (DSMO)</option>
             <option value="ONEFOP">Questionnaire ONEFOP (Emplois créés)</option>
           </select>
         </div>
 
-        {collectionType === "ONEFOP" && (
+        {effectiveModule === "ONEFOP" && (
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
               <div className="cam-field">
@@ -922,19 +974,25 @@ function CreateCampaignDialog({
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Instructions particulières communiquées aux établissements déclarant…"
+            placeholder={
+              registration
+                ? "Note interne sur la cible d'inscription"
+                : "Instructions particulières communiquées aux établissements déclarant…"
+            }
           />
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", cursor: "pointer", fontSize: "13px", marginTop: "var(--cam-space-1)" }}>
-          <input
-            type="checkbox"
-            checked={autoReminders}
-            onChange={(e) => setAutoReminders(e.target.checked)}
-            style={{ width: 16, height: 16 }}
-          />
-          <span>Activer les rappels automatiques (relances envoyées à J-7, J-3 et J-1 de l&apos;échéance)</span>
-        </label>
+        {!registration && (
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", cursor: "pointer", fontSize: "13px", marginTop: "var(--cam-space-1)" }}>
+            <input
+              type="checkbox"
+              checked={autoReminders}
+              onChange={(e) => setAutoReminders(e.target.checked)}
+              style={{ width: 16, height: 16 }}
+            />
+            <span>Activer les rappels automatiques (relances envoyées à J-7, J-3 et J-1 de l&apos;échéance)</span>
+          </label>
+        )}
       </form>
     </AdminDialog>
   );

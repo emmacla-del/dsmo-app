@@ -833,6 +833,40 @@ describe('CampaignService - registration campaigns (purpose)', () => {
         });
     });
 
+    describe('deleteCampaign', () => {
+        const draftWith = (purpose: string, quotas: number) => ({
+            id: 'c-1', name: 'Campagne T3', status: 'DRAFT', purpose,
+            _count: { submissions: 0, onefopSubmissions: 0, declarations: 0, quotas, freezes: 0 },
+        });
+
+        beforeEach(() => {
+            prisma.$transaction = jest.fn((cb: any) => cb(prisma));
+            prisma.dataCampaign.delete = jest.fn();
+        });
+
+        it('tells the user to remove a registration campaign\'s targets first', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(draftWith('REGISTRATION', 3));
+
+            await expect(service.deleteCampaign('c-1')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne d\'inscription "Campagne T3" : elle porte 3 cible(s). ' +
+                    'Supprimez d\'abord ses cibles dans Cibles et couverture.',
+                ),
+            );
+            expect(prisma.dataCampaign.delete).not.toHaveBeenCalled();
+        });
+
+        it('keeps the existing blocker message for a collection campaign with quotas', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(draftWith('COLLECTION', 3));
+
+            await expect(service.deleteCampaign('c-1')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Campagne T3" : des données liées existent (3 quota(s) territorial(aux)).',
+                ),
+            );
+        });
+    });
+
     describe('getActiveCampaignsForCompany', () => {
         it('never offers a registration campaign to a respondent, even a newer one', async () => {
             prisma.company.findUnique.mockResolvedValue({
