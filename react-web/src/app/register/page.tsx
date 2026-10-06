@@ -186,7 +186,7 @@ export default function RegisterPage() {
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; attestationUrl?: string | null } | null>(null);
+  const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; attestationUrl?: string | null; status?: string | null } | null>(null);
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
 
@@ -608,6 +608,7 @@ export default function RegisterPage() {
         establishmentId: response.company.establishmentId,
         companyName: response.company.name ?? companyName,
         attestationUrl: response.company.attestationUrl,
+        status: response.user.status,
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -998,8 +999,12 @@ export default function RegisterPage() {
                 <h1 className="brand-name" style={{ fontSize: 20, marginBottom: 4 }}>
                   {t("registerPage.successTitle")}
                 </h1>
+                {/* Every file now has its ID at registration, so the wording follows
+                    the account status: only an active account is "registered". */}
                 <p className="brand-sub" style={{ fontSize: 13 }}>
-                  Attestation officielle d&apos;enregistrement au système national CAM-LEAP
+                  {result.status === "ACTIVE"
+                    ? "Attestation officielle d'enregistrement au système national CAM-LEAP"
+                    : "Accusé de réception de votre demande d'enregistrement au système national CAM-LEAP"}
                 </p>
               </div>
 
@@ -1044,9 +1049,15 @@ export default function RegisterPage() {
                   </tr>
                   <tr>
                     <td className="label-cell">Statut de validation / Status</td>
-                    <td className="value-cell" style={{ color: "var(--cam-green-dark)", fontWeight: 600 }}>
-                      Enregistré / Compte opérationnel
-                    </td>
+                    {result.status === "ACTIVE" ? (
+                      <td className="value-cell" style={{ color: "var(--cam-green-dark)", fontWeight: 600 }}>
+                        Enregistré / Compte opérationnel
+                      </td>
+                    ) : (
+                      <td className="value-cell" style={{ fontWeight: 600 }}>
+                        En attente de validation par l&apos;ONEFOP / Pending review
+                      </td>
+                    )}
                   </tr>
                 </tbody>
               </table>
