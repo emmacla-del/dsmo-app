@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 
-import { Prisma, DataCampaign, OnefopEntityType, CampaignPeriodicity } from '@prisma/client';
+import { Prisma, DataCampaign, OnefopEntityType, CampaignPeriodicity, CampaignPurpose } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
@@ -82,8 +82,15 @@ export class CampaignService {
         return { referenceYear: year, referenceQuarter: quarter };
     }
 
+    // One non-archived ONEFOP campaign per (purpose, referenceYear,
+    // referenceQuarter): a collection campaign and a registration campaign
+    // may share a quarter, two of the same purpose may not. This rule is
+    // application-level only — no database constraint backs it yet. A partial
+    // unique index on (collectionType, purpose, referenceYear, referenceQuarter)
+    // WHERE status <> 'ARCHIVED' is planned as a separate schema step.
     private async assertNoPeriodDuplicate(
         collectionType: string,
+        purpose: CampaignPurpose,
         referenceYear?: number,
         referenceQuarter?: number,
     ) {
@@ -91,6 +98,7 @@ export class CampaignService {
             const duplicate = await this.prisma.dataCampaign.findFirst({
                 where: {
                     collectionType: 'ONEFOP',
+                    purpose,
                     referenceYear,
                     referenceQuarter,
                     status: { not: 'ARCHIVED' },
@@ -98,21 +106,52 @@ export class CampaignService {
                 select: { code: true },
             });
             if (duplicate) {
+                const kind = purpose === CampaignPurpose.REGISTRATION ? " d'inscription" : '';
                 throw new ConflictException(
-                    `Une campagne ONEFOP existe déjà pour la période ${referenceYear}-T${referenceQuarter} (campagne ${duplicate.code}).`,
+                    `Une campagne ONEFOP${kind} existe déjà pour la période ${referenceYear}-T${referenceQuarter} (campagne ${duplicate.code}).`,
                 );
             }
         }
     }
 
+    // Validated by hand: POST /campaigns has no DTO class (@Body() data: any),
+    // so nothing upstream rejects an off-enum value.
+    private parsePurpose(raw: unknown): CampaignPurpose {
+        if (raw === undefined || raw === null || raw === '') return CampaignPurpose.COLLECTION;
+        if (typeof raw === 'string' && (Object.values(CampaignPurpose) as string[]).includes(raw)) {
+            return raw as CampaignPurpose;
+        }
+        throw new BadRequestException(
+            `L'objet de la campagne doit valoir ${Object.values(CampaignPurpose).join(' ou ')}.`,
+        );
+    }
+
+    // A registration campaign holds inscription targets and nothing else: it
+    // opens no collection round, creates no CampaignSubmission rows, sends no
+    // email and is never offered to respondents. It stays DRAFT for life, so
+    // every lifecycle action that would move it out of DRAFT or reach
+    // companies is refused here.
+    private async assertNotRegistration(id: string, refusal: string) {
+        const campaign = await this.prisma.dataCampaign.findUnique({
+            where: { id },
+            select: { purpose: true },
+        });
+        if (campaign?.purpose === CampaignPurpose.REGISTRATION) {
+            throw new BadRequestException(
+                `Une campagne d'inscription ${refusal} : elle porte des cibles, pas une collecte.`,
+            );
+        }
+    }
+
     async createCampaign(data: any) {
         const collectionType = data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP';
+        const purpose = this.parsePurpose(data.purpose);
         const { referenceYear, referenceQuarter } = this.validateReferencePeriod(
             collectionType,
             data.referenceYear,
             data.referenceQuarter,
         );
-        await this.assertNoPeriodDuplicate(collectionType, referenceYear, referenceQuarter);
+        await this.assertNoPeriodDuplicate(collectionType, purpose, referenceYear, referenceQuarter);
 
         const startDate = new Date(data.startDate);
         const refPeriod = referenceYear !== undefined && referenceQuarter !== undefined
@@ -128,7 +167,7 @@ export class CampaignService {
                     this.buildPeriodSuffix(periodicity, startDate, refPeriod),
                 description: data.description,
                 periodicity,
-                purpose: data.purpose ?? 'COLLECTION',
+                purpose,
                 collectionType,
                 referenceYear,
                 referenceQuarter,
@@ -142,6 +181,10 @@ export class CampaignService {
                 createdBy: data.createdBy,
             },
         });
+
+        // A registration campaign is a target container and stays DRAFT: it is
+        // never activated (see assertNotRegistration).
+        if (purpose === CampaignPurpose.REGISTRATION) return campaign;
 
         // Campaigns go live immediately on creation — entities matching the
         // targeting criteria need to see them right away, not after a separate
@@ -350,6 +393,12 @@ export class CampaignService {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
+        if (campaign.purpose === CampaignPurpose.REGISTRATION) {
+            throw new BadRequestException(
+                "Une campagne d'inscription ne s'active pas : elle porte des cibles, pas une collecte.",
+            );
+        }
+
         if (campaign.status !== 'DRAFT' && campaign.status !== 'PAUSED') {
             throw new BadRequestException('Only DRAFT or PAUSED campaigns can be activated');
         }
@@ -388,6 +437,8 @@ export class CampaignService {
     }
 
     async pauseCampaign(id: string, actorUserId?: string) {
+        // No status gate here: a DRAFT would become PAUSED, which is activatable.
+        await this.assertNotRegistration(id, 'ne se suspend pas');
         const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: { status: 'PAUSED' },
@@ -439,6 +490,9 @@ export class CampaignService {
     }
 
     async extendDeadline(id: string, newDeadline: Date) {
+        // Audit D15: the update below writes status 'ACTIVE' unconditionally,
+        // so extending a registration campaign would activate it.
+        await this.assertNotRegistration(id, 'ne se prolonge pas');
         const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: { deadline: newDeadline, extendedDeadline: newDeadline, status: 'ACTIVE' },
@@ -504,6 +558,11 @@ export class CampaignService {
     async sendReminders(campaignId: string, reminderType: string) {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) throw new NotFoundException('Campaign not found');
+        if (campaign.purpose === CampaignPurpose.REGISTRATION) {
+            throw new BadRequestException(
+                "Une campagne d'inscription n'envoie pas de relances : elle porte des cibles, pas une collecte.",
+            );
+        }
 
         const companies = await this._getPendingCompanies(campaignId);
         const subject = this.getReminderSubject(reminderType, campaign.name);
@@ -569,8 +628,13 @@ export class CampaignService {
         // filters at all (the common "target everyone" case) never matched
         // any company. A campaign only needs to satisfy every axis it
         // actually restricts.
+        // Registration campaigns hold targets only and are never offered to a
+        // respondent. Without this filter the newest one by startDate would
+        // win the per-module pick below, DRAFT or not — this query has no
+        // status filter.
         const campaigns = await this.prisma.dataCampaign.findMany({
             where: {
+                purpose: CampaignPurpose.COLLECTION,
                 AND: [
                     { OR: [{ targetRegions: { isEmpty: true } }, { targetRegions: { has: company.region } }] },
                     { OR: [{ targetDepartments: { isEmpty: true } }, { targetDepartments: { has: company.department } }] },

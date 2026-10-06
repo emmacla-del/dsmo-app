@@ -115,6 +115,7 @@ describe('CampaignService - reference period and lateness gating', () => {
             expect(prisma.dataCampaign.findFirst).toHaveBeenCalledWith({
                 where: {
                     collectionType: 'ONEFOP',
+                    purpose: 'COLLECTION',
                     referenceYear: 2026,
                     referenceQuarter: 3,
                     status: { not: 'ARCHIVED' },
@@ -683,6 +684,178 @@ describe('CampaignService - reference period and lateness gating', () => {
             });
 
             expect(prisma.dataCampaign.create.mock.calls[0][0].data.purpose).toBe('REGISTRATION');
+        });
+    });
+});
+
+// 8a-BE: a registration campaign is a target container. It is created DRAFT,
+// never activated, coexists with the collection campaign of its quarter, and
+// is never offered to respondents.
+describe('CampaignService - registration campaigns (purpose)', () => {
+    let service: CampaignService;
+    let prisma: any;
+    let activateSpy: jest.SpyInstance;
+    let sendToCompanies: jest.Mock;
+    // Non-archived campaigns already stored, as assertNoPeriodDuplicate sees them.
+    let stored: Array<{ code: string; collectionType: string; purpose: string; referenceYear: number; referenceQuarter: number }>;
+
+    const onefopQ3 = (purpose?: string) => ({
+        collectionType: 'ONEFOP',
+        periodicity: 'QUARTERLY',
+        ...(purpose ? { purpose } : {}),
+        startDate: '2026-07-01',
+        deadline: '2026-09-30',
+        referenceYear: 2026,
+        referenceQuarter: 3,
+        createdBy: 'admin-1',
+    });
+
+    beforeEach(() => {
+        stored = [];
+        let seq = 0;
+        prisma = {
+            dataCampaign: {
+                findFirst: jest.fn(async ({ where }: any) => {
+                    const hit = stored.find((c) =>
+                        c.collectionType === where.collectionType &&
+                        c.purpose === where.purpose &&
+                        c.referenceYear === where.referenceYear &&
+                        c.referenceQuarter === where.referenceQuarter);
+                    return hit ? { code: hit.code } : null;
+                }),
+                findUnique: jest.fn().mockResolvedValue(null),
+                findMany: jest.fn().mockResolvedValue([]),
+                create: jest.fn(async ({ data }: any) => {
+                    seq += 1;
+                    const row = { id: `c-${seq}`, status: 'DRAFT', ...data };
+                    stored.push(row);
+                    return row;
+                }),
+                update: jest.fn(),
+            },
+            submissionRound: { findUnique: jest.fn().mockResolvedValue(null), updateMany: jest.fn() },
+            company: { findUnique: jest.fn() },
+        };
+        sendToCompanies = jest.fn().mockResolvedValue({ sent: 0, failed: 0 });
+        service = new CampaignService(prisma, { sendToCompanies } as unknown as NotificationService);
+        activateSpy = jest.spyOn(service, 'activateCampaign')
+            .mockImplementation(async (id: string) => ({ id, status: 'ACTIVE' } as any));
+    });
+
+    describe('createCampaign', () => {
+        it('creates a REGISTRATION campaign as DRAFT and does not activate it', async () => {
+            const result: any = await service.createCampaign(onefopQ3('REGISTRATION'));
+
+            expect(prisma.dataCampaign.create.mock.calls[0][0].data.purpose).toBe('REGISTRATION');
+            expect(result.status).toBe('DRAFT');
+            expect(activateSpy).not.toHaveBeenCalled();
+        });
+
+        it('activates a COLLECTION campaign as before', async () => {
+            const result: any = await service.createCampaign(onefopQ3('COLLECTION'));
+
+            expect(activateSpy).toHaveBeenCalledWith('c-1', 'admin-1');
+            expect(result.status).toBe('ACTIVE');
+        });
+
+        it('treats an omitted purpose as COLLECTION and activates', async () => {
+            await service.createCampaign(onefopQ3());
+
+            expect(prisma.dataCampaign.create.mock.calls[0][0].data.purpose).toBe('COLLECTION');
+            expect(activateSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('rejects an off-enum purpose with 400 before writing anything', async () => {
+            await expect(service.createCampaign(onefopQ3('ANNUAL'))).rejects.toBeInstanceOf(BadRequestException);
+            expect(prisma.dataCampaign.create).not.toHaveBeenCalled();
+        });
+
+        it('lets a collection campaign and a registration campaign share a quarter', async () => {
+            await service.createCampaign(onefopQ3('COLLECTION'));
+            await service.createCampaign(onefopQ3('REGISTRATION'));
+
+            expect(prisma.dataCampaign.create).toHaveBeenCalledTimes(2);
+            expect(stored.map((c) => c.purpose)).toEqual(['COLLECTION', 'REGISTRATION']);
+        });
+
+        it('rejects a second collection campaign in the same quarter with 409', async () => {
+            await service.createCampaign(onefopQ3('COLLECTION'));
+
+            await expect(service.createCampaign(onefopQ3('COLLECTION'))).rejects.toThrow(ConflictException);
+            expect(prisma.dataCampaign.create).toHaveBeenCalledTimes(1);
+        });
+
+        it('rejects a second registration campaign in the same quarter with 409', async () => {
+            await service.createCampaign(onefopQ3('REGISTRATION'));
+
+            await expect(service.createCampaign(onefopQ3('REGISTRATION'))).rejects.toThrow(
+                new ConflictException(
+                    "Une campagne ONEFOP d'inscription existe déjà pour la période 2026-T3 (campagne " +
+                    `${stored[0].code}).`,
+                ),
+            );
+            expect(prisma.dataCampaign.create).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('lifecycle guards', () => {
+        const registration = { id: 'reg-1', purpose: 'REGISTRATION', status: 'DRAFT', createdBy: 'admin-1' };
+
+        beforeEach(() => {
+            activateSpy.mockRestore();
+            prisma.dataCampaign.findUnique.mockResolvedValue(registration);
+        });
+
+        it('activateCampaign refuses a registration campaign with 400 and changes nothing', async () => {
+            prisma.$transaction = jest.fn();
+
+            await expect(service.activateCampaign('reg-1')).rejects.toThrow(
+                new BadRequestException("Une campagne d'inscription ne s'active pas : elle porte des cibles, pas une collecte."),
+            );
+            expect(prisma.$transaction).not.toHaveBeenCalled();
+            expect(prisma.dataCampaign.update).not.toHaveBeenCalled();
+        });
+
+        it('extendDeadline refuses a registration campaign with 400 and does not write status', async () => {
+            await expect(service.extendDeadline('reg-1', new Date('2026-12-31'))).rejects.toBeInstanceOf(BadRequestException);
+            expect(prisma.dataCampaign.update).not.toHaveBeenCalled();
+            expect(prisma.submissionRound.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('pauseCampaign refuses a registration campaign with 400 and does not write status', async () => {
+            await expect(service.pauseCampaign('reg-1')).rejects.toBeInstanceOf(BadRequestException);
+            expect(prisma.dataCampaign.update).not.toHaveBeenCalled();
+        });
+
+        it('sendReminders refuses a registration campaign with 400 and sends nothing', async () => {
+            await expect(service.sendReminders('reg-1', 'CAMPAIGN_ANNOUNCEMENT')).rejects.toBeInstanceOf(BadRequestException);
+            expect(sendToCompanies).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('getActiveCampaignsForCompany', () => {
+        it('never offers a registration campaign to a respondent, even a newer one', async () => {
+            prisma.company.findUnique.mockResolvedValue({
+                id: 'co-1', establishmentId: 'EST-1', region: 'Centre', department: 'Mfoundi', entityType: 'ENTREPRISE',
+            });
+            const collection = {
+                id: 'col-1', collectionType: 'ONEFOP', purpose: 'COLLECTION', periodicity: 'QUARTERLY',
+                startDate: new Date('2026-07-01'), submissions: [],
+            };
+            const registration = {
+                id: 'reg-1', collectionType: 'ONEFOP', purpose: 'REGISTRATION', periodicity: 'QUARTERLY',
+                startDate: new Date('2026-08-01'), submissions: [],
+            };
+            // Behave like the database: honour the purpose filter if the query sends one.
+            prisma.dataCampaign.findMany.mockImplementation(async ({ where }: any) =>
+                [registration, collection].filter((c) => !where?.purpose || c.purpose === where.purpose));
+
+            const result: any[] = await service.getActiveCampaignsForCompany('user-1');
+
+            expect(prisma.dataCampaign.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ purpose: 'COLLECTION' }) }),
+            );
+            expect(result.map((c) => c.id)).toEqual(['col-1']);
         });
     });
 });
