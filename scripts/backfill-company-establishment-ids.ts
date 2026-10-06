@@ -30,9 +30,11 @@
  *    every candidate with the ID it would receive, and lists the skips.
  *    Modifies nothing.
  *  - With --apply: runs in a single Prisma transaction, allocating through
- *    the same EstablishmentIdGenerator path as approval — which takes
- *    pg_advisory_xact_lock on (prefix, year), so a concurrent approval
- *    cannot hand out a colliding serial. One AuditLog row per company.
+ *    the same EstablishmentIdGenerator path as registration and approval:
+ *    the (prefix, year) Postgres sequence, so a concurrent registration
+ *    cannot receive a colliding serial. nextval() does not roll back, so a
+ *    rolled-back --apply leaves gaps in the serials. One AuditLog row per
+ *    company.
  *
  * Usage:
  *   npx ts-node scripts/backfill-company-establishment-ids.ts --actor-email=admin@example.com

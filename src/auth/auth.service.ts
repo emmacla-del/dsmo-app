@@ -954,10 +954,10 @@ export class AuthService {
    * involved, and the audit row is attributed to the registrant because
    * there is no actor.
    *
-   * EstablishmentIdGenerator takes a pg advisory lock that is only held for
-   * the statement outside a transaction, so the generate/update pair must
-   * stay inside $transaction. The serial it derives can still collide under
-   * concurrency, hence the same single retry on P2002.
+   * EstablishmentIdGenerator draws its serial from a Postgres sequence, so
+   * concurrent allocations never collide and no lock is involved. The
+   * single retry on P2002 is kept for the remaining unique indexes the
+   * transaction writes (the -01 Establishment code and principal row).
    */
   private async autoApproveRegistration(
     user: { id: string; email: string },

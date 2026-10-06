@@ -1,4 +1,5 @@
-import { EstablishmentIdGenerator } from './establishment-id.generator';
+import { ConflictException } from '@nestjs/common';
+import { ESTABLISHMENT_ID_EXHAUSTED_MESSAGE, EstablishmentIdGenerator } from './establishment-id.generator';
 
 // Regression coverage for the Phase 1 correction: ADMINISTRATION
 // establishment IDs failed to generate ("Unknown entity type: ADMINISTRATION")
@@ -14,19 +15,30 @@ import { EstablishmentIdGenerator } from './establishment-id.generator';
 // never been updated despite VT being wired up in AST/DTO/Prisma/
 // questionnaires.service.ts).
 
-function makePrisma(lastEstablishmentId: string | null = null) {
-  return {
-    company: {
-      findFirst: jest.fn().mockResolvedValue(
-        lastEstablishmentId ? { establishmentId: lastEstablishmentId } : null,
-      ),
-    },
-    $executeRaw: jest.fn().mockResolvedValue(1),
-  } as any;
+/**
+ * A $queryRaw mock answering the generator's two statements in order:
+ * establishment_serial_ensure() -> the sequence name, then nextval() -> the
+ * serial (a bigint, as Postgres returns it). Each call to generate() takes
+ * one pair.
+ */
+function makePrisma(serial: number | Error = 1) {
+  const queryRaw = jest.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = strings.join('?');
+    if (sql.includes('establishment_serial_ensure')) {
+      const [prefix, yy] = values as string[];
+      return [{ seq: `public.establishment_serial_${prefix.toLowerCase()}${yy}` }];
+    }
+    if (serial instanceof Error) throw serial;
+    return [{ serial: BigInt(serial) }];
+  });
+  return { $queryRaw: queryRaw } as any;
 }
 
+/** The SQL text of the n-th $queryRaw call. */
+const sqlOf = (prisma: any, n: number) => (prisma.$queryRaw.mock.calls[n][0] as string[]).join('?');
+
 describe('EstablishmentIdGenerator', () => {
-  const currentYear2 = new Date().getFullYear().toString().slice(-2);
+  const currentYear2 = new Date().getUTCFullYear().toString().slice(-2);
 
   it.each([
     ['ENTREPRISE', 'EN'],
@@ -37,52 +49,96 @@ describe('EstablishmentIdGenerator', () => {
     ['PROJECT_PROGRAM', 'PP'],
     ['VOCATIONAL_TRAINING', 'VT'],
   ])('generates a first-serial ID for %s with prefix %s', async (entityType, prefix) => {
-    const prisma = makePrisma();
+    const prisma = makePrisma(1);
     const id = await EstablishmentIdGenerator.generate(prisma, entityType, '12');
     expect(id).toBe(`${prefix}${currentYear2}000112`);
-    expect(prisma.$executeRaw).toHaveBeenCalled();
-    expect(prisma.company.findFirst).toHaveBeenCalledWith({
-      where: { establishmentId: { startsWith: `${prefix}${currentYear2}` } },
-      orderBy: { establishmentId: 'desc' },
+  });
+
+  it('ensures the (prefix, UTC year) sequence, then takes nextval from it', async () => {
+    const prisma = makePrisma(7);
+    await EstablishmentIdGenerator.generate(prisma, 'ENTREPRISE', '12');
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(sqlOf(prisma, 0)).toContain('establishment_serial_ensure');
+    expect(prisma.$queryRaw.mock.calls[0].slice(1)).toEqual(['EN', currentYear2]);
+    expect(sqlOf(prisma, 1)).toContain('nextval');
+    expect(prisma.$queryRaw.mock.calls[1].slice(1)).toEqual([`public.establishment_serial_en${currentYear2}`]);
+  });
+
+  it('takes no advisory lock and reads no company row', async () => {
+    const prisma = makePrisma(1);
+    await EstablishmentIdGenerator.generate(prisma, 'ENTREPRISE', '12');
+    for (const call of prisma.$queryRaw.mock.calls) {
+      expect((call[0] as string[]).join('?')).not.toMatch(/advisory|companies/);
+    }
+  });
+
+  it('pads the serial to four digits and keeps the 10-character format', async () => {
+    await expect(EstablishmentIdGenerator.generate(makePrisma(42), 'ADMINISTRATION', '12')).resolves.toBe(
+      `AD${currentYear2}004212`,
+    );
+    const top = await EstablishmentIdGenerator.generate(makePrisma(9999), 'ENTREPRISE', '07');
+    expect(top).toBe(`EN${currentYear2}999907`);
+    expect(EstablishmentIdGenerator.isValid(top)).toBe(true);
+  });
+
+  it('pads or truncates the subdivision suffix to two characters', async () => {
+    await expect(EstablishmentIdGenerator.generate(makePrisma(1), 'ENTREPRISE', '5')).resolves.toBe(
+      `EN${currentYear2}000105`,
+    );
+    await expect(EstablishmentIdGenerator.generate(makePrisma(1), 'ENTREPRISE', '123')).resolves.toBe(
+      `EN${currentYear2}000112`,
+    );
+  });
+
+  it('is case-insensitive on entityType, matching the existing behaviour', async () => {
+    for (const [entityType, prefix] of [
+      ['administration', 'AD'],
+      ['project_program', 'PP'],
+      ['vocational_training', 'VT'],
+    ]) {
+      await expect(EstablishmentIdGenerator.generate(makePrisma(1), entityType, '05')).resolves.toBe(
+        `${prefix}${currentYear2}000105`,
+      );
+    }
+  });
+
+  it('throws for an unrecognized or deprecated entity type before touching the database', async () => {
+    for (const entityType of ['NOT_A_REAL_TYPE', 'VOCATIONAL_TRAINING_CENTER']) {
+      const prisma = makePrisma();
+      await expect(EstablishmentIdGenerator.generate(prisma, entityType, '12')).rejects.toThrow(
+        `Unknown entity type: ${entityType}`,
+      );
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    }
+  });
+
+  it('turns an exhausted sequence into a 409 with the fixed message', async () => {
+    const exhausted = Object.assign(new Error('Raw query failed'), {
+      code: 'P2010',
+      meta: { code: '2200H', message: 'nextval: reached maximum value of sequence "establishment_serial_en26" (9999)' },
     });
+    const error = await EstablishmentIdGenerator.generate(makePrisma(exhausted), 'ENTREPRISE', '12').catch((e) => e);
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error.message).toBe(ESTABLISHMENT_ID_EXHAUSTED_MESSAGE);
   });
 
-  it('is case-insensitive on entityType, matching the existing four-type behavior', async () => {
-    const prisma = makePrisma();
-    const id = await EstablishmentIdGenerator.generate(prisma, 'administration', '05');
-    expect(id).toBe(`AD${currentYear2}000105`);
+  it('rethrows any other database error unchanged', async () => {
+    const other = new Error('connection reset');
+    await expect(EstablishmentIdGenerator.generate(makePrisma(other), 'ENTREPRISE', '12')).rejects.toBe(other);
   });
 
-  it('increments the serial for ADMINISTRATION the same way as the existing four types', async () => {
-    const prisma = makePrisma(`AD${currentYear2}000312`);
-    const id = await EstablishmentIdGenerator.generate(prisma, 'ADMINISTRATION', '12');
-    expect(id).toBe(`AD${currentYear2}000412`);
-  });
-
-  it('still throws explicitly for an unrecognized entity type', async () => {
-    const prisma = makePrisma();
-    await expect(
-      EstablishmentIdGenerator.generate(prisma, 'NOT_A_REAL_TYPE', '12'),
-    ).rejects.toThrow('Unknown entity type: NOT_A_REAL_TYPE');
-    expect(prisma.company.findFirst).not.toHaveBeenCalled();
-  });
-
-  it('is case-insensitive on PROJECT_PROGRAM, matching the existing behavior', async () => {
-    const prisma = makePrisma();
-    const id = await EstablishmentIdGenerator.generate(prisma, 'project_program', '05');
-    expect(id).toBe(`PP${currentYear2}000105`);
-  });
-
-  it('is case-insensitive on VOCATIONAL_TRAINING, matching the existing behavior', async () => {
-    const prisma = makePrisma();
-    const id = await EstablishmentIdGenerator.generate(prisma, 'vocational_training', '05');
-    expect(id).toBe(`VT${currentYear2}000105`);
-  });
-
-  it('increments the serial for VOCATIONAL_TRAINING the same way as the existing types', async () => {
-    const prisma = makePrisma(`VT${currentYear2}000312`);
-    const id = await EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL_TRAINING', '12');
-    expect(id).toBe(`VT${currentYear2}000412`);
+  it('logs a warning from 90% usage on, and not before', async () => {
+    const warn = jest.spyOn((EstablishmentIdGenerator as any).logger, 'warn').mockImplementation(() => undefined);
+    try {
+      await EstablishmentIdGenerator.generate(makePrisma(8999), 'ENTREPRISE', '12');
+      expect(warn).not.toHaveBeenCalled();
+      await EstablishmentIdGenerator.generate(makePrisma(9000), 'ENTREPRISE', '12');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('9000/9999');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   describe('isValid', () => {
