@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ import {
   useTerritorySubdivisions,
 } from "@/hooks/useTerritoryStructure";
 import { adminRegisterCompany, type AssistedRegistrationResult } from "@/lib/inscriptions";
+import { useEmailAvailability } from "@/lib/use-email-availability";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -81,6 +82,8 @@ export default function NouvelleInscriptionPage() {
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const [entityData, setEntityData] = useState<Record<string, string>>({});
   const [respondent, setRespondent] = useState<Respondent>(EMPTY_RESPONDENT);
+  // Same debounced check as the public wizard; blocks submit when taken.
+  const emailAvailable = useEmailAvailability(respondent.email);
   const [region, setRegion] = useState(isNational ? "" : user?.region ?? "");
   const [department, setDepartment] = useState(isNational ? "" : user?.department ?? "");
   const [subdivision, setSubdivision] = useState("");
@@ -138,6 +141,7 @@ export default function NouvelleInscriptionPage() {
       return "Le nom et le prénom du répondant sont obligatoires.";
     }
     if (!respondent.email.trim()) return "L'adresse e-mail du déclarant est obligatoire.";
+    if (emailAvailable === false) return "Cette adresse e-mail est déjà utilisée par un autre compte.";
     if (!region || !department || !subdivision) {
       return "Région, département et arrondissement sont obligatoires.";
     }
@@ -268,7 +272,15 @@ export default function NouvelleInscriptionPage() {
           <FieldGrid>
             <Text label="Prénom" required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
             <Text label="Nom" required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
-            <Text label="Adresse e-mail" required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))} hint={t("emailRoleHint")} />
+            <Text label="Adresse e-mail" required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
+              hint={t("emailRoleHint")}
+              after={
+                <span aria-live="polite" aria-atomic="true">
+                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("emailUnavailable")}</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("emailAvailable")}</span>}
+                </span>
+              }
+            />
             <Text label="Fonction" value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
             <Text label="Téléphone du déclarant" type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
             <Text label="Téléphone 2" type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
@@ -400,6 +412,7 @@ function Text({
   required,
   type = "text",
   hint,
+  after,
 }: {
   label: string;
   value: string;
@@ -407,6 +420,8 @@ function Text({
   required?: boolean;
   type?: "text" | "email" | "tel" | "number";
   hint?: string;
+  /** Rendered under the input, before the hint (e.g. a live status line). */
+  after?: ReactNode;
 }) {
   return (
     <label className="cam-target-year">
@@ -419,6 +434,7 @@ function Text({
         required={required}
         onChange={(e) => onChange(e.target.value)}
       />
+      {after}
       {hint && <span className="cam-admin-choice-hint">{hint}</span>}
     </label>
   );

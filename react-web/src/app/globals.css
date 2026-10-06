@@ -1129,19 +1129,21 @@ body {
 }
 
 /* Inline per-field status line (email availability, password confirmation).
-   These used to repeat the same four inline declarations at each call site. */
-.cam-auth-page .field-status {
+   These used to repeat the same four inline declarations at each call site.
+   Unscoped from .cam-auth-page: the assisted registration and correction
+   forms show the same email-availability line. */
+.field-status {
   display: block;
   font-size: var(--cam-font-size-2xs);
   font-weight: 600;
   margin-top: var(--cam-space-1);
 }
 
-.cam-auth-page .field-status.is-ok {
+.field-status.is-ok {
   color: var(--cam-green);
 }
 
-.cam-auth-page .field-status.is-error {
+.field-status.is-error {
   color: var(--cam-error);
 }
 
