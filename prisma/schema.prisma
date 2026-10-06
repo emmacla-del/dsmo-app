@@ -178,8 +178,6 @@ model User {
   createdUsers               User[]             @relation("UserCreatedBy")
   assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assignedUsers              User[]             @relation("UserAssignee")
-  registrationDocuments      RegistrationDocument[] @relation("RegistrationDocumentOwner")
-  verifiedDocuments          RegistrationDocument[] @relation("RegistrationDocumentVerifier")
   auditLogs                  AuditLog[]
   batchJobs                  BatchJob[]
   company                    Company?
@@ -207,33 +205,6 @@ model User {
   @@index([createdBy])
   @@index([assigneeId])
   @@map("users")
-}
-
-// One row per document a registrant must provide (Figma "Documents
-// fournis": attestation d'enregistrement, pièce d'identité, certificat
-// d'imposition…). A row with no fileRef is an expected document that has
-// not been provided ("Manquant").
-model RegistrationDocument {
-  id         String    @id @default(uuid())
-  userId     String
-  // Document type code; free text until the list per entity type is ruled.
-  kind       String
-  // Supabase Storage object path, signed on read — same pattern as
-  // Company.attestationUrl (PdfService.getSignedUrlForPath). No bytes here.
-  fileRef    String?
-  // PENDING | VERIFIED | REJECTED | MISSING — free text until the workflow settles.
-  state      String    @default("PENDING")
-  uploadedAt DateTime?
-  verifiedAt DateTime?
-  verifiedBy String?
-  // Restrict: deleting a registrant with documents answers 409 (deleteUser
-  // maps P2003), the same as a user with a company or submissions.
-  user       User      @relation("RegistrationDocumentOwner", fields: [userId], references: [id], onDelete: Restrict)
-  verifier   User?     @relation("RegistrationDocumentVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([verifiedBy])
-  @@map("registration_documents")
 }
 
 model Company {
