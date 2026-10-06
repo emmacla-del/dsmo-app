@@ -3,18 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQueries } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
-import { entityTypeLabel } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
+import { asUiLocale } from "@/lib/register-i18n";
+import { localized } from "@/lib/onefop-schema";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
-import { count, NOT_PROVIDED, METRIC_UNAVAILABLE } from "@/lib/admin-data-state";
+import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
 import { APPROVAL_ROLES } from "@/lib/roles";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
+// "Homologué", "En vigueur", the regulatory format and the export formats are
+// fixed text, not read from any record (flagged for domain review).
 // The questionnaire structure is owned by the canonical AST
 // (lib/core/focus/compiler/onefop_ast.dart); this page reads the
 // generated public/schemas/onefop.schema.json for section counts and schema details.
@@ -45,6 +50,11 @@ export default function QuestionnairesPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canReadSubmissions = !!role && APPROVAL_ROLES.includes(role);
   const schemaQuery = useOnefopSchema();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminQuestionnairesPage");
+  const locale = asUiLocale(useLocale());
+  const typeLabel = (formType: string) =>
+    ENTITY_TYPE_OPTION_KEYS[formType] ? tRoot(ENTITY_TYPE_OPTION_KEYS[formType]) : entityTypeLabel(formType);
   const [selectedPreview, setSelectedPreview] = useState<{ schemaKey: string; formType: string } | null>(null);
 
   // Queries for totals
@@ -59,15 +69,15 @@ export default function QuestionnairesPage() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Collecte" }, { label: "Questionnaires" }]}
-        title="Questionnaires"
-        subtitle="Modèles nationaux de fiches d'enquête et de déclaration pour le recueil statistique DSMO"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.questionnaires") }]}
+        title={tRoot("adminNav.routes.questionnaires")}
+        subtitle={t("subtitle")}
         actions={<AdminHeaderActions />}
       />
 
       {schemaQuery.isError && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>Le schéma ONEFOP n&apos;a pas pu être chargé : {(schemaQuery.error as Error).message}</span>
+          <span>{t("schemaError", { message: (schemaQuery.error as Error).message })}</span>
         </div>
       )}
 
@@ -78,7 +88,7 @@ export default function QuestionnairesPage() {
           const totalQuery = totals[i];
           const total = !canReadSubmissions || totalQuery.isError
             ? NOT_PROVIDED
-            : totalQuery.data ? count(totalQuery.data.total) : "…";
+            : totalQuery.data ? count(totalQuery.data.total, locale) : "…";
           return (
             <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
               <div className="cam-pilot-kpi-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -87,27 +97,27 @@ export default function QuestionnairesPage() {
                   className="cam-pilot-badge"
                   style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}
                 >
-                  Homologué
+                  {t("certified")}
                 </span>
               </div>
 
               <h3 id={`q-${q.formType}`} className="cam-dash-card-title" style={{ marginTop: "var(--cam-space-3)" }}>
-                {entityTypeLabel(q.formType)}
+                {typeLabel(q.formType)}
               </h3>
               
               <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 var(--cam-space-4)" }}>
-                {entity ? `${count(entity.sectionCount)} sections d'enquête homologuées` : schemaQuery.isLoading ? "Chargement des sections…" : METRIC_UNAVAILABLE}
+                {entity ? t("sectionCount", { count: count(entity.sectionCount, locale) }) : schemaQuery.isLoading ? t("loadingSections") : metricUnavailable(locale)}
               </p>
 
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
                 <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="cam-admin-meta">Total déclarations déposées</span>
-                  <strong style={{ color: "var(--cam-text)" }} title={canReadSubmissions ? "Dans votre ressort" : "Non accessible à votre rôle"}>
+                  <span className="cam-admin-meta">{t("totalDeclarations")}</span>
+                  <strong style={{ color: "var(--cam-text)" }} title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
                     {total}
                   </strong>
                 </div>
                 <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="cam-admin-meta">Format réglementaire</span>
+                  <span className="cam-admin-meta">{t("regulatoryFormat")}</span>
                   <strong style={{ color: "var(--cam-green)" }}>DSMO-ONEFOP-v2</strong>
                 </div>
               </div>
@@ -119,11 +129,11 @@ export default function QuestionnairesPage() {
                     className="cam-button cam-button-primary cam-button-sm"
                     style={{ flex: 1, justifyContent: "center" }}
                   >
-                    Voir dossiers
+                    {t("viewFiles")}
                   </Link>
                 ) : (
                   <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled style={{ flex: 1 }}>
-                    Voir dossiers
+                    {t("viewFiles")}
                   </button>
                 )}
                 <button
@@ -132,7 +142,7 @@ export default function QuestionnairesPage() {
                   style={{ flex: 1 }}
                   onClick={() => setSelectedPreview(q)}
                 >
-                  Aperçu
+                  {t("preview")}
                 </button>
               </div>
             </section>
@@ -143,15 +153,18 @@ export default function QuestionnairesPage() {
       {/* Structure Information Card */}
       <section className="cam-dash-card" aria-labelledby="q-viewer-title" style={{ marginTop: "var(--cam-space-5)" }}>
         <div className="cam-dash-card-head">
-          <h3 id="q-viewer-title" className="cam-dash-card-title">Référentiel des Questionnaires Canoniques</h3>
+          <h3 id="q-viewer-title" className="cam-dash-card-title">{t("registerTitle")}</h3>
         </div>
         <p className="cam-admin-meta" style={{ margin: 0 }}>
-          Les modèles de fiches de collecte ONEFOP sont compilés à partir de l&apos;AST canonique institutionnel. Toute modification structurelle requiert un arrêté d&apos;homologation ministériel.
+          {t("registerBody")}
         </p>
         {schemaQuery.data && (
           <p className="cam-admin-meta" style={{ marginTop: "var(--cam-space-2)", fontWeight: 600 }}>
-            Schéma canonique actif v{schemaQuery.data.schemaVersion} : {schemaQuery.data.astTotals.sections} sections,{" "}
-            {schemaQuery.data.astTotals.questions} questions recensées au niveau national.
+            {t("activeSchema", {
+              version: schemaQuery.data.schemaVersion,
+              sections: schemaQuery.data.astTotals.sections,
+              questions: schemaQuery.data.astTotals.questions,
+            })}
           </p>
         )}
       </section>
@@ -161,8 +174,8 @@ export default function QuestionnairesPage() {
         <AdminDialog
           open={!!selectedPreview}
           onClose={() => setSelectedPreview(null)}
-          eyebrow="Structure Règlementaire &middot; ONEFOP"
-          title={`Aperçu : ${entityTypeLabel(selectedPreview.formType)}`}
+          eyebrow={t("previewEyebrow")}
+          title={t("previewTitle", { type: typeLabel(selectedPreview.formType) })}
           wide
           footer={
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)" }}>
@@ -171,7 +184,7 @@ export default function QuestionnairesPage() {
                 className="cam-button cam-button-secondary"
                 onClick={() => setSelectedPreview(null)}
               >
-                Fermer
+                {t("close")}
               </button>
               {canReadSubmissions && (
                 <Link
@@ -179,7 +192,7 @@ export default function QuestionnairesPage() {
                   className="cam-button cam-button-primary"
                   onClick={() => setSelectedPreview(null)}
                 >
-                  Consulter les dossiers ({selectedPreview.formType})
+                  {t("openFiles", { code: selectedPreview.formType })}
                 </Link>
               )}
             </div>
@@ -189,20 +202,20 @@ export default function QuestionnairesPage() {
             <div style={{ background: "var(--cam-surface-subtle)", padding: "0.75rem 1rem", borderRadius: "6px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>
-                  Questionnaire national pour : {entityTypeLabel(selectedPreview.formType)}
+                  {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
                 </span>
                 <span className="cam-pilot-badge" style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}>
-                  En vigueur
+                  {t("inForce")}
                 </span>
               </div>
               <div className="cam-admin-meta" style={{ marginTop: "4px" }}>
-                Type d&apos;entité : <code>{selectedPreview.formType}</code> &middot; Format d&apos;export : SPSS / CSV / Excel
+                {t("entityTypeLine")} <code>{selectedPreview.formType}</code> &middot; {t("exportFormatLine")}
               </div>
             </div>
 
             <div>
               <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>
-                Sections d&apos;enquête homologuées {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
+                {t("certifiedSections")} {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
               </div>
               {schemaQuery.data?.entities[selectedPreview.schemaKey]?.sections &&
               schemaQuery.data.entities[selectedPreview.schemaKey].sections.length > 0 ? (
@@ -222,15 +235,15 @@ export default function QuestionnairesPage() {
                     >
                       <div>
                         <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--cam-text)" }}>
-                          {sec.title?.fr || sec.id}
+                          {(sec.title ? localized(sec.title, locale) : "") || sec.id}
                         </div>
                         <div className="cam-admin-meta" style={{ fontSize: "0.75rem" }}>
-                          Identifiant : <code>{sec.id}</code>
-                          {sec.order !== null ? ` · Ordre : ${sec.order}` : ""}
+                          {t("sectionId")} <code>{sec.id}</code>
+                          {sec.order !== null ? t("sectionOrder", { order: sec.order }) : ""}
                         </div>
                       </div>
                       <span className="cam-admin-meta" style={{ fontWeight: 600 }}>
-                        {sec.fields.length} {sec.fields.length > 1 ? "questions / champs" : "question / champ"}
+                        {t("fieldCount", { count: sec.fields.length })}
                       </span>
                     </div>
                   ))}
@@ -238,8 +251,8 @@ export default function QuestionnairesPage() {
               ) : (
                 <p className="cam-admin-meta">
                   {schemaQuery.isLoading
-                    ? "Chargement de la structure réglementaire…"
-                    : "Structure de sections non disponible pour ce questionnaire."}
+                    ? t("loadingStructure")
+                    : t("noStructure")}
                 </p>
               )}
             </div>
