@@ -28,6 +28,14 @@ export class AnalyticsQueryService {
         if (filter.department) where['department'] = { contains: filter.department, mode: 'insensitive' };
         if (filter.subdivision) where['subdivision'] = { contains: filter.subdivision, mode: 'insensitive' };
 
+        // The caller's territory, under AND rather than merged into `where`:
+        // resolveSubmissions overwrites where.id for the sector filter, which
+        // would erase the fail-closed `{ id: { in: [] } }` and re-open
+        // national data. Under AND a caller filter can only narrow it.
+        if (filter._territory && Object.keys(filter._territory).length > 0) {
+            where['AND'] = [filter._territory];
+        }
+
         return where;
     }
 

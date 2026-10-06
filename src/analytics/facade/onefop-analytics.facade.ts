@@ -353,7 +353,7 @@ export class OnefopAnalyticsFacade {
 
         return {
             submissionCount: ids.length,
-            filter,
+            filter: echoedFilter(filter),
             employmentSummary,
             youthShareOfRecruitment,
             diplomas,
@@ -383,7 +383,7 @@ export class OnefopAnalyticsFacade {
     private emptyDashboard(filter: AnalyticsFilter) {
         return {
             submissionCount: 0,
-            filter,
+            filter: echoedFilter(filter),
             employmentSummary: {
                 totalPermanentEmployees: 0,
                 totalVacancies: 0,
@@ -406,4 +406,13 @@ export class OnefopAnalyticsFacade {
             skillsDashboard: { topSkills: [], topTrainingDomains: [], biggestSkillGaps: [] },
         };
     }
+}
+
+/**
+ * The dashboard's filter as echoed back to the client: the request's own
+ * parameters, without the server-only `_territory` Prisma fragment.
+ */
+function echoedFilter(filter: AnalyticsFilter): AnalyticsFilter {
+    const { _territory, ...rest } = filter;
+    return rest;
 }

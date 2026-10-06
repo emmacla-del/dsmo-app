@@ -36,6 +36,12 @@ export interface AnalyticsFilter extends AnalyticsScope {
     sector?: string;
     submissionId?: string;
     _ids?: readonly string[];
+    /**
+     * Server-only territory restriction (analyticsTerritoryScope): a Prisma
+     * where fragment ANDed into every submission query. Set by the controller
+     * from req.user, never from the query string. Absent = national.
+     */
+    _territory?: Record<string, unknown>;
 }
 
 export type TrendGranularity = 'year' | 'quarter' | 'semester' | 'month';
