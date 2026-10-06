@@ -10,11 +10,20 @@ import {
   listCompanyRegistrations,
   rejectUser,
   requestComplements,
+  type ApproveUserOptions,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { formatDate, hasRealNiu } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
-import { inscriptionsHref, registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
+import {
+  approvalGate,
+  inscriptionsHref,
+  registrationMethodLabel,
+  registrationMethodTone,
+  verificationFlags,
+  verificationRows,
+  type VerificationMarks,
+} from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -129,6 +138,9 @@ function InscriptionsContent() {
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_COMPLEMENTS">("APPROVE");
   const [comment, setComment] = useState("");
   const [centralChecked, setCentralChecked] = useState(false);
+  // The reviewer's ✓/✗ per verified row. A row absent from the map is
+  // unanswered, which is neither ✓ nor ✗.
+  const [marks, setMarks] = useState<VerificationMarks>({});
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -162,6 +174,7 @@ function InscriptionsContent() {
     setDecision("APPROVE");
     setComment("");
     setCentralChecked(false);
+    setMarks({});
   };
 
   const done = (text: string) => {
@@ -173,8 +186,7 @@ function InscriptionsContent() {
   const failed = (e: Error) => setNotice({ tone: "error", text: e.message });
 
   const approveMutation = useMutation({
-    mutationFn: ({ id, centralStructureConfirmed }: { id: string; centralStructureConfirmed: boolean }) =>
-      approveUser(id, { centralStructureConfirmed }),
+    mutationFn: ({ id, options }: { id: string; options: ApproveUserOptions }) => approveUser(id, options),
     onSuccess: () => done("Inscription validée et compte activé."),
     onError: failed,
   });
@@ -189,14 +201,25 @@ function InscriptionsContent() {
     onError: failed,
   });
 
+  const rows = reviewing ? verificationRows(reviewing) : [];
+  const gate = approvalGate(rows, marks);
+  // Why Approuver cannot be confirmed yet, shown in the dialog next to the
+  // decision; null once it can. The server enforces the same rules.
+  const approveBlocked = !reviewing
+    ? null
+    : gate.message ??
+      (reviewing.requiresCentralStructureCheck && !centralChecked
+        ? "Cochez la confirmation « structure centrale » avant d'approuver."
+        : null);
+
   const handleDecisionSubmit = () => {
     if (!reviewing) return;
     if (decision === "APPROVE") {
-      if (reviewing.requiresCentralStructureCheck && !centralChecked) {
-        setNotice({ tone: "error", text: "Cochez la confirmation « structure centrale » avant d'approuver." });
-        return;
-      }
-      approveMutation.mutate({ id: reviewing.id, centralStructureConfirmed: centralChecked });
+      if (approveBlocked) return;
+      approveMutation.mutate({
+        id: reviewing.id,
+        options: { centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks) },
+      });
     } else if (decision === "REJECT") {
       if (!comment.trim()) {
         setNotice({ tone: "error", text: "Le motif de rejet est obligatoire." });
@@ -364,7 +387,7 @@ function InscriptionsContent() {
                   </td>
                   <td>{item.duplicateHints.length > 0 ? item.duplicateHints.length : "—"}</td>
                   <td>
-                    <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setReviewing(item)}>
+                    <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => { setNotice(null); setReviewing(item); }}>
                       Examiner
                     </button>
                   </td>
@@ -391,7 +414,13 @@ function InscriptionsContent() {
         footer={
           <>
             <button type="button" className="cam-button cam-button-secondary" onClick={closeReview} disabled={pendingMutation}>Annuler</button>
-            <button type="button" className="cam-button cam-button-primary" onClick={handleDecisionSubmit} disabled={pendingMutation}>
+            <button
+              type="button"
+              className="cam-button cam-button-primary"
+              onClick={handleDecisionSubmit}
+              disabled={pendingMutation || (decision === "APPROVE" && !!approveBlocked)}
+              aria-describedby={decision === "APPROVE" && approveBlocked ? "inscription-approve-blocked" : undefined}
+            >
               {pendingMutation ? "…" : "Confirmer"}
             </button>
           </>
@@ -399,8 +428,15 @@ function InscriptionsContent() {
       >
         {reviewing && (
           <div>
+            {/* The dialog is modal, so the page-level notice sits behind it:
+                a refused decision is repeated here, where the reviewer is. */}
+            {notice?.tone === "error" && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+                <span>{notice.text}</span>
+              </div>
+            )}
             <p>Type : <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
-            <p>NIU : {hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber : "—"}{reviewing.cnpsNumber ? ` — CNPS : ${reviewing.cnpsNumber}` : ""}</p>
+            <p>NIU : {hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber : "—"}</p>
             <p>Enregistré le : {formatDate(reviewing.submittedAt)}</p>
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
@@ -436,6 +472,70 @@ function InscriptionsContent() {
                 )}
               </div>
             )}
+            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-2)" }}>Informations à vérifier</h3>
+            <table className="cam-dash-table">
+              <thead>
+                <tr>
+                  <th scope="col">Information</th>
+                  <th scope="col">Valeur déclarée</th>
+                  <th scope="col">Vérification</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.key}>
+                    <th scope="row">{row.label}</th>
+                    <td>{row.value ?? <span style={{ color: "var(--cam-text-muted)" }}>Non renseigné</span>}</td>
+                    <td>
+                      {/* Neither radio checked = not answered yet. An empty
+                          value cannot be attested, so its ✓ is disabled. */}
+                      <div role="radiogroup" aria-label={`Vérification : ${row.label}`} style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-3)" }}>
+                        <label className="cam-admin-choice">
+                          <input
+                            type="radio"
+                            name={`verify-${row.key}`}
+                            checked={marks[row.key] === "ok"}
+                            disabled={row.value === null}
+                            onChange={() => setMarks((current) => ({ ...current, [row.key]: "ok" }))}
+                          />
+                          ✓ Conforme
+                        </label>
+                        <label className="cam-admin-choice">
+                          <input
+                            type="radio"
+                            name={`verify-${row.key}`}
+                            checked={marks[row.key] === "ko"}
+                            onChange={() => setMarks((current) => ({ ...current, [row.key]: "ko" }))}
+                          />
+                          ✗ Non conforme
+                        </label>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-1)" }}>Déclarant</h3>
+            <p className="cam-admin-choice-hint" style={{ margin: "0 0 var(--cam-space-2)" }}>Pour information, non soumis à vérification.</p>
+            <dl className="cam-admin-kv">
+              <div>
+                <dt>Nom</dt>
+                <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || "—"}</dd>
+              </div>
+              <div><dt>Fonction</dt><dd>{reviewing.respondentFunction || "—"}</dd></div>
+              <div>
+                <dt>Téléphone</dt>
+                <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || "—"}</dd>
+              </div>
+              <div><dt>Email de connexion</dt><dd>{reviewing.email}</dd></div>
+              <div>
+                <dt>Enregistré par</dt>
+                <dd>
+                  {reviewing.createdByName && <div>{reviewing.createdByName}</div>}
+                  <MethodBadge method={reviewing.registrationMethod} />
+                </dd>
+              </div>
+            </dl>
             {reviewing.requiresCentralStructureCheck && (
               <label className="cam-admin-choice">
                 <input type="checkbox" checked={centralChecked} onChange={(e) => setCentralChecked(e.target.checked)} />
@@ -456,6 +556,11 @@ function InscriptionsContent() {
                 Demander des compléments
               </label>
             </div>
+            {decision === "APPROVE" && approveBlocked && (
+              <p id="inscription-approve-blocked" role="status" className="cam-admin-choice-hint" style={{ margin: "var(--cam-space-2) 0 0" }}>
+                {approveBlocked}
+              </p>
+            )}
             {decision !== "APPROVE" && (
               <label className="cam-target-year">
                 {decision === "REJECT" ? "Motif de rejet" : "Message de compléments"}
