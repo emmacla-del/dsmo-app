@@ -59,13 +59,6 @@
     "usersTabLabel": "Users",
     "companiesTabLabel": "Entities"
   },
-  "homeCommunicationPage": {
-    "accessDeniedTitle": "Access denied",
-    "accessDeniedMessage": "Your account does not have access to this page.",
-    "pageTitle": "Communication",
-    "campaignsTabLabel": "Campaigns",
-    "notificationsTabLabel": "Notifications"
-  },
   "homeLayout": {
     "brandName": "CAM-LEAP",
     "newDeclarationButton": "New declaration",
@@ -428,32 +421,6 @@
     "entityStepSubtitle": "Select your entity type to access the ONEFOP form.",
     "vtcBadge": "VTC",
     "footerBackButton": "← Back"
-  },
-  "campaignManagement": {
-    "statusAll": "All",
-    "newCampaignTitle": "New campaign",
-    "newCampaignButton": "+ New campaign",
-    "loadError": "Error — {error}",
-    "emptyState": "No campaigns.",
-    "campaignDetailTitle": "Campaign detail",
-    "deadlineLabel": "Deadline: {date}",
-    "activate": "Activate",
-    "pause": "Pause",
-    "editCampaignTitle": "Edit campaign",
-    "edit": "Edit",
-    "close": "Close",
-    "extend": "Extend",
-    "remind": "Reminder",
-    "delete": "Delete",
-    "notMigratedBody": "This section exists in the Flutter app but hasn't been migrated to React yet.",
-    "closeModalButton": "Close",
-    "deleteCampaignTitle": "Delete the campaign?",
-    "actionError": "Error: {error}",
-    "extendTitle": "Extend the deadline",
-    "newDeadlineLabel": "New deadline",
-    "confirm": "Confirm",
-    "remindTitle": "Send a reminder",
-    "send": "Send"
   },
   "companiesDirectory": {
     "nameColumn": "Name",
