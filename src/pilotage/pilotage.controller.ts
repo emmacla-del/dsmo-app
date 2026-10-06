@@ -46,8 +46,7 @@ export class PilotageController {
    * gets 403 — the retirement does not widen what the path discloses.
    *
    * PilotageService.getInscriptionTargets went with Phase 6a. TerritoryTarget
-   * and CentralInscriptionTarget themselves survive until Phase 6b drops the
-   * tables; nothing reads them any more.
+   * and CentralInscriptionTarget themselves were dropped in 6b.
    */
   @Get('targets/inscriptions')
   @Roles(...PILOTAGE_READ_ROLES)
