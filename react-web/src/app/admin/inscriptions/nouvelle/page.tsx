@@ -362,9 +362,17 @@ export default function NouvelleInscriptionPage() {
             </p>
             <FieldGrid>
               <div className="cam-target-year">
-                Identifiant
+                E-mail de connexion
                 <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>{result.user.email}</span>
               </div>
+              {result.company.establishmentId && (
+                <div className="cam-target-year">
+                  Identifiant d&apos;établissement
+                  <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>
+                    {result.company.establishmentId}
+                  </span>
+                </div>
+              )}
               <div className="cam-target-year">
                 Mot de passe temporaire
                 <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace", fontSize: 16 }}>

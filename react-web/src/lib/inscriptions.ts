@@ -83,7 +83,7 @@ export interface AssistedRegistrationResult {
   company: {
     id: string;
     name: string;
-    /** null until a reviewer approves the file — assisted ones always queue. */
+    /** Generated at registration for every file; null only for legacy files. */
     establishmentId: string | null;
     taxNumber: string;
     entityType: string | null;
