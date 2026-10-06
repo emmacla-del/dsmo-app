@@ -4,11 +4,12 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ANOMALY_DEROGATION_ROLES,
   ANOMALY_REGISTRY_ROLES,
-  ANOMALY_STATUS_LABELS,
   anomalyCompanyName,
   anomalyDossierRef,
   listAnomalyRegistry,
@@ -41,10 +42,11 @@ import {
 
 const REGISTRY_PAGE_SIZE = 50;
 
-const QUALITE_TABS: { vue: QualiteVue; label: string }[] = [
-  { vue: "indicateurs", label: "Indicateurs" },
-  { vue: "registre", label: "Registre des anomalies" },
-  { vue: "regles", label: "Règles de validation" },
+// `labelKey` is under adminCentreQualitePage.
+const QUALITE_TABS: { vue: QualiteVue; labelKey: string }[] = [
+  { vue: "indicateurs", labelKey: "tabIndicators" },
+  { vue: "registre", labelKey: "tabRegister" },
+  { vue: "regles", labelKey: "tabRules" },
 ];
 
 // Suspense because useSearchParams() requires it in the app router.
@@ -62,6 +64,9 @@ function CentreQualiteContent() {
   const searchParams = useSearchParams();
   const vue = parseQualiteVue(searchParams.get("vue"));
   const queryClient = useQueryClient();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminCentreQualitePage");
+  const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
   const canReadRegistry = !!role && ANOMALY_REGISTRY_ROLES.includes(role);
@@ -157,12 +162,12 @@ function CentreQualiteContent() {
       setResolutionNote("");
       setEvidenceUrl("");
       setActionError(null);
-      setSuccessToast("L'anomalie a été résolue et l'opération consignée au journal d'audit.");
+      setSuccessToast(t("resolvedToast"));
       setTimeout(() => setSuccessToast(null), 4000);
     },
     onError: (err: unknown) => {
       setActionError(
-        err instanceof Error ? err.message : "Erreur lors de la résolution de l'anomalie.",
+        err instanceof Error ? err.message : t("resolveError"),
       );
     },
   });
@@ -178,7 +183,7 @@ function CentreQualiteContent() {
   const handleConfirmResolution = () => {
     if (!selectedAnomaly) return;
     if (!resolutionNote.trim()) {
-      setActionError("Veuillez saisir un motif ou une justification pour la résolution de l'anomalie.");
+      setActionError(t("resolutionNoteRequired"));
       return;
     }
     resolveMutation.mutate({
@@ -201,11 +206,11 @@ function CentreQualiteContent() {
           a `region` filter (both are territory-scoped by territoryFromUser
           today, so a REGIONAL_ADMIN cannot widen past its own ressort). */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Contrôle Qualité" }, { label: "Centre Qualité" }]}
-        title="Centre Qualité"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.qualite") }, { label: tRoot("adminNav.routes.centreQualite") }]}
+        title={tRoot("adminNav.routes.centreQualite")}
         actions={<AdminHeaderActions />}
         tabs={QUALITE_TABS.map((item) => ({
-          label: item.label,
+          label: t(item.labelKey),
           href: hrefWith(pathname, searchParams.toString(), { vue: item.vue }),
           isActive: vue === item.vue,
         }))}
@@ -215,7 +220,7 @@ function CentreQualiteContent() {
       {successToast && (
         <div role="status" className="cam-admin-notice cam-admin-notice--success" style={{ marginBottom: 20 }}>
           <span>{successToast}</span>
-          <button type="button" className="cam-admin-notice-close" onClick={() => setSuccessToast(null)}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setSuccessToast(null)}>×</button>
         </div>
       )}
 
@@ -243,7 +248,7 @@ function CentreQualiteContent() {
               id="quality-kpis-title"
               style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 14px" }}
             >
-              INDICATEURS DE QUALITÉ
+              {t("qualityIndicatorsTitle")}
             </h2>
 
             <div
@@ -255,52 +260,52 @@ function CentreQualiteContent() {
             >
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  Complétude
+                  {t("completeness")}
                 </span>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate)}
+                  {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate, 0, locale)}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Dossiers complets</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("completeFiles")}</div>
               </div>
 
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  Cohérence
+                  {t("coherence")}
                 </span>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate)}
+                  {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate, 0, locale)}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Sans contradiction</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("noContradiction")}</div>
               </div>
 
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  Taux d&apos;anomalies
+                  {t("anomalyRate")}
                 </span>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#b91c1c", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate)}
+                  {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate, 0, locale)}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.blockingAnomaliesCount)} bloquante(s)</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("blockingCount", { count: count(quality?.blockingAnomaliesCount, locale) })}</div>
               </div>
 
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  Avertissements
+                  {t("warnings")}
                 </span>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.warningRate)}
+                  {qualityQuery.isLoading ? "…" : percent(quality?.warningRate, 0, locale)}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.warningsCount)} alerte(s)</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("alertCount", { count: count(quality?.warningsCount, locale) })}</div>
               </div>
 
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  Éligibilité statistique
+                  {t("eligibility")}
                 </span>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate)}
+                  {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate, 0, locale)}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.statisticallyReadyCount)} dossier(s) prêts</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("readyCount", { count: count(quality?.statisticallyReadyCount, locale) })}</div>
               </div>
             </div>
           </section>
@@ -320,24 +325,24 @@ function CentreQualiteContent() {
               id="anomalies-aggregates-title"
               style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 16px" }}
             >
-              ANOMALIES PAR TYPE ET PAR RÉGION
+              {t("aggregatesTitle")}
             </h2>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div>
                 <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
-                  Par famille de règles
+                  {t("byFamily")}
                 </h3>
                 {qualityQuery.isLoading ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des familles…</p>
+                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("loadingFamilies")}</p>
                 ) : (quality?.byRuleFamily?.length ?? 0) === 0 ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>Aucune anomalie ouverte par famille.</p>
+                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("noFamily")}</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {quality?.byRuleFamily.map((f) => (
                       <div key={f.ruleFamily} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
                         <span style={{ fontWeight: 500, color: "#1e293b" }}>{f.ruleFamily}</span>
-                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(f.count)}</span>
+                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(f.count, locale)}</span>
                       </div>
                     ))}
                   </div>
@@ -346,18 +351,18 @@ function CentreQualiteContent() {
 
               <div>
                 <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
-                  Par région
+                  {t("byRegion")}
                 </h3>
                 {qualityQuery.isLoading ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des régions…</p>
+                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("loadingRegions")}</p>
                 ) : (quality?.byRegion?.length ?? 0) === 0 ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>Aucune anomalie ouverte par région.</p>
+                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("noRegion")}</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {quality?.byRegion.map((r) => (
                       <div key={r.region} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
                         <span style={{ fontWeight: 500, color: "#1e293b" }}>{r.region}</span>
-                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(r.count)}</span>
+                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(r.count, locale)}</span>
                       </div>
                     ))}
                   </div>
@@ -389,10 +394,10 @@ function CentreQualiteContent() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                RÈGLES DE VALIDATION{rulesQuery.data?.length !== undefined ? ` (${count(rulesQuery.data.length)})` : ""}
+                {t("rulesTitle")}{rulesQuery.data?.length !== undefined ? ` (${count(rulesQuery.data.length, locale)})` : ""}
               </h2>
               <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#dcfce7", padding: "2px 8px", borderRadius: 9999 }}>
-                ACTIVES
+                {t("activeBadge")}
               </span>
             </div>
 
@@ -400,11 +405,11 @@ function CentreQualiteContent() {
               <DataState
                 dense
                 state={rulesState}
-                resource="le référentiel des règles"
+                resource={t("rulesResource")}
                 error={rulesQuery.error}
                 onRetry={() => rulesQuery.refetch()}
-                title={rulesState === "empty" ? "Aucune règle répertoriée" : undefined}
-                hint={rulesState === "empty" ? "Les règles de contrôle configurées s'afficheront ici." : undefined}
+                title={rulesState === "empty" ? t("noRuleTitle") : undefined}
+                hint={rulesState === "empty" ? t("noRuleHint") : undefined}
               />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -424,7 +429,7 @@ function CentreQualiteContent() {
                           {rule.name}
                         </div>
                         <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace", marginTop: 2 }}>
-                          {rule.code} • Famille : {rule.family}
+                          {rule.code} • {t("familyLine", { family: rule.family })}
                         </div>
                       </div>
                       <span
@@ -438,7 +443,7 @@ function CentreQualiteContent() {
                           color: rule.isBlocking ? "#b91c1c" : "#b45309",
                         }}
                       >
-                        {rule.isBlocking ? "BLOQUANTE" : "AVERTISSEMENT"}
+                        {rule.isBlocking ? t("blockingBadge") : t("warningBadge")}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: "#475569", marginTop: 6, lineHeight: 1.4 }}>
@@ -473,10 +478,10 @@ function CentreQualiteContent() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
               <div>
                 <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                  Registre des anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
+                  {t("registerTitle")}{totalCount === null ? "" : ` (${count(totalCount, locale)})`}
                 </h2>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-                  Tableau d&apos;instruction détaillé des anomalies détectées sur les déclarations soumises.
+                  {t("registerSubtitle")}
                 </p>
               </div>
 
@@ -487,10 +492,10 @@ function CentreQualiteContent() {
                   value={filterStatus}
                   onChange={(e) => setRegisterFilter("status", e.target.value)}
                 >
-                  <option value="ALL">Tous statuts</option>
-                  <option value="OPEN">Ouvertes</option>
-                  <option value="RESOLVED">Résolues</option>
-                  <option value="WAIVED">Dispensées</option>
+                  <option value="ALL">{t("allStatuses")}</option>
+                  <option value="OPEN">{t("statusOpen")}</option>
+                  <option value="RESOLVED">{t("statusResolved")}</option>
+                  <option value="WAIVED">{t("statusWaived")}</option>
                 </select>
                 <select
                   className="cam-select"
@@ -498,9 +503,9 @@ function CentreQualiteContent() {
                   value={filterSeverity}
                   onChange={(e) => setRegisterFilter("severity", e.target.value)}
                 >
-                  <option value="ALL">Toutes sévérités</option>
-                  <option value="BLOCKING">Bloquantes uniquement</option>
-                  <option value="WARNING">Avertissements uniquement</option>
+                  <option value="ALL">{t("allSeverities")}</option>
+                  <option value="BLOCKING">{t("blockingOnly")}</option>
+                  <option value="WARNING">{t("warningsOnly")}</option>
                 </select>
                 <button
                   type="button"
@@ -508,7 +513,7 @@ function CentreQualiteContent() {
                   onClick={() => anomaliesQuery.refetch()}
                   style={{ height: 34, padding: "0 14px", fontSize: 13 }}
                 >
-                  Actualiser
+                  {t("refresh")}
                 </button>
               </div>
             </div>
@@ -517,13 +522,13 @@ function CentreQualiteContent() {
               <table className="cam-table" style={{ width: "100%", margin: 0 }}>
                 <thead style={{ background: "#f8fafc" }}>
                   <tr>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Déclaration / Dossier</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Règle &amp; Code</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Description de l&apos;Anomalie</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Sévérité</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Détectée le</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Statut</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>Action</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("declarationColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("ruleColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("descriptionColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("severityColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("detectedColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("statusColumn")}</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>{t("actionColumn")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -532,15 +537,11 @@ function CentreQualiteContent() {
                   <DataStateRow
                     colSpan={7}
                     state={registryState}
-                    resource="le registre des anomalies"
+                    resource={t("registerResource")}
                     error={anomaliesQuery.error}
                     onRetry={() => anomaliesQuery.refetch()}
-                    title={registryState === "empty" ? "Aucune anomalie enregistrée" : undefined}
-                    hint={
-                      registryState === "empty"
-                        ? "Aucune anomalie correspondant à ce périmètre n'est actuellement enregistrée."
-                        : undefined
-                    }
+                    title={registryState === "empty" ? t("noAnomalyTitle") : undefined}
+                    hint={registryState === "empty" ? t("noAnomalyHint") : undefined}
                   />
                   {items.map((a) => (
                     <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -580,8 +581,8 @@ function CentreQualiteContent() {
                       <td style={{ fontSize: 13 }}>
                         <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
                         <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                          Observé : <strong>{a.observedValue}</strong> &middot; Attendu : <strong>{a.expectedValue}</strong>
-                          {a.deltaValue ? <> &middot; Écart : <strong>{a.deltaValue}</strong></> : null}
+                          {t("observed")} <strong>{a.observedValue}</strong> &middot; {t("expected")} <strong>{a.expectedValue}</strong>
+                          {a.deltaValue ? <> &middot; {t("gap")} <strong>{a.deltaValue}</strong></> : null}
                         </div>
                       </td>
                       <td>
@@ -597,11 +598,11 @@ function CentreQualiteContent() {
                             color: a.isBlocking ? "#b3202c" : "#b8860b",
                           }}
                         >
-                          {a.isBlocking ? "Bloquante" : "Avertissement"}
+                          {a.isBlocking ? t("blocking") : t("warning")}
                         </span>
                       </td>
-                      <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt)}>
-                        {stamp(a.detectedAt)}
+                      <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt, true, locale)}>
+                        {stamp(a.detectedAt, true, locale)}
                       </td>
                       <td>
                         <span
@@ -616,12 +617,12 @@ function CentreQualiteContent() {
                             color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
                           }}
                         >
-                          {ANOMALY_STATUS_LABELS[a.status]}
+                          {t(`anomalyStatus.${a.status}`)}
                         </span>
                         {/* Resolution metadata only when the record carries it. */}
                         {a.resolvedAt && (
                           <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                            {stamp(a.resolvedAt)}
+                            {stamp(a.resolvedAt, true, locale)}
                             {a.resolvedBy
                               ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
                               : ""}
@@ -636,10 +637,10 @@ function CentreQualiteContent() {
                             onClick={() => handleOpenResolveModal(a)}
                             style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
                           >
-                            Résoudre
+                            {t("resolve")}
                           </button>
                         ) : (
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>Traitée</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>{t("handled")}</span>
                         )}
                       </td>
                     </tr>
@@ -656,8 +657,8 @@ function CentreQualiteContent() {
         <AdminDialog
           open={!!selectedAnomaly}
           onClose={() => setSelectedAnomaly(null)}
-          eyebrow="Contrôle Qualité &middot; Décision de Levée"
-          title={`Résolution de l'anomalie : ${selectedAnomaly.ruleCode}`}
+          eyebrow={t("resolveEyebrow")}
+          title={t("resolveTitle", { code: selectedAnomaly.ruleCode })}
           wide
           footer={
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
@@ -667,7 +668,7 @@ function CentreQualiteContent() {
                 onClick={() => setSelectedAnomaly(null)}
                 disabled={resolveMutation.isPending}
               >
-                Annuler
+                {tRoot("common.cancel")}
               </button>
               <button
                 type="button"
@@ -676,7 +677,7 @@ function CentreQualiteContent() {
                 disabled={resolveMutation.isPending}
                 style={{ background: "#007a5e", borderColor: "#007a5e" }}
               >
-                {resolveMutation.isPending ? "Enregistrement…" : "Confirmer la Résolution"}
+                {resolveMutation.isPending ? t("saving") : t("confirmResolution")}
               </button>
             </div>
           }
@@ -694,13 +695,13 @@ function CentreQualiteContent() {
                 {/* A submission with no stored region is reported as such.
                     Printing "National" here would invent a territorial fact on
                     an authorization-sensitive field. */}
-                Déclaration : <strong>{anomalyDossierRef(selectedAnomaly)}</strong> &middot; Région : <strong>{selectedAnomaly.submission?.region ?? NOT_PROVIDED}</strong>
+                {t("declarationLabel")} <strong>{anomalyDossierRef(selectedAnomaly)}</strong> &middot; {t("regionLabel")} <strong>{selectedAnomaly.submission?.region ?? NOT_PROVIDED}</strong>
               </div>
             </div>
 
             <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
               <legend className="cam-admin-label" style={{ padding: 0, marginBottom: 8, fontWeight: 600, color: "#0f172a" }}>
-                Mode de résolution administratif
+                {t("resolutionMode")}
               </legend>
 
               <label className="cam-admin-choice" style={{ border: "1px solid #e2e8f0", padding: "10px 14px", borderRadius: 8 }}>
@@ -711,9 +712,9 @@ function CentreQualiteContent() {
                   onChange={() => setResolutionType("DECLARANT_CORRECTION")}
                 />
                 <span>
-                  Correction validée du déclarant
+                  {t("modeCorrection")}
                   <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    Les données ont été vérifiées et mises en conformité suite au retour de révision
+                    {t("modeCorrectionHint")}
                   </span>
                 </span>
               </label>
@@ -726,9 +727,9 @@ function CentreQualiteContent() {
                   onChange={() => setResolutionType("FIELD_INSPECTION")}
                 />
                 <span>
-                  Contrôle physique / Enquête de terrain concluante
+                  {t("modeInspection")}
                   <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    Un agent ONEFOP assermenté a vérifié la conformité in situ
+                    {t("modeInspectionHint")}
                   </span>
                 </span>
               </label>
@@ -742,9 +743,9 @@ function CentreQualiteContent() {
                   onChange={() => setResolutionType("LEGAL_DEROGATION")}
                 />
                 <span>
-                  Dispense légale / Dérogation administrative (WAIVED)
+                  {t("modeDerogation")}
                   <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    Réservée à la Direction Centrale ONEFOP / SuperAdmin National avec visa motivé
+                    {t("modeDerogationHint")}
                   </span>
                 </span>
               </label>
@@ -752,13 +753,13 @@ function CentreQualiteContent() {
 
             <div className="cam-field">
               <label className="cam-label" htmlFor="resolution-note" style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
-                Justification administrative &amp; Note d&apos;audit *
+                {t("justificationLabel")}
               </label>
               <textarea
                 id="resolution-note"
                 className="cam-textarea"
                 rows={3}
-                placeholder="Précisez les constatations, références de pièces ou motifs légaux justifiant la résolution de cette anomalie…"
+                placeholder={t("justificationPlaceholder")}
                 value={resolutionNote}
                 onChange={(e) => setResolutionNote(e.target.value)}
                 style={{ fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
@@ -767,13 +768,13 @@ function CentreQualiteContent() {
 
             <div className="cam-field">
               <label className="cam-label" htmlFor="evidence-url" style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
-                Lien de la pièce justificative ou PV d&apos;enquête (optionnel)
+                {t("evidenceLabel")}
               </label>
               <input
                 id="evidence-url"
                 type="text"
                 className="cam-input"
-                placeholder="https://... ou réf. archivage"
+                placeholder={t("evidencePlaceholder")}
                 value={evidenceUrl}
                 onChange={(e) => setEvidenceUrl(e.target.value)}
                 style={{ fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}

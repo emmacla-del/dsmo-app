@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import {
   listCampaigns,
   getCampaign,
@@ -13,24 +14,21 @@ import {
   deleteCampaign,
   extendCampaignDeadline,
   sendCampaignReminder,
-  CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_PERIODICITIES,
-  CAMPAIGN_PERIODICITY_LABELS,
-  CAMPAIGN_PURPOSE_LABELS,
   REMINDER_TYPES,
-  campaignPeriodicityLabel,
+  campaignPeriodicity,
   formatCampaignDate,
   canActivate,
   canArchive,
   canDelete,
   isRegistrationCampaign,
-  REGISTRATION_STATUS_LABEL,
   type Campaign,
   type CampaignDetail,
   type CampaignPeriodicity,
   type CampaignPurpose,
 } from "@/lib/campaigns";
-import { entityTypeLabel } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
@@ -40,7 +38,18 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 // @Roles on POST /campaigns/:id/activate|pause|close|remind (campaign.controller.ts).
 // Every other role that reaches this page (REGIONAL_ADMIN) reads only.
-const READ_ONLY_REASON = "Action réservée aux administrateurs et au niveau central : votre rôle permet la consultation seulement.";
+// Status, periodicity, purpose, reminder-type and module labels are message
+// keys under adminCampagnesPage, keyed by the stored code.
+const STATUS_CODES = new Set(["DRAFT", "ACTIVE", "PAUSED", "CLOSED", "ARCHIVED"]);
+const MODULE_CODES = new Set(["ONEFOP", "DSMO"]);
+const REMINDER_CODES = new Set(REMINDER_TYPES.map((r) => r.value));
+
+type Translate = ReturnType<typeof useTranslations>;
+
+/** Entity type label without administrative codes, as on the other admin pages. */
+function typeLabel(tRoot: Translate, type: string): string {
+  return ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type) || type;
+}
 
 const STATUS_BADGE: Record<string, string> = {
   DRAFT: "cam-badge-warning",
@@ -50,31 +59,40 @@ const STATUS_BADGE: Record<string, string> = {
   ARCHIVED: "cam-badge-neutral",
 };
 
-const MODULE_LABELS: Record<string, string> = { ONEFOP: "Questionnaire ONEFOP", DSMO: "Déclaration DSMO" };
-
 const fmt = formatCampaignDate;
 const effectiveDeadline = (c: Campaign) => c.extendedDeadline ?? c.deadline ?? null;
 const isPast = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < Date.now();
 
-function daysLeft(c: Campaign): { value: string; hint: string; tone?: "is-alert" | "is-warn" | "is-good" } {
+function daysLeft(c: Campaign, t: Translate): { value: string; hint: string; tone?: "is-alert" | "is-warn" | "is-good" } {
   const deadline = effectiveDeadline(c);
-  if (!deadline) return { value: "—", hint: "Aucune échéance fixée" };
+  if (!deadline) return { value: "—", hint: t("noDeadline") };
   const ms = new Date(deadline).getTime() - Date.now();
-  if (Number.isNaN(ms)) return { value: "—", hint: "Échéance illisible" };
-  if (ms < 0) return { value: "Échue", hint: `depuis le ${fmt(deadline)}`, tone: "is-alert" };
+  if (Number.isNaN(ms)) return { value: "—", hint: t("unreadableDeadline") };
+  if (ms < 0) return { value: t("pastDue"), hint: t("pastDueSince", { date: fmt(deadline) }), tone: "is-alert" };
   const days = Math.ceil(ms / 86_400_000);
-  return { value: `${days} jour${days > 1 ? "s" : ""}`, hint: `jusqu'au ${fmt(deadline)}`, tone: days <= 7 ? "is-warn" : "is-good" };
+  return { value: t("daysValue", { days }), hint: t("until", { date: fmt(deadline) }), tone: days <= 7 ? "is-warn" : "is-good" };
+}
+
+/** "2026-T3" in French, "2026-Q3" in English. */
+function quarterRef(t: Translate, year: number, quarter: number): string {
+  return t("quarterRef", { year: String(year), quarter });
+}
+
+function moduleLabel(t: Translate, collectionType: string | null | undefined): string {
+  if (!collectionType) return "—";
+  return MODULE_CODES.has(collectionType) ? t(`module.${collectionType}`) : collectionType;
 }
 
 function StatusBadge({ status, registration = false }: { status: string; registration?: boolean }) {
+  const t = useTranslations("adminCampagnesPage");
   // A registration campaign is DRAFT for life; "Brouillon" would suggest it is
   // waiting to be launched.
   if (registration) {
-    return <span className="cam-badge cam-badge-neutral">{REGISTRATION_STATUS_LABEL}</span>;
+    return <span className="cam-badge cam-badge-neutral">{t("registrationStatus")}</span>;
   }
   return (
     <span className={`cam-badge ${STATUS_BADGE[status] ?? "cam-badge-neutral"}`}>
-      {CAMPAIGN_STATUS_LABELS[status] ?? status}
+      {STATUS_CODES.has(status) ? t(`status.${status}`) : status}
     </span>
   );
 }
@@ -100,9 +118,10 @@ export function formatCampaignDisplayName(name: string): string {
 const GATED_OFF: CSSProperties = { pointerEvents: "none" };
 
 function Gated({ allowed, children }: { allowed: boolean; children: (disabled: boolean) => ReactNode }) {
+  const t = useTranslations("adminCampagnesPage");
   if (allowed) return <>{children(false)}</>;
   return (
-    <span title={READ_ONLY_REASON} style={{ display: "inline-flex", cursor: "not-allowed" }}>
+    <span title={t("readOnlyReason")} style={{ display: "inline-flex", cursor: "not-allowed" }}>
       {children(true)}
     </span>
   );
@@ -122,6 +141,8 @@ export default function CampagnesPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canMutate = hasRole(role, NATIONAL_ROLES);
   const queryClient = useQueryClient();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminCampagnesPage");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [reminderType, setReminderType] = useState(REMINDER_TYPES[0].value);
@@ -147,19 +168,19 @@ export default function CampagnesPage() {
     setDialog(null);
   };
 
-  const activateMutation = useMutation({ mutationFn: activateCampaign, onSuccess: () => done("Campagne activée avec succès."), onError: failed });
-  const pauseMutation = useMutation({ mutationFn: pauseCampaign, onSuccess: () => done("Campagne mise en pause."), onError: failed });
-  const closeMutation = useMutation({ mutationFn: closeCampaign, onSuccess: () => done("Campagne clôturée."), onError: failed });
-  const archiveMutation = useMutation({ mutationFn: archiveCampaign, onSuccess: () => done("Campagne archivée."), onError: failed });
-  const deleteMutation = useMutation({ mutationFn: deleteCampaign, onSuccess: () => done("Campagne supprimée avec succès."), onError: failed });
+  const activateMutation = useMutation({ mutationFn: activateCampaign, onSuccess: () => done(t("activated")), onError: failed });
+  const pauseMutation = useMutation({ mutationFn: pauseCampaign, onSuccess: () => done(t("paused")), onError: failed });
+  const closeMutation = useMutation({ mutationFn: closeCampaign, onSuccess: () => done(t("closed")), onError: failed });
+  const archiveMutation = useMutation({ mutationFn: archiveCampaign, onSuccess: () => done(t("archived")), onError: failed });
+  const deleteMutation = useMutation({ mutationFn: deleteCampaign, onSuccess: () => done(t("deleted")), onError: failed });
   const reminderMutation = useMutation({
     mutationFn: ({ id, type }: { id: string; type: string }) => sendCampaignReminder(id, type),
-    onSuccess: () => done("Rappel envoyé."),
+    onSuccess: () => done(t("reminderSent")),
     onError: failed,
   });
   const extendMutation = useMutation({
     mutationFn: ({ id, newDeadline }: { id: string; newDeadline: string }) => extendCampaignDeadline(id, newDeadline),
-    onSuccess: () => done("Échéance prolongée."),
+    onSuccess: () => done(t("deadlineExtended")),
     onError: failed,
   });
 
@@ -168,7 +189,7 @@ export default function CampagnesPage() {
   if (forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">Accès restreint aux responsables de campagnes.</p>
+        <p className="cam-admin-lede">{t("forbidden")}</p>
       </div>
     );
   }
@@ -182,8 +203,8 @@ export default function CampagnesPage() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Collecte" }, { label: "Campagnes" }]}
-        title="Campagnes"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.campagnes") }]}
+        title={tRoot("adminNav.routes.campagnes")}
         actions={
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
             <AdminHeaderActions />
@@ -200,7 +221,7 @@ export default function CampagnesPage() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Lancer une campagne
+                  {t("launchButton")}
                 </button>
               )}
             </Gated>
@@ -209,19 +230,19 @@ export default function CampagnesPage() {
       />
       {!canMutate && (
         <div role="note" className="cam-admin-notice cam-admin-notice--info">
-          <span>Consultation seule : l&apos;activation, la pause, la prolongation, la clôture et les rappels sont réservés aux administrateurs et au niveau central.</span>
+          <span>{t("readOnlyNotice")}</span>
         </div>
       )}
       {actionError && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error">
           <span>{actionError}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setActionError(null)}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setActionError(null)}>×</button>
         </div>
       )}
       {actionSuccess && (
         <div role="status" className="cam-admin-notice cam-admin-notice--success">
           <span>{actionSuccess}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setActionSuccess(null)}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setActionSuccess(null)}>×</button>
         </div>
       )}
 
@@ -232,8 +253,8 @@ export default function CampagnesPage() {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <div>
-            <div className="cam-campaign-banner-title">Aucune campagne active</div>
-            <div className="cam-campaign-banner-meta">Activez une campagne en brouillon ci-dessous, ou lancez-en une nouvelle avec le bouton ci-dessus.</div>
+            <div className="cam-campaign-banner-title">{t("noActiveTitle")}</div>
+            <div className="cam-campaign-banner-meta">{t("noActiveHint")}</div>
           </div>
         </div>
       ) : (
@@ -257,20 +278,20 @@ export default function CampagnesPage() {
         {/* ── History ── */}
         <section className="cam-pilot-panel" style={{ flex: "3 1 640px", minWidth: 0, overflow: "hidden" }} aria-labelledby="campagnes-history-title">
           <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2" id="campagnes-history-title">Historique des campagnes</h2>
-            <span className="cam-admin-meta">{otherCampaigns.length} campagne{otherCampaigns.length !== 1 ? "s" : ""}</span>
+            <h2 className="cam-admin-h2" id="campagnes-history-title">{t("historyTitle")}</h2>
+            <span className="cam-admin-meta">{t("campaignCount", { count: otherCampaigns.length })}</span>
           </div>
           <div className="cam-pilot-panel-body" style={otherCampaigns.length > 0 && !allQuery.isError ? { padding: 0 } : undefined}>
             {allQuery.isLoading ? (
-              <div className="cam-admin-empty">Chargement…</div>
+              <div className="cam-admin-empty">{tRoot("common.loading")}</div>
             ) : allQuery.isError ? (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                <span>Impossible de charger les campagnes : {(allQuery.error as Error).message}</span>
+                <span>{t("loadError", { message: (allQuery.error as Error).message })}</span>
               </div>
             ) : otherCampaigns.length === 0 ? (
               <div className="cam-admin-empty">
-                <strong>Aucune autre campagne</strong>
-                Créez et activez une campagne avec le bouton « Lancer une campagne » ci-dessus.
+                <strong>{t("noOtherTitle")}</strong>
+                {t("noOtherHint")}
               </div>
             ) : (
               // Wide tables scroll horizontally inside the panel; no second bordered box.
@@ -278,12 +299,12 @@ export default function CampagnesPage() {
                 <table className="cam-table">
                   <thead>
                     <tr>
-                      <th scope="col" style={{ width: "42%" }}>Campagne</th>
-                      <th scope="col">Type</th>
-                      <th scope="col">Ouverture</th>
-                      <th scope="col">Clôture</th>
-                      <th scope="col">Statut</th>
-                      <th scope="col" style={{ textAlign: "right" }}>Actions</th>
+                      <th scope="col" style={{ width: "42%" }}>{t("campaignColumn")}</th>
+                      <th scope="col">{t("typeColumn")}</th>
+                      <th scope="col">{t("openingColumn")}</th>
+                      <th scope="col">{t("closingColumn")}</th>
+                      <th scope="col">{t("statusColumn")}</th>
+                      <th scope="col" style={{ textAlign: "right" }}>{t("actionsColumn")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -309,7 +330,7 @@ export default function CampagnesPage() {
                             {/* Same name as the collection campaign of the quarter; the tag tells them apart. Collection rows stay untagged. */}
                             {isRegistrationCampaign(c) && (
                               <span className="cam-badge cam-badge-info" style={{ fontSize: "11px", fontWeight: 600, flexShrink: 0 }}>
-                                {CAMPAIGN_PURPOSE_LABELS.REGISTRATION}
+                                {t("purpose.REGISTRATION")}
                               </span>
                             )}
                           </div>
@@ -319,11 +340,11 @@ export default function CampagnesPage() {
                         </td>
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
-                            {c.collectionType ?? campaignPeriodicityLabel(c) ?? "—"}
+                            {c.collectionType ?? (campaignPeriodicity(c) ? t(`periodicity.${campaignPeriodicity(c)}`) : "—")}
                           </span>
                           {c.referenceYear && c.referenceQuarter && (
                             <div style={{ fontSize: "11px", color: "var(--cam-text-muted)", marginTop: "2px" }}>
-                              {c.referenceYear}-T{c.referenceQuarter}
+                              {quarterRef(t, c.referenceYear, c.referenceQuarter)}
                             </div>
                           )}
                         </td>
@@ -331,7 +352,7 @@ export default function CampagnesPage() {
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           {fmt(effectiveDeadline(c))}
                           {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && (
-                            <div className="cam-admin-meta" style={{ color: "var(--cam-info)", fontSize: "11px" }}>Prorogée (était {fmt(c.deadline)})</div>
+                            <div className="cam-admin-meta" style={{ color: "var(--cam-info)", fontSize: "11px" }}>{t("extendedWas", { date: fmt(c.deadline) })}</div>
                           )}
                         </td>
                         <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
@@ -347,7 +368,7 @@ export default function CampagnesPage() {
                                     disabled={disabled || activateMutation.isPending}
                                     style={disabled ? GATED_OFF : undefined}
                                   >
-                                    Activer
+                                    {t("activate")}
                                   </button>
                                 )}
                               </Gated>
@@ -362,7 +383,7 @@ export default function CampagnesPage() {
                                     disabled={disabled || deleteMutation.isPending}
                                     style={disabled ? GATED_OFF : undefined}
                                   >
-                                    Supprimer
+                                    {t("delete")}
                                   </button>
                                 )}
                               </Gated>
@@ -377,7 +398,7 @@ export default function CampagnesPage() {
                                     disabled={disabled || archiveMutation.isPending}
                                     style={disabled ? GATED_OFF : undefined}
                                   >
-                                    Archiver
+                                    {t("archive")}
                                   </button>
                                 )}
                               </Gated>
@@ -385,8 +406,8 @@ export default function CampagnesPage() {
                             <button
                               type="button"
                               className="cam-text-button"
-                              aria-label={`Voir les détails de ${c.name}`}
-                              title="Voir les détails"
+                              aria-label={t("viewDetailsOf", { name: c.name })}
+                              title={t("viewDetails")}
                               onClick={() => setDialog({ type: "details", campaign: c })}
                             >
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -417,54 +438,54 @@ export default function CampagnesPage() {
       <AdminDialog
         open={dialog?.type === "remind"}
         onClose={() => setDialog(null)}
-        eyebrow="Communication"
-        title="Envoyer un rappel"
+        eyebrow={t("remindEyebrow")}
+        title={t("remindTitle")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-primary cam-button-sm"
               disabled={reminderMutation.isPending}
               onClick={() => dialog?.type === "remind" && reminderMutation.mutate({ id: dialog.campaign.id, type: reminderType })}
             >
-              {reminderMutation.isPending ? "Envoi…" : "Envoyer"}
+              {reminderMutation.isPending ? t("sending") : t("send")}
             </button>
           </>
         }
       >
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="reminder-type">Type de rappel</label>
+          <label className="cam-admin-label" htmlFor="reminder-type">{t("reminderTypeLabel")}</label>
           <select id="reminder-type" className="cam-select" value={reminderType} onChange={(e) => setReminderType(e.target.value)}>
-            {REMINDER_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {REMINDER_TYPES.map((r) => <option key={r.value} value={r.value}>{t(`reminderType.${r.value}`)}</option>)}
           </select>
         </div>
         <p className="cam-admin-meta" style={{ margin: 0 }}>
-          Le rappel sera envoyé par courriel à tous les établissements dont la déclaration est encore en brouillon ou non soumise pour cette campagne.
+          {t("reminderHint")}
         </p>
       </AdminDialog>
 
       <AdminDialog
         open={dialog?.type === "extend"}
         onClose={() => setDialog(null)}
-        eyebrow="Prorogation"
-        title={dialog?.type === "extend" ? `Prolonger « ${dialog.campaign.name} »` : "Prolonger la campagne"}
+        eyebrow={t("extendEyebrow")}
+        title={dialog?.type === "extend" ? t("extendTitle", { name: dialog.campaign.name }) : t("extendTitleFallback")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-primary cam-button-sm"
               disabled={!extendDate || extendMutation.isPending}
               onClick={() => dialog?.type === "extend" && extendMutation.mutate({ id: dialog.campaign.id, newDeadline: new Date(extendDate).toISOString() })}
             >
-              {extendMutation.isPending ? "Prolongation…" : "Prolonger"}
+              {extendMutation.isPending ? t("extending") : t("extend")}
             </button>
           </>
         }
       >
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="extend-deadline">Nouvelle date limite</label>
+          <label className="cam-admin-label" htmlFor="extend-deadline">{t("newDeadline")}</label>
           <input
             id="extend-deadline"
             type="date"
@@ -476,7 +497,7 @@ export default function CampagnesPage() {
         </div>
         {dialog?.type === "extend" && (
           <p className="cam-admin-meta" style={{ margin: 0 }}>
-            Échéance actuelle : {fmt(effectiveDeadline(dialog.campaign))}.
+            {t("currentDeadline", { date: fmt(effectiveDeadline(dialog.campaign)) })}
           </p>
         )}
       </AdminDialog>
@@ -484,72 +505,72 @@ export default function CampagnesPage() {
       <AdminDialog
         open={dialog?.type === "close"}
         onClose={() => setDialog(null)}
-        eyebrow="Clôture"
-        title={dialog?.type === "close" ? `Clôturer « ${dialog.campaign.name} » ?` : "Clôturer la campagne"}
+        eyebrow={t("closeEyebrow")}
+        title={dialog?.type === "close" ? t("closeTitle", { name: dialog.campaign.name }) : t("closeTitleFallback")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-danger cam-button-sm"
               disabled={closeMutation.isPending}
               onClick={() => dialog?.type === "close" && closeMutation.mutate(dialog.campaign.id)}
             >
-              {closeMutation.isPending ? "Clôture…" : "Clôturer la campagne"}
+              {closeMutation.isPending ? t("closing") : t("closeCampaign")}
             </button>
           </>
         }
       >
         <p style={{ margin: 0 }}>
-          La collecte sera fermée : les établissements ne pourront plus soumettre de déclaration pour cette campagne.
+          {t("closeBody")}
         </p>
       </AdminDialog>
 
       <AdminDialog
         open={dialog?.type === "delete"}
         onClose={() => setDialog(null)}
-        eyebrow="Suppression"
-        title={dialog?.type === "delete" ? `Supprimer « ${dialog.campaign.name} » ?` : "Supprimer la campagne"}
+        eyebrow={t("deleteEyebrow")}
+        title={dialog?.type === "delete" ? t("deleteTitle", { name: dialog.campaign.name }) : t("deleteTitleFallback")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-danger cam-button-sm"
               disabled={deleteMutation.isPending}
               onClick={() => dialog?.type === "delete" && deleteMutation.mutate(dialog.campaign.id)}
             >
-              {deleteMutation.isPending ? "Suppression…" : "Supprimer définitivement"}
+              {deleteMutation.isPending ? t("deleting") : t("deletePermanently")}
             </button>
           </>
         }
       >
         <p style={{ margin: 0 }}>
-          Cette action est irréversible. Seules les campagnes en brouillon sans aucune donnée liée (soumissions, quotas, gels) peuvent être supprimées.
+          {t("deleteBody")}
         </p>
       </AdminDialog>
 
       <AdminDialog
         open={dialog?.type === "archive"}
         onClose={() => setDialog(null)}
-        eyebrow="Archivage"
-        title={dialog?.type === "archive" ? `Archiver « ${dialog.campaign.name} » ?` : "Archiver la campagne"}
+        eyebrow={t("archiveEyebrow")}
+        title={dialog?.type === "archive" ? t("archiveTitle", { name: dialog.campaign.name }) : t("archiveTitleFallback")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-primary cam-button-sm"
               disabled={archiveMutation.isPending}
               onClick={() => dialog?.type === "archive" && archiveMutation.mutate(dialog.campaign.id)}
             >
-              {archiveMutation.isPending ? "Archivage…" : "Archiver la campagne"}
+              {archiveMutation.isPending ? t("archiving") : t("archiveCampaign")}
             </button>
           </>
         }
       >
         <p style={{ margin: 0 }}>
-          La campagne sera archivée. Les données historiques seront conservées, mais aucune nouvelle saisie ne sera possible.
+          {t("archiveBody")}
         </p>
       </AdminDialog>
 
@@ -569,10 +590,12 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
   campaign: Campaign; canMutate: boolean; pausePending: boolean;
   onDetails: () => void; onRemind: () => void; onExtend: () => void; onPause: () => void; onClose: () => void; onArchive: () => void;
 }) {
-  const remaining = daysLeft(c);
+  const t = useTranslations("adminCampagnesPage");
+  const locale = asUiLocale(useLocale());
+  const remaining = daysLeft(c, t);
   const expected = c.progress?.total;
   return (
-    <section className="cam-admin-section" style={{ borderLeft: "4px solid var(--cam-green)" }} aria-label={`Campagne active : ${c.name}`}>
+    <section className="cam-admin-section" style={{ borderLeft: "4px solid var(--cam-green)" }} aria-label={t("activeCampaignAriaLabel", { name: c.name })}>
       <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
@@ -582,14 +605,14 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
             </span>
             {c.referenceYear && c.referenceQuarter && (
               <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
-                {c.referenceYear}-T{c.referenceQuarter}
+                {quarterRef(t, c.referenceYear, c.referenceQuarter)}
               </span>
             )}
             <StatusBadge status={c.status} />
           </div>
           <span className="cam-admin-meta">
-            Date début : {fmt(c.startDate)} │ Date fin : {fmt(effectiveDeadline(c))}
-            {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && <> (prorogée, était {fmt(c.deadline)})</>}
+            {t("dateRange", { start: fmt(c.startDate), end: fmt(effectiveDeadline(c)) })}
+            {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && <> {t("extendedWasInline", { date: fmt(c.deadline) })}</>}
           </span>
         </div>
         {c.description && <p className="cam-admin-meta" style={{ margin: 0 }}>{c.description}</p>}
@@ -597,28 +620,28 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
         {/* Figma separates the figures with rules only: keep the strip's dividers, drop its box. */}
         <div className="cam-admin-stats" style={{ border: "none", background: "transparent" }}>
           <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">Jours restants</div>
+            <div className="cam-admin-stat-label">{t("daysRemaining")}</div>
             <div className={`cam-admin-stat-value ${remaining.tone ?? ""}`}>{remaining.value}</div>
             <div className="cam-admin-stat-hint">{remaining.hint}</div>
           </div>
           <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">Établissements ciblés</div>
-            <div className="cam-admin-stat-value">{typeof expected === "number" ? expected.toLocaleString("fr-FR") : "—"}</div>
-            <div className="cam-admin-stat-hint">Déclarations attendues à l&apos;activation</div>
+            <div className="cam-admin-stat-label">{t("targetedEstablishments")}</div>
+            <div className="cam-admin-stat-value">{typeof expected === "number" ? intlNumber(expected, locale) : "—"}</div>
+            <div className="cam-admin-stat-hint">{t("expectedAtActivation")}</div>
           </div>
           <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">Soumissions collectées</div>
+            <div className="cam-admin-stat-label">{t("submissionsCollected")}</div>
             <div className="cam-admin-stat-value">—</div>
-            <div className="cam-admin-stat-hint">Suivi non disponible : le serveur ne met pas encore à jour les soumissions de campagne</div>
+            <div className="cam-admin-stat-hint">{t("trackingUnavailable")}</div>
           </div>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--cam-space-2)" }}>
-          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onDetails}>Voir les détails</button>
+          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onDetails}>{t("viewDetails")}</button>
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onRemind}>
-                Envoyer un rappel
+                {t("remindTitle")}
               </button>
             )}
           </Gated>
@@ -627,7 +650,7 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
             <Gated allowed={canMutate}>
               {(disabled) => (
                 <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onExtend}>
-                  Prolonger
+                  {t("extend")}
                 </button>
               )}
             </Gated>
@@ -635,21 +658,21 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled || pausePending} style={disabled ? GATED_OFF : undefined} onClick={onPause}>
-                Mettre en pause
+                {t("pause")}
               </button>
             )}
           </Gated>
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onArchive}>
-                Archiver
+                {t("archive")}
               </button>
             )}
           </Gated>
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-danger cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onClose}>
-                Clôturer la campagne
+                {t("closeCampaign")}
               </button>
             )}
           </Gated>
@@ -662,24 +685,26 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
 // ── Side panels ─────────────────────────────────────────────────────────────
 
 function TargetsPanel({ campaign: c }: { campaign: Campaign }) {
+  const tRoot = useTranslations();
+  const t = useTranslations("adminCampagnesPage");
   const types = c.targetEntityTypes ?? [];
   return (
     <section className="cam-pilot-panel" aria-labelledby="campagnes-targets-title">
       <div className="cam-pilot-panel-head">
-        <h2 className="cam-admin-h2" id="campagnes-targets-title">Questionnaires assignés</h2>
+        <h2 className="cam-admin-h2" id="campagnes-targets-title">{t("assignedQuestionnaires")}</h2>
       </div>
       <div className="cam-pilot-panel-body">
         <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-2)" }}>
-          {MODULE_LABELS[c.collectionType ?? ""] ?? c.collectionType ?? "—"}
+          {moduleLabel(t, c.collectionType)}
         </p>
         {types.length === 0 ? (
-          <p style={{ margin: 0 }}>Tous les types d&apos;établissement</p>
+          <p style={{ margin: 0 }}>{t("allEstablishmentTypes")}</p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {types.map((t) => (
-              <li key={t} style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", padding: "var(--cam-space-2) 0", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
+            {types.map((type) => (
+              <li key={type} style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", padding: "var(--cam-space-2) 0", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
                 <span aria-hidden="true" style={{ color: "var(--cam-green)", fontWeight: 700 }}>✓</span>
-                <span className="cam-admin-strong">{entityTypeLabel(t) || t}</span>
+                <span className="cam-admin-strong">{typeLabel(tRoot, type)}</span>
               </li>
             ))}
           </ul>
@@ -690,15 +715,16 @@ function TargetsPanel({ campaign: c }: { campaign: Campaign }) {
 }
 
 function SchedulePanel({ campaign: c }: { campaign: Campaign }) {
+  const t = useTranslations("adminCampagnesPage");
   const deadline = effectiveDeadline(c);
   const steps = [
-    { label: "Lancement de la collecte", date: c.startDate ?? null },
-    { label: "Date limite de déclaration", date: deadline },
+    { label: t("collectionLaunch"), date: c.startDate ?? null },
+    { label: t("declarationDeadline"), date: deadline },
   ];
   return (
     <section className="cam-pilot-panel" aria-labelledby="campagnes-schedule-title">
       <div className="cam-pilot-panel-head">
-        <h2 className="cam-admin-h2" id="campagnes-schedule-title">Échéancier de la campagne</h2>
+        <h2 className="cam-admin-h2" id="campagnes-schedule-title">{t("scheduleTitle")}</h2>
       </div>
       <div className="cam-pilot-panel-body">
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
@@ -709,7 +735,7 @@ function SchedulePanel({ campaign: c }: { campaign: Campaign }) {
                 <span className="cam-admin-strong" style={{ flex: 1 }}>{s.label}</span>
                 <span className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{fmt(s.date)}</span>
                 {s.date && (
-                  <span className={`cam-badge ${done ? "cam-badge-success" : "cam-badge-warning"}`}>{done ? "Terminé" : "En cours"}</span>
+                  <span className={`cam-badge ${done ? "cam-badge-success" : "cam-badge-warning"}`}>{done ? t("done") : t("inProgress")}</span>
                 )}
               </li>
             );
@@ -725,8 +751,11 @@ function SchedulePanel({ campaign: c }: { campaign: Campaign }) {
 function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () => void }) {
   const detailQuery = useQuery({ queryKey: ["campaigns", "detail", campaign.id], queryFn: () => getCampaign(campaign.id) });
   const d: CampaignDetail | undefined = detailQuery.data;
+  const tRoot = useTranslations();
+  const t = useTranslations("adminCampagnesPage");
+  const locale = asUiLocale(useLocale());
   const list = (values: string[] | undefined, label: (v: string) => string = (v) => v) =>
-    values && values.length > 0 ? values.map(label).join(", ") : "Tous";
+    values && values.length > 0 ? values.map(label).join(", ") : t("all");
   const creator = d?.creator ? [d.creator.firstName, d.creator.lastName].filter(Boolean).join(" ") || d.creator.email : "—";
 
   return (
@@ -736,54 +765,54 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
       onClose={onClose}
       eyebrow={campaign.code}
       title={campaign.name}
-      footer={<button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose}>Fermer</button>}
+      footer={<button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose}>{t("close")}</button>}
     >
-      {detailQuery.isLoading && <div className="cam-admin-empty">Chargement…</div>}
+      {detailQuery.isLoading && <div className="cam-admin-empty">{tRoot("common.loading")}</div>}
       {detailQuery.isError && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>Impossible de charger le détail : {(detailQuery.error as Error).message}</span>
+          <span>{t("detailLoadError", { message: (detailQuery.error as Error).message })}</span>
         </div>
       )}
       {d && (
         <>
           <dl className="cam-admin-kv">
-            <div><dt>Statut</dt><dd><StatusBadge status={d.status} registration={isRegistrationCampaign(d)} /></dd></div>
-            <div><dt>Module</dt><dd>{MODULE_LABELS[d.collectionType ?? ""] ?? d.collectionType ?? "—"}</dd></div>
+            <div><dt>{t("detailStatus")}</dt><dd><StatusBadge status={d.status} registration={isRegistrationCampaign(d)} /></dd></div>
+            <div><dt>{t("detailModule")}</dt><dd>{moduleLabel(t, d.collectionType)}</dd></div>
             {d.referenceYear && d.referenceQuarter && (
-              <div><dt>Période de référence</dt><dd>{d.referenceYear}-T{d.referenceQuarter}</dd></div>
+              <div><dt>{t("detailReferencePeriod")}</dt><dd>{quarterRef(t, d.referenceYear, d.referenceQuarter)}</dd></div>
             )}
             <div>
-              <dt>Périodicité</dt>
-              <dd>{campaignPeriodicityLabel(d) ?? "—"}</dd>
+              <dt>{t("detailPeriodicity")}</dt>
+              <dd>{campaignPeriodicity(d) ? t(`periodicity.${campaignPeriodicity(d)}`) : "—"}</dd>
             </div>
             <div>
-              <dt>Objet</dt>
-              <dd>{d.purpose ? CAMPAIGN_PURPOSE_LABELS[d.purpose] : "—"}</dd>
+              <dt>{t("detailPurpose")}</dt>
+              <dd>{d.purpose ? t(`purpose.${d.purpose}`) : "—"}</dd>
             </div>
-            <div><dt>Ouverture</dt><dd>{fmt(d.startDate)}</dd></div>
-            <div><dt>Échéance</dt><dd>{fmt(d.deadline)}</dd></div>
-            <div><dt>Prorogation</dt><dd>{d.extendedDeadline ? fmt(d.extendedDeadline) : "—"}</dd></div>
-            <div><dt>Clôturée le</dt><dd>{d.closedAt ? fmt(d.closedAt) : "—"}</dd></div>
-            <div><dt>Créée par</dt><dd>{creator}</dd></div>
-            <div><dt>Régions ciblées</dt><dd>{list(d.targetRegions)}</dd></div>
-            <div><dt>Départements ciblés</dt><dd>{list(d.targetDepartments)}</dd></div>
-            <div><dt>Types d&apos;établissement</dt><dd>{list(d.targetEntityTypes, (t) => entityTypeLabel(t) || t)}</dd></div>
-            <div><dt>Établissements ciblés</dt><dd>{typeof campaign.progress?.total === "number" ? campaign.progress.total.toLocaleString("fr-FR") : "—"}</dd></div>
+            <div><dt>{t("detailOpening")}</dt><dd>{fmt(d.startDate)}</dd></div>
+            <div><dt>{t("detailDeadline")}</dt><dd>{fmt(d.deadline)}</dd></div>
+            <div><dt>{t("detailExtension")}</dt><dd>{d.extendedDeadline ? fmt(d.extendedDeadline) : "—"}</dd></div>
+            <div><dt>{t("detailClosedOn")}</dt><dd>{d.closedAt ? fmt(d.closedAt) : "—"}</dd></div>
+            <div><dt>{t("detailCreatedBy")}</dt><dd>{creator}</dd></div>
+            <div><dt>{t("detailRegions")}</dt><dd>{list(d.targetRegions)}</dd></div>
+            <div><dt>{t("detailDepartments")}</dt><dd>{list(d.targetDepartments)}</dd></div>
+            <div><dt>{t("detailEntityTypes")}</dt><dd>{list(d.targetEntityTypes, (type) => typeLabel(tRoot, type))}</dd></div>
+            <div><dt>{t("targetedEstablishments")}</dt><dd>{typeof campaign.progress?.total === "number" ? intlNumber(campaign.progress.total, locale) : "—"}</dd></div>
           </dl>
           {d.description && <p style={{ margin: 0 }}>{d.description}</p>}
           <div>
-            <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>Rappels envoyés (10 derniers)</h3>
+            <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>{t("remindersSent")}</h3>
             {d.reminders && d.reminders.length > 0 ? (
               <div className="cam-table-wrapper">
                 <table className="cam-table">
                   <thead>
-                    <tr><th scope="col">Date</th><th scope="col">Type</th><th scope="col">Envoyés</th><th scope="col">Échecs</th></tr>
+                    <tr><th scope="col">{t("reminderDate")}</th><th scope="col">{t("reminderTypeColumn")}</th><th scope="col">{t("reminderSentCount")}</th><th scope="col">{t("reminderFailedCount")}</th></tr>
                   </thead>
                   <tbody>
                     {d.reminders.map((r) => (
                       <tr key={r.id}>
                         <td>{fmt(r.sentAt)}</td>
-                        <td>{REMINDER_TYPES.find((t) => t.value === r.reminderType)?.label ?? r.reminderType}</td>
+                        <td>{REMINDER_CODES.has(r.reminderType) ? t(`reminderType.${r.reminderType}`) : r.reminderType}</td>
                         <td>{r.recipientCount}</td>
                         <td style={{ color: r.failedCount > 0 ? "var(--cam-error)" : undefined }}>{r.failedCount}</td>
                       </tr>
@@ -792,7 +821,7 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
                 </table>
               </div>
             ) : (
-              <p className="cam-admin-meta" style={{ margin: 0 }}>Aucun rappel envoyé pour cette campagne.</p>
+              <p className="cam-admin-meta" style={{ margin: 0 }}>{t("noReminder")}</p>
             )}
           </div>
         </>
@@ -812,6 +841,8 @@ function CreateCampaignDialog({
   onClose: () => void;
   onCreated: (msg: string) => void;
 }) {
+  const tRoot = useTranslations();
+  const t = useTranslations("adminCampagnesPage");
   const [purpose, setPurpose] = useState<CampaignPurpose>("COLLECTION");
   const [collectionType, setCollectionType] = useState<"DSMO" | "ONEFOP">("DSMO");
   const [periodicity, setPeriodicity] = useState<CampaignPeriodicity>("QUARTERLY");
@@ -848,9 +879,7 @@ function CreateCampaignDialog({
       }),
     onSuccess: () => {
       onCreated(
-        registration
-          ? "Campagne d'inscription créée. Saisissez ses cibles dans Collecte › Quotas et retours."
-          : "Campagne créée et activée avec succès.",
+        registration ? t("registrationCreated") : t("collectionCreated"),
       );
       onClose();
     },
@@ -860,16 +889,16 @@ function CreateCampaignDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!startDate || !deadline) {
-      setError("Veuillez renseigner les dates de début et d'échéance.");
+      setError(t("errorDates"));
       return;
     }
     if (new Date(deadline) <= new Date(startDate)) {
-      setError("La date limite doit être postérieure à la date de début.");
+      setError(t("errorDeadlineOrder"));
       return;
     }
     if (effectiveModule === "ONEFOP") {
       if (!referenceYear || !referenceQuarter) {
-        setError("Veuillez renseigner l'année et le trimestre de référence.");
+        setError(t("errorReference"));
         return;
       }
     }
@@ -881,12 +910,12 @@ function CreateCampaignDialog({
     <AdminDialog
       open={open}
       onClose={onClose}
-      eyebrow={registration ? "Nouvelle cible" : "Nouvelle collecte"}
-      title={registration ? "Définir une campagne d'inscription" : "Lancer une campagne de recensement"}
+      eyebrow={registration ? t("newTarget") : t("newCollection")}
+      title={registration ? t("defineRegistration") : t("launchCensus")}
       footer={
         <>
           <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose} disabled={mutation.isPending}>
-            Annuler
+            {tRoot("common.cancel")}
           </button>
           <button
             type="button"
@@ -894,7 +923,7 @@ function CreateCampaignDialog({
             onClick={handleSubmit}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? "Création en cours…" : registration ? "Créer la campagne" : "Lancer la campagne"}
+            {mutation.isPending ? t("creating") : registration ? t("createCampaign") : t("launchCampaign")}
           </button>
         </>
       }
@@ -907,7 +936,7 @@ function CreateCampaignDialog({
         )}
 
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="cam-purpose">Objet de la campagne</label>
+          <label className="cam-admin-label" htmlFor="cam-purpose">{t("purposeLabel")}</label>
           <select
             id="cam-purpose"
             className="cam-select"
@@ -915,20 +944,20 @@ function CreateCampaignDialog({
             onChange={(e) => setPurpose(e.target.value as CampaignPurpose)}
             aria-describedby="cam-purpose-hint"
           >
-            <option value="COLLECTION">Collecte — Campagne de collecte</option>
-            <option value="REGISTRATION">Inscription — Campagne d&apos;inscription</option>
+            <option value="COLLECTION">{t("purposeCollection")}</option>
+            <option value="REGISTRATION">{t("purposeRegistration")}</option>
           </select>
           <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
-            Une campagne d&apos;inscription porte des cibles d&apos;inscription ; elle n&apos;ouvre pas de collecte.
+            {t("purposeHint")}
           </p>
         </div>
 
         {/* A disabled <select> shows no tooltip of its own, so the reason sits on the field wrapper. */}
         <div
           className="cam-field"
-          title={registration ? "Les campagnes d'inscription concernent uniquement le module ONEFOP." : undefined}
+          title={registration ? t("registrationOnefopOnly") : undefined}
         >
-          <label className="cam-admin-label" htmlFor="cam-col-type">Module de collecte</label>
+          <label className="cam-admin-label" htmlFor="cam-col-type">{t("moduleLabel")}</label>
           <select
             id="cam-col-type"
             className="cam-select"
@@ -937,8 +966,8 @@ function CreateCampaignDialog({
             disabled={registration}
             style={registration ? { pointerEvents: "none" } : undefined}
           >
-            <option value="DSMO">Déclaration sur la situation de la main d&apos;œuvre (DSMO)</option>
-            <option value="ONEFOP">Questionnaire ONEFOP (Emplois créés)</option>
+            <option value="DSMO">{t("moduleDsmo")}</option>
+            <option value="ONEFOP">{t("moduleOnefop")}</option>
           </select>
         </div>
 
@@ -946,12 +975,12 @@ function CreateCampaignDialog({
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
               <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="cam-ref-year">Année de référence *</label>
+                <label className="cam-admin-label" htmlFor="cam-ref-year">{t("referenceYear")}</label>
                 <input
                   id="cam-ref-year"
                   type="number"
                   className="cam-input"
-                  placeholder="ex. 2026"
+                  placeholder={t("referenceYearPlaceholder")}
                   value={referenceYear}
                   onChange={(e) => setReferenceYear(e.target.value)}
                   min={2000}
@@ -960,7 +989,7 @@ function CreateCampaignDialog({
                 />
               </div>
               <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="cam-ref-quarter">Trimestre de référence *</label>
+                <label className="cam-admin-label" htmlFor="cam-ref-quarter">{t("referenceQuarter")}</label>
                 <select
                   id="cam-ref-quarter"
                   className="cam-select"
@@ -968,22 +997,22 @@ function CreateCampaignDialog({
                   onChange={(e) => setReferenceQuarter(e.target.value)}
                   required
                 >
-                  <option value="">Sélectionner…</option>
-                  <option value="1">T1 (1er trimestre)</option>
-                  <option value="2">T2 (2e trimestre)</option>
-                  <option value="3">T3 (3e trimestre)</option>
-                  <option value="4">T4 (4e trimestre)</option>
+                  <option value="">{t("select")}</option>
+                  <option value="1">{t("quarter1")}</option>
+                  <option value="2">{t("quarter2")}</option>
+                  <option value="3">{t("quarter3")}</option>
+                  <option value="4">{t("quarter4")}</option>
                 </select>
               </div>
             </div>
             <p className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
-              Période sur laquelle portent les données
+              {t("referenceHint")}
             </p>
           </div>
         )}
 
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="cam-freq-type">Périodicité</label>
+          <label className="cam-admin-label" htmlFor="cam-freq-type">{t("periodicityLabel")}</label>
           <select
             id="cam-freq-type"
             className="cam-select"
@@ -992,7 +1021,7 @@ function CreateCampaignDialog({
           >
             {CAMPAIGN_PERIODICITIES.map((value) => (
               <option key={value} value={value}>
-                {CAMPAIGN_PERIODICITY_LABELS[value]}
+                {t(`periodicity.${value}`)}
               </option>
             ))}
           </select>
@@ -1000,7 +1029,7 @@ function CreateCampaignDialog({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
           <div className="cam-field">
-            <label className="cam-admin-label" htmlFor="cam-start-date">Date de début</label>
+            <label className="cam-admin-label" htmlFor="cam-start-date">{t("startDate")}</label>
             <input
               id="cam-start-date"
               type="date"
@@ -1011,7 +1040,7 @@ function CreateCampaignDialog({
             />
           </div>
           <div className="cam-field">
-            <label className="cam-admin-label" htmlFor="cam-deadline">Date limite (Échéance)</label>
+            <label className="cam-admin-label" htmlFor="cam-deadline">{t("deadlineLabel")}</label>
             <input
               id="cam-deadline"
               type="date"
@@ -1024,7 +1053,7 @@ function CreateCampaignDialog({
         </div>
 
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="cam-desc">Description ou instructions (optionnel)</label>
+          <label className="cam-admin-label" htmlFor="cam-desc">{t("descriptionLabel")}</label>
           <textarea
             id="cam-desc"
             className="cam-textarea"
@@ -1032,9 +1061,7 @@ function CreateCampaignDialog({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={
-              registration
-                ? "Note interne sur la cible d'inscription"
-                : "Instructions particulières communiquées aux établissements déclarant…"
+              registration ? t("descriptionRegistration") : t("descriptionCollection")
             }
           />
         </div>
@@ -1047,7 +1074,7 @@ function CreateCampaignDialog({
               onChange={(e) => setAutoReminders(e.target.checked)}
               style={{ width: 16, height: 16 }}
             />
-            <span>Activer les rappels automatiques (relances envoyées à J-7, J-3 et J-1 de l&apos;échéance)</span>
+            <span>{t("autoReminders")}</span>
           </label>
         )}
       </form>
@@ -1055,3 +1082,6 @@ function CreateCampaignDialog({
   );
 }
 
+function intlNumber(value: number, locale: UiLocale): string {
+  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
+}

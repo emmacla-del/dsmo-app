@@ -24,6 +24,8 @@ import { ENTITY_TYPE_OPTION_KEYS } from "./companies-directory";
 import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, normalizeRegions } from "./pilotage-target-payload";
 import { formatApiError } from "./pilotage-targets";
 import { approvalGate, registrationMethodLabel, verificationRows } from "./inscriptions";
+import { CAMPAIGN_PERIODICITIES, CAMPAIGN_PURPOSE_LABELS, CAMPAIGN_STATUS_LABELS, REMINDER_TYPES } from "./campaigns";
+import { ANOMALY_STATUS_LABELS } from "./anomaly-registry";
 import { ADMIN_HUBS } from "../app/admin/_routes";
 
 type Catalogue = Record<string, unknown>;
@@ -192,4 +194,27 @@ test("inscription review helpers: English rows, gate messages and method badges"
   assert.equal(registrationMethodLabel("SELF_REGISTRATION", "en"), "Self-service");
   assert.equal(registrationMethodLabel("SELF_REGISTRATION"), "Auto-service");
   assert.equal(verificationRows(item)[0].label, "Nom de l'entité");
+});
+
+test("campaign and anomaly codes have labels in both catalogues", () => {
+  const codes: [string, string[]][] = [
+    ["adminCampagnesPage.status", Object.keys(CAMPAIGN_STATUS_LABELS)],
+    ["adminCampagnesPage.periodicity", CAMPAIGN_PERIODICITIES],
+    ["adminCampagnesPage.purpose", Object.keys(CAMPAIGN_PURPOSE_LABELS)],
+    ["adminCampagnesPage.reminderType", REMINDER_TYPES.map((r) => r.value)],
+    ["adminCentreQualitePage.anomalyStatus", Object.keys(ANOMALY_STATUS_LABELS)],
+  ];
+  for (const locale of ["fr", "en"] as const) {
+    const catalogue = loadCatalogue(locale);
+    for (const [prefix, values] of codes) {
+      for (const value of values) {
+        assert.equal(typeof lookup(catalogue, `${prefix}.${value}`), "string", `${locale}: ${prefix}.${value}`);
+      }
+    }
+  }
+  // The French labels are the ones the code already carried.
+  const fr = loadCatalogue("fr");
+  for (const [code, label] of Object.entries(CAMPAIGN_STATUS_LABELS)) {
+    assert.equal(lookup(fr, `adminCampagnesPage.status.${code}`), label);
+  }
 });
