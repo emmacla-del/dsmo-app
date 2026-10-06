@@ -704,3 +704,23 @@ Low priority. Phase 6 candidate, not the establishmentId phase.
       with sequences created at runtime by establishment_serial_ensure()).
       Found while verifying 20261011120000 on a scratch Postgres 18. Not
       fixed: reconciling it is a schema change and needs review (§21).
+
+## Inscriptions review verification — accepted behaviour (2026-10-06)
+
+Decisions recorded with the review-dialog redesign (e8b5fd2c, 4294b44e,
+c75a7ad5, 703ecb89). Not open work; logged so they are not re-raised as gaps.
+
+- A pre-Track B file with an empty required value cannot be approved. The
+  panel disables ✓; the API refuses ("Impossible d'approuver : le N° CNPS
+  est vide. Demandez une correction."). No legacy files exist today. If one
+  appears, it needs a correction first.
+- The verification audit snapshot (`details.verification.attested` on
+  COMPANY_REGISTRATION_APPROVED) reflects the database values at approve
+  time, not the values shown in the dialog. A correction submitted
+  mid-review could differ. Acceptable — the approve action commits to the
+  database state.
+- The legacy Flutter approve (`lib/screens/admin/users_directory_screen.dart`,
+  `lib/data/api_client.dart`) sends no body and is refused for every company
+  file. Accepted: React is the review surface.
+- Auto-approved ADMINISTRATION registrations (COMPANY_REGISTRATION_AUTO_APPROVED)
+  bypass the review dialog and carry no verification flags.
