@@ -11,6 +11,7 @@ import {
   closeCampaign,
   archiveCampaign,
   deleteCampaign,
+  extendCampaignDeadline,
   sendCampaignReminder,
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_PERIODICITIES,
@@ -109,6 +110,7 @@ function Gated({ allowed, children }: { allowed: boolean; children: (disabled: b
 
 type DialogState =
   | { type: "remind"; campaign: Campaign }
+  | { type: "extend"; campaign: Campaign }
   | { type: "close"; campaign: Campaign }
   | { type: "archive"; campaign: Campaign }
   | { type: "delete"; campaign: Campaign }
@@ -123,6 +125,7 @@ export default function CampagnesPage() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [reminderType, setReminderType] = useState(REMINDER_TYPES[0].value);
+  const [extendDate, setExtendDate] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -154,6 +157,11 @@ export default function CampagnesPage() {
     onSuccess: () => done("Rappel envoyé."),
     onError: failed,
   });
+  const extendMutation = useMutation({
+    mutationFn: ({ id, newDeadline }: { id: string; newDeadline: string }) => extendCampaignDeadline(id, newDeadline),
+    onSuccess: () => done("Échéance prolongée."),
+    onError: failed,
+  });
 
   if (isLoading) return null;
 
@@ -169,6 +177,7 @@ export default function CampagnesPage() {
   const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE");
   const otherCampaigns = campaigns.filter((c) => c.status !== "ACTIVE");
   const openRemind = (campaign: Campaign) => { setReminderType(REMINDER_TYPES[0].value); setDialog({ type: "remind", campaign }); };
+  const openExtend = (campaign: Campaign) => { setExtendDate(""); setDialog({ type: "extend", campaign }); };
 
   return (
     <div className="cam-admin-page">
@@ -200,7 +209,7 @@ export default function CampagnesPage() {
       />
       {!canMutate && (
         <div role="note" className="cam-admin-notice cam-admin-notice--info">
-          <span>Consultation seule : l&apos;activation, la pause, la clôture et les rappels sont réservés aux administrateurs et au niveau central.</span>
+          <span>Consultation seule : l&apos;activation, la pause, la prolongation, la clôture et les rappels sont réservés aux administrateurs et au niveau central.</span>
         </div>
       )}
       {actionError && (
@@ -236,6 +245,7 @@ export default function CampagnesPage() {
             pausePending={pauseMutation.isPending}
             onDetails={() => setDialog({ type: "details", campaign: c })}
             onRemind={() => openRemind(c)}
+            onExtend={() => openExtend(c)}
             onPause={() => pauseMutation.mutate(c.id)}
             onClose={() => setDialog({ type: "close", campaign: c })}
             onArchive={() => setDialog({ type: "archive", campaign: c })}
@@ -435,6 +445,43 @@ export default function CampagnesPage() {
       </AdminDialog>
 
       <AdminDialog
+        open={dialog?.type === "extend"}
+        onClose={() => setDialog(null)}
+        eyebrow="Prorogation"
+        title={dialog?.type === "extend" ? `Prolonger « ${dialog.campaign.name} »` : "Prolonger la campagne"}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              disabled={!extendDate || extendMutation.isPending}
+              onClick={() => dialog?.type === "extend" && extendMutation.mutate({ id: dialog.campaign.id, newDeadline: new Date(extendDate).toISOString() })}
+            >
+              {extendMutation.isPending ? "Prolongation…" : "Prolonger"}
+            </button>
+          </>
+        }
+      >
+        <div className="cam-field">
+          <label className="cam-admin-label" htmlFor="extend-deadline">Nouvelle date limite</label>
+          <input
+            id="extend-deadline"
+            type="date"
+            className="cam-input"
+            value={extendDate}
+            onChange={(e) => setExtendDate(e.target.value)}
+            required
+          />
+        </div>
+        {dialog?.type === "extend" && (
+          <p className="cam-admin-meta" style={{ margin: 0 }}>
+            Échéance actuelle : {fmt(effectiveDeadline(dialog.campaign))}.
+          </p>
+        )}
+      </AdminDialog>
+
+      <AdminDialog
         open={dialog?.type === "close"}
         onClose={() => setDialog(null)}
         eyebrow="Clôture"
@@ -518,9 +565,9 @@ export default function CampagnesPage() {
 
 // ── Active campaign card ────────────────────────────────────────────────────
 
-function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, onRemind, onPause, onClose, onArchive }: {
+function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, onRemind, onExtend, onPause, onClose, onArchive }: {
   campaign: Campaign; canMutate: boolean; pausePending: boolean;
-  onDetails: () => void; onRemind: () => void; onPause: () => void; onClose: () => void; onArchive: () => void;
+  onDetails: () => void; onRemind: () => void; onExtend: () => void; onPause: () => void; onClose: () => void; onArchive: () => void;
 }) {
   const remaining = daysLeft(c);
   const expected = c.progress?.total;
@@ -575,6 +622,16 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
               </button>
             )}
           </Gated>
+          {/* POST /campaigns/:id/extend refuses registration campaigns. */}
+          {!isRegistrationCampaign(c) && (
+            <Gated allowed={canMutate}>
+              {(disabled) => (
+                <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onExtend}>
+                  Prolonger
+                </button>
+              )}
+            </Gated>
+          )}
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled || pausePending} style={disabled ? GATED_OFF : undefined} onClick={onPause}>
