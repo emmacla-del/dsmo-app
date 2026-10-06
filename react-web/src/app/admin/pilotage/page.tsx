@@ -14,7 +14,7 @@ import { count, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-s
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
-import { listCompanyRegistrations } from "@/lib/user-directory";
+import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { APPROVAL_ROLES, CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -61,7 +61,7 @@ function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { ca
       )}
       {canOpenTargets && (
         <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-          Cibles et couverture →
+          Quotas et retours →
         </Link>
       )}
     </div>
@@ -356,7 +356,7 @@ export default function PilotagePage() {
   });
 
   // GET /data-management/stats is territory-scoped server-side (territoryWhere).
-  // Role-scoped absence is permanent, so the stage is hidden; scope-scoped absence (canReadRegistrations below) is temporary and shows "—". Do not unify.
+  // Role-scoped absence is permanent, so the stage is hidden; scope-scoped absence (the registrations tile below) is temporary and shows "—". Do not unify.
   const canReadDataStats = hasRole(userRole, DATA_STATS_ROLES);
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
@@ -379,26 +379,17 @@ export default function PilotagePage() {
     refetchInterval: 120000,
   });
 
-  // Registration queue head-count for the "Inscriptions en attente" tile.
-  // GET /auth/company-registrations is territory-scoped server-side, and its
-  // `counts` are computed over the whole queue rather than the requested page,
-  // so pageSize: 1 fetches the figure without paying for a row set.
-  // Its @Roles excludes AUDITOR, which reaches this page as the /admin
-  // fallback route: left ungated the query would 403 on every poll. Disabled, it
-  // keeps `registrations` undefined, so the tile renders the honest absence.
-  const canReadRegistrations = !!userRole && APPROVAL_ROLES.includes(userRole);
-  const registrationsQuery = useQuery({
-    queryKey: ["auth", "company-registrations", "pending-count"],
-    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
-    refetchInterval: 120000,
-    enabled: canReadRegistrations,
-  });
+  // Registration queue head-count for the "Inscriptions en attente" tile —
+  // the same hook as the sidebar and tab badges. Its gate excludes AUDITOR,
+  // which reaches this page as the /admin fallback route: left ungated the
+  // query would 403 on every poll. Gated off, the count stays null, so the
+  // tile renders the honest absence.
+  const { count: inscriptionsPending } = usePendingRegistrationsCount();
 
   // Authoritative data only. null until loaded or if query errors.
   const queues = queuesQuery.data ?? null;
   const stats = statsQuery.data ?? null;
   const quality = qualityQuery.data ?? null;
-  const registrations = registrationsQuery.data ?? null;
 
   // Zero is data: if queues returns 0 submissions, totalSubmissions is 0.
   // Never substitute national figures for an empty territorial result.
@@ -456,7 +447,6 @@ export default function PilotagePage() {
 
   // 4 "À TRAITER" tiles: null renders "—" when the source is absent for
   // this actor. Zero is data: an available-but-empty source renders 0.
-  const inscriptionsPending = registrations ? registrations.counts.pending : null;
   const declarationsReview = queues ? (queues.pendingNationalVisasCount ?? 0) : null;
   const correctionsCount = queues ? queues.correctionsUnderReviewCount : null;
   const anomaliesCount = queues ? queues.blockingAnomaliesCount : null;

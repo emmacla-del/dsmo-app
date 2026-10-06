@@ -40,8 +40,9 @@
 // Hub-level visibility is now the profile's business alone, so navHubsFor
 // deliberately does not re-check `hub.allowedRoles` — consulting both would
 // leave two sources of truth for the one question this file exists to answer.
-// `hub.allowedRoles` stays because AdminPageHeader and the sub-route helpers
-// still read it.
+// Nothing reads `hub.allowedRoles` at runtime any more (AdminPageHeader and
+// the sidebar filter sub-routes, not hubs); it remains as documentation of
+// the hub's widest audience.
 
 import { hubsByKey, isRoleAllowed, type AdminHub, type HubKey } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/roles";

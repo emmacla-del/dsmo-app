@@ -9,8 +9,8 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
-import { listCompanyRegistrations } from "@/lib/user-directory";
-import { ADMIN_ROLES, APPROVAL_ROLES, hasRole } from "@/lib/roles";
+import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
+import { ADMIN_ROLES } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -42,17 +42,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     refetchInterval: 30000,
   });
 
-  // Pending-registration count for the "Déclarants" badge. Same query key as
-  // the pilotage tile, so both read one cached request; pageSize 1 because
-  // `counts` covers the whole territory-scoped queue, not the page. Gated to
-  // APPROVAL_ROLES, the @Roles on GET /auth/company-registrations.
-  const canReadRegistrations = hasRole(user?.role, APPROVAL_ROLES);
-  const registrationsQuery = useQuery({
-    queryKey: ["auth", "company-registrations", "pending-count"],
-    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
-    enabled: !isLoading && !forbidden && canReadRegistrations,
-    refetchInterval: 120000,
-  });
+  // Pending-registration count for the "Déclarants" badge. Held back until
+  // the console guard has resolved; shares its query with the tab badge and
+  // the pilotage tile (usePendingRegistrationsCount).
+  const { count: pendingRegistrations } = usePendingRegistrationsCount(!isLoading && !forbidden);
 
   // Supervision's badge counts dossiers awaiting a visa. Blocking anomalies
   // are counted once, on "Contrôle Qualité", where they are resolved — they
@@ -126,7 +119,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           role={user?.role}
           pendingCount={pendingCount}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
-          inscriptionsCount={registrationsQuery.data?.counts.pending ?? 0}
+          inscriptionsCount={pendingRegistrations ?? 0}
           onLogout={() => {
             logout();
             router.push("/login");

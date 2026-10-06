@@ -221,16 +221,11 @@ export default function NouvelleInscriptionPage() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions" }, { label: "Nouvelle inscription" }]}
+        breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions", href: "/admin/inscriptions" }, { label: "Nouvelle inscription" }]}
         title="Nouvelle inscription assistée"
-        hideTabs={true}
+        backHref="/admin/inscriptions"
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
-
-      <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
-        <Link href="/admin/inscriptions" className="cam-admin-tab">Inscriptions</Link>
-        <Link href="/admin/inscriptions/nouvelle" className="cam-admin-tab" aria-current="page">Nouvelle inscription</Link>
-      </div>
 
       <p className="cam-admin-lede">
         Enregistrez un déclarant rencontré sur le terrain, par téléphone ou au guichet. Cette

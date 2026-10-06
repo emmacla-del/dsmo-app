@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { CoverageTable } from "@/components/admin/CoverageTable";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
@@ -25,23 +24,18 @@ import {
 import {
   canListCampaigns,
   canWritePilotageTargets,
-  doualaCalendarYear,
   formatApiError,
-  getAnnualCoverage,
   getCampaignQuotas,
   getCampaignReturns,
-  parseYearParam,
+  coverageHref,
   putCampaignQuotas,
-  YEAR_MAX,
-  YEAR_MIN,
   type CampaignQuotasResponse,
   type TargetField,
 } from "@/lib/pilotage-targets";
 
-type Vue = "quotas" | "couverture" | "retours";
+type Vue = "quotas" | "retours";
 const VUES: { id: Vue; label: string }[] = [
   { id: "quotas", label: "Quotas de campagne" },
-  { id: "couverture", label: "Couverture" },
   { id: "retours", label: "Suivi des retours" },
 ];
 
@@ -63,31 +57,30 @@ function CiblesContent() {
 
   const rawVue = searchParams.get("vue");
   const vue = parseVue(rawVue);
-  const yearFromUrl = parseYearParam(searchParams.get("annee"));
-  const year = yearFromUrl ?? doualaCalendarYear();
   const campagneParam = searchParams.get("campagne")?.trim() || "";
 
-  const [yearDraft, setYearDraft] = useState(String(year));
-  useEffect(() => {
-    setYearDraft(String(year));
-  }, [year]);
-
-  function setParams(next: { vue?: Vue; annee?: number; campagne?: string | null }) {
+  function setParams(next: { vue?: Vue; campagne?: string | null }) {
     const params = new URLSearchParams(searchParams.toString());
     const nextVue = next.vue ?? vue;
     params.set("vue", nextVue);
-    const nextYear = next.annee ?? year;
-    params.set("annee", String(nextYear));
     const nextCampagne = next.campagne === undefined ? campagneParam : next.campagne;
     if (nextCampagne) params.set("campagne", nextCampagne);
     else params.delete("campagne");
     router.replace(`${pathname}?${params.toString()}`);
   }
 
+  // The Couverture view moved to /admin/inscriptions (it measures
+  // registrations). Old links and bookmarks are forwarded there with their
+  // year; ?campagne= is dropped, the coverage view has no campaign.
+  useEffect(() => {
+    if (rawVue !== "couverture") return;
+    router.replace(coverageHref(searchParams.get("annee")));
+  }, [rawVue, searchParams, router]);
+
   // A retired or unknown vue (e.g. the former ?vue=inscriptions tab) normalizes
   // to the default tab, so the deep link lands on Quotas rather than an empty panel.
   useEffect(() => {
-    if (rawVue == null || rawVue === vue) return;
+    if (rawVue == null || rawVue === vue || rawVue === "couverture") return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("vue", vue);
     router.replace(`${pathname}?${params.toString()}`);
@@ -97,8 +90,8 @@ function CiblesContent() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Collecte" }, { label: "Quotas et retours" }]}
-        title="Cibles et couverture"
-        subtitle="Quotas des campagnes ONEFOP, couverture du répertoire et suivi des retours."
+        title="Quotas et retours"
+        subtitle="Quotas des campagnes ONEFOP et suivi des retours de déclarations."
         actions={<AdminHeaderActions />}
       />
 
@@ -117,7 +110,7 @@ function CiblesContent() {
         {VUES.map((item) => (
           <Link
             key={item.id}
-            href={`${pathname}?${viewQuery(searchParams, item.id, year, campagneParam)}`}
+            href={`${pathname}?${viewQuery(searchParams, item.id, campagneParam)}`}
             className="cam-admin-tab"
             role="tab"
             aria-selected={vue === item.id}
@@ -128,28 +121,6 @@ function CiblesContent() {
         ))}
       </nav>
 
-      <div className="cam-target-toolbar">
-        {vue !== "quotas" && vue !== "retours" && (
-          <label className="cam-target-year">
-            Année
-            <input
-              className="cam-input"
-              type="number"
-              min={YEAR_MIN}
-              max={YEAR_MAX}
-              value={yearDraft}
-              onChange={(event) => setYearDraft(event.target.value)}
-              onBlur={() => {
-                const parsed = parseYearParam(yearDraft);
-                if (parsed != null && parsed !== year) setParams({ annee: parsed });
-                else setYearDraft(String(year));
-              }}
-            />
-          </label>
-        )}
-      </div>
-
-      {vue === "couverture" && <CoveragePanel year={year} />}
       {vue === "quotas" && (
         <QuotasPanel
           canWrite={canWrite}
@@ -377,43 +348,6 @@ function TargetsPanel({
   );
 }
 
-function CoveragePanel({ year }: { year: number }) {
-  const query = useQuery({
-    queryKey: ["admin", "pilotage", "coverage", year],
-    queryFn: () => getAnnualCoverage(year),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-
-  useEffect(() => {
-    if (!query.data) return;
-    const mixed = query.data.regions.filter((region) => region.mode === "MIXED").map((region) => region.regionId);
-    setExpanded(new Set(query.data.regions.length === 1 ? query.data.regions.map((region) => region.regionId) : mixed));
-  }, [query.data]);
-
-  if (query.isLoading) return <p className="cam-admin-lede">Chargement…</p>;
-  if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error)}</div>;
-  }
-  if (!query.data) return null;
-
-  return (
-    <CoverageTable
-      data={query.data}
-      expanded={expanded}
-      onToggle={(regionId) =>
-        setExpanded((current) => {
-          const next = new Set(current);
-          if (next.has(regionId)) next.delete(regionId);
-          else next.add(regionId);
-          return next;
-        })
-      }
-    />
-  );
-}
-
 function QuotasPanel({
   canWrite,
   canList,
@@ -506,7 +440,7 @@ function QuotasPanel({
       {selectedCampaign && (
         <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
           {isRegistrationCampaign(selectedCampaign)
-            ? "Cibles d'inscription : elles alimentent l'onglet Couverture."
+            ? <>Cibles d&apos;inscription : elles alimentent la vue <Link href={coverageHref(null)}>Couverture</Link> de la page Inscriptions.</>
             : "Quotas de déclarations : ils alimentent le Suivi des retours."}
         </p>
       )}
@@ -659,7 +593,7 @@ function defaultExpanded(regions: { regionId: string; mode: string }[]): Set<str
 }
 
 function parseVue(raw: string | null): Vue {
-  if (raw === "quotas" || raw === "couverture" || raw === "retours") return raw;
+  if (raw === "quotas" || raw === "retours") return raw;
   return "quotas";
 }
 
@@ -673,10 +607,9 @@ function readCentral(central: { submissionTarget?: number } | null | undefined):
   return typeof value === "number" ? value : null;
 }
 
-function viewQuery(searchParams: URLSearchParams, vue: Vue, year: number, campagne: string): string {
+function viewQuery(searchParams: URLSearchParams, vue: Vue, campagne: string): string {
   const params = new URLSearchParams(searchParams.toString());
   params.set("vue", vue);
-  params.set("annee", String(year));
   if (campagne) params.set("campagne", campagne);
   else params.delete("campagne");
   return params.toString();
