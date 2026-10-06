@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { directoryRoleLabel } from "@/lib/user-directory";
@@ -74,17 +75,35 @@ const ACTION_OPTIONS = [
   ...Object.entries(AUDIT_ACTIONS).map(([value, meta]) => ({ value, label: meta.label })),
 ];
 
+// Suspense because useSearchParams() requires it in the app router.
 export default function JournalAuditPage() {
+  return (
+    <Suspense fallback={null}>
+      <JournalAuditContent />
+    </Suspense>
+  );
+}
+
+function JournalAuditContent() {
   const { isLoading, forbidden } = useAdminScreenGuard(AUDIT_ROLES);
+
+  // Deep links from a dossier, an establishment or /admin/equipe arrive with
+  // ?resourceId= or ?actor= and seed the matching filter. Such a link asks for
+  // that record's whole history, so the period widens to "all" — the default
+  // 7-day window would hide every older event.
+  const searchParams = useSearchParams();
+  const requestedActor = searchParams.get("actor")?.trim() ?? "";
+  const requestedResourceId = searchParams.get("resourceId")?.trim() ?? "";
+  const isDeepLink = !!(requestedActor || requestedResourceId);
 
   // Filters. `actor` holds a real User.id, not a display name: the backend
   // filters AuditLog.userId, so a free-text name could never match.
-  const [period, setPeriod] = useState("7d");
-  const [actor, setActor] = useState("");
+  const [period, setPeriod] = useState(isDeepLink ? "all" : "7d");
+  const [actor, setActor] = useState(requestedActor);
   const [action, setAction] = useState("");
   const [resourceType, setResourceType] = useState("");
-  const [resourceId, setResourceId] = useState("");
-  const [resourceIdInput, setResourceIdInput] = useState("");
+  const [resourceId, setResourceId] = useState(requestedResourceId);
+  const [resourceIdInput, setResourceIdInput] = useState(requestedResourceId);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Debounced so each keystroke does not run a new audit query.
@@ -135,7 +154,7 @@ export default function JournalAuditPage() {
 
   const actorOptions = useMemo(() => {
     const users = actorsQuery.data?.users ?? [];
-    return [
+    const options = [
       { value: "", label: "Tous les utilisateurs" },
       ...users
         .map((u) => ({
@@ -144,7 +163,14 @@ export default function JournalAuditPage() {
         }))
         .sort((a, b) => a.label.localeCompare(b.label, "fr")),
     ];
-  }, [actorsQuery.data]);
+    // An actor id from a deep link may fall outside the first 100 accounts
+    // listed above. Without its own option the select would display "Tous les
+    // utilisateurs" while the query is in fact filtered by that id.
+    if (actor && !options.some((o) => o.value === actor)) {
+      options.push({ value: actor, label: "Acteur sélectionné (lien direct)" });
+    }
+    return options;
+  }, [actorsQuery.data, actor]);
 
   const handleResetFilters = () => {
     setPeriod("7d");

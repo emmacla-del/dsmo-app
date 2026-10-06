@@ -112,13 +112,13 @@ export function AdminHeaderActions({
         </Link>
       )}
 
-      {/* Territory selector */}
-      <Link
-        href="/admin/cibles"
+      {/* Territorial scope, stated. It was a chevroned link to /admin/cibles —
+          it looked like a scope selector, and 403'd for AUDITOR. The scope is
+          fixed by the account; there is nothing to select. */}
+      <span
         className="cam-admin-scope"
         title="Ressort territorial"
         style={{
-          cursor: "pointer",
           background: "#ffffff",
           border: "1px solid #111827",
           color: "#111827",
@@ -128,15 +128,10 @@ export function AdminHeaderActions({
           fontWeight: 600,
           display: "inline-flex",
           alignItems: "center",
-          gap: 6,
-          textDecoration: "none",
         }}
       >
-        <span>Ressort : {scope}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </Link>
+        Ressort : {scope}
+      </span>
 
       {/* Notification bell — the caller's own in-app inbox (Phase 3). Opens a
           preview panel; /admin/notifications is the full history. It

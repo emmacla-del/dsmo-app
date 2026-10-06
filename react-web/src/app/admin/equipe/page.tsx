@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { MONITORING_ROLES } from "@/lib/roles";
+import { AUDIT_ROLES, MONITORING_ROLES, hasRole } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -401,6 +401,9 @@ function EquipeContent() {
  * - Actions (Relancer, Voir le journal, Voir les inscriptions)
  */
 function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () => void }) {
+  // The journal is AUDIT_ROLES-only; ADMIN_ONEFOP and REGIONAL_ADMIN, who use
+  // this page, would land on a refusal.
+  const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
   const roleLabel =
     actor.role === "REGIONAL_ADMIN"
       ? "Admin Régional"
@@ -442,12 +445,14 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
           >
             Relancer
           </button>
-          <Link
-            href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
-          >
-            Voir le journal
-          </Link>
+          {canReadAudit && (
+            <Link
+              href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              Voir le journal
+            </Link>
+          )}
           <Link
             href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`}
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"

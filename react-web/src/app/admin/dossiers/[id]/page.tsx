@@ -13,6 +13,8 @@ import {
   type AdminDossier,
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
+import { useAuthStore } from "@/lib/auth-store";
+import { AUDIT_ROLES, hasRole } from "@/lib/roles";
 import {
   METRIC_UNAVAILABLE,
   NOT_RECORDED,
@@ -107,6 +109,9 @@ function SubmissionDetailContent() {
   const id = typeof params.id === "string" ? params.id : "";
 
   const queryClient = useQueryClient();
+  // The journal is AUDIT_ROLES-only (GET /audit/reports is platform-wide), so
+  // its links render only for roles that can open it — not as a 403.
+  const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id],
@@ -545,19 +550,21 @@ function SubmissionDetailContent() {
         >
           Dossiers en instance
         </Link>
-        <Link
-          href="/admin/journal-audit"
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            color: "#6b7280",
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: "none",
-          }}
-        >
-          Traçabilité
-        </Link>
+        {canReadAudit && (
+          <Link
+            href="/admin/journal-audit"
+            style={{
+              padding: "6px 14px",
+              borderRadius: 6,
+              color: "#6b7280",
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            Traçabilité
+          </Link>
+        )}
       </div>
 
       {/* ── 3-Axis Diagnostic Strip matching Figma _id.png ── */}
@@ -1379,12 +1386,14 @@ function SubmissionDetailContent() {
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
             Historique d&apos;instruction de la Fiche
           </h2>
-          <Link
-            href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
-            style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
-          >
-            Voir les événements d&apos;audit →
-          </Link>
+          {canReadAudit && (
+            <Link
+              href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
+              style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+            >
+              Voir les événements d&apos;audit →
+            </Link>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 20 }}>
