@@ -218,6 +218,8 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
     prisma = {
       user: {
         findUnique: jest.fn(async ({ where }: any) => (where.id ? accounts[where.id] ?? null : null)),
+        // The email duplicate check (case-insensitive, so findFirst): no clash.
+        findFirst: jest.fn(async () => null),
         update: jest.fn(async ({ where, data }: any) => ({ ...accounts[where.id], ...data })),
         create: jest.fn(async ({ data }: any) => ({ id: 'new', ...data })),
       },
