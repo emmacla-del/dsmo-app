@@ -39,6 +39,7 @@ if (!resolvedApiUrl) {
 export const API_BASE_URL = resolvedApiUrl;
 
 import type { Department, LocationRegion, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
+import { currentUiLocale } from "./ui-locale";
 
 const TOKEN_STORAGE_KEY = "camleap.access_token";
 const CACHED_USER_KEY = "camleap.cached_user";
@@ -186,7 +187,9 @@ export async function apiFetch<T>(
     }
     throw new ApiError(
       0,
-      `Impossible de joindre le serveur (${host}). Vérifiez votre connexion internet ou la disponibilité du service.`,
+      currentUiLocale() === "en"
+        ? `Unable to reach the server (${host}). Check your internet connection or the service's availability.`
+        : `Impossible de joindre le serveur (${host}). Vérifiez votre connexion internet ou la disponibilité du service.`,
       err,
     );
   }
@@ -740,6 +743,8 @@ export function getSpssManifest(filters: Record<string, any> = {}) {
 // own actionable message here, naming the server that was contacted.
 async function downloadExportBlob(path: string, filters: Record<string, any>, label: string): Promise<Blob> {
   const token = getToken();
+  // Messages in the page's language (NEXT_LOCALE cookie), French by default.
+  const en = currentUiLocale() === "en";
   let host = API_BASE_URL;
   try {
     host = new URL(API_BASE_URL).host;
@@ -760,7 +765,9 @@ async function downloadExportBlob(path: string, filters: Record<string, any>, la
   } catch {
     throw new ApiError(
       0,
-      `le serveur ${host} est injoignable. Vérifiez que l'API est démarrée et accessible, puis réessayez.`,
+      en
+        ? `the server ${host} is unreachable. Check that the API is running and reachable, then try again.`
+        : `le serveur ${host} est injoignable. Vérifiez que l'API est démarrée et accessible, puis réessayez.`,
     );
   }
 
@@ -773,21 +780,29 @@ async function downloadExportBlob(path: string, filters: Record<string, any>, la
       // non-JSON error body
     }
     if (res.status === 401) {
-      throw new ApiError(401, "votre session a expiré. Reconnectez-vous puis relancez l'export.");
+      throw new ApiError(401, en
+        ? "your session has expired. Sign in again, then restart the export."
+        : "votre session a expiré. Reconnectez-vous puis relancez l'export.");
     }
     if (res.status === 403) {
-      throw new ApiError(403, "votre rôle ne permet pas cet export.");
+      throw new ApiError(403, en ? "your role does not allow this export." : "votre rôle ne permet pas cet export.");
     }
     if (res.status === 404) {
-      throw new ApiError(404, `l'export ${label} n'existe pas sur le serveur ${host} : la version de l'API déployée ne le propose pas encore.`);
+      throw new ApiError(404, en
+        ? `the ${label} export does not exist on server ${host}: the deployed API version does not offer it yet.`
+        : `l'export ${label} n'existe pas sur le serveur ${host} : la version de l'API déployée ne le propose pas encore.`);
     }
-    throw new ApiError(res.status, serverMessage || `échec du téléchargement ${label} (HTTP ${res.status}).`);
+    throw new ApiError(res.status, serverMessage || (en
+      ? `${label} download failed (HTTP ${res.status}).`
+      : `échec du téléchargement ${label} (HTTP ${res.status}).`));
   }
 
   try {
     return await res.blob();
   } catch {
-    throw new ApiError(0, "le téléchargement a été interrompu avant la fin. Réessayez ou réduisez le périmètre de l'extraction.");
+    throw new ApiError(0, en
+      ? "the download was interrupted before it finished. Try again or narrow the extraction scope."
+      : "le téléchargement a été interrompu avant la fin. Réessayez ou réduisez le périmètre de l'extraction.");
   }
 }
 

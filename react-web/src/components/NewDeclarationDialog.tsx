@@ -388,7 +388,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                     }}
                   >
                     {checkingCompany
-                      ? "Vérification de votre type d'entité… / Checking your entity type…"
+                      ? t("newDeclarationDialog.checkingEntityType")
                       : t("newDeclarationDialog.onefopOptionDescription")}
                   </div>
                 </div>
@@ -471,8 +471,8 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 }}
               >
                 {checkError
-                  ? "Vérification impossible — veuillez sélectionner votre type d'entité manuellement. Ce choix sera enregistré pour la prochaine fois. / Couldn't verify automatically — please select your entity type manually. This choice will be saved for next time."
-                  : "Aucun type d'entité n'est encore enregistré sur ce compte — sélectionnez-le une seule fois, il sera ensuite utilisé automatiquement. / No entity type is on record for this account yet — select it once, it will be used automatically afterwards."}
+                  ? t("newDeclarationDialog.checkFailedHint")
+                  : t("newDeclarationDialog.noEntityTypeHint")}
               </p>
             </div>
 

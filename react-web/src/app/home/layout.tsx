@@ -8,7 +8,8 @@ import { useTranslations } from "next-intl";
 import { clearToken, getCachedUser, getMe } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
-import { navItemsForRole, resolveEffectiveRole, roleLabel } from "@/lib/role-navigation";
+import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { getActiveQuarter } from "@/lib/onefop-submission";
 
@@ -103,7 +104,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
             <div>
               <div style={{ fontWeight: 800, fontSize: "13px", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
               <div style={{ fontSize: "11px", color: "var(--cam-text-muted)" }}>
-                {quarterQuery.data?.label ?? quarterQuery.data?.code ?? "Campagne en cours"}
+                {quarterQuery.data?.label ?? quarterQuery.data?.code ?? t("homeLayout.currentCampaign")}
               </div>
               {/* A closed period must not read as the live campaign. The
                   badge otherwise shows the round's label either way, which
@@ -111,7 +112,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                   infer the campaign is collecting. */}
               {quarterQuery.data?.isOpen === false && (
                 <div style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--cam-warning)", marginTop: 1 }}>
-                  Période fermée
+                  {t("homeLayout.periodClosed")}
                 </div>
               )}
             </div>
@@ -122,7 +123,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 {user.email}
               </div>
               <div style={{ fontSize: "10.5px", color: "var(--cam-green)", fontWeight: 700, marginTop: 2 }}>
-                {roleLabel(effectiveRole!)}
+                {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
               </div>
             </div>
           )}
@@ -171,13 +172,18 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                   transition: "all 0.15s ease",
                 }}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}
         </nav>
 
         <div style={{ padding: "var(--cam-space-4)", borderTop: "var(--cam-border-width) solid var(--cam-border)" }}>
+          {/* Interface language, as on the admin rail: the respondent area had
+              no switcher outside the ONEFOP wizard header. */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "var(--cam-space-3)" }}>
+            <LocaleSwitcher />
+          </div>
           <button
             type="button"
             onClick={() => {

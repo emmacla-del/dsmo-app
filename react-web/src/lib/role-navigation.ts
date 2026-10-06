@@ -33,24 +33,19 @@ export function resolveEffectiveRole(user: User): string {
 }
 
 // Labels from _roleLabel (home_screen.dart), carried over to the new role
-// names. COMPANY's real label comes from Flutter's l10n (roleLabelCompany);
-// this app has no i18n layer here yet, so it stays inlined bilingually.
-const ROLE_LABELS: Record<string, string> = {
-  COMPANY: "Entreprise/ Company",
-  DIVISIONAL_ADMIN: "Division du Travail",
-  REGIONAL_ADMIN: "Delegation Regionale",
-  ADMIN_ONEFOP: "Admin · ONEFOP",
-  SUPER_ADMIN: "Super Admin · DSMO + ONEFOP",
-  AUDITOR: "Auditeur",
-};
+// names. They are message keys under homeNav.role; each used to be one
+// "Français/ English" string, from before this app had an i18n layer.
+const ROLE_LABEL_KEYS = new Set(["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR"]);
 
-export function roleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role;
+/** Message key for a role's /home badge, or null for an unknown role (shown as stored). */
+export function roleLabelKey(role: string): string | null {
+  return ROLE_LABEL_KEYS.has(role) ? `homeNav.role.${role}` : null;
 }
 
 export interface NavItem {
   slug: string;
-  label: string;
+  /** Message key of the item's label (homeNav.item.*). */
+  labelKey: string;
   // Set only for the one destination that actually exists in React today
   // (the ONEFOP declaration entry point built earlier this migration,
   // /onefop/preview). Every other item is a real, faithfully-labeled
@@ -77,20 +72,20 @@ export interface NavItem {
 // appended separately below rather than duplicated into each list.
 const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   COMPANY: [
-    { slug: "home", label: "Accueil/ Home" },
-    { slug: "declarations", label: "Déclarations/ Declarations", route: "/home/declarations" },
-    { slug: "analytics", label: "Analytique/ Analytics" },
-    { slug: "settings", label: "Paramètres/ Settings" },
+    { slug: "home", labelKey: "homeNav.item.home" },
+    { slug: "declarations", labelKey: "homeNav.item.declarations", route: "/home/declarations" },
+    { slug: "analytics", labelKey: "homeNav.item.analytics" },
+    { slug: "settings", labelKey: "homeNav.item.settings" },
   ],
   DIVISIONAL_ADMIN: [
-    { slug: "pilotage", label: "Tableau de Bord Territorial", route: "/admin/pilotage" },
-    { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
+    { slug: "pilotage", labelKey: "homeNav.item.territorialDashboard", route: "/admin/pilotage" },
+    { slug: "submissions", labelKey: "homeNav.item.fileReview", route: "/admin/dossiers" },
     // No "Statistiques" entry: the React app has no analytics screen, and the
     // entry only led to the not-yet-migrated placeholder.
   ],
   REGIONAL_ADMIN: [
-    { slug: "pilotage", label: "Tableau de Bord Régional", route: "/admin/pilotage" },
-    { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
+    { slug: "pilotage", labelKey: "homeNav.item.regionalDashboard", route: "/admin/pilotage" },
+    { slug: "submissions", labelKey: "homeNav.item.fileReview", route: "/admin/dossiers" },
     // No "Statistiques DSMO" entry, for the same reason as DIVISIONAL_ADMIN.
     // REGIONAL_ADMIN will be able to send notifications when the ONEFOP
     // notification composer is implemented. The slug is intentionally omitted
@@ -99,21 +94,21 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   ],
   // Union of the former CENTRAL and SUPER_ADMIN_ONEFOP lists (see header).
   ADMIN_ONEFOP: [
-    { slug: "pilotage", label: "Tableau de Bord National", route: "/admin/pilotage" },
-    { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
-    { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
-    { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
-    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
-    { slug: "annuaire", label: "Répertoire des Établissements", route: "/admin/annuaire" },
-    { slug: "analytics-dsmo", label: "Statistiques DSMO" },
+    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
+    { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
+    { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
+    { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },
+    { slug: "utilisateurs", labelKey: "homeNav.item.onefopUsers", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
+    { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/annuaire" },
+    { slug: "analytics-dsmo", labelKey: "homeNav.item.dsmoStatistics" },
   ],
   SUPER_ADMIN: [
-    { slug: "pilotage", label: "Tableau de Bord National", route: "/admin/pilotage" },
-    { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
-    { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
-    { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
-    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
-    { slug: "annuaire", label: "Gestion des Utilisateurs & Entités", route: "/admin/annuaire" },
+    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
+    { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
+    { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
+    { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },
+    { slug: "utilisateurs", labelKey: "homeNav.item.onefopUsers", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
+    { slug: "annuaire", labelKey: "homeNav.item.userEntityManagement", route: "/admin/annuaire" },
   ],
   // AUDITOR had no _buildTabs branch in Flutter and fell through to the
   // default. Commit 2 gives it an explicit (empty) nav profile.

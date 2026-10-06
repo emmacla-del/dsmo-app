@@ -530,8 +530,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     String? establishmentId,
     String? companyName,
     String? attestationUrl,
+    bool isActive = false,
   }) async {
-    if (establishmentId != null) {
+    // Every file gets its establishment ID at registration, so the branch is
+    // on the account status: only an active (auto-approved) account gets the
+    // official receipt; a file awaiting review gets the pending dialog, which
+    // still shows its ID.
+    if (isActive && establishmentId != null) {
       // Show the beautiful receipt
       await showDialog<void>(
         context: context,
@@ -546,10 +551,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       );
       // Receipt handles navigation internally
     } else {
-      // R.1: no establishment ID is issued at self-registration any more, so
-      // this is the live path for every company. The file is recorded and now
-      // waits for a reviewer — say so, and send them to the status screen
-      // rather than to /home, which has nothing for them yet.
+      // The live path for every file that is not auto-approved. The file is
+      // recorded and now waits for a reviewer — say so, and send them to the
+      // status screen rather than to /home, which has nothing for them yet.
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -577,6 +581,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   color: PublicColors.gray700,
                 ),
               ),
+              if (establishmentId != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  context.l10n.establishmentIdLabel,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: PublicColors.gray700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  establishmentId,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'monospace',
+                    color: PublicColors.gray900,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
@@ -679,6 +704,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final registeredCompanyName =
         response['company']?['name'] as String? ?? companyName;
     final attestationUrl = response['company']?['attestationUrl'] as String?;
+    final isActive = response['user']?['status'] == 'ACTIVE';
 
     await _clearDraft();
 
@@ -692,6 +718,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         establishmentId: establishmentId,
         companyName: registeredCompanyName,
         attestationUrl: attestationUrl,
+        isActive: isActive,
       );
     }
   }

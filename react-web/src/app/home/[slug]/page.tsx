@@ -39,7 +39,7 @@ export default function HomePlaceholderPage({ params }: { params: Promise<{ slug
   return (
     <div>
       <h1 style={{ fontSize: "var(--cam-font-size-xl)", fontWeight: 700, margin: "0 0 var(--cam-space-3)" }}>
-        {item?.label ?? slug}
+        {item ? t(item.labelKey) : slug}
       </h1>
       <div
         style={{

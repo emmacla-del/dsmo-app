@@ -24,6 +24,8 @@ import { AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES, auditActionLabel, auditActorName, 
 import { ENTITY_TYPE_OPTION_KEYS } from "./companies-directory";
 import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, normalizeRegions } from "./pilotage-target-payload";
 import { formatApiError } from "./pilotage-targets";
+import { navItemsForRole, roleLabelKey } from "./role-navigation";
+import { currentUiLocale } from "./ui-locale";
 import { approvalGate, registrationMethodLabel, verificationRows } from "./inscriptions";
 import { CAMPAIGN_PERIODICITIES, CAMPAIGN_PURPOSE_LABELS, CAMPAIGN_STATUS_LABELS, REMINDER_TYPES } from "./campaigns";
 import { ANOMALY_STATUS_LABELS } from "./anomaly-registry";
@@ -270,4 +272,29 @@ test("settings role card: every UserRole has a statutory title and description i
       assert.equal(typeof lookup(catalogue, `adminParametresPage.role.${role}.description`), "string", `${locale}: ${role}`);
     }
   }
+});
+
+test("/home navigation: every role badge and nav item has a label in both catalogues", () => {
+  const roles = ["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR"];
+  for (const locale of ["fr", "en"] as const) {
+    const catalogue = loadCatalogue(locale);
+    for (const role of roles) {
+      const roleKey = roleLabelKey(role);
+      assert.ok(roleKey, role);
+      assert.equal(typeof lookup(catalogue, roleKey!), "string", `${locale}: ${roleKey}`);
+      for (const item of navItemsForRole(role)) {
+        assert.equal(typeof lookup(catalogue, item.labelKey), "string", `${locale}: ${item.labelKey}`);
+      }
+    }
+  }
+  assert.equal(roleLabelKey("SOMETHING_NEW"), null);
+  // No label carries both languages any more ("Accueil/ Home").
+  const fr = loadCatalogue("fr");
+  for (const role of roles) {
+    for (const item of navItemsForRole(role)) assert.doesNotMatch(String(lookup(fr, item.labelKey)), /\/ [A-Z]/);
+  }
+});
+
+test("currentUiLocale: French outside the browser", () => {
+  assert.equal(currentUiLocale(), "fr");
 });

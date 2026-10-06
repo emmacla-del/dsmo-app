@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { ENTITY_TYPE_OPTION_KEYS } from "@/lib/companies-directory";
 import { useAuthStore } from "@/lib/auth-store";
 import { getMyCompany, type CompanyProfile } from "@/lib/api-client";
 import { resubmitRegistration, type RegistrationCorrections } from "@/lib/user-directory";
@@ -10,30 +12,24 @@ import { useEmailAvailability } from "@/lib/use-email-availability";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 
 // The ONEFOP entity types, in the backend's own enum spelling. The same seven
-// OnefopEntityType values the register wizard offers — no DSMO-only category.
-const ENTITY_TYPES = [
-  { value: "ENTREPRISE", label: "Entreprise" },
-  { value: "COOPERATIVE", label: "Coopérative" },
-  { value: "CTD", label: "CTD" },
-  { value: "ONG", label: "ONG" },
-  { value: "ADMINISTRATION", label: "Administration" },
-  { value: "PROJECT_PROGRAM", label: "Projet / programme" },
-  { value: "VOCATIONAL_TRAINING", label: "Centre de formation professionnelle" },
-];
+// OnefopEntityType values the register wizard offers — no DSMO-only category —
+// labelled with the wizard's own labels (ENTITY_TYPE_OPTION_KEYS), no codes.
+const ENTITY_TYPE_VALUES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
 
-// The free-text corrections, paired with their labels. An explicit list, which
-// is also what the diff below iterates: CompanyProfile has an index signature,
-// so anything derived from spreading it would carry keys the route rejects.
+// The free-text corrections. An explicit list, which is also what the diff
+// below iterates: CompanyProfile has an index signature, so anything derived
+// from spreading it would carry keys the route rejects. Labels:
+// homeRegistrationPendingPage.field.<key>.
 const TEXT_FIELDS = [
-  { key: "name", label: "Raison sociale" },
-  { key: "taxNumber", label: "Numéro contribuable (NIU)" },
-  { key: "mainActivity", label: "Activité principale" },
-  { key: "secondaryActivity", label: "Activité secondaire" },
-  { key: "parentCompany", label: "Société mère" },
-  { key: "address", label: "Adresse" },
-  { key: "phone", label: "Téléphone / WhatsApp" },
-  { key: "cnpsNumber", label: "Numéro CNPS" },
-  { key: "fax", label: "Fax" },
+  { key: "name" },
+  { key: "taxNumber" },
+  { key: "mainActivity" },
+  { key: "secondaryActivity" },
+  { key: "parentCompany" },
+  { key: "address" },
+  { key: "phone" },
+  { key: "cnpsNumber" },
+  { key: "fax" },
 ] as const;
 
 type TextKey = (typeof TEXT_FIELDS)[number]["key"];
@@ -66,6 +62,8 @@ function formStateFrom(profile: CompanyProfile | undefined, email: string | unde
 
 export default function InscriptionEnAttentePage() {
   const router = useRouter();
+  const tRoot = useTranslations();
+  const t = useTranslations("homeRegistrationPendingPage");
   const user = useAuthStore((s) => s.user);
   const refreshUser = useAuthStore((s) => s.refreshUser);
   const logout = useAuthStore((s) => s.logout);
@@ -168,11 +166,11 @@ export default function InscriptionEnAttentePage() {
     const corrections = buildCorrections();
     const movingTerritory = corrections.region !== undefined;
     if (movingTerritory && !(corrections.subdivision ?? "").trim()) {
-      setError("Choisissez l'arrondissement pour déplacer le dossier.");
+      setError(t("errorSubdivisionRequired"));
       return;
     }
     if (corrections.email !== undefined && emailAvailable === false) {
-      setError("Cette adresse e-mail est déjà utilisée par un autre compte.");
+      setError(t("errorEmailInUse"));
       return;
     }
     setError(null);
@@ -184,38 +182,37 @@ export default function InscriptionEnAttentePage() {
   return (
     <div className="cam-admin-page">
       <h1 style={{ fontFamily: "var(--cam-font-display)", fontSize: "var(--cam-font-size-xl)" }}>
-        Dossier d&apos;inscription
+        {t("title")}
       </h1>
       {pending && (
         <p className="cam-admin-lede">
-          Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu&apos;il sera activé.
+          {t("pendingBody")}
         </p>
       )}
       {complements && (
         <>
-          <p className="cam-admin-lede">Des compléments ont été demandés :</p>
+          <p className="cam-admin-lede">{t("complementsIntro")}</p>
           <div className="cam-admin-notice cam-admin-notice--warn" role="status">
-            {user?.approvalComment || "Merci de compléter votre dossier."}
+            {user?.approvalComment || t("complementsFallback")}
           </div>
 
-          {companyQuery.isPending && <p>Chargement de votre dossier…</p>}
+          {companyQuery.isPending && <p>{t("loading")}</p>}
           {companyQuery.isError && (
             <div className="cam-admin-notice cam-admin-notice--error" role="alert">
-              Votre dossier n&apos;a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.
+              {t("loadError")}
             </div>
           )}
 
           {companyQuery.data && (
             <>
               <p>
-                Corrigez ce qui doit l&apos;être, puis renvoyez le dossier. Les champs inchangés
-                sont laissés tels quels.
+                {t("correctionIntro")}
               </p>
 
               {TEXT_FIELDS.map((field) => (
                 <div className="cam-field" key={field.key}>
                   <label className="cam-label" htmlFor={`correction-${field.key}`}>
-                    {field.label}
+                    {t(`field.${field.key}`)}
                   </label>
                   <input
                     id={`correction-${field.key}`}
@@ -228,7 +225,7 @@ export default function InscriptionEnAttentePage() {
 
               <div className="cam-field">
                 <label className="cam-label" htmlFor="correction-email">
-                  Email
+                  {t("emailLabel")}
                 </label>
                 <input
                   id="correction-email"
@@ -240,17 +237,17 @@ export default function InscriptionEnAttentePage() {
                   onChange={(e) => set(EMAIL_KEY, e.target.value)}
                 />
                 <span aria-live="polite" aria-atomic="true">
-                  {emailAvailable === false && <span className="field-status is-error">⚠ Adresse déjà utilisée</span>}
-                  {emailAvailable === true && <span className="field-status is-ok">✓ Disponible</span>}
+                  {emailAvailable === false && <span className="field-status is-error">⚠ {tRoot("registerPage.emailUnavailable")}</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ {tRoot("registerPage.emailAvailable")}</span>}
                 </span>
                 <span id="correction-email-hint" className="cam-admin-choice-hint">
-                  Votre identifiant de connexion et le contact de l&apos;entité auprès de l&apos;ONEFOP.
+                  {t("emailHint")}
                 </span>
               </div>
 
               <div className="cam-field">
                 <label className="cam-label" htmlFor="correction-socialCapital">
-                  Capital social (FCFA)
+                  {t("socialCapitalLabel")}
                 </label>
                 <input
                   id="correction-socialCapital"
@@ -264,7 +261,7 @@ export default function InscriptionEnAttentePage() {
 
               <div className="cam-field">
                 <label className="cam-label" htmlFor="correction-entityType">
-                  Type d&apos;entité
+                  {t("entityTypeLabel")}
                 </label>
                 <select
                   id="correction-entityType"
@@ -272,10 +269,10 @@ export default function InscriptionEnAttentePage() {
                   value={form.entityType ?? ""}
                   onChange={(e) => set("entityType", e.target.value)}
                 >
-                  <option value="">Non renseigné</option>
-                  {ENTITY_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
+                  <option value="">{t("notRecorded")}</option>
+                  {ENTITY_TYPE_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {tRoot(ENTITY_TYPE_OPTION_KEYS[value])}
                     </option>
                   ))}
                 </select>
@@ -304,13 +301,13 @@ export default function InscriptionEnAttentePage() {
             disabled={mutation.isPending}
             onClick={submit}
           >
-            {mutation.isPending ? "…" : "Renvoyer le dossier"}
+            {mutation.isPending ? "…" : t("resubmit")}
           </button>
         </>
       )}
       <p>
         <button type="button" className="cam-button cam-button-secondary" onClick={() => logout()}>
-          Se déconnecter
+          {t("signOut")}
         </button>
       </p>
     </div>
