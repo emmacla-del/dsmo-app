@@ -666,3 +666,12 @@ Low priority. Phase 6 candidate, not the establishmentId phase.
       fallback or rejection path for a missing code. The column constraint
       would keep it that way for subdivisions added later. Schema change —
       needs review per CLAUDE.md §21.
+
+## Assisted registration page — French-only (2026-10-06)
+
+- [ ] The assisted registration page (`react-web/src/app/admin/inscriptions/nouvelle/page.tsx`)
+      is French-only; the new email hint and availability line come from
+      shared messages (`registerPage.*`), so an admin on the English
+      interface sees them in English among French labels. Translating the
+      whole page is a ~300-string i18n pass. Deferred — French is the pilot
+      language. Revisit if the English interface becomes a real requirement.
