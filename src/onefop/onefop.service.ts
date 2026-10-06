@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
 import { OnefopSubmissionPdfService } from '../pdf/onefop-submission-pdf.service';
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
+import { territoryFromUser, territoryWhere } from '../auth/territory';
 
 @Injectable()
 export class OnefopService {
@@ -183,15 +184,25 @@ export class OnefopService {
         if (filters.establishmentId) where.establishmentId = filters.establishmentId;
         if (filters.quarterCode) where.quarterCode = filters.quarterCode;
 
-        // Role-based filtering
-        if (user.role === 'DIVISIONAL_ADMIN' && user.department) {
-            where.department = user.department;
-        } else if (user.role === 'REGIONAL_ADMIN' && user.region) {
-            where.region = user.region;
-        } else if (user.role === 'COMPANY') {
+        // Role-based filtering. COMPANY sees its own rows; every other role is
+        // scoped by territoryWhere, which fails closed: a REGIONAL_ADMIN with
+        // no region or a DIVISIONAL_ADMIN with no department matches nothing
+        // instead of falling through to the national list, and DIVISIONAL
+        // matches region AND department (department names repeat by region).
+        if (user.role === 'COMPANY') {
             const company = await this.prisma.company.findFirst({ where: { userId: user.id } });
             if (!company) return [];
             where.companyId = company.id;
+        } else {
+            Object.assign(where, territoryWhere(territoryFromUser(user)));
+        }
+
+        // The `region` query parameter only narrows: it is ANDed with the
+        // territory scope above, so a territorial caller naming another
+        // region gets an empty list (not their own, not the other region's).
+        const regionFilter = filters.region?.trim();
+        if (regionFilter) {
+            where.AND = [{ region: { equals: regionFilter, mode: 'insensitive' } }];
         }
 
         const submissions = await this.prisma.onefopSubmission.findMany({
