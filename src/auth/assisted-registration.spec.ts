@@ -21,6 +21,7 @@ function makePrisma() {
   return {
     user: {
       findUnique: jest.fn(async () => null),
+      findFirst: jest.fn(async () => null),
       create: jest.fn(async ({ data }: any) => ({ id: 'new-user', ...data })),
       update: jest.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
     },

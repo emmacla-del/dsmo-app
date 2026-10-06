@@ -311,8 +311,15 @@ export function getSectors() {
 // register-constants.ts and register-options.ts for the per-entity-type
 // field set and static option lists this consumes.
 
-export function checkEmailAvailable(email: string) {
-  return apiFetch<{ available: boolean }>(`/auth/check-email?email=${encodeURIComponent(email)}`);
+// The route returns { available: { available: boolean } }: the controller
+// wraps the service's own { available } object. Flutter reads the nested
+// shape, so the contract stays and the unwrap happens here. Before this,
+// callers read the inner object as the boolean and the check never fired.
+export async function checkEmailAvailable(email: string): Promise<{ available: boolean }> {
+  const r = await apiFetch<{ available: { available: boolean } }>(
+    `/auth/check-email?email=${encodeURIComponent(email)}`,
+  );
+  return { available: r.available.available === true };
 }
 
 export function getRegions() {
