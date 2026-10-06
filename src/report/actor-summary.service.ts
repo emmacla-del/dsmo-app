@@ -314,11 +314,13 @@ export class ActorSummaryService {
    * passed on purpose: this is an internal read, and the caller's own scope is
    * applied to *which admins* are listed, not to the figures about them.
    *
-   * What the reused getCoverage returns changed in Phase 3e: it is now the
-   * annual sum of the year's quarterly campaign submission targets, not a
-   * stored annual inscription target. The targets this column compares against
-   * are therefore only as complete as the quarters that have quotas — a year
-   * with quotas on two quarters yields a two-quarter target, not a padded one.
+   * What the reused getCoverage returns: since 8c, the annual sum of the
+   * year's registration campaigns' quotas (purpose = REGISTRATION) — not
+   * declaration quotas, and not a stored annual inscription target. The
+   * targets this column compares against are therefore only as complete as
+   * the quarters that have registration quotas — a year with quotas on two
+   * quarters yields a two-quarter target, not a padded one, and a year with
+   * none yields null.
    */
   private async loadCoverage(now: Date) {
     // Douala calendar year (UTC+1), matching the registration-year bounds.
