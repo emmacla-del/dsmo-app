@@ -724,3 +724,31 @@ c75a7ad5, 703ecb89). Not open work; logged so they are not re-raised as gaps.
   file. Accepted: React is the review surface.
 - Auto-approved ADMINISTRATION registrations (COMPANY_REGISTRATION_AUTO_APPROVED)
   bypass the review dialog and carry no verification flags.
+
+## ONEFOP analytics — territory scope and exact-match filters (2026-10-06)
+
+Shipped in ebd5dfa5 (scope) and 38a3fa49 (exact match).
+
+- **Figures-changing change (38a3fa49).** `/onefop-analytics/*` territory
+  filters were substring matches: `region=Nord` also summed Nord-Ouest and
+  Extrême-Nord, `region=Ouest` summed Nord-Ouest and Sud-Ouest, `region=Sud`
+  summed Sud-Ouest. They are now exact, case-insensitive matches, so any
+  dashboard or figure produced with one of those filters changes. ONEFOP
+  domain owner to be notified; implemented without waiting for sign-off
+  (ruled 2026-10-06).
+- **Scope rule (ebd5dfa5), "national, no breakdowns".** REGIONAL_ADMIN and
+  DIVISIONAL_ADMIN read national totals with no geographic filter. A
+  region / department / subdivision filter, or a geographic breakdown
+  (employment, employment-by-location, recruitment-by-location,
+  departures-by-location), runs inside their own territory. An unassigned
+  territorial admin gets no results.
+- [ ] The legacy `src/analytics/onefop-analytics.service.ts` (used by
+      `/reports/*`, ADMIN_ONEFOP / SUPER_ADMIN only) keeps its own `contains`
+      builder (`:59-63`), so the same Nord/Ouest/Sud over-count applies to
+      reports. Not changed in this batch.
+- [ ] `/dsmo/analytics/*` (DSMO declarations) takes `?region=` with no caller
+      scope; same gap, separate fix with `territoryWhereForDeclaration`.
+- Flutter: territorial users' filters are already locked to their own
+  region, so the scope changes nothing for them, and the Synthèse national
+  benchmark (no filter) still reads national. Their figures change only
+  through the exact match (Nord, Ouest, Sud). No Flutter change required.
