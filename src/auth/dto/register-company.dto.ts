@@ -1,4 +1,4 @@
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
+import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -47,7 +47,14 @@ export class CompanyRegistrationFieldsDto {
   @IsOptional() @IsString() cnpsNumber?: string;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) socialCapital?: number;
   @IsOptional() @IsString() contactName?: string;
-  @IsOptional() @IsString() entityType?: string;
+  // Required: the establishment ID prefix derives from it. The list is the
+  // seven types the ID generator knows, not OnefopEntityType, which still
+  // carries the deprecated VOCATIONAL_TRAINING_CENTER. @IsDefined because the
+  // global pipe runs with skipMissingProperties, which skips @IsIn on a
+  // missing key.
+  @IsDefined()
+  @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING'])
+  entityType!: string;
   @IsOptional() @IsString() area?: string;
   @IsOptional() @IsString() sectorId?: string;
   @IsOptional() @IsString() phone?: string;
