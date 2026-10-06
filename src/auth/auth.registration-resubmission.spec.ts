@@ -284,6 +284,30 @@ describe('AuthService.resubmitRegistration — entity phone and email', () => {
     });
   });
 
+  it('stores a corrected email trimmed and lowercased', async () => {
+    const { service, tx } = makeService();
+    await service.resubmitRegistration('u-co', {
+      email: '  Nouveau@Example.CM ',
+    } as ResubmitRegistrationDto);
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'u-co' },
+      data: { email: 'nouveau@example.cm' },
+    });
+    expect(auditDetails(tx).changes.email).toEqual({
+      before: 'co@example.cm',
+      after: 'nouveau@example.cm',
+    });
+  });
+
+  it('treats a case-only variant of the current email as no change', async () => {
+    const { service, tx } = makeService();
+    await service.resubmitRegistration('u-co', { email: 'CO@Example.cm' } as ResubmitRegistrationDto);
+
+    expect(tx.user.findFirst).not.toHaveBeenCalled();
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
   it('writes a changed email to User, not Company, and audits it', async () => {
     const { service, tx } = makeService();
     await service.resubmitRegistration('u-co', {
@@ -291,7 +315,10 @@ describe('AuthService.resubmitRegistration — entity phone and email', () => {
     } as ResubmitRegistrationDto);
 
     expect(tx.user.findFirst).toHaveBeenCalledWith({
-      where: { email: 'nouveau@example.cm', id: { not: 'u-co' } },
+      where: {
+        email: { equals: 'nouveau@example.cm', mode: 'insensitive' },
+        id: { not: 'u-co' },
+      },
       select: { id: true },
     });
     expect(tx.user.update).toHaveBeenCalledWith({

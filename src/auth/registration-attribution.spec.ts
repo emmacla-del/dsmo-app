@@ -19,6 +19,7 @@ function makePrisma() {
   const prisma: any = {
     user: {
       findUnique: jest.fn(async () => null),
+      findFirst: jest.fn(async () => null),
       create: jest.fn(async ({ data }: CreateCall) => ({ id: 'new-user', ...data })),
       update: jest.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
     },

@@ -264,7 +264,7 @@ describe('AuthService.validateUser company pending login', () => {
   it('lets a COMPANY in PENDING_APPROVAL through after password checks', async () => {
     const prisma = {
       user: {
-        findUnique: jest.fn(async () => ({
+        findFirst: jest.fn(async () => ({
           id: 'u-co',
           email: 'co@example.cm',
           role: 'COMPANY',
@@ -287,7 +287,7 @@ describe('AuthService.validateUser company pending login', () => {
   const serviceFor = async (overrides: Record<string, unknown>) => {
     const prisma = {
       user: {
-        findUnique: jest.fn(async () => ({
+        findFirst: jest.fn(async () => ({
           id: 'u-co',
           email: 'co@example.cm',
           role: 'COMPANY',

@@ -63,6 +63,21 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
 const AUTO_APPROVE_ENTITY_TYPES = ['ADMINISTRATION'] as const;
 
 /**
+ * The stored form of a company login email: trimmed and lowercased. Applied on
+ * every company write (registration, assisted registration, correction), so
+ * Jean@x.cm and jean@x.cm cannot become two accounts. Staff account creation
+ * is not normalised yet; the lookups below therefore stay case-insensitive.
+ */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** Case-insensitive match on User.email, for lookups by a typed address. */
+function emailMatch(email: string) {
+  return { email: { equals: email.trim(), mode: 'insensitive' as const } };
+}
+
+/**
  * A staff account's name for display next to a record it authored, falling
  * back to the address when neither name part is set (seeded and
  * script-created accounts have no first/last name). null when there is no
@@ -184,7 +199,7 @@ export class AuthService {
    * so a company that's lost track of its email can still log in.
    */
   async validateUser(login: string, password: string) {
-    let user = await this.prisma.user.findUnique({ where: { email: login } });
+    let user = await this.prisma.user.findFirst({ where: emailMatch(login) });
     if (!user) {
       const company = await this.prisma.company.findFirst({
         where: { establishmentId: login },
@@ -643,7 +658,8 @@ export class AuthService {
       skipAutoApproval?: boolean;
     },
   ) {
-    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    email = normalizeEmail(email);
+    const existingUser = await this.prisma.user.findFirst({ where: emailMatch(email) });
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
@@ -875,9 +891,10 @@ export class AuthService {
       departmentId: resolved.departmentId,
     });
 
+    const email = normalizeEmail(companyData.email);
     const temporaryPassword = this.generateTemporaryPassword();
     const created = await this.createCompanyRegistration(
-      companyData.email,
+      email,
       temporaryPassword,
       companyData,
       {
@@ -895,7 +912,7 @@ export class AuthService {
         resourceType: 'User',
         resourceId: created.user.id,
         details: {
-          email: companyData.email,
+          email,
           companyId: created.company.id,
           organisation: created.company.name,
           entityType: created.company.entityType,
@@ -908,7 +925,7 @@ export class AuthService {
       // The registration itself succeeded; losing its journal entry must not
       // undo it or fail the admin's request.
       this.logger.error(
-        `Failed to audit assisted registration of ${companyData.email}: ${(error as Error).message}`,
+        `Failed to audit assisted registration of ${email}: ${(error as Error).message}`,
       );
     });
 
@@ -1104,7 +1121,10 @@ export class AuthService {
   }
 
   async isEmailAvailable(email: string): Promise<{ available: boolean }> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    // Case-insensitive: Jean@x.cm must not read as available while
+    // jean@x.cm is taken. A missing or blank address is not available.
+    if (typeof email !== 'string' || email.trim() === '') return { available: false };
+    const user = await this.prisma.user.findFirst({ where: emailMatch(email) });
     return { available: !user };
   }
 
@@ -1342,14 +1362,14 @@ export class AuthService {
       // its own. It is the login identifier: a change takes effect as the
       // sign-in address immediately. emailVerified is deliberately left as is
       // and no new verification link is sent (decision of 2026-10-06; the flag
-      // gates nothing today). Exact-match comparison, like registration and
-      // isEmailAvailable.
+      // gates nothing today). Stored normalised, like registration; the
+      // availability check is case-insensitive, like isEmailAvailable.
       let newEmail: string | undefined;
       if (typeof payload.email === 'string') {
-        const after = payload.email.trim();
+        const after = normalizeEmail(payload.email);
         if (after !== user.email) {
           const taken = await tx.user.findFirst({
-            where: { email: after, id: { not: actorId } },
+            where: { ...emailMatch(after), id: { not: actorId } },
             select: { id: true },
           });
           if (taken) {
@@ -2128,7 +2148,10 @@ export class AuthService {
         'Si un compte existe avec cette adresse, un e-mail de réinitialisation a été envoyé.',
     };
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user =
+      typeof email === 'string' && email.trim() !== ''
+        ? await this.prisma.user.findFirst({ where: emailMatch(email) })
+        : null;
     if (!user) return genericResponse;
 
     const rawToken = crypto.randomBytes(32).toString('hex');
