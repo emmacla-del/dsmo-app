@@ -54,9 +54,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     refetchInterval: 120000,
   });
 
-  const pendingCount =
-    (queuesQuery.data?.blockingAnomaliesCount ?? 0) +
-    (queuesQuery.data?.pendingNationalVisasCount ?? 0);
+  // Supervision's badge counts dossiers awaiting a visa. Blocking anomalies
+  // are counted once, on "Contrôle Qualité", where they are resolved — they
+  // used to be added in here too, so the same anomaly lit up two hubs.
+  const pendingCount = queuesQuery.data?.pendingNationalVisasCount ?? 0;
 
   // The drawer (tablet/phone) closes on Escape as well as on navigation.
   useEffect(() => {

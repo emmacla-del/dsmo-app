@@ -24,7 +24,7 @@ export interface AdminSidebarProps {
    * not ADMIN_HUBS filtered by allowedRoles; see that file for why.
    */
   role?: UserRole;
-  /** Badge count on "Supervision" (blocking anomalies + pending national visas) */
+  /** Badge count on "Supervision" (dossiers awaiting a visa) */
   pendingCount?: number;
   /** Badge count on "Déclarants" */
   inscriptionsCount?: number;
