@@ -63,7 +63,9 @@
   "homeLayout": {
     "brandName": "CAM-LEAP",
     "newDeclarationButton": "New declaration",
-    "logoutButton": "Log out"
+    "logoutButton": "Log out",
+    "currentCampaign": "Current campaign",
+    "periodClosed": "Period closed"
   },
   "homeDeclarationsNewPage": {
     "appTitle": "DSMO Declaration",
@@ -178,7 +180,10 @@
     "emptyNoResultsTitle": "No results for this filter",
     "emptyNoDeclarationsTitle": "No declarations yet",
     "emptyNoResultsBody": "Try different filters or clear the search.",
-    "emptyNoDeclarationsBody": "Submit your first DSMO declaration to get started."
+    "emptyNoDeclarationsBody": "Submit your first DSMO declaration to get started.",
+    "correctionRequestedTitle": "⚠️ Correction requested by the administration:",
+    "correctionRequestedFallback": "Adjustments or additional information are required on your declaration. Please correct and resubmit.",
+    "correctAndResubmit": "Correct and resubmit"
   },
   "homeDeclarationsDsmoPage": {
     "accessDeniedTitle": "Access Denied",
@@ -195,7 +200,17 @@
     "sectionsAvailable": "{role} — {count, plural, one {# section available} other {# sections available}} in the menu.",
     "newDeclarationHeading": "New Declaration",
     "newDeclarationDesc": "Create a new DSMO employment declaration or fill out the official ONEFOP questionnaire.",
-    "startDeclarationButton": "Start a Declaration"
+    "startDeclarationButton": "Start a Declaration",
+    "staffConsoleTitle": "MINEFOP · ONEFOP ministry console",
+    "staffConsoleBody": "Go straight to the four tools for review, quality arbitration and statistical dissemination.",
+    "staffDashboard": "National dashboard",
+    "staffDashboardHint": "Performance indicators",
+    "staffPending": "Pending files",
+    "staffPendingHint": "Priority processing queue",
+    "staffReview": "Review & endorsement",
+    "staffReviewHint": "Compliance check & arbitration",
+    "staffStatistics": "Statistics & dissemination",
+    "staffStatisticsHint": "Consolidated aggregates & exports"
   },
   "loginPage": {
     "twoFactorTitle": "Two-Factor Verification",
@@ -423,7 +438,10 @@
     "entityStepTitle": "Entity type",
     "entityStepSubtitle": "Select your entity type to access the ONEFOP form.",
     "vtcBadge": "VTC",
-    "footerBackButton": "← Back"
+    "footerBackButton": "← Back",
+    "checkingEntityType": "Checking your entity type…",
+    "checkFailedHint": "Couldn't verify automatically — please select your entity type manually. This choice will be saved for next time.",
+    "noEntityTypeHint": "No entity type is on record for this account yet — select it once, it will be used automatically afterwards."
   },
   "companiesDirectory": {
     "nameColumn": "Name",
@@ -2467,5 +2485,61 @@
     "userColumn": "User",
     "formatColumn": "Format",
     "scopeColumn": "Scope"
+  },
+  "homeNav": {
+    "role": {
+      "COMPANY": "Company",
+      "DIVISIONAL_ADMIN": "Labour Division",
+      "REGIONAL_ADMIN": "Regional Delegation",
+      "ADMIN_ONEFOP": "Admin · ONEFOP",
+      "SUPER_ADMIN": "Super Admin · DSMO + ONEFOP",
+      "AUDITOR": "Auditor"
+    },
+    "item": {
+      "home": "Home",
+      "declarations": "Declarations",
+      "analytics": "Analytics",
+      "settings": "Settings",
+      "territorialDashboard": "Territorial dashboard",
+      "regionalDashboard": "Regional dashboard",
+      "nationalDashboard": "National dashboard",
+      "fileReview": "File review",
+      "reviewEndorsement": "Review & endorsement",
+      "statisticsDissemination": "Statistics & dissemination",
+      "sectorClassification": "Sector classification",
+      "onefopUsers": "ONEFOP users",
+      "establishmentRegister": "Establishment register",
+      "dsmoStatistics": "DSMO statistics",
+      "userEntityManagement": "User & entity management"
+    }
+  },
+  "homeRegistrationPendingPage": {
+    "field": {
+      "name": "Company name",
+      "taxNumber": "Taxpayer number (NIU)",
+      "mainActivity": "Main activity",
+      "secondaryActivity": "Secondary activity",
+      "parentCompany": "Parent company",
+      "address": "Address",
+      "phone": "Phone / WhatsApp",
+      "cnpsNumber": "CNPS number",
+      "fax": "Fax"
+    },
+    "errorSubdivisionRequired": "Choose the subdivision to move the file.",
+    "errorEmailInUse": "This email address is already used by another account.",
+    "title": "Registration file",
+    "pendingBody": "Your account is awaiting approval by an officer. You will be able to declare as soon as it is activated.",
+    "complementsIntro": "Further information has been requested:",
+    "complementsFallback": "Please complete your file.",
+    "loading": "Loading your file…",
+    "loadError": "Your file could not be loaded. You can still resubmit it as it is.",
+    "correctionIntro": "Correct what needs correcting, then resubmit the file. Unchanged fields are left as they are.",
+    "emailLabel": "Email",
+    "emailHint": "Your sign-in identifier and the entity's contact with ONEFOP.",
+    "socialCapitalLabel": "Share capital (FCFA)",
+    "entityTypeLabel": "Entity type",
+    "notRecorded": "Not recorded",
+    "resubmit": "Resubmit the file",
+    "signOut": "Sign out"
   }
 }

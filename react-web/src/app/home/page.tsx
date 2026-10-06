@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { getCachedUser, getMe } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { navItemsForRole, resolveEffectiveRole, roleLabel } from "@/lib/role-navigation";
+import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 
 export default function HomeLandingPage() {
@@ -32,7 +32,10 @@ export default function HomeLandingPage() {
         {t("homeLandingPage.welcomeTitle")}
       </h1>
       <p style={{ color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-5)" }}>
-        {t("homeLandingPage.sectionsAvailable", { role: roleLabel(effectiveRole), count: items.length })}
+        {t("homeLandingPage.sectionsAvailable", {
+          role: roleLabelKey(effectiveRole) ? t(roleLabelKey(effectiveRole)!) : effectiveRole,
+          count: items.length,
+        })}
       </p>
 
       {user.role !== "COMPANY" && (
@@ -50,11 +53,11 @@ export default function HomeLandingPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 18 }}>🏛️</span>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-              Console Ministérielle MINEFOP · ONEFOP
+              {t("homeLandingPage.staffConsoleTitle")}
             </h2>
           </div>
           <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 16px", lineHeight: 1.4 }}>
-            Accédez directement aux quatre outils d'instruction, d'arbitrage de qualité et de diffusion statistique.
+            {t("homeLandingPage.staffConsoleBody")}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
             <Link
@@ -69,8 +72,8 @@ export default function HomeLandingPage() {
                 color: "inherit",
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-green)" }}>Tableau de Bord National</div>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>Indicateurs de performance</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-green)" }}>{t("homeLandingPage.staffDashboard")}</div>
+              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>{t("homeLandingPage.staffDashboardHint")}</div>
             </Link>
             <Link
               href="/admin/dossiers?status=PENDING_REVIEW"
@@ -84,8 +87,8 @@ export default function HomeLandingPage() {
                 color: "inherit",
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-warning)" }}>Dossiers en Instance</div>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>File de traitement prioritaire</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-warning)" }}>{t("homeLandingPage.staffPending")}</div>
+              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>{t("homeLandingPage.staffPendingHint")}</div>
             </Link>
             <Link
               href="/admin/dossiers"
@@ -99,8 +102,8 @@ export default function HomeLandingPage() {
                 color: "inherit",
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-info)" }}>Instruction & Visas</div>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>Contrôle de conformité & arbitrage</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-info)" }}>{t("homeLandingPage.staffReview")}</div>
+              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>{t("homeLandingPage.staffReviewHint")}</div>
             </Link>
             <Link
               href="/admin/diffusion"
@@ -114,8 +117,8 @@ export default function HomeLandingPage() {
                 color: "inherit",
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-green)" }}>Statistiques & Diffusion</div>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>Agrégats consolidés & exportations</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--cam-green)" }}>{t("homeLandingPage.staffStatistics")}</div>
+              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>{t("homeLandingPage.staffStatisticsHint")}</div>
             </Link>
           </div>
         </div>

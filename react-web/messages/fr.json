@@ -63,7 +63,9 @@
   "homeLayout": {
     "brandName": "CAM-LEAP",
     "newDeclarationButton": "Nouvelle déclaration",
-    "logoutButton": "Se déconnecter"
+    "logoutButton": "Se déconnecter",
+    "currentCampaign": "Campagne en cours",
+    "periodClosed": "Période fermée"
   },
   "homeDeclarationsNewPage": {
     "appTitle": "Déclaration DSMO",
@@ -178,7 +180,10 @@
     "emptyNoResultsTitle": "Aucun résultat pour ce filtre",
     "emptyNoDeclarationsTitle": "Aucune déclaration pour l'instant",
     "emptyNoResultsBody": "Essayez d'autres filtres ou effacez la recherche.",
-    "emptyNoDeclarationsBody": "Soumettez votre première déclaration DSMO pour commencer."
+    "emptyNoDeclarationsBody": "Soumettez votre première déclaration DSMO pour commencer.",
+    "correctionRequestedTitle": "⚠️ Demande de correction de l'administration :",
+    "correctionRequestedFallback": "Des ajustements ou compléments sont requis sur votre déclaration. Veuillez corriger et resoumettre.",
+    "correctAndResubmit": "Corriger et resoumettre"
   },
   "homeDeclarationsDsmoPage": {
     "accessDeniedTitle": "Accès refusé",
@@ -195,7 +200,17 @@
     "sectionsAvailable": "{role} — {count, plural, one {# section disponible} other {# sections disponibles}} dans le menu.",
     "newDeclarationHeading": "Nouvelle déclaration",
     "newDeclarationDesc": "Créer une nouvelle déclaration d'emploi DSMO ou remplir le questionnaire officiel ONEFOP.",
-    "startDeclarationButton": "Commencer une déclaration"
+    "startDeclarationButton": "Commencer une déclaration",
+    "staffConsoleTitle": "Console Ministérielle MINEFOP · ONEFOP",
+    "staffConsoleBody": "Accédez directement aux quatre outils d'instruction, d'arbitrage de qualité et de diffusion statistique.",
+    "staffDashboard": "Tableau de Bord National",
+    "staffDashboardHint": "Indicateurs de performance",
+    "staffPending": "Dossiers en Instance",
+    "staffPendingHint": "File de traitement prioritaire",
+    "staffReview": "Instruction & Visas",
+    "staffReviewHint": "Contrôle de conformité & arbitrage",
+    "staffStatistics": "Statistiques & Diffusion",
+    "staffStatisticsHint": "Agrégats consolidés & exportations"
   },
   "loginPage": {
     "twoFactorTitle": "Vérification en deux étapes",
@@ -423,7 +438,10 @@
     "entityStepTitle": "Type d'entité",
     "entityStepSubtitle": "Sélectionnez le type de votre entité pour accéder au formulaire ONEFOP.",
     "vtcBadge": "VTC",
-    "footerBackButton": "← Retour"
+    "footerBackButton": "← Retour",
+    "checkingEntityType": "Vérification de votre type d'entité…",
+    "checkFailedHint": "Vérification impossible — veuillez sélectionner votre type d'entité manuellement. Ce choix sera enregistré pour la prochaine fois.",
+    "noEntityTypeHint": "Aucun type d'entité n'est encore enregistré sur ce compte — sélectionnez-le une seule fois, il sera ensuite utilisé automatiquement."
   },
   "companiesDirectory": {
     "nameColumn": "Nom",
@@ -2467,5 +2485,61 @@
     "userColumn": "Utilisateur",
     "formatColumn": "Format",
     "scopeColumn": "Périmètre"
+  },
+  "homeNav": {
+    "role": {
+      "COMPANY": "Entreprise",
+      "DIVISIONAL_ADMIN": "Division du Travail",
+      "REGIONAL_ADMIN": "Délégation Régionale",
+      "ADMIN_ONEFOP": "Admin · ONEFOP",
+      "SUPER_ADMIN": "Super Admin · DSMO + ONEFOP",
+      "AUDITOR": "Auditeur"
+    },
+    "item": {
+      "home": "Accueil",
+      "declarations": "Déclarations",
+      "analytics": "Analytique",
+      "settings": "Paramètres",
+      "territorialDashboard": "Tableau de Bord Territorial",
+      "regionalDashboard": "Tableau de Bord Régional",
+      "nationalDashboard": "Tableau de Bord National",
+      "fileReview": "Instruction des Dossiers",
+      "reviewEndorsement": "Instruction & Visas",
+      "statisticsDissemination": "Statistiques & Diffusion",
+      "sectorClassification": "Nomenclature des Secteurs",
+      "onefopUsers": "Utilisateurs ONEFOP",
+      "establishmentRegister": "Répertoire des Établissements",
+      "dsmoStatistics": "Statistiques DSMO",
+      "userEntityManagement": "Gestion des Utilisateurs & Entités"
+    }
+  },
+  "homeRegistrationPendingPage": {
+    "field": {
+      "name": "Raison sociale",
+      "taxNumber": "Numéro contribuable (NIU)",
+      "mainActivity": "Activité principale",
+      "secondaryActivity": "Activité secondaire",
+      "parentCompany": "Société mère",
+      "address": "Adresse",
+      "phone": "Téléphone / WhatsApp",
+      "cnpsNumber": "Numéro CNPS",
+      "fax": "Fax"
+    },
+    "errorSubdivisionRequired": "Choisissez l'arrondissement pour déplacer le dossier.",
+    "errorEmailInUse": "Cette adresse e-mail est déjà utilisée par un autre compte.",
+    "title": "Dossier d'inscription",
+    "pendingBody": "Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu'il sera activé.",
+    "complementsIntro": "Des compléments ont été demandés :",
+    "complementsFallback": "Merci de compléter votre dossier.",
+    "loading": "Chargement de votre dossier…",
+    "loadError": "Votre dossier n'a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.",
+    "correctionIntro": "Corrigez ce qui doit l'être, puis renvoyez le dossier. Les champs inchangés sont laissés tels quels.",
+    "emailLabel": "Email",
+    "emailHint": "Votre identifiant de connexion et le contact de l'entité auprès de l'ONEFOP.",
+    "socialCapitalLabel": "Capital social (FCFA)",
+    "entityTypeLabel": "Type d'entité",
+    "notRecorded": "Non renseigné",
+    "resubmit": "Renvoyer le dossier",
+    "signOut": "Se déconnecter"
   }
 }

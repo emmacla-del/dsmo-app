@@ -472,8 +472,8 @@ function DeclarationTile({
             fontSize: 12,
             lineHeight: 1.4,
           }}>
-            <strong style={{ display: "block", marginBottom: 2 }}>⚠️ Demande de correction de l&apos;administration :</strong>
-            <span>{(entry.raw as any).rejectionReason || "Des ajustements ou compléments sont requis sur votre déclaration. Veuillez corriger et resoumettre."}</span>
+            <strong style={{ display: "block", marginBottom: 2 }}>{t("homeDeclarationsPage.correctionRequestedTitle")}</strong>
+            <span>{(entry.raw as any).rejectionReason || t("homeDeclarationsPage.correctionRequestedFallback")}</span>
           </div>
         )}
       </div>
@@ -500,7 +500,7 @@ function DeclarationTile({
             onClick={onCorrect}
             style={{ fontSize: 12, padding: "5px 12px", background: "#d97706", borderColor: "#d97706", color: "#fff", fontWeight: 600 }}
           >
-            Corriger et resoumettre
+            {t("homeDeclarationsPage.correctAndResubmit")}
           </button>
         )}
         {onContinue && (
