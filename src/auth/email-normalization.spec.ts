@@ -102,7 +102,10 @@ describe('company email normalisation', () => {
     );
 
     expect(prisma.user.create.mock.calls[0][0].data.email).toBe('contact@societe.cm');
-    expect(prisma.auditLog.create.mock.calls[0][0].data.details.email).toBe('contact@societe.cm');
+    const assisted = prisma.auditLog.create.mock.calls
+      .map((c: any[]) => c[0].data)
+      .find((d: any) => d.action === 'COMPANY_REGISTRATION_ASSISTED');
+    expect(assisted.details.email).toBe('contact@societe.cm');
   });
 });
 
