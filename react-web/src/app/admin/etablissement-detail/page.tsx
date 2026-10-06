@@ -4,9 +4,11 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
-import { entityTypeLabel, hasRealNiu, listCompanies, type Company } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel, hasRealNiu, listCompanies, type Company } from "@/lib/companies-directory";
+import { asUiLocale } from "@/lib/register-i18n";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import {
   auditActionLabel,
@@ -27,6 +29,18 @@ import {
   stamp,
 } from "@/lib/admin-data-state";
 import { AUDIT_ROLES, NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+
+// Submission statuses render with the file-detail labels (adminDossierPage);
+// an unknown status shows as stored.
+const SUBMISSION_STATUS_KEYS: Record<string, string> = {
+  PENDING_REVIEW: "adminDossierPage.statusPending",
+  APPROVED: "adminDossierPage.statusEndorsed",
+  CORRECTION_REQUESTED: "adminDossierPage.statusCorrection",
+  REJECTED: "adminDossierPage.statusRejected",
+};
+
+// Account statuses with a label under adminEtablissementPage.accountStatus.
+const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "ACTIVE", "REJECTED", "COMPLEMENTS_REQUESTED"]);
 
 // GET /companies is restricted to DIRECTORY_ROLES server-side
 // (NATIONAL_ROLES); the check here fails closed, so a role that has not
@@ -81,6 +95,11 @@ function EtablissementDetail() {
   const canReadAudit = hasRole(role, AUDIT_ROLES);
 
   const queryClient = useQueryClient();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminEtablissementPage");
+  const locale = asUiLocale(useLocale());
+  const typeDisplay = (type: string) =>
+    ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
   const [accountOpen, setAccountOpen] = useState(searchParams.get("manage") === "true");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -164,7 +183,7 @@ function EtablissementDetail() {
     mutationFn: () => suspendUser(linkedAccount!.id),
     onSuccess: () => {
       invalidate();
-      showToast("Compte suspendu.");
+      showToast(t("accountSuspended"));
     },
     onError: (e: Error) => setActionError(e.message),
   });
@@ -173,7 +192,7 @@ function EtablissementDetail() {
     mutationFn: () => activateUser(linkedAccount!.id),
     onSuccess: () => {
       invalidate();
-      showToast("Compte réactivé.");
+      showToast(t("accountReactivated"));
     },
     onError: (e: Error) => setActionError(e.message),
   });
@@ -183,7 +202,7 @@ function EtablissementDetail() {
     onSuccess: () => {
       invalidate();
       setAccountOpen(false);
-      showToast("Compte supprimé.");
+      showToast(t("accountDeleted"));
       router.push("/admin/etablissements");
     },
     onError: (e: Error) => setActionError(e.message),
@@ -194,31 +213,31 @@ function EtablissementDetail() {
     return (
       <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
         <Link href="/admin/etablissements" style={{ fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}>
-          ← Retour aux établissements
+          {t("backLink")}
         </Link>
         <div style={{ marginTop: 20, maxWidth: 820 }}>
           <DataState
             state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
-            resource="cet établissement"
+            resource={t("resource")}
             error={companyQuery.error}
             onRetry={() => companyQuery.refetch()}
             title={
               !id
-                ? "Aucun établissement demandé"
+                ? t("noIdTitle")
                 : pageState === "forbidden"
-                  ? "Accès non autorisé"
+                  ? t("accessDenied")
                   : pageState === "error"
                     ? undefined
-                    : "Établissement introuvable"
+                    : t("notFoundTitle")
             }
             hint={
               !id
-                ? "Ouvrez une fiche depuis le répertoire des établissements."
+                ? t("noIdHint")
                 : pageState === "forbidden"
-                  ? "Le répertoire des établissements est réservé aux administrateurs plateforme."
+                  ? t("accessDeniedHint")
                   : pageState === "error"
                     ? undefined
-                    : "Aucun établissement enregistré ne porte cet identifiant."
+                    : t("notFoundHint")
             }
           />
         </div>
@@ -238,12 +257,12 @@ function EtablissementDetail() {
       <AdminPageHeader
         backHref="/admin/etablissements"
         breadcrumb={[
-          { label: "Déclarants" },
-          { label: "Établissements", href: "/admin/etablissements" },
+          { label: tRoot("adminNav.hubs.declarants") },
+          { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
           { label: shortName ?? NOT_PROVIDED },
         ]}
-        title={shortName ?? "Établissement"}
-        subtitle="Registre officiel et détails de l'établissement"
+        title={shortName ?? t("titleFallback")}
+        subtitle={t("subtitle")}
         hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
       />
@@ -252,7 +271,7 @@ function EtablissementDetail() {
       {toastMessage && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{toastMessage}</span>
-          <button type="button" onClick={() => setToastMessage(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#065f46" }}>×</button>
+          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#065f46" }}>×</button>
         </div>
       )}
 
@@ -272,7 +291,7 @@ function EtablissementDetail() {
               </h1>
               {company.entityType && (
                 <span style={{ fontSize: 11, background: "rgba(0, 122, 94, 0.08)", color: "#004d3d", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>
-                  {entityTypeLabel(company.entityType)}
+                  {typeDisplay(company.entityType)}
                 </span>
               )}
               {/* Account state, or an explicit "no linked account". */}
@@ -286,13 +305,13 @@ function EtablissementDetail() {
                   fontWeight: 600,
                 }}
               >
-                {!linkedAccount ? "AUCUN COMPTE LIÉ" : isSuspended ? "COMPTE SUSPENDU" : "COMPTE ACTIF"}
+                {!linkedAccount ? t("badgeNoAccount") : isSuspended ? t("badgeSuspended") : t("badgeActive")}
               </span>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-              Identifiant : <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.establishmentId)}</strong>
+              {t("idLabel")} <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.establishmentId)}</strong>
               {" | "}
-              Activité principale : <strong style={{ color: "#111827" }}>{fact(company.mainActivity)}</strong>
+              {t("mainActivityLabel")} <strong style={{ color: "#111827" }}>{fact(company.mainActivity)}</strong>
             </p>
           </div>
 
@@ -306,7 +325,7 @@ function EtablissementDetail() {
                 onClick={() => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate())}
                 style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #fca5a5", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#b91c1c", cursor: "pointer" }}
               >
-                {isSuspended ? "Réactiver le compte" : "Suspendre le compte"}
+                {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
               </button>
             )}
           </div>
@@ -319,54 +338,54 @@ function EtablissementDetail() {
           {/* Identification: Company model fields only. */}
           <section style={CARD}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Informations Générales
+              {t("generalInfoTitle")}
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-              <Field label="Raison sociale" value={company.name} />
-              <Field label="Type d'entité" value={company.entityType ? entityTypeLabel(company.entityType) : null} />
-              <Field label="N° d'enregistrement (agrément)" value={company.registrationNumber} />
-              <Field label="Numéro fiscal (NIU)" value={hasRealNiu(company.taxNumber) ? company.taxNumber : null} />
-              <Field label="Numéro CNPS" value={company.cnpsNumber} />
-              <Field label="Identifiant établissement" value={company.establishmentId} />
-              <Field label="Année de création" value={company.yearOfCreation} />
-              <Field label="Forme juridique" value={company.legalStatus} />
-              <Field label="Taille" value={company.enterpriseSize} />
-              <Field label="Activité principale" value={company.mainActivity} />
-              <Field label="Secteur" value={company.sector?.name} />
-              <Field label="Téléphone" value={company.phone} />
-              <Field label="Adresse" value={company.address} />
-              <Field label="Région" value={company.region} />
-              <Field label="Département" value={company.department} />
-              <Field label="Arrondissement" value={company.subdivision} />
+              <Field label={t("field.name")} value={company.name} />
+              <Field label={t("field.entityType")} value={company.entityType ? typeDisplay(company.entityType) : null} />
+              <Field label={t("field.registrationNumber")} value={company.registrationNumber} />
+              <Field label={t("field.taxNumber")} value={hasRealNiu(company.taxNumber) ? company.taxNumber : null} />
+              <Field label={t("field.cnpsNumber")} value={company.cnpsNumber} />
+              <Field label={t("field.establishmentId")} value={company.establishmentId} />
+              <Field label={t("field.yearOfCreation")} value={company.yearOfCreation} />
+              <Field label={t("field.legalStatus")} value={company.legalStatus} />
+              <Field label={t("field.size")} value={company.enterpriseSize} />
+              <Field label={t("field.mainActivity")} value={company.mainActivity} />
+              <Field label={t("field.sector")} value={company.sector?.name} />
+              <Field label={t("field.phone")} value={company.phone} />
+              <Field label={t("field.address")} value={company.address} />
+              <Field label={t("field.region")} value={company.region} />
+              <Field label={t("field.department")} value={company.department} />
+              <Field label={t("field.subdivision")} value={company.subdivision} />
               <Field
-                label="Responsable désigné"
+                label={t("field.contactPerson")}
                 value={respondent ? `${respondent}${company.respondentFunction ? ` — ${company.respondentFunction}` : ""}` : null}
               />
-              <Field label="Téléphone du responsable" value={company.respondentPhone} />
+              <Field label={t("field.contactPhone")} value={company.respondentPhone} />
             </div>
           </section>
 
           {/* Workforce as last declared on the Company record. */}
           <section style={CARD}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Effectifs déclarés
+              {t("workforceTitle")}
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
               <div>
-                <div style={KEY}>Effectif total</div>
-                <div style={VAL}>{count(company.totalEmployees)}</div>
+                <div style={KEY}>{t("workforceTotal")}</div>
+                <div style={VAL}>{count(company.totalEmployees, locale)}</div>
               </div>
               <div>
-                <div style={KEY}>Hommes</div>
-                <div style={VAL}>{count(company.menCount)}</div>
+                <div style={KEY}>{t("men")}</div>
+                <div style={VAL}>{count(company.menCount, locale)}</div>
               </div>
               <div>
-                <div style={KEY}>Femmes</div>
-                <div style={VAL}>{count(company.womenCount)}</div>
+                <div style={KEY}>{t("women")}</div>
+                <div style={VAL}>{count(company.womenCount, locale)}</div>
               </div>
               <div>
-                <div style={KEY}>Effectif exercice précédent</div>
-                <div style={VAL}>{count(company.lastYearTotal)}</div>
+                <div style={KEY}>{t("workforceLastYear")}</div>
+                <div style={VAL}>{count(company.lastYearTotal, locale)}</div>
               </div>
             </div>
           </section>
@@ -375,14 +394,14 @@ function EtablissementDetail() {
           <section style={CARD}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
-                Historique des Soumissions{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total)})` : ""}
+                {t("submissionHistoryTitle")}{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}
               </h2>
               {company && (
                 <Link
                   href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}
                   style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
                 >
-                  Tous les dossiers →
+                  {t("allFilesLink")}
                 </Link>
               )}
             </div>
@@ -391,11 +410,11 @@ function EtablissementDetail() {
               <DataState
                 dense
                 state={submissionsState}
-                resource="l'historique des soumissions"
+                resource={t("submissionsResource")}
                 error={submissionsQuery.error}
                 onRetry={() => submissionsQuery.refetch()}
-                title={submissionsState === "empty" ? "Aucune déclaration soumise" : undefined}
-                hint={submissionsState === "empty" ? "Cet établissement n'a pas encore soumis de déclaration administrative." : undefined}
+                title={submissionsState === "empty" ? t("noSubmissionTitle") : undefined}
+                hint={submissionsState === "empty" ? t("noSubmissionHint") : undefined}
               />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -417,7 +436,7 @@ function EtablissementDetail() {
                         {sub.submissionId || sub.id}
                       </div>
                       <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                        Reçu le {stamp(sub.submissionDate || sub.createdAt)} • Type : {entityTypeLabel(sub.formType)}
+                        {t("receivedLine", { date: stamp(sub.submissionDate || sub.createdAt, true, locale), type: typeDisplay(sub.formType) })}
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -445,7 +464,7 @@ function EtablissementDetail() {
                                   : "#475569",
                         }}
                       >
-                        {sub.status}
+                        {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
                       </span>
                       <Link
                         href={`/admin/dossiers/${encodeURIComponent(sub.id)}`}
@@ -460,7 +479,7 @@ function EtablissementDetail() {
                           border: "1px solid #cbd5e1",
                         }}
                       >
-                        Consulter
+                        {t("openLink")}
                       </Link>
                     </div>
                   </div>
@@ -475,15 +494,15 @@ function EtablissementDetail() {
           {/* Exactly one account can be linked: Company.user is singular. */}
           <section style={CARD}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Compte Utilisateur Rattaché
+              {t("linkedAccountTitle")}
             </h2>
             {!linkedAccount ? (
               <DataState
                 dense
                 state="empty"
-                resource="le compte rattaché"
-                title="Aucun compte rattaché"
-                hint="Cet établissement n'a pas de compte utilisateur enregistré."
+                resource={t("linkedAccountResource")}
+                title={t("noLinkedAccountTitle")}
+                hint={t("noLinkedAccountHint")}
               />
             ) : (
               <button
@@ -507,7 +526,13 @@ function EtablissementDetail() {
                       /companies returns only id, email, status and
                       isActive for the linked user. */}
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fact(linkedAccount.email)}</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Statut : {fact(linkedAccount.status)}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    {t("accountStatusLine", {
+                      status: ACCOUNT_STATUS_CODES.has(linkedAccount.status ?? "")
+                        ? t(`accountStatus.${linkedAccount.status}`)
+                        : fact(linkedAccount.status),
+                    })}
+                  </div>
                 </div>
                 <span
                   style={{
@@ -519,7 +544,7 @@ function EtablissementDetail() {
                     fontWeight: 700,
                   }}
                 >
-                  {linkedAccount.isActive ? "ACTIF" : "INACTIF"}
+                  {linkedAccount.isActive ? t("activeBadge") : t("inactiveBadge")}
                 </span>
               </button>
             )}
@@ -533,18 +558,18 @@ function EtablissementDetail() {
               so none is shown. */}
           <section style={CARD}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Informations du Compte
+              {t("accountInfoTitle")}
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-              <Field label="Date d'enregistrement" value={stamp(company.createdAt, false)} />
+              <Field label={t("registrationDate")} value={stamp(company.createdAt, false, locale)} />
             </div>
             <div style={{ marginTop: 14 }}>
               <DataState
                 dense
                 state="unavailable"
-                resource="les métadonnées d'inscription"
-                title="Métadonnées d'inscription non conservées"
-                hint="Le système n'enregistre ni l'agent créateur, ni le mode d'inscription, ni l'adresse IP, ni la géolocalisation, ni l'état de vérification documentaire de cet établissement."
+                resource={t("metadataResource")}
+                title={t("metadataTitle")}
+                hint={t("metadataHint")}
               />
             </div>
           </section>
@@ -552,37 +577,37 @@ function EtablissementDetail() {
           {/* Real audit entries for the linked account. */}
           <section style={CARD}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Journal d&apos;Audit
+              {t("auditTitle")}
             </h2>
             {!linkedAccount ? (
               <DataState
                 dense
                 state="empty"
-                resource="le journal d'audit"
-                title="Aucun compte rattaché"
-                hint="Les événements d'audit sont rattachés au compte utilisateur de l'établissement."
+                resource={t("auditResource")}
+                title={t("noLinkedAccountTitle")}
+                hint={t("auditNoAccountHint")}
               />
             ) : auditState !== "ready" ? (
               <DataState
                 dense
                 state={auditState}
-                resource="le journal d'audit"
+                resource={t("auditResource")}
                 error={auditQuery.error}
                 onRetry={() => auditQuery.refetch()}
                 title={
                   auditState === "empty"
-                    ? "Aucun historique d'audit disponible"
+                    ? t("auditEmptyTitle")
                     : auditState === "forbidden"
-                      ? "Journal d'audit non accessible à votre rôle"
+                      ? t("auditForbiddenTitle")
                       : undefined
                 }
-                hint={auditState === "empty" ? "Les événements enregistrés apparaîtront ici." : undefined}
+                hint={auditState === "empty" ? t("auditEmptyHint") : undefined}
               />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
                 {(auditQuery.data?.items ?? []).map((e) => (
                   <div key={e.id}>
-                    <div style={{ color: "#6b7280" }}>{stamp(e.timestamp)}</div>
+                    <div style={{ color: "#6b7280" }}>{stamp(e.timestamp, true, locale)}</div>
                     <div style={{ fontWeight: 600, color: "#111827" }}>{auditActorName(e)}</div>
                     <div style={{ color: "#4b5563" }}>{auditActionLabel(e.action)}</div>
                     <div style={{ color: "#6b7280" }}>{auditDetailsSummary(e)}</div>
@@ -596,7 +621,7 @@ function EtablissementDetail() {
                     href={`/admin/journal-audit?resourceId=${encodeURIComponent(linkedAccount.id)}`}
                     style={{ fontSize: 13, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
                   >
-                    Voir le journal complet →
+                    {t("fullLogLink")}
                   </Link>
                 </div>
               </div>
@@ -615,22 +640,22 @@ function EtablissementDetail() {
         open={accountOpen && !!linkedAccount}
         onClose={() => setAccountOpen(false)}
         wide
-        title="Gestion du Compte Utilisateur"
+        title={t("manageTitle")}
         eyebrow={
           <div style={{ color: "#4b5563", textTransform: "none", fontWeight: 500, fontSize: 13, marginBottom: 4, letterSpacing: "normal" }}>
             <span style={{ fontWeight: 600, color: "#111827" }}>{fact(linkedAccount?.email)}</span>
             <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-              {fact(shortName)} — enregistré le {stamp(company.createdAt, false)}
+              {t("registeredOn", { name: fact(shortName), date: stamp(company.createdAt, false, locale) })}
             </div>
           </div>
         }
         footer={
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
             <span style={{ fontSize: 12, color: "#6b7280" }}>
-              Les actions effectuées sont consignées au journal d&apos;audit.
+              {t("actionsLogged")}
             </span>
             <button type="button" className="cam-button cam-button-secondary" onClick={() => setAccountOpen(false)} style={{ padding: "8px 18px", borderRadius: 6 }}>
-              Fermer
+              {t("closeButton")}
             </button>
           </div>
         }
@@ -646,22 +671,22 @@ function EtablissementDetail() {
             <DataState
               dense
               state="forbidden"
-              resource="la gestion du compte"
-              title="Gestion du compte réservée au super-administrateur plateforme"
+              resource={t("manageResource")}
+              title={t("manageForbidden")}
             />
           ) : (
             <>
               <div>
-                <div style={{ ...KEY, marginBottom: 12 }}>ACTIONS SUR LE COMPTE</div>
+                <div style={{ ...KEY, marginBottom: 12 }}>{t("accountActions")}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6, gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
-                      {isSuspended ? "Réactiver le compte" : "Suspendre le compte"}
+                      {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
                     </div>
                     <div style={{ fontSize: 12, color: "#6b7280" }}>
                       {isSuspended
-                        ? "Le titulaire pourra à nouveau se connecter et déclarer."
-                        : "Le titulaire ne pourra plus se connecter. Les données sont conservées."}
+                        ? t("reactivateHint")
+                        : t("suspendHint")}
                     </div>
                   </div>
                   <button
@@ -671,32 +696,32 @@ function EtablissementDetail() {
                     style={{ padding: "6px 14px", background: isSuspended ? "#004d3d" : "#d97706", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
                     {suspendMutation.isPending || activateMutation.isPending
-                      ? "Enregistrement…"
+                      ? t("saving")
                       : isSuspended
-                        ? "Réactiver"
-                        : "Suspendre"}
+                        ? t("reactivate")
+                        : t("suspend")}
                   </button>
                 </div>
               </div>
 
               <div>
-                <div style={{ ...KEY, marginBottom: 8 }}>HISTORIQUE DES CONNEXIONS</div>
+                <div style={{ ...KEY, marginBottom: 8 }}>{t("signInHistory")}</div>
                 <DataState
                   dense
                   state="unavailable"
-                  resource="l'historique des connexions"
-                  title="Connexions non journalisées"
-                  hint="Le système n'enregistre ni les connexions réussies, ni les tentatives échouées, ni les appareils utilisés pour ce compte."
+                  resource={t("signInResource")}
+                  title={t("signInTitle")}
+                  hint={t("signInHint")}
                 />
               </div>
 
               <div style={{ border: "1px solid #fecaca", borderRadius: 8, padding: 14, background: "#fff5f5" }}>
-                <div style={{ ...KEY, color: "#dc2626", marginBottom: 10 }}>ZONE DANGEREUSE</div>
+                <div style={{ ...KEY, color: "#dc2626", marginBottom: 10 }}>{t("dangerZone")}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Supprimer le compte</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{t("deleteAccount")}</div>
                     <div style={{ fontSize: 12, color: "#6b7280" }}>
-                      Suppression définitive du compte utilisateur. Cette action est irréversible.
+                      {t("deleteHint")}
                     </div>
                   </div>
                   <button
@@ -705,7 +730,7 @@ function EtablissementDetail() {
                     onClick={() => deleteMutation.mutate()}
                     style={{ padding: "6px 14px", background: "#ffffff", color: "#b91c1c", border: "1px solid #ef4444", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
-                    {deleteMutation.isPending ? "Suppression…" : "Supprimer"}
+                    {deleteMutation.isPending ? t("deleting") : t("delete")}
                   </button>
                 </div>
               </div>

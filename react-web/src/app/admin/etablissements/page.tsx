@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import {
+  ENTITY_TYPE_OPTION_KEYS,
   listCompanies,
   getCompanyStats,
   entityTypeLabel,
   type Company,
 } from "@/lib/companies-directory";
+import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
 import { DIRECTORY_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -47,10 +50,6 @@ const ENTITY_TYPE_VALUES = [
   "VOCATIONAL_TRAINING",
 ];
 
-const ENTITY_TYPES = [
-  { value: "ALL", label: "Tous" },
-  ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: entityTypeLabel(value) })),
-];
 
 // Only states a linked account can actually be in, derived from User.status /
 // User.isActive. "Incomplet" was offered but no record ever carries it, so
@@ -60,11 +59,12 @@ const ENTITY_TYPES = [
 // server as-is. SUSPENDED is not a UserStatus at all — suspension is
 // User.isActive === false — so GET /companies has no way to express it and
 // it stays a page-local narrowing. See SERVER_FILTERABLE_STATUSES.
+// `labelKey` is under adminEtablissementsPage.
 const ACCOUNT_STATUSES = [
-  { value: "ALL", label: "Tous" },
-  { value: "ACTIVE", label: "Actif" },
-  { value: "PENDING_APPROVAL", label: "En attente" },
-  { value: "SUSPENDED", label: "Suspendu" },
+  { value: "ALL", labelKey: "allMasculine" },
+  { value: "ACTIVE", labelKey: "status.ACTIF" },
+  { value: "PENDING_APPROVAL", labelKey: "status.EN_ATTENTE" },
+  { value: "SUSPENDED", labelKey: "status.SUSPENDU" },
 ];
 
 const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL"];
@@ -83,6 +83,7 @@ interface EtabItem {
   companyId: string;
   name: string | null;
   type: string | null;
+  /** French label, for the CSV export (whose columns do not follow the locale). */
   typeLabel: string | null;
   identifier: string | null;
   regionCity: string | null;
@@ -91,6 +92,8 @@ interface EtabItem {
   status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
 }
 
+// French status values for the CSV export. On screen the status renders
+// through adminEtablissementsPage.status.<code>.
 const STATUS_LABELS: Record<EtabItem["status"], string> = {
   ACTIF: "Actif",
   EN_ATTENTE: "En attente",
@@ -100,6 +103,11 @@ const STATUS_LABELS: Record<EtabItem["status"], string> = {
 
 export default function EtablissementsPage() {
   const router = useRouter();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminEtablissementsPage");
+  const locale = asUiLocale(useLocale());
+  const typeDisplay = (type: string) =>
+    ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
   const role = useAuthStore((s) => s.user?.role);
   // Fails closed: an unknown or not-yet-loaded role is not authorised. The
   // previous `!role ||` made a missing role read as permitted.
@@ -290,9 +298,9 @@ export default function EtablissementsPage() {
     <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
       {/* Top Header matching Figma */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Déclarants" }, { label: "Établissements" }]}
-        title="Établissements"
-        subtitle="Registre des entités déclarantes et gestion des comptes"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.declarants") }, { label: tRoot("adminNav.routes.etablissements") }]}
+        title={tRoot("adminNav.routes.etablissements")}
+        subtitle={t("subtitle")}
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />}
       />
 
@@ -319,7 +327,7 @@ export default function EtablissementsPage() {
             }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exporter
+            {t("exportButton")}
           </button>
           <button
             type="button"
@@ -342,7 +350,7 @@ export default function EtablissementsPage() {
               boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
             }}
           >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Nouvelle inscription
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> {tRoot("adminNav.routes.nouvelleInscription")}
           </button>
         </div>
       </div>
@@ -351,49 +359,49 @@ export default function EtablissementsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            TOTAL ÉTABLISSEMENTS
+            {t("kpiTotal")}
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading || statsQuery.isLoading ? "…" : count(totalEtablissements)}
+            {companyStatsQuery.isLoading || statsQuery.isLoading ? "…" : count(totalEtablissements, locale)}
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            Entités enregistrées au répertoire
+            {t("kpiTotalHint")}
           </div>
         </div>
 
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            COMPTES ACTIFS
+            {t("kpiActive")}
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.active)}
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.active, locale)}
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            Comptes déclarants validés et actifs
+            {t("kpiActiveHint")}
           </div>
         </div>
 
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            EN ATTENTE DE VALIDATION
+            {t("kpiPending")}
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.pendingValidation)}
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.pendingValidation, locale)}
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            Dossiers soumis en attente d&apos;approbation
+            {t("kpiPendingHint")}
           </div>
         </div>
 
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            COMPTES SUSPENDUS
+            {t("kpiSuspended")}
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.suspended)}
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.suspended, locale)}
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            Comptes désactivés ou suspendus
+            {t("kpiSuspendedHint")}
           </div>
         </div>
       </div>
@@ -403,43 +411,44 @@ export default function EtablissementsPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              TYPE D&apos;ÉTABLISSEMENT
+              {t("typeFilterLabel")}
             </label>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
             >
-              {ENTITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              <option value="ALL">{t("allMasculine")}</option>
+              {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{typeDisplay(value)}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              RÉGION
+              {t("regionFilterLabel")}
             </label>
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
               style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
             >
-              {CAMEROON_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              {CAMEROON_REGIONS.map((r) => <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              STATUT DU COMPTE
+              {t("statusFilterLabel")}
             </label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
             >
-              {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              RECHERCHE LIBRE
+              {t("searchLabel")}
             </label>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }}>
@@ -447,7 +456,7 @@ export default function EtablissementsPage() {
               </span>
               <input
                 type="text"
-                placeholder="Rechercher…"
+                placeholder={t("searchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, paddingLeft: 32, paddingRight: 10, fontSize: 13, color: "#111827", boxSizing: "border-box" }}
@@ -463,30 +472,26 @@ export default function EtablissementsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Établissement</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Identifiant</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Région / Ville</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Responsable</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Date d&apos;inscription</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("establishmentColumn")}</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("idColumn")}</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("regionCityColumn")}</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("contactColumn")}</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("registrationDateColumn")}</th>
                 {/* "Créé par" removed: the Company model records no creator,
                     so the column could only ever be filled with a guess. */}
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Statut du compte</th>
-                <th scope="col" style={{ padding: "12px 12px", textAlign: "right", fontWeight: 600 }}>Actions</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("accountStatusColumn")}</th>
+                <th scope="col" style={{ padding: "12px 12px", textAlign: "right", fontWeight: 600 }}>{t("actionsColumn")}</th>
               </tr>
             </thead>
             <tbody>
               <DataStateRow
                 colSpan={7}
                 state={tableState}
-                resource="le répertoire des établissements"
+                resource={t("registerResource")}
                 error={companiesQuery.error}
                 onRetry={() => companiesQuery.refetch()}
-                title={tableState === "empty" ? "Aucun établissement trouvé" : undefined}
-                hint={
-                  tableState === "empty"
-                    ? "Aucun établissement ne correspond à la recherche en cours."
-                    : undefined
-                }
+                title={tableState === "empty" ? t("noEstablishmentTitle") : undefined}
+                hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
               />
               {filteredRows.map((item) => (
                 <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: 13, height: 58 }}>
@@ -498,7 +503,7 @@ export default function EtablissementsPage() {
                       {item.name ?? NOT_PROVIDED}
                     </Link>
                     {/* Entity type badge only when the record carries one. */}
-                    {item.typeLabel && (
+                    {item.type && item.typeLabel && (
                       <div style={{ marginTop: 4 }}>
                         <span
                           style={{
@@ -510,7 +515,7 @@ export default function EtablissementsPage() {
                             fontWeight: 600,
                           }}
                         >
-                          {item.typeLabel}
+                          {typeDisplay(item.type)}
                         </span>
                       </div>
                     )}
@@ -525,36 +530,36 @@ export default function EtablissementsPage() {
                     {item.responsable ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {stamp(item.dateInscription, false)}
+                    {stamp(item.dateInscription, false, locale)}
                   </td>
                   <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                     {item.status === "ACTIF" && (
                       <span style={{ fontSize: 11, background: "#1e6b3a", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        Actif
+                        {t("status.ACTIF")}
                       </span>
                     )}
                     {item.status === "EN_ATTENTE" && (
                       <span style={{ fontSize: 11, background: "#d97706", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        En attente
+                        {t("status.EN_ATTENTE")}
                       </span>
                     )}
                     {/* A company with no linked account is reported as such,
                         not folded into "suspendu". */}
                     {item.status === "INCONNU" && (
                       <span style={{ fontSize: 11, background: "#e2e8f0", color: "#475569", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        {STATUS_LABELS.INCONNU}
+                        {t("status.INCONNU")}
                       </span>
                     )}
                     {item.status === "SUSPENDU" && (
                       <span style={{ fontSize: 11, background: "#b91c1c", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        Suspendu
+                        {t("status.SUSPENDU")}
                       </span>
                     )}
                   </td>
                   <td style={{ padding: "12px 12px", textAlign: "right", position: "relative" }}>
                     <button
                       type="button"
-                      aria-label="Actions"
+                      aria-label={t("actionsAriaLabel")}
                       onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
                       style={{
                         background: "none",
@@ -602,7 +607,7 @@ export default function EtablissementsPage() {
                             cursor: "pointer",
                           }}
                         >
-                          Voir les détails
+                          {t("viewDetails")}
                         </button>
                         <button
                           type="button"
@@ -621,7 +626,7 @@ export default function EtablissementsPage() {
                             cursor: "pointer",
                           }}
                         >
-                          Gérer les utilisateurs
+                          {t("manageUsers")}
                         </button>
                       </div>
                     )}
@@ -638,10 +643,10 @@ export default function EtablissementsPage() {
             {companiesQuery.isLoading
               ? "…"
               : localNarrowing
-                ? `${filteredRows.length} sur ${rawRows.length} établissement(s) de cette page (type / suspendu filtrés localement)`
+                ? t("localNarrowing", { shown: filteredRows.length, page: rawRows.length })
                 : filteredTotal === null
                   ? NOT_PROVIDED
-                  : `Affichage ${rangeFrom}-${rangeTo} sur ${count(filteredTotal)} établissement(s)`}
+                  : t("showingRange", { from: rangeFrom, to: rangeTo, total: count(filteredTotal, locale) })}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
@@ -658,7 +663,7 @@ export default function EtablissementsPage() {
                 cursor: page <= 1 ? "not-allowed" : "pointer",
               }}
             >
-              Précédent
+              {t("previousButton")}
             </button>
             {pageWindow.map((n) => (
               <button
@@ -699,7 +704,7 @@ export default function EtablissementsPage() {
                 fontWeight: 500,
               }}
             >
-              Suivant
+              {t("nextButton")}
             </button>
           </div>
         </div>
