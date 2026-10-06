@@ -96,7 +96,7 @@ function CiblesContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Cibles et couverture" }]}
+        breadcrumb={[{ label: "Collecte" }, { label: "Quotas et retours" }]}
         title="Cibles et couverture"
         subtitle="Quotas des campagnes ONEFOP, couverture du répertoire et suivi des retours."
         actions={<AdminHeaderActions />}

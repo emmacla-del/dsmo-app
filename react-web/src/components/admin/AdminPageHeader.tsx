@@ -125,9 +125,8 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   const allowedSubRoutes = activeHub.subRoutes.filter((sub) => !sub.hidden && isRoleAllowed(sub.allowedRoles, role));
   if (allowedSubRoutes.length <= 1) return null;
 
-  const pendingCount =
-    (queuesQuery.data?.blockingAnomaliesCount ?? 0) +
-    (queuesQuery.data?.pendingNationalVisasCount ?? 0);
+  // Same split as the sidebar: visas on "pending", anomalies on "anomalies".
+  const pendingCount = queuesQuery.data?.pendingNationalVisasCount ?? 0;
   const anomaliesCount = queuesQuery.data?.blockingAnomaliesCount ?? 0;
 
   return (

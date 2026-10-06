@@ -103,7 +103,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
     { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
-    { slug: "annuaire", label: "Répertoire des Établissements", route: "/home/annuaire" },
+    { slug: "annuaire", label: "Répertoire des Établissements", route: "/admin/annuaire" },
     { slug: "analytics-dsmo", label: "Statistiques DSMO" },
   ],
   SUPER_ADMIN: [
@@ -112,7 +112,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
     { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
-    { slug: "annuaire", label: "Gestion des Utilisateurs & Entités", route: "/home/annuaire" },
+    { slug: "annuaire", label: "Gestion des Utilisateurs & Entités", route: "/admin/annuaire" },
   ],
   // AUDITOR had no _buildTabs branch in Flutter and fell through to the
   // default. Commit 2 gives it an explicit (empty) nav profile.

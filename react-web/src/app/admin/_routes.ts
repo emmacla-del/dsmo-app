@@ -60,11 +60,15 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/pilotage",
     iconName: "dashboard",
     badgeKey: "pending",
-    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/cibles"],
+    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/equipe"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
       { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
-      { label: "Cibles et couverture", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
+      // Territorial admin monitoring (Phase 4 of the territorial admin
+      // monitoring plan). Moved here from Administration: it follows the
+      // agents' daily work, it does not configure anything — and it was the
+      // only reason REGIONAL_ADMIN saw an Administration hub at all.
+      { label: "Administrateurs territoriaux", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
     ],
   },
   {
@@ -73,9 +77,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/campagnes",
     iconName: "collecte",
     allowedRoles: APPROVAL_ROLES,
-    matchPrefixes: ["/admin/campagnes", "/admin/questionnaires"],
+    matchPrefixes: ["/admin/campagnes", "/admin/cibles", "/admin/questionnaires"],
     subRoutes: [
       { label: "Campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
+      // Moved here from Supervision: quotas are set per campaign and returns
+      // are measured against them, so they sit next to the campaign list.
+      { label: "Quotas et retours", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
       { label: "Questionnaires", href: "/admin/questionnaires", allowedRoles: APPROVAL_ROLES },
     ],
   },
@@ -97,7 +104,9 @@ export const ADMIN_HUBS: AdminHub[] = [
       // it.
       { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES, hidden: true },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
-      { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
+      // Annuaire moved to Administration: it is account administration, and
+      // its page admits USER_ADMIN_ROLES only — listed here under
+      // DIRECTORY_ROLES, it showed territorial roles a link that refused them.
       // Detail pages reached from Établissements. Listed so getAllowedRoles()
       // has roles to gate them with — unlisted, RequireAdminRole found no
       // match and let any staff role through, AUDITOR included. `hidden`
@@ -148,13 +157,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/utilisateurs",
     iconName: "settings",
     // Visible only if user role has at least one administrative permission
-    allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...MONITORING_ROLES],
-    matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit", "/admin/equipe"],
+    allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...SETTINGS_ROLES],
+    matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/annuaire", "/admin/journal-audit"],
     subRoutes: [
       { label: "Utilisateurs", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
-      // Territorial admin monitoring (Phase 4 of the territorial admin
-      // monitoring plan). REGIONAL_ADMIN reaches this hub through it alone.
-      { label: "Administrateurs territoriaux", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
+      // Formerly /home/annuaire under Déclarants, outside the console shell.
+      { label: "Annuaire", href: "/admin/annuaire", allowedRoles: USER_ADMIN_ROLES },
       { label: "Traçabilité", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
       // The caller's own notification inbox, reached from the header bell.
