@@ -342,7 +342,7 @@ export default function EtablissementsPage() {
               boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
             }}
           >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Nouvel Établissement
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Nouvelle inscription
           </button>
         </div>
       </div>

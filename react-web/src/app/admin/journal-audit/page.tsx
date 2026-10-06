@@ -238,7 +238,7 @@ function JournalAuditContent() {
       {/* ── Top Header matching Figma administration/journal-audit.png ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Administration" }, { label: "Journal d'audit" }]}
-        title="Journal d'Audit Systémique"
+        title="Journal d'audit"
       />
 
       {/* ── Filter Bar matching Figma ── */}

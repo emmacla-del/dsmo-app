@@ -112,7 +112,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // match and let any staff role through, AUDITOR included. `hidden`
       // keeps them out of the sidebar and the sub-navigation tabs.
       { label: "Détail établissement", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_ROLES, hidden: true },
-      { label: "Approbation établissement", href: "/admin/etablissement-detail/approbation", allowedRoles: DIRECTORY_ROLES, hidden: true },
+      { label: "Validation du compte", href: "/admin/etablissement-detail/approbation", allowedRoles: DIRECTORY_ROLES, hidden: true },
     ],
   },
   {

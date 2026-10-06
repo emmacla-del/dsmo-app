@@ -202,7 +202,7 @@ function CentreQualiteContent() {
           today, so a REGIONAL_ADMIN cannot widen past its own ressort). */}
       <AdminPageHeader
         breadcrumb={[{ label: "Contrôle Qualité" }, { label: "Centre Qualité" }]}
-        title="Centre de Contrôle de Qualité"
+        title="Centre Qualité"
         actions={<AdminHeaderActions />}
         tabs={QUALITE_TABS.map((item) => ({
           label: item.label,
@@ -473,7 +473,7 @@ function CentreQualiteContent() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
               <div>
                 <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                  Registre des Contrôles &amp; Anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
+                  Registre des anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
                 </h2>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
                   Tableau d&apos;instruction détaillé des anomalies détectées sur les déclarations soumises.
