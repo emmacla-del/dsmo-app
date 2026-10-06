@@ -1153,5 +1153,86 @@
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "decrease": "Diminuer",
     "increase": "Augmenter"
+  },
+  "adminNav": {
+    "hubs": {
+      "supervision": "Supervision",
+      "collecte": "Collecte",
+      "declarants": "Déclarants",
+      "qualite": "Contrôle Qualité",
+      "donnees": "Données",
+      "administration": "Administration"
+    },
+    "routes": {
+      "pilotage": "Tableau de bord",
+      "dossiers": "Dossiers",
+      "equipe": "Équipe territoriale",
+      "campagnes": "Campagnes",
+      "cibles": "Quotas et retours",
+      "questionnaires": "Questionnaires",
+      "inscriptions": "Inscriptions",
+      "nouvelleInscription": "Nouvelle inscription",
+      "etablissements": "Établissements",
+      "etablissementDetail": "Détail établissement",
+      "centreQualite": "Centre Qualité",
+      "diffusion": "Exports",
+      "sectors": "Nomenclatures",
+      "utilisateurs": "Utilisateurs & rôles",
+      "annuaire": "Annuaire",
+      "journalAudit": "Journal d'audit",
+      "parametres": "Paramètres",
+      "notifications": "Notifications"
+    }
+  },
+  "adminLayout": {
+    "sectorsSubtitle": "Nomenclature nationale des métiers et secteurs d'activité",
+    "accessDeniedTitle": "Accès restreint",
+    "accessDeniedMessage": "Cette console d'administration est réservée aux agents et auditeurs accrédités du MINEFOP.",
+    "backToPortal": "← Retour au portail",
+    "defaultDisplayName": "Compte agent",
+    "defaultRoleLabel": "Agent",
+    "openMenuAriaLabel": "Ouvrir le menu",
+    "closeMenuAriaLabel": "Fermer le menu"
+  },
+  "adminSidebar": {
+    "navAriaLabel": "Navigation principale",
+    "brandSubtitle": "Observatoire National",
+    "badgeAriaLabel": "{count, plural, one {# élément} other {# éléments}}",
+    "logoutButton": "Se déconnecter"
+  },
+  "adminHeaderActions": {
+    "noActiveCampaign": "Aucune campagne active",
+    "campaignCode": "Campagne {code}",
+    "campaignQuarter": "Campagne {year}-T{quarter}",
+    "scopeTitle": "Ressort territorial",
+    "scopeChip": "Ressort : {scope}",
+    "searchPlaceholder": "Rechercher...",
+    "searchAriaLabel": "Recherche",
+    "searchTitle": "Rechercher",
+    "flagAriaLabel": "Cameroun",
+    "flagTitle": "République du Cameroun"
+  },
+  "adminPageHeader": {
+    "breadcrumbAriaLabel": "Fil d'Ariane",
+    "subNavAriaLabel": "Sous-navigation",
+    "backAriaLabel": "Retour"
+  },
+  "adminDialog": {
+    "closeAriaLabel": "Fermer"
+  },
+  "notificationBell": {
+    "title": "Notifications",
+    "buttonLabel": "{count, plural, =0 {Notifications} one {Notifications (# non lue)} other {Notifications (# non lues)}}",
+    "loadError": "Impossible de charger les notifications.",
+    "empty": "Aucune notification.",
+    "unreadAriaLabel": "Non lue",
+    "viewAll": "Voir tout"
+  },
+  "adminError": {
+    "title": "Une erreur est survenue lors du chargement",
+    "fallbackMessage": "Le module d'administration n'a pas pu s'initialiser correctement. Si un nouveau déploiement vient d'avoir lieu, actualisez la page pour charger la dernière version.",
+    "retryButton": "Réessayer / Actualiser",
+    "backToSupervision": "Retour à la supervision",
+    "diagnosticCode": "Code diagnostic : {digest}"
   }
 }

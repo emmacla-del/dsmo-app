@@ -25,6 +25,7 @@
 
 import { ApiError } from "./api-client";
 import { NATIONAL_ROLES, hasRole } from "./roles";
+import type { UiLocale } from "./register-i18n";
 
 /** Neutral marker for a field the system holds no value for. */
 export const NOT_PROVIDED = "—";
@@ -34,6 +35,26 @@ export const NOT_RECORDED = "Non renseigné";
 
 /** The system has no source for this figure at all (no endpoint, no derivation). */
 export const METRIC_UNAVAILABLE = "Données non disponibles";
+
+// The helpers below take the console locale as their last argument and
+// default to French, so a caller that has not been translated yet renders
+// exactly what it did before. Components pass asUiLocale(useLocale()).
+
+/** Intl tag per UI locale. en-GB keeps the dd/mm/yyyy order the console uses. */
+const INTL_LOCALE: Record<UiLocale, string> = { fr: "fr-FR", en: "en-GB" };
+
+const NOT_RECORDED_BY_LOCALE: Record<UiLocale, string> = { fr: NOT_RECORDED, en: "Not recorded" };
+const METRIC_UNAVAILABLE_BY_LOCALE: Record<UiLocale, string> = { fr: METRIC_UNAVAILABLE, en: "Data not available" };
+
+/** `NOT_RECORDED` in the given locale. */
+export function notRecorded(locale: UiLocale = "fr"): string {
+  return NOT_RECORDED_BY_LOCALE[locale];
+}
+
+/** `METRIC_UNAVAILABLE` in the given locale. */
+export function metricUnavailable(locale: UiLocale = "fr"): string {
+  return METRIC_UNAVAILABLE_BY_LOCALE[locale];
+}
 
 /**
  * Backend endpoints that return platform-wide figures with no territorial
@@ -63,25 +84,28 @@ export interface UserScopeCandidate {
  * Determine the honest territorial scope label for an authenticated user.
  * Never widens an unassigned REGIONAL_ADMIN or DIVISIONAL_ADMIN account to "National".
  */
-export function computeUserScopeLabel(user: UserScopeCandidate | null | undefined): string {
+export function computeUserScopeLabel(user: UserScopeCandidate | null | undefined, locale: UiLocale = "fr"): string {
+  const en = locale === "en";
+  const department = (name: string) => (en ? `Department ${name}` : `Département ${name}`);
+  const region = (name: string) => (en ? `Region ${name}` : `Région ${name}`);
   if (!user || !user.role) return NOT_PROVIDED;
   if (user.role === "DIVISIONAL_ADMIN") {
-    if (user.department) return `Département ${user.department}`;
-    if (user.region) return `Région ${user.region}`;
-    return "Départemental (non assigné)";
+    if (user.department) return department(user.department);
+    if (user.region) return region(user.region);
+    return en ? "Departmental (unassigned)" : "Départemental (non assigné)";
   }
   if (user.role === "REGIONAL_ADMIN") {
-    if (user.region) return `Région ${user.region}`;
-    return "Régional (non assigné)";
+    if (user.region) return region(user.region);
+    return en ? "Regional (unassigned)" : "Régional (non assigné)";
   }
   if (hasRole(user.role, NATIONAL_ROLES)) {
     return "National";
   }
   return user.department
-    ? `Département ${user.department}`
+    ? department(user.department)
     : user.region
-      ? `Région ${user.region}`
-      : NOT_RECORDED;
+      ? region(user.region)
+      : notRecorded(locale);
 }
 
 /**
@@ -124,18 +148,20 @@ export function firstFact(...candidates: unknown[]): string {
  * null/undefined/NaN degrade to the neutral marker. Never apply `||` to a
  * count — that is how a real zero becomes an invented number.
  */
-export function count(value: number | null | undefined): string {
+export function count(value: number | null | undefined, locale: UiLocale = "fr"): string {
   if (value === null || value === undefined || Number.isNaN(value)) return NOT_PROVIDED;
-  return value.toLocaleString("fr-FR");
+  return value.toLocaleString(INTL_LOCALE[locale]);
 }
 
 /**
  * Render a percentage. Pass `null` when the rate is not calculable (e.g. the
  * denominator is 0 or either operand is missing) — do not pass a stand-in.
  */
-export function percent(value: number | null | undefined, fractionDigits = 0): string {
+export function percent(value: number | null | undefined, fractionDigits = 0, locale: UiLocale = "fr"): string {
   if (value === null || value === undefined || Number.isNaN(value)) return NOT_PROVIDED;
-  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })} %`;
+  const digits = value.toLocaleString(INTL_LOCALE[locale], { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+  // French sets a space before the percent sign; English does not.
+  return locale === "en" ? `${digits}%` : `${digits} %`;
 }
 
 /**
@@ -159,11 +185,11 @@ export function meterWidth(value: number | null | undefined): string {
  * Format a stored timestamp. Returns the neutral marker when the record has no
  * timestamp — never substitutes "now", which would invent an event time.
  */
-export function stamp(iso: string | null | undefined, withTime = true): string {
+export function stamp(iso: string | null | undefined, withTime = true, locale: UiLocale = "fr"): string {
   if (!iso) return NOT_PROVIDED;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return NOT_PROVIDED;
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -172,13 +198,13 @@ export function stamp(iso: string | null | undefined, withTime = true): string {
 }
 
 /** Short stamp for dense feeds: time of day for today, day+month otherwise. */
-export function shortStamp(iso: string | null | undefined): string {
+export function shortStamp(iso: string | null | undefined, locale: UiLocale = "fr"): string {
   if (!iso) return NOT_PROVIDED;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return NOT_PROVIDED;
   const sameDay = d.toDateString() === new Date().toDateString();
   return new Intl.DateTimeFormat(
-    "fr-FR",
+    INTL_LOCALE[locale],
     sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" },
   ).format(d);
 }
@@ -188,19 +214,20 @@ export function shortStamp(iso: string | null | undefined): string {
  * recorded value and the clock, so it is traceable; there is no variant that
  * accepts a missing timestamp.
  */
-export function elapsedSince(iso: string | null | undefined): string {
+export function elapsedSince(iso: string | null | undefined, locale: UiLocale = "fr"): string {
   if (!iso) return NOT_PROVIDED;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return NOT_PROVIDED;
+  const en = locale === "en";
   const minutes = Math.floor((Date.now() - then) / 60000);
-  if (minutes < 0) return stamp(iso);
-  if (minutes < 1) return "À l'instant";
-  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (minutes < 0) return stamp(iso, true, locale);
+  if (minutes < 1) return en ? "Just now" : "À l'instant";
+  if (minutes < 60) return en ? `${minutes} min ago` : `Il y a ${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Il y a ${hours} h`;
+  if (hours < 24) return en ? `${hours} h ago` : `Il y a ${hours} h`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `Il y a ${days} j`;
-  return stamp(iso, false);
+  if (days < 30) return en ? `${days} d ago` : `Il y a ${days} j`;
+  return stamp(iso, false, locale);
 }
 
 // ── Query state ───────────────────────────────────────────────────────────
@@ -251,20 +278,23 @@ export function resolveDataState(input: DataStateInput): DataState {
 }
 
 /** Human message for a non-ready state. `null` for `ready`. */
-export function dataStateMessage(state: DataState, resource: string): string | null {
+export function dataStateMessage(state: DataState, resource: string, locale: UiLocale = "fr"): string | null {
+  const en = locale === "en";
   switch (state) {
     case "loading":
-      return `Chargement de ${resource}…`;
+      return en ? `Loading ${resource}…` : `Chargement de ${resource}…`;
     case "forbidden":
-      return "Accès non autorisé. Votre rôle ne permet pas de consulter ces données.";
+      return en
+        ? "Access denied. Your role does not allow you to view this data."
+        : "Accès non autorisé. Votre rôle ne permet pas de consulter ces données.";
     case "notFound":
-      return "Enregistrement introuvable.";
+      return en ? "Record not found." : "Enregistrement introuvable.";
     case "unavailable":
-      return METRIC_UNAVAILABLE;
+      return metricUnavailable(locale);
     case "error":
-      return `Impossible de charger ${resource}.`;
+      return en ? `Unable to load ${resource}.` : `Impossible de charger ${resource}.`;
     case "empty":
-      return `Aucun enregistrement pour ${resource}.`;
+      return en ? `No records for ${resource}.` : `Aucun enregistrement pour ${resource}.`;
     case "ready":
       return null;
   }

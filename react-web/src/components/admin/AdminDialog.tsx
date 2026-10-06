@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 interface AdminDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface AdminDialogProps {
  */
 export function AdminDialog({ open, onClose, title, eyebrow, footer, wide, children }: AdminDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useTranslations("adminDialog");
 
   useEffect(() => {
     const dialog = ref.current;
@@ -43,7 +45,7 @@ export function AdminDialog({ open, onClose, title, eyebrow, footer, wide, child
                 {title}
               </h2>
             </div>
-            <button type="button" className="cam-admin-dialog-close" aria-label="Fermer" onClick={onClose}>
+            <button type="button" className="cam-admin-dialog-close" aria-label={t("closeAriaLabel")} onClick={onClose}>
               ×
             </button>
           </div>

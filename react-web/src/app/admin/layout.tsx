@@ -3,12 +3,13 @@
 import { ReactNode, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
+import { asUiLocale } from "@/lib/register-i18n";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { ADMIN_ROLES } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -23,12 +24,14 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 // `group` / `nav` mirror the page's section and label in AdminSidebar.
 // `detail` labels a sub-route: its breadcrumb becomes group › nav (linking
 // back to the list) › detail. A sub-route without `detail` renders its own.
+// Every value is a message key, resolved from the root namespace.
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
-  "/admin/sectors":       { title: "Nomenclatures", sub: "Nomenclature nationale des métiers et secteurs d'activité", group: "Données", nav: "Nomenclatures" },
+  "/admin/sectors":       { title: "adminNav.routes.sectors", sub: "adminLayout.sectorsSubtitle", group: "adminNav.hubs.donnees", nav: "adminNav.routes.sectors" },
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const pathname = usePathname();
   const router = useRouter();
   const { isLoading, forbidden, user } = useAdminScreenGuard(ADMIN_ROLES);
@@ -77,12 +80,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (forbidden) {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeContent: "center", gap: "var(--cam-space-2)", padding: "var(--cam-space-6)", textAlign: "center", background: "var(--cam-bg)" }}>
-        <h1 className="cam-admin-h1">Accès restreint</h1>
-        <p className="cam-admin-lede">
-          Cette console d&apos;administration est réservée aux agents et auditeurs accrédités du MINEFOP.
-        </p>
+        <h1 className="cam-admin-h1">{t("adminLayout.accessDeniedTitle")}</h1>
+        <p className="cam-admin-lede">{t("adminLayout.accessDeniedMessage")}</p>
         <Link href="/home" className="cam-text-button" style={{ marginTop: "var(--cam-space-3)" }}>
-          ← Retour au portail
+          {t("adminLayout.backToPortal")}
         </Link>
       </div>
     );
@@ -92,7 +93,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase() ||
     user?.email?.slice(0, 2).toUpperCase() ||
     "AD";
-  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Compte agent";
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || t("adminLayout.defaultDisplayName");
 
   // Derive current page title from pathname (longest matching prefix wins).
   // Prefixes only match on a path boundary, so /admin/dossiers-archive would
@@ -103,8 +104,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isSubRoute = !!matchedPrefix && pathname !== matchedPrefix;
   const breadcrumb = pageTitle?.group && pageTitle.nav
     ? isSubRoute && pageTitle.detail
-      ? [{ label: pageTitle.group }, { label: pageTitle.nav, href: matchedPrefix }, { label: pageTitle.detail }]
-      : [{ label: pageTitle.group }, { label: pageTitle.nav }]
+      ? [{ label: t(pageTitle.group) }, { label: t(pageTitle.nav), href: matchedPrefix }, { label: t(pageTitle.detail) }]
+      : [{ label: t(pageTitle.group) }, { label: t(pageTitle.nav) }]
     : undefined;
 
   return (
@@ -114,7 +115,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           user={{
             displayName,
             initials,
-            roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
+            roleLabel: user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel"),
           }}
           role={user?.role}
           pendingCount={pendingCount}
@@ -134,7 +135,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <button
             type="button"
             className="cam-admin-menu-button"
-            aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={menuOpen ? t("adminLayout.closeMenuAriaLabel") : t("adminLayout.openMenuAriaLabel")}
             aria-expanded={menuOpen}
             aria-controls="cam-admin-rail"
             onClick={() => setMenuOpen((open) => !open)}
@@ -153,8 +154,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {pageTitle && (!isSubRoute || pageTitle.detail) && (
               <AdminPageHeader
                 breadcrumb={breadcrumb}
-                title={pageTitle.title}
-                subtitle={pageTitle.sub}
+                title={t(pageTitle.title)}
+                subtitle={t(pageTitle.sub)}
                 actions={<AdminHeaderActions />}
               />
             )}

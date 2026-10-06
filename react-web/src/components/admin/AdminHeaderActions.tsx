@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
 import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 import { NotificationBell } from "./NotificationBell";
 
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
+import { asUiLocale } from "@/lib/register-i18n";
 
 /**
  * The active campaign, or undefined when there is none or the user's role
@@ -45,21 +47,24 @@ export function AdminHeaderActions({
   showSearchInput = false,
 }: AdminHeaderActionsProps = {}) {
   const router = useRouter();
+  const t = useTranslations("adminHeaderActions");
+  const tCommon = useTranslations("common");
+  const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
   const { activeCampaign, isLoading: campaignLoading, canReadCampaigns } = useActiveCampaign();
 
-  const scope = computeUserScopeLabel(user);
+  const scope = computeUserScopeLabel(user, locale);
 
   const rawCampaignName = activeCampaign?.name || activeCampaign?.code || null;
   const campaignName = (() => {
     if (!rawCampaignName) return null;
     if (activeCampaign?.code) {
-      return activeCampaign.code.toLowerCase().includes("campagne") ? activeCampaign.code : `Campagne ${activeCampaign.code}`;
+      return activeCampaign.code.toLowerCase().includes("campagne") ? activeCampaign.code : t("campaignCode", { code: activeCampaign.code });
     }
     const m = rawCampaignName.match(/(PREMIER|DEUXIEME|TROISIEME|QUATRIEME)\s+TRIMESTRE\s+(\d{4})/i);
     if (m) {
-      const qMap: Record<string, string> = { premier: "T1", deuxieme: "T2", troisieme: "T3", quatrieme: "T4" };
-      return `Campagne ${m[2]}-${qMap[m[1].toLowerCase()] || "T1"}`;
+      const qMap: Record<string, number> = { premier: 1, deuxieme: 2, troisieme: 3, quatrieme: 4 };
+      return t("campaignQuarter", { year: m[2], quarter: qMap[m[1].toLowerCase()] || 1 });
     }
     if (rawCampaignName.length > 22) {
       return rawCampaignName.slice(0, 20) + "…";
@@ -74,7 +79,7 @@ export function AdminHeaderActions({
         <Link
           href="/admin/campagnes"
           className="cam-admin-campaign-pill"
-          title={rawCampaignName ?? "Aucune campagne active"}
+          title={rawCampaignName ?? t("noActiveCampaign")}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -107,7 +112,7 @@ export function AdminHeaderActions({
             }}
           />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {campaignLoading ? "Chargement…" : activeCampaign ? campaignName : "Aucune campagne active"}
+            {campaignLoading ? tCommon("loading") : activeCampaign ? campaignName : t("noActiveCampaign")}
           </span>
         </Link>
       )}
@@ -117,7 +122,7 @@ export function AdminHeaderActions({
           fixed by the account; there is nothing to select. */}
       <span
         className="cam-admin-scope"
-        title="Ressort territorial"
+        title={t("scopeTitle")}
         style={{
           background: "#ffffff",
           border: "1px solid #111827",
@@ -130,7 +135,7 @@ export function AdminHeaderActions({
           alignItems: "center",
         }}
       >
-        Ressort : {scope}
+        {t("scopeChip", { scope })}
       </span>
 
       {/* Notification bell — the caller's own in-app inbox (Phase 3). Opens a
@@ -148,7 +153,7 @@ export function AdminHeaderActions({
           </svg>
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={t("searchPlaceholder")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const query = e.currentTarget.value.trim();
@@ -170,8 +175,8 @@ export function AdminHeaderActions({
       ) : (
         <Link
           href="/admin/dossiers"
-          aria-label="Recherche"
-          title="Rechercher"
+          aria-label={t("searchAriaLabel")}
+          title={t("searchTitle")}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -197,8 +202,8 @@ export function AdminHeaderActions({
       <span
         className="cam-admin-flag-circle"
         role="img"
-        aria-label="Cameroun"
-        title="République du Cameroun"
+        aria-label={t("flagAriaLabel")}
+        title={t("flagTitle")}
         style={{
           width: 24,
           height: 24,
