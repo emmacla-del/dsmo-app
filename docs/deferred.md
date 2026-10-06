@@ -133,15 +133,17 @@ exists.
 | `UserStatus.DRAFT` | enum | utilisateurs "Brouillon" | unassigned |
 | `UserStatus.UNDER_REVIEW` | enum | inscriptions "En vérification" (D3) | unassigned |
 | `UserStatus.COMPLEMENTS_REQUESTED` | enum | inscriptions / validation du compte "Compléments demandés" (D3) | unassigned |
-| `UserStatus.DOCUMENTS_INCOMPLETE` | enum | inscriptions "Documents incomplets" (D3) | unassigned |
-| `registration_documents` table | new | inscriptions "Documents 3/3"; validation du compte "Documents fournis" (D3) | unassigned |
+| `UserStatus.DOCUMENTS_INCOMPLETE` | enum | inscriptions "Documents incomplets" (D3). The documents concept behind it was retired 2026-10-06 (see `registration_documents` below); the enum value stays — removing it is its own schema decision | unassigned |
+| ~~`registration_documents` table~~ | new | SUPERSEDED 2026-10-06: the registration-documents feature is retired (no upload path existed; endpoints and UI removed). The model and table remain until a separate, reviewed drop task — see `docs/audit/documents-removal-plan-2026-10-06.md` §5.2 | superseded |
 
 Follow-ups:
 - [ ] `registrationMethod` is free text: turn it into an enum once the
       values are stable (candidates: SELF_REGISTRATION, ADMIN_CREATED).
-- [ ] `registration_documents.kind` and `.state` are free text for the same
+- [x] ~~`registration_documents.kind` and `.state` are free text for the same
       reason (state candidates: PENDING, VERIFIED, REJECTED, MISSING); the
-      required documents per entity type need a ruling.
+      required documents per entity type need a ruling.~~ SUPERSEDED
+      2026-10-06: the feature is retired; the table is pending a separate
+      drop task (`docs/audit/documents-removal-plan-2026-10-06.md` §5.2).
 - [ ] Any code that sets or filters on the four new `UserStatus` values must
       handle them everywhere status is interpreted (login gating, approve /
       reject, directory filters and badges) — none do today.
