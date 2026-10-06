@@ -690,3 +690,17 @@ Low priority. Phase 6 candidate, not the establishmentId phase.
 - Flutter needs no change for 7ff84145: the `/auth/check-email` response
   shape (`{ available: { available } }`) was kept; only React's reading of
   it was fixed.
+
+## Pre-existing drift: schema.prisma vs the migration history (found 2026-10-06)
+
+- [ ] `prisma migrate diff --from-migrations prisma/migrations
+      --to-schema-datamodel prisma/schema.prisma` is not empty (40 lines):
+      `establishments` region/department/subdivision foreign keys and the
+      `id` default, `submission_drafts` primary key / `id` column, an
+      `updatedAt` default, and the `campaign_submissions_campaignId_companyId_key`
+      index. Identical with and without 20261011120000, so it predates the
+      establishment-serial migration; that migration adds no drift
+      (`migrate status` up to date; history -> applied DB diff empty, even
+      with sequences created at runtime by establishment_serial_ensure()).
+      Found while verifying 20261011120000 on a scratch Postgres 18. Not
+      fixed: reconciling it is a schema change and needs review (§21).
