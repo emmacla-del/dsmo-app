@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEmail, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OnefopEntityType } from '../../types/prisma.types';
 
@@ -24,9 +24,14 @@ export class ResubmitRegistrationDto {
   @IsOptional() @IsString() secondaryActivity?: string;
   @IsOptional() @IsString() parentCompany?: string;
   @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() cnpsNumber?: string;
   @IsOptional() @IsString() fax?: string;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) socialCapital?: number;
+
+  // User.email, not a Company column: the login identifier and the entity's
+  // ONEFOP contact. Written to User by the service, outside the Company path.
+  @IsOptional() @IsEmail() email?: string;
 
   // Validated against the enum rather than left a free string: the column is
   // an enum, so an unrecognised value would otherwise reach Prisma and

@@ -176,9 +176,12 @@ export interface RegistrationCorrections {
   secondaryActivity?: string;
   parentCompany?: string;
   address?: string;
+  phone?: string;
   cnpsNumber?: string;
   fax?: string;
   socialCapital?: number;
+  // User.email: the login identifier and the entity's ONEFOP contact.
+  email?: string;
   entityType?: string;
   region?: string;
   department?: string;
