@@ -40,6 +40,17 @@ interface SubmissionMeta {
   createdAt: Date;
 }
 
+/**
+ * A territory filter value as a trimmed name, or undefined. A repeated
+ * parameter arrives as an array; it is ignored rather than handed to Prisma,
+ * which answered it with a 500.
+ */
+function territoryName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
 @Injectable()
 export class OnefopAnalyticsService {
   constructor(private readonly prisma: PrismaService) { }
@@ -56,9 +67,15 @@ export class OnefopAnalyticsService {
 
     if (filter.submissionId) where['id'] = filter.submissionId;
     if (filter.entityType) where['formType'] = filter.entityType.toUpperCase();
-    if (filter.region) where['region'] = { contains: filter.region, mode: 'insensitive' };
-    if (filter.department) where['department'] = { contains: filter.department, mode: 'insensitive' };
-    if (filter.subdivision) where['subdivision'] = { contains: filter.subdivision, mode: 'insensitive' };
+    // Exact (case-insensitive) matches, as in core/analytics-query.service.ts
+    // (38a3fa49). A substring match summed neighbouring territories:
+    // region=Nord also matched Nord-Ouest and Extrême-Nord.
+    const region = territoryName(filter.region);
+    const department = territoryName(filter.department);
+    const subdivision = territoryName(filter.subdivision);
+    if (region) where['region'] = { equals: region, mode: 'insensitive' };
+    if (department) where['department'] = { equals: department, mode: 'insensitive' };
+    if (subdivision) where['subdivision'] = { equals: subdivision, mode: 'insensitive' };
 
     return where;
   }
