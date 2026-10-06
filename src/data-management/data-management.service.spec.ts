@@ -504,6 +504,75 @@ describe('DataManagementService — onefopSheetDefs (P2: Administration/Projects
   });
 });
 
+// Administration / Projet-Programme companies carry a synthetic NA-<uuid>
+// in Company.taxNumber (the column is NOT NULL @unique). The register
+// exports must show an empty cell for it, never the placeholder.
+describe('DataManagementService — synthetic NA-<uuid> taxpayer numbers', () => {
+  const SYNTHETIC = 'NA-3f2b6c1e-0000-4000-8000-000000000000';
+
+  function administrationSubmission(taxNumber: string) {
+    return {
+      id: 'sub-1',
+      submissionId: 'S-0005',
+      status: 'APPROVED',
+      surveyYear: 2026,
+      formType: 'ADMINISTRATION',
+      company: { name: 'MINEFOP', taxNumber, region: 'Centre', department: 'Mfoundi', establishmentId: 'EST5' },
+      respondent: { respondentName: 'Awa', respondentFunction: 'SG', phone1: '677000001' },
+      administrationDetail: { name: 'Délégation Régionale' },
+    };
+  }
+
+  it('commonRow exports a real NIU as-is and a synthetic one as null', () => {
+    const { service } = makeService();
+    expect(service.commonRow(administrationSubmission('M123456789')).taxNumber).toBe('M123456789');
+    expect(service.commonRow(administrationSubmission(SYNTHETIC)).taxNumber).toBeNull();
+    // A real submission-level NIU still wins over a synthetic company one.
+    expect(service.commonRow({ ...administrationSubmission(SYNTHETIC), taxNumber: 'M987654321' }).taxNumber).toBe('M987654321');
+  });
+
+  it('writes an empty "N° contribuable" cell in the Excel register', async () => {
+    const { service, prisma } = makeService();
+    prisma.onefopSubmission.findMany.mockImplementation(async (args: any) => {
+      if (args.distinct?.includes('formType')) return [{ formType: 'ADMINISTRATION' }];
+      if (args.include) return args.cursor ? [] : [administrationSubmission(SYNTHETIC)];
+      return [];
+    });
+
+    const { res, finished, buffer } = fakeExcelRes();
+    await service.streamOnefopSubmissionsExcel({}, res);
+    await finished;
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer() as any);
+    const sheet = wb.worksheets[0];
+    const headerRow = sheet.getRow(1).values as unknown[];
+    const col = headerRow.indexOf('N° contribuable');
+    expect(col).toBeGreaterThan(0);
+    const dataRow = sheet.getRow(2).values as unknown[];
+    expect(dataRow).toContain('S-0005');
+    expect(dataRow[col] ?? null).toBeNull();
+    expect(dataRow).not.toContain(SYNTHETIC);
+  });
+
+  it('writes an empty "N° contribuable" cell in the flat CSV export', async () => {
+    const { service, prisma } = makeService();
+    prisma.onefopSubmission.findMany.mockResolvedValueOnce([administrationSubmission(SYNTHETIC)]);
+
+    const { res, chunks } = fakeRes();
+    await service.streamApprovedOnefopSubmissionsCsv({}, res);
+
+    const [header, row] = chunks.join('').split('\r\n');
+    expect(row).toContain('S-0005');
+    expect(row).not.toContain('NA-');
+    // The common columns lead the row and none of their values contain a
+    // comma here, so a plain split lines the cells up with the header.
+    const col = header.split(',').indexOf('N° contribuable');
+    expect(col).toBeGreaterThanOrEqual(0);
+    expect(row.split(',')[col]).toBe('');
+  });
+});
+
 // VT-8 gap-closing regression coverage (2026-08-30): the 11 statistical
 // OnefopVt* child/fact tables used to have no long-format breakdown sheet at
 // all (see VOCATIONAL_TRAINING_DESIGN_NOTE.md). This locks in that one of

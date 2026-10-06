@@ -10,6 +10,7 @@ import type {
   SchemaSection,
 } from '../onefop-schema-validation/onefop-schema.types';
 import { OnefopEntityType } from '../types/prisma.types';
+import { hasRealNiu } from './niu';
 
 export type MeasurementLevel = 'NOMINAL' | 'ORDINAL' | 'SCALE' | 'DATE';
 export type SpssDataType = 'NUMERIC' | 'A';
@@ -225,7 +226,10 @@ export class CanonicalSchemaAdapterService {
     // 1. Direct system variable paths
     if (sp.startsWith('submission.')) {
       const prop = sp.slice('submission.'.length);
-      return submission[prop];
+      const value = submission[prop];
+      // A synthetic NA-<uuid> placeholder exports as missing, not as a NIU.
+      if (prop === 'taxNumber' && typeof value === 'string' && !hasRealNiu(value)) return null;
+      return value;
     }
     if (sp.startsWith('company.')) {
       const prop = sp.slice('company.'.length);

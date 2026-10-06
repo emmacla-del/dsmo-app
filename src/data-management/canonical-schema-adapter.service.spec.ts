@@ -223,6 +223,17 @@ describe('CanonicalSchemaAdapterService', () => {
       const reasonTotal = adapter.getAllVariables().find((v) => v.variableName === 'S3Q02_SLOT1_TOTAL')!;
       expect(adapter.extractValue(reasonTotal, sub)).toBe(3);
     });
+
+    it('extractValue exports a synthetic NA-<uuid> taxpayer number (SYS_07) as missing', () => {
+      const taxNumber = adapter.getAllVariables().find((v) => v.paperCode === 'SYS_07')!;
+      expect(taxNumber.sourcePath).toBe('submission.taxNumber');
+
+      expect(adapter.extractValue(taxNumber, { taxNumber: 'M123456789' })).toBe('M123456789');
+      expect(adapter.extractValue(taxNumber, { taxNumber: 'NA-3f2b6c1e-0000-4000-8000-000000000000' })).toBeNull();
+      expect(adapter.extractValue(taxNumber, { taxNumber: 'NA-' })).toBeNull();
+      expect(adapter.extractValue(taxNumber, { taxNumber: null })).toBeNull();
+      expect(adapter.extractValue(taxNumber, {})).toBeUndefined();
+    });
   });
 
   describe('4. SPSS Variable Names', () => {
@@ -455,6 +466,38 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(output).toContain('Acme Corp');
       expect(output).toContain('Paul Biya');
       expect(output).toContain('SARL/ LLC');
+    });
+
+    it('DataManagementService streams an empty SYS_07 cell for a synthetic NA-<uuid> taxpayer number', async () => {
+      const synthetic = 'NA-3f2b6c1e-0000-4000-8000-000000000000';
+      const mockPrisma = {
+        onefopSubmission: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'sub-1',
+              submissionId: 'SUB-ADM',
+              status: 'APPROVED',
+              surveyYear: 2026,
+              formType: 'ADMINISTRATION',
+              taxNumber: synthetic,
+              company: { name: 'MINEFOP', taxNumber: synthetic, region: 'Centre', department: 'Mfoundi' },
+              respondent: { respondentName: 'Awa', respondentFunction: 'SG', phone1: '677000001' },
+            },
+          ]),
+        },
+      };
+
+      const dataService = new DataManagementService(mockPrisma as any, undefined, adapter);
+      const { res, chunks } = fakeRes();
+      await dataService.streamApprovedOnefopSubmissionsCsv({ partition: 'DEMAND' }, res);
+
+      const [header, row] = chunks.join('').split('\r\n');
+      expect(row).toContain('SUB-ADM');
+      expect(row).not.toContain('NA-');
+      // The column stays in place; only its cell is empty.
+      const col = header.split(',').indexOf('N° contribuable');
+      expect(col).toBeGreaterThanOrEqual(0);
+      expect(row.split(',')[col]).toBe('');
     });
 
     it('DataManagementService.buildSpssManifest produces syntax matching the streamed CSV columns', async () => {
