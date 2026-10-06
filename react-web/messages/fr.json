@@ -59,13 +59,6 @@
     "usersTabLabel": "Utilisateurs",
     "companiesTabLabel": "Entités"
   },
-  "homeCommunicationPage": {
-    "accessDeniedTitle": "Accès refusé",
-    "accessDeniedMessage": "Votre compte n'a pas accès à cette page.",
-    "pageTitle": "Communication",
-    "campaignsTabLabel": "Campagnes",
-    "notificationsTabLabel": "Notifications"
-  },
   "homeLayout": {
     "brandName": "CAM-LEAP",
     "newDeclarationButton": "Nouvelle déclaration",
@@ -428,32 +421,6 @@
     "entityStepSubtitle": "Sélectionnez le type de votre entité pour accéder au formulaire ONEFOP.",
     "vtcBadge": "VTC",
     "footerBackButton": "← Retour"
-  },
-  "campaignManagement": {
-    "statusAll": "Tous",
-    "newCampaignTitle": "Nouvelle campagne",
-    "newCampaignButton": "+ Nouvelle campagne",
-    "loadError": "Erreur — {error}",
-    "emptyState": "Aucune campagne.",
-    "campaignDetailTitle": "Détail de la campagne",
-    "deadlineLabel": "Échéance : {date}",
-    "activate": "Activer",
-    "pause": "Mettre en pause",
-    "editCampaignTitle": "Modifier la campagne",
-    "edit": "Modifier",
-    "close": "Clôturer",
-    "extend": "Prolonger",
-    "remind": "Rappel",
-    "delete": "Supprimer",
-    "notMigratedBody": "Cette section existe côté Flutter mais n'a pas encore été migrée vers React.",
-    "closeModalButton": "Fermer",
-    "deleteCampaignTitle": "Supprimer la campagne ?",
-    "actionError": "Erreur : {error}",
-    "extendTitle": "Prolonger l'échéance",
-    "newDeadlineLabel": "Nouvelle échéance",
-    "confirm": "Confirmer",
-    "remindTitle": "Envoyer un rappel",
-    "send": "Envoyer"
   },
   "companiesDirectory": {
     "nameColumn": "Nom",

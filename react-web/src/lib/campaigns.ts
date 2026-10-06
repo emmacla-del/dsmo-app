@@ -206,21 +206,13 @@ export function campaignPeriodicityLabel(
   return value === null ? null : CAMPAIGN_PERIODICITY_LABELS[value];
 }
 
-// Mirrors campaign_constants.dart's campaignStatuses/campaignStatusLabels.
-export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "PAUSED", "CLOSED", "ARCHIVED"];
+// Mirrors campaign_constants.dart's campaignStatusLabels.
 export const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Brouillon",
   ACTIVE: "Active",
   PAUSED: "En pause",
   CLOSED: "Clôturée",
   ARCHIVED: "Archivée",
-};
-export const CAMPAIGN_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "var(--cam-warning)",
-  ACTIVE: "var(--cam-success)",
-  PAUSED: "var(--cam-info)",
-  CLOSED: "var(--cam-text-muted)",
-  ARCHIVED: "var(--cam-text-muted)",
 };
 
 // Reminder types an admin can manually trigger — CAMPAIGN_EXPIRED excluded,
@@ -253,18 +245,6 @@ export const REGISTRATION_STATUS_LABEL = "Cible";
 
 export function canActivate(status: string): boolean {
   return status === "DRAFT" || status === "PAUSED";
-}
-export function canDeactivate(status: string): boolean {
-  return status === "ACTIVE";
-}
-export function canClose(status: string): boolean {
-  return status === "ACTIVE" || status === "PAUSED";
-}
-export function canExtend(status: string): boolean {
-  return status !== "CLOSED" && status !== "ARCHIVED";
-}
-export function canRemind(status: string): boolean {
-  return status === "ACTIVE";
 }
 export function canArchive(status: string): boolean {
   return status !== "DRAFT" && status !== "ARCHIVED";
