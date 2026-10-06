@@ -77,6 +77,8 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   APPROVE:                 { label: "Rapport approuvé", tone: "success" },
   REJECT:                  { label: "Rapport rejeté", tone: "error" },
   DISTRIBUTE:              { label: "Rapport diffusé", tone: "neutral" },
+  COMPANY_REGISTRATION_APPROVED:      { label: "Inscription approuvée", tone: "success" },
+  COMPANY_REGISTRATION_AUTO_APPROVED: { label: "Inscription approuvée automatiquement", tone: "success" },
 };
 
 export const AUDIT_RESOURCE_TYPES: Record<string, string> = {
@@ -133,8 +135,36 @@ export function auditDetailsSummary(e: AuditLogEntry): string {
       return [text(d.ruleCode), text(d.resolutionNote)].filter(Boolean).join(" — ") || "—";
     case "USER_TERRITORY_CHANGED":
       return "Rôle et périmètre géographique";
+    case "COMPANY_REGISTRATION_APPROVED":
+    case "COMPANY_REGISTRATION_AUTO_APPROVED":
+      return registrationApprovalSummary(d);
   }
   return text(d.reason) ?? text(d.comments) ?? text(d.notes) ?? "—";
+}
+
+// The review rows, in the dialog's order and words.
+const VERIFIED_ROWS: Array<[flag: string, label: string]> = [
+  ["nameVerified", "nom"],
+  ["phoneVerified", "téléphone"],
+  ["contactEmailVerified", "email"],
+  ["cnpsVerified", "CNPS"],
+];
+
+/**
+ * "Identifiant EN26000712 · vérifié : nom, téléphone, email, CNPS". An
+ * approval recorded before the review rows existed, or an automatic one,
+ * carries no verification block and reads as the identifier alone.
+ */
+function registrationApprovalSummary(d: Record<string, unknown>): string {
+  const parts: string[] = [];
+  const id = text(d.establishmentId);
+  if (id) parts.push(`Identifiant ${id}`);
+  const verification = asRecord(d.verification);
+  if (verification) {
+    const checked = VERIFIED_ROWS.filter(([flag]) => verification[flag] === true).map(([, label]) => label);
+    if (checked.length > 0) parts.push(`vérifié : ${checked.join(", ")}`);
+  }
+  return parts.join(" · ") || "—";
 }
 
 function compact(value: unknown): string {
