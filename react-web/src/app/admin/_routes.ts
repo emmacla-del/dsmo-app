@@ -162,7 +162,9 @@ export const ADMIN_HUBS: AdminHub[] = [
     subRoutes: [
       { label: "Utilisateurs", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
       // Formerly /home/annuaire under Déclarants, outside the console shell.
-      { label: "Annuaire", href: "/admin/annuaire", allowedRoles: USER_ADMIN_ROLES },
+      // Opens on the accounts list (?tab=users), as the former entry did; the
+      // page itself defaults to Entités, which is all ADMIN_ONEFOP is shown.
+      { label: "Annuaire", href: "/admin/annuaire?tab=users", allowedRoles: USER_ADMIN_ROLES },
       { label: "Traçabilité", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
       // The caller's own notification inbox, reached from the header bell.
@@ -255,13 +257,19 @@ export function isSubRouteActive(subHref: string, pathname: string, searchParams
   if (pathname !== cleanPath) return false;
 
   if (subQuery) {
-    if (!searchParams) return false;
     const params = new URLSearchParams(subQuery);
-    let allMatch = true;
+    let allMatch = !!searchParams;
     params.forEach((val, key) => {
-      if (searchParams.get(key) !== val) allMatch = false;
+      if (searchParams?.get(key) !== val) allMatch = false;
     });
-    return allMatch;
+    if (allMatch) return true;
+    // A query only tells apart sibling entries that share this path. With no
+    // such sibling, the query is just where the link lands (Annuaire's
+    // ?tab=users), and the entry stays current on the page's other views.
+    if (!allHubSubRoutes) return false;
+    return !allHubSubRoutes.some(
+      (other) => other.href !== subHref && other.href.split("?")[0].split("#")[0] === cleanPath,
+    );
   }
 
   // If subHref has no query, but current URL has a query that another subRoute in the same hub specializes:

@@ -99,7 +99,6 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   if (customTabs && customTabs.length > 0) {
     return (
       <nav
-        role="tablist"
         aria-label="Sous-navigation"
         className="cam-admin-tabs"
         style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
@@ -108,8 +107,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
           <Link
             key={tab.href}
             href={tab.href}
-            role="tab"
-            aria-selected={tab.isActive}
+            aria-current={tab.isActive ? "page" : undefined}
             className="cam-admin-tab"
             style={{ textDecoration: "none" }}
           >
@@ -135,8 +133,9 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   const anomaliesCount = queuesQuery.data?.blockingAnomaliesCount ?? 0;
 
   return (
+    // Navigation links, not ARIA tabs: there are no tab panels, so the row
+    // is a labelled <nav> and the current page carries aria-current.
     <nav
-      role="tablist"
       aria-label="Sous-navigation"
       className="cam-admin-tabs"
       style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
@@ -152,8 +151,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
           <Link
             key={sub.href}
             href={sub.href}
-            role="tab"
-            aria-selected={isActive}
+            aria-current={isActive ? "page" : undefined}
             className="cam-admin-tab"
             style={{ textDecoration: "none" }}
           >

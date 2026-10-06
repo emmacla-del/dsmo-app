@@ -882,7 +882,7 @@
   color: #111827;
 }
 
-.cam-admin-tab[aria-selected="true"] {
+.cam-admin-tab[aria-current="page"] {
   background: #1e6b3a;
   border-color: #1e6b3a;
   color: #ffffff;
@@ -909,7 +909,7 @@
   color: #4b5563;
 }
 
-.cam-admin-tab[aria-selected="true"] .cam-admin-tab-count {
+.cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
   background: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
@@ -917,6 +917,59 @@
 .cam-admin-tab-count.is-alert {
   background: #fee2e2;
   color: #dc2626;
+}
+
+/* In-page view switch (ViewSwitch): the views or filters of one page, under
+   the hub tabs. Text items, the active one underlined — not tab-styled, so it
+   does not read as a second navigation row. */
+.cam-admin-views {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-5);
+  overflow-x: auto;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-admin-views-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-2) 0;
+  margin-bottom: calc(-1 * var(--cam-border-width));
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 500;
+  color: var(--cam-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cam-admin-views-item:hover {
+  color: var(--cam-text);
+}
+
+.cam-admin-views-item[aria-current="page"],
+.cam-admin-views-item[aria-pressed="true"] {
+  color: var(--cam-text);
+  font-weight: 600;
+  border-bottom-color: var(--cam-green);
+}
+
+.cam-admin-views-item:focus-visible {
+  outline: 2px solid var(--cam-green);
+  outline-offset: 2px;
+}
+
+.cam-admin-views-count {
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  color: var(--cam-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Notices ── */

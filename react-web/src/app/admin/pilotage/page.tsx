@@ -15,6 +15,7 @@ import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
+import { anomalyRegisterHref } from "@/lib/admin-url";
 import { APPROVAL_ROLES, CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -496,7 +497,9 @@ export default function PilotagePage() {
             tone="warning"
             value={anomaliesCount}
             label="Alertes qualité"
-            href="/admin/centre-qualite"
+            // The tile counts open blocking anomalies (blockingAnomaliesCount),
+            // so it opens the register filtered to exactly those rows.
+            href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
           />
         </div>
       </section>

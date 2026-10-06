@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
@@ -106,20 +107,15 @@ function CiblesContent() {
         </p>
       )}
 
-      <nav className="cam-admin-tabs" aria-label="Vues cibles">
-        {VUES.map((item) => (
-          <Link
-            key={item.id}
-            href={`${pathname}?${viewQuery(searchParams, item.id, campagneParam)}`}
-            className="cam-admin-tab"
-            role="tab"
-            aria-selected={vue === item.id}
-            style={{ textDecoration: "none" }}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <ViewSwitch
+        label="Vues quotas et retours"
+        items={VUES.map((item) => ({
+          key: item.id,
+          label: item.label,
+          active: vue === item.id,
+          href: `${pathname}?${viewQuery(searchParams, item.id, campagneParam)}`,
+        }))}
+      />
 
       {vue === "quotas" && (
         <QuotasPanel
