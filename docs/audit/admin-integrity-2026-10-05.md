@@ -43,7 +43,7 @@ The original audit contained factual errors, discovered during follow-up work. T
 | C4 | §5 `GET /data-management/stats` is DRIFT because `regionId` triggers a 500 | Latent, not live. Three gates currently prevent it. See `endpoint-integrity-2026-10-04.md`. | 2026-10-04 investigation |
 | C5 | §7 F-01: actor-summary coverage shows national figures on every row | Wrong. A national read at line 320 is a single-query optimization; `coverageFor` (line 430) extracts each actor's own region/department. | 2026-10-05 verification |
 | C6 | §3: E-01 "ASFOP" is offered as an entity type filter | Fixed in Commit 4 (`45accd21`). `ENTITY_TYPES` now derives from the seven live enum values. | Commit 4 |
-| C7 | §4 A-07: 30s poll on `layout.tsx` | Still present, but its premise — that the poll fires for roles the endpoint rejects — is superseded. | Role refactor |
+| C7 | §4 A-07: 30s poll on `layout.tsx` | Still present, and its premise still holds: `layout.tsx:41` polls every 30s for every `ADMIN_ROLES` member, including AUDITOR, which the endpoint's `@Roles` rejects. Recorded as R1 in `fe-be-contract-2026-10-05.md`; deferred per the 2026-10-05 decision (AUDITOR is not urgent for the pilot). *(Corrected 2026-10-06: this row previously called the premise superseded.)* | Role refactor; `fe-be-contract-2026-10-05.md` R1 |
 
 ---
 
@@ -59,7 +59,7 @@ The original audit contained factual errors, discovered during follow-up work. T
 | **Deferred by decision** | ~6 | Documented as out-of-scope |
 | **Total (approximate)** | 78 | — |
 
-**No Critical findings remain open.** The two that were critical (polling 403 storm, hardcoded Render fallback in production) are resolved and mitigated respectively.
+**Of the two findings that were critical: one deferred, one removed.** The polling 403 problem is still open: `layout.tsx:41` polls every 30s for AUDITOR, which the endpoint rejects. It is recorded as R1 in `fe-be-contract-2026-10-05.md` and deferred per the 2026-10-05 decision (AUDITOR is not urgent for the pilot). The hardcoded Render fallback was removed in `5c1cc363`; `NEXT_PUBLIC_API_URL` is now required outside local development. *(Corrected 2026-10-06.)*
 
 ---
 
@@ -67,12 +67,12 @@ The original audit contained factual errors, discovered during follow-up work. T
 
 | # | File:Line | Value | Status | Notes |
 |---|---|---|---|---|
-| A-01 | `api-client.ts:21` | `https://dsmo-app-2.onrender.com/api` | **MITIGATED** | The fallback is now the production path. Not fixed by code; the correct fix is to set `NEXT_PUBLIC_API_URL` on the frontend Render service, then delete the fallback. |
-| A-02 | `api-client.ts:20` | `http://localhost:3001/api` | **STILL OPEN** | Same as A-01. |
+| A-01 | removed in `5c1cc363` | `https://dsmo-app-2.onrender.com/api` | **REMOVED** | Deleted in `5c1cc363`. `NEXT_PUBLIC_API_URL` is now required outside local development; a production or staging build without it throws on first render instead of silently targeting the Render host. *(Corrected 2026-10-06: previously listed as MITIGATED.)* |
+| A-02 | `api-client.ts:30` | `http://localhost:3001/api` | **STILL OPEN** | Dev-only fallback, kept on purpose: used only when `NEXT_PUBLIC_API_URL` is unset and the app runs on localhost/127.0.0.1. Any other build without the variable throws rather than falling back. *(Corrected 2026-10-06.)* |
 | A-03 / A-04 | `api-client.ts:25-26` | Storage keys | **STILL OPEN (LOW)** | Centralised in one file; no drift found. |
 | A-05 | `dossiers/[id]:147` | `"7 jours ouvrables"` | **STILL OPEN** | Not addressed. |
 | A-06 | `AdminHeaderActions.tsx:61` | Quarter regex | **STILL OPEN** | Not addressed. |
-| A-07 | `layout.tsx:55` | `30000` refetch interval | **RESOLVED-ISH** | The poll no longer fires for rejected roles. The constant remains. |
+| A-07 | `layout.tsx:41` | `30000` refetch interval | **STILL OPEN (DEFERRED)** | The poll still fires every 30s for AUDITOR, which the queues endpoint rejects. Recorded as R1 in `fe-be-contract-2026-10-05.md`; deferred per the 2026-10-05 decision (AUDITOR is not urgent for the pilot). *(Corrected 2026-10-06: previously "RESOLVED-ISH — the poll no longer fires for rejected roles".)* |
 | A-08 to A-18 | Various | Page size constants | **STILL OPEN (MEDIUM)** | All still there. Plan 5 proposed a shared `admin-constants.ts`; not built. |
 | A-19 to A-24 | `pilotage-targets.ts`, `system-settings.ts` | Business constants | **STILL OPEN** | Not addressed. |
 | A-25 to A-27 | Various | Debounce constants | **STILL OPEN** | Not addressed. |
