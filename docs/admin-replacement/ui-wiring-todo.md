@@ -25,7 +25,7 @@ or table; DECISION = needs a product / domain / permission ruling first.
 | 2026-09-30 | /admin/inscriptions | Rows at all | DECISION | POST /auth/register-company creates COMPANY accounts ACTIVE, so none is ever PENDING_APPROVAL; a registration review step is an auth-flow change | "Aucune inscription en attente" |
 | 2026-09-30 | /admin/inscriptions | N° Inscription column | ENDPOINT | `users.registrationNumber` (B1) has no generator and is not returned by /auth/users | "—" |
 | 2026-09-30 | /admin/inscriptions | Organisation and Type columns | ENDPOINT | /auth/users does not return the linked Company (name, entityType) | "—" (account e-mail shown under it) |
-| 2026-09-30 | /admin/inscriptions | Documents column, "Documents fournis" in the review dialog | ENDPOINT | `registration_documents` (B1) has no read endpoint and no upload path; required documents per entity type need a ruling | "—" |
+| 2026-09-30 | /admin/inscriptions | ~~Documents column, "Documents fournis" in the review dialog~~ | ENDPOINT | Won't do — feature retired (2026-10-06; see `docs/audit/documents-removal-plan-2026-10-06.md`) | Removed |
 | 2026-09-30 | /admin/inscriptions | Assigné à column | ENDPOINT | `users.assigneeId` (B1) has no writer and is not returned | "—" |
 | 2026-09-30 | /admin/inscriptions | Vérification states other than En attente (En vérification, Documents incomplets, Compléments demandés) | DECISION | B1 enum values exist, but no workflow sets them and login gating does not interpret them | Always "En attente"; statut filter disabled |
 | 2026-09-30 | /admin/inscriptions | KPI Compléments demandés | DECISION | Depends on the complements workflow above | "—" |
@@ -68,7 +68,7 @@ UI = needs a frontend change on a page outside this pass.
 | 2026-09-30 | /admin/etablissement-detail/approbation | "Demander des compléments" | DECISION | No complements workflow; `UserStatus.COMPLEMENTS_REQUESTED` (B1) has no writer and login gating ignores it | Disabled radio |
 | 2026-09-30 | /admin/etablissement-detail/approbation | "Motif ou commentaire" persisted | ENDPOINT | `PATCH /auth/reject-user/:id` accepts `reason` but the service drops it; `users.approvalComment` (B1) has no writer | Sent, with a note that the server does not store it |
 | 2026-09-30 | /admin/etablissement-detail/approbation | "Cette action génère une entrée d'audit ACCOUNT_VALIDATION" | ENDPOINT | approve-user / reject-user write no audit row | Not claimed on the page |
-| 2026-09-30 | /admin/etablissement-detail/approbation | Documents fournis with per-document state | ENDPOINT | `registration_documents` (B1) has no read endpoint; required documents per type need a ruling | "—" |
+| 2026-09-30 | /admin/etablissement-detail/approbation | ~~Documents fournis with per-document state~~ | ENDPOINT | Won't do — feature retired (2026-10-06; see `docs/audit/documents-removal-plan-2026-10-06.md`). The page itself is retired | Removed |
 | 2026-09-30 | /admin/etablissement-detail/approbation | Créé par (Auto-inscription) | ENDPOINT | `users.registrationMethod` (B1) has no writer | "—" |
 | 2026-09-30 | /admin/etablissement-detail/approbation | Decision for SUPER_ADMIN_ONEFOP / REGIONAL / DIVISIONAL (D3) | DECISION | `assertCanApproveRegistration` limits every role but SUPER_ADMIN to ONEFOP staff targets | Disabled with reason |
 | 2026-09-30 | /admin/etablissement-detail/approbation | "ASFOP" type pill | DECISION | Not an `OnefopEntityType` | Existing type label |
