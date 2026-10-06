@@ -5,6 +5,8 @@ export interface CompanyStockRow {
   departmentRegionId: string | null;
   establishmentId: string | null;
   establishmentIdGeneratedAt: Date | null;
+  /** User.approvedAt: when the account was activated. Null on legacy rows. */
+  approvedAt: Date | null;
   createdAt: Date;
   status: string;
   isActive: boolean;
@@ -63,8 +65,15 @@ export function isRegistered(row: CompanyStockRow): boolean {
   return row.status === 'ACTIVE' && row.isActive === true && hasEstablishmentId(row.establishmentId);
 }
 
+/**
+ * When a company counts as registered. The establishment ID is generated at
+ * registration (not approval) since 20261011120000, so its timestamp no
+ * longer marks activation; User.approvedAt does. Legacy rows have no
+ * approvedAt (added 2026-09-30 without a backfill) but carry an ID stamped
+ * at approval or by the backfill, so they keep the year they count in today.
+ */
 export function registeredAt(row: CompanyStockRow): Date {
-  return row.establishmentIdGeneratedAt ?? row.createdAt;
+  return row.approvedAt ?? row.establishmentIdGeneratedAt ?? row.createdAt;
 }
 
 export function classifyBucket(row: CompanyStockRow): CoverageBucket {

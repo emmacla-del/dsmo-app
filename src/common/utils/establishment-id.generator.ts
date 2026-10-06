@@ -28,6 +28,11 @@ export class EstablishmentIdGenerator {
         'VOCATIONAL_TRAINING': 'VT',
     };
 
+    /** True when `entityType` has an ID prefix (case-insensitive). */
+    static isKnownEntityType(entityType: string | null | undefined): boolean {
+        return typeof entityType === 'string' && entityType.toUpperCase() in this.ENTITY_PREFIX;
+    }
+
     /**
      * Generate compact establishment ID
      * Format: {prefix}{yearLast2}{serial}{subdivCode}

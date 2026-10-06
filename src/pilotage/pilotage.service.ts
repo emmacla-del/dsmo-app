@@ -208,7 +208,7 @@ export class PilotageService {
           establishmentIdGeneratedAt: true,
           createdAt: true,
           departmentRef: { select: { regionId: true } },
-          user: { select: { status: true, isActive: true } },
+          user: { select: { status: true, isActive: true, approvedAt: true } },
         },
       }),
     ]);
@@ -366,7 +366,7 @@ export class PilotageService {
           establishmentIdGeneratedAt: true,
           createdAt: true,
           departmentRef: { select: { regionId: true } },
-          user: { select: { status: true, isActive: true } },
+          user: { select: { status: true, isActive: true, approvedAt: true } },
         },
       }),
       this.prisma.onefopSubmission.findMany({
@@ -970,7 +970,7 @@ function toStockRow(company: {
   establishmentIdGeneratedAt: Date | null;
   createdAt: Date;
   departmentRef: { regionId: string } | null;
-  user: { status: string; isActive: boolean };
+  user: { status: string; isActive: boolean; approvedAt: Date | null };
 }): CompanyStockRow {
   return {
     entityType: company.entityType,
@@ -979,6 +979,7 @@ function toStockRow(company: {
     departmentRegionId: company.departmentRef?.regionId ?? null,
     establishmentId: company.establishmentId,
     establishmentIdGeneratedAt: company.establishmentIdGeneratedAt,
+    approvedAt: company.user.approvedAt,
     createdAt: company.createdAt,
     status: company.user.status,
     isActive: company.user.isActive,

@@ -17,6 +17,19 @@ import { AuthService } from './auth.service';
  *     ressort is refused, and the check runs on canonical names.
  */
 
+/**
+ * The establishment ID generator's two raw statements (ensure, then
+ * nextval) against an in-memory sequence: serials 1, 2, 3...
+ */
+function sequenceQueryRaw() {
+  let last = 0;
+  return jest.fn(async (strings: TemplateStringsArray) => {
+    if (strings.join('?').includes('establishment_serial_ensure')) return [{ seq: 'public.establishment_serial_test' }];
+    last += 1;
+    return [{ serial: BigInt(last) }];
+  });
+}
+
 function makePrisma() {
   return {
     user: {
@@ -46,6 +59,8 @@ function makePrisma() {
       findFirst: jest.fn(async () => null),
     },
     subdivision: {
+      // Every subdivision is coded; the ID suffix is the code's last two digits.
+      findUnique: jest.fn(async () => ({ code: '5812' })),
       findMany: jest.fn(async ({ where }: any) =>
         [
           { id: 'sub-douala1', name: 'Douala 1', departmentId: 'dept-wouri' },
@@ -55,6 +70,7 @@ function makePrisma() {
       findFirst: jest.fn(async () => null),
     },
     auditLog: { create: jest.fn(async () => ({})) },
+    $queryRaw: sequenceQueryRaw(),
   } as any;
 }
 
@@ -84,7 +100,7 @@ function body(overrides: Record<string, unknown> = {}) {
     subdivision: 'Douala 1',
     address: 'BP 1234 Douala',
     taxNumber: 'M012345678901A',
-    entityType: 'ENTERPRISE',
+    entityType: 'ENTREPRISE',
     ...overrides,
   } as any;
 }
@@ -125,12 +141,14 @@ describe('AuthService.adminRegisterCompany', () => {
       LITTORAL_ADMIN as any,
     );
 
-    // autoApproveRegistration would have updated the user to ACTIVE and
-    // allocated an establishment id. DECISION 2 says it must not run here.
+    // autoApproveRegistration would have updated the user to ACTIVE.
+    // DECISION 2 says it must not run here. The establishment ID is still
+    // generated: every file gets one at registration (Q6).
     expect(prisma.user.create.mock.calls[0][0].data.status).toBe('PENDING_APPROVAL');
     expect(prisma.user.update).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'ACTIVE' }) }),
     );
+    expect(prisma.company.create.mock.calls[0][0].data.establishmentId).toMatch(/^AD\d{6}12$/);
   });
 
   it("refuses a registration outside the actor's ressort, before any write", async () => {
