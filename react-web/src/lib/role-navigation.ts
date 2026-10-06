@@ -85,12 +85,13 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   DIVISIONAL_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord Territorial", route: "/admin/pilotage" },
     { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
-    { slug: "analytics", label: "Statistiques Territoriales" },
+    // No "Statistiques" entry: the React app has no analytics screen, and the
+    // entry only led to the not-yet-migrated placeholder.
   ],
   REGIONAL_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord Régional", route: "/admin/pilotage" },
     { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
-    { slug: "analytics-dsmo", label: "Statistiques DSMO" },
+    // No "Statistiques DSMO" entry, for the same reason as DIVISIONAL_ADMIN.
     // REGIONAL_ADMIN will be able to send notifications when the ONEFOP
     // notification composer is implemented. The slug is intentionally omitted
     // until that component exists — see the deleted DSMO SendNotificationForm
