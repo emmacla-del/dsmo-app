@@ -675,3 +675,18 @@ Low priority. Phase 6 candidate, not the establishmentId phase.
       interface sees them in English among French labels. Translating the
       whole page is a ~300-string i18n pass. Deferred — French is the pilot
       language. Revisit if the English interface becomes a real requirement.
+
+## Email handling follow-ups (2026-10-06)
+
+- [ ] Staff account emails keep their typed case. `AuthService.register` and
+      `adminCreateMinefopUser` save the email as typed, and their duplicate
+      checks are exact-match. Company emails are normalised since 7ff84145;
+      lookups are case-insensitive, so staff login is unaffected. Small
+      follow-up, low priority.
+- [ ] react-web has no unit tests for hooks (its `npm test` runs node tests
+      over plain modules). The new `useEmailAvailability`
+      (`react-web/src/lib/use-email-availability.ts`) is untested.
+      Project-wide limitation, not specific to that change.
+- Flutter needs no change for 7ff84145: the `/auth/check-email` response
+  shape (`{ available: { available } }`) was kept; only React's reading of
+  it was fixed.
