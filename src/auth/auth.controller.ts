@@ -337,6 +337,7 @@ export class AuthController {
     @Query('to') to?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('createdBy') createdBy?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -347,6 +348,7 @@ export class AuthController {
       to,
       search,
       status,
+      createdBy,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });

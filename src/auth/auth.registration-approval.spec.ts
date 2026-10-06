@@ -554,3 +554,51 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
     );
   });
 });
+
+describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', () => {
+  function makeService() {
+    const prisma: any = {
+      company: {
+        count: jest.fn(async () => 0),
+        findMany: jest.fn(async () => []),
+      },
+    };
+    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
+  }
+
+  function whereOf(prisma: any) {
+    return prisma.company.findMany.mock.calls[0][0].where;
+  }
+
+  it('defaults to the review queue when no status is given', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
+    expect(whereOf(prisma).user).toEqual({
+      role: 'COMPANY',
+      status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] },
+    });
+  });
+
+  it('lifts the status filter for status=ALL', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { status: 'ALL' });
+    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY' });
+  });
+
+  it('filters on the registering admin', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { status: 'ALL', createdBy: ' agent-1 ' });
+    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY', createdBy: 'agent-1' });
+  });
+
+  it('keeps the territory scope when filtering by createdBy', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { createdBy: 'agent-1' },
+    );
+    const where = whereOf(prisma);
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+    expect(where.user.createdBy).toBe('agent-1');
+  });
+});

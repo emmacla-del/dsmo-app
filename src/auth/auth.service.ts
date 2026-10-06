@@ -1480,6 +1480,7 @@ export class AuthService {
       to?: string;
       search?: string;
       status?: string;
+      createdBy?: string;
       page?: number;
       pageSize?: number;
     },
@@ -1519,8 +1520,18 @@ export class AuthService {
     }
 
     const userWhere: Record<string, unknown> = { role: 'COMPANY' };
-    if (params.status) userWhere.status = params.status;
+    // No status = the review queue (pending + complements). 'ALL' lifts the
+    // status filter, for "every file this agent registered" (/admin/equipe).
+    if (params.status === 'ALL') {
+      // no status condition
+    } else if (params.status) userWhere.status = params.status;
     else userWhere.status = { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] };
+    // Files registered by one admin (assisted registration). A filter within
+    // the actor's territory scope, never a widening of it: `regionScope`
+    // still applies, so a REGIONAL_ADMIN sees only that agent's files in its
+    // own region.
+    const createdBy = params.createdBy?.trim();
+    if (createdBy) userWhere.createdBy = createdBy;
 
     const where: Record<string, unknown> = {
       ...regionScope,

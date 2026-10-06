@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import {
@@ -82,7 +83,22 @@ function daysAgo(days: number): string {
   return date.toISOString();
 }
 
+// Suspense because useSearchParams() requires it in the app router.
 export default function InscriptionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <InscriptionsContent />
+    </Suspense>
+  );
+}
+
+function InscriptionsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // /admin/equipe's "Voir les inscriptions" arrives with ?createdBy=<userId>:
+  // every file that agent registered, so the status filter starts at "ALL"
+  // rather than the review queue — the équipe card counts every status.
+  const createdBy = searchParams.get("createdBy")?.trim() ?? "";
   const role = useAuthStore((s) => s.user?.role);
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
   // Same four roles the backend's POST /auth/admin/register-company accepts.
@@ -93,7 +109,7 @@ export default function InscriptionsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(createdBy ? "ALL" : "");
   const [typeFilter, setTypeFilter] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [page, setPage] = useState(1);
@@ -114,11 +130,12 @@ export default function InscriptionsPage() {
   const from = dateRange === "30" ? daysAgo(30) : dateRange === "90" ? daysAgo(90) : undefined;
 
   const queueQuery = useQuery({
-    queryKey: ["auth", "company-registrations", search, statusFilter, typeFilter, region, from, page],
+    queryKey: ["auth", "company-registrations", search, statusFilter, typeFilter, region, from, createdBy, page],
     queryFn: () =>
       listCompanyRegistrations({
         search,
         status: statusFilter || undefined,
+        createdBy: createdBy || undefined,
         entityType: typeFilter || undefined,
         region: region || undefined,
         from,
@@ -211,6 +228,27 @@ export default function InscriptionsPage() {
         )}
       </div>
 
+      {createdBy && (
+        <div role="status" className="cam-admin-notice cam-admin-notice--info" style={{ marginBottom: 16 }}>
+          <span>
+            Inscriptions saisies par{" "}
+            <strong>{items.find((i) => i.createdBy === createdBy)?.createdByName ?? "l'agent sélectionné"}</strong>
+          </span>
+          <button
+            type="button"
+            className="cam-text-button"
+            style={{ marginLeft: "auto" }}
+            onClick={() => {
+              setStatusFilter("");
+              setPage(1);
+              router.replace("/admin/inscriptions");
+            }}
+          >
+            Retirer ce filtre
+          </button>
+        </div>
+      )}
+
       {notice && (
         <div role={notice.tone === "error" ? "alert" : "status"} className={`cam-admin-notice cam-admin-notice--${notice.tone}`} style={{ marginBottom: 16 }}>
           <span>{notice.text}</span>
@@ -242,6 +280,7 @@ export default function InscriptionsPage() {
           <Filter label="Statut">
             <select className="cam-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="">En file (attente + compléments)</option>
+              <option value="ALL">Tous les statuts</option>
               <option value="PENDING_APPROVAL">En attente</option>
               <option value="COMPLEMENTS_REQUESTED">Compléments demandés</option>
               <option value="ACTIVE">Approuvée</option>
