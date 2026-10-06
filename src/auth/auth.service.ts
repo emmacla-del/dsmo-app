@@ -209,13 +209,16 @@ export class AuthService {
   /**
    * Accepts either the account email or a company's establishmentId (the
    * "identifiant" shown on the registration attestation) in the login field,
-   * so a company that's lost track of its email can still log in.
+   * so a company that's lost track of its email can still log in. IDs are
+   * minted upper-case, so the typed ID is upper-cased before its lookup:
+   * "en26000112" from a phone keyboard is the same identifier.
    */
   async validateUser(login: string, password: string) {
-    let user = await this.prisma.user.findFirst({ where: emailMatch(login) });
+    const identifier = login.trim();
+    let user = await this.prisma.user.findFirst({ where: emailMatch(identifier) });
     if (!user) {
       const company = await this.prisma.company.findFirst({
-        where: { establishmentId: login },
+        where: { establishmentId: identifier.toUpperCase() },
       });
       if (company) {
         user = await this.prisma.user.findUnique({ where: { id: company.userId } });
