@@ -134,7 +134,7 @@ exists.
 | `UserStatus.UNDER_REVIEW` | enum | inscriptions "En vérification" (D3) | unassigned |
 | `UserStatus.COMPLEMENTS_REQUESTED` | enum | inscriptions / validation du compte "Compléments demandés" (D3) | unassigned |
 | `UserStatus.DOCUMENTS_INCOMPLETE` | enum | inscriptions "Documents incomplets" (D3). The documents concept behind it was retired 2026-10-06 (see `registration_documents` below); the enum value stays — removing it is its own schema decision | unassigned |
-| ~~`registration_documents` table~~ | new | SUPERSEDED 2026-10-06: the registration-documents feature is retired (no upload path existed; endpoints and UI removed). The model and table remain until a separate, reviewed drop task — see `docs/audit/documents-removal-plan-2026-10-06.md` §5.2 | superseded |
+| ~~`registration_documents` table~~ | new | SUPERSEDED 2026-10-06: the registration-documents feature is retired (no upload path existed; endpoints and UI removed). Table, model and `User` relations dropped by `20261013120000_drop_registration_documents` (e4a6a479, applied 2026-10-06, 0 rows) | done |
 
 Follow-ups:
 - [ ] `registrationMethod` is free text: turn it into an enum once the
@@ -660,7 +660,9 @@ a human runs `npx prisma migrate deploy`). Still open from the section
 
 Low priority. Phase 6 candidate, not the establishmentId phase.
 
-- [ ] Consider making `Subdivision.code` NOT NULL (`prisma/schema.prisma`,
+- [x] DONE 2026-10-06: `20261012120000_subdivision_code_not_null` (e130c071,
+      applied; 0 uncoded rows at the time). Original note:
+      Consider making `Subdivision.code` NOT NULL (`prisma/schema.prisma`,
       currently `String? @unique`). All 360 subdivisions are coded today, and
       the establishment ID suffix depends on it, so registration needs no
       fallback or rejection path for a missing code. The column constraint
