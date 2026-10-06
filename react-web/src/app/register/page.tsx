@@ -257,7 +257,7 @@ export default function RegisterPage() {
 
   // ── Advance arming ─────────────────────────────────────────────────────
   // A section with optional fields must not open the next one the instant its
-  // required fields are satisfied, or the optional ones (phone 2, CNPS) would
+  // required fields are satisfied, or the optional ones (phone 2, P.O. box) would
   // be pulled away mid-entry. What says "I am done here" instead is a change
   // to the section's LAST field. Every setter below reports which field it
   // changed, so the flag is recomputed -- never latched: going back up to an
