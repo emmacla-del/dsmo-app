@@ -1,13 +1,23 @@
 // src/common/utils/establishment-id.generator.ts
+import { ConflictException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-/** PrismaService and a $transaction client both expose these. */
+/** PrismaService and a $transaction client both expose this. */
 type IdClient = {
-  company: { findFirst: (args: unknown) => Promise<{ establishmentId: string | null } | null> };
-  $executeRaw: (query: TemplateStringsArray | Prisma.Sql, ...values: unknown[]) => Promise<unknown>;
+  $queryRaw: <T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: unknown[]) => Promise<T>;
 };
 
+/** Highest serial a (prefix, year) sequence can issue: MAXVALUE in the migration. */
+const SERIAL_MAX = 9999;
+/** A warning is logged from 90% usage on, so the ceiling is noticed in advance. */
+const SERIAL_WARN_AT = Math.ceil(SERIAL_MAX * 0.9);
+
+export const ESTABLISHMENT_ID_EXHAUSTED_MESSAGE =
+    "Le quota d'identification pour ce type d'entité cette année est épuisé. Contactez l'ONEFOP.";
+
 export class EstablishmentIdGenerator {
+    private static readonly logger = new Logger('EstablishmentIdGenerator');
+
     private static readonly ENTITY_PREFIX: Record<string, string> = {
         'ENTREPRISE': 'EN',
         'COOPERATIVE': 'CO',
@@ -23,10 +33,17 @@ export class EstablishmentIdGenerator {
      * Format: {prefix}{yearLast2}{serial}{subdivCode}
      * Example: EN26000112 (Enterprise, 2026, serial 1, subdiv 12)
      *
-     * Must only be called inside prisma.$transaction(...).
-     * pg_advisory_xact_lock is held until COMMIT/ROLLBACK; outside a
-     * transaction PostgreSQL releases it at the end of the statement and
-     * concurrent serial allocation is not serialised.
+     * The serial comes from the Postgres sequence of its (prefix, UTC year),
+     * created on first use by establishment_serial_ensure() (migration
+     * 20261011120000). nextval() is atomic and never rolls back: concurrent
+     * callers always get different numbers, and a failure after this call
+     * leaves a gap rather than a reissued number. Safe inside or outside a
+     * transaction; no lock is taken.
+     *
+     * Two statements on purpose: when another session has just created the
+     * sequence, a single statement could still see a stale catalog entry.
+     *
+     * The 10000th ID of a (prefix, year) is a 409 with a fixed message.
      */
     static async generate(
         prisma: IdClient,
@@ -38,28 +55,44 @@ export class EstablishmentIdGenerator {
             throw new Error(`Unknown entity type: ${entityType}`);
         }
 
-        const yearLast2 = new Date().getFullYear().toString().slice(-2);
-        const lockKey = this.advisoryLockKey(prefix, yearLast2);
-        await prisma.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+        // UTC: the YY records when the identifier was minted.
+        const yearLast2 = new Date().getUTCFullYear().toString().slice(-2);
 
-        // Get next serial number for this entity type and year
-        const lastEstablishment = await prisma.company.findFirst({
-            where: {
-                establishmentId: { startsWith: `${prefix}${yearLast2}` }
-            },
-            orderBy: { establishmentId: 'desc' }
-        });
+        const [{ seq }] = await prisma.$queryRaw<{ seq: string }[]>`
+            SELECT public.establishment_serial_ensure(${prefix}, ${yearLast2}) AS seq`;
 
-        let nextSerial = 1;
-        if (lastEstablishment?.establishmentId) {
-            const lastSerial = parseInt(lastEstablishment.establishmentId.slice(4, 8));
-            nextSerial = lastSerial + 1;
+        let nextSerial: number;
+        try {
+            const [{ serial }] = await prisma.$queryRaw<{ serial: bigint | number }[]>`
+                SELECT nextval(${seq}::regclass) AS serial`;
+            nextSerial = Number(serial);
+        } catch (error) {
+            if (this.isSequenceExhausted(error)) {
+                this.logger.error(`Establishment ID sequence ${seq} is exhausted (${SERIAL_MAX} issued)`);
+                throw new ConflictException(ESTABLISHMENT_ID_EXHAUSTED_MESSAGE);
+            }
+            throw error;
+        }
+
+        if (nextSerial >= SERIAL_WARN_AT) {
+            this.logger.warn(
+                `Establishment ID sequence ${seq} at ${nextSerial}/${SERIAL_MAX}: ` +
+                    `${SERIAL_MAX - nextSerial} IDs left for ${prefix}${yearLast2}`,
+            );
         }
 
         const serial = nextSerial.toString().padStart(4, '0');
         const subdivCode = subdivisionCode.padStart(2, '0').slice(0, 2);
 
         return `${prefix}${yearLast2}${serial}${subdivCode}`;
+    }
+
+    /** nextval() past MAXVALUE: SQLSTATE 2200H, surfaced by $queryRaw as P2010. */
+    private static isSequenceExhausted(error: unknown): boolean {
+        const e = error as { meta?: { code?: string; message?: string }; message?: string } | null;
+        if (e?.meta?.code === '2200H') return true;
+        const text = `${e?.meta?.message ?? ''} ${e?.message ?? ''}`;
+        return /reached maximum value of sequence/i.test(text);
     }
 
     /**
@@ -104,15 +137,5 @@ export class EstablishmentIdGenerator {
             serial,
             subdivisionCode,
         };
-    }
-
-    /** Stable signed 32-bit key for pg_advisory_xact_lock (prefix + year). */
-    static advisoryLockKey(prefix: string, yearLast2: string): number {
-        const text = `${prefix}${yearLast2}`;
-        let hash = 0;
-        for (let i = 0; i < text.length; i += 1) {
-            hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0;
-        }
-        return hash;
     }
 }

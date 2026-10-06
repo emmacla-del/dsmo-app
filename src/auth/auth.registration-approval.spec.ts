@@ -3,6 +3,19 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuthService } from './auth.service';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 
+/**
+ * The generator's two raw statements (establishment_serial_ensure, then
+ * nextval) against a fresh in-memory sequence: serials 1, 2, 3...
+ */
+function sequenceQueryRaw() {
+  let last = 0;
+  return jest.fn(async (strings: TemplateStringsArray) => {
+    if (strings.join('?').includes('establishment_serial_ensure')) return [{ seq: 'public.establishment_serial_test' }];
+    last += 1;
+    return [{ serial: BigInt(last) }];
+  });
+}
+
 describe('AuthService company registration approval', () => {
   const companyUser = {
     id: 'u-co',
@@ -79,7 +92,7 @@ describe('AuthService company registration approval', () => {
         create: jest.fn(async ({ data }: any) => ({ id: 'est-1', ...data })),
       },
       auditLog: { create: jest.fn(async () => ({})) },
-      $executeRaw: jest.fn(async () => 1),
+      $queryRaw: sequenceQueryRaw(),
       $transaction: jest.fn(async (work: any) => work(prisma)),
     };
     notifications = {
@@ -380,7 +393,7 @@ describe('AuthService registration review — approver role boundaries', () => {
       subdivision: { findUnique: jest.fn(async () => ({ id: 's-dla1', code: '12' })) },
       establishment: { create: jest.fn(async ({ data }: any) => ({ id: 'est-1', ...data })) },
       auditLog: { create: jest.fn(async () => ({})) },
-      $executeRaw: jest.fn(async () => 1),
+      $queryRaw: sequenceQueryRaw(),
       $transaction: jest.fn(async (work: any) => work(prisma)),
     };
     const notifications = {
