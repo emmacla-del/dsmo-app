@@ -370,7 +370,10 @@ export default function EtablissementsPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/register")}
+            // Admin-assisted registration, inside the console. This used to
+            // open the public /register self-signup, which left the console
+            // and recorded no admin attribution (createdBy).
+            onClick={() => router.push("/admin/inscriptions/nouvelle")}
             style={{
               display: "inline-flex",
               alignItems: "center",

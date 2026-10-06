@@ -15,7 +15,7 @@ import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { listCompanyRegistrations } from "@/lib/user-directory";
-import { APPROVAL_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
+import { APPROVAL_ROLES, CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -45,7 +45,40 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
   );
 }
 
-function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; totalSubmissions: number | null }) {
+/**
+ * Links out of the campaign card, each rendered only for roles that can open
+ * its target: /admin/campagnes is CAMPAIGN_ROLES (not DIVISIONAL_ADMIN),
+ * /admin/cibles is APPROVAL_ROLES (not AUDITOR).
+ */
+function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { campaignLabel: string; canOpenCampaigns: boolean; canOpenTargets: boolean }) {
+  if (!canOpenCampaigns && !canOpenTargets) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+      {canOpenCampaigns && (
+        <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+          {campaignLabel}
+        </Link>
+      )}
+      {canOpenTargets && (
+        <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+          Cibles et couverture →
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function CampaignCard({
+  campaign,
+  totalSubmissions,
+  canOpenCampaigns,
+  canOpenTargets,
+}: {
+  campaign?: Campaign;
+  totalSubmissions: number | null;
+  canOpenCampaigns: boolean;
+  canOpenTargets: boolean;
+}) {
   const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
   const daysLeft = computeDaysLeft(deadlineStr);
 
@@ -66,14 +99,7 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
               Aucune campagne de collecte active actuellement.
             </p>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-            <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-              Gérer les campagnes →
-            </Link>
-            <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-              Cibles et couverture →
-            </Link>
-          </div>
+          <CampaignLinks campaignLabel="Gérer les campagnes →" canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
         </div>
       </section>
     );
@@ -107,14 +133,7 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
             {dateRange}
           </p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-          <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-            Voir les détails de la campagne →
-          </Link>
-          <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-            Cibles et couverture →
-          </Link>
-        </div>
+        <CampaignLinks campaignLabel="Voir les détails de la campagne →" canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
       </div>
 
       <div style={{ marginTop: 16 }}>
@@ -155,8 +174,10 @@ function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count:
   return (
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        {/* "Voir toutes les régions →" pointed at /admin/centre-qualite,
+            which has no all-regions view. This table already lists every
+            region in the caller's scope, so the link had nowhere to go. */}
         <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Couverture Régionale</h3>
-        <Link href="/admin/centre-qualite" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir toutes les régions →</Link>
       </div>
       <div className="cam-dash-table-wrap">
         <table className="cam-dash-table" style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -224,7 +245,10 @@ function RecentActivity({
     <section className="cam-dash-card" id="activity" aria-labelledby="dash-activity-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h3 id="dash-activity-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Activité Récente</h3>
-        <Link href="/admin/journal-audit" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir tout le journal →</Link>
+        {/* This feed is the latest submissions, so it continues in the dossier
+            list. It used to point at the audit journal: different data, and
+            AUDIT_ROLES-only, so a 403 for every territorial and ONEFOP admin. */}
+        <Link href="/admin/dossiers" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir tous les dossiers →</Link>
       </div>
       {isError ? (
         <div style={{ padding: "16px 0" }}>
@@ -501,7 +525,12 @@ export default function PilotagePage() {
 
       <div className="cam-dash-columns">
         <div className="cam-dash-column">
-          <CampaignCard campaign={activeCampaign} totalSubmissions={totalSubmissions} />
+          <CampaignCard
+            campaign={activeCampaign}
+            totalSubmissions={totalSubmissions}
+            canOpenCampaigns={hasRole(userRole, CAMPAIGN_ROLES)}
+            canOpenTargets={hasRole(userRole, APPROVAL_ROLES)}
+          />
           <RegionalCoverage rows={regionalData} isDivisional={isDivisional} />
         </div>
 

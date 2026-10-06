@@ -133,13 +133,15 @@ function DossiersContent() {
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
   const requestedQuery = searchParams.get("q") ?? "";
+  // /admin/questionnaires links here with ?formType= ("Voir dossiers").
+  const requestedFormType = searchParams.get("formType") ?? "";
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
   const [regionFilter, setRegionFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState(FORM_TYPES.includes(requestedFormType) ? requestedFormType : "");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
@@ -420,9 +422,10 @@ function DossiersContent() {
         subtitle="Instruction et suivi des dossiers de déclaration soumis"
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
+            {/* The actor's scope, stated — not a selector. It carried a
+                chevron and a pointer cursor while doing nothing on click. */}
+            <span
               style={{
-                cursor: "pointer",
                 background: "#ffffff",
                 border: "1px solid #111827",
                 color: "#111827",
@@ -432,12 +435,10 @@ function DossiersContent() {
                 fontWeight: 600,
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
               }}
             >
-              <span>Ressort : {scopeLabel}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </div>
+              Ressort : {scopeLabel}
+            </span>
             <div style={{ position: "relative", width: 220 }}>
               <input
                 type="text"
