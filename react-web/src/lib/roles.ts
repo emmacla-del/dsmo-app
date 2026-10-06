@@ -103,6 +103,14 @@ export const AUDIT_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "AUDITOR"];
 export const MONITORING_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN"];
 
 /**
+ * Readers of GET /data-management/stats. Source of truth: the @Roles on
+ * getDataStats in src/data-management/data-management.controller.ts:56.
+ * DIVISIONAL_ADMIN and AUDITOR are refused there. Same membership as
+ * MONITORING_ROLES today, but a separate concern.
+ */
+export const DATA_STATS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN"];
+
+/**
  * Roles whose authorized scope is the whole country, so no region or
  * department filter is applied to what they see. Must stay in step with
  * NATIONAL_ROLES in src/auth/territory.ts, which is the enforcing copy.

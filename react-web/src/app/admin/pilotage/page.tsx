@@ -15,7 +15,7 @@ import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { listCompanyRegistrations } from "@/lib/user-directory";
-import { APPROVAL_ROLES } from "@/lib/roles";
+import { APPROVAL_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -332,10 +332,13 @@ export default function PilotagePage() {
   });
 
   // GET /data-management/stats is territory-scoped server-side (territoryWhere).
+  // Role-scoped absence is permanent, so the stage is hidden; scope-scoped absence (canReadRegistrations below) is temporary and shows "—". Do not unify.
+  const canReadDataStats = hasRole(userRole, DATA_STATS_ROLES);
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
     queryFn: getDataManagementStats,
     refetchInterval: 120000,
+    enabled: canReadDataStats,
   });
 
   const recentQuery = useQuery({
@@ -417,8 +420,10 @@ export default function PilotagePage() {
   const nationalCount = !isTerritorial && queues ? queues.pendingNationalVisasCount : null;
   const readyCount = queues ? queues.statisticallyReadyCount : null;
 
+  // `highlighted` lives on each stage, so it travels with "Déclarations" when
+  // the Inscriptions stage is dropped for a role that cannot read its source.
   const pipeline = [
-    { label: "Inscriptions", value: totalInscriptions, highlighted: false },
+    ...(canReadDataStats ? [{ label: "Inscriptions", value: totalInscriptions, highlighted: false }] : []),
     { label: "Déclarations", value: totalSubmissions, highlighted: true },
     { label: "Supervision nationale", value: nationalCount, highlighted: false },
     { label: "Approuvées", value: statusApproved, highlighted: false },
