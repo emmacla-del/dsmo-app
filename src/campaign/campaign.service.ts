@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
 import { computeCollectionPeriod } from './campaign-period.helper';
+import { territoryFromUser, territoryWhere } from '../auth/territory';
 
 // Transaction client type provided by Prisma — doesn't include NestJS lifecycle methods.
 type PrismaTx = Prisma.TransactionClient;
@@ -257,18 +258,74 @@ export class CampaignService {
         }));
     }
 
-    async getCampaign(id: string) {
+    async getCampaign(id: string, user?: any) {
+        const visibility = this.campaignVisibilityWhere(user);
+        if (!visibility) throw new NotFoundException('Campaign not found');
+        const companyScope = this.submissionCompanyScope(user);
+
         const campaign = await this.prisma.dataCampaign.findUnique({
-            where: { id },
+            where: { id, ...visibility },
             include: {
                 creator: { select: { firstName: true, lastName: true, email: true } },
-                submissions: { take: 20, orderBy: { submittedAt: 'desc' } },
+                submissions: {
+                    // The embedded rows are national otherwise; a territorial
+                    // reader only sees its own companies' rows.
+                    ...(companyScope ? { where: { company: companyScope } } : {}),
+                    take: 20,
+                    orderBy: { submittedAt: 'desc' },
+                },
                 reminders: { orderBy: { sentAt: 'desc' }, take: 10 },
             },
         });
 
         if (!campaign) throw new NotFoundException('Campaign not found');
         return this.toCampaignWire(campaign);
+    }
+
+    /**
+     * Campaign visibility for the read routes (GET /campaigns/:id, /progress,
+     * /submissions): the same rule listCampaigns applies to REGIONAL_ADMIN
+     * (empty targetRegions = all regions, or one containing user.region), but
+     * failing closed. Returns null when the campaign must be reported as not
+     * found: a REGIONAL_ADMIN with no region, or any non-national role the
+     * list rule does not cover. `user` undefined is an internal call with no
+     * acting user and applies no restriction, as territoryWhere does.
+     */
+    private campaignVisibilityWhere(user?: any): Pick<Prisma.DataCampaignWhereInput, 'OR'> | null {
+        if (!user) return {};
+        if (!this.submissionCompanyScope(user)) return {};
+        if (user.role === UserRole.REGIONAL_ADMIN && user.region?.trim()) {
+            return {
+                OR: [
+                    { targetRegions: { isEmpty: true } },
+                    { targetRegions: { has: user.region } },
+                ],
+            };
+        }
+        return null;
+    }
+
+    /**
+     * Company filter for CampaignSubmission rows read by a territorial caller,
+     * or null for national roles (and internal calls). territoryWhere is the
+     * single source of which roles are national: it returns {} for them, and
+     * fails closed (matches no company) for an unassigned or unknown role.
+     * Rows with a null companyId never match a company filter, so they are
+     * excluded for territorial callers.
+     */
+    private submissionCompanyScope(user?: any): Prisma.CompanyWhereInput | null {
+        if (!user) return null;
+        const scope = territoryWhere(territoryFromUser(user));
+        return Object.keys(scope).length ? (scope as Prisma.CompanyWhereInput) : null;
+    }
+
+    /** 404 unless the campaign exists and is visible to `user`. */
+    private async assertCampaignVisible(campaignId: string, user?: any) {
+        const visibility = this.campaignVisibilityWhere(user);
+        const campaign = visibility
+            ? await this.prisma.dataCampaign.findFirst({ where: { id: campaignId, ...visibility }, select: { id: true } })
+            : null;
+        if (!campaign) throw new NotFoundException('Campaign not found');
     }
 
     async updateCampaign(id: string, data: any) {
@@ -520,7 +577,10 @@ export class CampaignService {
         return campaign;
     }
 
-    async getCampaignProgress(campaignId: string) {
+    // Counts stay national for any reader allowed to see the campaign
+    // (plan decision D4, option a); only the campaign itself is gated.
+    async getCampaignProgress(campaignId: string, user?: any) {
+        if (user) await this.assertCampaignVisible(campaignId, user);
         const submissions = await this.prisma.campaignSubmission.groupBy({
             by: ['status'],
             where: { campaignId },
@@ -529,9 +589,15 @@ export class CampaignService {
         return this._buildProgress(submissions);
     }
 
-    async getCampaignSubmissions(campaignId: string, filters: { status?: string; region?: string }) {
+    async getCampaignSubmissions(campaignId: string, filters: { status?: string; region?: string }, user?: any) {
+        if (user) await this.assertCampaignVisible(campaignId, user);
+
         const where: any = { campaignId };
         if (filters.status) where.status = filters.status;
+        // Scoped through the direct companyId relation, not the
+        // establishmentId enrichment below.
+        const companyScope = this.submissionCompanyScope(user);
+        if (companyScope) where.company = companyScope;
 
         const submissions = await this.prisma.campaignSubmission.findMany({
             where,
