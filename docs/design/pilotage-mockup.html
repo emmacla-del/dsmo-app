@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pilotage — trois directions</title>
+
+<!--
+  DESIGN MOCKUP — not production code. No React, no build step.
+  Target viewport: 1440px desktop admin. Breakpoints are declared at the
+  bottom of this stylesheet: 1280px (body columns collapse to one) and
+  900px (the 260px rail collapses to a 64px icon strip).
+
+  Fonts: Inter + Zilla Slab are loaded from the Google CDN here so the file
+  stays self-contained. PRODUCTION SELF-HOSTS BOTH — Inter via next/font and
+  ZillaSlab-600/700.woff2 under react-web/src/app/fonts/. Do not copy the CDN
+  link into the app.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Zilla+Slab:wght@500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   CAM-LEAP TOKENS — copied verbatim from react-web/src/app/tokens.css.
+   Every colour below this line comes from this block. The survey found the
+   dashboard body sitting on generic greys (#6b7280, #e5e7eb) and SaaS tones
+   (#2563eb, #dc2626) while the chrome around it used these tokens; closing
+   that gap is what all three variants have in common.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --cam-green: #1e6b3a;
+  --cam-green-dark: #144a28;
+  --cam-gold: #e8a020;
+  --cam-gold-dark: #b87c14;
+
+  --cam-flag-green: #0e5c2b;
+  --cam-flag-red: #b3202c;
+  --cam-flag-yellow: #f0b429;
+
+  --cam-bg: #fafaf7;
+  --cam-surface: #ffffff;
+  --cam-surface-subtle: #fbfbf9;
+  --cam-text: #0b1f14;
+  --cam-text-muted: #4a5a50;
+  --cam-border: #d8ddd3;
+  --cam-border-strong: #aab5a3;
+
+  --cam-error: #b3261e;
+  --cam-error-bg: #fbeceb;
+  --cam-success: #1e6b3a;
+  --cam-success-bg: #eaf3ec;
+  --cam-warning: #b87c14;
+  --cam-warning-bg: #fdf3dc;
+  --cam-info: #1a6896;
+  --cam-info-bg: #ebf4f9;
+  --cam-info-border: #b6d7ea;
+
+  --cam-space-1: 4px;  --cam-space-2: 8px;  --cam-space-3: 12px;
+  --cam-space-4: 16px; --cam-space-5: 24px; --cam-space-6: 32px;
+  --cam-space-7: 48px;
+
+  --cam-font-sans: Inter, "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+  --cam-font-serif: "Zilla Slab", Georgia, "Times New Roman", serif;
+  --cam-radius-sm: 2px;
+  --cam-radius-md: 6px;
+  --cam-radius-lg: 10px;
+  --cam-radius-full: 9999px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  /* Mockup frame only — NOT part of the design. A shade darker than
+     --cam-bg so each variant's own page surface reads as a distinct plane. */
+  background: #eceee8;
+  font-family: var(--cam-font-sans);
+  color: var(--cam-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Document chrome (the mockup's own frame, not part of the design) ── */
+.doc-head {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--cam-space-7) var(--cam-space-5) var(--cam-space-5);
+}
+.doc-head h1 {
+  font-family: var(--cam-font-serif);
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0 0 var(--cam-space-3);
+  color: var(--cam-green-dark);
+}
+.doc-head p {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--cam-text-muted);
+}
+.doc-head .meta {
+  margin-top: var(--cam-space-4);
+  font-size: 12px;
+  color: var(--cam-text-muted);
+}
+.doc-head code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-sm);
+  padding: 1px 5px;
+}
+
+.variant {
+  max-width: 1440px;
+  margin: 0 auto var(--cam-space-7);
+  border: 2px solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-lg);
+  overflow: hidden;
+  background: var(--cam-bg);
+}
+.variant-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cam-space-4);
+  flex-wrap: wrap;
+  padding: var(--cam-space-4) var(--cam-space-5);
+  background: var(--cam-green-dark);
+  color: #fff;
+}
+.variant-bar .tag {
+  font-family: var(--cam-font-serif);
+  font-size: 19px;
+  font-weight: 700;
+}
+.variant-bar .desc { font-size: 13px; color: rgba(255,255,255,0.82); }
+.variant-bar .state {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cam-flag-yellow);
+  border: 1px solid rgba(240,180,41,0.5);
+  border-radius: var(--cam-radius-full);
+  padding: 3px 11px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SHARED APP CHROME — 260px forest-green rail, 4px flag ribbon, header.
+   Rendered inside every variant so the green-on-green relationship between
+   the body and the chrome can be judged.
+   ═══════════════════════════════════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 760px;
+  background: var(--cam-bg);
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  background: var(--cam-green-dark);
+  overflow: hidden;
+}
+.ribbon {
+  height: 4px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg,
+    var(--cam-flag-green) 0 33.33%,
+    var(--cam-flag-red) 33.33% 66.66%,
+    var(--cam-flag-yellow) 66.66% 100%);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5) var(--cam-space-3);
+}
+.seal {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--cam-radius-md);
+  background: #fff; /* white-on-green chrome, as AdminSidebar.tsx writes it */
+  color: var(--cam-green-dark);
+  font-size: 14px; font-weight: 800; letter-spacing: -0.02em;
+}
+.brand-name { font-size: 15px; font-weight: 800; color: #fff; line-height: 1.2; }
+.brand-sub {
+  font-size: 9px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--cam-info-border); margin-top: 2px;
+}
+.rail-campaign {
+  display: flex; align-items: center; gap: var(--cam-space-2);
+  margin: 0 var(--cam-space-4) var(--cam-space-4);
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border-radius: var(--cam-radius-sm);
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+  font-size: 11px; font-weight: 600;
+}
+.rail-campaign.is-idle { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.45); }
+.rail-dot { width: 7px; height: 7px; border-radius: var(--cam-radius-full); background: var(--cam-flag-yellow); flex-shrink: 0; }
+.rail-campaign.is-idle .rail-dot { background: rgba(255,255,255,0.3); }
+.rail nav { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--cam-space-3); }
+.rail nav a {
+  display: flex; align-items: center; gap: var(--cam-space-3);
+  padding: 9px var(--cam-space-3);
+  border-radius: var(--cam-radius-md);
+  color: rgba(255,255,255,0.75);
+  font-size: 13px; font-weight: 500; text-decoration: none;
+}
+.rail nav a .ico {
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: var(--cam-radius-sm);
+  background: rgba(255,255,255,0.1);
+  font-size: 11px;
+}
+.rail nav a[aria-current="page"] {
+  background: var(--cam-green);
+  color: #fff;
+  font-weight: 600;
+}
+.rail nav a[aria-current="page"] .ico { background: rgba(255,255,255,0.18); }
+.rail .rail-foot {
+  margin-top: auto;
+  padding: var(--cam-space-4) var(--cam-space-5);
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.main { padding: var(--cam-space-5) var(--cam-space-6) var(--cam-space-7); min-width: 0; }
+
+.page-head { margin-bottom: var(--cam-space-6); }
+.crumb { font-size: 13px; color: var(--cam-text-muted); margin-bottom: var(--cam-space-1); }
+.crumb span + span::before { content: "›"; margin: 0 6px; }
+.page-head h1 {
+  margin: 0;
+  font-family: var(--cam-font-serif);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--cam-text);
+}
+.head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--cam-space-5); flex-wrap: wrap; }
+.head-actions { display: flex; align-items: center; gap: var(--cam-space-3); }
+.pill-select {
+  display: inline-flex; align-items: center; gap: var(--cam-space-2);
+  padding: 7px var(--cam-space-3);
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  font-size: 13px; font-weight: 600; color: var(--cam-text);
+}
+.bell {
+  position: relative;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  font-size: 14px;
+}
+.bell .badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  display: grid; place-items: center;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-error); color: #fff;
+  font-size: 10px; font-weight: 700;
+}
+
+/* ── Shared building blocks ── */
+.section-label {
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 3px solid var(--cam-green);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--cam-text); line-height: 1.2;
+}
+.card {
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  padding: var(--cam-space-5);
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--cam-space-4); flex-wrap: wrap;
+  margin-bottom: var(--cam-space-4);
+}
+.card-head h3 {
+  margin: 0;
+  font-family: var(--cam-font-serif);
+  font-size: 17px; font-weight: 600;
+  color: var(--cam-green-dark);
+}
+.card-link { font-size: 13px; font-weight: 600; color: var(--cam-green); text-decoration: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* The absence marker. `—` is "no source for this actor"; `0` is a measured
+   zero. They must never look alike — see KpiTile's is-unavailable rule. */
+.na { color: var(--cam-border-strong); }
+.na-note {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--cam-text-muted);
+  background: var(--cam-surface-subtle);
+  border: 1px dashed var(--cam-border-strong);
+  border-radius: var(--cam-radius-full);
+  padding: 1px 7px;
+  vertical-align: 2px;
+}
+.empty-block {
+  padding: var(--cam-space-6) var(--cam-space-4);
+  text-align: center;
+  font-size: 13px;
+  color: var(--cam-text-muted);
+  background: var(--cam-surface-subtle);
+  border: 1px dashed var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+.chip {
+  font-size: 11px; font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface-subtle);
+  border: 1px solid var(--cam-border);
+  color: var(--cam-text-muted);
+}
+.status-pill {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--cam-radius-full);
+}
+.status-pill.is-active { background: var(--cam-success-bg); color: var(--cam-green-dark); }
+.status-pill.is-idle { background: var(--cam-surface-subtle); color: var(--cam-text-muted); border: 1px solid var(--cam-border); }
+
+.bar { height: 8px; border-radius: 4px; background: var(--cam-surface-subtle); border: 1px solid var(--cam-border); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--cam-green); }
+.bar.is-empty > i { background: var(--cam-border); }
+
+table.grid { width: 100%; border-collapse: collapse; }
+table.grid thead th {
+  padding: var(--cam-space-2) var(--cam-space-3);
+  text-align: left; font-weight: 600; font-size: 12px;
+  color: var(--cam-text-muted);
+  border-bottom: 1px solid var(--cam-border-strong);
+  white-space: nowrap;
+}
+table.grid tbody th {
+  padding: 10px var(--cam-space-3);
+  text-align: left; font-weight: 600; font-size: 13px; color: var(--cam-text);
+}
+table.grid tbody td {
+  padding: 10px var(--cam-space-3);
+  font-size: 13px; color: var(--cam-text);
+  border-bottom: 1px solid var(--cam-border);
+}
+table.grid tbody th { border-bottom: 1px solid var(--cam-border); }
+table.grid td.r, table.grid th.r { text-align: right; }
+table.grid tfoot th, table.grid tfoot td {
+  padding: 11px var(--cam-space-3);
+  font-size: 13px; font-weight: 700;
+  border-top: 2px solid var(--cam-green);
+  background: var(--cam-success-bg);
+  color: var(--cam-green-dark);
+}
+table.grid tfoot td.r { text-align: right; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VARIANT A — conservative. Same sections, same density, same order.
+   ═══════════════════════════════════════════════════════════════════════ */
+.va .page-head h1 { font-size: 26px; }
+.va .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: var(--cam-space-4); }
+.va .kpi {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-left: 4px solid var(--tone, var(--cam-border));
+  border-radius: var(--cam-radius-md);
+}
+/* Tones are tokens, not SaaS primaries: gold, token-info, token-error. */
+.va .kpi.t-warning { --tone: var(--cam-gold); }
+.va .kpi.t-info    { --tone: var(--cam-info); }
+.va .kpi.t-error   { --tone: var(--cam-error); }
+.va .kpi .v { font-size: 30px; font-weight: 700; line-height: 1; color: var(--cam-text); }
+.va .kpi .l { font-size: 13px; color: var(--cam-text-muted); margin-top: 5px; display: block; }
+.va .kpi .arrow { font-size: 18px; color: var(--cam-border-strong); }
+.va .kpi.is-unavailable { border-left-color: var(--cam-border); background: var(--cam-surface-subtle); }
+.va .kpi.is-unavailable .v { color: var(--cam-border-strong); }
+
+/* Five stages in five columns. The production grid declares six, leaving a
+   trailing empty cell; the chevron rules read better without it. */
+.va .pipeline {
+  display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 22px; margin: 0; padding: 0; list-style: none;
+}
+.va .pipeline li {
+  position: relative;
+  padding: var(--cam-space-4) var(--cam-space-3);
+  text-align: center;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+.va .pipeline li + li::before {
+  content: "›";
+  position: absolute; left: -15px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px; color: var(--cam-border-strong);
+}
+.va .pipeline li.is-current { border: 1.5px solid var(--cam-gold); background: var(--cam-warning-bg); }
+.va .pipeline .v { display: block; font-size: 23px; font-weight: 700; line-height: 1.1; color: var(--cam-text); }
+.va .pipeline .l { display: block; font-size: 12px; color: var(--cam-text-muted); margin-top: var(--cam-space-1); }
+.va .cols { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: var(--cam-space-5); align-items: start; }
+.va .col { display: flex; flex-direction: column; gap: var(--cam-space-5); min-width: 0; }
+.va .stack { display: flex; flex-direction: column; gap: var(--cam-space-6); }
+.va .campaign-foot {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: var(--cam-space-4);
+  margin-top: var(--cam-space-5);
+  padding-top: var(--cam-space-4);
+  border-top: 1px solid var(--cam-border);
+}
+.va .campaign-foot dt {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--cam-text-muted);
+}
+.va .campaign-foot dd { margin: 5px 0 0; font-size: 15px; font-weight: 700; color: var(--cam-text); }
+.va .activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cam-space-3); }
+.va .activity li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.va .activity .t { min-width: 42px; font-size: 12px; color: var(--cam-text-muted); font-variant-numeric: tabular-nums; }
+.va .activity .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.va .activity .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.va .quality { display: flex; flex-direction: column; gap: 14px; }
+.va .quality .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.va .quality .row span { color: var(--cam-text-muted); font-weight: 500; }
+.va .quality .row strong { color: var(--cam-green); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VARIANT B — restructured. One "flux" panel (KPI + pipeline), coverage
+   promoted to hero, campaign card demoted into a right sidebar.
+   ═══════════════════════════════════════════════════════════════════════ */
+.vb .page-head h1 { font-size: 27px; }
+.vb .layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: var(--cam-space-5); align-items: start; }
+.vb .stack { display: flex; flex-direction: column; gap: var(--cam-space-5); min-width: 0; }
+
+.vb .flux { background: var(--cam-surface); border: 1px solid var(--cam-border); border-radius: var(--cam-radius-lg); overflow: hidden; }
+.vb .flux-head {
+  display: flex; align-items: baseline; gap: var(--cam-space-4);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-bottom: 1px solid var(--cam-border);
+  background: var(--cam-surface-subtle);
+}
+.vb .flux-head h2 {
+  margin: 0; font-family: var(--cam-font-serif);
+  font-size: 17px; font-weight: 600; color: var(--cam-green-dark);
+}
+.vb .flux-head .sub { font-size: 12px; color: var(--cam-text-muted); }
+.vb .flux-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.vb .flux-kpis > div { padding: var(--cam-space-5); border-right: 1px solid var(--cam-border); }
+.vb .flux-kpis > div:last-child { border-right: 0; }
+.vb .flux-kpis .v { font-size: 32px; font-weight: 700; line-height: 1; color: var(--cam-text); }
+.vb .flux-kpis .l { display: block; font-size: 13px; color: var(--cam-text-muted); margin-top: 6px; }
+.vb .flux-kpis .rule { display: block; width: 26px; height: 3px; border-radius: 2px; margin-bottom: var(--cam-space-3); background: var(--tone, var(--cam-border)); }
+.vb .flux-kpis .t-warning { --tone: var(--cam-gold); }
+.vb .flux-kpis .t-info { --tone: var(--cam-info); }
+.vb .flux-kpis .t-error { --tone: var(--cam-error); }
+.vb .flux-kpis .is-unavailable .v { color: var(--cam-border-strong); }
+
+.vb .flux-rail {
+  display: flex; align-items: stretch;
+  border-top: 1px solid var(--cam-border);
+  background: var(--cam-surface-subtle);
+}
+.vb .flux-rail .stage { flex: 1; padding: var(--cam-space-4) var(--cam-space-3); text-align: center; position: relative; }
+.vb .flux-rail .stage + .stage::before {
+  content: "›"; position: absolute; left: -6px; top: 50%;
+  transform: translateY(-50%); color: var(--cam-border-strong); font-size: 18px;
+}
+.vb .flux-rail .stage.is-current { background: var(--cam-warning-bg); box-shadow: inset 0 -3px 0 var(--cam-gold); }
+.vb .flux-rail .v { display: block; font-size: 20px; font-weight: 700; color: var(--cam-text); }
+.vb .flux-rail .l { display: block; font-size: 11px; color: var(--cam-text-muted); margin-top: 3px; }
+
+.vb .hero { border: 1px solid var(--cam-border); border-top: 3px solid var(--cam-green); border-radius: var(--cam-radius-lg); background: var(--cam-surface); overflow: hidden; }
+.vb .hero-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--cam-space-4); flex-wrap: wrap; padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4); }
+.vb .hero-head h2 { margin: 0; font-family: var(--cam-font-serif); font-size: 21px; font-weight: 700; color: var(--cam-green-dark); }
+.vb .hero-head p { margin: 5px 0 0; font-size: 13px; color: var(--cam-text-muted); }
+.vb .hero table.grid { font-size: 13px; }
+.vb .hero table.grid thead th { background: var(--cam-surface-subtle); }
+.vb .hero table.grid thead th:first-child, .vb .hero table.grid tbody th { padding-left: var(--cam-space-5); }
+.vb .hero table.grid tbody tr:hover td, .vb .hero table.grid tbody tr:hover th { background: var(--cam-surface-subtle); }
+.vb .minibar { display: inline-flex; align-items: center; gap: var(--cam-space-2); }
+.vb .minibar .track { width: 54px; height: 6px; border-radius: 3px; background: var(--cam-surface-subtle); border: 1px solid var(--cam-border); overflow: hidden; }
+.vb .minibar .track > i { display: block; height: 100%; background: var(--cam-green); }
+.vb .side { display: flex; flex-direction: column; gap: var(--cam-space-5); }
+.vb .side .card { padding: var(--cam-space-4) var(--cam-space-5); }
+.vb .side .card-head h3 { font-size: 15px; }
+.vb .side dl { margin: 0; display: flex; flex-direction: column; gap: var(--cam-space-3); }
+.vb .side dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cam-space-3); font-size: 13px; }
+.vb .side dt { color: var(--cam-text-muted); }
+.vb .side dd { margin: 0; font-weight: 700; color: var(--cam-text); }
+.vb .activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.vb .activity li { display: flex; gap: var(--cam-space-2); align-items: baseline; }
+.vb .activity .t { font-size: 11px; color: var(--cam-text-muted); min-width: 36px; font-variant-numeric: tabular-nums; }
+.vb .activity .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VARIANT C — bold. Ministry register, not a startup admin: Zilla Slab at
+   display size, two colours (green + gold; red reserved for refusal), the
+   coverage table as the page's centre of gravity, generous white space.
+   Empty states are the design test here — see the label bar.
+   ═══════════════════════════════════════════════════════════════════════ */
+.vc .main { padding: var(--cam-space-6) var(--cam-space-7) var(--cam-space-7); }
+.vc .page-head { border-bottom: 2px solid var(--cam-green-dark); padding-bottom: var(--cam-space-5); margin-bottom: var(--cam-space-6); }
+.vc .page-head h1 { font-size: 38px; line-height: 1.15; color: var(--cam-green-dark); }
+.vc .page-head .standfirst { margin: var(--cam-space-3) 0 0; max-width: 62ch; font-size: 15px; line-height: 1.6; color: var(--cam-text-muted); }
+
+/* One band of figures, rules instead of boxes. Fewer containers, more type. */
+.vc .band {
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: var(--cam-space-6);
+  padding: var(--cam-space-5) 0 var(--cam-space-6);
+  margin-bottom: var(--cam-space-6);
+  border-bottom: 1px solid var(--cam-border);
+}
+.vc .band .fig { border-left: 3px solid var(--cam-border); padding-left: var(--cam-space-4); }
+.vc .band .fig.has-work { border-left-color: var(--cam-gold); }
+.vc .band .v { font-family: var(--cam-font-serif); font-size: 44px; font-weight: 700; line-height: 1; color: var(--cam-text); }
+.vc .band .v.na { color: var(--cam-border-strong); }
+.vc .band .l { display: block; margin-top: var(--cam-space-2); font-size: 13px; font-weight: 600; color: var(--cam-text); }
+.vc .band .src { display: block; margin-top: 3px; font-size: 11px; color: var(--cam-text-muted); }
+
+.vc .centre { margin-bottom: var(--cam-space-7); }
+.vc .centre-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--cam-space-5); flex-wrap: wrap; margin-bottom: var(--cam-space-4); }
+.vc .centre-head h2 { margin: 0; font-family: var(--cam-font-serif); font-size: 27px; font-weight: 700; color: var(--cam-green-dark); }
+.vc .centre-head p { margin: 6px 0 0; font-size: 13px; color: var(--cam-text-muted); }
+.vc table.ledger { width: 100%; border-collapse: collapse; }
+.vc table.ledger caption { caption-side: top; text-align: left; font-size: 12px; color: var(--cam-text-muted); padding-bottom: var(--cam-space-3); }
+.vc table.ledger thead th {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  text-align: left; white-space: nowrap;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--cam-green-dark);
+  border-bottom: 2px solid var(--cam-green-dark);
+}
+.vc table.ledger thead th.r { text-align: right; }
+.vc table.ledger tbody th {
+  padding: 14px var(--cam-space-4);
+  text-align: left;
+  font-family: var(--cam-font-serif);
+  font-size: 17px; font-weight: 600; color: var(--cam-text);
+  border-bottom: 1px solid var(--cam-border);
+}
+.vc table.ledger tbody td {
+  padding: 14px var(--cam-space-4);
+  font-size: 17px; color: var(--cam-text);
+  border-bottom: 1px solid var(--cam-border);
+}
+.vc table.ledger tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.vc table.ledger tbody td.muted { color: var(--cam-text-muted); font-size: 15px; }
+.vc table.ledger tbody tr:nth-child(even) th,
+.vc table.ledger tbody tr:nth-child(even) td { background: var(--cam-surface-subtle); }
+.vc table.ledger tfoot th,
+.vc table.ledger tfoot td {
+  padding: var(--cam-space-4);
+  font-family: var(--cam-font-serif);
+  font-size: 19px; font-weight: 700;
+  color: var(--cam-green-dark);
+  border-top: 3px double var(--cam-green-dark);
+}
+.vc table.ledger tfoot td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.vc .foot-cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--cam-space-6); }
+.vc .foot-cols section > h3 {
+  margin: 0 0 var(--cam-space-4);
+  padding-bottom: var(--cam-space-2);
+  border-bottom: 1px solid var(--cam-border-strong);
+  font-family: var(--cam-font-serif);
+  font-size: 18px; font-weight: 600; color: var(--cam-green-dark);
+}
+.vc .foot-cols .quality-row { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--cam-border); font-size: 14px; }
+.vc .foot-cols .quality-row span { color: var(--cam-text); }
+.vc .foot-cols .quality-row strong { font-family: var(--cam-font-serif); font-size: 17px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESPONSIVE — design target is 1440px. Below 1280px the two-column body
+   folds to one column and B's sidebar drops under the hero. Below 900px the
+   rail collapses to a 64px icon strip and every figure grid goes two-up;
+   wide tables keep a single horizontal scroll (never a nested one, §13).
+   ═══════════════════════════════════════════════════════════════════════ */
+.scroll-x { overflow-x: auto; }
+
+@media (max-width: 1280px) {
+  .va .cols, .vb .layout, .vc .foot-cols { grid-template-columns: minmax(0, 1fr); }
+  .vc .band { grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--cam-space-5); }
+  .vb .layout .side { order: 2; }
+}
+@media (max-width: 900px) {
+  .app { grid-template-columns: 64px minmax(0, 1fr); }
+  .rail .brand-text, .rail .rail-campaign span, .rail nav a .label, .rail .rail-foot { display: none; }
+  .rail nav a { justify-content: center; }
+  .va .kpis, .vb .flux-kpis, .vc .band { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .va .pipeline { grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--cam-space-3); }
+  .va .pipeline li + li::before { display: none; }
+  .vb .flux-rail { flex-wrap: wrap; }
+  .main, .vc .main { padding: var(--cam-space-5) var(--cam-space-4) var(--cam-space-6); }
+}
+</style>
+</head>
+<body>
+
+<header class="doc-head">
+  <h1>Three design directions for /admin/pilotage</h1>
+  <p>
+    Three design directions for /admin/pilotage, on the CAM-LEAP token system.
+    Populated vs empty states vary per variant; see each label bar.
+  </p>
+  <p class="meta">
+    Mockup &middot; <code>docs/design/pilotage-mockup.html</code> &middot; target 1440px &middot;
+    every colour below comes from <code>react-web/src/app/tokens.css</code>
+  </p>
+</header>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VARIANT A
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="variant va">
+  <div class="variant-bar">
+    <span class="tag">Variante A — conservatrice</span>
+    <span class="desc">Mêmes sections, même densité. Hiérarchie et respiration retravaillées, palette ramenée sur les tokens.</span>
+    <span class="state">Données réelles · une tuile en —</span>
+  </div>
+
+  <div class="app">
+    <aside class="rail">
+      <div class="ribbon"></div>
+      <div class="brand">
+        <div class="seal">CL</div>
+        <div class="brand-text">
+          <div class="brand-name">CAM-LEAP</div>
+          <div class="brand-sub">ONEFOP · MINEFOP</div>
+        </div>
+      </div>
+      <div class="rail-campaign"><i class="rail-dot"></i><span>ONEFOP-2026-T4 · active</span></div>
+      <nav>
+        <a href="#" aria-current="page"><i class="ico">◧</i><span class="label">Tableau de bord</span></a>
+        <a href="#"><i class="ico">◰</i><span class="label">Dossiers</span></a>
+        <a href="#"><i class="ico">◱</i><span class="label">Inscriptions</span></a>
+        <a href="#"><i class="ico">◲</i><span class="label">Questionnaires</span></a>
+        <a href="#"><i class="ico">◳</i><span class="label">Cibles et couverture</span></a>
+        <a href="#"><i class="ico">◴</i><span class="label">Centre qualité</span></a>
+        <a href="#"><i class="ico">◵</i><span class="label">Campagnes</span></a>
+        <a href="#"><i class="ico">◶</i><span class="label">Journal d'audit</span></a>
+      </nav>
+      <div class="rail-foot">Direction régionale — Centre<br>Connecté : A. NGO BALEPA</div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div class="head-row">
+          <div>
+            <div class="crumb"><span>Supervision</span><span>Tableau de bord</span></div>
+            <h1>Observatoire National de l'Emploi</h1>
+          </div>
+          <div class="head-actions">
+            <span class="pill-select">ONEFOP-2026-T4 ▾</span>
+            <span class="bell">✉<i class="badge">12</i></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <section>
+          <h2 class="section-label">À traiter</h2>
+          <div class="kpis">
+            <!-- `—` = no source for this actor (AUDITOR cannot read the
+                 registration queue). Unlinked, greyed, visibly distinct. -->
+            <div class="kpi is-unavailable" title="Donnée non disponible">
+              <span><span class="v">—</span><span class="l">Inscriptions en attente</span></span>
+            </div>
+            <a class="kpi t-info" href="#"><span><span class="v num">128</span><span class="l">Déclarations à examiner</span></span><span class="arrow">→</span></a>
+            <a class="kpi t-error" href="#"><span><span class="v num">19</span><span class="l">Retours à corriger</span></span><span class="arrow">→</span></a>
+            <a class="kpi t-warning" href="#"><span><span class="v num">23</span><span class="l">Alertes qualité</span></span><span class="arrow">→</span></a>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="section-label">Pipeline des déclarations</h2>
+          <ol class="pipeline">
+            <li><span class="v num">3 412</span><span class="l">Inscriptions</span></li>
+            <li class="is-current"><span class="v num">1 287</span><span class="l">Déclarations</span></li>
+            <li><span class="v num">128</span><span class="l">Supervision nationale</span></li>
+            <li><span class="v num">834</span><span class="l">Approuvées</span></li>
+            <li><span class="v num">611</span><span class="l">Exportables</span></li>
+          </ol>
+        </section>
+
+        <div class="cols">
+          <div class="col">
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <h3>Collecte ONEFOP 2026 — T4 <span class="status-pill is-active">Actif</span></h3>
+                  <p style="margin:5px 0 0;font-size:13px;color:var(--cam-text-muted)">01 oct. 2026 — 31 déc. 2026</p>
+                </div>
+                <a class="card-link" href="#">Voir les détails de la campagne →</a>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:13px;font-weight:600">Taux de couverture des entreprises ciblées</span>
+                <strong style="font-size:14px;color:var(--cam-green)">64 %</strong>
+              </div>
+              <div class="bar"><i style="width:64%"></i></div>
+              <dl class="campaign-foot">
+                <div><dt>Temps restant</dt><dd>87 jours restants</dd></div>
+                <div><dt>Entreprises ciblées</dt><dd>2 010 entreprises</dd></div>
+                <!-- Honest absence: there is no source for this figure today. -->
+                <div><dt>Agents de collecte</dt><dd class="na">—</dd></div>
+              </dl>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <h3>Couverture régionale</h3>
+                <a class="card-link" href="#">Voir toutes les régions →</a>
+              </div>
+              <div class="scroll-x">
+                <table class="grid">
+                  <thead>
+                    <tr>
+                      <th scope="col">Région</th>
+                      <th scope="col" class="r">Soumissions</th>
+                      <th scope="col" class="r">Complétion</th>
+                      <th scope="col" class="r">Contrôle QC</th>
+                      <th scope="col" class="r">Anomalies</th>
+                    </tr>
+                  </thead>
+                  <!-- A stays honest: the three columns with no backend source
+                       render `—`, exactly as production does today. -->
+                  <tbody>
+                    <tr><th scope="row">Adamaoua</th><td class="r num">62</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Centre</th><td class="r num">391</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Est</th><td class="r num">48</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Extrême-Nord</th><td class="r num">97</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Littoral</th><td class="r num">284</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Nord</th><td class="r num">83</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Nord-Ouest</th><td class="r num">71</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Ouest</th><td class="r num">149</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Sud</th><td class="r num">39</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                    <tr><th scope="row">Sud-Ouest</th><td class="r num">63</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr><th scope="row">Total national</th><td class="r num">1 287</td><td class="r na">—</td><td class="r na">—</td><td class="r na">—</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div class="col">
+            <section class="card">
+              <div class="card-head">
+                <h3>Activité récente</h3>
+                <a class="card-link" href="#">Voir tout le journal →</a>
+              </div>
+              <ol class="activity">
+                <li><span class="t">09:42</span><i class="dot" style="background:var(--cam-gold)"></i><span class="who"><strong>SARL Agro-Littoral</strong> — En attente</span><span class="chip">Littoral</span></li>
+                <li><span class="t">09:18</span><i class="dot" style="background:var(--cam-green)"></i><span class="who"><strong>Lycée Technique de Bafoussam</strong> — Validé</span><span class="chip">Ouest</span></li>
+                <li><span class="t">08:57</span><i class="dot" style="background:var(--cam-gold-dark)"></i><span class="who"><strong>CIMENCAM Douala</strong> — Correction</span><span class="chip">Littoral</span></li>
+                <li><span class="t">08:31</span><i class="dot" style="background:var(--cam-green)"></i><span class="who"><strong>Centre de Formation Pro. Garoua</strong> — Validé</span><span class="chip">Nord</span></li>
+                <li><span class="t">08:05</span><i class="dot" style="background:var(--cam-error)"></i><span class="who"><strong>Établissements Mbarga &amp; Fils</strong> — Rejeté</span><span class="chip">Centre</span></li>
+                <li><span class="t">07:49</span><i class="dot" style="background:var(--cam-green)"></i><span class="who"><strong>SOCAPALM Edéa</strong> — Validé</span><span class="chip">Littoral</span></li>
+                <li><span class="t">07:22</span><i class="dot" style="background:var(--cam-gold)"></i><span class="who"><strong>INS Antenne de Bertoua</strong> — En attente</span><span class="chip">Est</span></li>
+                <li><span class="t">06:58</span><i class="dot" style="background:var(--cam-green)"></i><span class="who"><strong>Collège Bilingue Mendong</strong> — Validé</span><span class="chip">Centre</span></li>
+              </ol>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <h3>Qualité des données</h3>
+                <a class="card-link" href="#">Voir le centre qualité →</a>
+              </div>
+              <div class="quality">
+                <div><div class="row"><span>Complétude</span><strong>87 %</strong></div><div class="bar"><i style="width:87%"></i></div></div>
+                <div><div class="row"><span>Cohérence</span><strong>92 %</strong></div><div class="bar"><i style="width:92%"></i></div></div>
+                <div><div class="row"><span>Anomalies</span><strong>6 %</strong></div><div class="bar"><i style="width:6%"></i></div></div>
+                <div><div class="row"><span>Avertissements</span><strong>14 %</strong></div><div class="bar"><i style="width:14%"></i></div></div>
+                <div><div class="row"><span>Éligibilité statistique</span><strong>47 %</strong></div><div class="bar"><i style="width:47%"></i></div></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VARIANT B
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="variant vb">
+  <div class="variant-bar">
+    <span class="tag">Variante B — restructurée</span>
+    <span class="desc">« À traiter » et le pipeline fusionnés en un seul panneau de flux. La couverture devient le bloc principal ; la campagne passe en colonne latérale.</span>
+    <span class="state">Données réelles · — et 0 côte à côte</span>
+  </div>
+
+  <div class="app">
+    <aside class="rail">
+      <div class="ribbon"></div>
+      <div class="brand">
+        <div class="seal">CL</div>
+        <div class="brand-text">
+          <div class="brand-name">CAM-LEAP</div>
+          <div class="brand-sub">ONEFOP · MINEFOP</div>
+        </div>
+      </div>
+      <div class="rail-campaign"><i class="rail-dot"></i><span>ONEFOP-2026-T4 · active</span></div>
+      <nav>
+        <a href="#" aria-current="page"><i class="ico">◧</i><span class="label">Tableau de bord</span></a>
+        <a href="#"><i class="ico">◰</i><span class="label">Dossiers</span></a>
+        <a href="#"><i class="ico">◱</i><span class="label">Inscriptions</span></a>
+        <a href="#"><i class="ico">◲</i><span class="label">Questionnaires</span></a>
+        <a href="#"><i class="ico">◳</i><span class="label">Cibles et couverture</span></a>
+        <a href="#"><i class="ico">◴</i><span class="label">Centre qualité</span></a>
+        <a href="#"><i class="ico">◵</i><span class="label">Campagnes</span></a>
+        <a href="#"><i class="ico">◶</i><span class="label">Journal d'audit</span></a>
+      </nav>
+      <div class="rail-foot">Administration centrale<br>Connecté : E. TCHOUMI</div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div class="head-row">
+          <div>
+            <div class="crumb"><span>Supervision</span><span>Tableau de bord</span></div>
+            <h1>Observatoire National de l'Emploi</h1>
+          </div>
+          <div class="head-actions">
+            <span class="pill-select">ONEFOP-2026-T4 ▾</span>
+            <span class="bell">✉<i class="badge">12</i></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="stack">
+
+          <!-- One panel: the work queue and the funnel it feeds are the same
+               story, so they share a frame instead of two section labels. -->
+          <section class="flux">
+            <div class="flux-head">
+              <h2>Flux de collecte</h2>
+              <span class="sub">Charge de travail en tête, parcours de la déclaration en pied · actualisé toutes les 2 min</span>
+            </div>
+            <div class="flux-kpis">
+              <!-- `—` and `0` side by side: the first has no source for this
+                   actor, the second is a measured zero. Different colour,
+                   different weight, only one is navigable. -->
+              <div class="is-unavailable" title="Donnée non disponible">
+                <i class="rule"></i><span class="v">—</span><span class="l">Inscriptions en attente</span>
+              </div>
+              <div class="t-info"><i class="rule"></i><span class="v num">128</span><span class="l">Déclarations à examiner</span></div>
+              <div class="t-error"><i class="rule"></i><span class="v num">0</span><span class="l">Retours à corriger</span></div>
+              <div class="t-warning"><i class="rule"></i><span class="v num">23</span><span class="l">Alertes qualité</span></div>
+            </div>
+            <div class="flux-rail">
+              <div class="stage"><span class="v num">3 412</span><span class="l">Inscriptions</span></div>
+              <div class="stage is-current"><span class="v num">1 287</span><span class="l">Déclarations</span></div>
+              <div class="stage"><span class="v num">128</span><span class="l">Supervision nationale</span></div>
+              <div class="stage"><span class="v num">834</span><span class="l">Approuvées</span></div>
+              <div class="stage"><span class="v num">611</span><span class="l">Exportables</span></div>
+            </div>
+          </section>
+
+          <!-- Coverage promoted: full width, its own top rule, a real total row. -->
+          <section class="hero">
+            <div class="hero-head">
+              <div>
+                <h2>Couverture régionale</h2>
+                <p>Soumissions reçues et contrôle qualité par région · campagne ONEFOP-2026-T4</p>
+              </div>
+              <a class="card-link" href="#">Cibles et couverture →</a>
+            </div>
+            <div class="scroll-x">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th scope="col">Région</th>
+                    <th scope="col" class="r">Soumissions</th>
+                    <th scope="col" class="r">Complétion <span class="na-note">source à connecter</span></th>
+                    <th scope="col" class="r">Contrôle QC <span class="na-note">source à connecter</span></th>
+                    <th scope="col" class="r">Anomalies <span class="na-note">source à connecter</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">Adamaoua</th><td class="r num">62</td><td class="r"><span class="minibar"><span class="track"><i style="width:58%"></i></span>58 %</span></td><td class="r num">41</td><td class="r num">3</td></tr>
+                  <tr><th scope="row">Centre</th><td class="r num">391</td><td class="r"><span class="minibar"><span class="track"><i style="width:84%"></i></span>84 %</span></td><td class="r num">331</td><td class="r num">12</td></tr>
+                  <tr><th scope="row">Est</th><td class="r num">48</td><td class="r"><span class="minibar"><span class="track"><i style="width:44%"></i></span>44 %</span></td><td class="r num">27</td><td class="r num">5</td></tr>
+                  <tr><th scope="row">Extrême-Nord</th><td class="r num">97</td><td class="r"><span class="minibar"><span class="track"><i style="width:61%"></i></span>61 %</span></td><td class="r num">71</td><td class="r num">9</td></tr>
+                  <tr><th scope="row">Littoral</th><td class="r num">284</td><td class="r"><span class="minibar"><span class="track"><i style="width:79%"></i></span>79 %</span></td><td class="r num">231</td><td class="r num">14</td></tr>
+                  <tr><th scope="row">Nord</th><td class="r num">83</td><td class="r"><span class="minibar"><span class="track"><i style="width:55%"></i></span>55 %</span></td><td class="r num">58</td><td class="r num">6</td></tr>
+                  <tr><th scope="row">Nord-Ouest</th><td class="r num">71</td><td class="r"><span class="minibar"><span class="track"><i style="width:49%"></i></span>49 %</span></td><td class="r num">44</td><td class="r num">8</td></tr>
+                  <tr><th scope="row">Ouest</th><td class="r num">149</td><td class="r"><span class="minibar"><span class="track"><i style="width:68%"></i></span>68 %</span></td><td class="r num">112</td><td class="r num">7</td></tr>
+                  <tr><th scope="row">Sud</th><td class="r num">39</td><td class="r"><span class="minibar"><span class="track"><i style="width:37%"></i></span>37 %</span></td><td class="r num">21</td><td class="r num">4</td></tr>
+                  <tr><th scope="row">Sud-Ouest</th><td class="r num">63</td><td class="r"><span class="minibar"><span class="track"><i style="width:46%"></i></span>46 %</span></td><td class="r num">38</td><td class="r num">6</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr><th scope="row">Total national</th><td class="r num">1 287</td><td class="r num">64 %</td><td class="r num">974</td><td class="r num">74</td></tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Campaign demoted out of the main column: it is context, not work. -->
+        <aside class="side">
+          <section class="card">
+            <div class="card-head"><h3>Campagne <span class="status-pill is-active">Actif</span></h3></div>
+            <p style="margin:0 0 var(--cam-space-3);font-size:14px;font-weight:600">Collecte ONEFOP 2026 — T4</p>
+            <p style="margin:0 0 var(--cam-space-4);font-size:12px;color:var(--cam-text-muted)">01 oct. 2026 — 31 déc. 2026</p>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+              <span style="color:var(--cam-text-muted)">Couverture des cibles</span><strong style="color:var(--cam-green)">64 %</strong>
+            </div>
+            <div class="bar"><i style="width:64%"></i></div>
+            <dl style="margin-top:var(--cam-space-4)">
+              <div><dt>Temps restant</dt><dd>87 jours</dd></div>
+              <div><dt>Entreprises ciblées</dt><dd>2 010</dd></div>
+              <div><dt>Agents de collecte</dt><dd class="na">—</dd></div>
+            </dl>
+            <p style="margin:var(--cam-space-4) 0 0"><a class="card-link" href="#">Gérer les campagnes →</a></p>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Qualité</h3></div>
+            <dl>
+              <div><dt>Complétude</dt><dd>87 %</dd></div>
+              <div><dt>Cohérence</dt><dd>92 %</dd></div>
+              <div><dt>Anomalies</dt><dd>6 %</dd></div>
+              <div><dt>Avertissements</dt><dd>14 %</dd></div>
+              <div><dt>Éligibilité statistique</dt><dd>47 %</dd></div>
+            </dl>
+            <p style="margin:var(--cam-space-4) 0 0"><a class="card-link" href="#">Centre qualité →</a></p>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Activité</h3></div>
+            <ol class="activity">
+              <li><span class="t">09:42</span><span class="who">SARL Agro-Littoral — <span style="color:var(--cam-gold-dark)">En attente</span></span></li>
+              <li><span class="t">09:18</span><span class="who">Lycée Tech. Bafoussam — <span style="color:var(--cam-green)">Validé</span></span></li>
+              <li><span class="t">08:57</span><span class="who">CIMENCAM Douala — <span style="color:var(--cam-gold-dark)">Correction</span></span></li>
+              <li><span class="t">08:31</span><span class="who">CFP Garoua — <span style="color:var(--cam-green)">Validé</span></span></li>
+              <li><span class="t">08:05</span><span class="who">Ets Mbarga &amp; Fils — <span style="color:var(--cam-error)">Rejeté</span></span></li>
+            </ol>
+            <p style="margin:var(--cam-space-4) 0 0"><a class="card-link" href="#">Journal d'audit →</a></p>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VARIANT C
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="variant vc">
+  <div class="variant-bar">
+    <span class="tag">Variante C — registre officiel</span>
+    <span class="desc">Typographie de titrage Zilla Slab, deux couleurs, peu de cadres. Le tableau de couverture est le centre de la page.</span>
+    <span class="state">États vides · le registre reste lisible</span>
+  </div>
+
+  <div class="app">
+    <aside class="rail">
+      <div class="ribbon"></div>
+      <div class="brand">
+        <div class="seal">CL</div>
+        <div class="brand-text">
+          <div class="brand-name">CAM-LEAP</div>
+          <div class="brand-sub">ONEFOP · MINEFOP</div>
+        </div>
+      </div>
+      <!-- No active campaign in this state, so the rail badge goes idle too. -->
+      <div class="rail-campaign is-idle"><i class="rail-dot"></i><span>Aucune campagne active</span></div>
+      <nav>
+        <a href="#" aria-current="page"><i class="ico">◧</i><span class="label">Tableau de bord</span></a>
+        <a href="#"><i class="ico">◰</i><span class="label">Dossiers</span></a>
+        <a href="#"><i class="ico">◱</i><span class="label">Inscriptions</span></a>
+        <a href="#"><i class="ico">◲</i><span class="label">Questionnaires</span></a>
+        <a href="#"><i class="ico">◳</i><span class="label">Cibles et couverture</span></a>
+        <a href="#"><i class="ico">◴</i><span class="label">Centre qualité</span></a>
+        <a href="#"><i class="ico">◵</i><span class="label">Campagnes</span></a>
+        <a href="#"><i class="ico">◶</i><span class="label">Journal d'audit</span></a>
+      </nav>
+      <div class="rail-foot">Direction régionale — Est<br>Connecté : M. ABOUBAKAR</div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div class="head-row">
+          <div>
+            <div class="crumb"><span>Supervision</span><span>Tableau de bord</span></div>
+            <h1>Observatoire National<br>de l'Emploi</h1>
+            <p class="standfirst">
+              Suivi de la collecte statistique ONEFOP et de la couverture du répertoire
+              des établissements. Entre deux campagnes, seules les données du répertoire
+              sont renseignées.
+            </p>
+          </div>
+          <div class="head-actions">
+            <span class="pill-select">Aucune campagne ▾</span>
+            <span class="bell">✉</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty states as the design test: at 44px, `—` has to read as
+           "pas de source" and not as a broken panel. The rule on the left
+           stays grey when there is nothing to do. -->
+      <div class="band">
+        <div class="fig"><span class="v na">—</span><span class="l">Inscriptions en attente</span><span class="src">Hors périmètre de ce compte</span></div>
+        <div class="fig"><span class="v num">0</span><span class="l">Déclarations à examiner</span><span class="src">File vide — rien en attente de visa</span></div>
+        <div class="fig"><span class="v num">0</span><span class="l">Retours à corriger</span><span class="src">File vide</span></div>
+        <div class="fig has-work"><span class="v num">4</span><span class="l">Alertes qualité</span><span class="src">Sur le répertoire, hors campagne</span></div>
+      </div>
+
+      <section class="centre">
+        <div class="centre-head">
+          <div>
+            <h2>Couverture régionale</h2>
+            <p>Répertoire des établissements · ressort régional — Est</p>
+          </div>
+          <a class="card-link" href="#">Cibles et couverture →</a>
+        </div>
+        <div class="scroll-x">
+          <table class="ledger">
+            <caption>Un compte régional ne voit que son ressort. Les colonnes marquées « source à connecter » sont maquettées, pas encore alimentées.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Région</th>
+                <th scope="col" class="r">Soumissions</th>
+                <th scope="col" class="r">Complétion <span class="na-note">source à connecter</span></th>
+                <th scope="col" class="r">Contrôle QC <span class="na-note">source à connecter</span></th>
+                <th scope="col" class="r">Anomalies <span class="na-note">source à connecter</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Est</th><td class="r num">0</td><td class="r muted">0 %</td><td class="r num">0</td><td class="r num">4</td></tr>
+              <tr><th scope="row">— Haut-Nyong</th><td class="r num">0</td><td class="r muted">0 %</td><td class="r num">0</td><td class="r num">2</td></tr>
+              <tr><th scope="row">— Kadey</th><td class="r num">0</td><td class="r muted">0 %</td><td class="r num">0</td><td class="r num">1</td></tr>
+              <tr><th scope="row">— Lom-et-Djérem</th><td class="r num">0</td><td class="r muted">0 %</td><td class="r num">0</td><td class="r num">1</td></tr>
+              <tr><th scope="row">— Boumba-et-Ngoko</th><td class="r num">0</td><td class="r muted">0 %</td><td class="r num">0</td><td class="r num">0</td></tr>
+            </tbody>
+            <tfoot>
+              <tr><th scope="row">Total ressort</th><td class="r num">0</td><td class="r">0 %</td><td class="r num">0</td><td class="r num">4</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <div class="foot-cols">
+        <section>
+          <h3>Campagne de collecte</h3>
+          <div class="empty-block">
+            Aucune campagne de collecte active actuellement.<br>
+            <a class="card-link" href="#" style="display:inline-block;margin-top:10px">Gérer les campagnes →</a>
+          </div>
+        </section>
+
+        <section>
+          <h3>Activité récente</h3>
+          <div class="empty-block">
+            Aucune activité récente enregistrée.<br>
+            <a class="card-link" href="#" style="display:inline-block;margin-top:10px">Voir tout le journal →</a>
+          </div>
+        </section>
+
+        <section>
+          <h3>Qualité des données</h3>
+          <!-- Five rows of `—` with no bars: an empty quality panel should
+               read as "pas encore mesuré", not as five zero-length bars. -->
+          <div class="quality-row"><span>Complétude</span><strong class="na">—</strong></div>
+          <div class="quality-row"><span>Cohérence</span><strong class="na">—</strong></div>
+          <div class="quality-row"><span>Anomalies</span><strong class="na">—</strong></div>
+          <div class="quality-row"><span>Avertissements</span><strong class="na">—</strong></div>
+          <div class="quality-row"><span>Éligibilité statistique</span><strong class="na">—</strong></div>
+          <p style="margin:var(--cam-space-4) 0 0;font-size:12px;color:var(--cam-text-muted)">
+            Les taux de qualité sont calculés par campagne. Ils réapparaissent dès qu'une campagne est active.
+          </p>
+        </section>
+      </div>
+    </main>
+  </div>
+</section>
+
+</body>
+</html>
