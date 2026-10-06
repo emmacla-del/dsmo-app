@@ -2,7 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DIRECTORY_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
@@ -18,7 +18,7 @@ import {
   type EntityField,
   type EntityType,
 } from "@/lib/register-constants";
-import { localized } from "@/lib/register-i18n";
+import { asUiLocale, localized, type UiLocale } from "@/lib/register-i18n";
 import {
   useTerritoryDepartments,
   useTerritoryRegions,
@@ -30,19 +30,21 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
-// The admin console is written in French throughout (no next-intl provider on
-// /admin), so the shared EntityConfig labels are read in French rather than
-// through useLocale().
-const LOCALE = "fr" as const;
-
-const ENTITY_ORDER: readonly EntityType[] = [
-  "enterprise",
-  "cooperative",
-  "ctd",
-  "ong",
-  "administration",
-  "projectProgram",
-  "vocationalTraining",
+// Organisation types in the order offered, with the public wizard's labels.
+// Those avoid administrative codes (CTD/ONG/CFP) that ENTITY_CONFIGS titles
+// carry; the two ambiguous types get the same short hint.
+const ENTITY_OPTIONS: readonly { type: EntityType; labelKey: string; hintKey?: string }[] = [
+  { type: "enterprise", labelKey: "registerPage.entityOptionEnterprise" },
+  { type: "cooperative", labelKey: "registerPage.entityOptionCooperative" },
+  { type: "ctd", labelKey: "registerPage.entityOptionCtd", hintKey: "registerPage.entityOptionCtdHint" },
+  { type: "ong", labelKey: "registerPage.entityOptionOng" },
+  {
+    type: "administration",
+    labelKey: "registerPage.entityOptionAdministration",
+    hintKey: "registerPage.entityOptionAdministrationHint",
+  },
+  { type: "projectProgram", labelKey: "registerPage.entityOptionProjectProgram" },
+  { type: "vocationalTraining", labelKey: "registerPage.entityOptionVocationalTraining" },
 ];
 
 /**
@@ -72,7 +74,10 @@ const EMPTY_RESPONDENT: Respondent = {
 
 export default function NouvelleInscriptionPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(DIRECTORY_ROLES);
-  const t = useTranslations("registerPage");
+  const t = useTranslations();
+  // The console locale (NEXT_LOCALE cookie, set from the sidebar switcher).
+  // EntityConfig labels are {fr, en} data and are read in it too.
+  const locale = asUiLocale(useLocale());
 
   // A territorial admin registers inside its own ressort, so its assignment is
   // the starting point. A national role starts empty and picks. The server
@@ -136,18 +141,18 @@ export default function NouvelleInscriptionPage() {
 
   /** The first unmet requirement, or null when the form may be sent. */
   function firstProblem(): string | null {
-    if (!entityType || !config) return "Choisissez le type de déclarant.";
+    if (!entityType || !config) return t("adminInscriptionsNouvellePage.errorEntityTypeRequired");
     if (!respondent.firstName.trim() || !respondent.lastName.trim()) {
-      return "Le nom et le prénom du répondant sont obligatoires.";
+      return t("adminInscriptionsNouvellePage.errorRespondentNameRequired");
     }
-    if (!respondent.email.trim()) return "L'adresse e-mail du déclarant est obligatoire.";
-    if (emailAvailable === false) return "Cette adresse e-mail est déjà utilisée par un autre compte.";
+    if (!respondent.email.trim()) return t("adminInscriptionsNouvellePage.errorEmailRequired");
+    if (emailAvailable === false) return t("adminInscriptionsNouvellePage.errorEmailInUse");
     if (!region || !department || !subdivision) {
-      return "Région, département et arrondissement sont obligatoires.";
+      return t("adminInscriptionsNouvellePage.errorLocationRequired");
     }
     for (const field of visibleFields) {
       if (field.required && !entityData[field.key]?.trim()) {
-        return `« ${localized(field.label, LOCALE)} » est obligatoire.`;
+        return t("adminInscriptionsNouvellePage.errorFieldRequired", { field: localized(field.label, locale) });
       }
     }
     return null;
@@ -221,28 +226,31 @@ export default function NouvelleInscriptionPage() {
     }
   }
 
-  if (isLoading) return <p className="cam-admin-lede">Chargement…</p>;
-  if (forbidden) return <p className="cam-admin-lede">Vous n&apos;avez pas accès à cette page.</p>;
+  if (isLoading) return <p className="cam-admin-lede">{t("common.loading")}</p>;
+  if (forbidden) return <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.accessDeniedMessage")}</p>;
+
+  const entityOption = entityType ? ENTITY_OPTIONS.find((option) => option.type === entityType) : undefined;
+  const selectPlaceholder = t("adminInscriptionsNouvellePage.selectPlaceholder");
 
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions", href: "/admin/inscriptions" }, { label: "Nouvelle inscription" }]}
-        title="Nouvelle inscription"
+        breadcrumb={[
+          { label: t("adminNav.hubs.declarants") },
+          { label: t("adminNav.routes.inscriptions"), href: "/admin/inscriptions" },
+          { label: t("adminNav.routes.nouvelleInscription") },
+        ]}
+        title={t("adminInscriptionsNouvellePage.title")}
         backHref="/admin/inscriptions"
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
 
-      <p className="cam-admin-lede">
-        Enregistrez un déclarant rencontré sur le terrain, par téléphone ou au guichet. Cette
-        inscription sera soumise à validation comme une inscription auto-service. Le demandeur
-        pourra se connecter une fois approuvé.
-      </p>
+      <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
 
       {error && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginBottom: 16 }}>
           <span>{error}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setError(null)}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</button>
         </div>
       )}
 
@@ -252,9 +260,9 @@ export default function NouvelleInscriptionPage() {
           submit();
         }}
       >
-        <Section title="Type de déclarant">
-          <div role="radiogroup" aria-label="Type de déclarant" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-            {ENTITY_ORDER.map((type) => (
+        <Section title={t("adminInscriptionsNouvellePage.entityTypeTitle")}>
+          <div role="radiogroup" aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }) => (
               <label key={type} className="cam-admin-choice">
                 <input
                   type="radio"
@@ -262,38 +270,45 @@ export default function NouvelleInscriptionPage() {
                   checked={entityType === type}
                   onChange={() => chooseEntityType(type)}
                 />
-                {localized(ENTITY_CONFIGS[type].title, LOCALE)}
+                {t(labelKey)}
+                {hintKey && <span className="cam-admin-choice-hint">{t(hintKey)}</span>}
               </label>
             ))}
           </div>
         </Section>
 
-        <Section title="Répondant">
+        <Section title={t("registerPage.respondentTitle")}>
           <FieldGrid>
-            <Text label="Prénom" required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
-            <Text label="Nom" required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
-            <Text label="Adresse e-mail" required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
-              hint={t("emailRoleHint")}
+            <Text label={t("registerPage.firstNameLabel")} required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
+            <Text label={t("registerPage.lastNameLabel")} required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
+            <Text label={t("adminInscriptionsNouvellePage.emailLabel")} required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
+              hint={t("adminInscriptionsNouvellePage.emailRoleHint")}
               after={
                 <span aria-live="polite" aria-atomic="true">
-                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("emailUnavailable")}</span>}
-                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("emailAvailable")}</span>}
+                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("registerPage.emailUnavailable")}</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("registerPage.emailAvailable")}</span>}
                 </span>
               }
             />
-            <Text label="Fonction" value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
-            <Text label="Téléphone du déclarant" type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
-            <Text label="Téléphone 2" type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
+            <Text label={t("registerPage.functionLabel")} value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
+            <Text label={t("adminInscriptionsNouvellePage.phone1Label")} type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
+            <Text label={t("registerPage.phone2Label")} type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
           </FieldGrid>
         </Section>
 
         {config && (
-          <Section title={`Identification — ${localized(config.title, LOCALE)}`}>
+          <Section
+            title={t("adminInscriptionsNouvellePage.identificationTitle", {
+              entityType: entityOption ? t(entityOption.labelKey) : localized(config.title, locale),
+            })}
+          >
             <FieldGrid>
               {visibleFields.map((field) => (
                 <EntityFieldInput
                   key={field.key}
                   field={field}
+                  locale={locale}
+                  selectPlaceholder={selectPlaceholder}
                   value={entityData[field.key] ?? ""}
                   onChange={(v) => setField(field.key, v)}
                 />
@@ -302,15 +317,16 @@ export default function NouvelleInscriptionPage() {
           </Section>
         )}
 
-        <Section title="Localisation">
+        <Section title={t("registerPage.locationTitle")}>
           {!isNational && (
             <p className="cam-admin-lede" style={{ marginTop: 0 }}>
-              Pré-rempli avec votre ressort. Une inscription hors de votre ressort est refusée.
+              {t("adminInscriptionsNouvellePage.locationScopeNote")}
             </p>
           )}
           <FieldGrid>
             <Select
-              label="Région"
+              label={t("registerPage.regionLabel")}
+              placeholder={selectPlaceholder}
               required
               value={region}
               options={regions}
@@ -321,7 +337,8 @@ export default function NouvelleInscriptionPage() {
               }}
             />
             <Select
-              label="Département"
+              label={t("registerPage.departmentLabel")}
+              placeholder={selectPlaceholder}
               required
               value={department}
               options={departments}
@@ -330,51 +347,50 @@ export default function NouvelleInscriptionPage() {
                 setSubdivision("");
               }}
             />
-            <Select label="Arrondissement" required value={subdivision} options={subdivisions} onChange={setSubdivision} />
+            <Select label={t("registerPage.subdivisionLabel")} placeholder={selectPlaceholder} required value={subdivision} options={subdivisions} onChange={setSubdivision} />
           </FieldGrid>
         </Section>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "8px 0 32px" }}>
           <button type="submit" className="cam-button cam-button-primary" disabled={mutation.isPending}>
-            {mutation.isPending ? "Enregistrement…" : "Enregistrer l'inscription"}
+            {mutation.isPending
+              ? t("adminInscriptionsNouvellePage.submittingButton")
+              : t("adminInscriptionsNouvellePage.submitButton")}
           </button>
-          <Link href="/admin/inscriptions" className="cam-button cam-button-secondary">Annuler</Link>
+          <Link href="/admin/inscriptions" className="cam-button cam-button-secondary">{t("common.cancel")}</Link>
         </div>
       </form>
 
       <AdminDialog
         open={!!result}
         onClose={resetForm}
-        eyebrow="Inscription enregistrée"
+        eyebrow={t("adminInscriptionsNouvellePage.successEyebrow")}
         title={result?.company.name ?? ""}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary" onClick={resetForm}>Nouvelle inscription</button>
-            <Link href="/admin/inscriptions" className="cam-button cam-button-primary">Voir la file</Link>
+            <button type="button" className="cam-button cam-button-secondary" onClick={resetForm}>{t("adminInscriptionsNouvellePage.title")}</button>
+            <Link href="/admin/inscriptions" className="cam-button cam-button-primary">{t("adminInscriptionsNouvellePage.viewQueueLink")}</Link>
           </>
         }
       >
         {result && (
           <div>
-            <p>
-              Le dossier est en attente de validation. Transmettez ces identifiants au déclarant :
-              il pourra se connecter une fois le dossier approuvé.
-            </p>
+            <p>{t("adminInscriptionsNouvellePage.successBody")}</p>
             <FieldGrid>
               <div className="cam-target-year">
-                E-mail de connexion
+                {t("adminInscriptionsNouvellePage.loginEmailLabel")}
                 <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>{result.user.email}</span>
               </div>
               {result.company.establishmentId && (
                 <div className="cam-target-year">
-                  Identifiant d&apos;établissement
+                  {t("adminInscriptionsNouvellePage.establishmentIdLabel")}
                   <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>
                     {result.company.establishmentId}
                   </span>
                 </div>
               )}
               <div className="cam-target-year">
-                Mot de passe temporaire
+                {t("adminInscriptionsNouvellePage.temporaryPasswordLabel")}
                 <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace", fontSize: 16 }}>
                   {result.temporaryPassword}
                 </span>
@@ -382,12 +398,12 @@ export default function NouvelleInscriptionPage() {
             </FieldGrid>
             <p style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={copyPassword}>
-                Copier le mot de passe
+                {t("adminInscriptionsNouvellePage.copyPasswordButton")}
               </button>
-              {copied && <span className="cam-admin-lede" style={{ margin: 0 }}>Copié.</span>}
+              {copied && <span className="cam-admin-lede" style={{ margin: 0 }}>{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
             </p>
             <div className="cam-admin-notice cam-admin-notice--warn" role="status">
-              Ce mot de passe ne sera plus affiché. Notez-le avant de fermer cette fenêtre.
+              {t("adminInscriptionsNouvellePage.passwordShownOnceWarning")}
             </div>
           </div>
         )}
@@ -450,12 +466,15 @@ function Text({
 
 function Select({
   label,
+  placeholder,
   value,
   options,
   onChange,
   required,
 }: {
   label: string;
+  /** Text of the empty first option. */
+  placeholder: string;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
@@ -466,7 +485,7 @@ function Select({
       {label}
       {required && <span aria-hidden="true"> *</span>}
       <select className="cam-select" value={value} required={required} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Sélectionner…</option>
+        <option value="">{placeholder}</option>
         {options.map((option) => (
           <option key={option} value={option}>{option}</option>
         ))}
@@ -478,15 +497,19 @@ function Select({
 /** One EntityConfig field, rendered by its declared `kind`. */
 function EntityFieldInput({
   field,
+  locale,
+  selectPlaceholder,
   value,
   onChange,
 }: {
   field: EntityField;
+  locale: UiLocale;
+  selectPlaceholder: string;
   value: string;
   onChange: (value: string) => void;
 }) {
-  const label = localized(field.label, LOCALE);
-  const hint = field.hint ? localized(field.hint, LOCALE) : undefined;
+  const label = localized(field.label, locale);
+  const hint = field.hint ? localized(field.hint, locale) : undefined;
 
   if (field.kind === "select") {
     return (
@@ -494,9 +517,9 @@ function EntityFieldInput({
         {label}
         {field.required && <span aria-hidden="true"> *</span>}
         <select className="cam-select" value={value} required={field.required} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Sélectionner…</option>
+          <option value="">{selectPlaceholder}</option>
           {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>{localized(option.label, LOCALE)}</option>
+            <option key={option.value} value={option.value}>{localized(option.label, locale)}</option>
           ))}
         </select>
         {hint && <span className="cam-admin-choice-hint">{hint}</span>}

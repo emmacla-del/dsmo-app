@@ -239,7 +239,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   cooperative: {
     type: "cooperative",
-    title: { fr: "Coopérative", en: "Coopérative" },
+    title: { fr: "Coopérative", en: "Cooperative" },
     fields: [
       { key: "cooperativeName", label: { fr: "Nom de la coopérative", en: "Cooperative name" }, required: true, kind: "text" },
       { key: "cooperativeType", label: { fr: "Type de coopérative", en: "Cooperative type" }, required: true, kind: "select", options: COOPERATIVE_TYPE_OPTIONS },
