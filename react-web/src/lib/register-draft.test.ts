@@ -34,6 +34,7 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       companyName: "SARL Exemple",
       legalStatus: "SARL",
       taxNumber: "P000000000000",
+      cnpsNumber: "0000000000",
       mainActivity: "Commerce",
       address: "Yaounde, Centre",
       phone: "655000000",

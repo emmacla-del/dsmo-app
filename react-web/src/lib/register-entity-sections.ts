@@ -35,16 +35,16 @@ const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: st
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   cooperative: [
-    { title: { fr: "Identité de la coopérative", en: "Cooperative identity" }, keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber"] },
+    { title: { fr: "Identité de la coopérative", en: "Cooperative identity" }, keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber", "cnpsNumber"] },
     { title: { fr: "Activité", en: "Activity" }, keys: ["mainActivity", "branch"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["cooperativeHeadOffice", "phone", "phone2", "poBox"] },
   ],
   ctd: [
-    { title: { fr: "Identification de la CTD", en: "RLA identification" }, keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber"] },
+    { title: { fr: "Identification de la CTD", en: "RLA identification" }, keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber", "cnpsNumber"] },
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   ong: [
-    { title: { fr: "Enregistrement et mission", en: "Registration and mission" }, keys: ["ngoName", "registrationNumber", "taxNumber", "yearOfCreation", "mainMission"] },
+    { title: { fr: "Enregistrement et mission", en: "Registration and mission" }, keys: ["ngoName", "registrationNumber", "taxNumber", "cnpsNumber", "yearOfCreation", "mainMission"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   administration: [
@@ -56,7 +56,7 @@ const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: st
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   vocationalTraining: [
-    { title: { fr: "Identification du centre", en: "Centre identification" }, keys: ["centerName", "sigle", "taxNumber", "yearOfCreation", "cfpType", "educationSystem"] },
+    { title: { fr: "Identification du centre", en: "Centre identification" }, keys: ["centerName", "sigle", "taxNumber", "cnpsNumber", "yearOfCreation", "cfpType", "educationSystem"] },
     { title: { fr: "Situation opérationnelle", en: "Operational status" }, keys: ["functionalStatus", "nonFunctionalReason", "nonFunctionalReasonOther"] },
     { title: { fr: "Localisation et contact", en: "Location and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
     // Carries the "Promoteur / Directeur" the four promoter LABELS used to
@@ -109,9 +109,9 @@ export function entityFieldGroups(
 // The key of the last field the section renders, or null when the type has no
 // visible field at all. A change to this field is what tells the wizard the
 // respondent has reached the end of section 3 and the next section may open:
-// section 3's optional fields (CNPS, the second phone) mean it cannot open the
-// next one the instant its required fields are satisfied, or the optional ones
-// would be pulled away mid-entry.
+// section 3's optional fields (the second phone, the P.O. box) mean it cannot
+// open the next one the instant its required fields are satisfied, or the
+// optional ones would be pulled away mid-entry.
 export function lastEntityFieldKey(
   entityType: EntityType,
   entityData: Record<string, string>

@@ -182,3 +182,18 @@ test("REGISTRATION_STEPS is the six-step wizard, uniquely keyed", () => {
     "every step needs its own registerPage label key"
   );
 });
+
+test("cnpsNumber is required for the five CNPS-affiliated types, absent for the other two", () => {
+  const withCnps: EntityType[] = ["enterprise", "cooperative", "ctd", "ong", "vocationalTraining"];
+  for (const type of withCnps) {
+    const field = ENTITY_CONFIGS[type].fields.find((f) => f.key === "cnpsNumber");
+    assert.ok(field, `${type}: no cnpsNumber field`);
+    assert.equal(field.required, true, `${type}: cnpsNumber is not required`);
+    // Sits right after the NIU, inside the identification/fiscal block.
+    const keys = keysOf(type);
+    assert.equal(keys.indexOf("cnpsNumber"), keys.indexOf("taxNumber") + 1, `${type}: cnpsNumber not after taxNumber`);
+  }
+  for (const type of ["administration", "projectProgram"] as EntityType[]) {
+    assert.ok(!keysOf(type).includes("cnpsNumber"), `${type}: unexpectedly declares cnpsNumber`);
+  }
+});

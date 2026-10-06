@@ -29,6 +29,7 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       companyName: "SARL Exemple",
       legalStatus: "SARL",
       taxNumber: "P000000000000",
+      cnpsNumber: "0000000000",
       mainActivity: "Commerce",
       address: "Yaoundé, Centre",
       phone: "655000000",
@@ -90,11 +91,19 @@ test("entityInfo section requires every visible required field", () => {
 
 test("entityInfo section ignores optional fields", () => {
   const state = baseState();
-  // cnpsNumber, branch, poBox, socialCapital... are all optional for enterprise
+  // branch, poBox, socialCapital... are all optional for enterprise
   assert.equal(isSectionComplete("entityInfo", state), true);
   assert.equal(
-    isSectionComplete("entityInfo", { ...state, entityData: { ...state.entityData, cnpsNumber: "" } }),
+    isSectionComplete("entityInfo", { ...state, entityData: { ...state.entityData, poBox: "" } }),
     true
+  );
+});
+
+test("entityInfo section requires the CNPS number for enterprise", () => {
+  const state = baseState();
+  assert.equal(
+    isSectionComplete("entityInfo", { ...state, entityData: { ...state.entityData, cnpsNumber: "" } }),
+    false
   );
 });
 
@@ -105,6 +114,7 @@ test("entityInfo section does not block on a required field whose gate is closed
   const vtData = (): Record<string, string> => ({
     centerName: "CFP Exemple",
     taxNumber: "P000000000000",
+    cnpsNumber: "0000000000",
     cfpType: "Public",
     educationSystem: "Francophone",
     functionalStatus: "Non-fonctionnelle",

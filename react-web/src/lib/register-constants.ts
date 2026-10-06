@@ -174,6 +174,17 @@ const TAX_NUMBER: EntityField = {
   required: true,
   kind: "text",
 };
+// Required for enterprise, cooperative, ctd, ong and vocationalTraining;
+// administration and projectProgram do not declare it. Declared right after TAX_NUMBER so it
+// sits in each type's identification/fiscal block, never last in section 3.
+// (Was "N° d'affiliation CNPS" / "CNPS affiliation No.". The number IS the
+// affiliation, and enterprise's block heading says Affiliation.)
+const CNPS_NUMBER: EntityField = {
+  key: "cnpsNumber",
+  label: { fr: "N° CNPS", en: "CNPS no." },
+  required: true,
+  kind: "text",
+};
 const HEAD_OFFICE: EntityField = {
   key: "address",
   // Was "Adresse du siège social" / "Registered office address" (23 / 25).
@@ -211,9 +222,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "companyName", label: { fr: "Raison sociale", en: "Company name" }, hint: { fr: "Nom légal de l'entreprise", en: "The company's legal name" }, required: true, kind: "text" },
       { key: "legalStatus", label: { fr: "Statut juridique", en: "Legal status" }, required: true, kind: "select", options: LEGAL_STATUS_OPTIONS },
       TAX_NUMBER,
-      // Was "N° d'affiliation CNPS" / "CNPS affiliation No.". The number IS
-      // the affiliation, and the block heading says Affiliation.
-      { key: "cnpsNumber", label: { fr: "N° CNPS", en: "CNPS no." }, required: false, kind: "text" },
+      CNPS_NUMBER,
       { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
       { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, hint: { fr: "Ex : Commerce, Industrie, Services", en: "E.g. Trade, Industry, Services" }, required: false, kind: "text" },
       HEAD_OFFICE,
@@ -236,6 +245,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "cooperativeType", label: { fr: "Type de coopérative", en: "Cooperative type" }, required: true, kind: "select", options: COOPERATIVE_TYPE_OPTIONS },
       YEAR_OF_CREATION,
       TAX_NUMBER,
+      CNPS_NUMBER,
       { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
       { key: "cooperativeHeadOffice", label: { fr: "Adresse du siège", en: "Office address" }, required: true, kind: "text" },
       { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, required: false, kind: "text" },
@@ -252,6 +262,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "ctdName", label: { fr: "Nom de la CTD", en: "RLA name" }, hint: { fr: "Région ou commune", en: "Region or municipality" }, required: true, kind: "text" },
       YEAR_OF_CREATION,
       TAX_NUMBER,
+      CNPS_NUMBER,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,
@@ -265,6 +276,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "ngoName", label: { fr: "Nom de l'ONG", en: "NGO name" }, required: true, kind: "text" },
       { key: "registrationNumber", label: { fr: "N° d'enregistrement", en: "Registration no." }, hint: { fr: "Numéro d'agrément", en: "Approval number" }, required: true, kind: "text" },
       TAX_NUMBER,
+      CNPS_NUMBER,
       YEAR_OF_CREATION,
       MAIN_MISSION,
       HEAD_OFFICE,
@@ -316,6 +328,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "centerName", label: { fr: "Nom du CFP", en: "VTC name" }, required: true, kind: "text" },
       SIGLE,
       TAX_NUMBER,
+      CNPS_NUMBER,
       { key: "cfpType", label: { fr: "Type de CFP", en: "VTC type" }, required: true, kind: "select", options: CFP_TYPE_OPTIONS },
       { key: "educationSystem", label: { fr: "Ordre d'enseignement", en: "Education system" }, required: true, kind: "select", options: EDUCATION_SYSTEM_OPTIONS },
       { key: "functionalStatus", label: { fr: "Situation du centre", en: "Centre status" }, required: true, kind: "select", options: FUNCTIONAL_STATUS_OPTIONS },
