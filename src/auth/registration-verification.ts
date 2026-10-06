@@ -51,20 +51,57 @@ export function missingVerificationFlags(entityType: string | null, flags: Verif
   return requiredVerificationFlags(entityType).filter((flag) => flags?.[flag] !== true);
 }
 
+export interface VerifiedValues {
+  name: string;
+  phone: string | null;
+  contactEmail: string;
+  cnpsNumber: string | null;
+}
+
+const FLAG_VALUE: Record<VerificationFlag, keyof VerifiedValues> = {
+  nameVerified: 'name',
+  phoneVerified: 'phone',
+  contactEmailVerified: 'contactEmail',
+  cnpsVerified: 'cnpsNumber',
+};
+
+// The same rows as a sentence subject, for the empty-value refusal.
+const FLAG_SUBJECTS: Record<VerificationFlag, string> = {
+  nameVerified: "le nom de l'entité",
+  phoneVerified: "le téléphone / WhatsApp de l'entité",
+  contactEmailVerified: "l'email de contact",
+  cnpsVerified: 'le N° CNPS',
+};
+
+/**
+ * The required rows whose value is empty. Such a row cannot be attested, so
+ * the approval is refused whatever its flag says: a file registered before a
+ * field became required (a pre-Track B file with no CNPS, say) needs a
+ * correction first. The review dialog disables ✓ on an empty row; this is the
+ * server-side copy of that rule.
+ */
+export function emptyVerificationRows(entityType: string | null, values: VerifiedValues): VerificationFlag[] {
+  return requiredVerificationFlags(entityType).filter((flag) => !values[FLAG_VALUE[flag]]?.trim());
+}
+
+export function emptyValueRefusalMessage(empty: VerificationFlag[]): string {
+  const subjects = empty.map((flag) => FLAG_SUBJECTS[flag]);
+  const subject = subjects.length === 1 ? subjects[0] : `${subjects.slice(0, -1).join(', ')} et ${subjects[subjects.length - 1]}`;
+  return `Impossible d'approuver : ${subject} ${subjects.length === 1 ? 'est vide' : 'sont vides'}. Demandez une correction.`;
+}
+
 export function verificationRefusalMessage(missing: VerificationFlag[]): string {
   return `Vérifiez chaque information de l'entité avant d'approuver : ${missing.map((flag) => FLAG_LABELS[flag]).join(', ')}.`;
 }
 
 /**
  * The audit `details.verification` block: the flags the approval carried for
- * the rows that apply, and the values those rows showed at approval. A later
- * correction can change the Company row; this keeps what the reviewer
- * actually attested.
+ * the rows that apply, and those rows' values as the database held them at
+ * approval (not as the dialog displayed them; a correction sent mid-review
+ * could differ, and the approval commits to the database state). A later
+ * correction can change the Company row; this keeps what was attested.
  */
-export function verificationAuditDetails(
-  entityType: string | null,
-  values: { name: string; phone: string | null; contactEmail: string; cnpsNumber: string | null },
-) {
+export function verificationAuditDetails(entityType: string | null, values: VerifiedValues) {
   const required = requiredVerificationFlags(entityType);
   const flags = Object.fromEntries(required.map((flag) => [flag, true])) as VerificationFlags;
   const attested: Record<string, string | null> = {

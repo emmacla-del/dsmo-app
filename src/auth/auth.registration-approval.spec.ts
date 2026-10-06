@@ -38,6 +38,7 @@ describe('AuthService company registration approval', () => {
     entityType: 'ENTREPRISE',
     taxNumber: 'M123',
     cnpsNumber: 'CNPS1',
+    phone: '655000000',
     region: 'Littoral',
     department: 'Wouri',
     subdivision: 'Douala I',
@@ -357,8 +358,44 @@ describe('AuthService company registration approval', () => {
       expect(details.verification.attested).not.toHaveProperty('cnpsNumber');
     });
 
+    // A required row with no value cannot be attested: refused whatever the
+    // flags say, with a message that points at a correction, not at a tick.
+    it.each([
+      ['cnpsNumber', null, "Impossible d'approuver : le N° CNPS est vide. Demandez une correction."],
+      ['cnpsNumber', '  ', "Impossible d'approuver : le N° CNPS est vide. Demandez une correction."],
+      ['phone', null, "Impossible d'approuver : le téléphone / WhatsApp de l'entité est vide. Demandez une correction."],
+      ['name', '', "Impossible d'approuver : le nom de l'entité est vide. Demandez une correction."],
+    ])('refuses an empty %s (%p) even with every flag true', async (field, value, message) => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, [field]: value });
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(message);
+      expectNothingWritten();
+    });
+
+    it('refuses an empty contact email', async () => {
+      userRow.email = '';
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(
+        "Impossible d'approuver : l'email de contact est vide. Demandez une correction.",
+      );
+    });
+
+    it('names every empty row, and checks values before flags', async () => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, phone: null, cnpsNumber: null });
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+        "Impossible d'approuver : le téléphone / WhatsApp de l'entité et le N° CNPS sont vides. Demandez une correction.",
+      );
+      expectNothingWritten();
+    });
+
+    it('does not require a CNPS value for PROJECT_PROGRAM', async () => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'PROJECT_PROGRAM', cnpsNumber: null });
+      const { cnpsVerified, ...threeRows } = VERIFIED;
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, threeRows)).resolves.toMatchObject({
+        status: 'ACTIVE',
+      });
+    });
+
     it('records the flags and the values they attest in the approval audit entry', async () => {
-      prisma.company.findUnique.mockResolvedValue({ ...company, phone: '655000000', establishmentId: 'EN26000712' });
+      prisma.company.findUnique.mockResolvedValue({ ...company, establishmentId: 'EN26000712' });
       await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED);
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -485,7 +522,9 @@ describe('AuthService registration review — approver role boundaries', () => {
     name: 'Menuiserie',
     entityType: 'ENTREPRISE',
     taxNumber: 'M123',
-    cnpsNumber: null,
+    // An ENTREPRISE file must hold both to be approvable (empty-value gate).
+    cnpsNumber: 'CNPS1',
+    phone: '655000000',
     region: 'Littoral',
     department: 'Wouri',
     subdivision: 'Douala I',
