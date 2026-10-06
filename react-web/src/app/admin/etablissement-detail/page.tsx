@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
-import { entityTypeLabel, listCompanies, type Company } from "@/lib/companies-directory";
+import { entityTypeLabel, hasRealNiu, listCompanies, type Company } from "@/lib/companies-directory";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import {
   auditActionLabel,
@@ -290,7 +290,7 @@ function EtablissementDetail() {
               </span>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-              N° RCCM : <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.registrationNumber)}</strong>
+              Identifiant : <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.establishmentId)}</strong>
               {" | "}
               Activité principale : <strong style={{ color: "#111827" }}>{fact(company.mainActivity)}</strong>
             </p>
@@ -330,8 +330,8 @@ function EtablissementDetail() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
               <Field label="Raison sociale" value={company.name} />
               <Field label="Type d'entité" value={company.entityType ? entityTypeLabel(company.entityType) : null} />
-              <Field label="N° RCCM" value={company.registrationNumber} />
-              <Field label="Numéro fiscal (NIU)" value={company.taxNumber} />
+              <Field label="N° d'enregistrement (agrément)" value={company.registrationNumber} />
+              <Field label="Numéro fiscal (NIU)" value={hasRealNiu(company.taxNumber) ? company.taxNumber : null} />
               <Field label="Numéro CNPS" value={company.cnpsNumber} />
               <Field label="Identifiant établissement" value={company.establishmentId} />
               <Field label="Année de création" value={company.yearOfCreation} />

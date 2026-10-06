@@ -112,6 +112,13 @@ export function dash(v: string | number | null | undefined): string {
   return String(v);
 }
 
+// Administration and projectProgram files carry a synthetic `NA-<uuid>` in
+// Company.taxNumber (the column is NOT NULL and @unique). It is a placeholder,
+// not a taxpayer number, so interactive displays show it as absent.
+export function hasRealNiu(value: string | null | undefined): boolean {
+  return !!value && !value.startsWith("NA-");
+}
+
 // Flutter's _contactValue checks company.respondentEmail first, but
 // dsmo.service.ts's listCompanies() select never includes that field (only
 // respondentFirstName/LastName/Function/Phone + user.email) — confirmed by

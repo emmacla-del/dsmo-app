@@ -84,7 +84,7 @@ interface EtabItem {
   name: string | null;
   type: string | null;
   typeLabel: string | null;
-  rccm: string | null;
+  identifier: string | null;
   regionCity: string | null;
   responsable: string | null;
   dateInscription: string | null;
@@ -179,7 +179,7 @@ export default function EtablissementsPage() {
     name: c.name ?? null,
     type: c.entityType?.toUpperCase() ?? null,
     typeLabel: c.entityType ? entityTypeLabel(c.entityType) : null,
-    rccm: c.registrationNumber ?? c.taxNumber ?? c.establishmentId ?? null,
+    identifier: c.establishmentId ?? null,
     regionCity: [c.region, c.department ?? c.subdivision].filter(Boolean).join(" / ") || null,
     responsable:
       [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ").trim() ||
@@ -259,14 +259,14 @@ export default function EtablissementsPage() {
    */
   const exportCsv = () => {
     if (filteredRows.length === 0) return;
-    const headers = ["Nom", "RCCM / Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Statut"];
+    const headers = ["Nom", "Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Statut"];
     const cell = (v: string | null) => `"${(v ?? "").replace(/"/g, '""')}"`;
     const lines = [
       headers.map((h) => cell(h)).join(","),
       ...filteredRows.map((r) =>
         [
           cell(r.name),
-          cell(r.rccm),
+          cell(r.identifier),
           cell(r.typeLabel),
           cell(r.regionCity),
           cell(r.responsable),
@@ -464,7 +464,7 @@ export default function EtablissementsPage() {
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Établissement</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>N° RCCM / Identifiant</th>
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Identifiant</th>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Région / Ville</th>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Responsable</th>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Date d&apos;inscription</th>
@@ -516,7 +516,7 @@ export default function EtablissementsPage() {
                     )}
                   </td>
                   <td style={{ padding: "12px 12px", fontFamily: "ui-monospace, monospace", color: "#004d3d", fontWeight: 700, whiteSpace: "nowrap" }}>
-                    {item.rccm ?? NOT_PROVIDED}
+                    {item.identifier ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
                     {item.regionCity ?? NOT_PROVIDED}
