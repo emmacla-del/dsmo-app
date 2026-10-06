@@ -784,6 +784,7 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('submissions')
+    @Roles('ADMIN_ONEFOP', 'SUPER_ADMIN')
     async getSubmissions(@Query() q: any) {
         return this.analytics.getSubmissions({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
