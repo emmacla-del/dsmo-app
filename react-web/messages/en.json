@@ -304,6 +304,7 @@
     "functionLabel": "Function",
     "selectPlaceholder": "— Select —",
     "professionalEmailLabel": "Professional email",
+    "emailRoleHint": "This email is your sign-in identifier and your entity's contact address with ONEFOP.",
     "emailUnavailable": "Already in use",
     "emailAvailable": "Available",
     "phone1Label": "Phone 1",
