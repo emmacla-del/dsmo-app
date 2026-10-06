@@ -22,6 +22,7 @@
 // does not have.
 import { apiFetch } from "./api-client";
 import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
+import type { UiLocale } from "./register-i18n";
 
 /**
  * The assisted-registration body: the public RegisterCompanyPayload minus
@@ -115,10 +116,17 @@ export const REGISTRATION_METHOD_LABELS: Record<string, string> = {
   ASSISTED: "Assisté",
 };
 
+const REGISTRATION_METHOD_LABELS_EN: Record<string, string> = {
+  SELF_REGISTRATION: "Self-service",
+  ADMIN_CREATED: "Created by admin",
+  ASSISTED: "Assisted",
+};
+
 /** The badge label for a method, or null when the account predates tracking. */
-export function registrationMethodLabel(method: string | null | undefined): string | null {
+export function registrationMethodLabel(method: string | null | undefined, locale: UiLocale = "fr"): string | null {
   if (!method) return null;
-  return REGISTRATION_METHOD_LABELS[method] ?? method;
+  const labels = locale === "en" ? REGISTRATION_METHOD_LABELS_EN : REGISTRATION_METHOD_LABELS;
+  return labels[method] ?? method;
 }
 
 /**
@@ -188,12 +196,36 @@ export interface VerificationRow {
   value: string | null;
 }
 
-// The rows as a sentence subject, worded as the server's empty-value refusal.
-const EMPTY_SUBJECTS: Record<VerificationKey, string> = {
-  nameVerified: "le nom de l'entité",
-  phoneVerified: "le téléphone / WhatsApp de l'entité",
-  contactEmailVerified: "l'email de contact",
-  cnpsVerified: "le N° CNPS",
+// Row labels, and the rows as a sentence subject (worded as the server's
+// empty-value refusal), in both console locales.
+const ROW_LABELS: Record<UiLocale, Record<VerificationKey, string>> = {
+  fr: {
+    nameVerified: "Nom de l'entité",
+    phoneVerified: "Téléphone / WhatsApp de l'entité",
+    contactEmailVerified: "Email de contact",
+    cnpsVerified: "N° CNPS",
+  },
+  en: {
+    nameVerified: "Entity name",
+    phoneVerified: "Entity phone / WhatsApp",
+    contactEmailVerified: "Contact email",
+    cnpsVerified: "CNPS No.",
+  },
+};
+
+const EMPTY_SUBJECTS: Record<UiLocale, Record<VerificationKey, string>> = {
+  fr: {
+    nameVerified: "le nom de l'entité",
+    phoneVerified: "le téléphone / WhatsApp de l'entité",
+    contactEmailVerified: "l'email de contact",
+    cnpsVerified: "le N° CNPS",
+  },
+  en: {
+    nameVerified: "the entity name",
+    phoneVerified: "the entity phone / WhatsApp",
+    contactEmailVerified: "the contact email",
+    cnpsVerified: "the CNPS No.",
+  },
 };
 
 function present(value: string | null | undefined): string | null {
@@ -208,14 +240,16 @@ function present(value: string | null | undefined): string | null {
  */
 export function verificationRows(
   item: Pick<CompanyRegistrationItem, "entityType" | "organisation" | "phone" | "email" | "cnpsNumber">,
+  locale: UiLocale = "fr",
 ): VerificationRow[] {
+  const labels = ROW_LABELS[locale];
   const rows: VerificationRow[] = [
-    { key: "nameVerified", label: "Nom de l'entité", value: present(item.organisation) },
-    { key: "phoneVerified", label: "Téléphone / WhatsApp de l'entité", value: present(item.phone) },
-    { key: "contactEmailVerified", label: "Email de contact", value: present(item.email) },
+    { key: "nameVerified", label: labels.nameVerified, value: present(item.organisation) },
+    { key: "phoneVerified", label: labels.phoneVerified, value: present(item.phone) },
+    { key: "contactEmailVerified", label: labels.contactEmailVerified, value: present(item.email) },
   ];
   if (item.entityType && CNPS_REVIEW_ENTITY_TYPES.includes(item.entityType)) {
-    rows.push({ key: "cnpsVerified", label: "N° CNPS", value: present(item.cnpsNumber) });
+    rows.push({ key: "cnpsVerified", label: labels.cnpsVerified, value: present(item.cnpsNumber) });
   }
   return rows;
 }
@@ -230,24 +264,37 @@ export function verificationRows(
 export function approvalGate(
   rows: VerificationRow[],
   marks: VerificationMarks,
+  locale: UiLocale = "fr",
 ): { canApprove: true; message: null } | { canApprove: false; message: string } {
+  const en = locale === "en";
   const empty = rows.filter((row) => row.value === null);
   if (empty.length > 0) {
-    const subjects = empty.map((row) => EMPTY_SUBJECTS[row.key]);
-    const subject = subjects.length === 1 ? subjects[0] : `${subjects.slice(0, -1).join(", ")} et ${subjects[subjects.length - 1]}`;
+    const subjects = empty.map((row) => EMPTY_SUBJECTS[locale][row.key]);
+    const and = en ? "and" : "et";
+    const subject = subjects.length === 1 ? subjects[0] : `${subjects.slice(0, -1).join(", ")} ${and} ${subjects[subjects.length - 1]}`;
+    const single = subjects.length === 1;
     return {
       canApprove: false,
-      message: `Impossible d'approuver : ${subject} ${subjects.length === 1 ? "est vide" : "sont vides"}. Demandez une correction.`,
+      message: en
+        ? `Cannot approve: ${subject} ${single ? "is empty" : "are empty"}. Request a correction.`
+        : `Impossible d'approuver : ${subject} ${single ? "est vide" : "sont vides"}. Demandez une correction.`,
     };
   }
   if (rows.some((row) => marks[row.key] === "ko")) {
     return {
       canApprove: false,
-      message: "Une information est non conforme : rejetez le dossier ou demandez des compléments.",
+      message: en
+        ? "An item is non-compliant: reject the file or request further information."
+        : "Une information est non conforme : rejetez le dossier ou demandez des compléments.",
     };
   }
   if (rows.some((row) => marks[row.key] !== "ok")) {
-    return { canApprove: false, message: "Marquez chaque information comme conforme pour approuver." };
+    return {
+      canApprove: false,
+      message: en
+        ? "Mark every item as compliant to approve."
+        : "Marquez chaque information comme conforme pour approuver.",
+    };
   }
   return { canApprove: true, message: null };
 }

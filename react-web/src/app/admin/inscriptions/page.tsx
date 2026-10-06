@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   approveUser,
@@ -13,7 +14,8 @@ import {
   type ApproveUserOptions,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
-import { formatDate, hasRealNiu } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, formatDate, hasRealNiu } from "@/lib/companies-directory";
+import { asUiLocale } from "@/lib/register-i18n";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
 import {
   approvalGate,
@@ -34,61 +36,27 @@ import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 
 const PAGE_SIZE = 8;
 
-const ENTITY_TYPES = [
-  { value: "ENTREPRISE", label: "Entreprise" },
-  { value: "COOPERATIVE", label: "Coopérative" },
-  { value: "CTD", label: "CTD" },
-  { value: "ONG", label: "ONG" },
-  { value: "ADMINISTRATION", label: "Administration" },
-  { value: "PROJECT_PROGRAM", label: "Projet / programme" },
-  { value: "VOCATIONAL_TRAINING", label: "CFP" },
-];
-
-function entityLabel(value: string | null): string {
-  return ENTITY_TYPES.find((item) => item.value === value)?.label ?? value ?? "—";
-}
+// API entity types, labelled through ENTITY_TYPE_OPTION_KEYS (the public
+// wizard's labels, no administrative codes).
+const ENTITY_TYPE_VALUES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
 
 // Company column names as the correction form presents them, so a reviewer
-// reads the diff in the applicant's own words. An unmapped key falls back to
-// itself rather than being hidden.
-const FIELD_LABELS: Record<string, string> = {
-  name: "Raison sociale",
-  taxNumber: "Numéro contribuable (NIU)",
-  mainActivity: "Activité principale",
-  secondaryActivity: "Activité secondaire",
-  parentCompany: "Société mère",
-  address: "Adresse",
-  phone: "Téléphone / WhatsApp",
-  email: "Email",
-  cnpsNumber: "Numéro CNPS",
-  fax: "Fax",
-  socialCapital: "Capital social",
-  entityType: "Type d'entité",
-  region: "Région",
-  department: "Département",
-  subdivision: "Arrondissement",
-  regionId: "Région (identifiant)",
-  departmentId: "Département (identifiant)",
-  subdivisionId: "Arrondissement (identifiant)",
-};
+// reads the diff in the applicant's own words: keys under
+// adminInscriptionsPage.field. An unmapped key falls back to itself rather
+// than being hidden.
+const FIELD_KEYS = new Set([
+  "name", "taxNumber", "mainActivity", "secondaryActivity", "parentCompany", "address", "phone", "email",
+  "cnpsNumber", "fax", "socialCapital", "entityType", "region", "department", "subdivision",
+  "regionId", "departmentId", "subdivisionId",
+]);
 
-function fieldLabel(field: string): string {
-  return FIELD_LABELS[field] ?? field;
-}
-
-// An empty or absent before/after reads as a dash rather than as "null".
-function diffValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "string") return ENTITY_TYPES.find((t) => t.value === value)?.label ?? value;
-  return String(value);
-}
-
-function statusLabel(status: string): { text: string; bg: string; color: string } {
-  if (status === "PENDING_APPROVAL") return { text: "EN ATTENTE", bg: "#fef3c7", color: "#b45309" };
-  if (status === "COMPLEMENTS_REQUESTED") return { text: "COMPLÉMENTS DEMANDÉS", bg: "#eff6ff", color: "#1d4ed8" };
-  if (status === "ACTIVE") return { text: "APPROUVÉE", bg: "#004d3d", color: "#ffffff" };
-  if (status === "REJECTED") return { text: "REJETÉE", bg: "#fee2e2", color: "#b91c1c" };
-  return { text: status, bg: "#f1f5f9", color: "#475569" };
+// `textKey` is under adminInscriptionsPage; an unknown status shows as itself.
+function statusLabel(status: string): { textKey: string | null; text: string; bg: string; color: string } {
+  if (status === "PENDING_APPROVAL") return { textKey: "badgePending", text: status, bg: "#fef3c7", color: "#b45309" };
+  if (status === "COMPLEMENTS_REQUESTED") return { textKey: "badgeComplements", text: status, bg: "#eff6ff", color: "#1d4ed8" };
+  if (status === "ACTIVE") return { textKey: "badgeApproved", text: status, bg: "#004d3d", color: "#ffffff" };
+  if (status === "REJECTED") return { textKey: "badgeRejected", text: status, bg: "#fee2e2", color: "#b91c1c" };
+  return { textKey: null, text: status, bg: "#f1f5f9", color: "#475569" };
 }
 
 function daysAgo(days: number): string {
@@ -126,6 +94,18 @@ function InscriptionsContent() {
   const canRegisterAssisted = !!role && DIRECTORY_ROLES.includes(role);
   const queryClient = useQueryClient();
   const { regions: territoryRegions } = useTerritoryRegions();
+  const tRoot = useTranslations();
+  const t = useTranslations("adminInscriptionsPage");
+  const locale = asUiLocale(useLocale());
+  const entityLabel = (value: string | null) =>
+    value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "—";
+  const fieldLabel = (field: string) => (FIELD_KEYS.has(field) ? t(`field.${field}`) : field);
+  // An empty or absent before/after reads as a dash rather than as "null".
+  const diffValue = (value: unknown) => {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "string") return ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value;
+    return String(value);
+  };
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -187,29 +167,29 @@ function InscriptionsContent() {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, options }: { id: string; options: ApproveUserOptions }) => approveUser(id, options),
-    onSuccess: () => done("Inscription validée et compte activé."),
+    onSuccess: () => done(t("approvedNotice")),
     onError: failed,
   });
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectUser(id, reason),
-    onSuccess: () => done("Inscription rejetée."),
+    onSuccess: () => done(t("rejectedNotice")),
     onError: failed,
   });
   const complementsMutation = useMutation({
     mutationFn: ({ id, message }: { id: string; message: string }) => requestComplements(id, message),
-    onSuccess: () => done("Demande de compléments transmise."),
+    onSuccess: () => done(t("complementsNotice")),
     onError: failed,
   });
 
-  const rows = reviewing ? verificationRows(reviewing) : [];
-  const gate = approvalGate(rows, marks);
+  const rows = reviewing ? verificationRows(reviewing, locale) : [];
+  const gate = approvalGate(rows, marks, locale);
   // Why Approuver cannot be confirmed yet, shown in the dialog next to the
   // decision; null once it can. The server enforces the same rules.
   const approveBlocked = !reviewing
     ? null
     : gate.message ??
       (reviewing.requiresCentralStructureCheck && !centralChecked
-        ? "Cochez la confirmation « structure centrale » avant d'approuver."
+        ? t("centralCheckRequired")
         : null);
 
   const handleDecisionSubmit = () => {
@@ -222,13 +202,13 @@ function InscriptionsContent() {
       });
     } else if (decision === "REJECT") {
       if (!comment.trim()) {
-        setNotice({ tone: "error", text: "Le motif de rejet est obligatoire." });
+        setNotice({ tone: "error", text: t("rejectReasonRequired") });
         return;
       }
       rejectMutation.mutate({ id: reviewing.id, reason: comment.trim() });
     } else {
       if (!comment.trim()) {
-        setNotice({ tone: "error", text: "Le message de demande de compléments est obligatoire." });
+        setNotice({ tone: "error", text: t("complementsMessageRequired") });
         return;
       }
       complementsMutation.mutate({ id: reviewing.id, message: comment.trim() });
@@ -247,14 +227,14 @@ function InscriptionsContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions" }]}
-        title="Inscriptions"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.declarants") }, { label: tRoot("adminNav.routes.inscriptions") }]}
+        title={tRoot("adminNav.routes.inscriptions")}
         actions={
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
             <AdminHeaderActions showCampaignPill={false} />
             {canRegisterAssisted && (
               <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
-                Nouvelle inscription
+                {tRoot("adminNav.routes.nouvelleInscription")}
               </Link>
             )}
           </div>
@@ -262,10 +242,10 @@ function InscriptionsContent() {
       />
 
       <ViewSwitch
-        label="Vues des inscriptions"
+        label={t("viewsAriaLabel")}
         items={[
-          { key: "file", label: "File d'inscriptions", active: vue === "file", href: inscriptionsHref(currentQuery, "file") },
-          { key: "couverture", label: "Couverture", active: vue === "couverture", href: inscriptionsHref(currentQuery, "couverture") },
+          { key: "file", label: t("viewQueue"), active: vue === "file", href: inscriptionsHref(currentQuery, "file") },
+          { key: "couverture", label: t("viewCoverage"), active: vue === "couverture", href: inscriptionsHref(currentQuery, "couverture") },
         ]}
       />
 
@@ -277,8 +257,8 @@ function InscriptionsContent() {
       {createdBy && (
         <div role="status" className="cam-admin-notice cam-admin-notice--info" style={{ marginBottom: 16 }}>
           <span>
-            Inscriptions saisies par{" "}
-            <strong>{items.find((i) => i.createdBy === createdBy)?.createdByName ?? "l'agent sélectionné"}</strong>
+            {t("createdByFilter")}{" "}
+            <strong>{items.find((i) => i.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}</strong>
           </span>
           <button
             type="button"
@@ -290,7 +270,7 @@ function InscriptionsContent() {
               router.replace(inscriptionsHref(currentQuery, "file", { createdBy: null }));
             }}
           >
-            Retirer ce filtre
+            {t("removeFilter")}
           </button>
         </div>
       )}
@@ -298,70 +278,70 @@ function InscriptionsContent() {
       {notice && (
         <div role={notice.tone === "error" ? "alert" : "status"} className={`cam-admin-notice cam-admin-notice--${notice.tone}`} style={{ marginBottom: 16 }}>
           <span>{notice.text}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setNotice(null)}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setNotice(null)}>×</button>
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 24 }}>
-        <Kpi value={counts.pending} label="En attente de vérification" accent="#f59e0b" />
-        <Kpi value={counts.complements} label="Compléments demandés" accent="#2563eb" />
-        <Kpi value={counts.approved} label="Approuvées" accent="#007a5e" />
-        <Kpi value={counts.rejected} label="Rejetées" accent="#dc2626" />
+        <Kpi value={counts.pending} label={t("kpiPending")} accent="#f59e0b" />
+        <Kpi value={counts.complements} label={t("kpiComplements")} accent="#2563eb" />
+        <Kpi value={counts.approved} label={t("kpiApproved")} accent="#007a5e" />
+        <Kpi value={counts.rejected} label={t("kpiRejected")} accent="#dc2626" />
       </div>
 
       <section className="cam-admin-panel" style={{ marginBottom: 20 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 14, alignItems: "flex-end" }}>
-          <Filter label="Type d'établissement">
+          <Filter label={t("typeFilterLabel")}>
             <select className="cam-select" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
-              <option value="">Tous les types</option>
-              {ENTITY_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              <option value="">{t("allTypes")}</option>
+              {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}
             </select>
           </Filter>
-          <Filter label="Région d'origine">
+          <Filter label={t("regionFilterLabel")}>
             <select className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }}>
-              <option value="">Toutes les régions</option>
+              <option value="">{t("allRegions")}</option>
               {territoryRegions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Filter>
-          <Filter label="Statut">
+          <Filter label={t("statusFilterLabel")}>
             <select className="cam-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-              <option value="">En file (attente + compléments)</option>
-              <option value="ALL">Tous les statuts</option>
-              <option value="PENDING_APPROVAL">En attente</option>
-              <option value="COMPLEMENTS_REQUESTED">Compléments demandés</option>
-              <option value="ACTIVE">Approuvée</option>
-              <option value="REJECTED">Rejetée</option>
+              <option value="">{t("statusInQueue")}</option>
+              <option value="ALL">{t("statusAll")}</option>
+              <option value="PENDING_APPROVAL">{t("statusPending")}</option>
+              <option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
+              <option value="ACTIVE">{t("statusApproved")}</option>
+              <option value="REJECTED">{t("statusRejected")}</option>
             </select>
           </Filter>
-          <Filter label="Date de soumission">
+          <Filter label={t("dateFilterLabel")}>
             <select className="cam-select" value={dateRange} onChange={(e) => { setDateRange(e.target.value); setPage(1); }}>
-              <option value="all">Toutes les dates</option>
-              <option value="30">Derniers 30 jours</option>
-              <option value="90">Derniers 90 jours</option>
+              <option value="all">{t("allDates")}</option>
+              <option value="30">{t("last30Days")}</option>
+              <option value="90">{t("last90Days")}</option>
             </select>
           </Filter>
-          <Filter label="Recherche">
-            <input className="cam-input" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Nom, NIU, e-mail…" />
+          <Filter label={t("searchLabel")}>
+            <input className="cam-input" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t("searchPlaceholder")} />
           </Filter>
         </div>
       </section>
 
-      {!canReadQueue && <p className="cam-admin-lede">Vous n&apos;avez pas accès à cette file.</p>}
-      {queueQuery.isLoading && <p className="cam-admin-lede">Chargement…</p>}
-      {queueQuery.isError && <div className="cam-admin-notice cam-admin-notice--error" role="alert">Impossible de charger les inscriptions.</div>}
+      {!canReadQueue && <p className="cam-admin-lede">{t("noQueueAccess")}</p>}
+      {queueQuery.isLoading && <p className="cam-admin-lede">{tRoot("common.loading")}</p>}
+      {queueQuery.isError && <div className="cam-admin-notice cam-admin-notice--error" role="alert">{t("loadError")}</div>}
 
       <section className="cam-dash-table-wrap">
         <table className="cam-dash-table">
           <thead>
             <tr>
-              <th scope="col">Organisation</th>
-              <th scope="col">Type</th>
-              <th scope="col">Territoire</th>
-              <th scope="col">Soumise le</th>
-              <th scope="col">Enregistré par</th>
-              <th scope="col">Vérification</th>
-              <th scope="col">Doublons</th>
-              <th scope="col">Action</th>
+              <th scope="col">{t("organisationColumn")}</th>
+              <th scope="col">{t("typeColumn")}</th>
+              <th scope="col">{t("territoryColumn")}</th>
+              <th scope="col">{t("submittedColumn")}</th>
+              <th scope="col">{t("registeredByColumn")}</th>
+              <th scope="col">{t("verificationColumn")}</th>
+              <th scope="col">{t("duplicatesColumn")}</th>
+              <th scope="col">{t("actionColumn")}</th>
             </tr>
           </thead>
           <tbody>
@@ -382,13 +362,13 @@ function InscriptionsContent() {
                   </td>
                   <td>
                     <span style={{ fontSize: 11, background: badge.bg, color: badge.color, padding: "4px 10px", borderRadius: 9999, fontWeight: 600 }}>
-                      {badge.text}
+                      {badge.textKey ? t(badge.textKey) : badge.text}
                     </span>
                   </td>
                   <td>{item.duplicateHints.length > 0 ? item.duplicateHints.length : "—"}</td>
                   <td>
                     <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => { setNotice(null); setReviewing(item); }}>
-                      Examiner
+                      {t("reviewButton")}
                     </button>
                   </td>
                 </tr>
@@ -397,10 +377,10 @@ function InscriptionsContent() {
           </tbody>
         </table>
         <div style={{ padding: "14px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="cam-admin-lede" style={{ margin: 0 }}>Affichage {start}-{end} sur {total}</span>
+          <span className="cam-admin-lede" style={{ margin: 0 }}>{t("showingRange", { start, end, total })}</span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Précédent</button>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>Suivant</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("previousButton")}</button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>{t("nextButton")}</button>
           </div>
         </div>
       </section>
@@ -409,11 +389,11 @@ function InscriptionsContent() {
       <AdminDialog
         open={!!reviewing}
         onClose={closeReview}
-        title={`Validation du compte — ${reviewing?.organisation || ""}`}
-        eyebrow="Dossier d'auto-inscription"
+        title={t("reviewTitle", { organisation: reviewing?.organisation || "" })}
+        eyebrow={t("reviewEyebrow")}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary" onClick={closeReview} disabled={pendingMutation}>Annuler</button>
+            <button type="button" className="cam-button cam-button-secondary" onClick={closeReview} disabled={pendingMutation}>{tRoot("common.cancel")}</button>
             <button
               type="button"
               className="cam-button cam-button-primary"
@@ -421,7 +401,7 @@ function InscriptionsContent() {
               disabled={pendingMutation || (decision === "APPROVE" && !!approveBlocked)}
               aria-describedby={decision === "APPROVE" && approveBlocked ? "inscription-approve-blocked" : undefined}
             >
-              {pendingMutation ? "…" : "Confirmer"}
+              {pendingMutation ? "…" : t("confirmButton")}
             </button>
           </>
         }
@@ -435,9 +415,9 @@ function InscriptionsContent() {
                 <span>{notice.text}</span>
               </div>
             )}
-            <p>Type : <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
-            <p>NIU : {hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber : "—"}</p>
-            <p>Enregistré le : {formatDate(reviewing.submittedAt)}</p>
+            <p>{t("typeLine")} <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
+            <p>{t("niuLine", { niu: hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber ?? "—" : "—" })}</p>
+            <p>{t("registeredOnLine", { date: formatDate(reviewing.submittedAt) })}</p>
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 {reviewing.duplicateHints.map((hint) => <p key={hint} style={{ margin: 0 }}>{hint}</p>)}
@@ -446,17 +426,17 @@ function InscriptionsContent() {
             {reviewing.lastResubmission && (
               <div>
                 <p style={{ marginBottom: 4 }}>
-                  <strong>Corrections envoyées</strong> le {formatDate(reviewing.lastResubmission.at)}
+                  <strong>{t("correctionsSent")}</strong> {t("correctionsSentOn", { date: formatDate(reviewing.lastResubmission.at) })}
                 </p>
                 {Object.keys(reviewing.lastResubmission.changes).length === 0 ? (
-                  <p style={{ margin: 0 }}>Dossier renvoyé sans modification.</p>
+                  <p style={{ margin: 0 }}>{t("resubmittedUnchanged")}</p>
                 ) : (
                   <table className="cam-dash-table">
                     <thead>
                       <tr>
-                        <th scope="col">Champ</th>
-                        <th scope="col">Avant</th>
-                        <th scope="col">Après</th>
+                        <th scope="col">{t("fieldColumn")}</th>
+                        <th scope="col">{t("beforeColumn")}</th>
+                        <th scope="col">{t("afterColumn")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -472,24 +452,24 @@ function InscriptionsContent() {
                 )}
               </div>
             )}
-            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-2)" }}>Informations à vérifier</h3>
+            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-2)" }}>{t("toVerifyTitle")}</h3>
             <table className="cam-dash-table">
               <thead>
                 <tr>
-                  <th scope="col">Information</th>
-                  <th scope="col">Valeur déclarée</th>
-                  <th scope="col">Vérification</th>
+                  <th scope="col">{t("itemColumn")}</th>
+                  <th scope="col">{t("declaredValueColumn")}</th>
+                  <th scope="col">{t("verificationColumn")}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.key}>
                     <th scope="row">{row.label}</th>
-                    <td>{row.value ?? <span style={{ color: "var(--cam-text-muted)" }}>Non renseigné</span>}</td>
+                    <td>{row.value ?? <span style={{ color: "var(--cam-text-muted)" }}>{t("notRecorded")}</span>}</td>
                     <td>
                       {/* Neither radio checked = not answered yet. An empty
                           value cannot be attested, so its ✓ is disabled. */}
-                      <div role="radiogroup" aria-label={`Vérification : ${row.label}`} style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-3)" }}>
+                      <div role="radiogroup" aria-label={t("verificationAriaLabel", { label: row.label })} style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-3)" }}>
                         <label className="cam-admin-choice">
                           <input
                             type="radio"
@@ -498,7 +478,7 @@ function InscriptionsContent() {
                             disabled={row.value === null}
                             onChange={() => setMarks((current) => ({ ...current, [row.key]: "ok" }))}
                           />
-                          ✓ Conforme
+                          {t("compliant")}
                         </label>
                         <label className="cam-admin-choice">
                           <input
@@ -507,7 +487,7 @@ function InscriptionsContent() {
                             checked={marks[row.key] === "ko"}
                             onChange={() => setMarks((current) => ({ ...current, [row.key]: "ko" }))}
                           />
-                          ✗ Non conforme
+                          {t("nonCompliant")}
                         </label>
                       </div>
                     </td>
@@ -515,21 +495,21 @@ function InscriptionsContent() {
                 ))}
               </tbody>
             </table>
-            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-1)" }}>Déclarant</h3>
-            <p className="cam-admin-choice-hint" style={{ margin: "0 0 var(--cam-space-2)" }}>Pour information, non soumis à vérification.</p>
+            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-1)" }}>{t("respondentTitle")}</h3>
+            <p className="cam-admin-choice-hint" style={{ margin: "0 0 var(--cam-space-2)" }}>{t("respondentNote")}</p>
             <dl className="cam-admin-kv">
               <div>
-                <dt>Nom</dt>
+                <dt>{t("nameLabel")}</dt>
                 <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || "—"}</dd>
               </div>
-              <div><dt>Fonction</dt><dd>{reviewing.respondentFunction || "—"}</dd></div>
+              <div><dt>{t("functionLabel")}</dt><dd>{reviewing.respondentFunction || "—"}</dd></div>
               <div>
-                <dt>Téléphone</dt>
+                <dt>{t("phoneLabel")}</dt>
                 <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || "—"}</dd>
               </div>
-              <div><dt>Email de connexion</dt><dd>{reviewing.email}</dd></div>
+              <div><dt>{t("loginEmailLabel")}</dt><dd>{reviewing.email}</dd></div>
               <div>
-                <dt>Enregistré par</dt>
+                <dt>{t("registeredByLabel")}</dt>
                 <dd>
                   {reviewing.createdByName && <div>{reviewing.createdByName}</div>}
                   <MethodBadge method={reviewing.registrationMethod} />
@@ -539,21 +519,21 @@ function InscriptionsContent() {
             {reviewing.requiresCentralStructureCheck && (
               <label className="cam-admin-choice">
                 <input type="checkbox" checked={centralChecked} onChange={(e) => setCentralChecked(e.target.checked)} />
-                Structure centrale confirmée
+                {t("centralConfirmed")}
               </label>
             )}
-            <div className="cam-target-modes" role="radiogroup" aria-label="Décision">
+            <div className="cam-target-modes" role="radiogroup" aria-label={t("decisionAriaLabel")}>
               <label className="cam-admin-choice">
                 <input type="radio" name="decision" checked={decision === "APPROVE"} onChange={() => setDecision("APPROVE")} />
-                Approuver le compte
+                {t("approveAccount")}
               </label>
               <label className="cam-admin-choice">
                 <input type="radio" name="decision" checked={decision === "REJECT"} onChange={() => setDecision("REJECT")} />
-                Rejeter le compte
+                {t("rejectAccount")}
               </label>
               <label className="cam-admin-choice">
                 <input type="radio" name="decision" checked={decision === "REQUEST_COMPLEMENTS"} onChange={() => setDecision("REQUEST_COMPLEMENTS")} />
-                Demander des compléments
+                {t("requestComplements")}
               </label>
             </div>
             {decision === "APPROVE" && approveBlocked && (
@@ -563,7 +543,7 @@ function InscriptionsContent() {
             )}
             {decision !== "APPROVE" && (
               <label className="cam-target-year">
-                {decision === "REJECT" ? "Motif de rejet" : "Message de compléments"}
+                {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}
                 <textarea className="cam-input" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
               </label>
             )}
@@ -576,7 +556,7 @@ function InscriptionsContent() {
 
 /** The registration-method badge, or a dash for a row that predates tracking. */
 function MethodBadge({ method }: { method: string | null }) {
-  const label = registrationMethodLabel(method);
+  const label = registrationMethodLabel(method, asUiLocale(useLocale()));
   if (!label) return <span>—</span>;
   const tone = registrationMethodTone(method);
   return (

@@ -23,6 +23,7 @@ import { directoryRoleLabel } from "./user-directory";
 import { ENTITY_TYPE_OPTION_KEYS } from "./companies-directory";
 import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, normalizeRegions } from "./pilotage-target-payload";
 import { formatApiError } from "./pilotage-targets";
+import { approvalGate, registrationMethodLabel, verificationRows } from "./inscriptions";
 import { ADMIN_HUBS } from "../app/admin/_routes";
 
 type Catalogue = Record<string, unknown>;
@@ -175,4 +176,20 @@ test("entity type option keys resolve in both catalogues", () => {
       assert.equal(typeof lookup(catalogue, key), "string", `${locale}: ${type} → ${key}`);
     }
   }
+});
+
+test("inscription review helpers: English rows, gate messages and method badges", () => {
+  const item = { entityType: "ENTREPRISE", organisation: "Acme", phone: "", email: "a@b.cm", cnpsNumber: "" };
+  const rows = verificationRows(item, "en");
+  assert.deepEqual(rows.map((row) => row.label), ["Entity name", "Entity phone / WhatsApp", "Contact email", "CNPS No."]);
+  assert.equal(
+    approvalGate(rows, {}, "en").message,
+    "Cannot approve: the entity phone / WhatsApp and the CNPS No. are empty. Request a correction.",
+  );
+  const filled = verificationRows({ ...item, phone: "6", cnpsNumber: "1" }, "en");
+  assert.equal(approvalGate(filled, { nameVerified: "ko" }, "en").message, "An item is non-compliant: reject the file or request further information.");
+  assert.equal(approvalGate(filled, {}, "en").message, "Mark every item as compliant to approve.");
+  assert.equal(registrationMethodLabel("SELF_REGISTRATION", "en"), "Self-service");
+  assert.equal(registrationMethodLabel("SELF_REGISTRATION"), "Auto-service");
+  assert.equal(verificationRows(item)[0].label, "Nom de l'entité");
 });
