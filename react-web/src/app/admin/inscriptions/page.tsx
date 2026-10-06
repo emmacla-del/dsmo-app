@@ -12,7 +12,7 @@ import {
   requestComplements,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
-import { formatDate } from "@/lib/companies-directory";
+import { formatDate, hasRealNiu } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
 import { inscriptionsHref, registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -398,7 +398,7 @@ function InscriptionsContent() {
         {reviewing && (
           <div>
             <p>Type : <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
-            <p>NIU : {reviewing.taxNumber}{reviewing.cnpsNumber ? ` — CNPS : ${reviewing.cnpsNumber}` : ""}</p>
+            <p>NIU : {hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber : "—"}{reviewing.cnpsNumber ? ` — CNPS : ${reviewing.cnpsNumber}` : ""}</p>
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 {reviewing.duplicateHints.map((hint) => <p key={hint} style={{ margin: 0 }}>{hint}</p>)}

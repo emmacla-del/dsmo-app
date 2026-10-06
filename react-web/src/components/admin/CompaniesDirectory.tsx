@@ -10,6 +10,7 @@ import {
   entityTypeLabel,
   formatDate,
   genderBreakdown,
+  hasRealNiu,
   listCompanies,
 } from "@/lib/companies-directory";
 
@@ -40,7 +41,7 @@ function useColumns(t: ReturnType<typeof useTranslations>): Column[] {
       key: "niu",
       labelKey: "companiesDirectory.niuColumn",
       compare: (a, b) => (a.taxNumber ?? "").localeCompare(b.taxNumber ?? ""),
-      render: (c) => dash(c.taxNumber),
+      render: (c) => dash(hasRealNiu(c.taxNumber) ? c.taxNumber : null),
     },
     {
       key: "establishmentId",
@@ -301,7 +302,7 @@ function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () 
         <DetailSection
           title={t("companiesDirectory.sectionIdentity")}
           rows={[
-            [t("companiesDirectory.niuColumn"), c.taxNumber],
+            [t("companiesDirectory.niuColumn"), hasRealNiu(c.taxNumber) ? c.taxNumber : null],
             [t("companiesDirectory.entityTypeLabel"), entityTypeLabel(c.entityType) || null],
             [t("companiesDirectory.sectorLabel"), c.sector?.name],
             [t("companiesDirectory.mainActivityLabel"), c.mainActivity],
