@@ -4,6 +4,7 @@ import {
   ConflictException,
   ValidationPipe,
 } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuthService } from './auth.service';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 
@@ -52,6 +53,22 @@ describe('ResubmitRegistrationDto — what a company may send', () => {
   it('refuses a non-string field', async () => {
     await expect(pipe.transform({ name: 42 }, asBody)).rejects.toThrow(BadRequestException);
   });
+
+  it('accepts the entity phone as a string and refuses a non-string one', async () => {
+    await expect(pipe.transform({ phone: '655000000' }, asBody)).resolves.toEqual({
+      phone: '655000000',
+    });
+    await expect(pipe.transform({ phone: 655000000 }, asBody)).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a valid email and refuses a malformed one', async () => {
+    await expect(pipe.transform({ email: 'nouveau@example.cm' }, asBody)).resolves.toEqual({
+      email: 'nouveau@example.cm',
+    });
+    for (const email of ['pas-un-email', '', 42]) {
+      await expect(pipe.transform({ email }, asBody)).rejects.toThrow(BadRequestException);
+    }
+  });
 });
 
 const COMPANY = {
@@ -90,6 +107,7 @@ function makeService(
     company?: Record<string, unknown>;
     flipCount?: number;
     clash?: { id: string } | null;
+    emailTaken?: { id: string } | null;
   } = {},
 ) {
   const company = { ...COMPANY, ...(overrides.company ?? {}) };
@@ -98,6 +116,8 @@ function makeService(
     user: {
       updateMany: jest.fn(async () => ({ count: overrides.flipCount ?? 1 })),
       findUnique: jest.fn(async () => ({ ...user, status: 'PENDING_APPROVAL' })),
+      findFirst: jest.fn(async (_args: any) => overrides.emailTaken ?? null),
+      update: jest.fn(async (_args: any) => user),
     },
     company: {
       update: jest.fn(async () => company),
@@ -247,6 +267,90 @@ describe('AuthService.resubmitRegistration', () => {
     expect(auditDetails(tx).changes).toEqual({
       entityType: { before: 'ENTREPRISE', after: 'ADMINISTRATION' },
     });
+  });
+});
+
+describe('AuthService.resubmitRegistration — entity phone and email', () => {
+  it('writes a changed entity phone through company.update and audits it', async () => {
+    const { service, tx } = makeService({ company: { phone: '655000000' } });
+    await service.resubmitRegistration('u-co', { phone: '699000000' } as ResubmitRegistrationDto);
+
+    expect(tx.company.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { phone: '699000000' },
+    });
+    expect(auditDetails(tx).changes).toEqual({
+      phone: { before: '655000000', after: '699000000' },
+    });
+  });
+
+  it('writes a changed email to User, not Company, and audits it', async () => {
+    const { service, tx } = makeService();
+    await service.resubmitRegistration('u-co', {
+      email: 'nouveau@example.cm',
+    } as ResubmitRegistrationDto);
+
+    expect(tx.user.findFirst).toHaveBeenCalledWith({
+      where: { email: 'nouveau@example.cm', id: { not: 'u-co' } },
+      select: { id: true },
+    });
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'u-co' },
+      data: { email: 'nouveau@example.cm' },
+    });
+    // Email-only correction: nothing for Company.
+    expect(tx.company.update).not.toHaveBeenCalled();
+    expect(auditDetails(tx).changes).toEqual({
+      email: { before: 'co@example.cm', after: 'nouveau@example.cm' },
+    });
+  });
+
+  it('leaves emailVerified alone when the email changes', async () => {
+    const { service, tx } = makeService();
+    await service.resubmitRegistration('u-co', {
+      email: 'nouveau@example.cm',
+    } as ResubmitRegistrationDto);
+
+    const data = (tx.user.update.mock.calls[0][0] as any).data;
+    expect(data).toEqual({ email: 'nouveau@example.cm' });
+  });
+
+  it('writes and audits nothing for an unchanged email', async () => {
+    const { service, tx } = makeService();
+    await service.resubmitRegistration('u-co', { email: 'co@example.cm' } as ResubmitRegistrationDto);
+
+    expect(tx.user.findFirst).not.toHaveBeenCalled();
+    expect(tx.user.update).not.toHaveBeenCalled();
+    expect(auditDetails(tx).changes).toEqual({});
+  });
+
+  it('409s with an email-specific message when the email belongs to another account, and writes nothing', async () => {
+    const { service, tx } = makeService({ emailTaken: { id: 'u-other' } });
+    const attempt = service.resubmitRegistration('u-co', {
+      email: 'pris@example.cm',
+      name: 'Autre nom',
+    } as ResubmitRegistrationDto);
+
+    await expect(attempt).rejects.toThrow(ConflictException);
+    await expect(attempt).rejects.toThrow('Un utilisateur avec cet email existe déjà');
+    expect(tx.user.update).not.toHaveBeenCalled();
+    expect(tx.company.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('maps a P2002 race on the user write to the email 409, not the NIU one', async () => {
+    const { service, tx } = makeService();
+    tx.user.update.mockRejectedValueOnce(
+      new PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      service.resubmitRegistration('u-co', { email: 'nouveau@example.cm' } as ResubmitRegistrationDto),
+    ).rejects.toThrow('Un utilisateur avec cet email existe déjà');
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 });
 

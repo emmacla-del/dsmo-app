@@ -1257,6 +1257,7 @@ export class AuthService {
     'secondaryActivity',
     'parentCompany',
     'address',
+    'phone',
     'cnpsNumber',
     'fax',
     'socialCapital',
@@ -1337,6 +1338,28 @@ export class AuthService {
         record('subdivisionId', company.subdivisionId, resolved.subdivisionId);
       }
 
+      // The email lives on User, not Company, so it is diffed and written on
+      // its own. It is the login identifier: a change takes effect as the
+      // sign-in address immediately. emailVerified is deliberately left as is
+      // and no new verification link is sent (decision of 2026-10-06; the flag
+      // gates nothing today). Exact-match comparison, like registration and
+      // isEmailAvailable.
+      let newEmail: string | undefined;
+      if (typeof payload.email === 'string') {
+        const after = payload.email.trim();
+        if (after !== user.email) {
+          const taken = await tx.user.findFirst({
+            where: { email: after, id: { not: actorId } },
+            select: { id: true },
+          });
+          if (taken) {
+            throw new ConflictException('Un utilisateur avec cet email existe déjà');
+          }
+          newEmail = after;
+          changes.email = { before: user.email, after };
+        }
+      }
+
       // taxNumber is unique. Pre-checked for a readable 409, excluding this
       // company's own row, with the P2002 catch below as the race backstop.
       if (typeof updates.taxNumber === 'string') {
@@ -1355,6 +1378,19 @@ export class AuthService {
         } catch (error) {
           if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
             throw new ConflictException('Une entreprise avec ce numéro contribuable existe déjà');
+          }
+          throw error;
+        }
+      }
+
+      // Its own P2002 handler: the one above is worded for the NIU, and would
+      // tell a declarant their tax number is taken when it is their email.
+      if (newEmail !== undefined) {
+        try {
+          await tx.user.update({ where: { id: actorId }, data: { email: newEmail } });
+        } catch (error) {
+          if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+            throw new ConflictException('Un utilisateur avec cet email existe déjà');
           }
           throw error;
         }

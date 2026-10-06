@@ -30,6 +30,7 @@ const TEXT_FIELDS = [
   { key: "secondaryActivity", label: "Activité secondaire" },
   { key: "parentCompany", label: "Société mère" },
   { key: "address", label: "Adresse" },
+  { key: "phone", label: "Téléphone / WhatsApp" },
   { key: "cnpsNumber", label: "Numéro CNPS" },
   { key: "fax", label: "Fax" },
 ] as const;
@@ -39,11 +40,17 @@ type TextKey = (typeof TEXT_FIELDS)[number]["key"];
 const REGION_KEY = "region";
 const DEPARTMENT_KEY = "department";
 const SUBDIVISION_KEY = "subdivision";
+// User.email, not a Company column: the profile does not carry it, so it is
+// seeded from the signed-in user instead.
+const EMAIL_KEY = "email";
 
 type FormState = Record<string, string>;
 
-/** Everything the form edits, read off the profile as plain strings. */
-function formStateFrom(profile: CompanyProfile | undefined): FormState {
+/**
+ * Everything the form edits, as plain strings: the company fields read off the
+ * profile, plus the account email.
+ */
+function formStateFrom(profile: CompanyProfile | undefined, email: string | undefined): FormState {
   const str = (value: unknown) => (value === null || value === undefined ? "" : String(value));
   const state: FormState = {};
   for (const field of TEXT_FIELDS) state[field.key] = str(profile?.[field.key]);
@@ -52,6 +59,7 @@ function formStateFrom(profile: CompanyProfile | undefined): FormState {
   state[REGION_KEY] = str(profile?.region);
   state[DEPARTMENT_KEY] = str(profile?.department);
   state[SUBDIVISION_KEY] = str(profile?.subdivision);
+  state[EMAIL_KEY] = str(email);
   return state;
 }
 
@@ -73,7 +81,10 @@ export default function InscriptionEnAttentePage() {
     enabled: complements,
   });
 
-  const initial = useMemo(() => formStateFrom(companyQuery.data), [companyQuery.data]);
+  const initial = useMemo(
+    () => formStateFrom(companyQuery.data, user?.email),
+    [companyQuery.data, user?.email]
+  );
   const [form, setForm] = useState<FormState>({});
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +142,12 @@ export default function InscriptionEnAttentePage() {
     }
     if (changed("entityType") && (form.entityType ?? "") !== "") {
       out.entityType = form.entityType;
+    }
+    // Compared trimmed, and left out when cleared: the route validates it as
+    // an email, and an empty one would only be a 400.
+    const email = (form[EMAIL_KEY] ?? "").trim();
+    if (email !== "" && email !== (initial[EMAIL_KEY] ?? "").trim()) {
+      out.email = email;
     }
     // Territory resolves as a chain server-side and requires a subdivision,
     // so the three names travel together or not at all.
@@ -199,6 +216,24 @@ export default function InscriptionEnAttentePage() {
                   />
                 </div>
               ))}
+
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="correction-email">
+                  Email
+                </label>
+                <input
+                  id="correction-email"
+                  className="cam-input"
+                  type="email"
+                  autoComplete="email"
+                  aria-describedby="correction-email-hint"
+                  value={form[EMAIL_KEY] ?? ""}
+                  onChange={(e) => set(EMAIL_KEY, e.target.value)}
+                />
+                <span id="correction-email-hint" className="cam-admin-choice-hint">
+                  Votre identifiant de connexion et le contact de l&apos;entité auprès de l&apos;ONEFOP.
+                </span>
+              </div>
 
               <div className="cam-field">
                 <label className="cam-label" htmlFor="correction-socialCapital">
