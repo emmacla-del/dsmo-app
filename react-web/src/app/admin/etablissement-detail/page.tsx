@@ -297,12 +297,6 @@ function EtablissementDetail() {
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <Link
-              href={`/admin/etablissement-detail/approbation?id=${encodeURIComponent(id)}`}
-              style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}
-            >
-              Validation du compte
-            </Link>
             {/* Shown only when there is a real account to act on and the role
                 may act on it. The button performs the real call. */}
             {linkedAccount && canManageAccount && (
