@@ -809,6 +809,32 @@ export class AuthService {
         },
       });
 
+      // Issuance journal. The migration's sequence seed also reads these
+      // rows, so a number whose company is later deleted is never reissued.
+      // Attributed to the acting admin on the assisted route, to the
+      // registrant otherwise. Losing it must not undo the registration.
+      await this.prisma.auditLog
+        .create({
+          data: {
+            userId: attribution.createdBy ?? user.id,
+            action: 'COMPANY_ESTABLISHMENT_ID_ISSUED',
+            resourceType: 'Company',
+            resourceId: company.id,
+            details: {
+              establishmentId,
+              companyId: company.id,
+              registrantUserId: user.id,
+              entityType: company.entityType,
+              registrationMethod: attribution.registrationMethod,
+            },
+          },
+        })
+        .catch((error: any) => {
+          this.logger.error(
+            `Failed to audit establishment ID ${establishmentId} issuance: ${(error as Error).message}`,
+          );
+        });
+
       // Auto-approval: activate the account and create its -01 Establishment
       // in one transaction, reusing the ID generated above, so a failure here
       // leaves a normal PENDING_APPROVAL file for staff review.
