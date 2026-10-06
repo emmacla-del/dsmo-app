@@ -6,6 +6,18 @@ import { buildPeriodWhere } from '../helpers/analytics-period.helper';
 import type { AnalyticsFilter, SubmissionMeta } from './analytics-types';
 import { SubmissionStatus } from './analytics-enums';
 
+/**
+ * A territory filter value as a trimmed name, or undefined. The filter comes
+ * from an untyped query string, so a repeated parameter
+ * (`?region=a&region=b`) arrives as an array; it is ignored rather than
+ * handed to Prisma, which answered it with a 500.
+ */
+function territoryName(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed || undefined;
+}
+
 @Injectable()
 export class AnalyticsQueryService {
     constructor(private readonly prisma: PrismaService) { }
@@ -24,9 +36,15 @@ export class AnalyticsQueryService {
 
         if (filter.submissionId) where['id'] = filter.submissionId;
         if (filter.entityType) where['formType'] = filter.entityType;
-        if (filter.region) where['region'] = { contains: filter.region, mode: 'insensitive' };
-        if (filter.department) where['department'] = { contains: filter.department, mode: 'insensitive' };
-        if (filter.subdivision) where['subdivision'] = { contains: filter.subdivision, mode: 'insensitive' };
+        // Exact (case-insensitive) matches. A substring match summed
+        // neighbouring territories: region=Nord also matched Nord-Ouest and
+        // Extrême-Nord, region=Ouest matched Nord-Ouest and Sud-Ouest.
+        const region = territoryName(filter.region);
+        const department = territoryName(filter.department);
+        const subdivision = territoryName(filter.subdivision);
+        if (region) where['region'] = { equals: region, mode: 'insensitive' };
+        if (department) where['department'] = { equals: department, mode: 'insensitive' };
+        if (subdivision) where['subdivision'] = { equals: subdivision, mode: 'insensitive' };
 
         // The caller's territory, under AND rather than merged into `where`:
         // resolveSubmissions overwrites where.id for the sector filter, which

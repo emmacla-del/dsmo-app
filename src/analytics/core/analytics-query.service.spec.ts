@@ -38,3 +38,24 @@ describe('AnalyticsQueryService territory scope', () => {
     expect(where.AND).toEqual([noRows]);
   });
 });
+
+// region=Nord used to be a substring match that also summed Nord-Ouest and
+// Extrême-Nord. A figures-changing fix, logged for the ONEFOP domain owner.
+describe('AnalyticsQueryService territory filters', () => {
+  const service = new AnalyticsQueryService({} as any);
+
+  it.each(['region', 'department', 'subdivision'] as const)('matches %s exactly, case-insensitively', (key) => {
+    const where = service.buildSubmissionWhere({ [key]: 'Nord' });
+    expect(where[key]).toEqual({ equals: 'Nord', mode: 'insensitive' });
+  });
+
+  it('trims the value, and treats a blank one as no filter', () => {
+    expect(service.buildSubmissionWhere({ region: '  Ouest ' }).region).toEqual({ equals: 'Ouest', mode: 'insensitive' });
+    expect(service.buildSubmissionWhere({ region: '   ' })).not.toHaveProperty('region');
+  });
+
+  it('ignores a repeated parameter instead of passing an array to Prisma', () => {
+    const where = service.buildSubmissionWhere({ region: ['Nord', 'Sud'] as unknown as string });
+    expect(where).not.toHaveProperty('region');
+  });
+});
