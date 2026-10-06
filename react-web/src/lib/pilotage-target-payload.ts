@@ -7,6 +7,7 @@ import {
   type TargetRegionRow,
 } from "./pilotage-targets";
 import { NOT_PROVIDED } from "./admin-data-state";
+import type { UiLocale } from "./register-i18n";
 
 export type EditMode = "DEPARTMENT" | "REGION";
 
@@ -45,7 +46,36 @@ export type BuildPayloadResult =
   | { ok: true; body: TargetPutBody; changes: PayloadChange[] }
   | { ok: false; errors: string[] };
 
-const INVALID_INT = "doit être un entier positif ou nul.";
+// Labels and validation messages in both console locales. Every exported
+// helper takes the locale last and defaults to French.
+const TEXT = {
+  fr: {
+    invalidInt: "doit être un entier positif ou nul.",
+    byDepartment: "Par département",
+    regionOnly: "Région seule",
+    mixed: "Mixte",
+    notSet: "Non défini",
+    invalidValue: "valeur invalide",
+    central: "Niveau central",
+    noChanges: "Aucune modification à enregistrer.",
+    region: (name: string) => `La région « ${name} »`,
+    department: (name: string, region: string) => `Le département « ${name} » (${region})`,
+    separator: " : ",
+  },
+  en: {
+    invalidInt: "must be a whole number, zero or more.",
+    byDepartment: "By department",
+    regionOnly: "Region only",
+    mixed: "Mixed",
+    notSet: "Not set",
+    invalidValue: "invalid value",
+    central: "Central level",
+    noChanges: "No changes to save.",
+    region: (name: string) => `Region "${name}"`,
+    department: (name: string, region: string) => `Department "${name}" (${region})`,
+    separator: ": ",
+  },
+} as const;
 
 export function normalizeRegions(regions: TargetRegionRow[], field: TargetField): NormalizedRegion[] {
   return regions.map((region) => ({
@@ -154,11 +184,12 @@ export function sumFilled(departmentInputs: Record<string, string>): number | nu
   return any ? sum : null;
 }
 
-export function modeLabel(mode: TargetMode | EditMode | null): string {
-  if (mode === "DEPARTMENT") return "Par département";
-  if (mode === "REGION") return "Région seule";
-  if (mode === "MIXED") return "Mixte";
-  return "Non défini";
+export function modeLabel(mode: TargetMode | EditMode | null, locale: UiLocale = "fr"): string {
+  const text = TEXT[locale];
+  if (mode === "DEPARTMENT") return text.byDepartment;
+  if (mode === "REGION") return text.regionOnly;
+  if (mode === "MIXED") return text.mixed;
+  return text.notSet;
 }
 
 /**
@@ -174,35 +205,38 @@ export function modeLabel(mode: TargetMode | EditMode | null): string {
 export function formatCoverageCount(
   value: number | null | undefined,
   companyCount: number | null | undefined,
+  locale: UiLocale = "fr",
 ): string {
   if (value == null) return NOT_PROVIDED;
   if (companyCount === 0) return NOT_PROVIDED;
-  return fmt(value);
+  return fmt(value, locale);
 }
 
-export function describeStored(region: NormalizedRegion): string {
-  if (region.mode === "UNSET") return "Non défini";
+export function describeStored(region: NormalizedRegion, locale: UiLocale = "fr"): string {
+  const text = TEXT[locale];
+  if (region.mode === "UNSET") return text.notSet;
   if (region.mode === "REGION") {
-    return region.target == null ? "Région seule" : `Région seule · ${fmt(region.target)}`;
+    return region.target == null ? text.regionOnly : `${text.regionOnly} · ${fmt(region.target, locale)}`;
   }
   if (region.mode === "DEPARTMENT") {
     const filled = region.departments.filter((department) => department.target != null);
     const total = filled.reduce((sum, department) => sum + (department.target ?? 0), 0);
-    return filled.length === 0 ? "Par département" : `Par département · ${fmt(total)}`;
+    return filled.length === 0 ? text.byDepartment : `${text.byDepartment} · ${fmt(total, locale)}`;
   }
-  return "Mixte";
+  return text.mixed;
 }
 
-export function describeDraft(region: NormalizedRegion, draft: RegionDraft): string {
-  if (draft.clear) return "Non défini";
-  if (draft.mode == null) return modeLabel(region.mode);
+export function describeDraft(region: NormalizedRegion, draft: RegionDraft, locale: UiLocale = "fr"): string {
+  const text = TEXT[locale];
+  if (draft.clear) return text.notSet;
+  if (draft.mode == null) return modeLabel(region.mode, locale);
   if (draft.mode === "REGION") {
     const parsed = parseTargetInput(draft.regionInput);
-    if (parsed === "invalid") return "Région seule · valeur invalide";
-    return parsed == null ? "Non défini" : `Région seule · ${fmt(parsed)}`;
+    if (parsed === "invalid") return `${text.regionOnly} · ${text.invalidValue}`;
+    return parsed == null ? text.notSet : `${text.regionOnly} · ${fmt(parsed, locale)}`;
   }
   const sum = sumFilled(draft.departmentInputs);
-  return sum == null ? "Non défini" : `Par département · ${fmt(sum)}`;
+  return sum == null ? text.notSet : `${text.byDepartment} · ${fmt(sum, locale)}`;
 }
 
 export function buildTargetPayload(args: {
@@ -211,14 +245,18 @@ export function buildTargetPayload(args: {
   drafts: Record<string, RegionDraft>;
   originalCentral: number | null;
   centralInput: string;
+  /** Language of the change summary and validation messages. Defaults to French. */
+  locale?: UiLocale;
 }): BuildPayloadResult {
+  const locale = args.locale ?? "fr";
+  const text = TEXT[locale];
   const errors: string[] = [];
   const entries: TargetPutEntry[] = [];
   const changes: PayloadChange[] = [];
 
   for (const region of args.regions) {
     const draft = args.drafts[region.regionId] ?? initRegionDraft(region);
-    const result = desiredEntries(args.field, region, draft);
+    const result = desiredEntries(args.field, region, draft, locale);
     if (result.kind === "error") {
       errors.push(...result.errors);
       continue;
@@ -228,12 +266,12 @@ export function buildTargetPayload(args: {
     changes.push({
       kind: "region",
       name: region.name,
-      from: describeStored(region),
-      to: describeDraft(region, draft),
+      from: describeStored(region, locale),
+      to: describeDraft(region, draft, locale),
     });
   }
 
-  const centralResult = desiredCentral(args.field, args.originalCentral, args.centralInput);
+  const centralResult = desiredCentral(args.field, args.originalCentral, args.centralInput, locale);
   if (centralResult.kind === "error") {
     errors.push(...centralResult.errors);
   }
@@ -245,14 +283,14 @@ export function buildTargetPayload(args: {
     body.central = centralResult.kind === "clear" ? null : { [args.field]: centralResult.value };
     changes.push({
       kind: "central",
-      name: "Niveau central",
-      from: args.originalCentral == null ? "Non défini" : fmt(args.originalCentral),
-      to: centralResult.kind === "clear" ? "Non défini" : fmt(centralResult.value),
+      name: text.central,
+      from: args.originalCentral == null ? text.notSet : fmt(args.originalCentral, locale),
+      to: centralResult.kind === "clear" ? text.notSet : fmt(centralResult.value, locale),
     });
   }
 
   if (changes.length === 0) {
-    return { ok: false, errors: ["Aucune modification à enregistrer."] };
+    return { ok: false, errors: [text.noChanges] };
   }
   return { ok: true, body, changes };
 }
@@ -262,7 +300,8 @@ type Desired =
   | { kind: "send"; entries: TargetPutEntry[] }
   | { kind: "error"; errors: string[] };
 
-function desiredEntries(field: TargetField, region: NormalizedRegion, draft: RegionDraft): Desired {
+function desiredEntries(field: TargetField, region: NormalizedRegion, draft: RegionDraft, locale: UiLocale): Desired {
+  const text = TEXT[locale];
   if (draft.clear) {
     if (region.mode === "UNSET") return { kind: "skip" };
     return { kind: "send", entries: [{ regionId: region.regionId, clear: true }] };
@@ -272,7 +311,7 @@ function desiredEntries(field: TargetField, region: NormalizedRegion, draft: Reg
   if (draft.mode === "REGION") {
     const parsed = parseTargetInput(draft.regionInput);
     if (parsed === "invalid") {
-      return { kind: "error", errors: [`La région « ${region.name} » : ${INVALID_INT}`] };
+      return { kind: "error", errors: [`${text.region(region.name)}${text.separator}${text.invalidInt}`] };
     }
     if (parsed == null) {
       if (region.mode === "UNSET") return { kind: "skip" };
@@ -290,7 +329,7 @@ function desiredEntries(field: TargetField, region: NormalizedRegion, draft: Reg
     if (parsed === "invalid") {
       return {
         kind: "error",
-        errors: [`Le département « ${department.name} » (${region.name}) : ${INVALID_INT}`],
+        errors: [`${text.department(department.name, region.name)}${text.separator}${text.invalidInt}`],
       };
     }
     if (parsed == null) continue;
@@ -338,10 +377,12 @@ function desiredCentral(
   field: TargetField,
   original: number | null,
   input: string,
+  locale: UiLocale,
 ): { kind: "omit" } | { kind: "clear" } | { kind: "set"; value: number } | { kind: "error"; errors: string[] } {
+  const text = TEXT[locale];
   const parsed = parseTargetInput(input);
   if (parsed === "invalid") {
-    return { kind: "error", errors: [`Niveau central : ${INVALID_INT}`] };
+    return { kind: "error", errors: [`${text.central}${text.separator}${text.invalidInt}`] };
   }
   if (parsed == null) {
     if (original == null) return { kind: "omit" };
@@ -355,8 +396,8 @@ function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null;
 }
 
-function fmt(value: number): string {
-  return value.toLocaleString("fr-FR");
+function fmt(value: number, locale: UiLocale): string {
+  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
 }
 
 export function hasUnsavedChanges(args: {

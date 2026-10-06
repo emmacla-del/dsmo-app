@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { count } from "@/lib/admin-data-state";
+import { asUiLocale } from "@/lib/register-i18n";
 
 export type KpiTone = "warning" | "info" | "error";
 
@@ -17,11 +20,13 @@ export interface KpiTileProps {
  * arrow when it links to the matching work queue.
  */
 export function KpiTile({ value, label, tone, href }: KpiTileProps) {
+  const t = useTranslations("adminKpiTile");
+  const locale = asUiLocale(useLocale());
   const unavailable = value === null;
   const body = (
     <>
       <span className="cam-kpi-tile-text">
-        <span className="cam-kpi-tile-value">{unavailable ? "—" : value.toLocaleString("fr-FR")}</span>
+        <span className="cam-kpi-tile-value">{unavailable ? "—" : count(value, locale)}</span>
         <span className="cam-kpi-tile-label">{label}</span>
       </span>
       {href && !unavailable && <span className="cam-kpi-tile-arrow" aria-hidden="true">→</span>}
@@ -34,7 +39,7 @@ export function KpiTile({ value, label, tone, href }: KpiTileProps) {
     return <Link href={href} className={className}>{body}</Link>;
   }
   return (
-    <div className={className} title={unavailable ? "Donnée non disponible" : undefined}>
+    <div className={className} title={unavailable ? t("unavailableTitle") : undefined}>
       {body}
     </div>
   );

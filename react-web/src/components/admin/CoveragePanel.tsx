@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
 import { CoverageTable } from "@/components/admin/CoverageTable";
 import { formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN } from "@/lib/pilotage-targets";
 
@@ -21,6 +23,7 @@ import { formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN }
  * reload; `onYearChange` is how the caller writes it back.
  */
 export function CoveragePanel({ year, onYearChange }: { year: number; onYearChange: (year: number) => void }) {
+  const t = useTranslations("adminTargets");
   const [yearDraft, setYearDraft] = useState(String(year));
   useEffect(() => {
     setYearDraft(String(year));
@@ -30,7 +33,7 @@ export function CoveragePanel({ year, onYearChange }: { year: number; onYearChan
     <>
       <div className="cam-target-toolbar">
         <label className="cam-target-year">
-          Année
+          {t("yearLabel")}
           <input
             className="cam-input"
             type="number"
@@ -52,6 +55,8 @@ export function CoveragePanel({ year, onYearChange }: { year: number; onYearChan
 }
 
 function CoverageContent({ year }: { year: number }) {
+  const tCommon = useTranslations("common");
+  const locale = asUiLocale(useLocale());
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year],
     queryFn: () => getAnnualCoverage(year),
@@ -66,9 +71,9 @@ function CoverageContent({ year }: { year: number }) {
     setExpanded(new Set(query.data.regions.length === 1 ? query.data.regions.map((region) => region.regionId) : mixed));
   }, [query.data]);
 
-  if (query.isLoading) return <p className="cam-admin-lede">Chargement…</p>;
+  if (query.isLoading) return <p className="cam-admin-lede">{tCommon("loading")}</p>;
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error)}</div>;
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
   }
   if (!query.data) return null;
 

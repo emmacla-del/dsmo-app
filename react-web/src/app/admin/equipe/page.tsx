@@ -3,6 +3,8 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, MONITORING_ROLES, hasRole } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -46,6 +48,8 @@ function EquipeContent() {
   const { isLoading, forbidden } = useAdminScreenGuard(MONITORING_ROLES);
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const { regions: territoryRegions } = useTerritoryRegions();
 
   // Filters
@@ -78,14 +82,14 @@ function EquipeContent() {
       queryClient.invalidateQueries({ queryKey: ACTOR_SUMMARY_QUERY_KEY });
       setNotice({
         tone: "success",
-        text: `Relance envoyée avec succès à ${nudgeTarget?.displayName ?? "l'administrateur"}.`,
+        text: t("adminEquipePage.nudgeSent", { name: nudgeTarget?.displayName ?? t("adminEquipePage.nudgeSentFallbackName") }),
       });
       closeNudgeModal();
     },
     onError: (err: Error) => {
       setNotice({
         tone: "error",
-        text: err.message || "Échec de l'envoi de la relance.",
+        text: err.message || t("adminEquipePage.nudgeFailed"),
       });
     },
   });
@@ -125,9 +129,7 @@ function EquipeContent() {
   if (forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">
-          Accès réservé aux administrateurs centraux et régionaux.
-        </p>
+        <p className="cam-admin-lede">{t("adminEquipePage.accessDenied")}</p>
       </div>
     );
   }
@@ -135,9 +137,9 @@ function EquipeContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Équipe territoriale" }]}
-        title="Équipe territoriale"
-        subtitle="Activité de terrain, couverture des ressorts et débit de traitement des administrateurs régionaux et départementaux."
+        breadcrumb={[{ label: t("adminNav.hubs.supervision") }, { label: t("adminNav.routes.equipe") }]}
+        title={t("adminNav.routes.equipe")}
+        subtitle={t("adminEquipePage.subtitle")}
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
 
@@ -152,7 +154,7 @@ function EquipeContent() {
           <button
             type="button"
             className="cam-admin-notice-close"
-            aria-label="Fermer"
+            aria-label={t("adminEquipePage.closeAriaLabel")}
             onClick={() => setNotice(null)}
           >
             ×
@@ -162,7 +164,7 @@ function EquipeContent() {
 
       {/* ── Filter Bar ── */}
       <section
-        aria-label="Filtres de supervision"
+        aria-label={t("adminEquipePage.filtersAriaLabel")}
         className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs mb-6"
       >
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
@@ -172,7 +174,7 @@ function EquipeContent() {
               htmlFor="filter-period"
               className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5"
             >
-              Période
+              {t("adminEquipePage.periodLabel")}
             </label>
             <div className="relative">
               <select
@@ -183,7 +185,7 @@ function EquipeContent() {
               >
                 {ACTOR_SUMMARY_PERIODS.map((p) => (
                   <option key={p.value} value={p.value}>
-                    {p.label}
+                    {t(`adminEquipePage.period.${p.value}`)}
                   </option>
                 ))}
               </select>
@@ -201,7 +203,7 @@ function EquipeContent() {
               htmlFor="filter-role"
               className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5"
             >
-              Rôle
+              {t("adminEquipePage.roleLabel")}
             </label>
             <div className="relative">
               <select
@@ -210,10 +212,10 @@ function EquipeContent() {
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                <option value="">Tous les rôles territoriaux</option>
+                <option value="">{t("adminEquipePage.allTerritorialRoles")}</option>
                 {MONITORED_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
-                    {r.label}
+                    {t(`adminEquipePage.roleOption.${r.value}`)}
                   </option>
                 ))}
               </select>
@@ -231,7 +233,7 @@ function EquipeContent() {
               htmlFor="filter-region"
               className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5"
             >
-              Région
+              {t("adminEquipePage.regionLabel")}
             </label>
             <div className="relative">
               <select
@@ -241,9 +243,9 @@ function EquipeContent() {
                 disabled={isRegional}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer disabled:bg-slate-50 disabled:text-slate-500"
               >
-                {!isRegional && <option value="">Toutes les régions</option>}
+                {!isRegional && <option value="">{t("adminEquipePage.allRegions")}</option>}
                 {isRegional ? (
-                  <option value={user?.region ?? ""}>{user?.region ?? "Ma région"}</option>
+                  <option value={user?.region ?? ""}>{user?.region ?? t("adminEquipePage.myRegion")}</option>
                 ) : (
                   territoryRegions.map((r) => (
                     <option key={r} value={r}>
@@ -263,17 +265,17 @@ function EquipeContent() {
       </section>
 
       {/* ── Table / Cards List ── */}
-      {summaryQuery.isLoading && <p className="cam-admin-lede">Chargement des données d&apos;activité…</p>}
+      {summaryQuery.isLoading && <p className="cam-admin-lede">{t("adminEquipePage.loading")}</p>}
 
       {summaryQuery.isError && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          Impossible de charger le tableau de bord de supervision.
+          {t("adminEquipePage.loadError")}
         </div>
       )}
 
       {!summaryQuery.isLoading && !summaryQuery.isError && actors.length === 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500 text-sm">
-          Aucun administrateur territorial trouvé pour ces filtres.
+          {t("adminEquipePage.empty")}
         </div>
       )}
 
@@ -289,8 +291,8 @@ function EquipeContent() {
       <AdminDialog
         open={!!nudgeTarget}
         onClose={closeNudgeModal}
-        title={`Relancer ${nudgeTarget?.displayName ?? ""}`}
-        eyebrow="Communication interne"
+        title={t("adminEquipePage.nudgeTitle", { name: nudgeTarget?.displayName ?? "" })}
+        eyebrow={t("adminEquipePage.nudgeEyebrow")}
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
             <button
@@ -299,7 +301,7 @@ function EquipeContent() {
               onClick={closeNudgeModal}
               disabled={nudgeMutation.isPending}
             >
-              Annuler
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -307,7 +309,7 @@ function EquipeContent() {
               className="cam-button cam-button-primary"
               disabled={nudgeMutation.isPending}
             >
-              {nudgeMutation.isPending ? "Envoi en cours…" : "Envoyer la relance"}
+              {nudgeMutation.isPending ? t("adminEquipePage.sending") : t("adminEquipePage.sendNudge")}
             </button>
           </div>
         }
@@ -316,7 +318,7 @@ function EquipeContent() {
           <form id="nudge-form" onSubmit={handleSendNudge} className="space-y-4">
             <div>
               <label htmlFor="nudge-template" className="block text-xs font-semibold text-slate-700 mb-1">
-                Modèle de notification
+                {t("adminEquipePage.templateLabel")}
               </label>
               <select
                 id="nudge-template"
@@ -326,22 +328,24 @@ function EquipeContent() {
               >
                 {NUDGE_TEMPLATE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(`adminEquipePage.template.${opt.value}`)}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Template preview hint */}
+            {/* Template preview hint. The quoted text previews what the server
+                sends, which is French; it is not translated, so the preview
+                never shows a message the recipient will not receive. */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600">
-              <span className="font-semibold text-slate-700 block mb-1">Aperçu du message généré :</span>
+              <span className="font-semibold text-slate-700 block mb-1">{t("adminEquipePage.previewLabel")}</span>
               {nudgeTemplate === "STALE_BACKLOG" && (
                 <span>
                   &ldquo;Vous avez {nudgeTarget.processing.stale} dossier
                   {nudgeTarget.processing.stale > 1 ? "s" : ""} en attente depuis plus de 7 jours.&rdquo;
                   {nudgeTarget.processing.stale === 0 && (
                     <span className="text-amber-700 block mt-1">
-                      Attention : cet administrateur n&apos;a aucun dossier en attente depuis plus de 7 jours.
+                      {t("adminEquipePage.noStaleWarning")}
                     </span>
                   )}
                 </span>
@@ -356,7 +360,7 @@ function EquipeContent() {
                   de la cible 2026.&rdquo;
                   {nudgeTarget.coverage.percent == null && (
                     <span className="text-amber-700 block mt-1">
-                      Attention : aucune cible n&apos;est définie pour ce ressort.
+                      {t("adminEquipePage.noTargetWarning")}
                     </span>
                   )}
                 </span>
@@ -366,11 +370,14 @@ function EquipeContent() {
                   &ldquo;Aucune décision enregistrée sur votre compte depuis N jours.&rdquo;
                 </span>
               )}
+              {locale === "en" && (
+                <span className="block mt-1 text-slate-500">{t("adminEquipePage.previewNote")}</span>
+              )}
             </div>
 
             <div>
               <label htmlFor="nudge-message" className="block text-xs font-semibold text-slate-700 mb-1">
-                Message personnalisé complémentaire (facultatif)
+                {t("adminEquipePage.customMessageLabel")}
               </label>
               <textarea
                 id="nudge-message"
@@ -378,11 +385,11 @@ function EquipeContent() {
                 maxLength={500}
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Ajoutez des précisions ou consignes particulières…"
+                placeholder={t("adminEquipePage.customMessagePlaceholder")}
                 className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644]"
               />
               <span className="text-[10px] text-slate-400 block text-right">
-                {customMessage.length} / 500 caractères
+                {t("adminEquipePage.characterCount", { count: customMessage.length })}
               </span>
             </div>
           </form>
@@ -404,14 +411,16 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
   // The journal is AUDIT_ROLES-only; ADMIN_ONEFOP and REGIONAL_ADMIN, who use
   // this page, would land on a refusal.
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
+  const t = useTranslations("adminEquipePage");
+  const locale = asUiLocale(useLocale());
   const roleLabel =
     actor.role === "REGIONAL_ADMIN"
-      ? "Admin Régional"
+      ? t("roleRegionalAdmin")
       : actor.role === "DIVISIONAL_ADMIN"
-        ? "Admin Départemental"
+        ? t("roleDepartmentalAdmin")
         : actor.role;
 
-  const territoryLabel = [actor.region, actor.department].filter(Boolean).join(" — ") || "Non assigné";
+  const territoryLabel = [actor.region, actor.department].filter(Boolean).join(" — ") || t("unassigned");
 
   const percent = actor.coverage.percent;
   const percentText = percent != null ? `${Math.round(percent * 100)}%` : "—";
@@ -429,9 +438,9 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
             <span className="text-xs text-slate-500 font-medium">({territoryLabel})</span>
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            Dernière action système :{" "}
+            {t("lastSystemAction")}{" "}
             <span className="font-semibold text-slate-700">
-              {actor.lastActionAt ? formatDateTime(actor.lastActionAt) : "Aucune action enregistrée"}
+              {actor.lastActionAt ? formatDateTime(actor.lastActionAt, locale) : t("noActionRecorded")}
             </span>
           </div>
         </div>
@@ -443,21 +452,21 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
             onClick={onNudge}
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors shadow-2xs"
           >
-            Relancer
+            {t("nudgeButton")}
           </button>
           {canReadAudit && (
             <Link
               href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
             >
-              Voir le journal
+              {t("viewLogLink")}
             </Link>
           )}
           <Link
             href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`}
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
           >
-            Voir les inscriptions
+            {t("viewRegistrationsLink")}
           </Link>
         </div>
       </div>
@@ -467,15 +476,15 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
         {/* Section 1: Travail de terrain */}
         <div className="space-y-2">
           <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-            Travail de terrain
+            {t("fieldWorkTitle")}
           </h4>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 text-xs space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-slate-600">Inscriptions assistées :</span>
+              <span className="text-slate-600">{t("assistedRegistrations")}</span>
               <strong className="text-slate-900">{actor.field.registrationsMade}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Conversions (ONEFOP) :</span>
+              <span className="text-slate-600">{t("conversions")}</span>
               <strong className="text-slate-900">
                 {actor.field.conversions}{" "}
                 {actor.field.conversionRate != null && (
@@ -486,10 +495,10 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
               </strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Dernière inscription :</span>
+              <span className="text-slate-600">{t("lastRegistration")}</span>
               <span className="text-slate-700 font-medium">
                 {actor.field.lastRegistrationAt
-                  ? formatDateOnly(actor.field.lastRegistrationAt)
+                  ? formatDateOnly(actor.field.lastRegistrationAt, locale)
                   : "—"}
               </span>
             </div>
@@ -499,11 +508,11 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
         {/* Section 2: Ressort — Cible & Couverture */}
         <div className="space-y-2">
           <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-            Ressort — Cible &amp; Couverture
+            {t("coverageTitle")}
           </h4>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 text-xs space-y-2">
             <div className="flex justify-between items-baseline">
-              <span className="text-slate-600">Inscrits / Cible :</span>
+              <span className="text-slate-600">{t("registeredOverTarget")}</span>
               <span className="font-semibold text-slate-900">
                 {actor.coverage.current != null ? actor.coverage.current : "—"} /{" "}
                 {actor.coverage.target != null ? actor.coverage.target : "—"}
@@ -512,7 +521,7 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
             {/* Progress bar */}
             <div>
               <div className="flex justify-between text-[11px] mb-1">
-                <span className="text-slate-500">Taux de couverture</span>
+                <span className="text-slate-500">{t("coverageRate")}</span>
                 <span className="font-bold text-slate-900">{percentText}</span>
               </div>
               <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -528,41 +537,41 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
         {/* Section 3: Traitement */}
         <div className="space-y-2">
           <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-            Traitement &amp; Files
+            {t("processingTitle")}
           </h4>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 text-xs space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-slate-600">File en attente :</span>
+              <span className="text-slate-600">{t("pendingQueue")}</span>
               <span className="font-semibold text-slate-900">
-                {actor.processing.backlog} dossier{actor.processing.backlog > 1 ? "s" : ""}
+                {t("backlogFiles", { count: actor.processing.backlog })}
                 {actor.processing.stale > 0 && (
                   <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
-                    {actor.processing.stale} &gt; 7j
+                    {t("staleBadge", { count: actor.processing.stale })}
                   </span>
                 )}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Décisions prises :</span>
+              <span className="text-slate-600">{t("decisionsMade")}</span>
               <span className="font-medium text-slate-800">
-                <span className="text-emerald-700 font-semibold" title="Validées">
-                  {actor.processing.decisions.approved} val.
+                <span className="text-emerald-700 font-semibold" title={t("approvedTitle")}>
+                  {t("approvedShort", { count: actor.processing.decisions.approved })}
                 </span>{" "}
                 /{" "}
-                <span className="text-rose-700 font-semibold" title="Rejetées">
-                  {actor.processing.decisions.rejected} rej.
+                <span className="text-rose-700 font-semibold" title={t("rejectedTitle")}>
+                  {t("rejectedShort", { count: actor.processing.decisions.rejected })}
                 </span>{" "}
                 /{" "}
-                <span className="text-amber-700 font-semibold" title="Compléments demandés">
-                  {actor.processing.decisions.corrections} corr.
+                <span className="text-amber-700 font-semibold" title={t("correctionsTitle")}>
+                  {t("correctionsShort", { count: actor.processing.decisions.corrections })}
                 </span>
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Délai médian de décision :</span>
+              <span className="text-slate-600">{t("medianDecisionTime")}</span>
               <span className="font-medium text-slate-700">
                 {actor.processing.medianDaysToDecision != null
-                  ? `${actor.processing.medianDaysToDecision} j`
+                  ? t("medianDays", { days: actor.processing.medianDaysToDecision })
                   : "—"}
               </span>
             </div>
@@ -573,10 +582,14 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
   );
 }
 
-function formatDateTime(iso: string): string {
+function intlLocale(locale: UiLocale): string {
+  return locale === "en" ? "en-GB" : "fr-FR";
+}
+
+function formatDateTime(iso: string, locale: UiLocale): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("fr-FR", {
+  return d.toLocaleString(intlLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -585,10 +598,10 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function formatDateOnly(iso: string): string {
+function formatDateOnly(iso: string, locale: UiLocale): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("fr-FR", {
+  return d.toLocaleDateString(intlLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

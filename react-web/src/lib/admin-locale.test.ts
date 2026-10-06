@@ -20,6 +20,9 @@ import {
   stamp,
 } from "./admin-data-state";
 import { directoryRoleLabel } from "./user-directory";
+import { ENTITY_TYPE_OPTION_KEYS } from "./companies-directory";
+import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, normalizeRegions } from "./pilotage-target-payload";
+import { formatApiError } from "./pilotage-targets";
 import { ADMIN_HUBS } from "../app/admin/_routes";
 
 type Catalogue = Record<string, unknown>;
@@ -117,6 +120,59 @@ test("admin navigation: every hub and labelled sub-route has a message in both l
     assert.equal(lookup(fr, `adminNav.hubs.${hub.key}`), hub.label);
     for (const sub of hub.subRoutes) {
       assert.equal(lookup(fr, `adminNav.routes.${sub.labelKey}`), sub.label);
+    }
+  }
+});
+
+test("target payload helpers: English labels and messages, French default kept", () => {
+  const [centre] = normalizeRegions(
+    [
+      {
+        regionId: "r1",
+        name: "Centre",
+        mode: "REGION",
+        submissionTarget: 1200,
+        departments: [{ departmentId: "d1", name: "Mfoundi", submissionTarget: null }],
+      },
+    ],
+    "submissionTarget",
+  );
+  assert.equal(modeLabel("DEPARTMENT", "en"), "By department");
+  assert.equal(modeLabel("MIXED", "en"), "Mixed");
+  assert.equal(modeLabel(null), "Non défini");
+  assert.equal(describeStored(centre, "en"), "Region only · 1,200");
+  assert.equal(formatCoverageCount(1200, 5, "en"), "1,200");
+
+  const invalid = buildTargetPayload({
+    field: "submissionTarget",
+    regions: [centre],
+    drafts: { r1: { regionId: "r1", mode: "REGION", regionInput: "-3", departmentInputs: { d1: "" } } },
+    originalCentral: null,
+    centralInput: "",
+    locale: "en",
+  });
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.deepEqual(invalid.errors, ['Region "Centre": must be a whole number, zero or more.']);
+
+  const unchanged = buildTargetPayload({
+    field: "submissionTarget",
+    regions: [centre],
+    drafts: {},
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(unchanged.ok, false);
+  if (!unchanged.ok) assert.deepEqual(unchanged.errors, ["Aucune modification à enregistrer."]);
+
+  assert.equal(formatApiError(null, "en"), "The request failed.");
+  assert.equal(formatApiError(null), "La requête a échoué.");
+});
+
+test("entity type option keys resolve in both catalogues", () => {
+  for (const locale of ["fr", "en"] as const) {
+    const catalogue = loadCatalogue(locale);
+    for (const [type, key] of Object.entries(ENTITY_TYPE_OPTION_KEYS)) {
+      assert.equal(typeof lookup(catalogue, key), "string", `${locale}: ${type} → ${key}`);
     }
   }
 });

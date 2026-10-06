@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getAdminDossier,
@@ -16,14 +17,15 @@ import { DataState } from "@/components/admin/DataState";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole } from "@/lib/roles";
 import {
-  METRIC_UNAVAILABLE,
-  NOT_RECORDED,
+  NOT_PROVIDED,
   count,
   fact,
-  factOr,
+  metricUnavailable,
+  notRecorded,
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
+import { asUiLocale } from "@/lib/register-i18n";
 
 /**
  * Administrative status of the dossier, exactly as stored.
@@ -31,11 +33,12 @@ import {
  * `null` (no status on the record) is its own case: it is reported, never
  * folded into "en instance".
  */
-const STATUS_BADGES: Record<string, { label: string; bg: string; color: string }> = {
-  PENDING_REVIEW: { label: "En instance", bg: "#fef3c7", color: "#d97706" },
-  APPROVED: { label: "Visé", bg: "#ecfdf5", color: "#047857" },
-  CORRECTION_REQUESTED: { label: "Correction demandée", bg: "#fff7ed", color: "#c2410c" },
-  REJECTED: { label: "Rejeté", bg: "#fef2f2", color: "#b91c1c" },
+// `labelKey` is under adminDossierPage.
+const STATUS_BADGES: Record<string, { labelKey: string; bg: string; color: string }> = {
+  PENDING_REVIEW: { labelKey: "statusPending", bg: "#fef3c7", color: "#d97706" },
+  APPROVED: { labelKey: "statusEndorsed", bg: "#ecfdf5", color: "#047857" },
+  CORRECTION_REQUESTED: { labelKey: "statusCorrection", bg: "#fff7ed", color: "#c2410c" },
+  REJECTED: { labelKey: "statusRejected", bg: "#fef2f2", color: "#b91c1c" },
 };
 
 /**
@@ -49,20 +52,44 @@ const STATUS_BADGES: Record<string, { label: string; bg: string; color: string }
  * that its figures are not rendered here rather than printing numbers.
  * See docs/admin-data-integrity-inventory.md.
  */
-const SECTION_SOURCES: Record<number, { title: string; backing: string }> = {
-  2: {
-    title: "Section 2 : Emploi et Conditions de Travail",
-    backing: "cspGenderAge, diplomaData, disabilityData, vulnerableData, firstTimeWorkers",
-  },
-  3: {
-    title: "Section 3 : Départs, Licenciements et Retraites",
-    backing: "departureData, dismissalReasons, dismissalUnemployment",
-  },
-  4: {
-    title: "Section 4 : Stage et Formation Professionnelle continue",
-    backing: "internshipData, skillNeeds, trainingNeeds",
-  },
+const SECTION_SOURCES: Record<number, { backing: string }> = {
+  2: { backing: "cspGenderAge, diplomaData, disabilityData, vulnerableData, firstTimeWorkers" },
+  3: { backing: "departureData, dismissalReasons, dismissalUnemployment" },
+  4: { backing: "internshipData, skillNeeds, trainingNeeds" },
 };
+
+/**
+ * Section headings use the canonical AST titles (onefop_ast.dart, through the
+ * generated onefop.schema.json). Section 1 is titled per entity type; 2-4 are
+ * the enterprise-family sections the backing tables above belong to.
+ *
+ * The correction request stores the section in its comment, which is the
+ * official record sent to the respondent. That text stays French whatever the
+ * reviewer's language, so the French titles are kept here as the option
+ * values; only the visible option labels follow the locale.
+ */
+const SECTION1_TITLE_FR: Record<string, string> = {
+  ENTREPRISE: "Section 1. Identification de l'entreprise",
+  COOPERATIVE: "Section 1. Identification de la coopérative",
+  CTD: "Section 1. Identification de la CTD",
+  ONG: "Section 1. Identification de l'ONG",
+  ADMINISTRATION: "Section 1. Caractéristique de l'administration",
+  PROJECT_PROGRAM: "Section 1. Identification de la structure",
+  VOCATIONAL_TRAINING: "Section 1. Identification et localisation de la structure",
+};
+const SECTION_TITLE_FR: Record<2 | 3 | 4, string> = {
+  2: "Section 2. Emploi et travail",
+  3: "Section 3. Départs",
+  4: "Section 4. Stage et formation",
+};
+
+/** Correction deadlines: the value is the French text stored in the comment. */
+const CORRECTION_DELAYS: { value: string; labelKey: string }[] = [
+  { value: "3 jours ouvrables", labelKey: "delay3" },
+  { value: "7 jours ouvrables", labelKey: "delay7" },
+  { value: "15 jours ouvrables", labelKey: "delay15" },
+  { value: "30 jours calendaires", labelKey: "delay30" },
+];
 
 type Detail = Record<string, unknown>;
 
@@ -85,17 +112,13 @@ function entityDetail(d: AdminDossier): Detail {
  * sees the AST's French label. A value outside the option list is shown as
  * stored rather than dropped: it is still the respondent's answer.
  */
-const LEGAL_STATUS_LABELS: Record<string, string> = {
-  "Société unipersonnelle/ Single-member company": "Société unipersonnelle",
-  "SARL/ LLC": "SARL",
-  "SA/ PLC": "SA",
-  "Autres/ Others": "Autres",
+// `adminDossierPage.legalStatus.<key>`; each pair is the AST's own fr/en label.
+const LEGAL_STATUS_KEYS: Record<string, string> = {
+  "Société unipersonnelle/ Single-member company": "singleMember",
+  "SARL/ LLC": "llc",
+  "SA/ PLC": "plc",
+  "Autres/ Others": "others",
 };
-
-function factLegalStatus(value: unknown): string {
-  const stored = fact(value);
-  return LEGAL_STATUS_LABELS[stored] ?? stored;
-}
 
 function entityName(detail: Detail): string | null {
   const n = detail.companyName ?? detail.cooperativeName ?? detail.ongName ?? detail.name ?? detail.ctdType;
@@ -109,6 +132,19 @@ function SubmissionDetailContent() {
   const id = typeof params.id === "string" ? params.id : "";
 
   const queryClient = useQueryClient();
+  const t = useTranslations("adminDossierPage");
+  const tCommon = useTranslations("common");
+  const locale = asUiLocale(useLocale());
+  /** A respondent-entered field: its value, or "not recorded" in the console locale. */
+  const recorded = (value: unknown) => {
+    const resolved = fact(value);
+    return resolved === NOT_PROVIDED ? notRecorded(locale) : resolved;
+  };
+  const legalStatus = (value: unknown) => {
+    const stored = fact(value);
+    const key = LEGAL_STATUS_KEYS[stored];
+    return key ? t(`legalStatus.${key}`) : stored;
+  };
   // The journal is AUDIT_ROLES-only (GET /audit/reports is platform-wide), so
   // its links render only for roles that can open it — not as a 403.
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
@@ -147,9 +183,12 @@ function SubmissionDetailContent() {
   // Every header fact below is the stored value or the neutral marker.
   const name = entityName(detail);
   const ref = dossier?.submissionId ?? id;
-  const submittedOn = stamp(dossier?.submissionDate, false);
+  const submittedOn = stamp(dossier?.submissionDate, false, locale);
   const region = dossier?.region ?? null;
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
+  const formType = dossier?.formType ?? "";
+  const section1Fr = SECTION1_TITLE_FR[formType] ?? SECTION1_TITLE_FR.ENTREPRISE;
+  const section1Title = SECTION1_TITLE_FR[formType] ? t(`section1.${formType}`) : t("section1.ENTREPRISE");
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -255,16 +294,19 @@ function SubmissionDetailContent() {
    * carries. A step exists only when its timestamp does; the decision step is
    * labelled by the stored status.
    */
-  const timeline = useMemo(() => {
+  // Plain computation: two steps at most, and the React Compiler memoizes
+  // the component itself (a manual useMemo over the translator could not be
+  // preserved).
+  const timeline = (() => {
     if (!dossier) return [];
     const steps: Array<{ key: string; title: string; detail: string | null; stamp: string; color: string }> = [];
 
     if (dossier.submissionDate) {
       steps.push({
         key: "submitted",
-        title: "Fiche reçue par le serveur central",
-        detail: dossier.quarterCode ? `Campagne ${dossier.quarterCode}` : null,
-        stamp: stamp(dossier.submissionDate),
+        title: t("timelineReceived"),
+        detail: dossier.quarterCode ? t("timelineCampaign", { code: dossier.quarterCode }) : null,
+        stamp: stamp(dossier.submissionDate, true, locale),
         color: "#0d9488",
       });
     }
@@ -272,23 +314,23 @@ function SubmissionDetailContent() {
     if (dossier.reviewedAt) {
       const decision =
         dossier.status === "APPROVED"
-          ? { title: "Visa administratif accordé", color: "#16a34a" }
+          ? { title: t("timelineEndorsed"), color: "#16a34a" }
           : dossier.status === "REJECTED"
-            ? { title: "Dossier rejeté", color: "#dc2626" }
+            ? { title: t("timelineRejected"), color: "#dc2626" }
             : dossier.status === "CORRECTION_REQUESTED"
-              ? { title: "Retour pour correction", color: "#d97706" }
-              : { title: "Décision enregistrée", color: "#6b7280" };
+              ? { title: t("timelineCorrection"), color: "#d97706" }
+              : { title: t("timelineDecision"), color: "#6b7280" };
       steps.push({
         key: "reviewed",
         title: decision.title,
         detail: dossier.rejectionReason ?? null,
-        stamp: stamp(dossier.reviewedAt),
+        stamp: stamp(dossier.reviewedAt, true, locale),
         color: decision.color,
       });
     }
 
     return steps;
-  }, [dossier]);
+  })();
 
   /**
    * Nothing below renders without an authoritative record. Loading, a server
@@ -302,26 +344,26 @@ function SubmissionDetailContent() {
           href="/admin/dossiers"
           style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
         >
-          ← Retour aux dossiers
+          {t("backToFilesLink")}
         </Link>
         <div style={{ marginTop: 20 }}>
           <DataState
             state={pageState === "ready" ? "notFound" : pageState}
-            resource="ce dossier"
+            resource={t("fileResource")}
             error={dossierQuery.error}
             onRetry={() => dossierQuery.refetch()}
             title={
               pageState === "notFound" || pageState === "ready"
-                ? "Dossier introuvable"
+                ? t("fileNotFound")
                 : pageState === "forbidden"
-                  ? "Accès non autorisé"
+                  ? t("accessDenied")
                   : undefined
             }
             hint={
               pageState === "notFound" || pageState === "ready"
-                ? "Aucun dossier ne correspond à cet identifiant dans votre ressort territorial."
+                ? t("fileNotFoundHint")
                 : pageState === "forbidden"
-                  ? "Votre rôle ne permet pas de consulter ce dossier."
+                  ? t("accessDeniedHint")
                   : undefined
             }
           />
@@ -361,14 +403,14 @@ function SubmissionDetailContent() {
               fontWeight: "bold",
               transition: "background 0.15s ease",
             }}
-            aria-label="Retour aux dossiers"
+            aria-label={t("backToFilesAriaLabel")}
           >
             ←
           </Link>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>
-                Dossier #{ref}
+                {t("fileTitle", { ref })}
               </h1>
               {/* Badge reflects the dossier's stored status. A record with no
                   status says so rather than defaulting to "en attente". */}
@@ -393,7 +435,7 @@ function SubmissionDetailContent() {
                     background: statusBadge?.color ?? "#9ca3af",
                   }}
                 />
-                {statusBadge?.label ?? "Statut non renseigné"}
+                {statusBadge ? t(statusBadge.labelKey) : t("statusNotRecorded")}
               </span>
             </div>
             {/* Submission date and territory as stored. The record holds no
@@ -401,8 +443,8 @@ function SubmissionDetailContent() {
                 account id, set only once a decision is taken), so none is
                 named here. */}
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-              Soumis le {submittedOn}
-              {region ? ` — Région ${region}` : ""}
+              {t("submittedOn", { date: submittedOn })}
+              {region ? t("regionSuffix", { region }) : ""}
               {dossier.department ? ` / ${dossier.department}` : ""}
             </p>
           </div>
@@ -439,7 +481,7 @@ function SubmissionDetailContent() {
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
-            Rejeter la Fiche
+            {t("rejectFormButton")}
           </button>
           <button
             type="button"
@@ -473,7 +515,7 @@ function SubmissionDetailContent() {
               <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
               <path d="M8 16H3v5" />
             </svg>
-            Demander une correction
+            {t("requestCorrectionButton")}
           </button>
           <button
             type="button"
@@ -505,7 +547,7 @@ function SubmissionDetailContent() {
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Valider et Archiver
+            {t("validateArchiveButton")}
           </button>
         </div>
       </div>
@@ -540,7 +582,7 @@ function SubmissionDetailContent() {
               marginBottom: 8,
             }}
           >
-            AXE 1 · VISA ADMINISTRATIF
+            {t("axis1Title")}
           </div>
           <span
             style={{
@@ -570,7 +612,7 @@ function SubmissionDetailContent() {
               marginBottom: 8,
             }}
           >
-            AXE 2 · QUALITÉ DES DONNÉES
+            {t("axis2Title")}
           </div>
           <span
             style={{
@@ -600,7 +642,7 @@ function SubmissionDetailContent() {
               marginBottom: 8,
             }}
           >
-            AXE 3 · ÉLIGIBILITÉ STATISTIQUE
+            {t("axis3Title")}
           </div>
           <span
             style={{
@@ -650,7 +692,7 @@ function SubmissionDetailContent() {
                 borderBottom: "1px solid #e5e7eb",
               }}
             >
-              Informations sur le Répondant
+              {t("respondentCardTitle")}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
               <div>
@@ -664,10 +706,10 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  NOM COMPLET
+                  {t("fullNameLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {factOr(dossier.respondent?.respondentName, NOT_RECORDED)}
+                  {recorded(dossier.respondent?.respondentName)}
                 </div>
               </div>
               <div>
@@ -681,10 +723,10 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  FONCTION / POSTE
+                  {t("functionLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {factOr(dossier.respondent?.respondentFunction, NOT_RECORDED)}
+                  {recorded(dossier.respondent?.respondentFunction)}
                 </div>
               </div>
               <div>
@@ -698,10 +740,10 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  TÉLÉPHONE
+                  {t("phoneLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {factOr(dossier.respondent?.phone1, NOT_RECORDED)}
+                  {recorded(dossier.respondent?.phone1)}
                 </div>
               </div>
               <div>
@@ -715,10 +757,10 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  ADRESSE EMAIL
+                  {t("emailLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {factOr(dossier.respondent?.email, NOT_RECORDED)}
+                  {recorded(dossier.respondent?.email)}
                 </div>
               </div>
             </div>
@@ -743,7 +785,7 @@ function SubmissionDetailContent() {
                 borderBottom: "1px solid #e5e7eb",
               }}
             >
-              Informations de la Structure
+              {t("organisationCardTitle")}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
               <div>
@@ -757,7 +799,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  RAISON SOCIALE
+                  {t("companyNameLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.companyName)}
@@ -774,7 +816,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  SIÈGE SOCIAL
+                  {t("headOfficeLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.headOffice)}
@@ -791,7 +833,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  SECTEUR D&apos;ACTIVITÉ
+                  {t("sectorLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.sector)}
@@ -808,7 +850,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  BRANCHE
+                  {t("branchLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.branch)}
@@ -825,7 +867,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  TAILLE DE L&apos;ENTREPRISE
+                  {t("companySizeLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.enterpriseSize)}
@@ -842,7 +884,7 @@ function SubmissionDetailContent() {
                     marginBottom: 2,
                   }}
                 >
-                  EMPLOYÉS PERMANENTS
+                  {t("permanentEmployeesLabel")}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
                   {fact(detail.permanentWorkers)}
@@ -881,7 +923,7 @@ function SubmissionDetailContent() {
                 textAlign: "left",
               }}
             >
-              <span>Section 1 : Identification de l&apos;Établissement</span>
+              <span>{section1Title}</span>
               <span style={{ fontSize: 14, transform: expandedSection === 1 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                 ⌄
               </span>
@@ -905,7 +947,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Région d&apos;implantation
+                      {t("regionOfLocationLabel")}
                     </label>
                     <div
                       style={{
@@ -918,7 +960,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {factOr(detail.region ?? dossier.region, NOT_RECORDED)}
+                      {recorded(detail.region ?? dossier.region)}
                     </div>
                   </div>
 
@@ -932,7 +974,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Département
+                      {t("departmentLabel")}
                     </label>
                     <div
                       style={{
@@ -945,7 +987,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {factOr(detail.department ?? dossier.department, NOT_RECORDED)}
+                      {recorded(detail.department ?? dossier.department)}
                     </div>
                   </div>
 
@@ -959,7 +1001,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Ville / Commune
+                      {t("townLabel")}
                     </label>
                     <div
                       style={{
@@ -972,7 +1014,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {factOr(detail.commune ?? dossier.subdivision, NOT_RECORDED)}
+                      {recorded(detail.commune ?? dossier.subdivision)}
                     </div>
                   </div>
 
@@ -986,7 +1028,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Quartier / Adresse
+                      {t("addressLabel")}
                     </label>
                     <div
                       style={{
@@ -1013,7 +1055,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Année de création
+                      {t("yearCreatedLabel")}
                     </label>
                     <div
                       style={{
@@ -1040,7 +1082,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Régime/statut juridique
+                      {t("legalStatusLabel")}
                     </label>
                     <div
                       style={{
@@ -1053,7 +1095,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {factLegalStatus(detail.legalStatus)}
+                      {legalStatus(detail.legalStatus)}
                     </div>
                   </div>
                 </div>
@@ -1088,7 +1130,7 @@ function SubmissionDetailContent() {
                 textAlign: "left",
               }}
             >
-              <span>Section 2 : Emploi et Conditions de Travail</span>
+              <span>{t("section2")}</span>
               <span style={{ fontSize: 14, transform: expandedSection === 2 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                 ⌄
               </span>
@@ -1098,9 +1140,9 @@ function SubmissionDetailContent() {
                 <DataState
                   dense
                   state="unavailable"
-                  resource="les données de cette section"
-                  title="Données chiffrées non affichées ici"
-                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[2].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                  resource={t("sectionDataResource")}
+                  title={t("sectionDataTitle")}
+                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[2].backing })}
                 />
               </div>
             )}
@@ -1133,7 +1175,7 @@ function SubmissionDetailContent() {
                 textAlign: "left",
               }}
             >
-              <span>Section 3 : Départs, Licenciements et Retraites</span>
+              <span>{t("section3")}</span>
               <span style={{ fontSize: 14, transform: expandedSection === 3 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                 ⌄
               </span>
@@ -1143,9 +1185,9 @@ function SubmissionDetailContent() {
                 <DataState
                   dense
                   state="unavailable"
-                  resource="les données de cette section"
-                  title="Données chiffrées non affichées ici"
-                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[3].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                  resource={t("sectionDataResource")}
+                  title={t("sectionDataTitle")}
+                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[3].backing })}
                 />
               </div>
             )}
@@ -1178,7 +1220,7 @@ function SubmissionDetailContent() {
                 textAlign: "left",
               }}
             >
-              <span>Section 4 : Stage et Formation Professionnelle continue</span>
+              <span>{t("section4")}</span>
               <span style={{ fontSize: 14, transform: expandedSection === 4 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                 ⌄
               </span>
@@ -1188,9 +1230,9 @@ function SubmissionDetailContent() {
                 <DataState
                   dense
                   state="unavailable"
-                  resource="les données de cette section"
-                  title="Données chiffrées non affichées ici"
-                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[4].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                  resource={t("sectionDataResource")}
+                  title={t("sectionDataTitle")}
+                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[4].backing })}
                 />
               </div>
             )}
@@ -1202,7 +1244,7 @@ function SubmissionDetailContent() {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626" }} />
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b91c1c", margin: 0 }}>
-                  Anomalies bloquantes ({diag.blockingAnomalies.length})
+                  {t("blockingAnomaliesTitle", { count: diag.blockingAnomalies.length })}
                 </h3>
               </div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
@@ -1210,7 +1252,7 @@ function SubmissionDetailContent() {
                   <li key={idx} style={{ marginBottom: 8 }}>
                     <span style={{ fontWeight: 600, color: "#991b1b" }}>{ano.ruleCode}</span> · {ano.description}
                     <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-                      Observé : {String(ano.observedValue ?? "—")} · Attendu : {String(ano.expectedValue ?? "—")}
+                      {t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}
                     </div>
                   </li>
                 ))}
@@ -1223,7 +1265,7 @@ function SubmissionDetailContent() {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#d97706" }} />
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b45309", margin: 0 }}>
-                  Alertes de cohérence ({diag.warningAnomalies.length})
+                  {t("coherenceWarningsTitle", { count: diag.warningAnomalies.length })}
                 </h3>
               </div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
@@ -1231,7 +1273,7 @@ function SubmissionDetailContent() {
                   <li key={idx} style={{ marginBottom: 8 }}>
                     <span style={{ fontWeight: 600, color: "#92400e" }}>{ano.ruleCode}</span> · {ano.description}
                     <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-                      Observé : {String(ano.observedValue ?? "—")} · Attendu : {String(ano.expectedValue ?? "—")}
+                      {t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}
                     </div>
                   </li>
                 ))}
@@ -1242,7 +1284,7 @@ function SubmissionDetailContent() {
           {diag && (!diag.blockingAnomalies || diag.blockingAnomalies.length === 0) && (!diag.warningAnomalies || diag.warningAnomalies.length === 0) && (
             <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "12px 16px", color: "#065f46", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
               <span>✓</span>
-              <span>Aucune anomalie détectée. Le dossier est conforme aux règles de cohérence.</span>
+              <span>{t("noAnomalyDetected")}</span>
             </div>
           )}
         </div>
@@ -1278,14 +1320,14 @@ function SubmissionDetailContent() {
           }}
         >
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
-            Historique d&apos;instruction de la Fiche
+            {t("historyTitle")}
           </h2>
           {canReadAudit && (
             <Link
               href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
               style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
             >
-              Voir les événements d&apos;audit →
+              {t("auditEventsLink")}
             </Link>
           )}
         </div>
@@ -1295,9 +1337,9 @@ function SubmissionDetailContent() {
             <DataState
               dense
               state="empty"
-              resource="l'historique d'instruction"
-              title="Aucune étape horodatée"
-              hint="Ce dossier ne porte aucune date de soumission ni de décision."
+              resource={t("historyResource")}
+              title={t("historyEmptyTitle")}
+              hint={t("historyEmptyHint")}
             />
           ) : (
             timeline.map((step) => (
@@ -1340,10 +1382,10 @@ function SubmissionDetailContent() {
               />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                  En attente de décision
+                  {t("awaitingDecision")}
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
-                  Aucune décision enregistrée
+                  {t("noDecisionRecorded")}
                 </div>
               </div>
             </div>
@@ -1385,7 +1427,7 @@ function SubmissionDetailContent() {
             <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 id="correction-title" style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  Retour pour Correction
+                  {t("correctionTitle")}
                 </h2>
                 <button
                   type="button"
@@ -1403,13 +1445,13 @@ function SubmissionDetailContent() {
                     fontSize: 14,
                     cursor: "pointer",
                   }}
-                  aria-label="Fermer"
+                  aria-label={t("closeAriaLabel")}
                 >
                   ✕
                 </button>
               </div>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                Déclaration #{ref} — {name}
+                {t("declarationLine", { ref, name: name ?? "—" })}
               </p>
             </div>
 
@@ -1426,7 +1468,7 @@ function SubmissionDetailContent() {
                     fontSize: 14,
                   }}
                 >
-                  La demande de correction a été enregistrée avec succès et notifiée au déclarant.
+                  {t("correctionSuccess")}
                 </div>
               ) : (
                 <>
@@ -1444,7 +1486,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      1. SECTION CONCERNÉE
+                      {t("correctionSectionLabel")}
                     </label>
                     <select
                       id="modal-correction-section"
@@ -1460,19 +1502,11 @@ function SubmissionDetailContent() {
                         background: "#ffffff",
                       }}
                     >
-                      <option value="">Sélectionnez une section…</option>
-                      <option value="Section 1 : Identification de l'Établissement">
-                        Section 1 : Identification de l&apos;Établissement
-                      </option>
-                      <option value="Section 2 : Emploi et Conditions de Travail">
-                        Section 2 : Emploi et Conditions de Travail
-                      </option>
-                      <option value="Section 3 : Départs, Licenciements et Retraites">
-                        Section 3 : Départs, Licenciements et Retraites
-                      </option>
-                      <option value="Section 4 : Stage et Formation Professionnelle continue">
-                        Section 4 : Stage et Formation Professionnelle continue
-                      </option>
+                      <option value="">{t("selectSection")}</option>
+                      <option value={section1Fr}>{section1Title}</option>
+                      <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
+                      <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
+                      <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
                     </select>
                   </div>
 
@@ -1488,7 +1522,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      2. PROBLÈME CONSTATÉ
+                      {t("correctionProblemLabel")}
                     </div>
                     {/* Written by the reviewer. Nothing is pre-filled: this
                         text is persisted with the dossier and sent to the
@@ -1500,7 +1534,7 @@ function SubmissionDetailContent() {
                       rows={3}
                       value={correctionProblem}
                       onChange={(e) => setCorrectionProblem(e.target.value)}
-                      placeholder="Décrivez l'écart ou la non-conformité constatée sur ce dossier."
+                      placeholder={t("correctionProblemPlaceholder")}
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1527,7 +1561,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      3. AXE DE QUALITÉ (DIAGNOSTIC DU DOSSIER)
+                      {t("correctionAxisLabel")}
                     </div>
                     {/* Source: GET /admin/questionnaires/:id/diagnostic —
                         axis2BlockingCount / axis2WarningCount as computed by
@@ -1546,8 +1580,11 @@ function SubmissionDetailContent() {
                       <span>●</span>
                       <span>
                         {diag
-                          ? `Axe 2 — ${count(diag.axis2BlockingCount)} anomalie(s) bloquante(s), ${count(diag.axis2WarningCount)} avertissement(s)`
-                          : `Axe 2 — ${METRIC_UNAVAILABLE}`}
+                          ? t("axis2Diagnostic", {
+                              blocking: count(diag.axis2BlockingCount, locale),
+                              warnings: count(diag.axis2WarningCount, locale),
+                            })
+                          : t("axis2Unavailable", { unavailable: metricUnavailable(locale) })}
                       </span>
                     </div>
                   </div>
@@ -1566,7 +1603,7 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      4. ACTION DEMANDÉE AU DÉCLARANT
+                      {t("correctionActionLabel")}
                     </label>
                     <textarea
                       id="modal-correction-action"
@@ -1604,12 +1641,12 @@ function SubmissionDetailContent() {
                       onChange={(e) => setRequireJustificatifs(e.target.checked)}
                       style={{ width: 16, height: 16, cursor: "pointer" }}
                     />
-                    <span>Demander des documents justificatifs</span>
+                    <span>{t("requestDocuments")}</span>
                   </label>
 
                   {/* Délai de correction accordé */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 13, color: "#374151" }}>Délai de correction accordé :</span>
+                    <span style={{ fontSize: 13, color: "#374151" }}>{t("correctionDelayLabel")}</span>
                     <select
                       value={correctionDelay}
                       onChange={(e) => setCorrectionDelay(e.target.value)}
@@ -1622,10 +1659,9 @@ function SubmissionDetailContent() {
                         background: "#ffffff",
                       }}
                     >
-                      <option value="3 jours ouvrables">3 jours ouvrables</option>
-                      <option value="7 jours ouvrables">7 jours ouvrables</option>
-                      <option value="15 jours ouvrables">15 jours ouvrables</option>
-                      <option value="30 jours calendaires">30 jours calendaires</option>
+                      {CORRECTION_DELAYS.map((delay) => (
+                        <option key={delay.value} value={delay.value}>{t(delay.labelKey)}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -1650,7 +1686,7 @@ function SubmissionDetailContent() {
                       style={{ marginTop: 2, cursor: "pointer" }}
                     />
                     <span>
-                      <strong>Je certifie sur l&apos;honneur</strong> que cette demande de correction est motivée et conforme aux règles ministérielles.
+                      <strong>{t("certifyStrong")}</strong> {t("correctionCertifyRest")}
                     </span>
                   </label>
 
@@ -1667,7 +1703,7 @@ function SubmissionDetailContent() {
                         marginTop: 12,
                       }}
                     >
-                      La demande de correction a échoué : {(correctionMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                      {t("correctionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownError") })}
                     </div>
                   )}
                 </>
@@ -1686,7 +1722,7 @@ function SubmissionDetailContent() {
               }}
             >
               <span style={{ fontSize: 11, color: "#6b7280" }}>
-                Cette action génère une entrée d&apos;audit DECLARATION.RETURNED
+                {t("correctionAudit")}
               </span>
               <div style={{ display: "flex", gap: 10 }}>
                 <button
@@ -1703,7 +1739,7 @@ function SubmissionDetailContent() {
                     cursor: "pointer",
                   }}
                 >
-                  {correctionSuccess ? "Fermer" : "Annuler"}
+                  {correctionSuccess ? t("closeButton") : tCommon("cancel")}
                 </button>
                 {!correctionSuccess && (
                   <button
@@ -1726,7 +1762,7 @@ function SubmissionDetailContent() {
                       cursor: correctionReady ? "pointer" : "not-allowed",
                     }}
                   >
-                    {correctionMutation.isPending ? "Transmission..." : "Confirmer le Retour"}
+                    {correctionMutation.isPending ? t("sending") : t("confirmReturn")}
                   </button>
                 )}
               </div>
@@ -1766,10 +1802,10 @@ function SubmissionDetailContent() {
           >
             <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                Valider et Archiver
+                {t("validateArchiveButton")}
               </h2>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                Déclaration #{ref} — {name}
+                {t("declarationLine", { ref, name: name ?? "—" })}
               </p>
             </div>
             <div style={{ padding: "20px 24px" }}>
@@ -1784,12 +1820,12 @@ function SubmissionDetailContent() {
                     fontSize: 14,
                   }}
                 >
-                  Le dossier a été officiellement visé et archivé.
+                  {t("approveSuccess")}
                 </div>
               ) : (
                 <>
                   <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    Cette action accorde le visa administratif officiel à cette fiche et la marque comme validée pour intégration statistique. Confirmez-vous la décision ?
+                    {t("approveBody")}
                   </p>
                   {approveMutation.isError && (
                     <div
@@ -1804,7 +1840,7 @@ function SubmissionDetailContent() {
                         marginTop: 12,
                       }}
                     >
-                      La validation a échoué : {(approveMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                      {t("approveFailed", { message: (approveMutation.error as Error)?.message ?? t("unknownError") })}
                     </div>
                   )}
                 </>
@@ -1834,7 +1870,7 @@ function SubmissionDetailContent() {
                   cursor: "pointer",
                 }}
               >
-                {approveSuccess ? "Fermer" : "Annuler"}
+                {approveSuccess ? t("closeButton") : tCommon("cancel")}
               </button>
               {!approveSuccess && (
                 <button
@@ -1852,7 +1888,7 @@ function SubmissionDetailContent() {
                     cursor: "pointer",
                   }}
                 >
-                  {approveMutation.isPending ? "Validation..." : "Confirmer la validation"}
+                  {approveMutation.isPending ? t("validating") : t("confirmValidation")}
                 </button>
               )}
             </div>
@@ -1892,7 +1928,7 @@ function SubmissionDetailContent() {
             <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  Rejeter la Fiche
+                  {t("rejectFormButton")}
                 </h2>
                 <button
                   type="button"
@@ -1910,13 +1946,13 @@ function SubmissionDetailContent() {
                     fontSize: 14,
                     cursor: "pointer",
                   }}
-                  aria-label="Fermer"
+                  aria-label={t("closeAriaLabel")}
                 >
                   ✕
                 </button>
               </div>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                Déclaration #{ref} — {name}
+                {t("declarationLine", { ref, name: name ?? "—" })}
               </p>
             </div>
 
@@ -1932,12 +1968,12 @@ function SubmissionDetailContent() {
                     fontSize: 14,
                   }}
                 >
-                  La fiche a été officiellement rejetée. Le déclarant en a été informé.
+                  {t("rejectSuccess")}
                 </div>
               ) : (
                 <>
                   <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    Cette décision met un terme au processus d&apos;instruction pour cette déclaration.
+                    {t("rejectBody")}
                   </p>
 
                   <div>
@@ -1953,14 +1989,14 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Motif du rejet <span style={{ color: "#dc2626" }}>*</span>
+                      {t("rejectReasonLabel")} <span style={{ color: "#dc2626" }}>*</span>
                     </label>
                     <textarea
                       id="reject-motif"
                       rows={3}
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Précisez le motif légal ou technique du rejet (10 caractères minimum)…"
+                      placeholder={t("rejectReasonPlaceholder")}
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1975,7 +2011,7 @@ function SubmissionDetailContent() {
                     />
                     {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
                       <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
-                        Le motif doit comporter au moins 10 caractères ({rejectReason.trim().length}/10).
+                        {t("reasonTooShort", { length: rejectReason.trim().length })}
                       </p>
                     )}
                   </div>
@@ -2001,12 +2037,12 @@ function SubmissionDetailContent() {
                       style={{ marginTop: 2, cursor: "pointer" }}
                     />
                     <span>
-                      <strong>Je certifie sur l&apos;honneur</strong> que cette décision de rejet est motivée et conforme aux règles ministérielles.
+                      <strong>{t("certifyStrong")}</strong> {t("rejectCertifyRest")}
                     </span>
                   </label>
 
                   <p style={{ margin: 0, fontSize: 11, color: "#6b7280" }}>
-                    Cette action génère une entrée d&apos;audit AUDIT_REJECT.
+                    {t("rejectAudit")}
                   </p>
 
                   {rejectMutation.isError && (
@@ -2021,7 +2057,7 @@ function SubmissionDetailContent() {
                         fontSize: 13,
                       }}
                     >
-                      Le rejet a échoué : {(rejectMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                      {t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
                     </div>
                   )}
                 </>
@@ -2052,7 +2088,7 @@ function SubmissionDetailContent() {
                   cursor: "pointer",
                 }}
               >
-                {rejectSuccess ? "Fermer" : "Annuler"}
+                {rejectSuccess ? t("closeButton") : tCommon("cancel")}
               </button>
               {!rejectSuccess && (
                 <button
@@ -2070,7 +2106,7 @@ function SubmissionDetailContent() {
                     cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
                   }}
                 >
-                  {rejectMutation.isPending ? "Rejet en cours..." : "Confirmer le Rejet"}
+                  {rejectMutation.isPending ? t("rejecting") : t("confirmRejection")}
                 </button>
               )}
             </div>
