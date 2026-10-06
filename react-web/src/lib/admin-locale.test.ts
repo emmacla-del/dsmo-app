@@ -19,7 +19,8 @@ import {
   percent,
   stamp,
 } from "./admin-data-state";
-import { directoryRoleLabel } from "./user-directory";
+import { STATUS_FILTERS, directoryRoleLabel, rowStatusMeta, type DirectoryUser } from "./user-directory";
+import { AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES, auditActionLabel, auditActorName, auditDetailsSummary, auditResourceLabel, auditTransition, type AuditLogEntry } from "./audit-log";
 import { ENTITY_TYPE_OPTION_KEYS } from "./companies-directory";
 import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, normalizeRegions } from "./pilotage-target-payload";
 import { formatApiError } from "./pilotage-targets";
@@ -216,5 +217,57 @@ test("campaign and anomaly codes have labels in both catalogues", () => {
   const fr = loadCatalogue("fr");
   for (const [code, label] of Object.entries(CAMPAIGN_STATUS_LABELS)) {
     assert.equal(lookup(fr, `adminCampagnesPage.status.${code}`), label);
+  }
+});
+
+test("audit log helpers: English labels, summaries and transitions; French default", () => {
+  const entry = (action: string, details: unknown, user: AuditLogEntry["user"] = null): AuditLogEntry => ({
+    id: "a1", userId: "u1", action, resourceType: "OnefopSubmission", resourceId: null,
+    details, previousValue: null, newValue: null, timestamp: "2026-03-07T10:00:00Z", user,
+  });
+  assert.equal(auditActionLabel("AUDIT_BULK_VISA_GRANTED", "en"), "Bulk endorsement");
+  assert.equal(auditActionLabel("AUDIT_BULK_VISA_GRANTED"), "Visa en lot");
+  assert.equal(auditActionLabel("SOMETHING_NEW", "en"), "SOMETHING_NEW");
+  assert.equal(auditResourceLabel("Company", "en"), "Establishment");
+  assert.equal(auditActorName(entry("X", null), "en"), "System");
+  assert.equal(auditActorName(entry("X", null)), "Système");
+  assert.equal(
+    auditDetailsSummary(entry("AUDIT_BULK_VISA_GRANTED", { processedCount: 3, rejectedCount: 1, totalRequested: 4 }), "en"),
+    "3 endorsed, 1 refused of 4",
+  );
+  assert.equal(
+    auditDetailsSummary(entry("COMPANY_REGISTRATION_APPROVED", { establishmentId: "EN1", verification: { nameVerified: true, cnpsVerified: true } }), "en"),
+    "ID EN1 · verified: name, CNPS",
+  );
+  assert.equal(
+    auditTransition(entry("AUDIT_CORRECTION", { previousStatus: "PENDING_REVIEW" }), "en"),
+    "Pending → Correction requested",
+  );
+  assert.equal(
+    auditTransition(entry("USER_TERRITORY_CHANGED", { previousRole: "REGIONAL_ADMIN", newRole: "DIVISIONAL_ADMIN", newDepartment: "Mfoundi" }), "en"),
+    "Regional → Departmental · Mfoundi",
+  );
+  // Every action and resource type the filters offer has an English label.
+  for (const action of Object.keys(AUDIT_ACTIONS)) assert.notEqual(auditActionLabel(action, "en"), action, action);
+  // Resource keys are PascalCase and some English labels equal them ("User"), so only spot-check.
+  assert.equal(auditResourceLabel("OnefopSubmission", "en"), "ONEFOP file");
+  assert.equal(Object.keys(AUDIT_RESOURCE_TYPES).length, 8);
+});
+
+test("user directory status labels in English", () => {
+  const user = { status: "ACTIVE", isActive: false } as DirectoryUser;
+  assert.equal(rowStatusMeta(user, "en").label, "Suspended");
+  assert.equal(rowStatusMeta(user).label, "Suspendu");
+  assert.ok(STATUS_FILTERS.every((f) => f.labelEn && f.label));
+});
+
+test("settings role card: every UserRole has a statutory title and description in both catalogues", () => {
+  const roles = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "AUDITOR", "COMPANY"];
+  for (const locale of ["fr", "en"] as const) {
+    const catalogue = loadCatalogue(locale);
+    for (const role of roles) {
+      assert.equal(typeof lookup(catalogue, `adminParametresPage.role.${role}.name`), "string", `${locale}: ${role}`);
+      assert.equal(typeof lookup(catalogue, `adminParametresPage.role.${role}.description`), "string", `${locale}: ${role}`);
+    }
   }
 });

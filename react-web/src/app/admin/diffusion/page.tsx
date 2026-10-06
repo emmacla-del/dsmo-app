@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
+import { directoryRoleLabel } from "@/lib/user-directory";
 import {
   getSpssManifest,
   downloadSpssSavBlob,
@@ -18,7 +21,7 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
-import { entityTypeLabel } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import { listCampaigns } from "@/lib/campaigns";
 import {
@@ -62,23 +65,18 @@ function getStatusCount(
   return null;
 }
 
-const ENTITY_TYPE_OPTIONS = [
-  { value: "", label: "Tous les employeurs (6 types)" },
-  { value: "ENTREPRISE", label: "Entreprises privées" },
-  { value: "COOPERATIVE", label: "Coopératives" },
-  { value: "CTD", label: "Collectivités Territoriales (CTD)" },
-  { value: "ONG", label: "Organisations Non Gouvernementales (ONG)" },
-  { value: "ADMINISTRATION", label: "Administrations publiques" },
-  { value: "PROJECT_PROGRAM", label: "Projets et Programmes" },
-  { value: "VOCATIONAL_TRAINING", label: "Centres de formation professionnelle" },
-];
+// Employer-type filter: the seven types, labelled through ENTITY_TYPE_OPTION_KEYS.
+// The empty option used to read "(6 types)" over seven.
+const ENTITY_TYPE_VALUES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
 
-const STATUS_OPTIONS = [
-  { value: "APPROVED", label: "Validé uniquement" },
-  { value: "ALL", label: "Tous les statuts" },
-  { value: "PENDING_REVIEW", label: "En attente uniquement" },
-  { value: "REJECTED", label: "Rejeté uniquement" },
-];
+// Labels: adminDiffusionPage.status.<value>.
+const STATUS_VALUES = ["APPROVED", "ALL", "PENDING_REVIEW", "REJECTED"];
+
+type Translate = ReturnType<typeof useTranslations>;
+
+function typeLabel(tRoot: Translate, type: string): string {
+  return ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
+}
 
 // Icons matching Figma donnees/exports.png
 const IconFileCheck = () => (
@@ -153,21 +151,25 @@ function formatExportFormat(fmt: string): string {
   }
 }
 
-function formatExportScope(filters: Record<string, unknown> | null | undefined): string {
+function formatExportScope(filters: Record<string, unknown> | null | undefined, tRoot: Translate): string {
+  const t = (key: string, values?: Record<string, string>) => tRoot(`adminDiffusionPage.${key}`, values);
   if (!filters || typeof filters !== "object" || Object.keys(filters).length === 0) {
-    return "Périmètre complet autorisé";
+    return t("fullScope");
   }
   const parts: string[] = [];
-  if (filters.region && typeof filters.region === "string") parts.push(`Région: ${filters.region}`);
-  if (filters.department && typeof filters.department === "string") parts.push(`Dép: ${filters.department}`);
-  if (filters.campaign && typeof filters.campaign === "string") parts.push(`Campagne: ${filters.campaign}`);
-  if (filters.entityType && typeof filters.entityType === "string") parts.push(`Type: ${entityTypeLabel(filters.entityType)}`);
-  if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(`Statuts: ${filters.statuses.join(", ")}`);
-  return parts.length > 0 ? parts.join(" • ") : "Périmètre complet autorisé";
+  if (filters.region && typeof filters.region === "string") parts.push(t("scopeRegion", { value: filters.region }));
+  if (filters.department && typeof filters.department === "string") parts.push(t("scopeDepartment", { value: filters.department }));
+  if (filters.campaign && typeof filters.campaign === "string") parts.push(t("scopeCampaign", { value: filters.campaign }));
+  if (filters.entityType && typeof filters.entityType === "string") parts.push(t("scopeType", { value: typeLabel(tRoot, filters.entityType) }));
+  if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(t("scopeStatuses", { value: filters.statuses.join(", ") }));
+  return parts.length > 0 ? parts.join(" • ") : t("fullScope");
 }
 
 export default function DiffusionPage() {
   const { isLoading, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
+  const tRoot = useTranslations();
+  const t = useTranslations("adminDiffusionPage");
+  const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
 
   // Stats query
@@ -277,7 +279,7 @@ export default function DiffusionPage() {
   const typeBreakdown = useMemo(() => {
     const rows = BREAKDOWN_FORM_TYPES.map((formType, i) => ({
       formType,
-      label: entityTypeLabel(formType),
+      label: typeLabel(tRoot, formType),
       total: typeTotals[i].data?.total ?? null,
     }));
     const sum = rows.reduce((acc, r) => acc + (r.total ?? 0), 0);
@@ -285,7 +287,7 @@ export default function DiffusionPage() {
       .map((r) => ({ ...r, share: rate(r.total, sum) }))
       .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeTotalsKey]);
+  }, [typeTotalsKey, locale]);
 
   // Derived exclusively from the two backend values above, over the same
   // server-side scope. null whenever either operand is missing or the
@@ -365,7 +367,7 @@ export default function DiffusionPage() {
   const downloadCodebook = async (filename: string) => {
     const manifest = await getSpssManifest(currentFilters);
     if (!manifest?.sps) {
-      setErrorAlert("Le serveur n'a pas fourni de syntaxe SPSS pour ce périmètre.");
+      setErrorAlert(t("noSpssSyntax"));
       return;
     }
     triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), filename);
@@ -382,9 +384,9 @@ export default function DiffusionPage() {
   const handleLaunchExport = async () => {
     const timestamp = new Date().toISOString().slice(0, 10);
     const plan = {
-      ".sav": { download: downloadSpssSavBlob, ext: "sav", label: "Fichier SPSS (.sav)" },
-      ".csv": { download: downloadSpssCsvBlob, ext: "csv", label: "Fichier CSV (.csv)" },
-      ".xlsx": { download: downloadExcelWorkbookBlob, ext: "xlsx", label: "Classeur Excel (.xlsx)" },
+      ".sav": { download: downloadSpssSavBlob, ext: "sav", label: t("planSav") },
+      ".csv": { download: downloadSpssCsvBlob, ext: "csv", label: t("planCsv") },
+      ".xlsx": { download: downloadExcelWorkbookBlob, ext: "xlsx", label: t("planXlsx") },
     }[selectedFormat];
 
     try {
@@ -393,24 +395,20 @@ export default function DiffusionPage() {
 
       const blob = await plan.download(currentFilters);
       if (blob.size === 0) {
-        setErrorAlert(
-          "Le serveur a renvoyé un fichier vide : aucun enregistrement ne correspond au périmètre demandé, ou l'extraction a échoué côté serveur. Aucun fichier n'a été téléchargé.",
-        );
+        setErrorAlert(t("emptyFile"));
         return;
       }
 
       const filename = `onefop_export_${selectedCampaign}_${timestamp}.${plan.ext}`;
       triggerFileDownload(blob, filename);
       recordExport();
-      showSuccess(`${plan.label} téléchargé avec succès.`);
+      showSuccess(t("downloaded", { label: plan.label }));
 
       if (includeCodebook && selectedFormat === ".sav") {
         await downloadCodebook(`onefop_codebook_${selectedCampaign}_${timestamp}.sps`);
       }
     } catch (err: unknown) {
-      setErrorAlert(
-        `L'export n'a pas pu être généré : ${err instanceof Error ? err.message : "erreur inconnue"}. Aucun fichier n'a été téléchargé.`,
-      );
+      setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
     } finally {
       setIsExporting(false);
     }
@@ -429,11 +427,9 @@ export default function DiffusionPage() {
     try {
       setErrorAlert(null);
       await downloadCodebook("onefop_codebook_principal.sps");
-      showSuccess("Syntaxe SPSS téléchargée avec succès.");
+      showSuccess(t("spssDownloaded"));
     } catch (err: unknown) {
-      setErrorAlert(
-        `Impossible de télécharger la syntaxe SPSS : ${err instanceof Error ? err.message : "erreur inconnue"}.`,
-      );
+      setErrorAlert(t("spssFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
     }
   };
 
@@ -442,7 +438,7 @@ export default function DiffusionPage() {
   if (forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">Accès restreint à la gestion et diffusion nationale des données.</p>
+        <p className="cam-admin-lede">{t("forbidden")}</p>
       </div>
     );
   }
@@ -451,9 +447,10 @@ export default function DiffusionPage() {
     <div className="cam-admin-page">
       {/* ── Top App Bar (AdminPageHeader with right search, territory & flag) ── */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Données" }, { label: "Exports" }]}
-        title="Exports"
-        subtitle="Gérer, filtrer et exporter les données collectées - Campagne 2026"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.donnees") }, { label: tRoot("adminNav.routes.diffusion") }]}
+        title={tRoot("adminNav.routes.diffusion")}
+        // "Campagne 2026" is fixed text, not the active campaign (flagged).
+        subtitle={t("subtitle")}
         actions={
           <AdminHeaderActions
             showCampaignPill={false}
@@ -467,13 +464,13 @@ export default function DiffusionPage() {
       {errorAlert && (
         <div role="alert" className="flex items-center justify-between p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
           <span>{errorAlert}</span>
-          <button type="button" onClick={() => setErrorAlert(null)} className="text-red-500 hover:text-red-800 text-lg font-bold cursor-pointer">×</button>
+          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setErrorAlert(null)} className="text-red-500 hover:text-red-800 text-lg font-bold cursor-pointer">×</button>
         </div>
       )}
       {successToast && (
         <div role="status" className="flex items-center justify-between p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
           <span>{successToast}</span>
-          <button type="button" onClick={() => setSuccessToast(null)} className="text-emerald-600 hover:text-emerald-900 text-lg font-bold cursor-pointer">×</button>
+          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setSuccessToast(null)} className="text-emerald-600 hover:text-emerald-900 text-lg font-bold cursor-pointer">×</button>
         </div>
       )}
 
@@ -483,7 +480,7 @@ export default function DiffusionPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              Total Déclarations
+              {t("kpiTotal")}
             </span>
             <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
               <IconFileCheck />
@@ -491,12 +488,12 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(totalSubmissions)}
+              {statsQuery.isLoading ? "…" : count(totalSubmissions, locale)}
             </div>
             {/* No month-over-month trend: /data-management/stats returns a
                 single snapshot with no prior period to compare against. */}
             <div className="text-xs font-semibold text-slate-500 mt-2">
-              Dossiers enregistrés, hors brouillons
+              {t("kpiTotalHint")}
             </div>
           </div>
         </div>
@@ -505,7 +502,7 @@ export default function DiffusionPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              Déclarations Validées
+              {t("kpiValidated")}
             </span>
             <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
               <IconCheckCircle />
@@ -513,10 +510,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(approvedCount)}
+              {statsQuery.isLoading ? "…" : count(approvedCount, locale)}
             </div>
             <div className="text-xs font-semibold text-slate-600 mt-2">
-              {percent(approvedRate)} Taux de validation
+              {t("kpiValidatedRate", { rate: percent(approvedRate, 0, locale) })}
             </div>
           </div>
         </div>
@@ -525,7 +522,7 @@ export default function DiffusionPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              En Attente de Révision
+              {t("kpiPending")}
             </span>
             <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <IconClock />
@@ -533,10 +530,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(pendingCount)}
+              {statsQuery.isLoading ? "…" : count(pendingCount, locale)}
             </div>
             <div className="text-xs font-semibold text-amber-600 mt-2">
-              {percent(pendingRate)} en attente
+              {t("kpiPendingRate", { rate: percent(pendingRate, 0, locale) })}
             </div>
           </div>
         </div>
@@ -545,7 +542,7 @@ export default function DiffusionPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              Déclarations Rejetées
+              {t("kpiRejected")}
             </span>
             <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
               <IconXCircle />
@@ -553,10 +550,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(rejectedCount)}
+              {statsQuery.isLoading ? "…" : count(rejectedCount, locale)}
             </div>
             <div className="text-xs font-semibold text-rose-600 mt-2">
-              {percent(rejectedRate)} taux de rejet
+              {t("kpiRejectedRate", { rate: percent(rejectedRate, 0, locale) })}
             </div>
           </div>
         </div>
@@ -572,23 +569,23 @@ export default function DiffusionPage() {
         >
           <div className="mb-5">
             <h2 id="export-config-heading" className="text-lg font-bold text-slate-900">
-              Configuration de l&apos;Export
+              {t("configTitle")}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Définissez le format, le périmètre et les sections à inclure avant la génération du fichier.
+              {t("configSubtitle")}
             </p>
           </div>
 
           {/* Section 1: FORMAT DE FICHIER */}
           <div className="mb-5">
             <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              Format de fichier
+              {t("formatTitle")}
             </div>
             <div className="space-y-2.5">
               {[
-                { id: ".sav", label: ".SAV (Format natif SPSS Data)" },
-                { id: ".csv", label: ".CSV (Données tabulaires)" },
-                { id: ".xlsx", label: ".XLSX (Microsoft Excel)" },
+                { id: ".sav", label: t("formatSav") },
+                { id: ".csv", label: t("formatCsv") },
+                { id: ".xlsx", label: t("formatXlsx") },
               ].map((fmt) => {
                 const isChecked = selectedFormat === fmt.id;
                 return (
@@ -628,7 +625,7 @@ export default function DiffusionPage() {
           {/* Section 2: CODEBOOK & SYNTAXE */}
           <div className="mb-5">
             <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              Codebook &amp; Syntaxe
+              {t("codebookTitle")}
             </div>
             <div>
               <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -655,10 +652,10 @@ export default function DiffusionPage() {
                 </div>
                 <div>
                   <span className="text-sm font-semibold text-slate-800">
-                    Générer le Codebook (.sps)
+                    {t("codebookLabel")}
                   </span>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Fichier de syntaxe SPSS avec les définitions de variables et les étiquettes de valeurs
+                    {t("codebookHint")}
                   </p>
                 </div>
               </label>
@@ -670,7 +667,7 @@ export default function DiffusionPage() {
           {/* Section 3: PÉRIMÈTRE DES DONNÉES */}
           <div className="mb-5">
             <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              Périmètre des données
+              {t("scopeTitle")}
             </div>
             <div className="space-y-2.5">
               {[
@@ -678,12 +675,12 @@ export default function DiffusionPage() {
                   id: "all",
                   label:
                     totalSubmissions === null
-                      ? "Toutes les données autorisées"
-                      : `Toutes les données autorisées (${count(totalSubmissions)})`,
+                      ? t("scopeAll")
+                      : t("scopeAllCount", { count: count(totalSubmissions, locale) }),
                 },
-                { id: "campaign", label: "Par campagne" },
-                { id: "region", label: "Par région" },
-                { id: "custom", label: "Sélection personnalisée" },
+                { id: "campaign", label: t("scopeByCampaign") },
+                { id: "region", label: t("scopeByRegion") },
+                { id: "custom", label: t("scopeCustom") },
               ].map((scp) => {
                 const isChecked = scopeMode === scp.id;
                 return (
@@ -725,7 +722,7 @@ export default function DiffusionPage() {
             {/* Dropdown 1: CAMPAGNE */}
             <div>
               <label htmlFor="select-campagne" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                Campagne
+                {t("campaignLabel")}
               </label>
               <div className="relative">
                 <select
@@ -742,7 +739,7 @@ export default function DiffusionPage() {
                     ))
                   ) : (
                     <option value="">
-                      {campaignsQuery.isLoading ? "Chargement…" : "Aucune campagne enregistrée"}
+                      {campaignsQuery.isLoading ? tRoot("common.loading") : t("noCampaign")}
                     </option>
                   )}
                 </select>
@@ -757,7 +754,7 @@ export default function DiffusionPage() {
             {/* Dropdown 2: RÉGION */}
             <div>
               <label htmlFor="select-region" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                Région
+                {t("regionLabel")}
               </label>
               <div className="relative">
                 <select
@@ -770,7 +767,7 @@ export default function DiffusionPage() {
                   className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
                   {CAMEROON_REGIONS.map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>
                   ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
@@ -784,7 +781,7 @@ export default function DiffusionPage() {
             {/* Dropdown 3: STATUT */}
             <div>
               <label htmlFor="select-statut" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                Statut
+                {t("statusLabel")}
               </label>
               <div className="relative">
                 <select
@@ -793,8 +790,8 @@ export default function DiffusionPage() {
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
+                  {STATUS_VALUES.map((value) => (
+                    <option key={value} value={value}>{t(`status.${value}`)}</option>
                   ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
@@ -813,7 +810,7 @@ export default function DiffusionPage() {
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className="text-xs font-medium text-[#006644] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>{showAdvancedFilters ? "Masquer les filtres fins" : "Filtres complémentaires (Département, Type d'employeur)"}</span>
+              <span>{showAdvancedFilters ? t("hideFilters") : t("showFilters")}</span>
               <span className="text-[10px]">{showAdvancedFilters ? "▲" : "▼"}</span>
             </button>
 
@@ -821,7 +818,7 @@ export default function DiffusionPage() {
               <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="adv-dept" className="block text-[10px] font-semibold text-slate-600 mb-1">
-                    Département ({selectedRegion !== "Toutes" ? selectedRegion : "National"})
+                    {t("departmentFor", { scope: selectedRegion !== "Toutes" ? selectedRegion : t("national") })}
                   </label>
                   <select
                     id="adv-dept"
@@ -830,7 +827,7 @@ export default function DiffusionPage() {
                     disabled={selectedRegion === "Toutes"}
                     className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 disabled:opacity-50"
                   >
-                    <option value="">Tous les départements</option>
+                    <option value="">{t("allDepartments")}</option>
                     {availableDepartments.map((d) => (
                       <option key={d.name} value={d.name}>{d.name}</option>
                     ))}
@@ -838,7 +835,7 @@ export default function DiffusionPage() {
                 </div>
                 <div>
                   <label htmlFor="adv-entity" className="block text-[10px] font-semibold text-slate-600 mb-1">
-                    Type d&apos;établissement
+                    {t("establishmentType")}
                   </label>
                   <select
                     id="adv-entity"
@@ -846,8 +843,9 @@ export default function DiffusionPage() {
                     onChange={(e) => setSelectedEntityType(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
                   >
-                    {ENTITY_TYPE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option value="">{t("allEmployers")}</option>
+                    {ENTITY_TYPE_VALUES.map((value) => (
+                      <option key={value} value={value}>{typeLabel(tRoot, value)}</option>
                     ))}
                   </select>
                 </div>
@@ -864,10 +862,10 @@ export default function DiffusionPage() {
               className="w-full bg-[#006644] hover:bg-[#005438] active:bg-[#004730] text-white font-semibold text-sm py-3 px-6 rounded-lg transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isExporting ? <IconSpinner /> : <IconPlayLaunch />}
-              <span>{isExporting ? "Génération en cours…" : "Lancer l'Export"}</span>
+              <span>{isExporting ? t("generating") : t("launch")}</span>
             </button>
             <div className="text-[11px] text-slate-400 text-center mt-2.5">
-              Compatible avec IBM SPSS Statistics 25+
+              {t("spssCompatible")}
             </div>
           </div>
         </section>
@@ -882,10 +880,10 @@ export default function DiffusionPage() {
           >
             <div className="mb-5">
               <h2 id="dataset-summary-heading" className="text-base font-bold text-slate-900">
-                Résumé du Jeu de Données
+                {t("summaryTitle")}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Aperçu du volume et de la structure du jeu exporté.
+                {t("summarySubtitle")}
               </p>
             </div>
 
@@ -899,21 +897,21 @@ export default function DiffusionPage() {
                 of an extract before it is generated. */}
             <div className="space-y-2.5 text-sm text-slate-600 mb-5">
               <div className="flex items-center justify-between">
-                <span>Total enregistrements</span>
+                <span>{t("totalRecords")}</span>
                 <span className="font-bold text-slate-900">
-                  {statsQuery.isLoading ? "…" : count(totalSubmissions)}
+                  {statsQuery.isLoading ? "…" : count(totalSubmissions, locale)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Variables au schéma canonique</span>
+                <span>{t("schemaVariables")}</span>
                 <span className="font-bold text-slate-900">
-                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.questions ?? null)}
+                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.questions ?? null, locale)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Sections au schéma canonique</span>
+                <span>{t("schemaSections")}</span>
                 <span className="font-bold text-slate-900">
-                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.sections ?? null)}
+                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.sections ?? null, locale)}
                 </span>
               </div>
             </div>
@@ -929,14 +927,14 @@ export default function DiffusionPage() {
                 can never produce a wrong share. */}
             <div>
               <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-                Répartition par type
+                {t("breakdownTitle")}
               </div>
 
               {typeBreakdownState !== "ready" ? (
                 <DataState
                   dense
                   state={typeBreakdownState}
-                  resource="la répartition par type"
+                  resource={t("breakdownResource")}
                   error={typeTotals.find((q) => q.isError)?.error}
                 />
               ) : (
@@ -953,7 +951,7 @@ export default function DiffusionPage() {
                         />
                       </div>
                       <span className="w-12 text-right font-bold text-slate-800 shrink-0">
-                        {count(row.total)}
+                        {count(row.total, locale)}
                       </span>
                     </div>
                   ))}
@@ -969,10 +967,10 @@ export default function DiffusionPage() {
           >
             <div className="mb-4">
               <h2 id="codebooks-heading" className="text-base font-bold text-slate-900">
-                Documentation du jeu de données
+                {t("docsTitle")}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Syntaxe générée par le serveur pour le périmètre sélectionné.
+                {t("docsSubtitle")}
               </p>
             </div>
 
@@ -990,10 +988,10 @@ export default function DiffusionPage() {
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-slate-800 group-hover:text-[#006644] transition-colors">
-                    Syntaxe SPSS du périmètre courant
+                    {t("spssCurrent")}
                   </div>
                   <div className="text-xs text-slate-400 mt-0.5">
-                    .sps &bull; générée à la demande
+                    {t("spssOnDemand")}
                   </div>
                 </div>
               </button>
@@ -1003,9 +1001,9 @@ export default function DiffusionPage() {
               <DataState
                 dense
                 state="unavailable"
-                resource="la documentation de référence"
-                title="Dictionnaire des variables et guide de recodage : non disponibles"
-                hint="Ces référentiels ne sont pas encore produits par le système. Ils seront proposés ici dès qu'un service les générera à partir du schéma canonique ONEFOP."
+                resource={t("referenceResource")}
+                title={t("referenceTitle")}
+                hint={t("referenceHint")}
               />
             </div>
           </section>
@@ -1020,55 +1018,55 @@ export default function DiffusionPage() {
       >
         <div className="mb-4">
           <h2 id="recent-exports-heading" className="text-base font-bold text-slate-900">
-            Historique des exports récents
+            {t("historyTitle")}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Journal d&apos;audit des extractions de données enregistrées sur la plateforme.
+            {t("historySubtitle")}
           </p>
         </div>
 
         {serverHistoryQuery.isLoading ? (
           <DataState
             state="loading"
-            resource="l'historique des exports"
-            title="Chargement de l'historique des exports..."
+            resource={t("historyResource")}
+            title={t("historyLoading")}
           />
         ) : serverHistoryQuery.isError ? (
           <DataState
             state="error"
-            resource="l'historique des exports"
+            resource={t("historyResource")}
             error={serverHistoryQuery.error}
             onRetry={() => serverHistoryQuery.refetch()}
           />
         ) : !serverHistoryQuery.data || serverHistoryQuery.data.length === 0 ? (
           <DataState
             state="empty"
-            resource="l'historique des exports"
-            title="Aucun export enregistré"
-            hint="Les extractions de données générées par les administrateurs et analystes apparaîtront ici."
+            resource={t("historyResource")}
+            title={t("historyEmptyTitle")}
+            hint={t("historyEmptyHint")}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
-                  <th className="py-3 px-3">Date &amp; Heure</th>
-                  <th className="py-3 px-3">Utilisateur</th>
-                  <th className="py-3 px-3">Format</th>
-                  <th className="py-3 px-3">Périmètre</th>
+                  <th className="py-3 px-3">{t("dateColumn")}</th>
+                  <th className="py-3 px-3">{t("userColumn")}</th>
+                  <th className="py-3 px-3">{t("formatColumn")}</th>
+                  <th className="py-3 px-3">{t("scopeColumn")}</th>
                 </tr>
               </thead>
               <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
                 {serverHistoryQuery.data.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                      {stamp(row.timestamp)}
+                      {stamp(row.timestamp, true, locale)}
                     </td>
                     <td className="py-3.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
                       {row.user?.name || row.user?.email || NOT_PROVIDED}
                       {row.user?.role && (
                         <span className="ml-1.5 text-[10px] font-normal text-slate-500">
-                          ({row.user.role})
+                          ({directoryRoleLabel(row.user.role, locale)})
                         </span>
                       )}
                     </td>
@@ -1076,7 +1074,7 @@ export default function DiffusionPage() {
                       {formatExportFormat(row.format)}
                     </td>
                     <td className="py-3.5 px-3 text-slate-600">
-                      {formatExportScope(row.filters)}
+                      {formatExportScope(row.filters, tRoot)}
                     </td>
                   </tr>
                 ))}

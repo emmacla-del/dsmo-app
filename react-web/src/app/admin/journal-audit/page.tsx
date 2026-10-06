@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import {
@@ -45,35 +47,23 @@ interface DisplayAuditItem {
 
 /**
  * Period windows accepted by the backend (ADMIN_LIST_PERIODS). "all" means no
- * `period` parameter at all.
+ * `period` parameter at all. Labels: adminJournalAuditPage.period.<value>.
  */
-const PERIOD_OPTIONS = [
-  { value: "7d", label: "Derniers 7 jours" },
-  { value: "30d", label: "Derniers 30 jours" },
-  { value: "3m", label: "3 derniers mois" },
-  { value: "12m", label: "12 derniers mois" },
-  { value: "all", label: "Toutes les dates" },
-];
+const PERIOD_VALUES = ["7d", "30d", "3m", "12m", "all"];
 
 /**
  * Resource-type filter, keyed on the values the backend actually stores in
  * AuditLog.resourceType (AUDIT_RESOURCE_TYPES in lib/audit-log.ts, derived by
  * reading every auditLog.create call site in src/).
  */
-const RESOURCE_TYPE_OPTIONS = [
-  { value: "", label: "Toutes les ressources" },
-  ...Object.entries(AUDIT_RESOURCE_TYPES).map(([value, label]) => ({ value, label })),
-];
+const RESOURCE_TYPE_VALUES = Object.keys(AUDIT_RESOURCE_TYPES);
 
 /**
  * Action filter, keyed on the action strings the backend actually writes
  * (AUDIT_ACTIONS in lib/audit-log.ts). An action missing from that map still
  * lists and renders under its raw code; it simply cannot be picked here.
  */
-const ACTION_OPTIONS = [
-  { value: "", label: "Toutes les actions" },
-  ...Object.entries(AUDIT_ACTIONS).map(([value, meta]) => ({ value, label: meta.label })),
-];
+const ACTION_VALUES = Object.keys(AUDIT_ACTIONS);
 
 // Suspense because useSearchParams() requires it in the app router.
 export default function JournalAuditPage() {
@@ -86,6 +76,9 @@ export default function JournalAuditPage() {
 
 function JournalAuditContent() {
   const { isLoading, forbidden } = useAdminScreenGuard(AUDIT_ROLES);
+  const tRoot = useTranslations();
+  const t = useTranslations("adminJournalAuditPage");
+  const locale = asUiLocale(useLocale());
 
   // Deep links from a dossier, an establishment or /admin/equipe arrive with
   // ?resourceId= or ?actor= and seed the matching filter. Such a link asks for
@@ -155,22 +148,22 @@ function JournalAuditContent() {
   const actorOptions = useMemo(() => {
     const users = actorsQuery.data?.users ?? [];
     const options = [
-      { value: "", label: "Tous les utilisateurs" },
+      { value: "", label: t("allUsers") },
       ...users
         .map((u) => ({
           value: u.id,
-          label: `${[u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email} — ${directoryRoleLabel(u.role)}`,
+          label: `${[u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email} — ${directoryRoleLabel(u.role, locale)}`,
         }))
-        .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+        .sort((a, b) => a.label.localeCompare(b.label, locale)),
     ];
     // An actor id from a deep link may fall outside the first 100 accounts
     // listed above. Without its own option the select would display "Tous les
     // utilisateurs" while the query is in fact filtered by that id.
     if (actor && !options.some((o) => o.value === actor)) {
-      options.push({ value: actor, label: "Acteur sélectionné (lien direct)" });
+      options.push({ value: actor, label: t("deepLinkActor") });
     }
     return options;
-  }, [actorsQuery.data, actor]);
+  }, [actorsQuery.data, actor, t, locale]);
 
   const handleResetFilters = () => {
     setPeriod("7d");
@@ -195,21 +188,21 @@ function JournalAuditContent() {
       const rawTone = auditActionTone(e.action);
       const tone: DisplayAuditItem["actionTone"] =
         rawTone === "success" ? "success" : rawTone === "warning" ? "warn" : rawTone === "error" ? "danger" : "neutral";
-      const transition = auditTransition(e);
+      const transition = auditTransition(e, locale);
       return {
         id: e.id,
-        timestamp: stamp(e.timestamp),
-        actor: auditActorName(e),
-        actorRole: e.user ? directoryRoleLabel(e.user.role) : null,
-        action: auditActionLabel(e.action),
+        timestamp: stamp(e.timestamp, true, locale),
+        actor: auditActorName(e, locale),
+        actorRole: e.user ? directoryRoleLabel(e.user.role, locale) : null,
+        action: auditActionLabel(e.action, locale),
         actionTone: tone,
-        object: e.resourceId ?? auditResourceLabel(e.resourceType),
-        details: auditDetailsSummary(e),
+        object: e.resourceId ?? auditResourceLabel(e.resourceType, locale),
+        details: auditDetailsSummary(e, locale),
         transition,
         transitionTone: transition ? tone : undefined,
       };
     });
-  }, [auditQuery.data]);
+  }, [auditQuery.data, locale]);
 
   const totalEvents = auditQuery.data?.total ?? null;
   const pageCount = totalEvents === null ? null : Math.max(1, Math.ceil(totalEvents / PAGE_SIZE));
@@ -228,7 +221,7 @@ function JournalAuditContent() {
   if (forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">Accès réservé aux super-administrateurs plateforme et ONEFOP, et aux auditeurs.</p>
+        <p className="cam-admin-lede">{t("forbidden")}</p>
       </div>
     );
   }
@@ -237,20 +230,20 @@ function JournalAuditContent() {
     <div className="cam-admin-page">
       {/* ── Top Header matching Figma administration/journal-audit.png ── */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Administration" }, { label: "Journal d'audit" }]}
-        title="Journal d'audit"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.journalAudit") }]}
+        title={tRoot("adminNav.routes.journalAudit")}
       />
 
       {/* ── Filter Bar matching Figma ── */}
       <section
-        aria-label="Filtres d'audit"
+        aria-label={t("filtersAriaLabel")}
         className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Période */}
           <div className="lg:col-span-2">
             <label htmlFor="filter-period" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Période
+              {t("periodLabel")}
             </label>
             <div className="relative">
               <select
@@ -259,8 +252,8 @@ function JournalAuditContent() {
                 onChange={(e) => { setPeriod(e.target.value); setCurrentPage(1); }}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                {PERIOD_OPTIONS.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+                {PERIOD_VALUES.map((value) => (
+                  <option key={value} value={value}>{t(`period.${value}`)}</option>
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
@@ -274,7 +267,7 @@ function JournalAuditContent() {
           {/* Acteur — real accounts from GET /auth/users, filtered by id */}
           <div className="lg:col-span-3">
             <label htmlFor="filter-actor" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Acteur
+              {t("actorLabel")}
             </label>
             <div className="relative">
               <select
@@ -299,7 +292,7 @@ function JournalAuditContent() {
           {/* Type d'action — only actions the backend actually writes */}
           <div className="lg:col-span-2">
             <label htmlFor="filter-action" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Type d&apos;action
+              {t("actionTypeLabel")}
             </label>
             <div className="relative">
               <select
@@ -308,8 +301,9 @@ function JournalAuditContent() {
                 onChange={(e) => { setAction(e.target.value); setCurrentPage(1); }}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                {ACTION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option value="">{t("allActions")}</option>
+                {ACTION_VALUES.map((value) => (
+                  <option key={value} value={value}>{auditActionLabel(value, locale)}</option>
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
@@ -323,7 +317,7 @@ function JournalAuditContent() {
           {/* Ressource */}
           <div className="lg:col-span-2">
             <label htmlFor="filter-resource" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Ressource
+              {t("resourceLabel")}
             </label>
             <div className="relative">
               <select
@@ -332,8 +326,9 @@ function JournalAuditContent() {
                 onChange={(e) => { setResourceType(e.target.value); setCurrentPage(1); }}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                {RESOURCE_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option value="">{t("allResources")}</option>
+                {RESOURCE_TYPE_VALUES.map((value) => (
+                  <option key={value} value={value}>{auditResourceLabel(value, locale)}</option>
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
@@ -347,13 +342,13 @@ function JournalAuditContent() {
           {/* Identifiant de la ressource — exact match, server-side */}
           <div className="lg:col-span-2">
             <label htmlFor="filter-resource-id" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Identifiant
+              {t("idLabel")}
             </label>
             <div className="relative">
               <input
                 id="filter-resource-id"
                 type="text"
-                placeholder="ID exact de la ressource"
+                placeholder={t("idPlaceholder")}
                 value={resourceIdInput}
                 onChange={(e) => setResourceIdInput(e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
@@ -374,7 +369,7 @@ function JournalAuditContent() {
               onClick={handleResetFilters}
               className="w-full sm:w-auto px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer shadow-xs whitespace-nowrap"
             >
-              Réinitialiser
+              {t("reset")}
             </button>
           </div>
         </div>
@@ -382,19 +377,19 @@ function JournalAuditContent() {
 
       {/* ── Table Card matching Figma administration/journal-audit.png ── */}
       <section
-        aria-label="Registre d'audit"
+        aria-label={t("registerAriaLabel")}
         className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
       >
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-4">Horodatage</th>
-                <th className="py-3.5 px-4">Acteur</th>
-                <th className="py-3.5 px-4">Action</th>
-                <th className="py-3.5 px-4">Objet</th>
-                <th className="py-3.5 px-4">Détails</th>
-                <th className="py-3.5 px-4 text-right">État précédent → Nouveau</th>
+                <th className="py-3.5 px-4">{t("timestampColumn")}</th>
+                <th className="py-3.5 px-4">{t("actorColumn")}</th>
+                <th className="py-3.5 px-4">{t("actionColumn")}</th>
+                <th className="py-3.5 px-4">{t("objectColumn")}</th>
+                <th className="py-3.5 px-4">{t("detailsColumn")}</th>
+                <th className="py-3.5 px-4 text-right">{t("transitionColumn")}</th>
               </tr>
             </thead>
             <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
@@ -403,15 +398,11 @@ function JournalAuditContent() {
               <DataStateRow
                 colSpan={6}
                 state={tableState}
-                resource="le journal d'audit"
+                resource={t("resource")}
                 error={auditQuery.error}
                 onRetry={() => auditQuery.refetch()}
-                title={tableState === "empty" ? "Aucun historique d'audit disponible" : undefined}
-                hint={
-                  tableState === "empty"
-                    ? "Aucun événement enregistré ne correspond aux filtres sélectionnés. Les événements consignés par le système apparaîtront ici."
-                    : undefined
-                }
+                title={tableState === "empty" ? t("emptyTitle") : undefined}
+                hint={tableState === "empty" ? t("emptyHint") : undefined}
               />
               {displayItems.map((row) => {
                 const actionBadgeClass =
@@ -480,8 +471,13 @@ function JournalAuditContent() {
             {totalEvents === null
               ? NOT_PROVIDED
               : totalEvents === 0
-                ? "0 événement"
-                : `Affichage ${count(firstShown)}-${count(lastShown)} sur ${count(totalEvents)} événement${totalEvents > 1 ? "s" : ""}`}
+                ? t("zeroEvents")
+                : t("showingRange", {
+                    first: count(firstShown, locale),
+                    last: count(lastShown, locale),
+                    total: count(totalEvents, locale),
+                    count: totalEvents,
+                  })}
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -490,10 +486,10 @@ function JournalAuditContent() {
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
             >
-              Précédent
+              {t("previous")}
             </button>
             <span className="px-2 font-semibold text-slate-700">
-              {pageCount === null ? `Page ${currentPage}` : `Page ${currentPage} / ${pageCount}`}
+              {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
             </span>
             <button
               type="button"
@@ -501,7 +497,7 @@ function JournalAuditContent() {
               onClick={() => setCurrentPage((prev) => prev + 1)}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
             >
-              Suivant
+              {t("next")}
             </button>
           </div>
         </div>

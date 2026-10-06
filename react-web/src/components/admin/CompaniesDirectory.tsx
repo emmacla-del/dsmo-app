@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ENTITY_TYPE_OPTION_KEYS,
   type Company,
   contactValue,
   dash,
@@ -15,6 +16,11 @@ import {
 } from "@/lib/companies-directory";
 
 const PAGE_SIZE = 20;
+
+/** Entity type without administrative codes (the public wizard's labels). */
+function typeLabel(t: ReturnType<typeof useTranslations>, type: string | null): string {
+  return type && ENTITY_TYPE_OPTION_KEYS[type] ? t(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
+}
 
 interface Column {
   key: string;
@@ -34,8 +40,8 @@ function useColumns(t: ReturnType<typeof useTranslations>): Column[] {
     {
       key: "type",
       labelKey: "companiesDirectory.typeColumn",
-      compare: (a, b) => entityTypeLabel(a.entityType).localeCompare(entityTypeLabel(b.entityType)),
-      render: (c) => dash(entityTypeLabel(c.entityType)),
+      compare: (a, b) => typeLabel(t, a.entityType).localeCompare(typeLabel(t, b.entityType)),
+      render: (c) => dash(typeLabel(t, c.entityType)),
     },
     {
       key: "niu",
@@ -274,7 +280,7 @@ function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () 
       <div className="cam-admin-dialog-head">
         <div style={{ minWidth: 0 }}>
           <p className="cam-admin-dialog-eyebrow" style={{ margin: "0 0 4px" }}>
-            {entityTypeLabel(c.entityType) || "Établissement"}
+            {typeLabel(t, c.entityType) || t("companiesDirectory.establishmentFallback")}
           </p>
           <h2 className="cam-admin-dialog-title">{c.name ?? "—"}</h2>
           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "var(--cam-space-2)", marginTop: "var(--cam-space-1)" }}>
@@ -303,7 +309,7 @@ function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () 
           title={t("companiesDirectory.sectionIdentity")}
           rows={[
             [t("companiesDirectory.niuColumn"), hasRealNiu(c.taxNumber) ? c.taxNumber : null],
-            [t("companiesDirectory.entityTypeLabel"), entityTypeLabel(c.entityType) || null],
+            [t("companiesDirectory.entityTypeLabel"), typeLabel(t, c.entityType) || null],
             [t("companiesDirectory.sectorLabel"), c.sector?.name],
             [t("companiesDirectory.mainActivityLabel"), c.mainActivity],
             [t("companiesDirectory.legalStatusLabel"), c.legalStatus],

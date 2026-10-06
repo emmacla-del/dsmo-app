@@ -323,16 +323,19 @@ export function directoryUserName(u: DirectoryUser): string {
 
 export type StatusFilterKey = "all" | "pending" | "active" | "suspended" | "rejected";
 
-export const STATUS_FILTERS: { key: StatusFilterKey; label: string; color: string; status?: string; isActive?: boolean }[] = [
-  { key: "all", label: "Tous", color: "var(--cam-green)" },
-  { key: "pending", label: "En attente", color: "var(--cam-warning)", status: "PENDING_APPROVAL" },
-  { key: "active", label: "Actifs", color: "var(--cam-success)", status: undefined, isActive: true },
-  { key: "suspended", label: "Suspendus", color: "var(--cam-error)", isActive: false },
-  { key: "rejected", label: "Rejetés", color: "var(--cam-text-muted)", status: "REJECTED" },
+export const STATUS_FILTERS: { key: StatusFilterKey; label: string; labelEn: string; color: string; status?: string; isActive?: boolean }[] = [
+  { key: "all", label: "Tous", labelEn: "All", color: "var(--cam-green)" },
+  { key: "pending", label: "En attente", labelEn: "Pending", color: "var(--cam-warning)", status: "PENDING_APPROVAL" },
+  { key: "active", label: "Actifs", labelEn: "Active", color: "var(--cam-success)", status: undefined, isActive: true },
+  { key: "suspended", label: "Suspendus", labelEn: "Suspended", color: "var(--cam-error)", isActive: false },
+  { key: "rejected", label: "Rejetés", labelEn: "Rejected", color: "var(--cam-text-muted)", status: "REJECTED" },
 ];
 
-export function rowStatusMeta(u: DirectoryUser): { label: string; color: string } {
-  if (u.status === "PENDING_APPROVAL") return { label: "En attente", color: "var(--cam-warning)" };
-  if (u.status === "REJECTED") return { label: "Rejeté", color: "var(--cam-text-muted)" };
-  return u.isActive ? { label: "Actif", color: "var(--cam-success)" } : { label: "Suspendu", color: "var(--cam-error)" };
+export function rowStatusMeta(u: DirectoryUser, locale: UiLocale = "fr"): { label: string; color: string } {
+  const en = locale === "en";
+  if (u.status === "PENDING_APPROVAL") return { label: en ? "Pending" : "En attente", color: "var(--cam-warning)" };
+  if (u.status === "REJECTED") return { label: en ? "Rejected" : "Rejeté", color: "var(--cam-text-muted)" };
+  return u.isActive
+    ? { label: en ? "Active" : "Actif", color: "var(--cam-success)" }
+    : { label: en ? "Suspended" : "Suspendu", color: "var(--cam-error)" };
 }
