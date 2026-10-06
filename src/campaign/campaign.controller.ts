@@ -51,8 +51,8 @@ export class CampaignController {
 
     @Get(':id')
     @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
-    async getCampaign(@Param('id') id: string) {
-        return this.campaignService.getCampaign(id);
+    async getCampaign(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.getCampaign(id, req.user);
     }
 
     @Put(':id')
@@ -99,14 +99,14 @@ export class CampaignController {
 
     @Get(':id/progress')
     @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
-    async getProgress(@Param('id') id: string) {
-        return this.campaignService.getCampaignProgress(id);
+    async getProgress(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.getCampaignProgress(id, req.user);
     }
 
     @Get(':id/submissions')
     @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
-    async getSubmissions(@Param('id') id: string, @Query('status') status?: string) {
-        return this.campaignService.getCampaignSubmissions(id, { status });
+    async getSubmissions(@Param('id') id: string, @Req() req: any, @Query('status') status?: string) {
+        return this.campaignService.getCampaignSubmissions(id, { status }, req.user);
     }
 
     @Post(':id/remind')
