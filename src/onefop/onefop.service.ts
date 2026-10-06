@@ -234,7 +234,7 @@ export class OnefopService {
 
     async getSubmissionDetail(user: any, submissionId: string) {
         const submission = await this.prisma.onefopSubmission.findFirst({
-            where: { id: submissionId },
+            where: { id: submissionId, ...this.submissionScope(user) },
             include: { company: true }
         });
 
@@ -249,7 +249,7 @@ export class OnefopService {
 
     async getSubmissionPdfUrl(submissionId: string, user: any): Promise<string> {
         const submission = await this.prisma.onefopSubmission.findFirst({
-            where: { id: submissionId },
+            where: { id: submissionId, ...this.submissionScope(user) },
         });
 
         if (!submission) {
@@ -261,10 +261,19 @@ export class OnefopService {
         return this.pdfService.getSignedUrl(submission);
     }
 
-    /// A COMPANY user may only reach their own submissions — the other
-    /// roles listed on these endpoints (DIVISIONAL_ADMIN / REGIONAL_ADMIN /
-    /// ADMIN_ONEFOP / SUPER_ADMIN) are trusted reviewer roles with no scoping
-    /// today, so this only tightens the newly-added COMPANY case.
+    /// Territory fragment for the single-submission reads. Staff callers are
+    /// scoped in the query itself, as /admin/questionnaires/:id does, so an
+    /// out-of-territory row is reported as not found (no existence leak).
+    /// territoryWhere fails closed: an unassigned REGIONAL_ADMIN /
+    /// DIVISIONAL_ADMIN, or an unknown role, matches nothing. COMPANY is left
+    /// to the ownership check in assertCanAccessSubmission.
+    private submissionScope(user: any): Record<string, unknown> {
+        if (user?.role === 'COMPANY') return {};
+        return territoryWhere(territoryFromUser(user));
+    }
+
+    /// A COMPANY user may only reach their own submissions. Staff roles are
+    /// territory-scoped by submissionScope in the lookup query instead.
     private async assertCanAccessSubmission(user: any, companyId: string) {
         if (user.role !== 'COMPANY') return;
         const company = await this.prisma.company.findFirst({ where: { userId: user.id } });
