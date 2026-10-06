@@ -240,6 +240,17 @@ export function formatCampaignDate(iso: string | null | undefined): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+/**
+ * A registration campaign is a target container: it stays DRAFT for life and
+ * the backend refuses activate / extend / pause / remind on it (8a-BE). Lists
+ * show REGISTRATION_STATUS_LABEL in place of "Brouillon" and offer only
+ * delete — no lifecycle actions, no archive.
+ */
+export function isRegistrationCampaign(c: Pick<Campaign, "purpose">): boolean {
+  return c.purpose === "REGISTRATION";
+}
+export const REGISTRATION_STATUS_LABEL = "Cible";
+
 export function canActivate(status: string): boolean {
   return status === "DRAFT" || status === "PAUSED";
 }

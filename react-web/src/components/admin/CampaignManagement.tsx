@@ -7,7 +7,10 @@ import {
   CAMPAIGN_STATUSES,
   CAMPAIGN_STATUS_COLORS,
   CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_PURPOSE_LABELS,
+  REGISTRATION_STATUS_LABEL,
   REMINDER_TYPES,
+  isRegistrationCampaign,
   type Campaign,
   activateCampaign,
   canActivate,
@@ -144,6 +147,9 @@ export function CampaignManagement() {
 
       {query.data?.map((c) => {
         const busy = busyId === c.id;
+        // Registration campaigns are target containers (DRAFT for life): no
+        // lifecycle action applies, the backend refuses them all.
+        const registration = isRegistrationCampaign(c);
         return (
           <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)", border: "var(--cam-border-width) solid var(--cam-border)", borderRadius: "var(--cam-radius-md)", padding: "var(--cam-space-3)", marginBottom: "var(--cam-space-2)", background: "var(--cam-surface)", flexWrap: "wrap" }}>
             <div style={{ minWidth: 0, flex: 1 }}>
@@ -155,24 +161,35 @@ export function CampaignManagement() {
               >
                 {c.name}
               </button>
+              {registration && (
+                <span className="cam-badge cam-badge-info" style={{ marginLeft: "var(--cam-space-2)" }}>
+                  {CAMPAIGN_PURPOSE_LABELS.REGISTRATION}
+                </span>
+              )}
               <div style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
                 {t("campaignManagement.deadlineLabel", { date: formatCampaignDate(c.extendedDeadline || c.deadline) })}
               </div>
-              <span style={{ display: "inline-block", marginTop: "var(--cam-space-1)", padding: "2px 10px", borderRadius: 20, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, background: `${CAMPAIGN_STATUS_COLORS[c.status] ?? "var(--cam-text-muted)"}1A`, color: CAMPAIGN_STATUS_COLORS[c.status] ?? "var(--cam-text-muted)" }}>
-                {CAMPAIGN_STATUS_LABELS[c.status] ?? c.status}
-              </span>
+              {registration ? (
+                <span className="cam-badge cam-badge-neutral" style={{ marginTop: "var(--cam-space-1)" }}>
+                  {REGISTRATION_STATUS_LABEL}
+                </span>
+              ) : (
+                <span style={{ display: "inline-block", marginTop: "var(--cam-space-1)", padding: "2px 10px", borderRadius: 20, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, background: `${CAMPAIGN_STATUS_COLORS[c.status] ?? "var(--cam-text-muted)"}1A`, color: CAMPAIGN_STATUS_COLORS[c.status] ?? "var(--cam-text-muted)" }}>
+                  {CAMPAIGN_STATUS_LABELS[c.status] ?? c.status}
+                </span>
+              )}
             </div>
 
             {busy ? (
               <span style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>…</span>
             ) : (
               <div style={{ display: "flex", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-                {canActivate(c.status) && (
+                {!registration && canActivate(c.status) && (
                   <button type="button" style={{ ...actionBtnStyle, color: "var(--cam-success)" }} onClick={() => activateMutation.mutate(c.id)}>
                     {t("campaignManagement.activate")}
                   </button>
                 )}
-                {canDeactivate(c.status) && (
+                {!registration && canDeactivate(c.status) && (
                   <button type="button" style={{ ...actionBtnStyle, color: "var(--cam-warning)" }} onClick={() => pauseMutation.mutate(c.id)}>
                     {t("campaignManagement.pause")}
                   </button>
@@ -180,17 +197,17 @@ export function CampaignManagement() {
                 <button type="button" style={actionBtnStyle} onClick={() => setModal({ type: "not-migrated", label: t("campaignManagement.editCampaignTitle") })}>
                   {t("campaignManagement.edit")}
                 </button>
-                {canClose(c.status) && (
+                {!registration && canClose(c.status) && (
                   <button type="button" style={actionBtnStyle} onClick={() => closeMutation.mutate(c.id)}>
                     {t("campaignManagement.close")}
                   </button>
                 )}
-                {canExtend(c.status) && (
+                {!registration && canExtend(c.status) && (
                   <button type="button" style={actionBtnStyle} onClick={() => setModal({ type: "extend", campaign: c })}>
                     {t("campaignManagement.extend")}
                   </button>
                 )}
-                {canRemind(c.status) && (
+                {!registration && canRemind(c.status) && (
                   <button type="button" style={actionBtnStyle} onClick={() => setModal({ type: "remind", campaign: c })}>
                     {t("campaignManagement.remind")}
                   </button>
