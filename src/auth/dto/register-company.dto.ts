@@ -1,14 +1,6 @@
 import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
-
-// The entity types whose registration must carry a CNPS number.
-const CNPS_REQUIRED_ENTITY_TYPES: readonly string[] = [
-  'ENTREPRISE',
-  'COOPERATIVE',
-  'CTD',
-  'ONG',
-  'VOCATIONAL_TRAINING',
-];
+import { CNPS_REQUIRED_ENTITY_TYPES } from '../registration-verification';
 
 /**
  * Every company-registration field except the password.

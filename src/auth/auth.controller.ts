@@ -10,6 +10,7 @@ import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
+import { ApproveRegistrationDto } from './dto/approve-registration.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 import { UserStatus } from '../types/prisma.types';
@@ -274,16 +275,20 @@ export class AuthController {
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
-  // centralStructureConfirmed is the "structure centrale" confirmation the
-  // review dialog collects for an ADMINISTRATION file. The service refuses the
-  // approval without it; the checkbox is only the prompt, not the check.
-  async approveUser(
-    @Param('id') id: string,
-    @Request() req: any,
-    @Body('centralStructureConfirmed') centralStructureConfirmed?: boolean,
-  ) {
+  // The body carries the review dialog's confirmations: the "structure
+  // centrale" checkbox for an ADMINISTRATION file, and the reviewer's marks on
+  // the entity's name, phone, contact email and CNPS. The service refuses the
+  // approval unless every one that applies is strictly `true`; the dialog is
+  // only the prompt, not the check. The pipe override validates the body as a
+  // DTO (the global pipe skips missing properties) so a non-boolean is a 400.
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
+  async approveUser(@Param('id') id: string, @Request() req: any, @Body() body: ApproveRegistrationDto) {
     return this.authService.approveUser(id, req.user.id, req.user.role, territoryFromUser(req.user), {
-      centralStructureConfirmed,
+      centralStructureConfirmed: body?.centralStructureConfirmed,
+      nameVerified: body?.nameVerified,
+      phoneVerified: body?.phoneVerified,
+      contactEmailVerified: body?.contactEmailVerified,
+      cnpsVerified: body?.cnpsVerified,
     });
   }
 
