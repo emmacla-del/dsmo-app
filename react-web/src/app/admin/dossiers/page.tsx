@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   API_BASE_URL,
@@ -25,6 +25,8 @@ import {
   stamp,
 } from "@/lib/admin-data-state";
 import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { hrefWith, parseDossierStatus, type DossierStatus } from "@/lib/admin-url";
+import { ViewSwitch } from "@/components/admin/ViewSwitch";
 
 /**
  * One dossier row.
@@ -48,7 +50,6 @@ interface DossierItem {
   submittedAt: string | null;
 }
 
-const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
 const PAGE_SIZE = 10;
 
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
@@ -64,37 +65,35 @@ const PERIODS: Array<{ value: string; label: string }> = [
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * The three queues this page now serves, absorbed from the deleted
- * /admin/files-attente. Each one is this same list under a `status` filter —
- * the former page's "Visas en instance" and "Corrections demandées" panels
- * carried no table of their own, only a count and a link into here — so a tab
- * sets `statusFilter` rather than navigating.
+ * The status filter: one control, every status, each with its count.
  *
- * `status: ""` is the unfiltered queue. `queueKey` names the counter on
- * GET /admin/questionnaires/pilotage/queues that counts the same rows; the
- * first tab has none, because no counter counts "all statuses".
+ * The visa and correction queues were absorbed from the deleted
+ * /admin/files-attente; they are this same list under a `status` filter.
+ * They used to be tab-styled buttons beside a separate Statut dropdown that
+ * set the same filter. Now there is one control, and the status lives in
+ * ?status= so a reload or a shared link keeps it.
+ *
+ * Counts come from GET /admin/questionnaires/pilotage/queues: `statusCounts`
+ * and `totalSubmissionsCount`, over the caller's whole territory, DRAFT
+ * excluded — the same base as this list. They do not follow the type,
+ * region, period or search filters below.
  */
-const QUEUE_TABS: Array<{
-  status: string;
-  label: string;
-  queueKey?: "pendingNationalVisasCount" | "correctionsUnderReviewCount";
-  note?: string;
-}> = [
-  { status: "", label: "File d'attente" },
+const STATUS_VIEWS: Array<{ status: DossierStatus | ""; label: string; note?: string }> = [
+  { status: "", label: "Tous" },
   {
     status: "PENDING_REVIEW",
-    label: "Visas",
-    queueKey: "pendingNationalVisasCount",
+    label: "En instance",
     note:
       "Le visa confirme la conformité légale du déclarant. Un dossier visé reste exclu du lot statistique tant qu'une anomalie bloquante persiste.",
   },
   {
     status: "CORRECTION_REQUESTED",
     label: "Corrections",
-    queueKey: "correctionsUnderReviewCount",
     note:
       "Ces déclarations ont été renvoyées aux employeurs avec un motif de non-conformité. Elles reviennent dans la file dès leur nouvelle soumission.",
   },
+  { status: "APPROVED", label: "Visés" },
+  { status: "REJECTED", label: "Rejetés" },
 ];
 
 // Suspense because useSearchParams() requires it in the app router.
@@ -128,7 +127,11 @@ function DossiersContent() {
   const { regions: territoryRegions } = useTerritoryRegions();
 
   const searchParams = useSearchParams();
-  const requestedStatus = searchParams.get("status") ?? "";
+  const router = useRouter();
+  const pathname = usePathname();
+  // The status filter is URL state (?status=): read here, written by
+  // setStatus. Other parameters (?companyId=, ?formType=, ?q=) are kept.
+  const statusFilter = parseDossierStatus(searchParams.get("status"));
   const companyIdFilter = searchParams.get("companyId") ?? "";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
@@ -144,17 +147,14 @@ function DossiersContent() {
   const [typeFilter, setTypeFilter] = useState(FORM_TYPES.includes(requestedFormType) ? requestedFormType : "");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
 
-  useEffect(() => {
-    if (requestedStatus && STATUS_VALUES.includes(requestedStatus)) {
-      setStatusFilter(requestedStatus);
-      setOffset(0);
-    } else if (!requestedStatus) {
-      setStatusFilter("");
-      setOffset(0);
-    }
-  }, [requestedStatus]);
+  // A status change from anywhere — this control, a pilotage tile, the
+  // browser's back button — starts again at the first page.
+  const [offsetStatus, setOffsetStatus] = useState(statusFilter);
+  if (offsetStatus !== statusFilter) {
+    setOffsetStatus(statusFilter);
+    setOffset(0);
+  }
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -244,6 +244,11 @@ function DossiersContent() {
     setOffset(0);
     setSelectedIds(new Set());
   };
+
+  // Writes ?status=, keeping every other parameter. The list follows from the
+  // URL (statusFilter above), so a reload reopens the same status.
+  const setStatus = (status: DossierStatus | "") =>
+    router.replace(hrefWith(pathname, searchParams.toString(), { status }));
 
   const goToOffset = (next: number) => {
     setOffset(next);
@@ -481,40 +486,32 @@ function DossiersContent() {
         }
       />
 
-      {/* ── Queue tabs, absorbed from the deleted /admin/files-attente ── */}
-      <nav className="cam-admin-tabs" aria-label="Files de traitement" style={{ marginBottom: 12 }}>
-        {QUEUE_TABS.map((tab) => (
-          <button
-            key={tab.label}
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === tab.status}
-            className="cam-admin-tab"
-            onClick={() => changeFilter(() => setStatusFilter(tab.status))}
-          >
-            {tab.label}
-            {tab.queueKey && (
-              <span className="cam-admin-tab-count">{count(queues ? queues[tab.queueKey] : null)}</span>
-            )}
-          </button>
-        ))}
-      </nav>
+      {/* ── Status filter: one control, URL-backed (?status=) ── */}
+      <ViewSwitch
+        label="Statut des dossiers"
+        items={STATUS_VIEWS.map((view) => ({
+          key: view.status || "ALL",
+          label: view.label,
+          active: statusFilter === view.status,
+          count: queues ? (view.status ? queues.statusCounts[view.status] : queues.totalSubmissionsCount) : null,
+          onClick: () => changeFilter(() => setStatus(view.status)),
+        }))}
+      />
 
-      {/* The queue's own note, carried over from the page these tabs replace.
-          Shown only for the queue it describes; the unfiltered list needs
-          none. */}
-      {QUEUE_TABS.filter((tab) => tab.note && tab.status === statusFilter).map((tab) => (
+      {/* The queue's own note, carried over from /admin/files-attente. Shown
+          only for the status it describes. */}
+      {STATUS_VIEWS.filter((view) => view.note && view.status === statusFilter).map((view) => (
         <p
-          key={tab.label}
+          key={view.label}
           style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.45, color: "#6b7280", maxWidth: 820 }}
         >
-          {tab.note}
+          {view.note}
         </p>
       ))}
 
-      {/* ── 5-Column Filter Card (matching Figma) ── */}
+      {/* ── 4-Column Filter Card. Statut left it: the control above sets it. ── */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
               Type de questionnaire
@@ -549,23 +546,6 @@ function DossiersContent() {
 
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              Statut
-            </label>
-            <select
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
-              value={statusFilter}
-              onChange={(e) => changeFilter(() => setStatusFilter(e.target.value))}
-            >
-              <option value="">Tous les Statuts</option>
-              <option value="PENDING_REVIEW">En instance</option>
-              <option value="APPROVED">Visé</option>
-              <option value="CORRECTION_REQUESTED">Correction demandée</option>
-              <option value="REJECTED">Rejeté</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
               Période
             </label>
             <select
@@ -573,7 +553,11 @@ function DossiersContent() {
               value={periodFilter}
               onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}
             >
-              <option value="30d">Derniers 30 jours</option>
+              {/* "" is the default (see PERIODS): an option of its own, so the
+                  select shows it. A hard-coded 30-day option stood here
+                  instead — a duplicate of PERIODS' own — so the control read
+                  "Derniers 30 jours" while every period was listed. */}
+              <option value="">Toutes les périodes</option>
               {PERIODS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}

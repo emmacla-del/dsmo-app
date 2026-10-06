@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import {
@@ -16,17 +17,23 @@ import {
   getValidationRules,
   type AnomalyRecord,
   type AnomalyResolutionType,
-  type AnomalyStatus,
   type QualitySummary,
   type ValidationRuleItem,
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import {
+  hrefWith,
+  parseAnomalyStatusFilter,
+  parseQualiteVue,
+  parseSeverityFilter,
+  type QualiteVue,
+} from "@/lib/admin-url";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import {
   NOT_PROVIDED,
   count,
-  elapsedSince,
   percent,
   resolveDataState,
   stamp,
@@ -34,7 +41,26 @@ import {
 
 const REGISTRY_PAGE_SIZE = 50;
 
+const QUALITE_TABS: { vue: QualiteVue; label: string }[] = [
+  { vue: "indicateurs", label: "Indicateurs" },
+  { vue: "registre", label: "Registre des anomalies" },
+  { vue: "regles", label: "Règles de validation" },
+];
+
+// Suspense because useSearchParams() requires it in the app router.
 export default function CentreQualitePage() {
+  return (
+    <Suspense fallback={null}>
+      <CentreQualiteContent />
+    </Suspense>
+  );
+}
+
+function CentreQualiteContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const vue = parseQualiteVue(searchParams.get("vue"));
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
@@ -43,9 +69,12 @@ export default function CentreQualitePage() {
 
   // Both filters are sent to the server, so `total` always describes the same
   // query as the rows on screen and there is no client-side re-filtering that
-  // could make the two disagree.
-  const [filterStatus, setFilterStatus] = useState<"ALL" | AnomalyStatus>("ALL");
-  const [filterSeverity, setFilterSeverity] = useState<"ALL" | "BLOCKING" | "WARNING">("ALL");
+  // could make the two disagree. They live in the URL (?status=, ?severity=),
+  // so "open blocking anomalies" is a link that can be reloaded and shared.
+  const filterStatus = parseAnomalyStatusFilter(searchParams.get("status"));
+  const filterSeverity = parseSeverityFilter(searchParams.get("severity"));
+  const setRegisterFilter = (key: "status" | "severity", value: string) =>
+    router.replace(hrefWith(pathname, searchParams.toString(), { [key]: value === "ALL" ? null : value }));
 
   const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
   const [resolutionType, setResolutionType] = useState<AnomalyResolutionType>("DECLARANT_CORRECTION");
@@ -66,6 +95,7 @@ export default function CentreQualitePage() {
    * the backend writes to `onefop_anomalies` yet (see
    * docs/admin-data-integrity-inventory.md §7.1).
    */
+  // Each of the three queries runs only on its own tab (?vue=).
   const anomaliesQuery = useQuery({
     queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity],
     queryFn: () =>
@@ -75,13 +105,13 @@ export default function CentreQualitePage() {
         isBlocking:
           filterSeverity === "BLOCKING" ? true : filterSeverity === "WARNING" ? false : undefined,
       }),
-    enabled: canReadRegistry,
+    enabled: canReadRegistry && vue === "registre",
   });
 
   const qualityQuery = useQuery({
     queryKey: ["admin", "questionnaires", "quality", "summary"],
     queryFn: () => getQualitySummary(),
-    enabled: canReadRegistry,
+    enabled: canReadRegistry && vue === "indicateurs",
   });
 
   const quality = qualityQuery.data ?? null;
@@ -89,7 +119,7 @@ export default function CentreQualitePage() {
   const rulesQuery = useQuery({
     queryKey: ["admin", "questionnaires", "rules"],
     queryFn: getValidationRules,
-    enabled: canReadRegistry,
+    enabled: canReadRegistry && vue === "regles",
   });
 
   const rulesState = resolveDataState({
@@ -116,7 +146,6 @@ export default function CentreQualitePage() {
    * same real registry, by `detectedAt`. Not a separate event log — the system
    * keeps none — so the panel is labelled as a view of the registry.
    */
-  const recentDetections = useMemo(() => items.slice(0, 5), [items]);
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: { resolutionType: AnomalyResolutionType; resolutionNote: string; evidenceUrl?: string } }) =>
@@ -162,85 +191,25 @@ export default function CentreQualitePage() {
     });
   };
 
-  const scrollToRegistry = () => {
-    const el = document.getElementById("registre-anomalies");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   return (
     <div className="cam-admin-page" style={{ padding: "16px 28px 40px", maxWidth: 1440, margin: "0 auto", background: "#f8fafc" }}>
-      {/* ── Top Header matching Figma qualite/centre.png ── */}
-      <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid #e2e8f0" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-          {/* Left: Breadcrumbs + Title */}
-          <div>
-            <nav aria-label="Fil d'Ariane" style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
-              <Link href="/admin/centre-qualite" style={{ color: "#64748b", textDecoration: "none" }}>Contrôle Qualité</Link>
-              <span style={{ margin: "0 6px" }}>›</span>
-              <span style={{ color: "#1e293b" }}>Centre qualité</span>
-            </nav>
-            <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a", margin: 0 }}>
-              Centre de Contrôle de Qualité
-            </h1>
-          </div>
-
-          {/* Right: Actions Chips & User Tools */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <AdminHeaderActions />
-          </div>
-        </div>
-
-        {/* Sub-navigation Pill Tabs immediately under Title, above the divider */}
-        <nav aria-label="Sections du module Contrôle Qualité" style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          <Link
-            href="/admin/centre-qualite"
-            style={{
-              padding: "7px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              color: "#007a5e",
-              background: "#ffffff",
-              border: "1.5px solid #007a5e",
-              boxShadow: "0 1px 2px rgba(0, 122, 94, 0.08)",
-            }}
-          >
-            Centre Qualité
-          </Link>
-          {/* "Anomalies" pointed at /admin/files-attente?tab=anomalies, which
-              rendered the same registry and the same resolution dialog this
-              page carries further down. That page is deleted, so the pill
-              scrolls to the registry instead of leaving for a copy of it. */}
-          <button
-            type="button"
-            onClick={scrollToRegistry}
-            style={{
-              padding: "7px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              fontFamily: "inherit",
-              cursor: "pointer",
-              color: "#475569",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-            }}
-          >
-            Registre des anomalies
-          </button>
-          {/* A "Contrôle régional" pill sat here, pointing at ?tab=regional —
-              a parameter this page never read, so it re-rendered the same
-              unscoped view. A real regional view needs a `region` filter on
-              GET quality/summary and anomalies/registry, which the backend
-              does not accept yet (both are already territory-scoped by
-              territoryFromUser, so a REGIONAL_ADMIN cannot widen past its own
-              ressort). The pill returns with that backend change. */}
-        </nav>
-      </header>
+      {/* Shared header. Its tabs are the page's three sections, held in
+          ?vue= so a reload or a shared link reopens the same one. They
+          replace a self-link pill and a scroll button. A "Contrôle régional"
+          tab returns once GET quality/summary and anomalies/registry accept
+          a `region` filter (both are territory-scoped by territoryFromUser
+          today, so a REGIONAL_ADMIN cannot widen past its own ressort). */}
+      <AdminPageHeader
+        breadcrumb={[{ label: "Contrôle Qualité" }, { label: "Centre Qualité" }]}
+        title="Centre de Contrôle de Qualité"
+        actions={<AdminHeaderActions />}
+        tabs={QUALITE_TABS.map((item) => ({
+          label: item.label,
+          href: hrefWith(pathname, searchParams.toString(), { vue: item.vue }),
+          isActive: vue === item.vue,
+        }))}
+      />
 
       {/* ── Toast Alert ── */}
       {successToast && (
@@ -250,95 +219,92 @@ export default function CentreQualitePage() {
         </div>
       )}
 
-      {/* Quality indicators.
-          No endpoint computes completeness, coherence, anomaly or warning
-          rates over a scope, so no figure is printed. The one rate the system
-          can compute (statistically-ready dossiers / total dossiers) belongs
-          to /admin/pilotage, which owns it, and is linked rather than
-          duplicated here. */}
-      <section
-        aria-labelledby="quality-kpis-title"
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: 12,
-          padding: "20px 24px",
-          marginBottom: 24,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-        }}
-      >
-        <h2
-          id="quality-kpis-title"
-          style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 14px" }}
-        >
-          INDICATEURS DE QUALITÉ
-        </h2>
+      {/* ── Indicateurs: the five rates and the anomaly aggregates ── */}
+      {vue === "indicateurs" && (
+        <>
+          {/* Quality indicators.
+              No endpoint computes completeness, coherence, anomaly or warning
+              rates over a scope, so no figure is printed. The one rate the system
+              can compute (statistically-ready dossiers / total dossiers) belongs
+              to /admin/pilotage, which owns it, and is linked rather than
+              duplicated here. */}
+          <section
+            aria-labelledby="quality-kpis-title"
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 12,
+              padding: "20px 24px",
+              marginBottom: 24,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+            }}
+          >
+            <h2
+              id="quality-kpis-title"
+              style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 14px" }}
+            >
+              INDICATEURS DE QUALITÉ
+            </h2>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 12,
-          }}
-        >
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-              Complétude
-            </span>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-              {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate)}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+              }}
+            >
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                  Complétude
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                  {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate)}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Dossiers complets</div>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                  Cohérence
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                  {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate)}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Sans contradiction</div>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                  Taux d&apos;anomalies
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#b91c1c", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                  {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate)}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.blockingAnomaliesCount)} bloquante(s)</div>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                  Avertissements
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                  {qualityQuery.isLoading ? "…" : percent(quality?.warningRate)}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.warningsCount)} alerte(s)</div>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                  Éligibilité statistique
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                  {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate)}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.statisticallyReadyCount)} dossier(s) prêts</div>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Dossiers complets</div>
-          </div>
+          </section>
 
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-              Cohérence
-            </span>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-              {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate)}
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Sans contradiction</div>
-          </div>
-
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-              Taux d&apos;anomalies
-            </span>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#b91c1c", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-              {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate)}
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.blockingAnomaliesCount)} bloquante(s)</div>
-          </div>
-
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-              Avertissements
-            </span>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-              {qualityQuery.isLoading ? "…" : percent(quality?.warningRate)}
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.warningsCount)} alerte(s)</div>
-          </div>
-
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-              Éligibilité statistique
-            </span>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-              {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate)}
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.statisticallyReadyCount)} dossier(s) prêts</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Main Content Grid matching Figma qualite/centre.png ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.62fr) minmax(0, 1fr)", gap: 24, alignItems: "start", marginBottom: 32 }}>
-        
-        {/* ── Left Column: ANOMALIES PAR TYPE & ANOMALIES PAR RÉGION ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          
           {/* Authoritative aggregates by anomaly type and by region. */}
           <section
             aria-labelledby="anomalies-aggregates-title"
@@ -399,103 +365,12 @@ export default function CentreQualitePage() {
               </div>
             </div>
           </section>
+        </>
+      )}
 
-        </div>
-
-        {/* ── Right Column: détections récentes & référentiel des règles ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          
-          {/* Card C: the five most recently detected rows of the same real
-              registry. The system keeps no separate "controls performed" log,
-              so this is presented as a view of the registry, not as one. */}
-          <section
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-            aria-labelledby="controles-recents-title"
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
-              <h2 id="controles-recents-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                DÉTECTIONS RÉCENTES
-              </h2>
-              <button
-                type="button"
-                onClick={scrollToRegistry}
-                style={{ background: "none", border: "none", padding: 0, fontSize: 13, fontWeight: 600, color: "#007a5e", cursor: "pointer" }}
-              >
-                Voir le registre →
-              </button>
-            </div>
-
-            {registryState !== "ready" ? (
-              <DataState
-                dense
-                state={registryState}
-                resource="les détections récentes"
-                error={anomaliesQuery.error}
-                onRetry={() => anomaliesQuery.refetch()}
-                title={registryState === "empty" ? "Aucune détection enregistrée" : undefined}
-              />
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {recentDetections.map((a, idx) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 12,
-                      padding: "10px 0",
-                      borderBottom: idx < recentDetections.length - 1 ? "1px solid #f8fafc" : "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: a.isBlocking ? "#dc2626" : "#f59e0b",
-                        flexShrink: 0,
-                        marginTop: 6,
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "#0f172a", lineHeight: 1.35 }}>
-                        {a.ruleFamily} — {anomalyDossierRef(a)}
-                      </div>
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }} title={stamp(a.detectedAt)}>
-                        {elapsedSince(a.detectedAt)}
-                        {" · "}
-                        {ANOMALY_STATUS_LABELS[a.status]}
-                      </div>
-                      {/* Region badge only when the submission carries one. */}
-                      {a.submission?.region && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            marginTop: 4,
-                            fontSize: 11,
-                            fontWeight: 500,
-                            color: "#475569",
-                            background: "#f1f5f9",
-                            padding: "1px 7px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          {a.submission.region}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
+      {/* ── Règles de validation ── */}
+      {vue === "regles" && (
+        <>
           {/* Card D: validation rules.
               Rule definitions and their enabled state are not persisted
               anywhere (docs/admin-data-integrity-inventory.md §7.6), so no
@@ -574,202 +449,207 @@ export default function CentreQualitePage() {
               </div>
             )}
           </section>
+        </>
+      )}
 
-        </div>
+      {/* ── Registre des anomalies. "Détections récentes" — the first five rows
+          of this same query, following its filters — sat beside the rules;
+          it is folded into the register rather than shown twice. ── */}
+      {vue === "registre" && (
+        <>
+          {/* ── Retained Functional Widget: Registre Opérationnel des Contrôles & Anomalies ── */}
+          <section
+            id="registre-anomalies"
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 12,
+              padding: "20px 24px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+              marginBottom: 32,
+            }}
+            aria-labelledby="anomalies-registry-title"
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
+              <div>
+                <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                  Registre des Contrôles &amp; Anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
+                </h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
+                  Tableau d&apos;instruction détaillé des anomalies détectées sur les déclarations soumises.
+                </p>
+              </div>
 
-      </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <select
+                  className="cam-select"
+                  style={{ width: "auto", minWidth: 140, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
+                  value={filterStatus}
+                  onChange={(e) => setRegisterFilter("status", e.target.value)}
+                >
+                  <option value="ALL">Tous statuts</option>
+                  <option value="OPEN">Ouvertes</option>
+                  <option value="RESOLVED">Résolues</option>
+                  <option value="WAIVED">Dispensées</option>
+                </select>
+                <select
+                  className="cam-select"
+                  style={{ width: "auto", minWidth: 160, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
+                  value={filterSeverity}
+                  onChange={(e) => setRegisterFilter("severity", e.target.value)}
+                >
+                  <option value="ALL">Toutes sévérités</option>
+                  <option value="BLOCKING">Bloquantes uniquement</option>
+                  <option value="WARNING">Avertissements uniquement</option>
+                </select>
+                <button
+                  type="button"
+                  className="cam-button cam-button-sm cam-button-secondary"
+                  onClick={() => anomaliesQuery.refetch()}
+                  style={{ height: 34, padding: "0 14px", fontSize: 13 }}
+                >
+                  Actualiser
+                </button>
+              </div>
+            </div>
 
-      {/* ── Retained Functional Widget: Registre Opérationnel des Contrôles & Anomalies ── */}
-      <section
-        id="registre-anomalies"
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: 12,
-          padding: "20px 24px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          marginBottom: 32,
-        }}
-        aria-labelledby="anomalies-registry-title"
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
-          <div>
-            <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-              Registre des Contrôles &amp; Anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-              Tableau d&apos;instruction détaillé des anomalies détectées sur les déclarations soumises.
-            </p>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              className="cam-select"
-              style={{ width: "auto", minWidth: 140, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as "ALL" | AnomalyStatus)}
-            >
-              <option value="ALL">Tous statuts</option>
-              <option value="OPEN">Ouvertes</option>
-              <option value="RESOLVED">Résolues</option>
-              <option value="WAIVED">Dispensées</option>
-            </select>
-            <select
-              className="cam-select"
-              style={{ width: "auto", minWidth: 160, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
-              value={filterSeverity}
-              onChange={(e) => setFilterSeverity(e.target.value as "ALL" | "BLOCKING" | "WARNING")}
-            >
-              <option value="ALL">Toutes sévérités</option>
-              <option value="BLOCKING">Bloquantes uniquement</option>
-              <option value="WARNING">Avertissements uniquement</option>
-            </select>
-            <button
-              type="button"
-              className="cam-button cam-button-sm cam-button-secondary"
-              onClick={() => anomaliesQuery.refetch()}
-              style={{ height: 34, padding: "0 14px", fontSize: 13 }}
-            >
-              Actualiser
-            </button>
-          </div>
-        </div>
-
-        <div className="cam-table-wrapper" style={{ border: "1px solid #f1f5f9", borderRadius: 8 }}>
-          <table className="cam-table" style={{ width: "100%", margin: 0 }}>
-            <thead style={{ background: "#f8fafc" }}>
-              <tr>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Déclaration / Dossier</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Règle &amp; Code</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Description de l&apos;Anomalie</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Sévérité</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Détectée le</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Statut</th>
-                <th style={{ fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Loading, error, authorization refusal and "no records" are
-                  reported separately. No branch substitutes sample rows. */}
-              <DataStateRow
-                colSpan={7}
-                state={registryState}
-                resource="le registre des anomalies"
-                error={anomaliesQuery.error}
-                onRetry={() => anomaliesQuery.refetch()}
-                title={registryState === "empty" ? "Aucune anomalie enregistrée" : undefined}
-                hint={
-                  registryState === "empty"
-                    ? "Aucune anomalie correspondant à ce périmètre n'est actuellement enregistrée."
-                    : undefined
-                }
-              />
-              {items.map((a) => (
-                <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ fontSize: 13 }}>
-                    {a.submission ? (
-                      <div>
-                        <Link
-                          href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
-                          style={{ fontWeight: 600, color: "#007a5e", textDecoration: "none" }}
+            <div className="cam-table-wrapper" style={{ border: "1px solid #f1f5f9", borderRadius: 8 }}>
+              <table className="cam-table" style={{ width: "100%", margin: 0 }}>
+                <thead style={{ background: "#f8fafc" }}>
+                  <tr>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Déclaration / Dossier</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Règle &amp; Code</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Description de l&apos;Anomalie</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Sévérité</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Détectée le</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Statut</th>
+                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Loading, error, authorization refusal and "no records" are
+                      reported separately. No branch substitutes sample rows. */}
+                  <DataStateRow
+                    colSpan={7}
+                    state={registryState}
+                    resource="le registre des anomalies"
+                    error={anomaliesQuery.error}
+                    onRetry={() => anomaliesQuery.refetch()}
+                    title={registryState === "empty" ? "Aucune anomalie enregistrée" : undefined}
+                    hint={
+                      registryState === "empty"
+                        ? "Aucune anomalie correspondant à ce périmètre n'est actuellement enregistrée."
+                        : undefined
+                    }
+                  />
+                  {items.map((a) => (
+                    <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ fontSize: 13 }}>
+                        {a.submission ? (
+                          <div>
+                            <Link
+                              href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
+                              style={{ fontWeight: 600, color: "#007a5e", textDecoration: "none" }}
+                            >
+                              {anomalyDossierRef(a)}
+                            </Link>
+                            {/* Establishment name as stored on the submission's
+                                company record, or nothing at all. */}
+                            {anomalyCompanyName(a) && (
+                              <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}>
+                                {anomalyCompanyName(a)}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                              {a.submission.region ?? NOT_PROVIDED}
+                              {a.submission.department ? ` · ${a.submission.department}` : ""}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ color: "#94a3b8" }}>{NOT_PROVIDED}</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                          {a.ruleCode}
+                        </span>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          {a.ruleFamily}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                          Observé : <strong>{a.observedValue}</strong> &middot; Attendu : <strong>{a.expectedValue}</strong>
+                          {a.deltaValue ? <> &middot; Écart : <strong>{a.deltaValue}</strong></> : null}
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "3px 8px",
+                            borderRadius: 9999,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: a.isBlocking ? "#fdecea" : "#fef9e7",
+                            color: a.isBlocking ? "#b3202c" : "#b8860b",
+                          }}
                         >
-                          {anomalyDossierRef(a)}
-                        </Link>
-                        {/* Establishment name as stored on the submission's
-                            company record, or nothing at all. */}
-                        {anomalyCompanyName(a) && (
-                          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}>
-                            {anomalyCompanyName(a)}
+                          {a.isBlocking ? "Bloquante" : "Avertissement"}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt)}>
+                        {stamp(a.detectedAt)}
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "3px 8px",
+                            borderRadius: 9999,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: a.status === "OPEN" ? (a.isBlocking ? "#fdecea" : "#fef9e7") : "#e8f7f3",
+                            color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
+                          }}
+                        >
+                          {ANOMALY_STATUS_LABELS[a.status]}
+                        </span>
+                        {/* Resolution metadata only when the record carries it. */}
+                        {a.resolvedAt && (
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                            {stamp(a.resolvedAt)}
+                            {a.resolvedBy
+                              ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
+                              : ""}
                           </div>
                         )}
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                          {a.submission.region ?? NOT_PROVIDED}
-                          {a.submission.department ? ` · ${a.submission.department}` : ""}
-                        </div>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#94a3b8" }}>{NOT_PROVIDED}</span>
-                    )}
-                  </td>
-                  <td style={{ fontSize: 13 }}>
-                    <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                      {a.ruleCode}
-                    </span>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                      {a.ruleFamily}
-                    </div>
-                  </td>
-                  <td style={{ fontSize: 13 }}>
-                    <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                      Observé : <strong>{a.observedValue}</strong> &middot; Attendu : <strong>{a.expectedValue}</strong>
-                      {a.deltaValue ? <> &middot; Écart : <strong>{a.deltaValue}</strong></> : null}
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "3px 8px",
-                        borderRadius: 9999,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        background: a.isBlocking ? "#fdecea" : "#fef9e7",
-                        color: a.isBlocking ? "#b3202c" : "#b8860b",
-                      }}
-                    >
-                      {a.isBlocking ? "Bloquante" : "Avertissement"}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt)}>
-                    {stamp(a.detectedAt)}
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "3px 8px",
-                        borderRadius: 9999,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        background: a.status === "OPEN" ? (a.isBlocking ? "#fdecea" : "#fef9e7") : "#e8f7f3",
-                        color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
-                      }}
-                    >
-                      {ANOMALY_STATUS_LABELS[a.status]}
-                    </span>
-                    {/* Resolution metadata only when the record carries it. */}
-                    {a.resolvedAt && (
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                        {stamp(a.resolvedAt)}
-                        {a.resolvedBy
-                          ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
-                          : ""}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    {a.status === "OPEN" ? (
-                      <button
-                        type="button"
-                        className="cam-button cam-button-sm cam-button-primary"
-                        onClick={() => handleOpenResolveModal(a)}
-                        style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
-                      >
-                        Résoudre
-                      </button>
-                    ) : (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>Traitée</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {a.status === "OPEN" ? (
+                          <button
+                            type="button"
+                            className="cam-button cam-button-sm cam-button-primary"
+                            onClick={() => handleOpenResolveModal(a)}
+                            style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
+                          >
+                            Résoudre
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>Traitée</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* ── Modal: Résolution d'Anomalie (Retained Functional Widget) ── */}
       {selectedAnomaly && (

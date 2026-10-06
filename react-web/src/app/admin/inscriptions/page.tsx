@@ -20,6 +20,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { CoveragePanel } from "@/components/admin/CoveragePanel";
+import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 
 const PAGE_SIZE = 8;
@@ -235,14 +236,13 @@ function InscriptionsContent() {
         }
       />
 
-      <nav className="cam-admin-tabs" aria-label="Vues des inscriptions" style={{ marginBottom: 20 }}>
-        <Link href={inscriptionsHref(currentQuery, "file")} className="cam-admin-tab" role="tab" aria-selected={vue === "file"} style={{ textDecoration: "none" }}>
-          File d&apos;inscriptions
-        </Link>
-        <Link href={inscriptionsHref(currentQuery, "couverture")} className="cam-admin-tab" role="tab" aria-selected={vue === "couverture"} style={{ textDecoration: "none" }}>
-          Couverture
-        </Link>
-      </nav>
+      <ViewSwitch
+        label="Vues des inscriptions"
+        items={[
+          { key: "file", label: "File d'inscriptions", active: vue === "file", href: inscriptionsHref(currentQuery, "file") },
+          { key: "couverture", label: "Couverture", active: vue === "couverture", href: inscriptionsHref(currentQuery, "couverture") },
+        ]}
+      />
 
       {vue === "couverture" && (
         <CoveragePanel year={year} onYearChange={(next) => router.replace(inscriptionsHref(currentQuery, "couverture", { annee: next }))} />

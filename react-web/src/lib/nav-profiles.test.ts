@@ -9,7 +9,7 @@ import test from "node:test";
 
 import { ALL_ROLES, TERRITORIAL_ROLES, type UserRole } from "./roles";
 import { EMPTY_NAV_PROFILE, NAV_PROFILES, navHubsFor, resolveNavProfile } from "./nav-profiles";
-import { ADMIN_HUBS, getAllowedRoles, isRoleAllowed } from "@/app/admin/_routes";
+import { ADMIN_HUBS, getAllowedRoles, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
 
 test("NAV_PROFILES covers every role exactly once", () => {
   assert.deepEqual(Object.keys(NAV_PROFILES).sort(), [...ALL_ROLES].sort());
@@ -58,7 +58,7 @@ test("a shared hub resolves to a different landing route per role", () => {
   // ADMIN_ONEFOP reaches user administration and the directory but neither
   // the journal nor settings.
   const onefopAdmin = navHubsFor("ADMIN_ONEFOP").find((h) => h.key === "administration");
-  assert.deepEqual(onefopAdmin?.subRoutes.map((r) => r.href), ["/admin/utilisateurs", "/admin/annuaire"]);
+  assert.deepEqual(onefopAdmin?.subRoutes.map((r) => r.href), ["/admin/utilisateurs", "/admin/annuaire?tab=users"]);
 
   // Territorial monitoring sits under "supervision": REGIONAL_ADMIN and the
   // national roles see it, DIVISIONAL_ADMIN (outside MONITORING_ROLES) does not.
@@ -93,7 +93,7 @@ test("territorial roles get no national-only or administration hub", () => {
 // showed territorial roles a link to a page that refused them.
 test("the directory is offered only to the roles that can open it", () => {
   for (const role of ALL_ROLES) {
-    const offered = navHubsFor(role).some((h) => h.subRoutes.some((s) => s.href === "/admin/annuaire"));
+    const offered = navHubsFor(role).some((h) => h.subRoutes.some((s) => s.href.split("?")[0] === "/admin/annuaire"));
     assert.equal(offered, isRoleAllowed(getAllowedRoles("/admin/annuaire") ?? undefined, role), role);
   }
   assert.deepEqual(getAllowedRoles("/admin/annuaire"), ["SUPER_ADMIN", "ADMIN_ONEFOP"]);
@@ -147,4 +147,24 @@ test("no profile references the removed ?tab=regional route", () => {
       assert.ok(!sub.href.includes("tab=regional"), `${hub.key} still links ${sub.href}`);
     }
   }
+});
+
+// The Annuaire entry lands on ?tab=users, but it is the hub's only entry on
+// that path: it must stay current on the page's other list (?tab=companies)
+// and with no ?tab= at all. A query that does tell siblings apart still must.
+test("a query on a nav entry decides only between siblings sharing its path", () => {
+  const admin = ADMIN_HUBS.find((h) => h.key === "administration")!.subRoutes;
+  const annuaire = "/admin/annuaire?tab=users";
+  const at = (qs: string) => new URLSearchParams(qs);
+  assert.equal(isSubRouteActive(annuaire, "/admin/annuaire", at("tab=users"), admin), true);
+  assert.equal(isSubRouteActive(annuaire, "/admin/annuaire", at("tab=companies"), admin), true);
+  assert.equal(isSubRouteActive(annuaire, "/admin/annuaire", at(""), admin), true);
+  assert.equal(isSubRouteActive(annuaire, "/admin/utilisateurs", at(""), admin), false);
+
+  const siblings = [
+    { label: "A", href: "/admin/x?tab=a" },
+    { label: "B", href: "/admin/x?tab=b" },
+  ];
+  assert.equal(isSubRouteActive("/admin/x?tab=a", "/admin/x", at("tab=a"), siblings), true);
+  assert.equal(isSubRouteActive("/admin/x?tab=a", "/admin/x", at("tab=b"), siblings), false);
 });
