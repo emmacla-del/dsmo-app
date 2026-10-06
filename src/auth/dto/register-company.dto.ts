@@ -100,16 +100,24 @@ export class CompanyRegistrationFieldsDto {
   // Required only when entityType === 'VOCATIONAL_TRAINING' — the Flutter
   // register_constants.dart EntityConfig for vocationalTraining marks these
   // as required (no `required: false`), but the server never enforced it.
+  // @IsDefined because the global pipe runs with skipMissingProperties: with
+  // @IsString alone a missing key passed. @ValidateIf still gates it by type.
   @ValidateIf((o) => o.entityType === 'VOCATIONAL_TRAINING')
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   cfpType?: string;
 
   @ValidateIf((o) => o.entityType === 'VOCATIONAL_TRAINING')
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   educationSystem?: string;
 
   @ValidateIf((o) => o.entityType === 'VOCATIONAL_TRAINING')
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   functionalStatus?: string;
 
   // dependsOn chain: only required when functionalStatus is 'Non-fonctionnelle'.
@@ -118,7 +126,9 @@ export class CompanyRegistrationFieldsDto {
       o.entityType === 'VOCATIONAL_TRAINING' &&
       o.functionalStatus === 'Non-fonctionnelle',
   )
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   nonFunctionalReason?: string;
 
   // dependsOn chain: only required when nonFunctionalReason is 'Autres'.
@@ -127,7 +137,9 @@ export class CompanyRegistrationFieldsDto {
       o.entityType === 'VOCATIONAL_TRAINING' &&
       o.nonFunctionalReason === 'Autres',
   )
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   nonFunctionalReasonOther?: string;
 
   @IsOptional() @IsString() promoterName?: string;

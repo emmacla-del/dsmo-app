@@ -25,6 +25,11 @@ function body(overrides: Record<string, unknown> = {}) {
     password: 'Secret123!',
     entityType: 'ENTREPRISE',
     cnpsNumber: '1234567890',
+    // Only read when entityType is VOCATIONAL_TRAINING; @ValidateIf skips
+    // them for every other type.
+    cfpType: 'Public',
+    educationSystem: 'Francophone',
+    functionalStatus: 'Fonctionnelle',
     ...overrides,
   };
   for (const k of Object.keys(b)) if (b[k] === undefined) delete b[k];
@@ -121,5 +126,55 @@ describe('RegisterCompanyDto — cnpsNumber', () => {
         assistedBody,
       ),
     ).resolves.toMatchObject({ entityType: 'ADMINISTRATION' });
+  });
+});
+
+describe('RegisterCompanyDto — VOCATIONAL_TRAINING fields', () => {
+  const vt = (o: Record<string, unknown> = {}) => body({ entityType: 'VOCATIONAL_TRAINING', ...o });
+
+  it('refuses a VT registration missing or blanking any of the three required fields', async () => {
+    for (const field of ['cfpType', 'educationSystem', 'functionalStatus']) {
+      await expect(pipe.transform(vt({ [field]: undefined }), publicBody)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(pipe.transform(vt({ [field]: '' }), publicBody)).rejects.toThrow(
+        BadRequestException,
+      );
+    }
+  });
+
+  it('requires nonFunctionalReason only when the centre is non-functional', async () => {
+    await expect(
+      pipe.transform(vt({ functionalStatus: 'Non-fonctionnelle' }), publicBody),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      pipe.transform(
+        vt({ functionalStatus: 'Non-fonctionnelle', nonFunctionalReason: 'Manque de moyens' }),
+        publicBody,
+      ),
+    ).resolves.toMatchObject({ nonFunctionalReason: 'Manque de moyens' });
+  });
+
+  it('requires nonFunctionalReasonOther only when the reason is Autres', async () => {
+    const nonFunctional = { functionalStatus: 'Non-fonctionnelle', nonFunctionalReason: 'Autres' };
+    await expect(pipe.transform(vt(nonFunctional), publicBody)).rejects.toThrow(BadRequestException);
+    await expect(
+      pipe.transform(vt({ ...nonFunctional, nonFunctionalReasonOther: 'Incendie' }), publicBody),
+    ).resolves.toMatchObject({ nonFunctionalReasonOther: 'Incendie' });
+  });
+
+  it('does not require the VT fields for other types', async () => {
+    await expect(
+      pipe.transform(
+        body({ cfpType: undefined, educationSystem: undefined, functionalStatus: undefined }),
+        publicBody,
+      ),
+    ).resolves.toMatchObject({ entityType: 'ENTREPRISE' });
+  });
+
+  it('applies the same rule to the assisted route', async () => {
+    await expect(
+      pipe.transform(vt({ cfpType: undefined, password: undefined }), assistedBody),
+    ).rejects.toThrow(BadRequestException);
   });
 });
