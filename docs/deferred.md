@@ -655,3 +655,14 @@ a human runs `npx prisma migrate deploy`). Still open from the section
 - [ ] SUPER_ADMIN_ONEFOP / SUPER_ADMIN_DSMO can open the page but not
       /system-settings (SUPER_ADMIN only), so they keep the read-only
       display. Widening @Roles is a permission change — not done.
+
+## Schema note — `Subdivision.code` nullability (2026-10-06)
+
+Low priority. Phase 6 candidate, not the establishmentId phase.
+
+- [ ] Consider making `Subdivision.code` NOT NULL (`prisma/schema.prisma`,
+      currently `String? @unique`). All 360 subdivisions are coded today, and
+      the establishment ID suffix depends on it, so registration needs no
+      fallback or rejection path for a missing code. The column constraint
+      would keep it that way for subdivisions added later. Schema change —
+      needs review per CLAUDE.md §21.
