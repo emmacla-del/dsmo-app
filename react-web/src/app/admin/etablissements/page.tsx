@@ -608,25 +608,6 @@ export default function EtablissementsPage() {
                           type="button"
                           onClick={() => {
                             setOpenMenuId(null);
-                            router.push(`/admin/etablissement-detail/approbation?id=${encodeURIComponent(item.id)}`);
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            color: "#111827",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Validation du compte
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
                             router.push(`/admin/etablissement-detail?id=${encodeURIComponent(item.id)}&manage=true`);
                           }}
                           style={{

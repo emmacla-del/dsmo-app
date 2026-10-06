@@ -7,9 +7,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   approveUser,
+  getUserDocuments,
   listCompanyRegistrations,
   rejectUser,
   requestComplements,
+  verifyUserDocument,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { formatDate, hasRealNiu } from "@/lib/companies-directory";
@@ -184,6 +186,24 @@ function InscriptionsContent() {
   const complementsMutation = useMutation({
     mutationFn: ({ id, message }: { id: string; message: string }) => requestComplements(id, message),
     onSuccess: () => done("Demande de compléments transmise."),
+    onError: failed,
+  });
+
+  // Supporting documents of the account under review (moved here from the
+  // retired /admin/etablissement-detail/approbation page). `reviewing.id` is
+  // the user id, which is what the documents endpoints take.
+  const documentsQuery = useQuery({
+    queryKey: ["auth", "users", reviewing?.id, "documents"],
+    queryFn: () => getUserDocuments(reviewing!.id),
+    enabled: !!reviewing,
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: ({ userId, kind, state }: { userId: string; kind: string; state: "VERIFIED" | "PENDING" }) =>
+      verifyUserDocument(userId, kind, state),
+    onSuccess: (_data, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ["auth", "users", userId, "documents"] });
+    },
     onError: failed,
   });
 
@@ -399,6 +419,7 @@ function InscriptionsContent() {
           <div>
             <p>Type : <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
             <p>NIU : {hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber : "—"}{reviewing.cnpsNumber ? ` — CNPS : ${reviewing.cnpsNumber}` : ""}</p>
+            <p>Enregistré le : {formatDate(reviewing.submittedAt)}</p>
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 {reviewing.duplicateHints.map((hint) => <p key={hint} style={{ margin: 0 }}>{hint}</p>)}
@@ -433,6 +454,57 @@ function InscriptionsContent() {
                 )}
               </div>
             )}
+            <div>
+              <p style={{ marginBottom: 4 }}><strong>Pièces justificatives</strong></p>
+              {documentsQuery.isLoading ? (
+                <p style={{ margin: 0 }}>Chargement des pièces justificatives…</p>
+              ) : documentsQuery.isError ? (
+                <p style={{ margin: 0 }}>Impossible de charger les pièces justificatives.</p>
+              ) : (documentsQuery.data?.items ?? []).length === 0 ? (
+                <p style={{ margin: 0 }}>Aucune pièce justificative enregistrée.</p>
+              ) : (
+                <table className="cam-dash-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Pièce</th>
+                      <th scope="col">État</th>
+                      <th scope="col"><span className="sr-only">Action</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(documentsQuery.data?.items ?? []).map((doc) => {
+                      const isVerified = doc.state === "VERIFIED";
+                      return (
+                        <tr key={doc.kind}>
+                          <th scope="row">{doc.label}</th>
+                          <td>
+                            {isVerified && doc.verifiedBy
+                              ? `Vérifié par ${doc.verifiedBy} le ${formatDate(doc.verifiedAt)}`
+                              : "En attente de vérification formelle"}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="cam-button cam-button-secondary cam-button-sm"
+                              disabled={verifyMutation.isPending}
+                              onClick={() =>
+                                verifyMutation.mutate({
+                                  userId: reviewing.id,
+                                  kind: doc.kind,
+                                  state: isVerified ? "PENDING" : "VERIFIED",
+                                })
+                              }
+                            >
+                              {isVerified ? "✓ Vérifié" : "Marquer vérifié"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
             {reviewing.requiresCentralStructureCheck && (
               <label className="cam-admin-choice">
                 <input type="checkbox" checked={centralChecked} onChange={(e) => setCentralChecked(e.target.checked)} />
