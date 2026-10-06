@@ -86,7 +86,7 @@ model Department {
 model Subdivision {
   id                String             @id @default(uuid())
   name              String
-  code              String?            @unique
+  code              String             @unique
   nameEn            String?
   departmentId      String
   createdAt         DateTime           @default(now())
