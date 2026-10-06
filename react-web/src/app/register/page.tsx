@@ -1238,6 +1238,7 @@ export default function RegisterPage() {
                 htmlFor="reg-email"
                 label={t("registerPage.professionalEmailLabel")}
                 required
+                hint={t("registerPage.emailRoleHint")}
              
                 error={invalidProps("reg-email").message}
                 errorId="reg-email-error"

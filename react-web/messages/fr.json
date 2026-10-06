@@ -304,6 +304,7 @@
     "functionLabel": "Fonction",
     "selectPlaceholder": "— Sélectionner —",
     "professionalEmailLabel": "Email professionnel",
+    "emailRoleHint": "Cet email est votre identifiant de connexion et le contact de votre entité auprès de l'ONEFOP.",
     "emailUnavailable": "Adresse déjà utilisée",
     "emailAvailable": "Disponible",
     "phone1Label": "Téléphone 1",

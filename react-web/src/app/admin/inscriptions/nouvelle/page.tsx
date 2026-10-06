@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DIRECTORY_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
@@ -70,6 +71,7 @@ const EMPTY_RESPONDENT: Respondent = {
 
 export default function NouvelleInscriptionPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(DIRECTORY_ROLES);
+  const t = useTranslations("registerPage");
 
   // A territorial admin registers inside its own ressort, so its assignment is
   // the starting point. A national role starts empty and picks. The server
@@ -266,9 +268,9 @@ export default function NouvelleInscriptionPage() {
           <FieldGrid>
             <Text label="Prénom" required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
             <Text label="Nom" required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
-            <Text label="Adresse e-mail" required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))} hint="Identifiant de connexion du déclarant." />
+            <Text label="Adresse e-mail" required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))} hint={t("emailRoleHint")} />
             <Text label="Fonction" value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
-            <Text label="Téléphone" type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
+            <Text label="Téléphone du déclarant" type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
             <Text label="Téléphone 2" type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
           </FieldGrid>
         </Section>
