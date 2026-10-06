@@ -368,7 +368,7 @@ function SubmissionDetailContent() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>
-                Soumission #{ref}
+                Dossier #{ref}
               </h1>
               {/* Badge reflects the dossier's stored status. A record with no
                   status says so rather than defaulting to "en attente". */}

@@ -206,7 +206,7 @@ function ParametresContent() {
       {/* ── Top Header matching Figma administration/parametres.png ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Administration" }, { label: "Paramètres" }]}
-        title="Paramètres du Système"
+        title="Paramètres"
         subtitle="Configuration générale, gestion des utilisateurs et sécurité"
         actions={
           <AdminHeaderActions

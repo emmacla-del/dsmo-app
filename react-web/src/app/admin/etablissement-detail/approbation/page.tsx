@@ -201,7 +201,7 @@ function Approbation() {
           { label: "Établissements", href: "/admin/etablissements" },
           { label: "Validation du compte" },
         ]}
-        title="Validation du compte déclarant"
+        title={company.name ? `Validation du compte — ${company.name}` : "Validation du compte"}
         subtitle="Décision administrative sur un dossier d'inscription"
         hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}

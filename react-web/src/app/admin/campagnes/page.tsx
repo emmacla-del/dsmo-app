@@ -174,7 +174,7 @@ export default function CampagnesPage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Collecte" }, { label: "Campagnes" }]}
-        title="Campagnes Nationales de Recensement"
+        title="Campagnes"
         actions={
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
             <AdminHeaderActions />

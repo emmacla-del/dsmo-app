@@ -60,7 +60,7 @@ export default function QuestionnairesPage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Collecte" }, { label: "Questionnaires" }]}
-        title="Questionnaires Homologués ONEFOP"
+        title="Questionnaires"
         subtitle="Modèles nationaux de fiches d'enquête et de déclaration pour le recueil statistique DSMO"
         actions={<AdminHeaderActions />}
       />

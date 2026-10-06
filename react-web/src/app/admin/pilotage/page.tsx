@@ -456,7 +456,7 @@ export default function PilotagePage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Supervision" }, { label: "Tableau de bord" }]}
-        title="Observatoire National de l'Emploi"
+        title="Tableau de bord"
         actions={<AdminHeaderActions />}
       />
 

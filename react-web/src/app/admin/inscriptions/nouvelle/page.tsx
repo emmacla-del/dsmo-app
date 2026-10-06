@@ -222,7 +222,7 @@ export default function NouvelleInscriptionPage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions", href: "/admin/inscriptions" }, { label: "Nouvelle inscription" }]}
-        title="Nouvelle inscription assistée"
+        title="Nouvelle inscription"
         backHref="/admin/inscriptions"
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />

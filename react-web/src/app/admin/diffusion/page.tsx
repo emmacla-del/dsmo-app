@@ -452,7 +452,7 @@ export default function DiffusionPage() {
       {/* ── Top App Bar (AdminPageHeader with right search, territory & flag) ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Données" }, { label: "Exports" }]}
-        title="Gestion des Données et Exports"
+        title="Exports"
         subtitle="Gérer, filtrer et exporter les données collectées - Campagne 2026"
         actions={
           <AdminHeaderActions
