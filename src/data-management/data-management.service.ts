@@ -16,6 +16,7 @@ import {
 } from './spss/export-filters';
 import { Territory, territoryWhere, territoryWhereForDeclaration, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
+import { hasRealNiu } from './niu';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1271,7 +1272,8 @@ export class DataManagementService {
             surveyYear: s.surveyYear,
             quarterCode: s.quarterCode,
             companyName: s.company?.name ?? null,
-            taxNumber: s.company?.taxNumber ?? s.taxNumber ?? null,
+            // A synthetic NA-<uuid> placeholder exports as an empty cell.
+            taxNumber: [s.company?.taxNumber, s.taxNumber].find(hasRealNiu) ?? null,
             establishmentId: s.company?.establishmentId ?? s.establishmentId ?? null,
             region: s.region ?? s.company?.region ?? null,
             department: s.department ?? s.company?.department ?? null,
