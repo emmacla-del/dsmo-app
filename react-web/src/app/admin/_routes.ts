@@ -27,7 +27,14 @@ export type HubKey =
   | "administration";
 
 export interface AdminSubRoute {
+  /** French label; the fallback when `labelKey` is absent. */
   label: string;
+  /**
+   * Message key under `adminNav.routes` that renders this entry in the
+   * console locale. Optional so ad-hoc sub-routes (tests, page-local tabs)
+   * can still pass a plain label.
+   */
+  labelKey?: string;
   href: string;
   badgeKey?: "pending" | "inscriptions" | "anomalies";
   allowedRoles?: readonly UserRole[];
@@ -42,6 +49,7 @@ export interface AdminSubRoute {
 
 export interface AdminHub {
   key: HubKey;
+  /** French label. Rendered through `adminNav.hubs.<key>` in the console locale. */
   label: string;
   href: string;
   iconName: "dashboard" | "collecte" | "declarants" | "quality" | "data" | "settings";
@@ -62,13 +70,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     badgeKey: "pending",
     matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/equipe"],
     subRoutes: [
-      { label: "Tableau de bord", href: "/admin/pilotage" },
-      { label: "Dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
+      { label: "Tableau de bord", labelKey: "pilotage", href: "/admin/pilotage" },
+      { label: "Dossiers", labelKey: "dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
       // Territorial admin monitoring (Phase 4 of the territorial admin
       // monitoring plan). Moved here from Administration: it follows the
       // agents' daily work, it does not configure anything — and it was the
       // only reason REGIONAL_ADMIN saw an Administration hub at all.
-      { label: "Équipe territoriale", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
+      { label: "Équipe territoriale", labelKey: "equipe", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
     ],
   },
   {
@@ -79,11 +87,11 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: APPROVAL_ROLES,
     matchPrefixes: ["/admin/campagnes", "/admin/cibles", "/admin/questionnaires"],
     subRoutes: [
-      { label: "Campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
+      { label: "Campagnes", labelKey: "campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
       // Moved here from Supervision: quotas are set per campaign and returns
       // are measured against them, so they sit next to the campaign list.
-      { label: "Quotas et retours", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
-      { label: "Questionnaires", href: "/admin/questionnaires", allowedRoles: APPROVAL_ROLES },
+      { label: "Quotas et retours", labelKey: "cibles", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
+      { label: "Questionnaires", labelKey: "questionnaires", href: "/admin/questionnaires", allowedRoles: APPROVAL_ROLES },
     ],
   },
   {
@@ -94,7 +102,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     badgeKey: "inscriptions",
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
-      { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
+      { label: "Inscriptions", labelKey: "inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
       // Admin-assisted registration (Phase 2 of the territorial admin
       // monitoring plan). `hidden` keeps it out of the sidebar and the tab
       // row: it is a form, not a destination, and /admin/inscriptions' own
@@ -102,8 +110,8 @@ export const ADMIN_HUBS: AdminHub[] = [
       // its path nests under /admin/inscriptions and getAllowedRoles() takes
       // the longest matching prefix, so this entry — not the queue's — gates
       // it.
-      { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES, hidden: true },
-      { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
+      { label: "Nouvelle inscription", labelKey: "nouvelleInscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES, hidden: true },
+      { label: "Établissements", labelKey: "etablissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       // Annuaire moved to Administration: it is account administration, and
       // its page admits USER_ADMIN_ROLES only — listed here under
       // DIRECTORY_ROLES, it showed territorial roles a link that refused them.
@@ -111,7 +119,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // has roles to gate them with — unlisted, RequireAdminRole found no
       // match and let any staff role through, AUDITOR included. `hidden`
       // keeps them out of the sidebar and the sub-navigation tabs.
-      { label: "Détail établissement", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_ROLES, hidden: true },
+      { label: "Détail établissement", labelKey: "etablissementDetail", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_ROLES, hidden: true },
     ],
   },
   {
@@ -123,7 +131,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: ADMIN_ROLES,
     matchPrefixes: ["/admin/centre-qualite"],
     subRoutes: [
-      { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
+      { label: "Centre Qualité", labelKey: "centreQualite", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
       // The "Anomalies" entry pointed at /admin/files-attente?tab=anomalies.
       // That page rendered the same blocking-anomaly registry and the same
       // resolution dialog /admin/centre-qualite already carries, so it was
@@ -146,8 +154,8 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: NATIONAL_ROLES,
     matchPrefixes: ["/admin/diffusion", "/admin/sectors"],
     subRoutes: [
-      { label: "Exports", href: "/admin/diffusion", allowedRoles: NATIONAL_ROLES },
-      { label: "Nomenclatures", href: "/admin/sectors", allowedRoles: NATIONAL_ROLES },
+      { label: "Exports", labelKey: "diffusion", href: "/admin/diffusion", allowedRoles: NATIONAL_ROLES },
+      { label: "Nomenclatures", labelKey: "sectors", href: "/admin/sectors", allowedRoles: NATIONAL_ROLES },
     ],
   },
   {
@@ -159,13 +167,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...SETTINGS_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/annuaire", "/admin/journal-audit"],
     subRoutes: [
-      { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Utilisateurs & rôles", labelKey: "utilisateurs", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
       // Formerly /home/annuaire under Déclarants, outside the console shell.
       // Opens on the accounts list (?tab=users), as the former entry did; the
       // page itself defaults to Entités, which is all ADMIN_ONEFOP is shown.
-      { label: "Annuaire", href: "/admin/annuaire?tab=users", allowedRoles: USER_ADMIN_ROLES },
-      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
-      { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
+      { label: "Annuaire", labelKey: "annuaire", href: "/admin/annuaire?tab=users", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Journal d'audit", labelKey: "journalAudit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
+      { label: "Paramètres", labelKey: "parametres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
       // The caller's own notification inbox, reached from the header bell.
       // `hidden` keeps it out of the sidebar and the tab row — it is not a
       // destination inside this hub. It is listed only so
@@ -174,7 +182,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // every role may read its own inbox (ALL_ROLES), but an unrecognised
       // role string now fails closed at RequireAdminRole rather than falling
       // through an absent gate.
-      { label: "Notifications", href: "/admin/notifications", allowedRoles: ALL_ROLES, hidden: true },
+      { label: "Notifications", labelKey: "notifications", href: "/admin/notifications", allowedRoles: ALL_ROLES, hidden: true },
     ],
   },
 ];

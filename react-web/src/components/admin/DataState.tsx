@@ -9,6 +9,8 @@
 // data or shows the absence of it.
 
 import type { ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
 import {
   dataStateMessage,
   errorDetail,
@@ -26,7 +28,10 @@ const TONES: Record<Exclude<State, "ready">, { bg: string; border: string; color
 
 export interface DataStateProps {
   state: State;
-  /** Lower-case noun phrase, e.g. "les dossiers", used in the message. */
+  /**
+   * Lower-case noun phrase, e.g. "les dossiers", used in the message. Pass it
+   * in the console locale; it is interpolated as-is.
+   */
   resource: string;
   /** Overrides the default headline for this state. */
   title?: string;
@@ -41,10 +46,12 @@ export interface DataStateProps {
 }
 
 export function DataState({ state, resource, title, hint, error, onRetry, dense }: DataStateProps) {
+  const tCommon = useTranslations("common");
+  const locale = asUiLocale(useLocale());
   if (state === "ready") return null;
 
   const tone = TONES[state];
-  const headline = title ?? dataStateMessage(state, resource) ?? "";
+  const headline = title ?? dataStateMessage(state, resource, locale) ?? "";
   const detail = state === "error" ? errorDetail(error) : null;
 
   return (
@@ -90,7 +97,7 @@ export function DataState({ state, resource, title, hint, error, onRetry, dense 
             cursor: "pointer",
           }}
         >
-          Réessayer
+          {tCommon("retry")}
         </button>
       )}
     </div>

@@ -9,6 +9,7 @@
 // it with a 409 when the account has linked declarations/submissions/
 // notifications, but otherwise it is permanent).
 import { apiFetch } from "./api-client";
+import type { UiLocale } from "./register-i18n";
 
 export interface DirectoryUser {
   id: string;
@@ -280,17 +281,27 @@ export function createMinefopUser(body: CreateMinefopUserBody) {
 
 export { TERRITORIAL_ROLES, ADMIN_ROLES as ASSIGNABLE_ROLES } from "./roles";
 
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super administrateur",
-  ADMIN_ONEFOP: "Admin ONEFOP",
-  REGIONAL_ADMIN: "Régional",
-  DIVISIONAL_ADMIN: "Divisionnaire",
-  AUDITOR: "Auditeur",
-  COMPANY: "Entreprise",
+const ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
+  fr: {
+    SUPER_ADMIN: "Super administrateur",
+    ADMIN_ONEFOP: "Admin ONEFOP",
+    REGIONAL_ADMIN: "Régional",
+    DIVISIONAL_ADMIN: "Divisionnaire",
+    AUDITOR: "Auditeur",
+    COMPANY: "Entreprise",
+  },
+  en: {
+    SUPER_ADMIN: "Super administrator",
+    ADMIN_ONEFOP: "ONEFOP administrator",
+    REGIONAL_ADMIN: "Regional",
+    DIVISIONAL_ADMIN: "Departmental",
+    AUDITOR: "Auditor",
+    COMPANY: "Company",
+  },
 };
 
-export function directoryRoleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role.replace(/_/g, " ");
+export function directoryRoleLabel(role: string, locale: UiLocale = "fr"): string {
+  return ROLE_LABELS[locale][role] ?? role.replace(/_/g, " ");
 }
 
 const ROLE_COLORS: Record<string, string> = {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { getPilotageQueues } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
@@ -17,8 +18,9 @@ interface BreadcrumbItem {
 }
 
 function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
+  const t = useTranslations("adminPageHeader");
   return (
-    <nav aria-label="Fil d'Ariane" style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
+    <nav aria-label={t("breadcrumbAriaLabel")} style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
       {items.map((item, i) => (
         <span key={i}>
           {i > 0 && <span aria-hidden="true" style={{ margin: "0 6px" }}>›</span>}
@@ -85,6 +87,8 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const role = useAuthStore((s) => s.user?.role);
+  const t = useTranslations("adminPageHeader");
+  const tNav = useTranslations("adminNav");
 
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
@@ -99,7 +103,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   if (customTabs && customTabs.length > 0) {
     return (
       <nav
-        aria-label="Sous-navigation"
+        aria-label={t("subNavAriaLabel")}
         className="cam-admin-tabs"
         style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
       >
@@ -136,7 +140,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
     // Navigation links, not ARIA tabs: there are no tab panels, so the row
     // is a labelled <nav> and the current page carries aria-current.
     <nav
-      aria-label="Sous-navigation"
+      aria-label={t("subNavAriaLabel")}
       className="cam-admin-tabs"
       style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
     >
@@ -155,7 +159,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
             className="cam-admin-tab"
             style={{ textDecoration: "none" }}
           >
-            {sub.label}
+            {sub.labelKey ? tNav(`routes.${sub.labelKey}`) : sub.label}
             {badge !== undefined && badge > 0 && (
               <span className={`cam-admin-tab-count${sub.badgeKey === "anomalies" ? " is-alert" : ""}`}>
                 {badge > 99 ? "99+" : badge}
@@ -209,6 +213,7 @@ export function AdminPageHeader({
   tabs,
   hideTabs = false,
 }: AdminPageHeaderProps) {
+  const t = useTranslations("adminPageHeader");
   const shouldHideTabs = hideTabs || (backHref !== undefined && tabs === undefined);
 
   return (
@@ -233,7 +238,7 @@ export function AdminPageHeader({
           {backHref && (
             <Link
               href={backHref}
-              aria-label="Retour"
+              aria-label={t("backAriaLabel")}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

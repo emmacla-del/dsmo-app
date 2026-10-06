@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function AdminError({
   error,
@@ -10,6 +11,8 @@ export default function AdminError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("adminError");
+
   useEffect(() => {
     // Log the error to client console for diagnostics
     console.error("Admin route error caught by boundary:", error);
@@ -54,7 +57,7 @@ export default function AdminError({
           margin: "0 0 var(--cam-space-2)",
         }}
       >
-        Une erreur est survenue lors du chargement
+        {t("title")}
       </h1>
 
       <p
@@ -66,7 +69,7 @@ export default function AdminError({
           margin: "0 0 var(--cam-space-5)",
         }}
       >
-        {error?.message || "Le module d'administration n'a pas pu s'initialiser correctement. Si un nouveau déploiement vient d'avoir lieu, actualisez la page pour charger la dernière version."}
+        {error?.message || t("fallbackMessage")}
       </p>
 
       <div style={{ display: "flex", gap: "var(--cam-space-3)", flexWrap: "wrap", justifyContent: "center" }}>
@@ -82,7 +85,7 @@ export default function AdminError({
           className="cam-button cam-button-primary"
           style={{ padding: "0.625rem 1.25rem" }}
         >
-          Réessayer / Actualiser
+          {t("retryButton")}
         </button>
 
         <Link
@@ -90,7 +93,7 @@ export default function AdminError({
           className="cam-button cam-button-secondary"
           style={{ textDecoration: "none", padding: "0.625rem 1.25rem" }}
         >
-          Retour à la supervision
+          {t("backToSupervision")}
         </Link>
       </div>
 
@@ -103,7 +106,7 @@ export default function AdminError({
             fontFamily: "monospace",
           }}
         >
-          Code diagnostic : {error.digest}
+          {t("diagnosticCode", { digest: error.digest })}
         </span>
       )}
     </div>

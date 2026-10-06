@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
 import { useAuthStore } from "@/lib/auth-store";
@@ -93,10 +95,11 @@ function HubIcon({ name }: { name: AdminHub["iconName"] }) {
 // ── Badge pill ────────────────────────────────────────────────────────────────
 
 function Badge({ count }: { count: number }) {
+  const t = useTranslations("adminSidebar");
   if (count <= 0) return null;
   return (
     <span
-      aria-label={`${count} éléments`}
+      aria-label={t("badgeAriaLabel", { count })}
       style={{
         marginLeft: "auto",
         minWidth: 20,
@@ -133,6 +136,8 @@ export function AdminSidebar({
   const searchParams = useSearchParams();
   const router = useRouter();
   const authLogout = useAuthStore((s) => s.logout);
+  const t = useTranslations("adminSidebar");
+  const tNav = useTranslations("adminNav");
 
   const handleLogout = () => {
     if (onLogout) {
@@ -162,7 +167,7 @@ export function AdminSidebar({
     <aside
       id="cam-admin-rail"
       className="cam-admin-rail"
-      aria-label="Navigation principale"
+      aria-label={t("navAriaLabel")}
       style={{
         flexShrink: 0,
         display: "flex",
@@ -192,7 +197,7 @@ export function AdminSidebar({
             NEFOP
           </div>
           <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
-            Observatoire National
+            {t("brandSubtitle")}
           </div>
         </div>
         {/* Cameroon stripes */}
@@ -251,7 +256,7 @@ export function AdminSidebar({
               </span>
 
               <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {hub.label}
+                {tNav(`hubs.${hub.key}`)}
               </span>
 
               {badgeCount > 0 && <Badge count={badgeCount} />}
@@ -338,10 +343,17 @@ export function AdminSidebar({
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              <span>Se déconnecter</span>
+              <span>{t("logoutButton")}</span>
             </button>
           </div>
         )}
+
+        {/* Console language. The rail is the one element every admin page
+            renders (several pages carry no header actions), so the switcher
+            lives here rather than in AdminHeaderActions. */}
+        <div style={{ marginTop: user ? 10 : 0, display: "flex", justifyContent: "center" }}>
+          <LocaleSwitcher variant="masthead" />
+        </div>
       </div>
     </aside>
   );

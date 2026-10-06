@@ -1153,5 +1153,86 @@
     "selectAllThatApply": "Select all that apply",
     "decrease": "Decrease",
     "increase": "Increase"
+  },
+  "adminNav": {
+    "hubs": {
+      "supervision": "Supervision",
+      "collecte": "Collection",
+      "declarants": "Respondents",
+      "qualite": "Quality control",
+      "donnees": "Data",
+      "administration": "Administration"
+    },
+    "routes": {
+      "pilotage": "Dashboard",
+      "dossiers": "Files",
+      "equipe": "Territorial team",
+      "campagnes": "Campaigns",
+      "cibles": "Quotas and returns",
+      "questionnaires": "Questionnaires",
+      "inscriptions": "Registrations",
+      "nouvelleInscription": "New registration",
+      "etablissements": "Establishments",
+      "etablissementDetail": "Establishment details",
+      "centreQualite": "Quality centre",
+      "diffusion": "Exports",
+      "sectors": "Classifications",
+      "utilisateurs": "Users & roles",
+      "annuaire": "Directory",
+      "journalAudit": "Audit log",
+      "parametres": "Settings",
+      "notifications": "Notifications"
+    }
+  },
+  "adminLayout": {
+    "sectorsSubtitle": "National classification of occupations and economic sectors",
+    "accessDeniedTitle": "Restricted access",
+    "accessDeniedMessage": "This administration console is reserved for accredited MINEFOP officers and auditors.",
+    "backToPortal": "← Back to the portal",
+    "defaultDisplayName": "Officer account",
+    "defaultRoleLabel": "Officer",
+    "openMenuAriaLabel": "Open menu",
+    "closeMenuAriaLabel": "Close menu"
+  },
+  "adminSidebar": {
+    "navAriaLabel": "Main navigation",
+    "brandSubtitle": "National Observatory",
+    "badgeAriaLabel": "{count, plural, one {# item} other {# items}}",
+    "logoutButton": "Sign out"
+  },
+  "adminHeaderActions": {
+    "noActiveCampaign": "No active campaign",
+    "campaignCode": "Campaign {code}",
+    "campaignQuarter": "Campaign {year}-Q{quarter}",
+    "scopeTitle": "Territory",
+    "scopeChip": "Territory: {scope}",
+    "searchPlaceholder": "Search...",
+    "searchAriaLabel": "Search",
+    "searchTitle": "Search",
+    "flagAriaLabel": "Cameroon",
+    "flagTitle": "Republic of Cameroon"
+  },
+  "adminPageHeader": {
+    "breadcrumbAriaLabel": "Breadcrumb",
+    "subNavAriaLabel": "Sub-navigation",
+    "backAriaLabel": "Back"
+  },
+  "adminDialog": {
+    "closeAriaLabel": "Close"
+  },
+  "notificationBell": {
+    "title": "Notifications",
+    "buttonLabel": "{count, plural, =0 {Notifications} other {Notifications (# unread)}}",
+    "loadError": "Unable to load notifications.",
+    "empty": "No notifications.",
+    "unreadAriaLabel": "Unread",
+    "viewAll": "View all"
+  },
+  "adminError": {
+    "title": "An error occurred while loading",
+    "fallbackMessage": "The administration module could not start correctly. If a new version has just been deployed, reload the page to load it.",
+    "retryButton": "Retry / Reload",
+    "backToSupervision": "Back to supervision",
+    "diagnosticCode": "Diagnostic code: {digest}"
   }
 }
