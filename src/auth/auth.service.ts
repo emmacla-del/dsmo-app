@@ -23,6 +23,8 @@ import { toPublicUser } from './public-user';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import {
+  emptyValueRefusalMessage,
+  emptyVerificationRows,
   missingVerificationFlags,
   verificationAuditDetails,
   verificationRefusalMessage,
@@ -1698,7 +1700,19 @@ export class AuthService {
     }
     // The reviewer's marks on the entity's identifying values, enforced the
     // same way and at the same point: every row that applies to this entity
-    // type must be strictly `true`, or nothing is written.
+    // type must hold a value and be marked strictly `true`, or nothing is
+    // written. An empty value is refused first, with its own message, because
+    // no mark can fix it: the company has to send a correction.
+    const verifiedValues = {
+      name: company.name,
+      phone: company.phone ?? null,
+      contactEmail: user.email,
+      cnpsNumber: company.cnpsNumber ?? null,
+    };
+    const emptyRows = emptyVerificationRows(company.entityType, verifiedValues);
+    if (emptyRows.length > 0) {
+      throw new BadRequestException(emptyValueRefusalMessage(emptyRows));
+    }
     const missingFlags = missingVerificationFlags(company.entityType, options);
     if (missingFlags.length > 0) {
       throw new BadRequestException(verificationRefusalMessage(missingFlags));
@@ -1762,12 +1776,7 @@ export class AuthService {
               details: {
                 companyId: company.id,
                 establishmentId: issued,
-                verification: verificationAuditDetails(company.entityType, {
-                  name: company.name,
-                  phone: company.phone ?? null,
-                  contactEmail: user.email,
-                  cnpsNumber: company.cnpsNumber ?? null,
-                }),
+                verification: verificationAuditDetails(company.entityType, verifiedValues),
               },
             },
           });
