@@ -742,10 +742,11 @@ Shipped in ebd5dfa5 (scope) and 38a3fa49 (exact match).
   (employment, employment-by-location, recruitment-by-location,
   departures-by-location), runs inside their own territory. An unassigned
   territorial admin gets no results.
-- [ ] The legacy `src/analytics/onefop-analytics.service.ts` (used by
-      `/reports/*`, ADMIN_ONEFOP / SUPER_ADMIN only) keeps its own `contains`
-      builder (`:59-63`), so the same Nord/Ouest/Sud over-count applies to
-      reports. Not changed in this batch.
+- **Figures-changing change (2026-10-06, reports).** The legacy
+  `src/analytics/onefop-analytics.service.ts` behind `/reports/*`
+  (ADMIN_ONEFOP / SUPER_ADMIN only) had the same `contains` builder; it now
+  matches exactly too, so reports filtered on Nord, Ouest or Sud change. ONEFOP
+  domain owner to be notified alongside the analytics change above.
 - [ ] `/dsmo/analytics/*` (DSMO declarations) takes `?region=` with no caller
       scope; same gap, separate fix with `territoryWhereForDeclaration`.
 - Flutter: territorial users' filters are already locked to their own
