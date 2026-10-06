@@ -1,23 +1,19 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
-import { directoryRoleLabel } from "@/lib/user-directory";
-import { entityTypeLabel } from "@/lib/companies-directory";
 import type { UserRole } from "@/lib/user-types";
 import {
   COUNTRY_OPTIONS,
-  LANGUAGE_OPTIONS,
   TIMEZONE_OPTIONS,
   getSystemSettings,
   updateObservatoryIdentity,
 } from "@/lib/system-settings";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import {
   auditActionLabel,
@@ -26,7 +22,6 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { resolveDataState, stamp } from "@/lib/admin-data-state";
-import { listCampaigns } from "@/lib/campaigns";
 import { AUDIT_ROLES, SETTINGS_ROLES } from "@/lib/roles";
 
 const RECENT_AUDIT_LIMIT = 6;
@@ -79,16 +74,6 @@ const SYSTEM_ROLE_DETAILS: Record<UserRole, RolePermissionItem> = {
   },
 };
 
-const ENTITY_TYPES = [
-  "ENTREPRISE",
-  "ADMINISTRATION",
-  "PROJECT_PROGRAM",
-  "VOCATIONAL_TRAINING",
-  "COOPERATIVE",
-  "CTD",
-  "ONG",
-];
-
 export default function ParametresPage() {
   return (
     <Suspense fallback={null}>
@@ -136,31 +121,8 @@ function ParametresContent() {
   const [timezone, setTimezone] = useState("Africa/Douala");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const campaignsQuery = useQuery({
-    queryKey: ["campaigns", "all"],
-    queryFn: () => listCampaigns(),
-  });
-
-  // Collection settings state
-  const [defaultCampaign, setDefaultCampaign] = useState("");
-  const [maxFichesSupervisor, setMaxFichesSupervisor] = useState(500);
-  const [submissionDelayDays, setSubmissionDelayDays] = useState(30);
-  const [offlineAllowed, setOfflineAllowed] = useState(true);
-  const [autoValidation, setAutoValidation] = useState(false);
-
   // Authoritative statutory system roles, in declaration order.
   const roles = Object.entries(SYSTEM_ROLE_DETAILS) as Array<[UserRole, RolePermissionItem]>;
-
-  useEffect(() => {
-    if (campaignsQuery.data && campaignsQuery.data.length > 0 && !defaultCampaign) {
-      const active = campaignsQuery.data.find((c) => c.status === "ACTIVE");
-      setDefaultCampaign(active?.code || active?.name || campaignsQuery.data[0].code || campaignsQuery.data[0].name || "");
-    }
-  }, [campaignsQuery.data, defaultCampaign]);
-
-  // Preserved advanced settings toggle
-  const [showAdvancedPanels, setShowAdvancedPanels] = useState(false);
-  const [advancedTab, setAdvancedTab] = useState<"territoires" | "etablissements" | "notifications" | "securite" | "integration">("territoires");
 
   // Sync initial stored settings
   useMemo(() => {
@@ -207,7 +169,7 @@ function ParametresContent() {
       <AdminPageHeader
         breadcrumb={[{ label: "Administration" }, { label: "Paramètres" }]}
         title="Paramètres"
-        subtitle="Configuration générale, gestion des utilisateurs et sécurité"
+        subtitle="Identité de l'observatoire, rôles et journal d'audit"
         actions={
           <AdminHeaderActions
             showCampaignPill={false}
@@ -223,98 +185,10 @@ function ParametresContent() {
         </div>
       )}
 
-      {/* ── 2-Column Layout matching Figma administration/parametres.png ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* ── Single column: identity, roles, recent audit ── */}
+      <div className="flex flex-col gap-6">
 
-        {/* ── Left Column: advanced configuration links ── */}
-        <div className="lg:col-span-4 flex flex-col gap-5">
-          {/* Preserved Granular Configurations Section (Zero widget drop) */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedPanels(!showAdvancedPanels)}
-              className="w-full text-left text-xs font-bold text-slate-800 flex items-center justify-between cursor-pointer"
-            >
-              <span>Configurations Système Détaillées</span>
-              <span className="text-[#006644] font-normal">{showAdvancedPanels ? "▲ Masquer" : "▼ Développer"}</span>
-            </button>
-
-            {showAdvancedPanels && (
-              <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
-                <div className="flex flex-col gap-1">
-                  {[
-                    { key: "territoires", label: "Périmètres géographiques" },
-                    { key: "etablissements", label: "Types d'établissement" },
-                    { key: "notifications", label: "Notifications & SMTP" },
-                    { key: "securite", label: "Sécurité & JWT" },
-                    { key: "integration", label: "Intégration backend" },
-                  ].map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => setAdvancedTab(t.key as any)}
-                      className={`text-left px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                        advancedTab === t.key
-                          ? "bg-[#006644] text-white"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-600">
-                  {advancedTab === "territoires" && (
-                    <div className="space-y-1.5">
-                      <p><strong>Divisionnaire :</strong> Département assigné</p>
-                      <p><strong>Régional :</strong> Région assignée</p>
-                      <p><strong>Central :</strong> Niveau national</p>
-                      <p><strong>Super administrateur :</strong> Plateforme complète</p>
-                    </div>
-                  )}
-
-                  {advancedTab === "etablissements" && (
-                    <ul className="space-y-1 list-disc pl-4">
-                      {ENTITY_TYPES.map((t) => (
-                        <li key={t}>{entityTypeLabel(t)}</li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {advancedTab === "notifications" && (
-                    <div className="space-y-1.5">
-                      <p><strong>Expéditeur SMTP :</strong> noreply@onefop.cm</p>
-                      <p><strong>Service :</strong> Resend API</p>
-                      <p><strong>Rappels :</strong> Planifiés automatiquement pour les campagnes actives.</p>
-                    </div>
-                  )}
-
-                  {advancedTab === "securite" && (
-                    <div className="space-y-1.5">
-                      <p><strong>Mécanisme :</strong> JWT Bearer token</p>
-                      <p><strong>Durée de validité :</strong> 8 heures par défaut</p>
-                      <p><strong>Double authentification :</strong> Optionnelle</p>
-                    </div>
-                  )}
-
-                  {advancedTab === "integration" && (
-                    <div className="space-y-1.5">
-                      <p><strong>Backend :</strong> NestJS + TypeScript</p>
-                      <p><strong>Base de données :</strong> PostgreSQL (Prisma)</p>
-                      <p><strong>Formats d&apos;export :</strong> SPSS (.sav), CSV, Excel</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Right Column: 4 Cards Stack (Figma administration/parametres.png) ── */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-
-          {/* ── Card 1: Informations de l'Observatoire ── */}
+          {/* ── Informations de l'Observatoire ── */}
           <section
             aria-labelledby="obs-info-title"
             className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
@@ -427,128 +301,7 @@ function ParametresContent() {
             </form>
           </section>
 
-          {/* ── Card 2: Paramètres de Collecte ── */}
-          <section
-            aria-labelledby="collecte-params-title"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="mb-5">
-              <h2 id="collecte-params-title" className="text-base font-bold text-slate-900">
-                Paramètres de Collecte
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              {/* Campagne active & max fiches row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="param-campagne" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                    Campagne active par défaut
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="param-campagne"
-                      value={defaultCampaign}
-                      onChange={(e) => setDefaultCampaign(e.target.value)}
-                      className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
-                    >
-                      {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
-                        campaignsQuery.data.map((c) => (
-                          <option key={c.id} value={c.code || c.name || c.id}>
-                            {c.name || c.code || c.id}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">
-                          {campaignsQuery.isLoading ? "Chargement des campagnes…" : "Aucune campagne enregistrée"}
-                        </option>
-                      )}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="1 1 5 5 9 1" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="param-max-fiches" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                    Nombre maximum de fiches par superviseur
-                  </label>
-                  <input
-                    id="param-max-fiches"
-                    type="number"
-                    min={10}
-                    max={5000}
-                    value={maxFichesSupervisor}
-                    onChange={(e) => setMaxFichesSupervisor(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Délai de soumission */}
-              <div className="sm:w-1/2 sm:pr-2">
-                <label htmlFor="param-delay" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                  Délai de soumission (jours)
-                </label>
-                <input
-                  id="param-delay"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={submissionDelayDays}
-                  onChange={(e) => setSubmissionDelayDays(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div className="border-t border-slate-100 my-5" />
-
-              {/* Toggle 1: Soumission hors-ligne autorisée */}
-              <div className="flex items-center justify-between py-1">
-                <span className="text-sm text-slate-700">Soumission hors-ligne autorisée</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={offlineAllowed}
-                  onClick={() => setOfflineAllowed(!offlineAllowed)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    offlineAllowed ? "bg-[#006644]" : "bg-slate-200"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                      offlineAllowed ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Toggle 2: Validation automatique des fiches conformes */}
-              <div className="flex items-center justify-between py-1">
-                <span className="text-sm text-slate-700">Validation automatique des fiches conformes</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autoValidation}
-                  onClick={() => setAutoValidation(!autoValidation)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    autoValidation ? "bg-[#006644]" : "bg-slate-200"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                      autoValidation ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Card 3: Rôles & Permissions ── */}
+          {/* ── Rôles & Permissions ── */}
           <section
             aria-labelledby="roles-permissions-title"
             className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
@@ -589,7 +342,7 @@ function ParametresContent() {
             </div>
           </section>
 
-          {/* ── Card 4: Journal d'Audit Récent ── */}
+          {/* ── Journal d'Audit Récent ── */}
           <section
             aria-labelledby="recent-audit-title"
             className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
@@ -647,7 +400,6 @@ function ParametresContent() {
             )}
           </section>
 
-        </div>
       </div>
 
     </div>
