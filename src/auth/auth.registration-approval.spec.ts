@@ -122,6 +122,28 @@ describe('AuthService company registration approval', () => {
     }));
   });
 
+  it('approves a file that already holds its ID: no generation, no ID write, -01 from that ID', async () => {
+    // Every file registered since IDs moved to registration arrives like this;
+    // only legacy files reach the generator at approval.
+    prisma.company.findUnique.mockResolvedValue({ ...company, establishmentId: 'EN26000712' });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).resolves.toMatchObject({ status: 'ACTIVE' });
+
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    // The only company write left is the attestation stamp after COMMIT.
+    expect(prisma.company.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ establishmentId: expect.anything() }) }),
+    );
+    expect(prisma.establishment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'EN26000712-01', isPrincipal: true }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'COMPANY_REGISTRATION_APPROVED',
+        details: expect.objectContaining({ establishmentId: 'EN26000712' }),
+      }),
+    });
+  });
+
   it('approveUser mints -01 Establishment with isPrincipal: true, status: ACTIVE', async () => {
     await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
     expect(prisma.establishment.create).toHaveBeenCalledWith({
@@ -186,7 +208,7 @@ describe('AuthService company registration approval', () => {
     await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {})).rejects.toThrow(
       'La confirmation « structure centrale » est obligatoire pour approuver une administration.',
     );
-    // Refused before the transaction: no establishment ID, no audit row, and
+    // Refused before the transaction: no Establishment, no audit row, and
     // the account is left in PENDING_APPROVAL.
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.company.update).not.toHaveBeenCalled();
