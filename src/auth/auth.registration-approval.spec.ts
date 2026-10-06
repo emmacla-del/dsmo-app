@@ -16,6 +16,10 @@ function sequenceQueryRaw() {
   });
 }
 
+// The reviewer's four marks, as the review dialog sends them once every row
+// is ticked. cnpsVerified is ignored for the two types without a CNPS row.
+const VERIFIED = { nameVerified: true, phoneVerified: true, contactEmailVerified: true, cnpsVerified: true };
+
 describe('AuthService company registration approval', () => {
   const companyUser = {
     id: 'u-co',
@@ -105,7 +109,7 @@ describe('AuthService company registration approval', () => {
   });
 
   it('approves a COMPANY: issues an establishmentId, sets ACTIVE, audits the actor', async () => {
-    const result = await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
+    const result = await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED);
     expect(result).toMatchObject({ status: 'ACTIVE', isActive: true });
     expect(prisma.$transaction).toHaveBeenCalled();
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
@@ -126,7 +130,7 @@ describe('AuthService company registration approval', () => {
     // Every file registered since IDs moved to registration arrives like this;
     // only legacy files reach the generator at approval.
     prisma.company.findUnique.mockResolvedValue({ ...company, establishmentId: 'EN26000712' });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).resolves.toMatchObject({ status: 'ACTIVE' });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).resolves.toMatchObject({ status: 'ACTIVE' });
 
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
     // The only company write left is the attestation stamp after COMMIT.
@@ -145,7 +149,7 @@ describe('AuthService company registration approval', () => {
   });
 
   it('approveUser mints -01 Establishment with isPrincipal: true, status: ACTIVE', async () => {
-    await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
+    await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED);
     expect(prisma.establishment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         code: expect.stringMatching(/^EN\d{6}12-01$/),
@@ -166,13 +170,13 @@ describe('AuthService company registration approval', () => {
 
   it('refuses approval when entityType is null', async () => {
     prisma.company.findUnique.mockResolvedValue({ ...company, entityType: null });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(BadRequestException);
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('approves with a 4-digit subdivision code and extracts the 2-digit suffix', async () => {
     prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: '5801' });
-    const result = await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
+    const result = await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED);
     expect(result).toMatchObject({ status: 'ACTIVE', isActive: true });
     expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ establishmentId: expect.stringMatching(/^EN\d{6}01$/) }),
@@ -186,12 +190,12 @@ describe('AuthService company registration approval', () => {
 
   it('refuses approval when subdivision code is missing or empty', async () => {
     prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: null });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(
       "Code d'arrondissement introuvable pour cet établissement.",
     );
 
     prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: '   ' });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(
       "Code d'arrondissement introuvable pour cet établissement.",
     );
   });
@@ -202,10 +206,10 @@ describe('AuthService company registration approval', () => {
   // so the checkbox cannot be bypassed by calling the route directly.
   it('refuses to approve an ADMINISTRATION file without the central-structure confirmation', async () => {
     prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(
       BadRequestException,
     );
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {})).rejects.toThrow(
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(
       'La confirmation « structure centrale » est obligatoire pour approuver une administration.',
     );
     // Refused before the transaction: no Establishment, no audit row, and
@@ -219,7 +223,7 @@ describe('AuthService company registration approval', () => {
   it('approves an ADMINISTRATION file once the confirmation is sent, issuing an AD identifier', async () => {
     prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
     await expect(
-      service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { centralStructureConfirmed: true }),
+      service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { ...VERIFIED, centralStructureConfirmed: true }),
     ).resolves.toMatchObject({ status: 'ACTIVE', isActive: true });
     expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ establishmentId: expect.stringMatching(/^AD\d{6}12$/) }),
@@ -232,6 +236,7 @@ describe('AuthService company registration approval', () => {
     prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
     await expect(
       service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {
+        ...VERIFIED,
         centralStructureConfirmed: 'true' as unknown as boolean,
       }),
     ).rejects.toThrow(BadRequestException);
@@ -241,7 +246,7 @@ describe('AuthService company registration approval', () => {
   // The gate is scoped to ADMINISTRATION: every other entity type approves
   // without the flag, as the first test above already does implicitly.
   it('does not require the confirmation for a non-ADMINISTRATION file', async () => {
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {})).resolves.toMatchObject({
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).resolves.toMatchObject({
       status: 'ACTIVE',
     });
   });
@@ -255,7 +260,7 @@ describe('AuthService company registration approval', () => {
       }
       return work(prisma);
     });
-    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).resolves.toMatchObject({ status: 'ACTIVE' });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED)).resolves.toMatchObject({ status: 'ACTIVE' });
     expect(attempts).toBe(2);
   });
 
@@ -287,6 +292,98 @@ describe('AuthService company registration approval', () => {
         userId: 'u-co',
         action: 'COMPANY_REGISTRATION_RESUBMITTED',
       }),
+    });
+  });
+
+  // The reviewer's marks on the entity's name, phone, contact email and CNPS.
+  // The dialog only prompts for them; these pin that the server refuses an
+  // approval on its own when one that applies is not strictly `true`.
+  describe('verification gate', () => {
+    function expectNothingWritten() {
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.company.update).not.toHaveBeenCalled();
+      expect(prisma.establishment.create).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(userRow.status).toBe('PENDING_APPROVAL');
+    }
+
+    it('refuses an approval that carries no flags, naming every row, before any write', async () => {
+      // The legacy Flutter approve sends no body at all.
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+        "Vérifiez chaque information de l'entité avant d'approuver : Nom de l'entité, " +
+          "Téléphone / WhatsApp de l'entité, Email de contact, N° CNPS.",
+      );
+      expectNothingWritten();
+    });
+
+    it.each(['nameVerified', 'phoneVerified', 'contactEmailVerified', 'cnpsVerified'])(
+      'refuses when %s is missing, false or merely truthy',
+      async (flag) => {
+        for (const value of [undefined, false, 'true', 1, null]) {
+          await expect(
+            service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { ...VERIFIED, [flag]: value } as any),
+          ).rejects.toThrow(BadRequestException);
+        }
+        expectNothingWritten();
+      },
+    );
+
+    it('names only the rows still unchecked', async () => {
+      await expect(
+        service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { ...VERIFIED, phoneVerified: false, cnpsVerified: undefined }),
+      ).rejects.toThrow("avant d'approuver : Téléphone / WhatsApp de l'entité, N° CNPS.");
+    });
+
+    it.each(['COOPERATIVE', 'CTD', 'ONG', 'VOCATIONAL_TRAINING'])('requires the CNPS flag for %s', async (entityType) => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, entityType });
+      const { cnpsVerified, ...threeRows } = VERIFIED;
+      await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, threeRows)).rejects.toThrow(
+        "avant d'approuver : N° CNPS.",
+      );
+      expectNothingWritten();
+    });
+
+    it.each([
+      ['ADMINISTRATION', { centralStructureConfirmed: true }],
+      ['PROJECT_PROGRAM', {}],
+    ])('approves %s on the three rows alone, with no CNPS row', async (entityType, extra) => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, entityType, cnpsNumber: null });
+      const { cnpsVerified, ...threeRows } = VERIFIED;
+      await expect(
+        service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { ...threeRows, ...extra }),
+      ).resolves.toMatchObject({ status: 'ACTIVE' });
+      const { details } = prisma.auditLog.create.mock.calls[0][0].data;
+      expect(details.verification).not.toHaveProperty('cnpsVerified');
+      expect(details.verification.attested).not.toHaveProperty('cnpsNumber');
+    });
+
+    it('records the flags and the values they attest in the approval audit entry', async () => {
+      prisma.company.findUnique.mockResolvedValue({ ...company, phone: '655000000', establishmentId: 'EN26000712' });
+      await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, VERIFIED);
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'actor-1',
+          action: 'COMPANY_REGISTRATION_APPROVED',
+          resourceType: 'User',
+          resourceId: 'u-co',
+          details: {
+            companyId: 'c1',
+            establishmentId: 'EN26000712',
+            verification: {
+              nameVerified: true,
+              phoneVerified: true,
+              contactEmailVerified: true,
+              cnpsVerified: true,
+              attested: {
+                name: 'Menuiserie',
+                phone: '655000000',
+                contactEmail: 'co@example.cm',
+                cnpsNumber: 'CNPS1',
+              },
+            },
+          },
+        },
+      });
     });
   });
 
@@ -453,7 +550,7 @@ describe('AuthService registration review — approver role boundaries', () => {
 
   it('CENTRAL approves a company registration nationally', async () => {
     const { service, prisma } = makeService(pendingCompanyUser);
-    await expect(service.approveUser('u-co', 'actor-central', 'ADMIN_ONEFOP', {})).resolves.toMatchObject({
+    await expect(service.approveUser('u-co', 'actor-central', 'ADMIN_ONEFOP', {}, VERIFIED)).resolves.toMatchObject({
       status: 'ACTIVE',
       isActive: true,
     });
@@ -468,7 +565,7 @@ describe('AuthService registration review — approver role boundaries', () => {
   it('SUPER_ADMIN_ONEFOP approves a company registration nationally', async () => {
     const { service } = makeService(pendingCompanyUser);
     await expect(
-      service.approveUser('u-co', 'actor-onefop', 'ADMIN_ONEFOP', {}),
+      service.approveUser('u-co', 'actor-onefop', 'ADMIN_ONEFOP', {}, VERIFIED),
     ).resolves.toMatchObject({ status: 'ACTIVE' });
   });
 
@@ -492,7 +589,7 @@ describe('AuthService registration review — approver role boundaries', () => {
 
   it('emails the company on approval, rejection and complements request', async () => {
     const approved = makeService(pendingCompanyUser);
-    await approved.service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {});
+    await approved.service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {}, VERIFIED);
     expect(approved.notifications.sendRegistrationApprovedEmail).toHaveBeenCalledWith(
       'co@example.cm',
       'Menuiserie',
@@ -519,7 +616,7 @@ describe('AuthService registration review — approver role boundaries', () => {
   it('a failing mail server does not fail the decision', async () => {
     const { service, notifications } = makeService(pendingCompanyUser);
     notifications.sendRegistrationApprovedEmail.mockRejectedValue(new Error('SMTP unreachable'));
-    await expect(service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {})).resolves.toMatchObject({
+    await expect(service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {}, VERIFIED)).resolves.toMatchObject({
       status: 'ACTIVE',
     });
   });
@@ -635,5 +732,58 @@ describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', ()
     const where = whereOf(prisma);
     expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
     expect(where.user.createdBy).toBe('agent-1');
+  });
+});
+
+describe('AuthService.listCompanyRegistrations — review fields', () => {
+  // The review dialog reads the entity phone (a verified row) and the
+  // declarant (context) from the queue row itself; it makes no per-file fetch.
+  it('projects the entity phone and the declarant fields', async () => {
+    const row = {
+      id: 'c1',
+      name: 'Menuiserie',
+      taxNumber: 'M123',
+      cnpsNumber: 'CNPS1',
+      subdivisionId: 's-dla1',
+      entityType: 'ENTREPRISE',
+      region: 'Littoral',
+      department: 'Wouri',
+      createdAt: new Date('2026-01-01'),
+      phone: '655000000',
+      respondentFirstName: 'Awa',
+      respondentLastName: 'Ngo',
+      respondentFunction: 'DRH',
+      respondentPhone: '677000000',
+      respondentPhone2: null,
+      user: {
+        id: 'u-co',
+        email: 'co@example.cm',
+        status: 'PENDING_APPROVAL',
+        createdAt: new Date('2026-01-01'),
+        approvalComment: null,
+        rejectionReason: null,
+        registrationNumber: null,
+        registrationMethod: 'SELF_SERVICE',
+        createdBy: null,
+        createdByUser: null,
+      },
+    };
+    const prisma: any = {
+      company: { count: jest.fn(async () => 1), findMany: jest.fn().mockResolvedValueOnce([row]).mockResolvedValue([]) },
+      auditLog: { findMany: jest.fn(async () => []) },
+    };
+    const service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
+    const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
+    expect(result.items[0]).toMatchObject({
+      organisation: 'Menuiserie',
+      email: 'co@example.cm',
+      cnpsNumber: 'CNPS1',
+      phone: '655000000',
+      respondentFirstName: 'Awa',
+      respondentLastName: 'Ngo',
+      respondentFunction: 'DRH',
+      respondentPhone: '677000000',
+      respondentPhone2: null,
+    });
   });
 });

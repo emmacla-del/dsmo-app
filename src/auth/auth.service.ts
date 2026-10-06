@@ -22,6 +22,12 @@ import { assertTerritorialAuthority, territoryWhere, type Territory } from './te
 import { toPublicUser } from './public-user';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
+import {
+  missingVerificationFlags,
+  verificationAuditDetails,
+  verificationRefusalMessage,
+  type VerificationFlags,
+} from './registration-verification';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -167,8 +173,12 @@ export interface CompanyRegistrationData {
  * server-side because the checkbox alone is client-side: a request can be
  * sent without it, and the queue's `requiresCentralStructureCheck` is a hint
  * for the UI, not an enforcement point.
+ *
+ * The four verification flags are the reviewer's marks on the entity's name,
+ * phone, contact email and (for the five CNPS types) CNPS number; see
+ * registration-verification.ts.
  */
-export interface ApproveRegistrationOptions {
+export interface ApproveRegistrationOptions extends VerificationFlags {
   centralStructureConfirmed?: boolean;
 }
 
@@ -1686,6 +1696,13 @@ export class AuthService {
         "La confirmation « structure centrale » est obligatoire pour approuver une administration.",
       );
     }
+    // The reviewer's marks on the entity's identifying values, enforced the
+    // same way and at the same point: every row that applies to this entity
+    // type must be strictly `true`, or nothing is written.
+    const missingFlags = missingVerificationFlags(company.entityType, options);
+    if (missingFlags.length > 0) {
+      throw new BadRequestException(verificationRefusalMessage(missingFlags));
+    }
     if (!company.subdivisionId) {
       throw new BadRequestException("L'arrondissement est obligatoire pour générer l'identifiant d'établissement.");
     }
@@ -1742,7 +1759,16 @@ export class AuthService {
               action: 'COMPANY_REGISTRATION_APPROVED',
               resourceType: 'User',
               resourceId: user.id,
-              details: { companyId: company.id, establishmentId: issued },
+              details: {
+                companyId: company.id,
+                establishmentId: issued,
+                verification: verificationAuditDetails(company.entityType, {
+                  name: company.name,
+                  phone: company.phone ?? null,
+                  contactEmail: user.email,
+                  cnpsNumber: company.cnpsNumber ?? null,
+                }),
+              },
             },
           });
           return { updated, establishmentId: issued };
@@ -1821,6 +1847,12 @@ export class AuthService {
       region: string;
       department: string;
       createdAt: Date;
+      phone: string | null;
+      respondentFirstName: string | null;
+      respondentLastName: string | null;
+      respondentFunction: string | null;
+      respondentPhone: string | null;
+      respondentPhone2: string | null;
       user: {
         id: string;
         email: string;
@@ -1882,6 +1914,13 @@ export class AuthService {
         status: row.user.status,
         taxNumber: row.taxNumber,
         cnpsNumber: row.cnpsNumber,
+        phone: row.phone,
+        // The declarant, shown to the reviewer as context, not verified.
+        respondentFirstName: row.respondentFirstName,
+        respondentLastName: row.respondentLastName,
+        respondentFunction: row.respondentFunction,
+        respondentPhone: row.respondentPhone,
+        respondentPhone2: row.respondentPhone2,
         submittedAt: row.createdAt,
         registrationNumber: row.user.registrationNumber,
         approvalComment: row.user.approvalComment,
