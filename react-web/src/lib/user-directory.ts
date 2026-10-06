@@ -73,12 +73,27 @@ export function listUsers(params: ListUsersParams) {
 }
 
 // centralStructureConfirmed backs the "structure centrale" checkbox, which
-// the server requires before approving an ADMINISTRATION file. Sent only when
-// the reviewer actually ticked it: the server demands strictly `true`.
-export function approveUser(id: string, options: { centralStructureConfirmed?: boolean } = {}) {
+// the server requires before approving an ADMINISTRATION file. The four
+// verification flags are the reviewer's ✓ marks on the entity's name, phone,
+// contact email and CNPS (see verificationFlags in inscriptions.ts); the
+// server refuses a company approval unless every applicable one is true.
+// Each is sent as `true` only when the reviewer actually set it: the server
+// demands strictly `true`.
+export interface ApproveUserOptions {
+  centralStructureConfirmed?: boolean;
+  nameVerified?: boolean;
+  phoneVerified?: boolean;
+  contactEmailVerified?: boolean;
+  cnpsVerified?: boolean;
+}
+
+export function approveUser(id: string, options: ApproveUserOptions = {}) {
+  const body = Object.fromEntries(
+    Object.entries(options).map(([key, value]) => [key, value === true]),
+  );
   return apiFetch(`/auth/approve-user/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ centralStructureConfirmed: options.centralStructureConfirmed === true }),
+    body: JSON.stringify({ centralStructureConfirmed: false, ...body }),
   });
 }
 
@@ -107,6 +122,14 @@ export interface CompanyRegistrationItem {
   status: string;
   taxNumber: string;
   cnpsNumber: string | null;
+  /** The entity's phone ("Téléphone / WhatsApp"), a verified review row. */
+  phone: string | null;
+  // The declarant, shown in the review dialog as context, not verified.
+  respondentFirstName: string | null;
+  respondentLastName: string | null;
+  respondentFunction: string | null;
+  respondentPhone: string | null;
+  respondentPhone2: string | null;
   submittedAt: string;
   registrationNumber: string | null;
   approvalComment: string | null;

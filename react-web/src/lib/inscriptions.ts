@@ -21,7 +21,7 @@
 // both from the authenticated actor. A client cannot claim an attribution it
 // does not have.
 import { apiFetch } from "./api-client";
-import type { DirectoryUser } from "./user-directory";
+import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
 
 /**
  * The assisted-registration body: the public RegisterCompanyPayload minus
@@ -159,4 +159,100 @@ export function inscriptionsHref(
   }
   const qs = params.toString();
   return `/admin/inscriptions${qs ? `?${qs}` : ""}`;
+}
+
+// ── Review verification ────────────────────────────────────────────────────
+//
+// The review dialog lists the entity's identifying values and the reviewer
+// marks each one ✓ (conforme) or ✗ (non conforme). The marks are dialog state
+// only; approveUser() sends them as four booleans, and the server
+// (src/auth/registration-verification.ts) refuses the approval unless every
+// row that applies holds a value and is marked strictly true. These helpers
+// are the client copy of that rule, so the dialog can say why Confirmer is
+// unavailable before the request is made.
+
+/** The entity types with a CNPS row. Mirrors the server's CNPS_REQUIRED_ENTITY_TYPES. */
+const CNPS_REVIEW_ENTITY_TYPES: readonly string[] = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "VOCATIONAL_TRAINING"];
+
+export type VerificationKey = "nameVerified" | "phoneVerified" | "contactEmailVerified" | "cnpsVerified";
+
+/** A row's mark. Absent from the marks map = not answered yet, which is neither. */
+export type VerificationMark = "ok" | "ko";
+
+export type VerificationMarks = Partial<Record<VerificationKey, VerificationMark>>;
+
+export interface VerificationRow {
+  key: VerificationKey;
+  label: string;
+  /** Trimmed value, or null when the file holds none. */
+  value: string | null;
+}
+
+// The rows as a sentence subject, worded as the server's empty-value refusal.
+const EMPTY_SUBJECTS: Record<VerificationKey, string> = {
+  nameVerified: "le nom de l'entité",
+  phoneVerified: "le téléphone / WhatsApp de l'entité",
+  contactEmailVerified: "l'email de contact",
+  cnpsVerified: "le N° CNPS",
+};
+
+function present(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * The rows to verify for a file: three for administration and
+ * project/programme, four (with N° CNPS) for the five CNPS types. The email is
+ * the account email, which is also the entity's contact with ONEFOP.
+ */
+export function verificationRows(
+  item: Pick<CompanyRegistrationItem, "entityType" | "organisation" | "phone" | "email" | "cnpsNumber">,
+): VerificationRow[] {
+  const rows: VerificationRow[] = [
+    { key: "nameVerified", label: "Nom de l'entité", value: present(item.organisation) },
+    { key: "phoneVerified", label: "Téléphone / WhatsApp de l'entité", value: present(item.phone) },
+    { key: "contactEmailVerified", label: "Email de contact", value: present(item.email) },
+  ];
+  if (item.entityType && CNPS_REVIEW_ENTITY_TYPES.includes(item.entityType)) {
+    rows.push({ key: "cnpsVerified", label: "N° CNPS", value: present(item.cnpsNumber) });
+  }
+  return rows;
+}
+
+/**
+ * Whether the file can be approved from these marks, and if not, the one
+ * sentence the dialog shows. In order of what the reviewer must do about it:
+ * an empty value needs a correction from the company (no mark can fix it), a
+ * ✗ means reject or request complements, an unanswered row means keep
+ * checking.
+ */
+export function approvalGate(
+  rows: VerificationRow[],
+  marks: VerificationMarks,
+): { canApprove: true; message: null } | { canApprove: false; message: string } {
+  const empty = rows.filter((row) => row.value === null);
+  if (empty.length > 0) {
+    const subjects = empty.map((row) => EMPTY_SUBJECTS[row.key]);
+    const subject = subjects.length === 1 ? subjects[0] : `${subjects.slice(0, -1).join(", ")} et ${subjects[subjects.length - 1]}`;
+    return {
+      canApprove: false,
+      message: `Impossible d'approuver : ${subject} ${subjects.length === 1 ? "est vide" : "sont vides"}. Demandez une correction.`,
+    };
+  }
+  if (rows.some((row) => marks[row.key] === "ko")) {
+    return {
+      canApprove: false,
+      message: "Une information est non conforme : rejetez le dossier ou demandez des compléments.",
+    };
+  }
+  if (rows.some((row) => marks[row.key] !== "ok")) {
+    return { canApprove: false, message: "Marquez chaque information comme conforme pour approuver." };
+  }
+  return { canApprove: true, message: null };
+}
+
+/** The approve body's flags: true only for a row marked ✓. */
+export function verificationFlags(rows: VerificationRow[], marks: VerificationMarks): Partial<Record<VerificationKey, boolean>> {
+  return Object.fromEntries(rows.map((row) => [row.key, marks[row.key] === "ok"]));
 }
