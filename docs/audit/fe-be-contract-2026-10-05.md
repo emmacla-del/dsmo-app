@@ -53,7 +53,7 @@ The ADMINISTRATION-cohort read/write path in `CampaignQuota` is therefore live.
 | **1 — Matched** (admin FE call ↔ live BE route) | **61 endpoints** | 28 shape-clean, 33 carry at least one Category-4 row |
 | **2 — FE-only** | **0** | No admin call hits a missing, renamed or retired route |
 | **3 — BE-only** (no react-web caller at all) | **40 routes** | incl. 3 intentionally retired (410) and 1 not-yet-built (`coverage/semester`) |
-| **4 — Shape drift** | **29 rows** | 1 HIGH, 2 MED, 4 LOW-latent, 22 LOW |
+| **4 — Shape drift** | **29 rows** | 1 HIGH (D1, fixed in `e4bc79e1`), 2 MED, 4 LOW-latent, 22 LOW |
 | Out of scope (BE route called only by non-admin react-web) | 13 routes | Listed in §3b |
 | *Role-gate drift (outside the four categories)* | *4 rows* | FE lets a role reach a call the BE `@Roles` rejects. See §5 |
 
@@ -138,7 +138,7 @@ Controller `admin-questionnaires.controller.ts`, class roles ADM4. Returns infer
 |---|---|---|---|---|---|---|---|---|
 | `api-client.ts:608` | `GET …/pilotage/queues` | `PilotageQueues` | A — `layout.tsx:37` (poll 30s), `AdminPageHeader.tsx:88`, `pilotage/page.tsx:328` (poll 120s), `dossiers/page.tsx:207` | :79 | `eligibilityEngine.getPilotageQueues` → `PilotageQueues` | R | OK. All 8 keys emitted (`eligibility-engine.service.ts:318-326`) after `65391732` | RV |
 | `api-client.ts:619` | `GET /admin/questionnaires` | `AdminQuestionnairesPage` (`items:any[]`) | A — `dossiers/page.tsx:185`, `pilotage/page.tsx:341`, `questionnaires/page.tsx:51`, `diffusion/page.tsx:262`, `etablissement-detail/page.tsx:143` | :139 | `service.listForAdmin` | R | D2, D3 | RV (pilotage), C |
-| `api-client.ts:665` | `GET /admin/questionnaires/:id` | `AdminDossier` | A — `dossiers/[id]/page.tsx:93` | :250 | `service.getById` | R | **D1 (HIGH)** | RV |
+| `api-client.ts:665` | `GET /admin/questionnaires/:id` | `AdminDossier` | A — `dossiers/[id]/page.tsx:93` | :250 | `service.getById` | R | **D1 (HIGH)**, fixed in `e4bc79e1` | RV |
 | `api-client.ts:669` | `GET …/:id/diagnostic` | `DossierDiagnostic` | A — `dossiers/[id]/page.tsx:99` | :245 | `eligibilityEngine.evaluateDossier` | R | D5 | C |
 | `api-client.ts:673` | `PATCH …/:id/approve` | `unknown` | U — `dossiers/[id]/page.tsx:213` | :255 | `service.approve` | W | OK | C |
 | `api-client.ts:679` | `PATCH …/:id/reject` | `unknown`; body `{reason,certified}` | U — `:194` | :260 | `service.reject` | W | OK | C |
@@ -200,7 +200,7 @@ Controller `campaign.controller.ts`. Reads: NAT3. Writes: `SUPER_ADMIN, ADMIN_ON
 | `actor-summary.ts:90` | `POST /audit/nudge` | `{id}` | U — `equipe/page.tsx:75` | :75 | `actorSummaryService.nudge` | W | NAT3 | OK | C |
 | `companies-directory.ts:66` | `GET /companies/stats` | `CompanyStats` | A — `etablissements/page.tsx:140` | `companies.controller.ts:29` | `dsmoService.getCompanyStats` | R | ADM4 | OK (buckets now disjoint, `30d98fd2`) | C |
 | `companies-directory.ts:70` | `GET /companies` | `ListCompaniesResult` | A — `etablissements:151`, `etablissement-detail:102`, `approbation:77`, `CompaniesDirectory.tsx:106` | :36 | `dsmoService.listCompanies` | R | ADM4 | D24 | C |
-| `api-client.ts:814` | `GET /data-management/stats` | `DataManagementStats` | A — `pilotage/page.tsx:335` (poll 120s), `etablissements:135`, `diffusion:174` | `data-management.controller.ts:55` | `getDataStats` | R | NAT3 | D25; see R2 | C |
+| `api-client.ts:814` | `GET /data-management/stats` | `DataManagementStats` | A — `pilotage/page.tsx:335` (poll 120s), `etablissements:135`, `diffusion:174` | `data-management.controller.ts:55` | `getDataStats` | R | NAT3 | D25; see R2 (fixed in `8cf266d9`) | C |
 | `api-client.ts:831` | `GET …/export/history?limit=` | `ExportHistoryItem[]` | A — `diffusion/page.tsx:229` | :89 | `getExportHistory` | R | NAT3 | OK | C |
 | `api-client.ts:721` | `POST …/export/submissions/spss/manifest` | `{sps}` | U — `diffusion/page.tsx:366` | :116 | `buildSpssManifest` | R | NAT3 | OK | C |
 | `api-client.ts:785` | `POST …/spss/csv` | Blob | U — `diffusion` export | :129 | `logExport` + stream | R | NAT3 | OK (binary clean, `[10-04]`) | C |
@@ -309,7 +309,7 @@ Ranked by user impact. "Rendered" means the FE actually displays the field.
 
 | # | Endpoint | FE type file:line | BE source file:line | What differs | Rendered? | Impact | V |
 |---|---|---|---|---|---|---|---|
-| **D1** | `GET /admin/questionnaires/:id` | `dossiers/[id]/page.tsx:1083, 1110, 1137` (reads `detail.address`, `detail.creationDate`, `detail.taxRegime`) | `questionnaires.service.ts` `getById`; no entity-detail model has these columns `[10-04 #5-7]` | 3 phantom fields, never sent | **Yes**: always "—" on the dossier review screen | **HIGH** | RV (call sites) |
+| **D1** | `GET /admin/questionnaires/:id` | `dossiers/[id]/page.tsx:1083, 1110, 1137` (reads `detail.address`, `detail.creationDate`, `detail.taxRegime`) | `questionnaires.service.ts` `getById`; no entity-detail model has these columns `[10-04 #5-7]` | 3 phantom fields, never sent | **Yes**: always "—" on the dossier review screen | **HIGH**, fixed in `e4bc79e1` | RV (call sites) |
 | D15 | `POST /campaigns/:id/extend` | `campaigns.ts` `canExtend` allows `DRAFT`/`PAUSED` | `campaign.service.ts` `extendDeadline` writes `status:'ACTIVE'`; `newDeadline` unvalidated `[10-04 #19-20]` | Behavioural: extending a DRAFT/PAUSED campaign silently activates it | Status badge changes | **MED** | C |
 | D28 | `POST /auth/admin/register-company` | `inscriptions.ts:51` `socialCapital?: number`; sent as `Number(...)` at `nouvelle/page.tsx:176` | `register-company.dto.ts:48` `@IsInt() @Min(0)` (inherited by `AssistedRegistrationDto`); column is `Float?` | A decimal value is a 400 the FE type doesn't predict | Form error on submit | **MED** | RV |
 | D12 | `PATCH /auth/users/:id/territory` | `user-directory.ts:246` annotated `DirectoryUser` | `toPublicUser` (`[10-04 #13]`) | 4 phantom optionals (`lastLoginAt`, `submissionsCount`, `perAgentTarget`, `createdByName`) | No (callers invalidate) | LOW-latent | C |
@@ -384,16 +384,16 @@ rather than dropped.
 
 | # | Role | FE call site | BE gate | Effect | Severity |
 |---|---|---|---|---|---|
-| **R2** | `DIVISIONAL_ADMIN` | `pilotage/page.tsx:335` `getDataManagementStats`, ungated, polls every 120s. Dashboard has no `allowedRoles` (`_routes.ts:64`) | `data-management.controller.ts:55` NAT3, no DIVISIONAL | 403 on every poll; the **"Inscriptions" KPI tile (`:413-421`) is permanently "—"** for every divisional admin. Also on `etablissements/page.tsx:135` (masked there by the `/companies/stats` fallback) | **HIGH** (rendered, primary surface) |
+| **R2** | `DIVISIONAL_ADMIN` | `pilotage/page.tsx:335` `getDataManagementStats`, ungated, polls every 120s. Dashboard has no `allowedRoles` (`_routes.ts:64`) | `data-management.controller.ts:55` NAT3, no DIVISIONAL | 403 on every poll; the **"Inscriptions" KPI tile (`:413-421`) is permanently "—"** for every divisional admin. Also on `etablissements/page.tsx:135` (masked there by the `/companies/stats` fallback) | **HIGH** (rendered, primary surface), fixed in `8cf266d9` |
 | R1 | `AUDITOR` | `layout.tsx:37-41` queues poll every **30s** (gated only on `ADMIN_ROLES`, which includes AUDITOR); `AdminPageHeader.tsx:88` (ungated); `pilotage/page.tsx:328, 335, 341, 349` (4 queries every 120s; the dashboard is AUDITOR's fallback route); `dossiers/page.tsx:185, 207` (`ADMIN_ROLES`) | `admin-questionnaires.controller.ts` class ADM4 and `/data-management/stats` NAT3: no AUDITOR | A continuous background 403 stream; dashboard and dossiers render error/absent states. v2 §1 C7 claims this is superseded. **It is not.** | LATENT (AUDITOR not urgent for the pilot, decision 2026-10-05) |
 | R3 | `AUDITOR` | `journal-audit/page.tsx:130` `listUsers` (actor filter) | `/auth/users` UA | 403; actor filter is empty (`[10-03 R-02]`, still open) | MED, conditional on AUDITOR |
 | R4 | `REGIONAL_ADMIN`, `DIVISIONAL_ADMIN` | Sidebar "Annuaire" (`_routes.ts:100`, `DIRECTORY_ROLES`) → `/home/annuaire` (guard `USER_ADMIN_ROLES`); `etablissement-detail` route `DIRECTORY_ROLES` vs page `canRead = NATIONAL_ROLES` (`:79`) | — (FE-internal) | Link shown, page refuses. No 403 reaches the BE | LOW (FE-internal; noted for completeness) |
 
 ---
 
-## Fix before pilot
+## Fix before pilot — all closed as of 2026-10-06
 
-All items closed as of 2026-10-06.
+Open items: 0 of 2.
 
 1. ~~D1 — dossier detail shows three permanent "—" fields.~~ **Fixed in
    `e4bc79e1`.** Address reads the questionnaire's declared locality;
