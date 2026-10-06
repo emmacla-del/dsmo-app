@@ -12,7 +12,7 @@ import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
 import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
-import { listCampaigns, type Campaign } from "@/lib/campaigns";
+import { isRegistrationCampaign, listCampaigns, REGISTRATION_STATUS_LABEL, type Campaign } from "@/lib/campaigns";
 import {
   buildTargetPayload,
   clearRegionDraft,
@@ -465,6 +465,12 @@ function QuotasPanel({
   }
 
   const campaignId = campagneParam || selected;
+  // Both kinds carry quotas: a collection campaign's are declaration quotas
+  // (read by Suivi des retours), a registration campaign's are inscription
+  // targets (read by Couverture). Grouped so the two never look alike.
+  const collection = onefop.filter((campaign) => !isRegistrationCampaign(campaign));
+  const registration = onefop.filter(isRegistrationCampaign);
+  const selectedCampaign = onefop.find((campaign) => campaign.id === campaignId);
 
   return (
     <>
@@ -476,13 +482,33 @@ function QuotasPanel({
             value={campaignId}
             onChange={(event) => onCampagneChange(event.target.value)}
           >
-            {onefop.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.code} — {campaign.name} ({campaign.status})
-              </option>
-            ))}
+            {collection.length > 0 && (
+              <optgroup label="Campagnes de collecte">
+                {collection.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.code} — {campaign.name} ({campaign.status})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {registration.length > 0 && (
+              <optgroup label="Campagnes d'inscription">
+                {registration.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.code} — {campaign.name} ({REGISTRATION_STATUS_LABEL})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
+      )}
+      {selectedCampaign && (
+        <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
+          {isRegistrationCampaign(selectedCampaign)
+            ? "Cibles d'inscription : elles alimentent l'onglet Couverture."
+            : "Quotas de déclarations : ils alimentent le Suivi des retours."}
+        </p>
       )}
       {campaignId && (
         <TargetsPanel
@@ -513,18 +539,31 @@ function ReturnsPanel({
     refetchOnWindowFocus: false,
   });
 
+  // Returns exist only for collection campaigns: the backend refuses a
+  // registration campaign (it collects nothing). Missing purpose is a
+  // pre-rename backend, where every campaign was a collection one.
   const onefop = useMemo(
-    () => (listQuery.data ?? []).filter((campaign) => campaign.collectionType === "ONEFOP"),
+    () =>
+      (listQuery.data ?? []).filter(
+        (campaign) => campaign.collectionType === "ONEFOP" && !isRegistrationCampaign(campaign),
+      ),
     [listQuery.data],
   );
 
-  const selected = campagneParam || preferredCampaignId(onefop);
+  // ?campagne= is shared with the Quotas tab, which also lists registration
+  // campaigns. A parameter this tab cannot show falls back to the preferred
+  // collection campaign instead of requesting returns that would 400.
+  const paramShowable = !canList || !campagneParam || onefop.some((campaign) => campaign.id === campagneParam);
+  const fallback = preferredCampaignId(onefop);
+  const selected = (paramShowable && campagneParam) || fallback;
   const didSelect = useRef(false);
   useEffect(() => {
-    if (didSelect.current || !canList || campagneParam || !selected) return;
+    if (!canList || !listQuery.isSuccess || !selected) return;
+    if (campagneParam && paramShowable) return;
+    if (!campagneParam && didSelect.current) return;
     didSelect.current = true;
     onCampagneChange(selected);
-  }, [canList, campagneParam, selected, onCampagneChange]);
+  }, [canList, listQuery.isSuccess, campagneParam, paramShowable, selected, onCampagneChange]);
 
   if (!canList && !campagneParam) {
     return (
@@ -539,16 +578,16 @@ function ReturnsPanel({
     return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error)}</div>;
   }
   if (canList && onefop.length === 0) {
-    return <p className="cam-admin-lede">Aucune campagne ONEFOP n&apos;est disponible.</p>;
+    return <p className="cam-admin-lede">Aucune campagne de collecte ONEFOP n&apos;est disponible.</p>;
   }
 
-  const campaignId = campagneParam || selected;
+  const campaignId = selected;
 
   return (
     <>
       {canList && (
         <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
-          Campagne ONEFOP
+          Campagne de collecte ONEFOP
           <select
             className="cam-select"
             value={campaignId}
