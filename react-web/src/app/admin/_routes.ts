@@ -63,12 +63,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/equipe"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
-      { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
+      { label: "Dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
       // Territorial admin monitoring (Phase 4 of the territorial admin
       // monitoring plan). Moved here from Administration: it follows the
       // agents' daily work, it does not configure anything — and it was the
       // only reason REGIONAL_ADMIN saw an Administration hub at all.
-      { label: "Administrateurs territoriaux", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
+      { label: "Équipe territoriale", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
     ],
   },
   {
@@ -160,12 +160,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...SETTINGS_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/annuaire", "/admin/journal-audit"],
     subRoutes: [
-      { label: "Utilisateurs", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
       // Formerly /home/annuaire under Déclarants, outside the console shell.
       // Opens on the accounts list (?tab=users), as the former entry did; the
       // page itself defaults to Entités, which is all ADMIN_ONEFOP is shown.
       { label: "Annuaire", href: "/admin/annuaire?tab=users", allowedRoles: USER_ADMIN_ROLES },
-      { label: "Traçabilité", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
+      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
       // The caller's own notification inbox, reached from the header bell.
       // `hidden` keeps it out of the sidebar and the tab row — it is not a

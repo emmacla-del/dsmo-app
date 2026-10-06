@@ -422,8 +422,8 @@ function DossiersContent() {
     <div className="cam-admin-page">
       {/* ── Page Header matching Figma supervision/dossiers.png ── */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Dossiers en instance" }]}
-        title="Dossiers en Instance"
+        breadcrumb={[{ label: "Supervision" }, { label: "Dossiers" }]}
+        title="Dossiers"
         subtitle="Instruction et suivi des dossiers de déclaration soumis"
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
