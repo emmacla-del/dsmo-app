@@ -1,10 +1,11 @@
 // src/analytics/onefop-analytics.controller.ts
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
+import { analyticsTerritoryScope } from './core/analytics-territory';
 
 function toInt(val: any): number | undefined {
     const n = parseInt(val, 10);
@@ -31,6 +32,13 @@ function toDate(val: any): Date | undefined {
 @Controller('onefop-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
+// Territory: every aggregate handler sets `_territory` from req.user through
+// analyticsTerritoryScope. A territorial admin reads national totals, but a
+// geographic filter or a breakdown by region / department / subdivision runs
+// inside its own territory. The four *-location / employment handlers are
+// breakdowns by construction (groupBy defaults to region), so they are always
+// scoped for a territorial caller. onefop-analytics.controller.spec.ts walks
+// every handler so a new one cannot forget the scope.
 export class OnefopAnalyticsController {
     constructor(private readonly analytics: OnefopAnalyticsFacade) { }
 
@@ -39,13 +47,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('dashboard')
-    async getDashboard(@Query() q: any) {
+    async getDashboard(@Query() q: any, @Req() req: any) {
         return this.analytics.getDashboard({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -55,13 +64,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('employment-summary')
-    async getEmploymentSummary(@Query() q: any) {
+    async getEmploymentSummary(@Query() q: any, @Req() req: any) {
         return this.analytics.getPermanentEmployeeSummary({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -75,13 +85,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('employment')
-    async getEmployment(@Query() q: any) {
+    async getEmployment(@Query() q: any, @Req() req: any) {
         return this.analytics.getPermanentEmployeesByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q, { geographicBreakdown: true }),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -92,13 +103,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('employment-by-location')
-    async getEmploymentByLocation(@Query() q: any) {
+    async getEmploymentByLocation(@Query() q: any, @Req() req: any) {
         return this.analytics.getPermanentEmployeesByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q, { geographicBreakdown: true }),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -109,13 +121,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('employment-by-entity-type')
-    async getEmploymentByEntityType(@Query() q: any) {
+    async getEmploymentByEntityType(@Query() q: any, @Req() req: any) {
         return this.analytics.getPermanentEmployeesByEntityType({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -125,13 +138,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('employment-by-size')
-    async getEmploymentBySize(@Query() q: any) {
+    async getEmploymentBySize(@Query() q: any, @Req() req: any) {
         return this.analytics.getPermanentEmployeesBySize({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -145,7 +159,7 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('recruitment-trends')
-    async getRecruitmentTrends(@Query() q: any) {
+    async getRecruitmentTrends(@Query() q: any, @Req() req: any) {
         return this.analytics.getRecruitmentTrends({
             startYear: toInt(q.startYear) ?? toInt(q.year) ?? new Date().getFullYear(),
             endYear: toInt(q.endYear) ?? toInt(q.year) ?? new Date().getFullYear(),
@@ -153,6 +167,7 @@ export class OnefopAnalyticsController {
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -163,7 +178,7 @@ export class OnefopAnalyticsController {
     }
 
     @Get('net-employment-trends')
-    async getNetEmploymentTrends(@Query() q: any) {
+    async getNetEmploymentTrends(@Query() q: any, @Req() req: any) {
         return this.analytics.getNetEmploymentTrends({
             startYear: toInt(q.startYear) ?? toInt(q.year) ?? new Date().getFullYear(),
             endYear: toInt(q.endYear) ?? toInt(q.year) ?? new Date().getFullYear(),
@@ -171,6 +186,7 @@ export class OnefopAnalyticsController {
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -181,13 +197,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('hires')
-    async getHires(@Query() q: any) {
+    async getHires(@Query() q: any, @Req() req: any) {
         return this.analytics.getHiresByDemographics({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -200,13 +217,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('hires-by-demographics')
-    async getHiresByDemographics(@Query() q: any) {
+    async getHiresByDemographics(@Query() q: any, @Req() req: any) {
         return this.analytics.getHiresByDemographics({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -219,11 +237,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('hires/diploma')
-    async getHiresByDiploma(@Query() q: any) {
+    async getHiresByDiploma(@Query() q: any, @Req() req: any) {
         return this.analytics.getDiplomaSummary({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -238,13 +257,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('labor-market-tension')
-    async getLaborMarketTension(@Query() q: any) {
+    async getLaborMarketTension(@Query() q: any, @Req() req: any) {
         return this.analytics.getLaborMarketTension({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -259,13 +279,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('gender-parity')
-    async getGenderParity(@Query() q: any) {
+    async getGenderParity(@Query() q: any, @Req() req: any) {
         return this.analytics.getGenderParity({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -275,13 +296,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('youth-employment')
-    async getYouthEmployment(@Query() q: any) {
+    async getYouthEmployment(@Query() q: any, @Req() req: any) {
         return this.analytics.getYouthEmployment({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -291,13 +313,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('inclusion')
-    async getInclusion(@Query() q: any) {
+    async getInclusion(@Query() q: any, @Req() req: any) {
         return this.analytics.getInclusionMetrics({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -308,13 +331,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('inclusion-metrics')
-    async getInclusionMetrics(@Query() q: any) {
+    async getInclusionMetrics(@Query() q: any, @Req() req: any) {
         return this.analytics.getInclusionMetrics({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -329,9 +353,10 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('skills')
-    async getSkills(@Query() q: any) {
+    async getSkills(@Query() q: any, @Req() req: any) {
         return this.analytics.getSkillNeeds({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -342,9 +367,10 @@ export class OnefopAnalyticsController {
     }
 
     @Get('skill-needs')
-    async getSkillNeeds(@Query() q: any) {
+    async getSkillNeeds(@Query() q: any, @Req() req: any) {
         return this.analytics.getSkillNeeds({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -355,9 +381,10 @@ export class OnefopAnalyticsController {
     }
 
     @Get('training-needs')
-    async getTrainingNeeds(@Query() q: any) {
+    async getTrainingNeeds(@Query() q: any, @Req() req: any) {
         return this.analytics.getTrainingNeeds({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -368,13 +395,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('training-gap')
-    async getTrainingGap(@Query() q: any) {
+    async getTrainingGap(@Query() q: any, @Req() req: any) {
         return this.analytics.getTrainingGap({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -388,9 +416,10 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('vacancies')
-    async getVacancies(@Query() q: any) {
+    async getVacancies(@Query() q: any, @Req() req: any) {
         return this.analytics.getVacanciesBySegment({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -401,9 +430,10 @@ export class OnefopAnalyticsController {
     }
 
     @Get('vacancies-by-segment')
-    async getVacanciesBySegment(@Query() q: any) {
+    async getVacanciesBySegment(@Query() q: any, @Req() req: any) {
         return this.analytics.getVacanciesBySegment({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -418,11 +448,12 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('diploma-distribution')
-    async getDiplomaDistribution(@Query() q: any) {
+    async getDiplomaDistribution(@Query() q: any, @Req() req: any) {
         return this.analytics.getDiplomaDistribution({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -432,11 +463,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('diploma-summary')
-    async getDiplomaSummary(@Query() q: any) {
+    async getDiplomaSummary(@Query() q: any, @Req() req: any) {
         return this.analytics.getDiplomaSummary({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -451,11 +483,12 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('disability-data')
-    async getDisabilityData(@Query() q: any) {
+    async getDisabilityData(@Query() q: any, @Req() req: any) {
         return this.analytics.getDisabilityData({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -465,11 +498,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('vulnerable-workers')
-    async getVulnerableWorkers(@Query() q: any) {
+    async getVulnerableWorkers(@Query() q: any, @Req() req: any) {
         return this.analytics.getVulnerableWorkers({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -483,11 +517,12 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('first-time-workers')
-    async getFirstTimeWorkers(@Query() q: any) {
+    async getFirstTimeWorkers(@Query() q: any, @Req() req: any) {
         return this.analytics.getFirstTimeWorkers({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -497,11 +532,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('departures')
-    async getDepartures(@Query() q: any) {
+    async getDepartures(@Query() q: any, @Req() req: any) {
         return this.analytics.getDepartures({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -511,11 +547,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('departure-summary')
-    async getDepartureSummary(@Query() q: any) {
+    async getDepartureSummary(@Query() q: any, @Req() req: any) {
         return this.analytics.getDepartureSummary({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -525,11 +562,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('mobility-dashboard')
-    async getMobilityDashboard(@Query() q: any) {
+    async getMobilityDashboard(@Query() q: any, @Req() req: any) {
         return this.analytics.getMobilityDashboard({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -543,11 +581,12 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('dismissal-reasons')
-    async getDismissalReasons(@Query() q: any) {
+    async getDismissalReasons(@Query() q: any, @Req() req: any) {
         return this.analytics.getDismissalReasons({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -557,11 +596,12 @@ export class OnefopAnalyticsController {
     }
 
     @Get('dismissal-unemployment')
-    async getDismissalUnemployment(@Query() q: any) {
+    async getDismissalUnemployment(@Query() q: any, @Req() req: any) {
         return this.analytics.getDismissalUnemployment({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -575,11 +615,12 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('internships')
-    async getInternships(@Query() q: any) {
+    async getInternships(@Query() q: any, @Req() req: any) {
         return this.analytics.getInternships({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -593,13 +634,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('job-applications')
-    async getJobApplications(@Query() q: any) {
+    async getJobApplications(@Query() q: any, @Req() req: any) {
         return this.analytics.getJobApplications({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -609,13 +651,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('job-applications/conversion')
-    async getApplicationConversion(@Query() q: any) {
+    async getApplicationConversion(@Query() q: any, @Req() req: any) {
         return this.analytics.getApplicationConversion({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -625,13 +668,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('job-applications/trend')
-    async getApplicationTrend(@Query() q: any) {
+    async getApplicationTrend(@Query() q: any, @Req() req: any) {
         return this.analytics.getApplicationTrend({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -646,13 +690,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('registered-seekers')
-    async getRegisteredSeekers(@Query() q: any) {
+    async getRegisteredSeekers(@Query() q: any, @Req() req: any) {
         return this.analytics.getRegisteredSeekers({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -662,13 +707,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('first-time-labor-gap')
-    async getFirstTimeLaborGap(@Query() q: any) {
+    async getFirstTimeLaborGap(@Query() q: any, @Req() req: any) {
         return this.analytics.getFirstTimeLaborGap({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -682,9 +728,10 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('enterprise-profile')
-    async getEnterpriseProfile(@Query() q: any) {
+    async getEnterpriseProfile(@Query() q: any, @Req() req: any) {
         return this.analytics.getEnterpriseProfile({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -695,13 +742,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('recruitment-by-location')
-    async getRecruitmentByLocation(@Query() q: any) {
+    async getRecruitmentByLocation(@Query() q: any, @Req() req: any) {
         return this.analytics.getRecruitmentByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q, { geographicBreakdown: true }),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -712,13 +760,14 @@ export class OnefopAnalyticsController {
     }
 
     @Get('departures-by-location')
-    async getDeparturesByLocation(@Query() q: any) {
+    async getDeparturesByLocation(@Query() q: any, @Req() req: any) {
         return this.analytics.getDeparturesByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q, { geographicBreakdown: true }),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -733,13 +782,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('skill-trends')
-    async getSkillTrends(@Query() q: any) {
+    async getSkillTrends(@Query() q: any, @Req() req: any) {
         return this.analytics.getSkillTrends({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -754,13 +804,14 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('inclusion-trends')
-    async getInclusionTrends(@Query() q: any) {
+    async getInclusionTrends(@Query() q: any, @Req() req: any) {
         return this.analytics.getInclusionTrends({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -785,13 +836,14 @@ export class OnefopAnalyticsController {
 
     @Get('submissions')
     @Roles('ADMIN_ONEFOP', 'SUPER_ADMIN')
-    async getSubmissions(@Query() q: any) {
+    async getSubmissions(@Query() q: any, @Req() req: any) {
         return this.analytics.getSubmissions({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
             endDate: toDate(q.endDate),
+            _territory: analyticsTerritoryScope(req.user, q),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
