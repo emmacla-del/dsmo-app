@@ -293,60 +293,13 @@ export default function EtablissementsPage() {
         breadcrumb={[{ label: "Déclarants" }, { label: "Établissements" }]}
         title="Établissements"
         subtitle="Registre des entités déclarantes et gestion des comptes"
-        hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />}
       />
 
-      {/* Subnav Pills & Right Action Buttons */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link
-            href="/admin/inscriptions"
-            style={{
-              padding: "8px 18px",
-              background: "#ffffff",
-              color: "#374151",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              fontWeight: 500,
-              fontSize: 14,
-              textDecoration: "none",
-            }}
-          >
-            Inscriptions
-          </Link>
-          <Link
-            href="/admin/etablissements"
-            style={{
-              padding: "8px 18px",
-              background: "#004d3d",
-              color: "#ffffff",
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 14,
-              textDecoration: "none",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-          >
-            Établissements
-          </Link>
-          <Link
-            href="/home/annuaire"
-            style={{
-              padding: "8px 18px",
-              background: "#ffffff",
-              color: "#374151",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              fontWeight: 500,
-              fontSize: 14,
-              textDecoration: "none",
-            }}
-          >
-            Annuaire
-          </Link>
-        </div>
-
+      {/* Page actions. The hand-made Inscriptions / Établissements / Annuaire
+          pills that sat on the left are gone: the header's hub tabs carry
+          the Déclarants navigation, and Annuaire moved to Administration. */}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
             type="button"

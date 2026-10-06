@@ -14,11 +14,13 @@ import {
 } from "@/lib/user-directory";
 import { formatDate } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
-import { registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
+import { inscriptionsHref, registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { CoveragePanel } from "@/components/admin/CoveragePanel";
+import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 
 const PAGE_SIZE = 8;
 
@@ -99,6 +101,13 @@ function InscriptionsContent() {
   // every file that agent registered, so the status filter starts at "ALL"
   // rather than the review queue — the équipe card counts every status.
   const createdBy = searchParams.get("createdBy")?.trim() ?? "";
+  // Two views of registrations: the review queue, and coverage against the
+  // registration-campaign targets (moved here from /admin/cibles, which
+  // forwards its old ?vue=couverture links). Both live in the URL, so a
+  // reload keeps the view and the year.
+  const vue: "file" | "couverture" = searchParams.get("vue") === "couverture" ? "couverture" : "file";
+  const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
+  const currentQuery = searchParams.toString();
   const role = useAuthStore((s) => s.user?.role);
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
   // Same four roles the backend's POST /auth/admin/register-company accepts.
@@ -142,7 +151,7 @@ function InscriptionsContent() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    enabled: canReadQueue,
+    enabled: canReadQueue && vue === "file",
   });
 
   const closeReview = () => {
@@ -214,20 +223,32 @@ function InscriptionsContent() {
       <AdminPageHeader
         breadcrumb={[{ label: "Déclarants" }, { label: "Inscriptions" }]}
         title="Inscriptions"
-        hideTabs={true}
-        actions={<AdminHeaderActions showCampaignPill={false} />}
+        actions={
+          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
+            <AdminHeaderActions showCampaignPill={false} />
+            {canRegisterAssisted && (
+              <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
+                Nouvelle inscription
+              </Link>
+            )}
+          </div>
+        }
       />
 
-      <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
-        <Link href="/admin/inscriptions" className="cam-admin-tab" aria-current="page">Inscriptions</Link>
-        <Link href="/admin/etablissements" className="cam-admin-tab">Établissements</Link>
-        {canRegisterAssisted && (
-          <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm" style={{ marginLeft: "auto" }}>
-            Nouvelle inscription
-          </Link>
-        )}
-      </div>
+      <nav className="cam-admin-tabs" aria-label="Vues des inscriptions" style={{ marginBottom: 20 }}>
+        <Link href={inscriptionsHref(currentQuery, "file")} className="cam-admin-tab" role="tab" aria-selected={vue === "file"} style={{ textDecoration: "none" }}>
+          File d&apos;inscriptions
+        </Link>
+        <Link href={inscriptionsHref(currentQuery, "couverture")} className="cam-admin-tab" role="tab" aria-selected={vue === "couverture"} style={{ textDecoration: "none" }}>
+          Couverture
+        </Link>
+      </nav>
 
+      {vue === "couverture" && (
+        <CoveragePanel year={year} onYearChange={(next) => router.replace(inscriptionsHref(currentQuery, "couverture", { annee: next }))} />
+      )}
+
+      {vue === "file" && (<>
       {createdBy && (
         <div role="status" className="cam-admin-notice cam-admin-notice--info" style={{ marginBottom: 16 }}>
           <span>
@@ -241,7 +262,7 @@ function InscriptionsContent() {
             onClick={() => {
               setStatusFilter("");
               setPage(1);
-              router.replace("/admin/inscriptions");
+              router.replace(inscriptionsHref(currentQuery, "file", { createdBy: null }));
             }}
           >
             Retirer ce filtre
@@ -358,6 +379,7 @@ function InscriptionsContent() {
           </div>
         </div>
       </section>
+      </>)}
 
       <AdminDialog
         open={!!reviewing}

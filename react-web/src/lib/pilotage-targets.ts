@@ -178,6 +178,17 @@ export function parseYearParam(raw: string | null): number | null {
   return year;
 }
 
+/**
+ * The registration-coverage view on /admin/inscriptions, for a raw ?annee=
+ * value. Used by that page's year control and by /admin/cibles, which
+ * forwards its retired ?vue=couverture links here: a valid year is carried
+ * over, anything else is dropped so the view falls back to the current year.
+ */
+export function coverageHref(annee: string | number | null): string {
+  const year = typeof annee === "number" ? parseYearParam(String(annee)) : parseYearParam(annee);
+  return `/admin/inscriptions?vue=couverture${year != null ? `&annee=${year}` : ""}`;
+}
+
 export function formatApiError(error: unknown): string {
   if (error instanceof ApiError) {
     const body = error.body;

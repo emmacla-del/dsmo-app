@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getPilotageQueues } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
+import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { getActiveHub, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
 
 // ── Breadcrumb ──────────────────────────────────────────────────────────────
@@ -91,6 +92,10 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
     staleTime: 30000,
   });
 
+  // Pending registrations, for the "inscriptions" tab badge — the same hook
+  // as the sidebar badge and the pilotage tile.
+  const { count: pendingRegistrations } = usePendingRegistrationsCount();
+
   if (customTabs && customTabs.length > 0) {
     return (
       <nav
@@ -141,6 +146,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
         let badge: number | undefined;
         if (sub.badgeKey === "pending") badge = pendingCount || undefined;
         if (sub.badgeKey === "anomalies") badge = anomaliesCount || undefined;
+        if (sub.badgeKey === "inscriptions") badge = pendingRegistrations || undefined;
 
         return (
           <Link

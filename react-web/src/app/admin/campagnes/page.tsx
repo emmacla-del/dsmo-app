@@ -792,7 +792,7 @@ function CreateCampaignDialog({
     onSuccess: () => {
       onCreated(
         registration
-          ? "Campagne d'inscription créée. Saisissez ses cibles dans Cibles et couverture."
+          ? "Campagne d'inscription créée. Saisissez ses cibles dans Collecte › Quotas et retours."
           : "Campagne créée et activée avec succès.",
       );
       onClose();

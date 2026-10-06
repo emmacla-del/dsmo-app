@@ -248,17 +248,6 @@ function EtablissementDetail() {
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
       />
 
-      <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
-        <Link href="/admin/inscriptions" style={{ padding: "8px 18px", background: "#ffffff", color: "#374151", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14, textDecoration: "none" }}>
-          Inscriptions
-        </Link>
-        <Link href="/admin/etablissements" style={{ padding: "8px 18px", background: "#004d3d", color: "#ffffff", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-          Établissements
-        </Link>
-        <Link href="/home/annuaire" style={{ padding: "8px 18px", background: "#ffffff", color: "#374151", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14, textDecoration: "none" }}>
-          Annuaire
-        </Link>
-      </div>
 
       {toastMessage && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

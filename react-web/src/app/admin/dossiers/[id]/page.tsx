@@ -510,62 +510,10 @@ function SubmissionDetailContent() {
         </div>
       </div>
 
-      {/* ── Sub-navigation Pills Row matching Figma _id.png ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "12px 16px",
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          marginBottom: 16,
-        }}
-      >
-        <Link
-          href="/admin/pilotage"
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            color: "#6b7280",
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: "none",
-          }}
-        >
-          Tableau de bord
-        </Link>
-        <Link
-          href="/admin/dossiers"
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            background: "#d97706",
-            color: "#ffffff",
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
-          Dossiers en instance
-        </Link>
-        {canReadAudit && (
-          <Link
-            href="/admin/journal-audit"
-            style={{
-              padding: "6px 14px",
-              borderRadius: 6,
-              color: "#6b7280",
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-            }}
-          >
-            Traçabilité
-          </Link>
-        )}
-      </div>
+      {/* A Tableau de bord / Dossiers / Traçabilité pill row sat here. It
+          mixed an Administration page (Traçabilité, AUDIT_ROLES only) into
+          the Supervision row and left out the hub's other pages. A detail
+          page leads back to its list: the back arrow above does that. */}
 
       {/* ── 3-Axis Diagnostic Strip matching Figma _id.png ── */}
       <div
