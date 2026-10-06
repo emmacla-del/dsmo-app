@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import type {
   CampaignReturnsResponse,
   ReturnMetrics,
@@ -15,12 +17,11 @@ export function CampaignReturnsTable({
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
 }) {
+  const t = useTranslations("adminTargets");
   const national = data.central != null || data.unassigned != null;
 
   if (data.regions.length === 0 && !national) {
-    return (
-      <p className="cam-admin-lede">Aucun territoire n&apos;est associé à ce compte.</p>
-    );
+    return <p className="cam-admin-lede">{t("noTerritory")}</p>;
   }
 
   return (
@@ -28,15 +29,15 @@ export function CampaignReturnsTable({
       <table className="cam-dash-table cam-target-table">
         <thead>
           <tr>
-            <th scope="col">Territoire</th>
-            <th scope="col" className="is-num">Quota</th>
-            <th scope="col" className="is-num">Reçus</th>
-            <th scope="col" className="is-num">Validés</th>
-            <th scope="col" className="is-num">À temps</th>
-            <th scope="col" className="is-num">En retard</th>
-            <th scope="col" className="is-num">Écart</th>
-            <th scope="col" className="is-num">Taux de quota</th>
-            <th scope="col" className="is-num">Taux de réponse</th>
+            <th scope="col">{t("territoryColumn")}</th>
+            <th scope="col" className="is-num">{t("quotaColumn")}</th>
+            <th scope="col" className="is-num">{t("receivedColumn")}</th>
+            <th scope="col" className="is-num">{t("validatedColumn")}</th>
+            <th scope="col" className="is-num">{t("onTimeColumn")}</th>
+            <th scope="col" className="is-num">{t("lateColumn")}</th>
+            <th scope="col" className="is-num">{t("gapColumn")}</th>
+            <th scope="col" className="is-num">{t("quotaRateColumn")}</th>
+            <th scope="col" className="is-num">{t("responseRateColumn")}</th>
           </tr>
         </thead>
         <tbody>
@@ -73,13 +74,13 @@ export function CampaignReturnsTable({
           <tbody>
             {data.central && (
               <tr className="cam-target-region">
-                <th scope="row">Niveau central (Administrations)</th>
+                <th scope="row">{t("centralAdministrations")}</th>
                 <MetricCells metrics={data.central} />
               </tr>
             )}
             {data.unassigned && data.unassigned.received > 0 && (
               <tr className="cam-target-region">
-                <th scope="row">Non rattachés</th>
+                <th scope="row">{t("unassigned")}</th>
                 <MetricCells metrics={data.unassigned} />
               </tr>
             )}
@@ -87,7 +88,7 @@ export function CampaignReturnsTable({
         )}
         <tfoot>
           <tr className="cam-target-region" style={{ fontWeight: 600, borderTop: "2px solid var(--cam-border)" }}>
-            <th scope="row">Total</th>
+            <th scope="row">{t("total")}</th>
             <MetricCells metrics={data.totals} />
           </tr>
         </tfoot>
@@ -97,6 +98,10 @@ export function CampaignReturnsTable({
 }
 
 function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
+  const fmt = (value: number | null | undefined) => formatCount(value, locale);
+  const fmtRate = (rate: number | null | undefined) => formatRate(rate, locale);
   return (
     <>
       <td className="is-num">{fmt(metrics.quota)}</td>
@@ -109,9 +114,9 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
           <span
             className="cam-badge cam-badge-warning"
             style={{ marginLeft: "var(--cam-space-2)", fontSize: "10px", padding: "1px 4px" }}
-            title="Déclarations déposées après la date limite"
+            title={t("lateTitle")}
           >
-            retard
+            {t("lateBadge")}
           </span>
         )}
       </td>
@@ -125,7 +130,7 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
           "—"
         )}
       </td>
-      <td className="is-num" title={`Reçus / Répertoire actif (${fmt(metrics.received)} / ${fmt(metrics.registeredStock)})`}>
+      <td className="is-num" title={t("responseRateTitle", { received: fmt(metrics.received), stock: fmt(metrics.registeredStock) })}>
         {fmtRate(metrics.responseRate)}
       </td>
     </>
@@ -139,12 +144,13 @@ function quotaRateBadge(rate: number): string {
   return "cam-badge-error";
 }
 
-function fmt(value: number | null | undefined): string {
+function formatCount(value: number | null | undefined, locale: UiLocale): string {
   if (value == null) return "—";
-  return value.toLocaleString("fr-FR");
+  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
 }
 
-function fmtRate(rate: number | null | undefined): string {
+function formatRate(rate: number | null | undefined, locale: UiLocale): string {
   if (rate == null) return "—";
-  return `${(rate * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 })} %`;
+  const digits = (rate * 100).toLocaleString(locale === "en" ? "en-GB" : "fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+  return locale === "en" ? `${digits}%` : `${digits} %`;
 }

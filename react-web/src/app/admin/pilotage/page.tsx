@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
 import type { Campaign } from "@/lib/campaigns";
@@ -17,16 +18,19 @@ import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-nam
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { anomalyRegisterHref } from "@/lib/admin-url";
 import { APPROVAL_ROLES, CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
+import { asUiLocale } from "@/lib/register-i18n";
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
-  PENDING_REVIEW: { label: "En attente", color: "#b8860b", bg: "#fef9e7" },
-  CORRECTION_REQUESTED: { label: "Correction", color: "#c25800", bg: "#fff3e8" },
-  REJECTED: { label: "Rejeté", color: "#b3202c", bg: "#fdecea" },
+// `labelKey` is under adminPilotagePage.
+const STATUS_META: Record<string, { labelKey: string; color: string; bg: string }> = {
+  APPROVED: { labelKey: "statusApproved", color: "#007a5e", bg: "#e8f7f3" },
+  PENDING_REVIEW: { labelKey: "statusPending", color: "#b8860b", bg: "#fef9e7" },
+  CORRECTION_REQUESTED: { labelKey: "statusCorrection", color: "#c25800", bg: "#fff3e8" },
+  REJECTED: { labelKey: "statusRejected", color: "#b3202c", bg: "#fdecea" },
 };
 
-function fmt(n: number | null | undefined) {
-  return count(n);
+/** The console locale, for the shared formatters. */
+function useUiLocale() {
+  return asUiLocale(useLocale());
 }
 
 function computeDaysLeft(deadlineStr?: string | null): number | null {
@@ -52,6 +56,7 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
  * /admin/cibles is APPROVAL_ROLES (not AUDITOR).
  */
 function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { campaignLabel: string; canOpenCampaigns: boolean; canOpenTargets: boolean }) {
+  const t = useTranslations("adminPilotagePage");
   if (!canOpenCampaigns && !canOpenTargets) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
@@ -62,7 +67,7 @@ function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { ca
       )}
       {canOpenTargets && (
         <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-          Quotas et retours →
+          {t("quotasLink")}
         </Link>
       )}
     </div>
@@ -80,6 +85,8 @@ function CampaignCard({
   canOpenCampaigns: boolean;
   canOpenTargets: boolean;
 }) {
+  const t = useTranslations("adminPilotagePage");
+  const locale = useUiLocale();
   const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
   const daysLeft = computeDaysLeft(deadlineStr);
 
@@ -90,17 +97,17 @@ function CampaignCard({
           <div>
             <div className="cam-dash-card-title-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <h3 id="dash-campaign-title" style={{ fontSize: 16, fontWeight: 700, color: "#374151", margin: 0 }}>
-                Campagne de Collecte
+                {t("campaignCardTitle")}
               </h3>
               <span style={{ fontSize: 11, fontWeight: 600, background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: 9999 }}>
-                Inactive
+                {t("campaignInactive")}
               </span>
             </div>
             <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
-              Aucune campagne de collecte active actuellement.
+              {t("noActiveCampaign")}
             </p>
           </div>
-          <CampaignLinks campaignLabel="Gérer les campagnes →" canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
+          <CampaignLinks campaignLabel={t("manageCampaignsLink")} canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
         </div>
       </section>
     );
@@ -113,9 +120,9 @@ function CampaignCard({
     : null;
 
   const dateRange = campaign.startDate && deadlineStr
-    ? `${stamp(campaign.startDate, false)} — ${stamp(deadlineStr, false)}`
+    ? `${stamp(campaign.startDate, false, locale)} — ${stamp(deadlineStr, false, locale)}`
     : campaign.startDate
-      ? `Depuis le ${stamp(campaign.startDate, false)}`
+      ? t("since", { date: stamp(campaign.startDate, false, locale) })
       : NOT_PROVIDED;
 
   return (
@@ -127,19 +134,19 @@ function CampaignCard({
               {campaign.name || campaign.code}
             </h3>
             <span style={{ fontSize: 11, fontWeight: 600, background: "#ecfdf5", color: "#059669", padding: "2px 8px", borderRadius: 9999 }}>
-              {campaign.status === "ACTIVE" ? "Actif" : campaign.status}
+              {campaign.status === "ACTIVE" ? t("campaignActive") : campaign.status}
             </span>
           </div>
           <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
             {dateRange}
           </p>
         </div>
-        <CampaignLinks campaignLabel="Voir les détails de la campagne →" canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
+        <CampaignLinks campaignLabel={t("campaignDetailsLink")} canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
       </div>
 
       <div style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux de couverture des entreprises ciblées</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{t("coverageRateLabel")}</span>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#1e6b3a" }}>
             {completionPct !== null ? `${completionPct}%` : NOT_PROVIDED}
           </span>
@@ -151,19 +158,19 @@ function CampaignCard({
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 20, paddingTop: 16, borderTop: "1px solid #f3f4f6" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Temps restant</div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>{t("timeRemainingLabel")}</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {daysLeft !== null ? `${daysLeft} jours restants` : NOT_PROVIDED}
+            {daysLeft !== null ? t("daysRemaining", { days: daysLeft }) : NOT_PROVIDED}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Entreprises ciblées</div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>{t("targetedCompaniesLabel")}</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {target !== null ? `${fmt(target)} entreprises` : NOT_PROVIDED}
+            {target !== null ? t("targetedCompaniesValue", { count: count(target, locale) }) : NOT_PROVIDED}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Agents de collecte</div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>{t("collectionOfficersLabel")}</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>{NOT_PROVIDED}</div>
         </div>
       </div>
@@ -172,37 +179,39 @@ function CampaignCard({
 }
 
 function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count: number }[]; isDivisional?: boolean }) {
+  const t = useTranslations("adminPilotagePage");
+  const locale = useUiLocale();
   return (
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         {/* "Voir toutes les régions →" pointed at /admin/centre-qualite,
             which has no all-regions view. This table already lists every
             region in the caller's scope, so the link had nowhere to go. */}
-        <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Couverture Régionale</h3>
+        <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>{t("regionalCoverageTitle")}</h3>
       </div>
       <div className="cam-dash-table-wrap">
         <table className="cam-dash-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #e5e7eb", textAlign: "left", fontSize: 12, color: "#6b7280" }}>
-              <th scope="col" style={{ padding: "8px 12px", fontWeight: 500 }}>Région</th>
-              <th scope="col" className="is-num" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>Soumissions</th>
-              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>Complétion</th>
-              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>Contrôle QC</th>
-              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>Anomalies</th>
+              <th scope="col" style={{ padding: "8px 12px", fontWeight: 500 }}>{t("regionColumn")}</th>
+              <th scope="col" className="is-num" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>{t("submissionsColumn")}</th>
+              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>{t("completionColumn")}</th>
+              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>{t("qcColumn")}</th>
+              <th scope="col" style={{ padding: "8px 12px", textAlign: "right", fontWeight: 500 }}>{t("anomaliesColumn")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} style={{ padding: "16px 12px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
-                  {isDivisional ? "Ressort départemental (couverture régionale non applicable)." : "Aucune donnée régionale disponible."}
+                  {isDivisional ? t("regionalNotApplicable") : t("noRegionalData")}
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.name} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
                   <th scope="row" style={{ padding: "10px 12px", fontWeight: 600, color: "#111827", textAlign: "left" }}>{r.name}</th>
-                  <td className="is-num" style={{ padding: "10px 12px", textAlign: "right", color: "#111827" }}>{fmt(r.count)}</td>
+                  <td className="is-num" style={{ padding: "10px 12px", textAlign: "right", color: "#111827" }}>{count(r.count, locale)}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
@@ -242,46 +251,49 @@ function RecentActivity({
   error: unknown;
   onRetry: () => void;
 }) {
+  const t = useTranslations("adminPilotagePage");
+  const locale = useUiLocale();
   return (
     <section className="cam-dash-card" id="activity" aria-labelledby="dash-activity-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 id="dash-activity-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Activité Récente</h3>
+        <h3 id="dash-activity-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>{t("recentActivityTitle")}</h3>
         {/* This feed is the latest submissions, so it continues in the dossier
             list. It used to point at the audit journal: different data, and
             AUDIT_ROLES-only, so a 403 for every territorial and ONEFOP admin. */}
-        <Link href="/admin/dossiers" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir tous les dossiers →</Link>
+        <Link href="/admin/dossiers" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>{t("viewAllFilesLink")}</Link>
       </div>
       {isError ? (
         <div style={{ padding: "16px 0" }}>
           <DataState
             dense
             state="error"
-            resource="l'activité récente"
+            resource={t("recentActivityResource")}
             error={error}
             onRetry={onRetry}
           />
         </div>
       ) : isLoading ? (
         <div style={{ padding: "24px 0", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
-          Chargement de l&apos;activité...
+          {t("loadingActivity")}
         </div>
       ) : items.length === 0 ? (
         <div style={{ padding: "24px 0", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
-          Aucune activité récente enregistrée.
+          {t("noRecentActivity")}
         </div>
       ) : (
         <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {items.map((s, idx) => {
             const statusKey = s.adminStatus || s.status;
-            const meta = statusKey && STATUS_META[statusKey]
-              ? STATUS_META[statusKey]
-              : { label: statusKey || "En attente", color: "#6b7280", bg: "#f3f4f6" };
+            const known = statusKey ? STATUS_META[statusKey] : undefined;
+            const meta = known
+              ? { label: t(known.labelKey), color: known.color }
+              : { label: statusKey || t("statusPending"), color: "#6b7280" };
             const region = s.region || s.rawData?.enterprise?.region || null;
-            const name = resolveEntityName(s) ?? (s.id ? `Fiche #${s.id.slice(0, 8)}` : NOT_PROVIDED);
+            const name = resolveEntityName(s) ?? (s.id ? t("formRef", { id: s.id.slice(0, 8) }) : NOT_PROVIDED);
             return (
               <li key={s.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
                 <span style={{ color: "#6b7280", fontSize: 12, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
-                  {shortStamp(s.submittedAt || s.createdAt)}
+                  {shortStamp(s.submittedAt || s.createdAt, locale)}
                 </span>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} aria-hidden="true" />
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#111827" }}>
@@ -302,19 +314,20 @@ function RecentActivity({
 }
 
 function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySummary | null; fallbackEligibilityPct: number | null }) {
+  const t = useTranslations("adminPilotagePage");
   const metrics = [
-    { label: "Complétude", value: quality?.completenessRate ?? null },
-    { label: "Cohérence", value: quality?.coherenceRate ?? null },
-    { label: "Anomalies", value: quality?.anomalyRate ?? null },
-    { label: "Avertissements", value: quality?.warningRate ?? null },
-    { label: "Éligibilité statistique", value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct },
+    { label: t("qualityCompleteness"), value: quality?.completenessRate ?? null },
+    { label: t("qualityCoherence"), value: quality?.coherenceRate ?? null },
+    { label: t("qualityAnomalies"), value: quality?.anomalyRate ?? null },
+    { label: t("qualityWarnings"), value: quality?.warningRate ?? null },
+    { label: t("qualityEligibility"), value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct },
   ];
 
   return (
     <section className="cam-dash-card" aria-labelledby="dash-quality-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 id="dash-quality-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Qualité des Données</h3>
-        <Link href="/admin/centre-qualite" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir le centre qualité →</Link>
+        <h3 id="dash-quality-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>{t("dataQualityTitle")}</h3>
+        <Link href="/admin/centre-qualite" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>{t("qualityCentreLink")}</Link>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {metrics.map((m) => (
@@ -338,6 +351,8 @@ function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySumm
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PilotagePage() {
+  const t = useTranslations();
+  const locale = useUiLocale();
   const { regions: CAMEROON_REGIONS } = useTerritoryRegions();
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
@@ -439,11 +454,11 @@ export default function PilotagePage() {
   // `highlighted` lives on each stage, so it travels with "Déclarations" when
   // the Inscriptions stage is dropped for a role that cannot read its source.
   const pipeline = [
-    ...(canReadDataStats ? [{ label: "Inscriptions", value: totalInscriptions, highlighted: false }] : []),
-    { label: "Déclarations", value: totalSubmissions, highlighted: true },
-    { label: "Supervision nationale", value: nationalCount, highlighted: false },
-    { label: "Approuvées", value: statusApproved, highlighted: false },
-    { label: "Exportables", value: readyCount, highlighted: false },
+    ...(canReadDataStats ? [{ label: t("adminPilotagePage.pipelineRegistrations"), value: totalInscriptions, highlighted: false }] : []),
+    { label: t("adminPilotagePage.pipelineDeclarations"), value: totalSubmissions, highlighted: true },
+    { label: t("adminPilotagePage.pipelineNational"), value: nationalCount, highlighted: false },
+    { label: t("adminPilotagePage.pipelineApproved"), value: statusApproved, highlighted: false },
+    { label: t("adminPilotagePage.pipelineExportable"), value: readyCount, highlighted: false },
   ];
 
   // 4 "À TRAITER" tiles: null renders "—" when the source is absent for
@@ -455,8 +470,8 @@ export default function PilotagePage() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Tableau de bord" }]}
-        title="Tableau de bord"
+        breadcrumb={[{ label: t("adminNav.hubs.supervision") }, { label: t("adminNav.routes.pilotage") }]}
+        title={t("adminNav.routes.pilotage")}
         actions={<AdminHeaderActions />}
       />
 
@@ -464,7 +479,7 @@ export default function PilotagePage() {
         <div style={{ marginBottom: 20 }}>
           <DataState
             state="error"
-            resource="les indicateurs de supervision"
+            resource={t("adminPilotagePage.indicatorsResource")}
             error={queuesQuery.error}
             onRetry={() => queuesQuery.refetch()}
           />
@@ -472,31 +487,31 @@ export default function PilotagePage() {
       )}
 
       <section aria-labelledby="dash-todo-title" style={{ marginBottom: 28 }}>
-        <SectionLabel id="dash-todo-title" tone="green">À TRAITER</SectionLabel>
+        <SectionLabel id="dash-todo-title" tone="green">{t("adminPilotagePage.toProcessTitle")}</SectionLabel>
 
         <div className="cam-dash-kpis">
           <KpiTile
             tone="warning"
             value={inscriptionsPending}
-            label="Inscriptions en attente"
+            label={t("adminPilotagePage.kpiPendingRegistrations")}
             href="/admin/inscriptions"
           />
           <KpiTile
             tone="info"
             value={declarationsReview}
-            label="Déclarations à examiner"
+            label={t("adminPilotagePage.kpiDeclarationsToReview")}
             href="/admin/dossiers?status=PENDING_REVIEW"
           />
           <KpiTile
             tone="error"
             value={correctionsCount}
-            label="Retours à corriger"
+            label={t("adminPilotagePage.kpiReturnsToCorrect")}
             href="/admin/dossiers?status=CORRECTION_REQUESTED"
           />
           <KpiTile
             tone="warning"
             value={anomaliesCount}
-            label="Alertes qualité"
+            label={t("adminPilotagePage.kpiQualityAlerts")}
             // The tile counts open blocking anomalies (blockingAnomaliesCount),
             // so it opens the register filtered to exactly those rows.
             href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
@@ -505,11 +520,11 @@ export default function PilotagePage() {
       </section>
 
       <section aria-labelledby="dash-pipeline-title" style={{ marginBottom: 28 }}>
-        <SectionLabel id="dash-pipeline-title" tone="green">PIPELINE DES DÉCLARATIONS</SectionLabel>
+        <SectionLabel id="dash-pipeline-title" tone="green">{t("adminPilotagePage.pipelineTitle")}</SectionLabel>
         <ol className="cam-dash-pipeline">
           {pipeline.map((stage) => (
             <li key={stage.label} className={stage.highlighted ? "is-highlighted" : undefined}>
-              <span className="cam-dash-pipeline-value">{fmt(stage.value)}</span>
+              <span className="cam-dash-pipeline-value">{count(stage.value, locale)}</span>
               <span className="cam-dash-pipeline-label">{stage.label}</span>
             </li>
           ))}

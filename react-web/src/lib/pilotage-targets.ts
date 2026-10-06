@@ -1,6 +1,7 @@
 import { apiFetch, ApiError } from "./api-client";
 import type { UserRole } from "./roles";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "./roles";
+import type { UiLocale } from "./register-i18n";
 
 export const YEAR_MIN = 2000;
 export const YEAR_MAX = 2100;
@@ -189,7 +190,7 @@ export function coverageHref(annee: string | number | null): string {
   return `/admin/inscriptions?vue=couverture${year != null ? `&annee=${year}` : ""}`;
 }
 
-export function formatApiError(error: unknown): string {
+export function formatApiError(error: unknown, locale: UiLocale = "fr"): string {
   if (error instanceof ApiError) {
     const body = error.body;
     if (body && typeof body === "object" && !Array.isArray(body)) {
@@ -200,7 +201,7 @@ export function formatApiError(error: unknown): string {
     if (typeof error.message === "string" && error.message.trim()) return error.message;
   }
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "La requête a échoué.";
+  return locale === "en" ? "The request failed." : "La requête a échoué.";
 }
 
 export function getAnnualCoverage(year: number) {

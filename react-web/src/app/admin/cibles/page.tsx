@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -12,7 +13,8 @@ import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
 import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
-import { isRegistrationCampaign, listCampaigns, REGISTRATION_STATUS_LABEL, type Campaign } from "@/lib/campaigns";
+import { isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
+import { asUiLocale } from "@/lib/register-i18n";
 import {
   buildTargetPayload,
   clearRegionDraft,
@@ -35,9 +37,10 @@ import {
 } from "@/lib/pilotage-targets";
 
 type Vue = "quotas" | "retours";
-const VUES: { id: Vue; label: string }[] = [
-  { id: "quotas", label: "Quotas de campagne" },
-  { id: "retours", label: "Suivi des retours" },
+// `labelKey` is under adminCiblesPage.
+const VUES: { id: Vue; labelKey: string }[] = [
+  { id: "quotas", labelKey: "viewQuotas" },
+  { id: "retours", labelKey: "viewReturns" },
 ];
 
 export default function CiblesPage() {
@@ -53,6 +56,7 @@ function CiblesContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
+  const t = useTranslations();
   const canWrite = canWritePilotageTargets(user?.role);
   const canList = canListCampaigns(user?.role);
 
@@ -90,28 +94,27 @@ function CiblesContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Collecte" }, { label: "Quotas et retours" }]}
-        title="Quotas et retours"
-        subtitle="Quotas des campagnes ONEFOP et suivi des retours de déclarations."
+        breadcrumb={[{ label: t("adminNav.hubs.collecte") }, { label: t("adminNav.routes.cibles") }]}
+        title={t("adminNav.routes.cibles")}
+        subtitle={t("adminCiblesPage.subtitle")}
         actions={<AdminHeaderActions />}
       />
 
       {!canWrite && (
         <p className="cam-admin-notice" style={{ marginBottom: "var(--cam-space-4)" }}>
-          Consultation seulement
           {user?.department
-            ? ` — département ${user.department}`
+            ? t("adminCiblesPage.readOnlyDepartment", { department: user.department })
             : user?.region
-              ? ` — région ${user.region}`
-              : ""}.
+              ? t("adminCiblesPage.readOnlyRegion", { region: user.region })
+              : t("adminCiblesPage.readOnly")}
         </p>
       )}
 
       <ViewSwitch
-        label="Vues quotas et retours"
+        label={t("adminCiblesPage.viewsAriaLabel")}
         items={VUES.map((item) => ({
           key: item.id,
-          label: item.label,
+          label: t(`adminCiblesPage.${item.labelKey}`),
           active: vue === item.id,
           href: `${pathname}?${viewQuery(searchParams, item.id, campagneParam)}`,
         }))}
@@ -155,6 +158,8 @@ function TargetsPanel({
   canWrite: boolean;
   showCentral: boolean;
 }) {
+  const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const queryClient = useQueryClient();
   const query = useQuery<CampaignQuotasResponse>({
     queryKey: ["admin", "pilotage", "quotas", campaignId],
@@ -205,6 +210,7 @@ function TargetsPanel({
         drafts,
         originalCentral,
         centralInput,
+        locale,
       });
       if (!built.ok) throw new Error(built.errors.join(" "));
       return putCampaignQuotas(campaignId, built.body);
@@ -225,6 +231,7 @@ function TargetsPanel({
       drafts: usedDrafts,
       originalCentral,
       centralInput,
+      locale,
     });
     if (!built.ok) {
       if (nextDrafts && draftsBeforeClear.current) {
@@ -257,17 +264,17 @@ function TargetsPanel({
     setConfirmOpen(false);
   }
 
-  if (query.isLoading) return <p className="cam-admin-lede">Chargement…</p>;
+  if (query.isLoading) return <p className="cam-admin-lede">{t("common.loading")}</p>;
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error)}</div>;
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
   }
 
-  const saveError = mutation.isError ? formatApiError(mutation.error) : null;
+  const saveError = mutation.isError ? formatApiError(mutation.error, locale) : null;
 
   return (
     <>
       {query.isSuccess && mutation.isSuccess && !confirmOpen && (
-        <div className="cam-admin-notice cam-admin-notice--success">Objectifs enregistrés.</div>
+        <div className="cam-admin-notice cam-admin-notice--success">{t("adminCiblesPage.targetsSaved")}</div>
       )}
       {clientErrors.length > 0 && (
         <div className="cam-admin-notice cam-admin-notice--error" role="alert">
@@ -310,7 +317,7 @@ function TargetsPanel({
       {canWrite && (
         <div className="cam-target-actions">
           <button type="button" className="cam-button cam-button-primary" onClick={() => requestSave()} disabled={mutation.isPending}>
-            Enregistrer
+            {t("common.save")}
           </button>
         </div>
       )}
@@ -318,19 +325,19 @@ function TargetsPanel({
       <AdminDialog
         open={confirmOpen}
         onClose={closeConfirm}
-        title="Confirmer l'enregistrement"
+        title={t("adminCiblesPage.confirmSaveTitle")}
         footer={
           <>
             <button type="button" className="cam-button cam-button-secondary" onClick={closeConfirm} disabled={mutation.isPending}>
-              Annuler
+              {t("common.cancel")}
             </button>
             <button type="button" className="cam-button cam-button-primary" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-              {mutation.isPending ? "…" : "Confirmer"}
+              {mutation.isPending ? "…" : t("adminCiblesPage.confirmButton")}
             </button>
           </>
         }
       >
-        <p>Ces objectifs remplaceront les valeurs enregistrées pour cette campagne.</p>
+        <p>{t("adminCiblesPage.confirmSaveBody")}</p>
         <ul className="cam-target-changes">
           {pendingChanges.map((change) => (
             <li key={`${change.kind}-${change.name}`}>
@@ -357,6 +364,8 @@ function QuotasPanel({
   onCampagneChange: (id: string) => void;
   showCentral: boolean;
 }) {
+  const t = useTranslations("adminCiblesPage");
+  const locale = asUiLocale(useLocale());
   const listQuery = useQuery({
     queryKey: ["campaigns", "all"],
     queryFn: () => listCampaigns(),
@@ -379,19 +388,15 @@ function QuotasPanel({
   }, [canList, campagneParam, selected, onCampagneChange]);
 
   if (!canList && !campagneParam) {
-    return (
-      <p className="cam-admin-lede">
-        La liste des campagnes n&apos;est pas disponible au niveau départemental. Un identifiant de campagne dans l&apos;adresse permet la consultation.
-      </p>
-    );
+    return <p className="cam-admin-lede">{t("noCampaignListDepartmental")}</p>;
   }
 
-  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">Chargement des campagnes…</p>;
+  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">{t("loadingCampaigns")}</p>;
   if (canList && listQuery.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error)}</div>;
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error, locale)}</div>;
   }
   if (canList && onefop.length === 0) {
-    return <p className="cam-admin-lede">Aucune campagne ONEFOP n&apos;est disponible.</p>;
+    return <p className="cam-admin-lede">{t("noOnefopCampaign")}</p>;
   }
 
   const campaignId = campagneParam || selected;
@@ -406,14 +411,14 @@ function QuotasPanel({
     <>
       {canList && (
         <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
-          Campagne ONEFOP
+          {t("onefopCampaignLabel")}
           <select
             className="cam-select"
             value={campaignId}
             onChange={(event) => onCampagneChange(event.target.value)}
           >
             {collection.length > 0 && (
-              <optgroup label="Campagnes de collecte">
+              <optgroup label={t("collectionCampaignsGroup")}>
                 {collection.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
                     {campaign.code} — {campaign.name} ({campaign.status})
@@ -422,10 +427,10 @@ function QuotasPanel({
               </optgroup>
             )}
             {registration.length > 0 && (
-              <optgroup label="Campagnes d'inscription">
+              <optgroup label={t("registrationCampaignsGroup")}>
                 {registration.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
-                    {campaign.code} — {campaign.name} ({REGISTRATION_STATUS_LABEL})
+                    {campaign.code} — {campaign.name} ({t("registrationStatus")})
                   </option>
                 ))}
               </optgroup>
@@ -436,8 +441,8 @@ function QuotasPanel({
       {selectedCampaign && (
         <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
           {isRegistrationCampaign(selectedCampaign)
-            ? <>Cibles d&apos;inscription : elles alimentent la vue <Link href={coverageHref(null)}>Couverture</Link> de la page Inscriptions.</>
-            : "Quotas de déclarations : ils alimentent le Suivi des retours."}
+            ? <>{t("registrationTargetsNoteBefore")} <Link href={coverageHref(null)}>{t("registrationTargetsNoteLink")}</Link> {t("registrationTargetsNoteAfter")}</>
+            : t("declarationQuotasNote")}
         </p>
       )}
       {campaignId && (
@@ -461,6 +466,8 @@ function ReturnsPanel({
   campagneParam: string;
   onCampagneChange: (id: string) => void;
 }) {
+  const t = useTranslations("adminCiblesPage");
+  const locale = asUiLocale(useLocale());
   const listQuery = useQuery({
     queryKey: ["campaigns", "all"],
     queryFn: () => listCampaigns(),
@@ -496,19 +503,15 @@ function ReturnsPanel({
   }, [canList, listQuery.isSuccess, campagneParam, paramShowable, selected, onCampagneChange]);
 
   if (!canList && !campagneParam) {
-    return (
-      <p className="cam-admin-lede">
-        La liste des campagnes n&apos;est pas disponible au niveau départemental. Un identifiant de campagne dans l&apos;adresse permet la consultation.
-      </p>
-    );
+    return <p className="cam-admin-lede">{t("noCampaignListDepartmental")}</p>;
   }
 
-  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">Chargement des campagnes…</p>;
+  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">{t("loadingCampaigns")}</p>;
   if (canList && listQuery.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error)}</div>;
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error, locale)}</div>;
   }
   if (canList && onefop.length === 0) {
-    return <p className="cam-admin-lede">Aucune campagne de collecte ONEFOP n&apos;est disponible.</p>;
+    return <p className="cam-admin-lede">{t("noOnefopCollectionCampaign")}</p>;
   }
 
   const campaignId = selected;
@@ -517,7 +520,7 @@ function ReturnsPanel({
     <>
       {canList && (
         <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
-          Campagne de collecte ONEFOP
+          {t("onefopCollectionCampaignLabel")}
           <select
             className="cam-select"
             value={campaignId}
@@ -537,6 +540,8 @@ function ReturnsPanel({
 }
 
 function ReturnsContent({ campaignId }: { campaignId: string }) {
+  const t = useTranslations("adminCiblesPage");
+  const locale = asUiLocale(useLocale());
   const query = useQuery({
     queryKey: ["admin", "pilotage", "returns", campaignId],
     queryFn: () => getCampaignReturns(campaignId),
@@ -551,9 +556,9 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
     setExpanded(new Set(query.data.regions.map((region) => region.regionId)));
   }, [query.data]);
 
-  if (query.isLoading) return <p className="cam-admin-lede">Chargement des retours…</p>;
+  if (query.isLoading) return <p className="cam-admin-lede">{t("loadingReturns")}</p>;
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error)}</div>;
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
   }
   if (!query.data) return null;
 

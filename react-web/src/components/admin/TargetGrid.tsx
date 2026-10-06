@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import {
   applyEditMode,
   modeLabel,
@@ -35,10 +37,10 @@ export function TargetGrid({
   onToggle: (regionId: string) => void;
   hasUnsavedChanges?: boolean;
 }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
   if (regions.length === 0) {
-    return (
-      <p className="cam-admin-lede">Aucun territoire n&apos;est associé à ce compte.</p>
-    );
+    return <p className="cam-admin-lede">{t("noTerritory")}</p>;
   }
 
   return (
@@ -46,9 +48,9 @@ export function TargetGrid({
       <table className="cam-dash-table cam-target-table">
         <thead>
           <tr>
-            <th scope="col">Territoire</th>
-            <th scope="col">Mode</th>
-            <th scope="col" className="is-num">Objectif</th>
+            <th scope="col">{t("territoryColumn")}</th>
+            <th scope="col">{t("modeColumn")}</th>
+            <th scope="col" className="is-num">{t("targetColumn")}</th>
           </tr>
         </thead>
         <tbody>
@@ -75,17 +77,17 @@ export function TargetGrid({
         {showCentral && (
           <tbody>
             <tr>
-              <th scope="row">Niveau central</th>
+              <th scope="row">{t("centralLevel")}</th>
               <td>—</td>
               <td className="is-num">
                 {canWrite ? (
                   <TargetInput
-                    ariaLabel="Objectif niveau central"
+                    ariaLabel={t("centralTargetAriaLabel")}
                     value={centralInput}
                     onChange={onCentralChange}
                   />
                 ) : (
-                  <span>{centralInput.trim() === "" ? "—" : Number(centralInput).toLocaleString("fr-FR")}</span>
+                  <span>{centralInput.trim() === "" ? "—" : formatNumber(Number(centralInput), locale)}</span>
                 )}
               </td>
             </tr>
@@ -117,20 +119,22 @@ function RegionBlock({
   onClear: () => void;
   hasUnsavedChanges?: boolean;
 }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
   const mode = draft?.mode ?? null;
   const liveSum = draft ? sumFilled(draft.departmentInputs) : null;
   const regionDisplay =
     draft?.clear
-      ? "Non défini"
+      ? t("notSet")
       : mode === "DEPARTMENT"
         ? liveSum == null
           ? "—"
-          : liveSum.toLocaleString("fr-FR")
+          : formatNumber(liveSum, locale)
         : mode === "REGION"
           ? null
           : region.target == null
             ? "—"
-            : region.target.toLocaleString("fr-FR");
+            : formatNumber(region.target, locale);
 
   return (
     <>
@@ -165,13 +169,13 @@ function RegionBlock({
               }}
             />
           ) : (
-            <span className={modeBadgeClass(region.mode)}>{modeLabel(region.mode)}</span>
+            <span className={modeBadgeClass(region.mode)}>{modeLabel(region.mode, locale)}</span>
           )}
         </td>
         <td className="is-num">
           {canWrite && mode === "REGION" ? (
             <TargetInput
-              ariaLabel={`Objectif régional ${region.name}`}
+              ariaLabel={t("regionTargetAriaLabel", { region: region.name })}
               value={draft?.regionInput ?? ""}
               onChange={(value) => draft && onDraftChange({ ...draft, clear: false, regionInput: value })}
             />
@@ -184,7 +188,7 @@ function RegionBlock({
         <tr className="cam-target-note">
           <td colSpan={3}>
             <div className="cam-admin-notice cam-admin-notice--warn">
-              Cette région mélange un objectif régional et des objectifs départementaux. Choisissez un mode avant d&apos;enregistrer.
+              {t("mixedRegionWarning")}
             </div>
           </td>
         </tr>
@@ -195,7 +199,7 @@ function RegionBlock({
             <span
               title={
                 hasUnsavedChanges
-                  ? "Enregistrez ou annulez vos modifications avant d'effacer une région"
+                  ? t("clearBlockedTitle")
                   : undefined
               }
             >
@@ -205,7 +209,7 @@ function RegionBlock({
                 disabled={hasUnsavedChanges}
                 onClick={onClear}
               >
-                Effacer les cibles de la région
+                {t("clearRegionButton")}
               </button>
             </span>
           </td>
@@ -213,7 +217,7 @@ function RegionBlock({
       )}
       {open &&
         region.departments.map((department) => {
-          const stored = department.target == null ? "—" : department.target.toLocaleString("fr-FR");
+          const stored = department.target == null ? "—" : formatNumber(department.target, locale);
           const editable = canWrite && mode === "DEPARTMENT";
           return (
             <tr key={department.departmentId} className="cam-target-dept">
@@ -222,7 +226,7 @@ function RegionBlock({
               <td className="is-num">
                 {editable ? (
                   <TargetInput
-                    ariaLabel={`Objectif ${department.name}`}
+                    ariaLabel={t("departmentTargetAriaLabel", { department: department.name })}
                     value={draft?.departmentInputs[department.departmentId] ?? ""}
                     onChange={(value) => {
                       if (!draft) return;
@@ -253,8 +257,9 @@ function ModePicker({
   mode: EditMode | null;
   onChange: (mode: EditMode) => void;
 }) {
+  const t = useTranslations("adminTargets");
   return (
-    <div className="cam-target-modes" role="radiogroup" aria-label="Mode d'objectif">
+    <div className="cam-target-modes" role="radiogroup" aria-label={t("targetModeAriaLabel")}>
       <label className="cam-admin-choice">
         <input
           type="radio"
@@ -262,7 +267,7 @@ function ModePicker({
           checked={mode === "DEPARTMENT"}
           onChange={() => onChange("DEPARTMENT")}
         />
-        Par département
+        {t("modeByDepartment")}
       </label>
       <label className="cam-admin-choice">
         <input
@@ -271,7 +276,7 @@ function ModePicker({
           checked={mode === "REGION"}
           onChange={() => onChange("REGION")}
         />
-        Région seule
+        {t("modeRegionOnly")}
       </label>
     </div>
   );
@@ -299,6 +304,10 @@ function TargetInput({
       onChange={(event) => onChange(event.target.value)}
     />
   );
+}
+
+function formatNumber(value: number, locale: UiLocale): string {
+  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
 }
 
 function modeBadgeClass(mode: NormalizedRegion["mode"]): string {

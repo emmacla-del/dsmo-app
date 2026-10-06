@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   API_BASE_URL,
@@ -13,7 +14,8 @@ import {
   listAdminQuestionnaires,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { entityTypeLabel } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
+import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName } from "@/lib/onefop-entity-name";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -55,12 +57,12 @@ const PAGE_SIZE = 10;
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
 const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
 // Mirrors ADMIN_LIST_PERIODS; "" = Toutes les périodes (the default, so pending
-// dossiers older than 30 days stay visible).
-const PERIODS: Array<{ value: string; label: string }> = [
-  { value: "7d", label: "7 derniers jours" },
-  { value: "30d", label: "30 derniers jours" },
-  { value: "3m", label: "3 derniers mois" },
-  { value: "12m", label: "12 derniers mois" },
+// dossiers older than 30 days stay visible). `labelKey` is under adminDossiersPage.
+const PERIODS: Array<{ value: string; labelKey: string }> = [
+  { value: "7d", labelKey: "period7d" },
+  { value: "30d", labelKey: "period30d" },
+  { value: "3m", labelKey: "period3m" },
+  { value: "12m", labelKey: "period12m" },
 ];
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -78,22 +80,13 @@ const SEARCH_DEBOUNCE_MS = 300;
  * excluded — the same base as this list. They do not follow the type,
  * region, period or search filters below.
  */
-const STATUS_VIEWS: Array<{ status: DossierStatus | ""; label: string; note?: string }> = [
-  { status: "", label: "Tous" },
-  {
-    status: "PENDING_REVIEW",
-    label: "En instance",
-    note:
-      "Le visa confirme la conformité légale du déclarant. Un dossier visé reste exclu du lot statistique tant qu'une anomalie bloquante persiste.",
-  },
-  {
-    status: "CORRECTION_REQUESTED",
-    label: "Corrections",
-    note:
-      "Ces déclarations ont été renvoyées aux employeurs avec un motif de non-conformité. Elles reviennent dans la file dès leur nouvelle soumission.",
-  },
-  { status: "APPROVED", label: "Visés" },
-  { status: "REJECTED", label: "Rejetés" },
+// `labelKey` / `noteKey` are under adminDossiersPage.
+const STATUS_VIEWS: Array<{ status: DossierStatus | ""; labelKey: string; noteKey?: string }> = [
+  { status: "", labelKey: "statusAll" },
+  { status: "PENDING_REVIEW", labelKey: "statusPending", noteKey: "statusPendingNote" },
+  { status: "CORRECTION_REQUESTED", labelKey: "statusCorrections", noteKey: "statusCorrectionsNote" },
+  { status: "APPROVED", labelKey: "statusEndorsed" },
+  { status: "REJECTED", labelKey: "statusRejected" },
 ];
 
 // Suspense because useSearchParams() requires it in the app router.
@@ -108,6 +101,11 @@ export default function DossiersPage() {
 function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
+  const t = useTranslations("adminDossiersPage");
+  const tRoot = useTranslations();
+  const locale = asUiLocale(useLocale());
+  const typeLabel = (type: string) =>
+    ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
   /**
    * The actor's own authorised scope, from the stored user record.
    *
@@ -118,12 +116,12 @@ function DossiersContent() {
    */
   const scopeLabel =
     user?.role === "REGIONAL_ADMIN"
-      ? (user.region ? `Régional — ${user.region}` : "Régional — ressort non affecté")
+      ? (user.region ? t("scopeRegional", { region: user.region }) : t("scopeRegionalUnassigned"))
       : user?.role === "DIVISIONAL_ADMIN"
-        ? (user.department ? `Départemental — ${user.department}` : "Départemental — ressort non affecté")
+        ? (user.department ? t("scopeDepartmental", { department: user.department }) : t("scopeDepartmentalUnassigned"))
         : hasRole(user?.role, NATIONAL_ROLES)
-          ? "National"
-          : "Ressort non affecté";
+          ? t("scopeNational")
+          : t("scopeUnassigned");
   const { regions: territoryRegions } = useTerritoryRegions();
 
   const searchParams = useSearchParams();
@@ -274,7 +272,7 @@ function DossiersContent() {
   const dossiers: DossierItem[] = rawItems.map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
-    const name = resolveEntityName(sub) ?? `Dossier ${sub.submissionId || sub.id}`;
+    const name = resolveEntityName(sub) ?? t("fileFallbackName", { id: sub.submissionId || sub.id });
 
     return {
       id: sub.id,
@@ -398,7 +396,7 @@ function DossiersContent() {
       );
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        throw new Error(body?.message ?? `Échec de l'export (${resp.status})`);
+        throw new Error(body?.message ?? t("exportFailedStatus", { status: resp.status }));
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
@@ -412,7 +410,7 @@ function DossiersContent() {
       URL.revokeObjectURL(url);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      alert(`L'export a échoué : ${msg}`);
+      alert(t("exportFailed", { message: msg }));
     } finally {
       setExportInProgress(false);
     }
@@ -422,9 +420,9 @@ function DossiersContent() {
     <div className="cam-admin-page">
       {/* ── Page Header matching Figma supervision/dossiers.png ── */}
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Dossiers" }]}
-        title="Dossiers"
-        subtitle="Instruction et suivi des dossiers de déclaration soumis"
+        breadcrumb={[{ label: tRoot("adminNav.hubs.supervision") }, { label: tRoot("adminNav.routes.dossiers") }]}
+        title={tRoot("adminNav.routes.dossiers")}
+        subtitle={t("subtitle")}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* The actor's scope, stated — not a selector. It carried a
@@ -442,12 +440,12 @@ function DossiersContent() {
                 alignItems: "center",
               }}
             >
-              Ressort : {scopeLabel}
+              {t("scopeChip", { scope: scopeLabel })}
             </span>
             <div style={{ position: "relative", width: 220 }}>
               <input
                 type="text"
-                placeholder="Rechercher..."
+                placeholder={t("searchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 style={{
@@ -488,10 +486,10 @@ function DossiersContent() {
 
       {/* ── Status filter: one control, URL-backed (?status=) ── */}
       <ViewSwitch
-        label="Statut des dossiers"
+        label={t("statusFilterAriaLabel")}
         items={STATUS_VIEWS.map((view) => ({
           key: view.status || "ALL",
-          label: view.label,
+          label: t(view.labelKey),
           active: statusFilter === view.status,
           count: queues ? (view.status ? queues.statusCounts[view.status] : queues.totalSubmissionsCount) : null,
           onClick: () => changeFilter(() => setStatus(view.status)),
@@ -500,12 +498,12 @@ function DossiersContent() {
 
       {/* The queue's own note, carried over from /admin/files-attente. Shown
           only for the status it describes. */}
-      {STATUS_VIEWS.filter((view) => view.note && view.status === statusFilter).map((view) => (
+      {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
         <p
-          key={view.label}
+          key={view.labelKey}
           style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.45, color: "#6b7280", maxWidth: 820 }}
         >
-          {view.note}
+          {view.noteKey && t(view.noteKey)}
         </p>
       ))}
 
@@ -514,30 +512,30 @@ function DossiersContent() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              Type de questionnaire
+              {t("formTypeLabel")}
             </label>
             <select
               style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
               value={typeFilter}
               onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}
             >
-              <option value="">Tous les Questionnaires</option>
-              {FORM_TYPES.map((t) => (
-                <option key={t} value={t}>{entityTypeLabel(t)}</option>
+              <option value="">{t("allFormTypes")}</option>
+              {FORM_TYPES.map((type) => (
+                <option key={type} value={type}>{typeLabel(type)}</option>
               ))}
             </select>
           </div>
 
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              Région
+              {t("regionLabel")}
             </label>
             <select
               style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
               value={regionFilter}
               onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
             >
-              <option value="">Toutes les Régions</option>
+              <option value="">{t("allRegions")}</option>
               {territoryRegions.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -546,7 +544,7 @@ function DossiersContent() {
 
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              Période
+              {t("periodLabel")}
             </label>
             <select
               style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
@@ -557,21 +555,21 @@ function DossiersContent() {
                   select shows it. A hard-coded 30-day option stood here
                   instead — a duplicate of PERIODS' own — so the control read
                   "Derniers 30 jours" while every period was listed. */}
-              <option value="">Toutes les périodes</option>
+              <option value="">{t("allPeriods")}</option>
               {PERIODS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
               ))}
             </select>
           </div>
 
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              Recherche libre
+              {t("freeSearchLabel")}
             </label>
             <div style={{ position: "relative" }}>
               <input
                 type="search"
-                placeholder="ID, répondant, structure..."
+                placeholder={t("freeSearchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 style={{
@@ -612,7 +610,7 @@ function DossiersContent() {
               cursor: "pointer",
             }}
           >
-            <span>✓</span> Viser la sélection
+            <span>✓</span> {t("endorseSelectionButton")}
           </button>
           <button
             type="button"
@@ -631,7 +629,7 @@ function DossiersContent() {
               cursor: "pointer",
             }}
           >
-            <span>✕</span> Rejeter Sélection
+            <span>✕</span> {t("rejectSelectionButton")}
           </button>
         </div>
 
@@ -658,7 +656,7 @@ function DossiersContent() {
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Exporter (CSV/Excel)
+          {t("exportButton")}
         </button>
       </div>
 
@@ -675,14 +673,14 @@ function DossiersContent() {
                   style={{ accentColor: "#007a5e", width: 16, height: 16, cursor: "pointer" }}
                 />
               </th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>ID Fiche</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Répondant</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Structure</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Type</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Région</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>Visa administratif</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Qualité données</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>Éligibilité</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("formIdColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("respondentColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("organisationColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("typeColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("regionColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>{t("endorsementColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("dataQualityColumn")}</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>{t("eligibilityColumn")}</th>
             </tr>
           </thead>
           <tbody>
@@ -691,25 +689,21 @@ function DossiersContent() {
             <DataStateRow
               colSpan={9}
               state={tableState}
-              resource="les dossiers"
+              resource={t("filesResource")}
               error={questionnairesQuery.error}
               onRetry={() => questionnairesQuery.refetch()}
-              title={tableState === "empty" ? "Aucun dossier trouvé" : undefined}
-              hint={
-                tableState === "empty"
-                  ? "Aucun dossier ne correspond aux critères actuels dans votre ressort territorial."
-                  : undefined
-              }
+              title={tableState === "empty" ? t("noFilesTitle") : undefined}
+              hint={tableState === "empty" ? t("noFilesHint") : undefined}
             />
             {dossiers.map((d) => {
               const visaBadge =
-                d.adminStatus === "APPROVED" ? { label: "VISÉ", dot: "#047857", bg: "#ecfdf5", border: "#d1fae5", text: "#047857" } :
-                d.adminStatus === "CORRECTION_REQUESTED" ? { label: "CORRECTION DEMANDÉE", dot: "#c2410c", bg: "#fff7ed", border: "#ffedd5", text: "#c2410c" } :
-                d.adminStatus === "REJECTED" ? { label: "REJETÉ", dot: "#b91c1c", bg: "#fef2f2", border: "#fee2e2", text: "#b91c1c" } :
-                d.adminStatus === "PENDING_REVIEW" ? { label: "EN INSTANCE", dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" } :
+                d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), dot: "#047857", bg: "#ecfdf5", border: "#d1fae5", text: "#047857" } :
+                d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), dot: "#c2410c", bg: "#fff7ed", border: "#ffedd5", text: "#c2410c" } :
+                d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), dot: "#b91c1c", bg: "#fef2f2", border: "#fee2e2", text: "#b91c1c" } :
+                d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" } :
                 // An item with no stored status is reported as such rather
                 // than defaulted into the pending queue.
-                { label: "STATUT NON RENSEIGNÉ", dot: "#9ca3af", bg: "#f3f4f6", border: "#e5e7eb", text: "#6b7280" };
+                { label: t("badgeNoStatus"), dot: "#9ca3af", bg: "#f3f4f6", border: "#e5e7eb", text: "#6b7280" };
 
               /**
                * Data quality, derived from the dossier's own anomaly rows
@@ -724,10 +718,10 @@ function DossiersContent() {
                */
               const quality =
                 d.blockingCount > 0
-                  ? { tone: "blocking" as const, text: `${d.blockingCount} anomalie(s) bloquante(s)` }
+                  ? { tone: "blocking" as const, text: t("blockingAnomalies", { count: d.blockingCount }) }
                   : d.warningCount > 0
-                    ? { tone: "warning" as const, text: `${d.warningCount} avertissement(s)` }
-                    : { tone: "none" as const, text: "Aucune anomalie enregistrée" };
+                    ? { tone: "warning" as const, text: t("warnings", { count: d.warningCount }) }
+                    : { tone: "none" as const, text: t("noAnomaly") };
 
               /**
                * Statistical eligibility, mirroring the backend's own rule
@@ -736,14 +730,19 @@ function DossiersContent() {
                * pending; a rejected dossier is excluded. A dossier with no
                * stored status yields no claim at all.
                */
-              const eligibility =
+              const eligibility: "eligible" | "notEligible" | "pending" | null =
                 d.adminStatus === null
                   ? null
                   : d.adminStatus === "REJECTED"
-                    ? "Non éligible"
+                    ? "notEligible"
                     : d.adminStatus === "APPROVED"
-                      ? (d.blockingCount === 0 ? "Éligible" : "Non éligible")
-                      : "En attente";
+                      ? (d.blockingCount === 0 ? "eligible" : "notEligible")
+                      : "pending";
+              const eligibilityLabel =
+                eligibility === "eligible" ? t("eligible")
+                  : eligibility === "notEligible" ? t("notEligible")
+                    : eligibility === "pending" ? t("eligibilityPending")
+                      : null;
 
               return (
                 <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
@@ -770,7 +769,7 @@ function DossiersContent() {
                     {d.companyName ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "14px", color: "#374151" }}>
-                    {d.formType ? entityTypeLabel(d.formType) : NOT_PROVIDED}
+                    {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "14px", color: "#374151" }}>
                     {/* Territory as stored on the submission. A dossier with
@@ -825,16 +824,16 @@ function DossiersContent() {
                         fontSize: 11.5,
                         fontWeight: 600,
                         background:
-                          eligibility === "Éligible" ? "#ecfdf5" :
-                          eligibility === "En attente" ? "#fef9e7" :
+                          eligibility === "eligible" ? "#ecfdf5" :
+                          eligibility === "pending" ? "#fef9e7" :
                           "#f3f4f6",
                         color:
-                          eligibility === "Éligible" ? "#047857" :
-                          eligibility === "En attente" ? "#b45309" :
+                          eligibility === "eligible" ? "#047857" :
+                          eligibility === "pending" ? "#b45309" :
                           "#6b7280",
                       }}
                     >
-                      {eligibility ?? NOT_PROVIDED}
+                      {eligibilityLabel ?? NOT_PROVIDED}
                     </span>
                   </td>
                 </tr>
@@ -851,8 +850,13 @@ function DossiersContent() {
             {totalCount === null
               ? NOT_PROVIDED
               : totalCount === 0
-                ? "0 soumission"
-                : `Affichage de ${count(firstShown)}-${count(lastShown)} sur ${count(totalCount)} soumission${totalCount > 1 ? "s" : ""}`}
+                ? t("zeroSubmissions")
+                : t("showingRange", {
+                    first: count(firstShown, locale),
+                    last: count(lastShown, locale),
+                    total: count(totalCount, locale),
+                    count: totalCount,
+                  })}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
@@ -871,10 +875,10 @@ function DossiersContent() {
                 opacity: offset === 0 ? 0.4 : 1,
               }}
             >
-              Précédent
+              {t("previousButton")}
             </button>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
-              {pageCount === null ? `Page ${currentPage}` : `Page ${currentPage} / ${pageCount}`}
+              {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
             </span>
             <button
               type="button"
@@ -892,7 +896,7 @@ function DossiersContent() {
                 opacity: pageCount === null || currentPage >= pageCount ? 0.4 : 1,
               }}
             >
-              Suivant
+              {t("nextButton")}
             </button>
           </div>
         </div>
@@ -925,10 +929,10 @@ function DossiersContent() {
           >
             <div style={{ padding: "24px 28px 20px" }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
-                Visa en lot — confirmation officielle
+                {t("bulkEndorseTitle")}
               </h2>
               <p style={{ margin: "4px 0 20px", fontSize: 13, color: "#6b7280" }}>
-                {cleanPendingSelected.length} dossier(s) sélectionné(s) et éligible(s) au visa
+                {t("bulkEndorseCount", { count: cleanPendingSelected.length })}
               </p>
 
               <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151", marginBottom: 20 }}>
@@ -939,7 +943,7 @@ function DossiersContent() {
                   style={{ marginTop: 2, accentColor: "#007a5e", width: 16, height: 16 }}
                 />
                 <span>
-                  Je certifie sur l&apos;honneur que ces déclarations ont été instruites et sont conformes aux critères réglementaires
+                  {t("bulkEndorseCertify")}
                 </span>
               </label>
 
@@ -947,7 +951,7 @@ function DossiersContent() {
                   timestamp is the one the server returns with the operation,
                   so none is predicted before confirmation. */}
               <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>SIGNATAIRE</div>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>{t("signatoryLabel")}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
                   {signatoryLabel}
                 </div>
@@ -967,9 +971,12 @@ function DossiersContent() {
                   }}
                 >
                   <strong>
-                    {count(bulkResult.processedCount)} dossier(s) visé(s), {count(bulkResult.rejectedCount)} écarté(s).
+                    {t("bulkEndorseResult", {
+                      endorsed: count(bulkResult.processedCount, locale),
+                      skipped: count(bulkResult.rejectedCount, locale),
+                    })}
                   </strong>
-                  <div style={{ marginTop: 4 }}>Opération horodatée au {stamp(bulkResult.timestamp)}.</div>
+                  <div style={{ marginTop: 4 }}>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
                   {bulkResult.rejectedItems?.length > 0 && (
                     <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                       {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
@@ -992,12 +999,12 @@ function DossiersContent() {
                     fontSize: 13,
                   }}
                 >
-                  Le visa groupé a échoué : {(bulkMutation.error as Error)?.message ?? "erreur inconnue"}. Aucun dossier n&apos;a été visé.
+                  {t("bulkEndorseFailed", { message: (bulkMutation.error as Error)?.message ?? t("unknownError") })}
                 </div>
               )}
 
               <p style={{ margin: "14px 0 0", fontSize: 11, color: "#6b7280" }}>
-                Cette action génère une entrée d&apos;audit AUDIT_BULK_VISA_GRANTED
+                {t("bulkEndorseAudit")}
               </p>
             </div>
 
@@ -1016,7 +1023,7 @@ function DossiersContent() {
                   cursor: "pointer",
                 }}
               >
-                Annuler
+                {tRoot("common.cancel")}
               </button>
               <button
                 type="button"
@@ -1034,7 +1041,7 @@ function DossiersContent() {
                   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                 }}
               >
-                {bulkMutation.isPending ? "Validation..." : "Confirmer le Visa"}
+                {bulkMutation.isPending ? t("validating") : t("confirmEndorsement")}
               </button>
             </div>
           </div>
@@ -1073,7 +1080,7 @@ function DossiersContent() {
             <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  Rejet administratif groupé
+                  {t("bulkRejectTitle")}
                 </h2>
                 <button
                   type="button"
@@ -1091,13 +1098,13 @@ function DossiersContent() {
                     fontSize: 14,
                     cursor: "pointer",
                   }}
-                  aria-label="Fermer"
+                  aria-label={t("closeAriaLabel")}
                 >
                   ✕
                 </button>
               </div>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                Ressort territorial : {scopeLabel}
+                {t("territoryLine", { scope: scopeLabel })}
               </p>
             </div>
 
@@ -1113,17 +1120,18 @@ function DossiersContent() {
                     fontSize: 14,
                   }}
                 >
-                  <strong>{count(rejectResult.rejectedCount ?? rejectResult.processedCount)} dossier(s) rejeté(s).</strong>{" "}
-                  Opération journalisée sous AUDIT_BULK_REJECT, horodatée au {stamp(rejectResult.timestamp)}.
+                  <strong>{t("bulkRejectResult", { count: count(rejectResult.rejectedCount ?? rejectResult.processedCount, locale) })}</strong>{" "}
+                  {t("bulkRejectLogged", { date: stamp(rejectResult.timestamp, true, locale) })}
                 </div>
               ) : rejectableSelected.length === 0 ? (
                 <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
-                  Aucun des dossiers sélectionnés n&apos;est éligible au rejet (ils doivent être en attente de visa ou en correction).
+                  {t("noneRejectable")}
                 </p>
               ) : (
                 <>
                   <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    Vous allez rejeter <strong>{rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""}</strong> sélectionné{rejectableSelected.length > 1 ? "s" : ""}. Cette action est officielle et irréversible sans arbitrage.
+                    {t("bulkRejectIntroBefore")} <strong>{t("bulkRejectIntroCount", { count: rejectableSelected.length })}</strong>{" "}
+                    {t("bulkRejectIntroAfter", { count: rejectableSelected.length })}
                   </p>
 
                   <div>
@@ -1139,14 +1147,14 @@ function DossiersContent() {
                         marginBottom: 6,
                       }}
                     >
-                      Motif de rejet groupé <span style={{ color: "#dc2626" }}>*</span>
+                      {t("bulkRejectReasonLabel")} <span style={{ color: "#dc2626" }}>*</span>
                     </label>
                     <textarea
                       id="bulk-reject-reason"
                       rows={3}
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Indiquez le motif précis du rejet administratif (10 caractères minimum)…"
+                      placeholder={t("bulkRejectReasonPlaceholder")}
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1161,7 +1169,7 @@ function DossiersContent() {
                     />
                     {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
                       <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
-                        Le motif doit comporter au moins 10 caractères ({rejectReason.trim().length}/10).
+                        {t("reasonTooShort", { length: rejectReason.trim().length })}
                       </p>
                     )}
                   </div>
@@ -1187,7 +1195,7 @@ function DossiersContent() {
                       style={{ marginTop: 2, cursor: "pointer" }}
                     />
                     <span>
-                      <strong>Je certifie sur l&apos;honneur</strong> avoir examiné ces {rejectableSelected.length} dossiers et confirme leur rejet officiel.
+                      <strong>{t("certifyStrong")}</strong> {t("bulkRejectCertifyRest", { count: rejectableSelected.length })}
                     </span>
                   </label>
                   {rejectMutation.isError && (
@@ -1203,7 +1211,7 @@ function DossiersContent() {
                         marginTop: 12,
                       }}
                     >
-                      Le rejet groupé a échoué : {(rejectMutation.error as Error)?.message ?? "Erreur inconnue"}. Aucun dossier n&apos;a été rejeté.
+                      {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
                     </div>
                   )}
                 </>
@@ -1234,7 +1242,7 @@ function DossiersContent() {
                   cursor: "pointer",
                 }}
               >
-                {rejectResult ? "Fermer" : "Annuler"}
+                {rejectResult ? t("closeButton") : tRoot("common.cancel")}
               </button>
               {!rejectResult && rejectableSelected.length > 0 && (
                 <button
@@ -1252,7 +1260,7 @@ function DossiersContent() {
                     cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
                   }}
                 >
-                  {rejectMutation.isPending ? "Rejet en cours..." : `Rejeter ${rejectableSelected.length} dossier(s)`}
+                  {rejectMutation.isPending ? t("rejecting") : t("rejectCountButton", { count: rejectableSelected.length })}
                 </button>
               )}
             </div>

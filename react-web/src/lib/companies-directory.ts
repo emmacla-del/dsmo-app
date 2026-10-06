@@ -95,6 +95,22 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   VOCATIONAL_TRAINING: "Centre de formation professionnelle",
 };
 
+/**
+ * Message keys for the API entity types, using the public wizard's
+ * respondent-facing labels (no administrative codes). Admin screens render
+ * a type through t(ENTITY_TYPE_OPTION_KEYS[type]) and fall back to
+ * entityTypeLabel() for a type not listed here.
+ */
+export const ENTITY_TYPE_OPTION_KEYS: Record<string, string> = {
+  ENTREPRISE: "registerPage.entityOptionEnterprise",
+  COOPERATIVE: "registerPage.entityOptionCooperative",
+  CTD: "registerPage.entityOptionCtd",
+  ONG: "registerPage.entityOptionOng",
+  ADMINISTRATION: "registerPage.entityOptionAdministration",
+  PROJECT_PROGRAM: "registerPage.entityOptionProjectProgram",
+  VOCATIONAL_TRAINING: "registerPage.entityOptionVocationalTraining",
+};
+
 export function entityTypeLabel(type: string | null): string {
   if (!type) return "";
   return ENTITY_TYPE_LABELS[type.toUpperCase()] ?? type;

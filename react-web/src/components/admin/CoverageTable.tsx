@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import type { CoverageResponse, StockCounts } from "@/lib/pilotage-targets";
 import { formatCoverageCount, modeLabel } from "@/lib/pilotage-target-payload";
 
@@ -13,12 +15,12 @@ export function CoverageTable({
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
 }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
   const national = data.central != null || data.unassigned != null || data.nullEntityType != null;
 
   if (data.regions.length === 0 && !national) {
-    return (
-      <p className="cam-admin-lede">Aucun territoire n&apos;est associé à ce compte.</p>
-    );
+    return <p className="cam-admin-lede">{t("noTerritory")}</p>;
   }
 
   return (
@@ -26,15 +28,15 @@ export function CoverageTable({
       <table className="cam-dash-table cam-target-table">
         <thead>
           <tr>
-            <th scope="col">Territoire</th>
-            <th scope="col">Mode</th>
-            <th scope="col" className="is-num">Inscrits</th>
-            <th scope="col" className="is-num">Cible</th>
-            <th scope="col" className="is-num">Taux</th>
-            <th scope="col" className="is-num">Dans l&apos;année</th>
-            <th scope="col" className="is-num">Approbation</th>
-            <th scope="col" className="is-num">Instruction</th>
-            <th scope="col" className="is-num">Compléments</th>
+            <th scope="col">{t("territoryColumn")}</th>
+            <th scope="col">{t("modeColumn")}</th>
+            <th scope="col" className="is-num">{t("registeredColumn")}</th>
+            <th scope="col" className="is-num">{t("coverageTargetColumn")}</th>
+            <th scope="col" className="is-num">{t("rateColumn")}</th>
+            <th scope="col" className="is-num">{t("inYearColumn")}</th>
+            <th scope="col" className="is-num">{t("approvalColumn")}</th>
+            <th scope="col" className="is-num">{t("reviewColumn")}</th>
+            <th scope="col" className="is-num">{t("complementsColumn")}</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +51,7 @@ export function CoverageTable({
                       {region.name}
                     </button>
                   </th>
-                  <td>{modeLabel(region.mode)}</td>
+                  <td>{modeLabel(region.mode, locale)}</td>
                   <CountCells
                     companyCount={region.companyCount}
                     registered={region.registered}
@@ -85,13 +87,13 @@ export function CoverageTable({
         {national && (
           <tbody>
             {data.central && (
-              <BucketRow name="Niveau central" counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} />
+              <BucketRow name={t("centralLevel")} counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} />
             )}
             {data.unassigned && (
-              <BucketRow name="Non rattachés" counts={data.unassigned} target={null} rate={null} />
+              <BucketRow name={t("unassigned")} counts={data.unassigned} target={null} rate={null} />
             )}
             {data.nullEntityType && (
-              <BucketRow name="Type d'entité manquant" counts={data.nullEntityType} target={null} rate={null} />
+              <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} />
             )}
           </tbody>
         )}
@@ -148,25 +150,27 @@ function CountCells({
   pendingReview: number | null;
   complementsRequested: number | null;
 }) {
+  const locale = asUiLocale(useLocale());
   return (
     <>
-      <td className="is-num">{formatCoverageCount(registered, companyCount)}</td>
-      <td className="is-num">{fmt(target)}</td>
-      <td className="is-num">{fmtRate(rate)}</td>
-      <td className="is-num">{formatCoverageCount(registeredInYear, companyCount)}</td>
-      <td className="is-num">{formatCoverageCount(pendingApproval, companyCount)}</td>
-      <td className="is-num">{formatCoverageCount(pendingReview, companyCount)}</td>
-      <td className="is-num">{formatCoverageCount(complementsRequested, companyCount)}</td>
+      <td className="is-num">{formatCoverageCount(registered, companyCount, locale)}</td>
+      <td className="is-num">{fmt(target, locale)}</td>
+      <td className="is-num">{fmtRate(rate, locale)}</td>
+      <td className="is-num">{formatCoverageCount(registeredInYear, companyCount, locale)}</td>
+      <td className="is-num">{formatCoverageCount(pendingApproval, companyCount, locale)}</td>
+      <td className="is-num">{formatCoverageCount(pendingReview, companyCount, locale)}</td>
+      <td className="is-num">{formatCoverageCount(complementsRequested, companyCount, locale)}</td>
     </>
   );
 }
 
-function fmt(value: number | null | undefined): string {
+function fmt(value: number | null | undefined, locale: UiLocale): string {
   if (value == null) return "—";
-  return value.toLocaleString("fr-FR");
+  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
 }
 
-function fmtRate(rate: number | null | undefined): string {
+function fmtRate(rate: number | null | undefined, locale: UiLocale): string {
   if (rate == null) return "—";
-  return `${(rate * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 })} %`;
+  const digits = (rate * 100).toLocaleString(locale === "en" ? "en-GB" : "fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+  return locale === "en" ? `${digits}%` : `${digits} %`;
 }
