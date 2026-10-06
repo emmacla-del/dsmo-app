@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
+import { CampaignPurpose, OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
@@ -127,32 +127,26 @@ export class PilotageService {
     );
   }
 
-  /** Quarter view: one campaign, nothing to fold. */
-  private async getQuarterCoverage(territory: Territory | null | undefined, campaignId: string) {
-    const campaign = await this.requireOnefopCampaign(campaignId);
-    if (campaign.referenceYear == null) {
-      throw new BadRequestException("Cette campagne n'a pas d'année de référence.");
-    }
-    return this.coverageFrom(territory, campaign.referenceYear, () => Promise.resolve([campaign.id]), {
-      quarter: campaign.referenceQuarter,
-      semester: campaign.referenceQuarter == null ? null : semesterOf(campaign.referenceQuarter),
-    });
-  }
-
   /**
-   * The ONEFOP campaigns of one year whose reference quarter is in `quarters`.
+   * The ONEFOP registration campaigns of one year whose reference quarter is
+   * in `quarters` — the only campaigns whose quotas are registration targets.
+   *
+   * purpose = REGISTRATION: Couverture compares registered companies against
+   * these. A collection campaign's quotas are declaration targets, measured
+   * by getCampaignReturns instead, and must not leak into this sum. Annual and
+   * semester coverage both fold through here, so they always agree.
    *
    * The quarters are named explicitly rather than left out of the predicate.
    * Omitting it would also admit a campaign with referenceQuarter IS NULL,
    * which belongs to no quarter and must not leak into a roll-up. No status
-   * filter and no purpose filter: this matches the ONEFOP scope that
-   * requireOnefopCampaign enforces for the per-campaign reads, so a DRAFT or
-   * ARCHIVED campaign's quotas count exactly as its returns do.
+   * filter: a registration campaign stays DRAFT for life, and a DRAFT or
+   * ARCHIVED campaign's quotas count like any other.
    */
   private async onefopCampaignIds(year: number, quarters: readonly number[]): Promise<string[]> {
     const campaigns = await this.prisma.dataCampaign.findMany({
       where: {
         collectionType: SubmissionModule.ONEFOP,
+        purpose: CampaignPurpose.REGISTRATION,
         referenceYear: year,
         referenceQuarter: { in: [...quarters] },
       },
@@ -310,6 +304,14 @@ export class PilotageService {
     campaignId: string,
   ): Promise<CampaignReturnsResponse> {
     const campaign = await this.requireOnefopCampaign(campaignId);
+    // Returns measure declarations against a declaration quota. A registration
+    // campaign collects nothing — its quotas are registration targets, read by
+    // Couverture — so there are no returns to compute for it.
+    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
+      throw new BadRequestException(
+        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
+      );
+    }
     const { scope, regions } = await this.loadGrid(territory, (current) =>
       this.prisma.campaignQuota
         .findMany({ where: { campaignId, scopeKind: 'TERRITORIAL', ...regionFilter(current) } })
@@ -813,6 +815,9 @@ export class PilotageService {
         endDate: true,
         referenceYear: true,
         referenceQuarter: true,
+        // Selected for getCampaignReturns' purpose check; this method itself
+        // still accepts both purposes (quotas are written on both).
+        purpose: true,
       },
     });
     if (!campaign) throw new NotFoundException('Campagne introuvable.');
@@ -860,10 +865,6 @@ function semesterQuarters(semester: number): readonly number[] {
   if (semester === 1) return [1, 2];
   if (semester === 2) return [3, 4];
   throw new BadRequestException('Le semestre doit valoir 1 ou 2.');
-}
-
-function semesterOf(quarter: number): number {
-  return quarter <= 2 ? 1 : 2;
 }
 
 /**

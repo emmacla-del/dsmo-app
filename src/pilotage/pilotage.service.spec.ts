@@ -423,14 +423,19 @@ describe('PilotageService coverage', () => {
     };
   }
 
-  /** An ONEFOP campaign for one quarter of 2026. */
+  /**
+   * An ONEFOP registration campaign for one quarter of 2026. Coverage folds
+   * only purpose = REGISTRATION campaigns, so this is the fixture whose quotas
+   * reach the roll-up; status is DRAFT, as every registration campaign is.
+   */
   function campaign(quarter: number | null, overrides: Record<string, unknown> = {}) {
     return {
       id: quarter === null ? 'c-tnull' : `c-t${quarter}`,
-      name: `Collecte 2026 T${quarter ?? 'x'}`,
+      name: `Inscription 2026 T${quarter ?? 'x'}`,
       code: `ON-2026-T${quarter ?? 'X'}`,
       collectionType: SubmissionModule.ONEFOP,
-      status: 'ACTIVE',
+      purpose: 'REGISTRATION',
+      status: 'DRAFT',
       startDate: null,
       endDate: null,
       referenceYear: 2026,
@@ -475,13 +480,11 @@ describe('PilotageService coverage', () => {
   }
 
   /**
-   * Casts past the class's visibility. getQuarterCoverage is still private;
    * getSemesterCoverage became public with its Phase 4a route, and is reached
    * this way only by the tests written before that route existed.
    */
   interface CoverageViews {
     getSemesterCoverage(territory: unknown, year: number, semester: number): Promise<any>;
-    getQuarterCoverage(territory: unknown, campaignId: string): Promise<any>;
   }
   function views(service: PilotageService): CoverageViews {
     return service as unknown as CoverageViews;
@@ -586,21 +589,6 @@ describe('PilotageService coverage', () => {
     expect(second.period).toEqual({ year: 2026, quarter: null, semester: 2, campaignIds: ['c-t3', 'c-t4'] });
   });
 
-  it('reads one campaign for the quarter view and derives its semester', async () => {
-    const harness = createHarness();
-    const ids = seedQuarters(harness);
-    harness.campaignQuotas.push(
-      quota(ids[0], 'r-centre', 'd-mfoundi', 11),
-      quota(ids[2], 'r-centre', 'd-mfoundi', 99),
-    );
-    harness.companies.push(company());
-    const result = await views(harness.service).getQuarterCoverage(national, 'c-t3');
-    expect(result.period).toEqual({ year: 2026, quarter: 3, semester: 2, campaignIds: ['c-t3'] });
-    expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 99, registered: 1 });
-    // One campaign, read by id: the year is never swept.
-    expect((harness.prisma.dataCampaign as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
-  });
-
   it('lets a quarter with no quota contribute nothing instead of zero-padding the year', async () => {
     const harness = createHarness();
     const ids = seedQuarters(harness);
@@ -699,11 +687,62 @@ describe('PilotageService coverage', () => {
     expect(queries).toHaveLength(1);
     expect(queries[0]).toEqual({
       collectionType: SubmissionModule.ONEFOP,
+      purpose: 'REGISTRATION',
       referenceYear: 2026,
       referenceQuarter: { in: [1, 2, 3, 4] },
     });
     await views(harness.service).getSemesterCoverage(national, 2026, 1);
     expect(campaignQueries(harness)[1].referenceQuarter).toEqual({ in: [1, 2] });
+    expect(campaignQueries(harness)[1].purpose).toBe('REGISTRATION');
+  });
+
+  // 8c: Couverture reads registration targets only; declaration quotas belong
+  // to getCampaignReturns.
+  describe('purpose partition', () => {
+    const collectionCampaign = (quarter: number) =>
+      campaign(quarter, { id: `col-t${quarter}`, code: `COL-2026-T${quarter}`, purpose: 'COLLECTION', status: 'ACTIVE' });
+
+    it('returns no target for a year with only a collection campaign — same shape as a year with no quota rows', async () => {
+      const harness = createHarness();
+      harness.campaigns.push(collectionCampaign(3));
+      harness.campaignQuotas.push(quota('col-t3', 'r-centre', 'd-mfoundi', 40));
+
+      const withCollectionOnly = await harness.service.getCoverage(national, '2026');
+      const empty = await createHarness().service.getCoverage(national, '2026');
+
+      expect(withCollectionOnly.period.campaignIds).toEqual([]);
+      expect(mfoundiOf(centreOf(withCollectionOnly))).toMatchObject({ inscriptionTarget: null, rate: null });
+      expect(centreOf(withCollectionOnly)).toMatchObject({ mode: 'UNSET', inscriptionTarget: null });
+      expect(withCollectionOnly.regions).toEqual(empty.regions);
+    });
+
+    it('uses a registration campaign\'s quotas as the annual target', async () => {
+      const harness = createHarness();
+      harness.campaigns.push(campaign(3));
+      harness.campaignQuotas.push(quota('c-t3', 'r-centre', 'd-mfoundi', 25));
+
+      const result = await harness.service.getCoverage(national, '2026');
+
+      expect(result.period.campaignIds).toEqual(['c-t3']);
+      expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 25 });
+    });
+
+    it('counts only the registration quotas when both kinds share a quarter', async () => {
+      const harness = createHarness();
+      harness.campaigns.push(campaign(3), collectionCampaign(3));
+      harness.campaignQuotas.push(
+        quota('c-t3', 'r-centre', 'd-mfoundi', 25),
+        quota('col-t3', 'r-centre', 'd-mfoundi', 40),
+      );
+
+      const annual = await harness.service.getCoverage(national, '2026');
+      const semester = await views(harness.service).getSemesterCoverage(national, 2026, 2);
+
+      expect(annual.period.campaignIds).toEqual(['c-t3']);
+      expect(mfoundiOf(centreOf(annual))).toMatchObject({ inscriptionTarget: 25 });
+      // Annual and semester fold through the same filtered query, so they agree.
+      expect(mfoundiOf(centreOf(semester))).toMatchObject({ inscriptionTarget: 25 });
+    });
   });
 
   it('separates a department with no companies from one whose companies are all unregistered', async () => {
@@ -863,14 +902,6 @@ describe('PilotageService coverage', () => {
     );
   });
 
-  it('rejects a quarter view on a campaign with no reference year', async () => {
-    const harness = createHarness();
-    harness.campaigns.push(campaign(2, { referenceYear: null }));
-    await expect(views(harness.service).getQuarterCoverage(national, 'c-t2')).rejects.toThrow(
-      BadRequestException,
-    );
-  });
-
   /**
    * The two Phase 4a roll-up routes, driven through the controller itself.
    *
@@ -942,12 +973,14 @@ describe('PilotageService coverage', () => {
 });
 
 describe('PilotageService.getCampaignReturns', () => {
+  /** An ONEFOP collection campaign: returns are computed only for these. */
   function campaign(id = 'c1', overrides?: Record<string, unknown>) {
     return {
       id,
       name: 'Campagne Pilote ONEFOP 2026',
       code: 'ONEFOP-2026-T1',
       collectionType: SubmissionModule.ONEFOP,
+      purpose: 'COLLECTION',
       status: 'ACTIVE',
       startDate: new Date('2026-01-01T00:00:00Z'),
       endDate: new Date('2026-03-31T23:59:59Z'),
@@ -989,6 +1022,33 @@ describe('PilotageService.getCampaignReturns', () => {
     await expect(harness.service.getCampaignReturns(national, 'dsmo-1')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  // 8c: returns are computed only for collection campaigns.
+  it('rejects a registration campaign with 400, the same pattern as a non-ONEFOP one', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('reg-1', { purpose: 'REGISTRATION', status: 'DRAFT' }));
+    await expect(harness.service.getCampaignReturns(national, 'reg-1')).rejects.toThrow(
+      new BadRequestException(
+        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
+      ),
+    );
+  });
+
+  it('keeps a registration campaign\'s quotas out of a collection campaign\'s returns', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(
+      campaign('c1'),
+      campaign('reg-1', { purpose: 'REGISTRATION', status: 'DRAFT' }),
+    );
+    harness.campaignQuotas.push(
+      { id: 'q1', campaignId: 'c1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q2', campaignId: 'reg-1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 99 },
+    );
+
+    const result = await harness.service.getCampaignReturns(national, 'c1');
+
+    expect(result.totals.quota).toBe(10);
   });
 
   it('aggregates returns: status filter, deduplication of resubmissions, lateness, and territory attribution', async () => {
