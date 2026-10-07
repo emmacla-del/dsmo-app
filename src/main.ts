@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
+import { LocalizedHttpExceptionFilter } from './common/i18n/localized-http-exception.filter';
 
 async function bootstrap() {
   // Render's network has no outbound IPv6 route, but hosts like Gmail's SMTP
@@ -57,7 +58,10 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // X-Locale: the language a client wants error messages in (see
+    // LocalizedHttpExceptionFilter). Must be listed, or a browser's preflight
+    // refuses every request that carries it.
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Locale'],
   });
 
   app.useGlobalPipes(
@@ -68,6 +72,10 @@ async function bootstrap() {
       skipMissingProperties: true,
     }),
   );
+
+  // Error messages in the client's language (X-Locale: fr | en; French by
+  // default). Translates `message` only; status and other fields unchanged.
+  app.useGlobalFilters(new LocalizedHttpExceptionFilter());
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');
