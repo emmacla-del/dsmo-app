@@ -679,7 +679,7 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
       // The overdue count looks up recent resubmissions (registration-overdue.ts).
       auditLog: { findMany: jest.fn(async () => []) },
     };
-    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
+    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }
 
   it('applies the region filter server-side, on top of the territory scope', async () => {
@@ -738,7 +738,7 @@ describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', ()
       // The overdue count looks up recent resubmissions (registration-overdue.ts).
       auditLog: { findMany: jest.fn(async () => []) },
     };
-    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
+    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }
 
   function whereOf(prisma: any) {
@@ -815,7 +815,7 @@ describe('AuthService.listCompanyRegistrations — review fields', () => {
       company: { count: jest.fn(async () => 1), findMany: jest.fn().mockResolvedValueOnce([row]).mockResolvedValue([]) },
       auditLog: { findMany: jest.fn(async () => []) },
     };
-    const service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
+    const service = new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any);
     const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
     expect(result.items[0]).toMatchObject({
       organisation: 'Menuiserie',

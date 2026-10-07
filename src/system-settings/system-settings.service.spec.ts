@@ -25,8 +25,17 @@ describe('validateIdentityFields', () => {
     [{ timezone: 'Mars/Olympus' }],
     [{ observatoryName: 'x'.repeat(121) }],
     [{ observatoryName: 42 as unknown as string }],
+    [{ registrationOverdueDays: 0 }],
+    [{ registrationOverdueDays: 91 }],
+    [{ registrationOverdueDays: 2.5 }],
+    [{ registrationOverdueDays: '7' as unknown as number }],
   ])('rejects %j', (input) => {
     expect(() => validateIdentityFields(input)).toThrow(BadRequestException);
+  });
+
+  it('accepts an overdue threshold from 1 to 90 days', () => {
+    expect(validateIdentityFields({ registrationOverdueDays: 1 })).toEqual({ registrationOverdueDays: 1 });
+    expect(validateIdentityFields({ registrationOverdueDays: 90 })).toEqual({ registrationOverdueDays: 90 });
   });
 });
 
