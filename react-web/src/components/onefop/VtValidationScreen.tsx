@@ -100,7 +100,7 @@ export function VtValidationScreen({
   const hasErrors = sectionSummaries.some((s) => s.stats.issuesCount > 0);
 
   return (
-    <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-8)" }}>
+    <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-7)" }}>
       {/* Title */}
       <div
         style={{

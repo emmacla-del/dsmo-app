@@ -181,7 +181,7 @@ export default function InscriptionEnAttentePage() {
 
   return (
     <div className="cam-admin-page">
-      <h1 style={{ fontFamily: "var(--cam-font-display)", fontSize: "var(--cam-font-size-xl)" }}>
+      <h1 style={{ fontFamily: "var(--cam-font-serif)", fontSize: "var(--cam-font-size-xl)" }}>
         {t("title")}
       </h1>
       {pending && (

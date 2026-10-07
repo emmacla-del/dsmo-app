@@ -77,13 +77,22 @@
      on Windows it resolves to Courier New, which is thin and blurry at
      small sizes. Numbers in tables use the UI font + tabular-nums. */
   --cam-font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace;
-  --cam-font-size-2xs: 0.6875rem;
-  --cam-font-size-xs: 0.8125rem;
-  --cam-font-size-sm: 0.875rem;
-  --cam-font-size-base: 0.9375rem;
-  --cam-font-size-lg: 1.125rem;
-  --cam-font-size-xl: 1.5rem;
-  --cam-font-size-2xl: 1.5625rem;
+  /* One ladder, monotonic by name. 3xs was called 2xs until the 12px step
+     was added between it and xs: 12px is the most-used raw font size in the
+     app, so it had to become a token, and a token called 2xs that rendered
+     smaller than the one called 3xs would misread at every call site. */
+  --cam-font-size-3xs: 0.6875rem;   /* 11px */
+  --cam-font-size-2xs: 0.75rem;     /* 12px */
+  --cam-font-size-xs: 0.8125rem;    /* 13px */
+  --cam-font-size-sm: 0.875rem;     /* 14px */
+  --cam-font-size-base: 0.9375rem;  /* 15px */
+  --cam-font-size-lg: 1.125rem;     /* 18px */
+  --cam-font-size-xl: 1.5rem;       /* 24px */
+  --cam-font-size-2xl: 1.5625rem;   /* 25px */
+  /* Dashboard KPI value (.cam-kpi-tile-value and the KPI rows that will
+     adopt it). Deliberately larger than 2xl, which .cam-pilot-kpi-value
+     uses for the smaller panel KPIs. */
+  --cam-font-size-3xl: 2rem;        /* 32px */
   --cam-line-height-base: 1.5;
 
   /* ── Micro-copy (hints, "select all", helper text) ──

@@ -166,7 +166,7 @@ function CornerMark() {
 
 const tipButtonStyle: React.CSSProperties = {
   padding: "4px 10px",
-  fontSize: "var(--cam-font-size-2xs)",
+  fontSize: "var(--cam-font-size-3xs)",
   fontWeight: 600,
   fontFamily: "var(--cam-font-sans)",
   color: "var(--cam-warning)",
@@ -178,7 +178,7 @@ const tipButtonStyle: React.CSSProperties = {
 
 const tipLinkStyle: React.CSSProperties = {
   padding: "4px 2px",
-  fontSize: "var(--cam-font-size-2xs)",
+  fontSize: "var(--cam-font-size-3xs)",
   fontWeight: 600,
   fontFamily: "var(--cam-font-sans)",
   color: "var(--cam-text-muted)",
@@ -220,7 +220,7 @@ function AnomalyBody({
         {flag.message[locale]}
       </p>
       {!compact && (
-        <p style={{ margin: "0 0 8px", fontSize: "var(--cam-font-size-2xs)", lineHeight: 1.45, color: "var(--cam-text-muted)" }}>
+        <p style={{ margin: "0 0 8px", fontSize: "var(--cam-font-size-3xs)", lineHeight: 1.45, color: "var(--cam-text-muted)" }}>
           {flag.why[locale]}
         </p>
       )}
@@ -531,7 +531,7 @@ export function CoherenceChip({ tableFieldId, style }: { tableFieldId?: string; 
           gap: 6,
           width: "fit-content",
           padding: "3px 10px",
-          fontSize: "var(--cam-font-size-2xs)",
+          fontSize: "var(--cam-font-size-3xs)",
           fontWeight: 700,
           fontFamily: "var(--cam-font-sans)",
           color: "var(--cam-warning)",
@@ -605,7 +605,7 @@ export function CoherenceReviewList({ onGoTo }: { onGoTo?: (cell: CoherenceCell)
       <h3 id="coherence-review-title" style={{ margin: "0 0 2px", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-warning)" }}>
         {t("pointsToCheck", { count })}
       </h3>
-      <p style={{ margin: "0 0 10px", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+      <p style={{ margin: "0 0 10px", fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-text-muted)" }}>
         {t("reviewIntro")}
       </p>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>

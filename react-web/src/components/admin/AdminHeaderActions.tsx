@@ -86,10 +86,10 @@ export function AdminHeaderActions({
             gap: 6,
             padding: "4px 12px",
             borderRadius: 9999,
-            border: "1px solid #d1d5db",
-            background: "#ffffff",
-            color: activeCampaign ? "#374151" : "#6b7280",
-            fontSize: 12,
+            border: "var(--cam-border-width) solid var(--cam-border)",
+            background: "var(--cam-surface)",
+            color: "var(--cam-text-muted)",
+            fontSize: "var(--cam-font-size-2xs)",
             fontWeight: 500,
             maxWidth: 200,
             whiteSpace: "nowrap",
@@ -107,7 +107,7 @@ export function AdminHeaderActions({
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: activeCampaign ? "#f59e0b" : "#9ca3af",
+              background: activeCampaign ? "var(--cam-gold)" : "var(--cam-border-strong)",
               flexShrink: 0,
             }}
           />
@@ -124,12 +124,12 @@ export function AdminHeaderActions({
         className="cam-admin-scope"
         title={t("scopeTitle")}
         style={{
-          background: "#ffffff",
-          border: "1px solid #111827",
-          color: "#111827",
+          background: "var(--cam-surface)",
+          border: "var(--cam-border-width) solid var(--cam-text)",
+          color: "var(--cam-text)",
           padding: "4px 12px",
           borderRadius: 9999,
-          fontSize: 12,
+          fontSize: "var(--cam-font-size-2xs)",
           fontWeight: 600,
           display: "inline-flex",
           alignItems: "center",
@@ -147,7 +147,7 @@ export function AdminHeaderActions({
       {/* Search element: text input box or compact button */}
       {showSearchInput ? (
         <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-          <svg style={{ position: "absolute", left: 12, color: "#9ca3af", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg style={{ position: "absolute", left: 12, color: "var(--cam-placeholder)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -163,10 +163,10 @@ export function AdminHeaderActions({
             style={{
               padding: "6px 14px 6px 34px",
               borderRadius: 9999,
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
-              fontSize: 13,
-              color: "#111827",
+              border: "var(--cam-border-width) solid var(--cam-border)",
+              background: "var(--cam-surface-subtle)",
+              fontSize: "var(--cam-font-size-xs)",
+              color: "var(--cam-text)",
               outline: "none",
               width: 170,
             }}
@@ -186,7 +186,7 @@ export function AdminHeaderActions({
             borderRadius: "50%",
             background: "none",
             border: "none",
-            color: "#6b7280",
+            color: "var(--cam-text-muted)",
             cursor: "pointer",
             textDecoration: "none",
           }}
@@ -215,11 +215,11 @@ export function AdminHeaderActions({
           flexShrink: 0,
         }}
       >
-        <span style={{ flex: 1, background: "#007a5e" }} />
-        <span style={{ flex: 1, background: "#b3261e", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: "#f0b429", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
+        <span style={{ flex: 1, background: "var(--cam-flag-green)" }} />
+        <span style={{ flex: 1, background: "var(--cam-flag-red)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ color: "var(--cam-flag-yellow)", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
         </span>
-        <span style={{ flex: 1, background: "#f0b429" }} />
+        <span style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
       </span>
     </div>
   );

@@ -87,7 +87,7 @@
   padding: 0 6px;
   border-radius: var(--cam-radius-full);
   background: rgba(255, 255, 255, 0.22);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 700;
 }
 
@@ -155,16 +155,16 @@
 
 .cam-admin-rail-link:hover:not([aria-current="page"]) {
   background: rgba(255, 255, 255, 0.08) !important;
-  color: #fff !important;
+  color: var(--cam-surface) !important;
 }
 
 .cam-admin-rail-hub:hover:not([aria-current="page"]) {
   background: rgba(255, 255, 255, 0.1) !important;
-  color: #fff !important;
+  color: var(--cam-surface) !important;
 }
 
 .cam-admin-rail-hub:hover:not([aria-current="page"]) span[aria-hidden="true"] {
-  color: #fff !important;
+  color: var(--cam-surface) !important;
   background: rgba(255, 255, 255, 0.15) !important;
 }
 
@@ -201,7 +201,7 @@
   display: grid;
   place-items: center;
   border-radius: var(--cam-radius-control);
-  background: #fff;
+  background: var(--cam-surface);
   color: var(--cam-green-dark);
   font-size: var(--cam-font-size-sm);
   font-weight: 800;
@@ -212,7 +212,7 @@
   font-size: var(--cam-font-size-base);
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #fff;
+  color: var(--cam-surface);
   line-height: 1.2;
 }
 
@@ -234,7 +234,7 @@
   border-radius: var(--cam-radius-sm);
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.8);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -262,7 +262,7 @@
 .cam-admin-nav-group {
   margin: var(--cam-space-4) var(--cam-space-2) var(--cam-space-1);
   padding: var(--cam-space-3) var(--cam-space-2) 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -292,11 +292,11 @@
 
 .cam-admin-nav-link:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-nav-link:hover svg {
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-nav-link:focus-visible {
@@ -306,7 +306,7 @@
 
 .cam-admin-nav-link[aria-current="page"] {
   background: var(--cam-green);
-  color: #fff;
+  color: var(--cam-surface);
   font-weight: 600;
 }
 
@@ -322,7 +322,7 @@
 }
 
 .cam-admin-nav-link[aria-current="page"] svg {
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-nav-label {
@@ -340,7 +340,7 @@
   border-radius: var(--cam-radius-full);
   background: var(--cam-flag-yellow);
   color: var(--cam-green-dark);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -365,8 +365,8 @@
   border-radius: var(--cam-radius-full);
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
-  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-surface);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 700;
   overflow: hidden;
 }
@@ -374,14 +374,14 @@
 .cam-admin-account-name {
   font-size: var(--cam-font-size-xs);
   font-weight: 600;
-  color: #fff;
+  color: var(--cam-surface);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cam-admin-account-role {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   color: var(--cam-info-border);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -404,7 +404,7 @@
 }
 
 .cam-admin-rail-foot a:hover {
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-logout {
@@ -418,7 +418,7 @@
 }
 
 .cam-admin-logout:hover {
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 /* ── Main body ── */
@@ -438,7 +438,7 @@
   border-radius: var(--cam-radius-full);
   background: rgba(240, 180, 41, 0.1);
   color: var(--cam-text);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -460,7 +460,7 @@
   border: var(--cam-border-width) solid var(--cam-green-dark);
   border-radius: var(--cam-radius-full);
   color: var(--cam-green-dark);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -862,13 +862,13 @@
   align-items: center;
   gap: 6px;
   padding: 6px 16px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--cam-border);
+  background: var(--cam-surface);
   border-radius: 6px;
   font: inherit;
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: var(--cam-text-muted);
   white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
@@ -877,15 +877,15 @@
 }
 
 .cam-admin-tab:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  color: #111827;
+  background: var(--cam-surface-subtle);
+  border-color: var(--cam-border-strong);
+  color: var(--cam-text);
 }
 
 .cam-admin-tab[aria-current="page"] {
-  background: #1e6b3a;
-  border-color: #1e6b3a;
-  color: #ffffff;
+  background: var(--cam-green);
+  border-color: var(--cam-green);
+  color: var(--cam-surface);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(30, 107, 58, 0.2);
 }
@@ -900,23 +900,23 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 9999px;
-  background: #f3f4f6;
+  background: var(--cam-bg);
   border: none;
   font-size: 11px;
   font-weight: 700;
   text-align: center;
   line-height: 18px;
-  color: #4b5563;
+  color: var(--cam-text-muted);
 }
 
 .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
   background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-tab-count.is-alert {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
 }
 
 /* In-page view switch (ViewSwitch): the views or filters of one page, under
@@ -1142,6 +1142,67 @@
   color: var(--cam-text);
 }
 
+/* DataState's compact variant, for a state reported inside a small card or a
+   table cell rather than in place of a whole panel. Left-aligned and tight,
+   because at this size a centred block reads as a layout accident. */
+.cam-admin-empty--dense {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  text-align: left;
+}
+
+/* A reported state is a column of headline, hint, detail and retry. Inside
+   .cam-admin-notice, which is a flex ROW, this is the single child the
+   existing `> :first-child { flex: 1 }` rule stretches, so the notice needs
+   no change to host it. */
+.cam-admin-state-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cam-space-2);
+}
+
+/* The second and third lines of a reported state: what to expect or do, and
+   (for an error) the server's own message. Both are secondary to the
+   headline, so they step down one size rather than changing colour. */
+.cam-admin-state-hint {
+  max-width: 520px;
+  font-size: var(--cam-font-size-2xs);
+}
+
+.cam-admin-state-detail {
+  max-width: 520px;
+  font-family: var(--cam-font-mono);
+  font-size: var(--cam-font-size-2xs);
+}
+
+/* In the centred (non-dense) empty state the capped line has to be centred
+   as a box too, or a short hint hangs to the left of its own headline. */
+.cam-admin-empty .cam-admin-state-hint {
+  margin-inline: auto;
+}
+
+/* Retry, offered only by the error state. A text button, not a .cam-button:
+   it sits inside a notice that already carries the error's colour, and a
+   filled button there would compete with the page's one primary action. */
+.cam-admin-state-retry {
+  margin-top: var(--cam-space-1);
+  padding: var(--cam-space-1) var(--cam-space-3);
+  border: var(--cam-border-width) solid currentColor;
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* A state standing in for a table's rows. The cell carries the padding so
+   the reported state lines up with the columns above it. */
+.cam-admin-state-cell {
+  padding: var(--cam-space-4);
+}
+
 /* ── Bulk selection bar ── */
 .cam-admin-selection {
   display: flex;
@@ -1223,7 +1284,7 @@
 }
 
 .cam-admin-dialog-eyebrow {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -1305,7 +1366,7 @@
 }
 
 .cam-admin-axis-label {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1372,7 +1433,7 @@
 .cam-admin-chip[aria-pressed="true"] {
   border-color: var(--cam-green);
   background: var(--cam-green);
-  color: #fff;
+  color: var(--cam-surface);
 }
 
 .cam-admin-chip:focus-visible {
@@ -1586,6 +1647,10 @@
   height: 140px;
   border-radius: 50%;
   flex-shrink: 0;
+  /* #000 here is an alpha stencil, not a colour: a mask reads only the
+     opacity channel, so the opaque stop has to be a fully opaque literal.
+     A palette token would be wrong, which is why the UI-grammar check
+     allowlists `mask`/`-webkit-mask`. */
   -webkit-mask: radial-gradient(transparent 52px, #000 52px);
   mask: radial-gradient(transparent 52px, #000 52px);
 }
@@ -1661,7 +1726,7 @@
 .cam-pilot-table th {
   padding: var(--cam-space-3) var(--cam-space-4);
   text-align: left;
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1704,7 +1769,7 @@
   display: inline-block;
   padding: 2px 10px;
   border-radius: var(--cam-radius-full);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1935,22 +2000,22 @@
   justify-content: space-between;
   gap: var(--cam-space-3);
   padding: 16px 20px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-left: 4px solid var(--cam-kpi-tone, #e5e7eb);
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
+  border-left: 4px solid var(--cam-kpi-tone, var(--cam-border));
   border-radius: 8px;
-  color: #111827;
+  color: var(--cam-text);
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--cam-shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.cam-kpi-tile--warning { --cam-kpi-tone: #f59e0b; }
-.cam-kpi-tile--info    { --cam-kpi-tone: #2563eb; }
-.cam-kpi-tile--error   { --cam-kpi-tone: #dc2626; }
+.cam-kpi-tile--warning { --cam-kpi-tone: var(--cam-warning); }
+.cam-kpi-tile--info    { --cam-kpi-tone: var(--cam-info); }
+.cam-kpi-tile--error   { --cam-kpi-tone: var(--cam-error); }
 
 a.cam-kpi-tile:hover {
-  border-color: #d1d5db;
+  border-color: var(--cam-border-strong);
   border-left-color: var(--cam-kpi-tone);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
@@ -1968,50 +2033,50 @@ a.cam-kpi-tile:focus-visible {
 }
 
 .cam-kpi-tile-value {
-  font-size: 32px;
+  font-size: var(--cam-font-size-3xl);
   font-weight: 700;
   line-height: 1;
-  color: #111827;
+  color: var(--cam-text);
   font-variant-numeric: tabular-nums;
 }
 
 .cam-kpi-tile-label {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
   white-space: nowrap;
 }
 
 .cam-kpi-tile-arrow {
   font-size: 20px;
-  color: #9ca3af;
+  color: var(--cam-placeholder);
   flex-shrink: 0;
   transition: transform 0.15s ease;
 }
 
 a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   transform: translateX(3px);
-  color: #4b5563;
+  color: var(--cam-text-muted);
 }
 
 .cam-kpi-tile.is-unavailable .cam-kpi-tile-value {
-  color: #9ca3af;
+  color: var(--cam-placeholder);
 }
 
 /* ── Dashboard (admin/pilotage) ── */
 .cam-dash-section-label {
   margin: 0 0 14px;
   padding-left: 10px;
-  border-left: 3px solid #1e6b3a;
+  border-left: 3px solid var(--cam-green);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #111827;
+  color: var(--cam-text);
   line-height: 1.2;
 }
 
 .cam-dash-section-label--green {
-  border-left-color: #1e6b3a;
+  border-left-color: var(--cam-green);
 }
 
 .cam-dash-kpis {
@@ -2037,21 +2102,21 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   justify-content: center;
   gap: 4px;
   padding: 16px 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border);
   border-radius: 8px;
   text-align: center;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .cam-dash-pipeline li.is-highlighted {
-  border: 1.5px solid #f59e0b;
-  background: #fefcf3;
+  border: 1.5px solid var(--cam-gold);
+  background: var(--cam-warning-bg);
   box-shadow: 0 1px 4px rgba(245, 158, 11, 0.15);
 }
 
 .cam-dash-pipeline li.is-highlighted .cam-dash-pipeline-value {
-  color: #1e6b3a;
+  color: var(--cam-green);
 }
 
 /* Chevron between stages */
@@ -2062,14 +2127,14 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   top: 50%;
   transform: translateY(-50%);
   font-size: 18px;
-  color: #9ca3af;
+  color: var(--cam-placeholder);
   font-weight: 300;
 }
 
 .cam-dash-pipeline-value {
   font-size: var(--cam-font-size-xl);
   font-weight: 700;
-  color: var(--cam-text, #111827);
+  color: var(--cam-text);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -2155,7 +2220,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 .cam-dash-stats dt {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2251,7 +2316,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   padding: 1px var(--cam-space-2);
   border-radius: var(--cam-radius-md);
   background: var(--cam-surface-subtle);
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   color: var(--cam-text-muted);
 }
 
@@ -2341,7 +2406,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 .cam-dossier-label {
   margin: 0;
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2408,7 +2473,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 .cam-dossier-fields dt {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;

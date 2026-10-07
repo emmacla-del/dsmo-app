@@ -324,7 +324,7 @@ export function OnefopLegalAcknowledgment({
             </button>
             <span
               style={{
-                fontSize: "var(--cam-font-size-2xs)",
+                fontSize: "var(--cam-font-size-3xs)",
                 color: "var(--cam-text-muted)",
               }}
             >

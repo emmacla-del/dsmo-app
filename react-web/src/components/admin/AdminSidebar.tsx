@@ -110,8 +110,8 @@ function Badge({ count }: { count: number }) {
         justifyContent: "center",
         borderRadius: 10,
         background: "var(--cam-flag-yellow)",
-        color: "#5c3800",
-        fontSize: 11,
+        color: "var(--cam-text)",
+        fontSize: "var(--cam-font-size-3xs)",
         fontWeight: 700,
         lineHeight: 1,
         flexShrink: 0,
@@ -193,7 +193,7 @@ export function AdminSidebar({
       {/* ── Brand ── */}
       <div style={{ padding: "24px 20px 16px", flexShrink: 0 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "0.06em", lineHeight: 1.1 }}>
+          <div style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 900, color: "var(--cam-surface)", letterSpacing: "0.06em", lineHeight: 1.1 }}>
             NEFOP
           </div>
           <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
@@ -207,7 +207,10 @@ export function AdminSidebar({
             marginTop: 14,
             height: 3,
             borderRadius: 2,
-            background: `linear-gradient(90deg, #007a5e 0 33.33%, #b3261e 33.33% 66.66%, #f0b429 66.66% 100%)`,
+            background: `linear-gradient(90deg,
+              var(--cam-flag-green)  0 33.33%,
+              var(--cam-flag-red)    33.33% 66.66%,
+              var(--cam-flag-yellow) 66.66% 100%)`,
           }}
         />
       </div>
@@ -231,10 +234,10 @@ export function AdminSidebar({
                 padding: "10px 14px",
                 borderRadius: 8,
                 textDecoration: "none",
-                fontSize: 14,
+                fontSize: "var(--cam-font-size-sm)",
                 fontWeight: isActive ? 600 : 500,
-                background: isActive ? "#1e6b3a" : "transparent",
-                color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.78)",
+                background: isActive ? "var(--cam-green)" : "transparent",
+                color: isActive ? "var(--cam-surface)" : "rgba(255, 255, 255, 0.78)",
                 boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.25)" : "none",
                 transition: "all 0.15s ease",
               }}
@@ -247,7 +250,7 @@ export function AdminSidebar({
                   justifyContent: "center",
                   width: 24,
                   height: 24,
-                  color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.78)",
+                  color: isActive ? "var(--cam-surface)" : "rgba(255, 255, 255, 0.78)",
                   flexShrink: 0,
                   transition: "color 0.15s ease",
                 }}
@@ -280,16 +283,16 @@ export function AdminSidebar({
                   background: "rgba(255,255,255,0.15)",
                   display: "grid",
                   placeItems: "center",
-                  fontSize: 11,
+                  fontSize: "var(--cam-font-size-3xs)",
                   fontWeight: 700,
-                  color: "#fff",
+                  color: "var(--cam-surface)",
                   flexShrink: 0,
                 }}
               >
                 {user.initials}
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-surface)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {user.displayName}
                 </div>
                 <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -311,7 +314,7 @@ export function AdminSidebar({
                 border: "1px solid rgba(255,255,255,0.12)",
                 borderRadius: 6,
                 padding: "6px 10px",
-                fontSize: 11,
+                fontSize: "var(--cam-font-size-3xs)",
                 fontWeight: 500,
                 color: "rgba(255,255,255,0.8)",
                 cursor: "pointer",
@@ -321,7 +324,7 @@ export function AdminSidebar({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                e.currentTarget.style.color = "#fff";
+                e.currentTarget.style.color = "var(--cam-surface)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "rgba(255,255,255,0.06)";

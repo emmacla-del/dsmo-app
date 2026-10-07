@@ -280,7 +280,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                               </div>
                             )}
                             {u.matricule && (
-                              <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+                              <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-text-muted)" }}>
                                 {u.matricule}
                               </div>
                             )}
@@ -481,7 +481,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
 
 const avatarStyle: React.CSSProperties = {
   width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: "var(--cam-radius-full)",
-  background: "var(--cam-green-dark)", color: "#fff", fontSize: "var(--cam-font-size-2xs)", fontWeight: 700,
+  background: "var(--cam-green-dark)", color: "#fff", fontSize: "var(--cam-font-size-3xs)", fontWeight: 700,
 };
 
 function initialsOf(u: DirectoryUser): string {

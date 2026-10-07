@@ -37,13 +37,17 @@ function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
 
 type StatusVariant = "pending" | "validated" | "rejected" | "correction" | "active" | "neutral";
 
+// Every colour here was a literal copy of a token's value, so the badge went
+// on rendering the old palette after the token moved. The tints stay as rgba
+// because a 10-15% wash of the tone has no token; the ink and the dot are now
+// the tokens they were copied from.
 const STATUS_STYLES: Record<StatusVariant, { bg: string; color: string; dot: string }> = {
-  pending:    { bg: "rgba(240,180,41,0.15)",  color: "#92620a",  dot: "#f0b429" },
-  validated:  { bg: "rgba(30,107,58,0.12)",   color: "#144a28",  dot: "#1e6b3a" },
-  rejected:   { bg: "rgba(179,38,30,0.1)",    color: "#b3261e",  dot: "#b3261e" },
-  correction: { bg: "rgba(240,180,41,0.15)",  color: "#92620a",  dot: "#e8a020" },
-  active:     { bg: "rgba(30,107,58,0.12)",   color: "#144a28",  dot: "#1e6b3a" },
-  neutral:    { bg: "rgba(74,90,80,0.1)",     color: "#4a5a50",  dot: "#4a5a50" },
+  pending:    { bg: "rgba(240,180,41,0.15)",  color: "var(--cam-warning)",     dot: "var(--cam-flag-yellow)" },
+  validated:  { bg: "rgba(30,107,58,0.12)",   color: "var(--cam-green-dark)",  dot: "var(--cam-green)" },
+  rejected:   { bg: "rgba(179,38,30,0.1)",    color: "var(--cam-error)",       dot: "var(--cam-error)" },
+  correction: { bg: "rgba(240,180,41,0.15)",  color: "var(--cam-warning)",     dot: "var(--cam-gold)" },
+  active:     { bg: "rgba(30,107,58,0.12)",   color: "var(--cam-green-dark)",  dot: "var(--cam-green)" },
+  neutral:    { bg: "rgba(74,90,80,0.1)",     color: "var(--cam-text-muted)",  dot: "var(--cam-text-muted)" },
 };
 
 export function AdminStatusBadge({ label, variant }: { label: string; variant: StatusVariant }) {
@@ -261,11 +265,11 @@ export function AdminPageHeader({
           <h1
             style={{
               margin: 0,
-              fontSize: "1.5rem",
+              fontSize: "var(--cam-font-size-xl)",
               fontWeight: 700,
               letterSpacing: "-0.02em",
               lineHeight: 1.15,
-              color: "#111827",
+              color: "var(--cam-text)",
             }}
           >
             {title}
