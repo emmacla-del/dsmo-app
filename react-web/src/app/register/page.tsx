@@ -1685,8 +1685,7 @@ export default function RegisterPage() {
             <div className="submit-row">
               <button
                 type="button"
-                className="btn-primary"
-                style={{ width: "auto", minWidth: "160px", padding: "10px 22px" }}
+                className="btn-primary btn-primary--inline btn-primary--submit"
                 onClick={handleSubmitPress}
                 disabled={!certified || submitting}
               >
@@ -1878,8 +1877,7 @@ export default function RegisterPage() {
               </button>
               <button
                 type="button"
-                className="btn-primary"
-                style={{ width: "auto", padding: "10px 22px" }}
+                className="btn-primary btn-primary--inline"
                 onClick={() => {
                   const next = pendingEntityType;
                   setPendingEntityType(null);
@@ -1925,8 +1923,7 @@ export default function RegisterPage() {
               </button>
               <button
                 type="button"
-                className="btn-primary"
-                style={{ width: "auto", padding: "10px 22px" }}
+                className="btn-primary btn-primary--inline"
                 onClick={() => {
                   const href = leaveTo;
                   setLeaveTo(null);
