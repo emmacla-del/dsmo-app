@@ -56,6 +56,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-scrim` | `color-mix(in srgb, var(--cam-text) 45%, transparent)` | Alpha | Leave-dialog and admin-dialog backdrop. `--cam-text` is `#0b1f14`, so this is `rgba(11, 31, 20, 0.45)`. |
 | `--cam-green-wash` | `color-mix(in srgb, var(--cam-green) 10%, transparent)` | Alpha | Selected or confirmed green fill. |
 | `--cam-green-wash-hover` | `color-mix(in srgb, var(--cam-green) 5%, transparent)` | Alpha | Hover fill on a green-outlined control. |
+| `--cam-green-wash-soft` | `color-mix(in srgb, var(--cam-green) 8%, transparent)` | Alpha | Establishment-ID chip. Same colour as `rgba(30, 107, 58, 0.08)`. |
 | `--cam-error` | `#b3261e` | State | Error text and invalid borders. |
 | `--cam-error-bg` | `#fbeceb` | State | Error notice fill. |
 | `--cam-error-border` | `#f2b8b5` | State | Error notice border. |
@@ -97,8 +98,9 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-line-height-base` | `1.5` | Line height | Body copy. |
 | `--cam-line-height-tight` | `1.2` | Line height | Headings. |
 | `--cam-line-height-title` | `1.25` | Line height | Section titles. |
-| `--cam-line-height-label` | `1.3` | Line height | Field labels. The wizard label rule writes `1.3` and the side-by-side alignment calc writes `1.3em`. Those two literals stay equal to this token. |
+| `--cam-line-height-label` | `1.3` | Line height | Field labels. The wizard label rule and the side-by-side alignment calc both read this token. |
 | `--cam-line-height-ui` | `1.4` | Line height | Buttons, chips, hints, and compact UI text. |
+| `--cam-line-height-copy` | `1.45` | Line height | Multi-line wizard copy: option labels, the certify line, section notes, dialog body. |
 | `--cam-font-weight-regular` | `400` | Font weight | Body, table leaves, and typed values. |
 | `--cam-font-weight-medium` | `500` | Font weight | Supporting emphasis: links, review values. |
 | `--cam-font-weight-semibold` | `600` | Font weight | Section labels and group headers. |
