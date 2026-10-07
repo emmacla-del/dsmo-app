@@ -2919,6 +2919,24 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   min-width: 12rem;
 }
 
+/* A sortable column header: a real button that reads as the header text,
+   so the sort is reachable from the keyboard. */
+.cam-table-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.cam-table-sort:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
 /* The totals row of a quota or coverage table. */
 .cam-target-table tfoot tr {
   font-weight: 600;
