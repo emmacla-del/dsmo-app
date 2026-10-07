@@ -140,6 +140,18 @@ export function registrationMethodTone(method: string | null | undefined): { bg:
   return { bg: "var(--cam-surface-subtle)", color: "var(--cam-text-muted)" };
 }
 
+/**
+ * The same mapping as registrationMethodTone, as a .cam-badge-* class: the
+ * enum decides the class and the class decides the colour (UI grammar G1).
+ * registrationMethodTone stays until its last caller, /admin/inscriptions,
+ * moves to this one.
+ */
+export function registrationMethodBadgeClass(method: string | null | undefined): string {
+  if (method === "ASSISTED") return "cam-badge-success";
+  if (method === "ADMIN_CREATED") return "cam-badge-info";
+  return "cam-badge-neutral";
+}
+
 /** The two views of /admin/inscriptions: the review queue and registration coverage. */
 export type InscriptionsView = "file" | "couverture";
 
