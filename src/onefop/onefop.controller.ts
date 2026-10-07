@@ -25,7 +25,7 @@ export class OnefopController {
     constructor(private readonly onefopService: OnefopService) { }
 
     @Get('submissions')
-    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'COMPANY')
+    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'CENTRAL_AGENT', 'COMPANY')
     async getSubmissions(
         @Req() req: any,
         @Query('status') status?: string,
@@ -44,13 +44,13 @@ export class OnefopController {
     }
 
     @Get('submissions/:id')
-    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'COMPANY')
+    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'CENTRAL_AGENT', 'COMPANY')
     async getSubmissionDetail(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
         return this.onefopService.getSubmissionDetail(req.user, id);
     }
 
     @Get('submissions/:id/pdf')
-    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'COMPANY')
+    @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'CENTRAL_AGENT', 'COMPANY')
     async downloadSubmissionPdf(@Param('id', ParseUUIDPipe) id: string, @Req() req: any, @Res() res: Response) {
         const url = await this.onefopService.getSubmissionPdfUrl(id, req.user);
         res.redirect(url);

@@ -1934,6 +1934,10 @@ enum UserRole {
   REGIONAL_ADMIN
   DIVISIONAL_ADMIN
   AUDITOR
+  // Staff of the central and attached services who are not administrators:
+  // national read-only (pilotage, establishments, dossiers). See
+  // READ_ONLY_NATIONAL_ROLES in src/auth/staff-scope.ts.
+  CENTRAL_AGENT
 }
 
 enum UserStatus {

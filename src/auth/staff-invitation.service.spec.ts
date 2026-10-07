@@ -15,9 +15,13 @@ const SUPER = { id: 'super-1', role: 'SUPER_ADMIN' };
 const ONEFOP = { id: 'onefop-1', role: 'ADMIN_ONEFOP' };
 
 // A slice of prisma/seed.ts, with roleMapping as it is after the
-// role_model_refactor migration.
+// central_services_central_agent migration: central and attached services
+// map to CENTRAL_AGENT.
 const SERVICES: Record<string, any> = {
-  ONEFOP: { code: 'ONEFOP', name: "Observatoire National de l'Emploi et de la Formation Professionnelle", roleMapping: 'ADMIN_ONEFOP', isActive: true },
+  ONEFOP: { code: 'ONEFOP', name: "Observatoire National de l'Emploi et de la Formation Professionnelle", roleMapping: 'CENTRAL_AGENT', isActive: true },
+  // A row still carrying the pre-migration mapping: ADMIN_ONEFOP is granted,
+  // never derived, so such a service is not invitable.
+  STALE: { code: 'STALE', name: 'Ancien mapping', roleMapping: 'ADMIN_ONEFOP', isActive: true },
   DREFOP: { code: 'DREFOP', name: "Délégation Régionale de l'Emploi et de la Formation Professionnelle", roleMapping: 'REGIONAL_ADMIN', isActive: true },
   'DREFOP-SPE': { code: 'DREFOP-SPE', name: "Service de la Promotion de l'Emploi", roleMapping: 'REGIONAL_ADMIN', isActive: true },
   DDEFOP: { code: 'DDEFOP', name: "Délégation Départementale de l'Emploi et de la Formation Professionnelle", roleMapping: 'DIVISIONAL_ADMIN', isActive: true },
@@ -79,16 +83,29 @@ const DIVISIONAL_DELEGATE = {
 const CENTRAL = { email: 'Central@Minefop.cm', serviceCode: 'ONEFOP', positionType: 'DIRECTEUR' };
 
 describe('StaffInvitationService.create — placed in the organigramme', () => {
-  it('takes the role from the service: a central service is ADMIN_ONEFOP, valid 24 hours', async () => {
+  it('a central post is a CENTRAL_AGENT (read-only), valid 72 hours', async () => {
     const { service, jwt } = makeService(makePrisma());
     const before = Date.now();
     const r = await service.create(CENTRAL, SUPER);
     expect(r).toMatchObject({
-      email: 'central@minefop.cm', role: 'ADMIN_ONEFOP', region: null, serviceCode: 'ONEFOP',
+      email: 'central@minefop.cm', role: 'CENTRAL_AGENT', region: null, serviceCode: 'ONEFOP',
       positionType: 'DIRECTEUR', positionTitle: "Directeur de l'ONEFOP",
     });
     const payload: any = jwt.verify(r.token);
-    expect(payload).toMatchObject({ purpose: STAFF_INVITATION_PURPOSE, invitedBy: SUPER.id, serviceCode: 'ONEFOP' });
+    expect(payload).toMatchObject({ purpose: STAFF_INVITATION_PURPOSE, invitedBy: SUPER.id, serviceCode: 'ONEFOP', role: 'CENTRAL_AGENT' });
+    expect(new Date(r.expiresAt).getTime() - before).toBeGreaterThan(71.9 * 3600_000);
+  });
+
+  it('ADMIN_ONEFOP may invite a central agent', async () => {
+    const { service } = makeService(makePrisma());
+    await expect(service.create(CENTRAL, ONEFOP)).resolves.toMatchObject({ role: 'CENTRAL_AGENT' });
+  });
+
+  it('only SUPER_ADMIN grants ADMIN_ONEFOP, on a central post, valid 24 hours', async () => {
+    const { service } = makeService(makePrisma());
+    const before = Date.now();
+    const r = await service.create({ ...CENTRAL, grantAdminOnefop: true }, SUPER);
+    expect(r.role).toBe('ADMIN_ONEFOP');
     const ttl = new Date(r.expiresAt).getTime() - before;
     expect(ttl).toBeGreaterThan(23.9 * 3600_000);
     expect(ttl).toBeLessThanOrEqual(24 * 3600_000 + 1000);
@@ -117,9 +134,14 @@ describe('StaffInvitationService.create — placed in the organigramme', () => {
     expect(r).toMatchObject({ role: 'REGIONAL_ADMIN', positionType: 'STAFF', positionTitle: 'Cadre' });
   });
 
-  it('ADMIN_ONEFOP may NOT invite into a central service (no self-escalation)', async () => {
+  it('ADMIN_ONEFOP may NOT grant ADMIN_ONEFOP (no self-escalation)', async () => {
     const { service } = makeService(makePrisma());
-    await expect(service.create(CENTRAL, ONEFOP)).rejects.toThrow(ForbiddenException);
+    await expect(service.create({ ...CENTRAL, grantAdminOnefop: true }, ONEFOP)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('ADMIN_ONEFOP is not granted on a territorial post', async () => {
+    const { service } = makeService(makePrisma());
+    await expect(service.create({ ...REGIONAL_DELEGATE, grantAdminOnefop: true }, SUPER)).rejects.toThrow(BadRequestException);
   });
 
   it('a territorial account cannot invite anyone', async () => {
@@ -129,7 +151,7 @@ describe('StaffInvitationService.create — placed in the organigramme', () => {
 
   it('refuses an unknown or closed service, and a service whose role is not invitable', async () => {
     const { service } = makeService(makePrisma());
-    for (const serviceCode of ['NOPE', 'CLOSED', 'AUDIT', '']) {
+    for (const serviceCode of ['NOPE', 'CLOSED', 'AUDIT', 'STALE', '']) {
       await expect(service.create({ ...REGIONAL_DELEGATE, serviceCode }, SUPER)).rejects.toThrow(BadRequestException);
     }
   });

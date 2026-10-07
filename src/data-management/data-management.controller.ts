@@ -14,13 +14,13 @@ export class DataManagementController {
   constructor(private dataManagementService: DataManagementService) { }
 
   @Get('regions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getRegions() {
     return this.dataManagementService.getRegions();
   }
 
   @Get('sectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getSectors() {
     return this.dataManagementService.getSectors();
   }
@@ -53,7 +53,7 @@ export class DataManagementController {
   }
 
   @Get('stats')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getDataStats(@Request() req: any) {
     const territory = territoryFromUser(req?.user);
     return this.dataManagementService.getDataStats(territory);

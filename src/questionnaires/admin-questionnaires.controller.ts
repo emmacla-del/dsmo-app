@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
+import { READ_ONLY_NATIONAL_ROLES } from '../auth/staff-scope';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
@@ -44,6 +45,11 @@ function optionalText(raw: unknown): string | undefined {
   return text || undefined;
 }
 
+// The class list is the default for every handler, mutations included.
+// The read handlers below override it with DOSSIER_READ_ROLES, which adds the
+// read-only central staff role; the export does not.
+const DOSSIER_READ_ROLES = ['ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN', ...READ_ONLY_NATIONAL_ROLES];
+
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
@@ -57,6 +63,7 @@ export class AdminQuestionnairesController {
    * Authoritative Quality Summary & Indicator Aggregates (Axis 1 & 2)
    */
   @Get('quality/summary')
+  @Roles(...DOSSIER_READ_ROLES)
   async getQualitySummary(
     @Query('campaignId') campaignId?: string,
     @Request() req?: any,
@@ -69,6 +76,7 @@ export class AdminQuestionnairesController {
    * Validation Rules Catalog (Data Quality Axis 2)
    */
   @Get('rules')
+  @Roles(...DOSSIER_READ_ROLES)
   async getValidationRules() {
     return this.eligibilityEngine.getValidationRules();
   }
@@ -77,6 +85,7 @@ export class AdminQuestionnairesController {
    * Action-oriented Priority Queues ("Que dois-je traiter aujourd'hui ?")
    */
   @Get('pilotage/queues')
+  @Roles(...DOSSIER_READ_ROLES)
   async getQueues(@Request() req: any) {
     const territory = territoryFromUser(req.user);
     return this.eligibilityEngine.getPilotageQueues(territory);
@@ -102,6 +111,7 @@ export class AdminQuestionnairesController {
    * Anomalies Registry (Data Quality Axis 2)
    */
   @Get('anomalies/registry')
+  @Roles(...DOSSIER_READ_ROLES)
   async listAnomalies(
     @Query('submissionId') submissionId?: string,
     @Query('status') status?: any,
@@ -137,6 +147,7 @@ export class AdminQuestionnairesController {
    * excluded), not the whole table.
    */
   @Get()
+  @Roles(...DOSSIER_READ_ROLES)
   async getAll(
     @Query('status') status?: string,
     @Query('limit') limit?: string,
@@ -179,6 +190,7 @@ export class AdminQuestionnairesController {
   }
 
   @Get('pending')
+  @Roles(...DOSSIER_READ_ROLES)
   async getPending(
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
@@ -188,6 +200,7 @@ export class AdminQuestionnairesController {
   }
 
   @Get('correction-requested')
+  @Roles(...DOSSIER_READ_ROLES)
   async getCorrectionRequested(
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
@@ -243,11 +256,13 @@ export class AdminQuestionnairesController {
    * 3-Axis Real-Time Dossier Diagnostic ("Pourquoi ce dossier n'est-il pas prêt ?")
    */
   @Get(':id/diagnostic')
+  @Roles(...DOSSIER_READ_ROLES)
   async getDiagnostic(@Param('id') id: string, @Request() req: any) {
     return this.eligibilityEngine.evaluateDossier(id, territoryFromUser(req.user));
   }
 
   @Get(':id')
+  @Roles(...DOSSIER_READ_ROLES)
   async getOne(@Param('id') id: string, @Request() req: any) {
     return this.service.getById(id, territoryFromUser(req.user));
   }

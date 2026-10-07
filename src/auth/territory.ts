@@ -18,6 +18,16 @@ export interface Territory {
 const NATIONAL_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP];
 
 /**
+ * Roles that READ nationally: NATIONAL_ROLES plus CENTRAL_AGENT, the
+ * read-only central staff role. Used only by the row filters
+ * (territoryWhere, territoryWhereForDeclaration). assertTerritorialAuthority
+ * -- the write check -- keeps NATIONAL_ROLES, so a CENTRAL_AGENT that ever
+ * reached a mutation would still be refused there; the export scope keeps
+ * EXPORT_NATIONAL_ROLES, so it gains no export scope either.
+ */
+const READ_NATIONAL_ROLES: string[] = [...NATIONAL_ROLES, UserRole.CENTRAL_AGENT];
+
+/**
  * Roles with national scope on the ONEFOP statistical exports only
  * (role-decisions D7). Deliberately separate from NATIONAL_ROLES, which also
  * drives assertTerritorialAuthority: these roles must not gain national
@@ -83,7 +93,7 @@ export function territoryFromUser(user: any): Territory {
  * departmentId is globally unique and suffices on its own.
  */
 export function territoryWhere(territory?: Territory | null): Record<string, unknown> {
-  return territoryWhereWithRoles(territory, NATIONAL_ROLES);
+  return territoryWhereWithRoles(territory, READ_NATIONAL_ROLES);
 }
 
 /**
@@ -118,7 +128,7 @@ export function territoryWhereForDeclaration(
   if (territory === undefined || territory === null) return {};
 
   const role = territory.role;
-  if (role && NATIONAL_ROLES.includes(role)) return {};
+  if (role && READ_NATIONAL_ROLES.includes(role)) return {};
 
   if (role === UserRole.REGIONAL_ADMIN) {
     // No regionId branch: Declaration has no regionId column, and a

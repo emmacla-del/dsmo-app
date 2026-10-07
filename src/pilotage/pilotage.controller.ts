@@ -31,6 +31,7 @@ export const PILOTAGE_READ_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.REGIONAL_ADMIN,
   UserRole.DIVISIONAL_ADMIN,
+  UserRole.CENTRAL_AGENT,
 ] as const;
 
 @Controller('admin/pilotage')

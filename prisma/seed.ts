@@ -1182,10 +1182,13 @@ async function seed() {
             'DECONCENTRE': ServiceCategory.DECONCENTRE,
             'RATTACHE': ServiceCategory.RATTACHE,
         };
+        // The seed's labels predate the role_model_refactor; map them onto the
+        // current enum. Central and attached services are staff posts
+        // (CENTRAL_AGENT), not administrators.
         const roleMap: Record<string, UserRole> = {
-            'CENTRAL': UserRole.CENTRAL,
-            'REGIONAL': UserRole.REGIONAL,
-            'DIVISIONAL': UserRole.DIVISIONAL,
+            'CENTRAL': UserRole.CENTRAL_AGENT,
+            'REGIONAL': UserRole.REGIONAL_ADMIN,
+            'DIVISIONAL': UserRole.DIVISIONAL_ADMIN,
         };
         let serviceCount = 0;
         for (const s of minefopServices) {
