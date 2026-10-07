@@ -2400,7 +2400,6 @@
     "officialEmail": "Email officiel",
     "region": "Région",
     "department": "Département",
-    "allDepartments": "Tous les départements",
     "reassignTitle": "Réassigner le territoire — {name}",
     "reassignEyebrow": "Affectation géographique de l'agent",
     "saving": "Enregistrement…",
@@ -2408,7 +2407,12 @@
     "assignedRegion": "Région d'affectation",
     "noRegionAssigned": "Aucune région affectée",
     "allRegionDepartments": "Tous les départements de la région",
-    "selectRegion": "Sélectionner une région"
+    "selectRegion": "Sélectionner une région",
+    "officerRole": "Type d'agent",
+    "roleRegionalHint": "Couvre toute la région",
+    "roleDivisionalHint": "Couvre un département de la région",
+    "selectDepartment": "Sélectionner un département",
+    "selectRegionFirst": "Sélectionnez d'abord une région"
   },
   "adminDiffusionPage": {
     "allEmployers": "Tous les employeurs",

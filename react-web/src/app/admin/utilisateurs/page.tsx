@@ -501,12 +501,20 @@ const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "REJECTED", "COMPLEMEN
 // ── Ajouter Agent Dialog ────────────────────────────────────────────────────────
 // No default region: the server requires one for a regional officer, and a
 // preselected « Littoral » turned a careless submit into a Littoral account.
+//
+// The two roles the server creates directly (AuthService.MINEFOP_FIELD_ROLES);
+// assertCanManageRole and resolveStaffTerritory enforce who may create them
+// and their territory. A regional officer covers the whole region — the
+// server stores no department for one — so the department is asked only for
+// a departmental officer, where it is required.
+const OFFICER_ROLES = ["REGIONAL_ADMIN", "DIVISIONAL_ADMIN"] as const;
 const EMPTY_FORM = { firstName: "", lastName: "", email: "", role: "REGIONAL_ADMIN", region: "", department: "", matricule: "", poste: "" };
 
 function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
   const queryClient = useQueryClient();
   const tRoot = useTranslations();
   const t = useTranslations("adminUtilisateursPage");
+  const locale = asUiLocale(useLocale());
   const [form, setForm] = useState(EMPTY_FORM);
   const [created, setCreated] = useState<{ email: string; temporaryPassword: string } | null>(null);
 
@@ -518,7 +526,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
         lastName: form.lastName.trim(),
         role: form.role,
         region: form.region || undefined,
-        department: form.department || undefined,
+        department: form.role === "DIVISIONAL_ADMIN" ? form.department || undefined : undefined,
         matricule: form.matricule.trim() || undefined,
         poste: form.poste.trim() || undefined,
       }),
@@ -537,10 +545,12 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
   };
 
   const set = (key: keyof typeof EMPTY_FORM) => (value: string) =>
-    setForm((f) => ({ ...f, [key]: value, ...(key === "region" ? { department: "" } : {}) }));
+    setForm((f) => ({ ...f, [key]: value, ...(key === "region" || key === "role" ? { department: "" } : {}) }));
 
   const { regions } = useTerritoryRegions();
   const { departments } = useTerritoryDepartments(form.region);
+  const isDivisional = form.role === "DIVISIONAL_ADMIN";
+  const territoryComplete = !!form.region && (!isDivisional || !!form.department);
 
   return (
     <AdminDialog
@@ -557,7 +567,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <button
               type="button"
               className="cam-button cam-button-primary"
-              disabled={mutation.isPending || !form.email || !form.firstName || !form.lastName || !form.region}
+              disabled={mutation.isPending || !form.email || !form.firstName || !form.lastName || !territoryComplete}
               onClick={() => mutation.mutate()}
               style={{ background: "#004d3d" }}
             >
@@ -589,7 +599,27 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("officialEmail")}</label>
             <input type="email" className="cam-input" value={form.email} onChange={(e) => set("email")(e.target.value)} required />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            <legend style={{ padding: 0, fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-text-muted)", textTransform: "uppercase", marginBottom: 4 }}>{t("officerRole")}</legend>
+            {OFFICER_ROLES.map((role) => (
+              <label key={role} className="cam-admin-choice">
+                <input
+                  type="radio"
+                  name="officer-role"
+                  value={role}
+                  checked={form.role === role}
+                  onChange={() => set("role")(role)}
+                />
+                <span>
+                  {directoryRoleLabel(role, locale)}
+                  <span className="cam-admin-choice-hint">
+                    {t(role === "REGIONAL_ADMIN" ? "roleRegionalHint" : "roleDivisionalHint")}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <div style={{ display: "grid", gridTemplateColumns: isDivisional ? "1fr 1fr" : "1fr", gap: 12 }}>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("region")}</label>
               <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
@@ -597,13 +627,21 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
                 {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("department")}</label>
-              <select className="cam-input" value={form.department} onChange={(e) => set("department")(e.target.value)}>
-                <option value="">{t("allDepartments")}</option>
-                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
+            {isDivisional && (
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("department")}</label>
+                <select
+                  className="cam-input"
+                  value={form.department}
+                  onChange={(e) => set("department")(e.target.value)}
+                  disabled={!form.region}
+                  required
+                >
+                  <option value="" disabled>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
+                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         </form>
       )}
