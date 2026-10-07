@@ -56,6 +56,7 @@ import {
   toDraft,
 } from "@/lib/register-draft";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
+import { saveLoginIdentifier } from "@/lib/login-handoff";
 import {
   PASSWORD_RULE_IDS,
   passwordRuleChecks,
@@ -120,6 +121,17 @@ const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string; hintKey?: strin
   { type: "vocationalTraining", labelKey: "registerPage.entityOptionVocationalTraining" },
 ];
 
+// A control the respondent types or picks a value in -- as opposed to the
+// continue link, the eye toggle or the rail. Focus moving from a section's
+// last field to one of these is still work inside the section.
+function isFormField(el: Element): boolean {
+  return (
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLSelectElement ||
+    el instanceof HTMLTextAreaElement
+  );
+}
+
 export default function RegisterPage() {
   const t = useTranslations();
   // The language the questionnaire's own strings are read in -- field labels,
@@ -161,6 +173,18 @@ export default function RegisterPage() {
   // The only scroll container on the page. A section change puts it back to
   // the top; nothing else scrolls.
   const frameScrollRef = useRef<HTMLDivElement>(null);
+  // Focus on a section change. The section being left is `hidden`, so
+  // whatever had focus inside it drops to <body> and a keyboard or
+  // screen-reader user is nowhere. Every navigation that changes the section
+  // sets this flag, and the effect after the auto-advance one moves focus to
+  // the new section's heading once it is on screen -- which also has the
+  // screen reader announce where the respondent now is.
+  //
+  // A ref, not state: it must not cause a render. Navigation that has to
+  // focus a specific control instead (a failed submit lands on the failing
+  // field) leaves it false. Set only when `current` actually changes, since
+  // the effect only runs then -- a flag left set would steal focus later.
+  const headingFocusPendingRef = useRef(false);
   // Set when a change must reach storage now rather than after the debounce.
   const forceSaveRef = useRef(false);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
@@ -186,7 +210,11 @@ export default function RegisterPage() {
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; attestationUrl?: string | null; status?: string | null } | null>(null);
+  const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; status?: string | null } | null>(null);
+  // The receipt's title, focused when the receipt replaces the wizard: the
+  // submit button that had focus is gone, and nothing else would tell a
+  // screen-reader user the registration went through.
+  const receiptTitleRef = useRef<HTMLHeadingElement>(null);
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
 
@@ -258,12 +286,22 @@ export default function RegisterPage() {
   // ── Advance arming ─────────────────────────────────────────────────────
   // A section with optional fields must not open the next one the instant its
   // required fields are satisfied, or the optional ones (phone 2, P.O. box) would
-  // be pulled away mid-entry. What says "I am done here" instead is a change
-  // to the section's LAST field. Every setter below reports which field it
-  // changed, so the flag is recomputed -- never latched: going back up to an
-  // earlier field in the same section disarms it again.
+  // be pulled away mid-entry. What says "I am done here" instead is LEAVING
+  // the section's last field after changing it -- not the change itself.
+  // Arming on the change pulled a text field away after its first keystroke:
+  // typing "6" into Téléphone 2 opened the next section and the rest of the
+  // number went nowhere. A select is no different for a keyboard user, whose
+  // arrow keys change its value one option at a time.
+  //
+  // So a change only records whether it was the last field that changed; the
+  // section's onBlurCapture is what arms, and Enter on the last field and the
+  // continue link advance directly. Recomputed on every change rather than
+  // latched: going back up to an earlier field in the same section disarms it.
+  const lastFieldEditedRef = useRef(false);
+
   function armFromField(isLast: boolean) {
-    setAdvanceArmed(isLast);
+    lastFieldEditedRef.current = isLast;
+    setAdvanceArmed(false);
   }
 
   function setEntityField(key: string, value: string) {
@@ -462,6 +500,8 @@ export default function RegisterPage() {
     // The failing section may not be revealed yet (a restored draft can reach
     // review with an earlier gap), so open it before showing it.
     setReached((prev) => Math.max(prev, failure.index));
+    // The failing control takes focus below, not the section heading.
+    headingFocusPendingRef.current = false;
     setCurrent(failure.index);
     setAdvanceArmed(false);
     requestAnimationFrame(() => {
@@ -607,7 +647,6 @@ export default function RegisterPage() {
       setResult({
         establishmentId: response.company.establishmentId,
         companyName: response.company.name ?? companyName,
-        attestationUrl: response.company.attestationUrl,
         status: response.user.status,
       });
       if (typeof window !== "undefined") {
@@ -680,6 +719,8 @@ export default function RegisterPage() {
     }
     clearFlags();
     setAdvanceArmed(false);
+    lastFieldEditedRef.current = false;
+    if (index !== current) headingFocusPendingRef.current = true;
     setCurrent(index);
     requestAnimationFrame(scrollFrameTop);
   }
@@ -690,6 +731,8 @@ export default function RegisterPage() {
     if (next === index) return;
     clearFlags();
     setAdvanceArmed(false);
+    lastFieldEditedRef.current = false;
+    headingFocusPendingRef.current = true;
     setReached((prev) => Math.max(prev, next));
     setCurrent(next);
     requestAnimationFrame(scrollFrameTop);
@@ -718,8 +761,10 @@ export default function RegisterPage() {
       // emptied.
       const infoIndex = STEPS.indexOf("entityInfo");
       setReached((prev) => Math.max(prev, infoIndex));
+      if (current !== infoIndex) headingFocusPendingRef.current = true;
       setCurrent(infoIndex);
       setAdvanceArmed(false);
+      lastFieldEditedRef.current = false;
       requestAnimationFrame(scrollFrameTop);
       setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
       forceSaveRef.current = true;
@@ -743,8 +788,9 @@ export default function RegisterPage() {
   //
   // A section with no optional fields (the type list, the password) moves on
   // the instant it is complete. One with optional fields waits for the
-  // respondent to say so, by changing its last field or following the
-  // "continue" link -- see armFromField.
+  // respondent to say so, by leaving its last field after changing it,
+  // pressing Enter on it, or following the "continue" link -- see
+  // armFromField.
   const frontierComplete = current === reached && completed[reached];
   const frontierImmediate = advancesImmediately(STEPS[reached], entityType);
 
@@ -757,6 +803,8 @@ export default function RegisterPage() {
     // rather than asserted by a Suivant button, so the moment a section
     // becomes complete is a render, not a click. The three writes settle in
     // one pass -- the guards above are false on the next run.
+    lastFieldEditedRef.current = false;
+    headingFocusPendingRef.current = true;
     /* eslint-disable react-hooks/set-state-in-effect -- see above */
     setAdvanceArmed(false);
     setReached(next);
@@ -764,6 +812,18 @@ export default function RegisterPage() {
     /* eslint-enable react-hooks/set-state-in-effect */
     requestAnimationFrame(() => frameScrollRef.current?.scrollTo({ top: 0 }));
   }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
+
+  // Moves focus to the new section's heading -- see headingFocusPendingRef.
+  // Declared after every effect and handler that sets the flag.
+  useEffect(() => {
+    if (!headingFocusPendingRef.current) return;
+    headingFocusPendingRef.current = false;
+    // preventScroll: the frame is put back to its top by the navigation
+    // itself, and the heading is the first thing in it.
+    document
+      .getElementById(`reg-section-title-${STEPS[current]}`)
+      ?.focus({ preventScroll: true });
+  }, [current]);
 
   // ── Missing required fields ────────────────────────────────────────────
   // The names a field is reported by. entityLabel is the one resolver that
@@ -839,7 +899,7 @@ export default function RegisterPage() {
   // the respondent needs at that moment.
   //
   // It is also the required-only path forward. A section with optional fields
-  // auto-advances on a change to its LAST field -- and in every such section
+  // auto-advances when its LAST field is changed and left -- and in every such section
   // that last field is itself optional (phone2, poBox, promoterPhone2, the
   // activity sector), so a respondent who fills only what is required never
   // triggers it. This link is what they use instead, and it never asks them
@@ -952,6 +1012,10 @@ export default function RegisterPage() {
   }, [result]);
 
   useEffect(() => {
+    if (result) receiptTitleRef.current?.focus({ preventScroll: true });
+  }, [result]);
+
+  useEffect(() => {
     if (!snackbar) return;
     const timer = setTimeout(() => setSnackbar(null), SNACKBAR_MS);
     return () => clearTimeout(timer);
@@ -976,7 +1040,6 @@ export default function RegisterPage() {
         <div className="wrap-wide">
           <AuthHeader />
           <div className="card card--admin">
-            <div className="stripe" aria-hidden="true" />
             <div className="card-body">
               <div className="receipt-hero">
                 <div className="receipt-disc" aria-hidden="true">
@@ -984,7 +1047,7 @@ export default function RegisterPage() {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h1 className="brand-name receipt-title">
+                <h1 className="brand-name receipt-title" ref={receiptTitleRef} tabIndex={-1}>
                   {t("registerPage.successTitle")}
                 </h1>
                 {/* Every file now has its ID at registration, so the wording follows
@@ -1039,16 +1102,18 @@ export default function RegisterPage() {
                 </tbody>
               </table>
 
+              {/* The one way on. The registration response's token is not
+                  kept, so the respondent signs in -- with the email they
+                  just registered already in the identifier field. */}
               <div style={{ marginTop: "24px" }}>
-                <Link href="/login" className="btn-primary">
+                <Link
+                  href="/login"
+                  className="btn-primary"
+                  onClick={() => saveLoginIdentifier(respondent.email.trim())}
+                >
                   {t("registerPage.signInLink")}
                 </Link>
               </div>
-            </div>
-            <div className="card-footer">
-              <span className="create-account">
-                <Link href="/login">{t("registerPage.backToSignInLink")}</Link>
-              </span>
             </div>
           </div>
           <p className="help">
@@ -1444,8 +1509,8 @@ export default function RegisterPage() {
                     onChange={(e) => {
                       const id = e.target.value;
                       // The activity sector is the section's last field, and
-                      // the only optional one: changing it says the
-                      // respondent is done with the location.
+                      // the only optional one: leaving it after changing it
+                      // says the respondent is done with the location.
                       armFromField(true);
                       setSectorId(id);
                       setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
@@ -1644,8 +1709,8 @@ export default function RegisterPage() {
   // One screen, one frame, one section, one scrollbar.
   //
   // The page itself does not scroll: it is a 100dvh flex column of the
-  // national stripe, the header that carries the rail, and a body that gives
-  // every remaining pixel to a single bordered frame. The frame's inner
+  // header that carries the rail, and a body that gives every remaining
+  // pixel to a single bordered frame. The frame's inner
   // region is the only scroll container on the route, so a long section
   // scrolls inside the frame while the rail -- the navigation -- stays put
   // without needing position: sticky to do it.
@@ -1655,8 +1720,6 @@ export default function RegisterPage() {
   // email-availability check running when they moved on still lands.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
-      <div className="flow-stripe" aria-hidden="true" />
-
       {/* Sticky by structure, not by position: this is a fixed-size row of
           the page's flex column, so nothing can scroll underneath it. */}
       <header className="flow-header">
@@ -1712,12 +1775,22 @@ export default function RegisterPage() {
                   // the section's own fields must never raise errors, and a
                   // null relatedTarget (clicked the page chrome, switched
                   // windows) is deliberately NOT treated as leaving.
+                  //
+                  // The same blur is what arms the advance once the last field
+                  // has been changed (see armFromField): leaving the field for
+                  // the continue link below it, or for anywhere outside the
+                  // section, says the respondent is done with it.
                   onBlurCapture={(e) => {
                     if (idx !== current) return;
                     if (!currentLastFieldId) return;
                     if ((e.target as HTMLElement).id !== currentLastFieldId) return;
                     const next = e.relatedTarget as HTMLElement | null;
-                    if (!next || e.currentTarget.contains(next)) return;
+                    if (!next) return;
+                    if (e.currentTarget.contains(next)) {
+                      if (lastFieldEditedRef.current && !isFormField(next)) setAdvanceArmed(true);
+                      return;
+                    }
+                    if (lastFieldEditedRef.current) setAdvanceArmed(true);
                     promptMissing();
                   }}
                 >

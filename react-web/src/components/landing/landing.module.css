@@ -1,0 +1,265 @@
+/* Landing page layout (LandingShell.tsx), used by src/app/page.tsx at "/".
+
+   Everything here reads the --cam-* tokens from tokens.css. The four values
+   declared on .page are the only ones with no token to read: two display
+   sizes larger than the ladder's top step, the emblem's size, and the gap
+   between the disc and its ring.
+
+   The flag's colours are used in one place only, the emblem. The bar and the
+   sign-in card carry no tricolour stripe on this page. */
+
+.page {
+  --landing-gutter: var(--cam-space-4);
+  --landing-wordmark-max: 5rem;        /* 80px */
+  --landing-notice-title: 1.25rem;     /* 20px */
+  --landing-emblem-max: 280px;
+  --landing-emblem-ring: 14px;
+
+  flex: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cam-bg);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+}
+
+/* ── Official bar ── */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+  padding: var(--cam-space-2) var(--landing-gutter);
+  background: var(--cam-green-dark);
+  color: var(--cam-surface);
+}
+
+.mastheadNotice {
+  margin: 0;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-medium);
+  line-height: var(--cam-line-height-ui);
+}
+
+/* ── Stage ──
+   One column by default (phone): identity, sign-in, notices. */
+
+.stage {
+  flex: 1;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: var(--cam-space-6) var(--landing-gutter) var(--cam-space-7);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "identity"
+    "auth"
+    "notices";
+  row-gap: var(--cam-space-6);
+  column-gap: var(--cam-space-7);
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* ── Identity: emblem, wordmark, both names ── */
+
+.identity {
+  grid-area: identity;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+}
+
+/* Width and height are both set from one size. aspect-ratio alone lets the
+   map inside stretch the disc into an oval. */
+.emblem {
+  --landing-emblem-size: clamp(120px, 40cqi, var(--landing-emblem-max));
+  flex: none;
+  width: var(--landing-emblem-size);
+  height: var(--landing-emblem-size);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-success-bg);
+  outline: 1px solid var(--cam-success-border);
+  outline-offset: var(--landing-emblem-ring);
+  display: grid;
+  place-items: center;
+}
+
+.emblemMap {
+  display: block;
+  height: 80%;
+  width: auto;
+}
+
+.flagGreen {
+  fill: var(--cam-flag-green);
+}
+
+.flagRed {
+  fill: var(--cam-flag-red);
+}
+
+.flagYellow {
+  fill: var(--cam-flag-yellow);
+}
+
+/* 19cqi keeps the eight characters of "CAM-LEAP" inside the column at any
+   width; the clamp stops it at the ladder's base size and at 80px. */
+.wordmark {
+  margin: calc(var(--cam-space-5) + var(--landing-emblem-ring)) 0 0;
+  font-family: var(--cam-font-serif);
+  font-size: clamp(2.5rem, 19cqi, var(--landing-wordmark-max));
+  font-weight: var(--cam-font-weight-bold);
+  line-height: 0.95;
+  letter-spacing: var(--cam-tracking-tight);
+  white-space: nowrap;
+  color: var(--cam-text);
+}
+
+.name {
+  margin: var(--cam-space-3) 0 0;
+  max-width: 24em;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.nameOther {
+  margin: var(--cam-space-3) 0 0;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  background: var(--cam-green-dark);
+  color: var(--cam-surface);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-ui);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+/* ── Sign-in column ──
+   .cam-auth-page is a full-height, centred page in globals.css. Inside the
+   stage it is one column, so its page-level layout is switched off here; the
+   doubled class raises specificity above the global rule whatever the
+   stylesheet order. Its descendant rules (.card, .field, ...) still apply. */
+
+.auth.auth {
+  grid-area: auth;
+  justify-self: center;
+  width: 100%;
+  max-width: var(--cam-container-compact);
+  min-height: 0;
+  padding: 0;
+  display: block;
+  background: none;
+}
+
+.auth :global(.card) {
+  box-shadow: var(--cam-card-shadow);
+}
+
+/* ── Notices ── */
+
+.notices {
+  grid-area: notices;
+  justify-self: center;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  min-width: 0;
+}
+
+.noticesHeading {
+  margin: 0;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cam-green);
+}
+
+.notice {
+  padding: var(--cam-space-4) var(--cam-space-5) var(--cam-space-5);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.notice h3 {
+  margin: 0 0 var(--cam-space-1);
+  font-family: var(--cam-font-serif);
+  font-size: var(--landing-notice-title);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-green-dark);
+}
+
+.notice p {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+.notice strong {
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.notice a {
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+/* ── Tablet: identity above the notices on the left, sign-in on the right ── */
+
+@media (min-width: 860px) {
+  .page {
+    --landing-gutter: var(--cam-space-6);
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr) var(--cam-container-compact);
+    grid-template-areas:
+      "identity auth"
+      "notices  auth";
+  }
+
+  .notices {
+    max-width: none;
+  }
+}
+
+/* ── Desktop: notices, identity, sign-in ── */
+
+@media (min-width: 1200px) {
+  .stage {
+    grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1fr) var(--cam-container-compact);
+    grid-template-areas: "notices identity auth";
+  }
+
+  .emblem {
+    --landing-emblem-size: clamp(160px, 68cqi, var(--landing-emblem-max));
+  }
+
+  .wordmark {
+    margin-top: calc(var(--cam-space-6) + var(--landing-emblem-ring));
+  }
+}
