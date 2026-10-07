@@ -9,12 +9,8 @@ import { apiFetch } from "./api-client";
 
 export type ActorSummaryPeriod = "7d" | "30d" | "90d" | "12m";
 
-export const ACTOR_SUMMARY_PERIODS: readonly { value: ActorSummaryPeriod; label: string }[] = [
-  { value: "7d", label: "7 jours" },
-  { value: "30d", label: "30 jours" },
-  { value: "90d", label: "90 jours" },
-  { value: "12m", label: "12 mois" },
-];
+/** Labels live at adminEquipePage.period.<value>. */
+export const ACTOR_SUMMARY_PERIODS: readonly ActorSummaryPeriod[] = ["7d", "30d", "90d", "12m"];
 
 /** The two roles the dashboard lists. Mirrors the backend's role filter. */
 export const MONITORED_ROLES: readonly { value: string; label: string }[] = [
@@ -31,9 +27,9 @@ export interface ActorSummaryActor {
   lastActionAt: string | null;
   /**
    * The latest decision the admin recorded, at any time — what the
-   * NO_RECENT_ACTIVITY reminder counts from. Absent from an older server.
+   * NO_RECENT_ACTIVITY reminder counts from.
    */
-  lastDecisionAt?: string | null;
+  lastDecisionAt: string | null;
   field: {
     registrationsMade: number;
     conversions: number;
@@ -58,8 +54,8 @@ export interface ActorSummaryActor {
 export interface ActorSummaryResponse {
   periodStart: string;
   periodEnd: string;
-  /** The server's stale-backlog threshold in days. Absent from an older server. */
-  staleAfterDays?: number;
+  /** The server's stale-backlog threshold in days (STALE_AFTER_DAYS). */
+  staleAfterDays: number;
   actors: ActorSummaryActor[];
 }
 
@@ -82,11 +78,8 @@ export function getActorSummary(params: ActorSummaryParams = {}) {
 
 export type NudgeTemplate = "STALE_BACKLOG" | "BEHIND_TARGET" | "NO_RECENT_ACTIVITY";
 
-export const NUDGE_TEMPLATE_OPTIONS: readonly { value: NudgeTemplate; label: string }[] = [
-  { value: "STALE_BACKLOG", label: "Dossiers en attente depuis plus de 7 jours" },
-  { value: "BEHIND_TARGET", label: "Retard sur la cible de couverture" },
-  { value: "NO_RECENT_ACTIVITY", label: "Aucune décision récente" },
-];
+/** Labels live at adminEquipePage.template.<value>. */
+export const NUDGE_TEMPLATE_OPTIONS: readonly NudgeTemplate[] = ["STALE_BACKLOG", "BEHIND_TARGET", "NO_RECENT_ACTIVITY"];
 
 export interface NudgePayload {
   userId: string;
