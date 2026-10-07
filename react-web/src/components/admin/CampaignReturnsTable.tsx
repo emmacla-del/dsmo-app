@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { count, percent } from "@/lib/admin-data-state";
 import type {
   CampaignReturnsResponse,
   ReturnMetrics,
@@ -87,7 +88,7 @@ export function CampaignReturnsTable({
           </tbody>
         )}
         <tfoot>
-          <tr className="cam-target-region" style={{ fontWeight: 600, borderTop: "2px solid var(--cam-border)" }}>
+          <tr className="cam-target-region">
             <th scope="row">{t("total")}</th>
             <MetricCells metrics={data.totals} />
           </tr>
@@ -113,7 +114,7 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
         {metrics.late > 0 && (
           <span
             className="cam-badge cam-badge-warning"
-            style={{ marginLeft: "var(--cam-space-2)", fontSize: "10px", padding: "1px 4px" }}
+            style={{ marginLeft: "var(--cam-space-2)" }}
             title={t("lateTitle")}
           >
             {t("lateBadge")}
@@ -144,13 +145,12 @@ function quotaRateBadge(rate: number): string {
   return "cam-badge-error";
 }
 
+// Shared formatters (G12): one locale decision, in lib/admin-data-state.
 function formatCount(value: number | null | undefined, locale: UiLocale): string {
-  if (value == null) return "—";
-  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
+  return count(value, locale);
 }
 
+// A 0–1 ratio as a percentage with at most one decimal: "50 %", "50,5 %".
 function formatRate(rate: number | null | undefined, locale: UiLocale): string {
-  if (rate == null) return "—";
-  const digits = (rate * 100).toLocaleString(locale === "en" ? "en-GB" : "fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
-  return locale === "en" ? `${digits}%` : `${digits} %`;
+  return percent(rate == null ? null : rate * 100, 1, locale, 0);
 }
