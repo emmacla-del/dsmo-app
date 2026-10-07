@@ -1,4 +1,5 @@
 import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
 
 /**
  * Phase 1 (territorial admin monitoring) — attribution contract.
@@ -98,17 +99,12 @@ describe('Phase 1 — registrationMethod and createdBy on every creation path', 
     service = makeService(prisma);
   });
 
-  it('public staff self-registration is SELF_REGISTRATION with no creator', async () => {
-    await service.register('agent@minefop.cm', 'password123', 'Marie', 'Ebanda', 'REGIONAL_ADMIN', 'Littoral');
-
-    const data = lastUserCreate(prisma);
-    expect(data.registrationMethod).toBe('SELF_REGISTRATION');
-    // No creating admin exists on a public path — the absence is the signal.
-    // Asserted as "no author" rather than on the JS representation: this path
-    // omits the key while registerCompany writes an explicit null, and both
-    // store NULL. A test that pinned `undefined` would break on a refactor
-    // that changed nothing about the column.
-    expect(data.createdBy ?? null).toBeNull();
+  it('there is no public staff self-registration path any more', () => {
+    // POST /auth/register accepted any role from anyone (as PENDING_APPROVAL).
+    // Staff now arrive only by invitation (staff-invitation.service.ts) or
+    // direct admin creation; companies keep their own register-company route.
+    expect((AuthService.prototype as any).register).toBeUndefined();
+    expect((AuthController.prototype as any).register).toBeUndefined();
   });
 
   it('public company registration is SELF_REGISTRATION with no creator', async () => {

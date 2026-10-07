@@ -71,42 +71,6 @@ export class AuthController {
   }
 
   @Throttle(RECOVERY_THROTTLE)
-  @Post('register')
-  async register(@Body() body: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-    region?: string;
-    department?: string;
-    matricule?: string;
-    poste?: string;
-    serviceCode?: string;
-  }) {
-    try {
-      const user = await this.authService.register(
-        body.email,
-        body.password,
-        body.firstName,
-        body.lastName,
-        body.role,
-        body.region,
-        body.department,
-        body.matricule,
-        body.poste,
-        body.serviceCode,
-      );
-      if (body.role !== 'COMPANY') {
-        return { message: "Inscription reçue. Votre compte est en attente d'approbation par un administrateur." };
-      }
-      return this.authService.login(user);
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  @Throttle(RECOVERY_THROTTLE)
   @Post('register-company')
   // Route-local override: the global pipe (main.ts) sets
   // skipMissingProperties: true, which would silently skip validation of
