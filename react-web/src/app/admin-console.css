@@ -2307,7 +2307,14 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   height: 8px;
   border-radius: var(--cam-radius-full);
   align-self: center;
+  background: var(--cam-text-muted);
 }
+
+/* The entry's status tone, chosen from the stored status code. */
+.cam-dash-timeline-dot--success { background: var(--cam-success); }
+.cam-dash-timeline-dot--warning { background: var(--cam-warning); }
+.cam-dash-timeline-dot--error   { background: var(--cam-error); }
+.cam-dash-timeline-dot--info    { background: var(--cam-info); }
 
 .cam-dash-timeline-body a {
   color: var(--cam-text);
