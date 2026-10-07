@@ -39,7 +39,6 @@
       "src/components/admin/NotificationBell.tsx": 3
     },
     "card-proxy": {
-      "src/app/admin/campagnes/page.tsx": 1,
       "src/app/admin/inscriptions/page.tsx": 1,
       "src/app/admin/notifications/page.tsx": 1,
       "src/app/admin/questionnaires/page.tsx": 1,

@@ -617,8 +617,8 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
         </div>
         {c.description && <p className="cam-admin-meta" style={{ margin: 0 }}>{c.description}</p>}
 
-        {/* Figma separates the figures with rules only: keep the strip's dividers, drop its box. */}
-        <div className="cam-admin-stats" style={{ border: "none", background: "transparent" }}>
+        {/* The section is already the card: the flush strip keeps the dividers, drops its box. */}
+        <div className="cam-admin-stats cam-admin-stats--flush">
           <div className="cam-admin-stat">
             <div className="cam-admin-stat-label">{t("daysRemaining")}</div>
             <div className={`cam-admin-stat-value ${remaining.tone ?? ""}`}>{remaining.value}</div>
