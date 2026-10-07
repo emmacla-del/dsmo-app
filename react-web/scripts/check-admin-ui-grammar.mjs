@@ -46,6 +46,13 @@ const ADMIN_DIRS = [
   join(root, "src", "components", "admin"),
 ];
 
+// The respondent surface: everything under src/app and src/components that
+// is not admin. The grammar applies G1, G13 and G14 to it (and G12 is kept at
+// zero); its own class namespace and density are its business, so the
+// admin-only rules (tables, cards, DataState) do not run here.
+const RESPONDENT_ROOTS = [join(root, "src", "app"), join(root, "src", "components")];
+const isAdminPath = (p) => ADMIN_DIRS.some((d) => p === d || relative(d, p).split(/[\\/]/)[0] !== "..");
+
 // The shared CSS layer. globals.css imports tokens.css and admin-console.css,
 // so these reach every surface, admin and respondent alike.
 const SHARED_CSS = [
@@ -84,6 +91,7 @@ function collect(dir, exts) {
 }
 
 const collectAll = (dirs, exts) => dirs.flatMap((d) => collect(d, exts));
+const collectRespondent = (exts) => collectAll(RESPONDENT_ROOTS, exts).filter((p) => !isAdminPath(p));
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -142,6 +150,25 @@ const SPACING_PROPS =
   "padding|paddingTop|paddingBottom|paddingLeft|paddingRight|paddingBlock|paddingInline|" +
   "margin|marginTop|marginBottom|marginLeft|marginRight|marginBlock|marginInline|" +
   "gap|rowGap|columnGap";
+
+/** G14: inline style lengths off the --cam-space-* scale, per style block. */
+function offScaleSpacing(files) {
+  const out = [];
+  const re = new RegExp(`\\b(${SPACING_PROPS}):\\s*"?(-?[0-9]+(?:\\.[0-9]+)?)(px)?"?`, "g");
+  for (const file of files) {
+    const src = readFileSync(file, "utf-8");
+    for (const block of inlineStyleBlocks(src)) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(block.text)) !== null) {
+        if (!SPACING_SCALE.has(Math.abs(Number(m[2])))) {
+          out.push({ file, line: block.line, text: `${m[1]}: ${m[2]}${m[3] ?? ""}` });
+        }
+      }
+    }
+  }
+  return out;
+}
 
 // ── Rules ───────────────────────────────────────────────────────────────────
 // Each `run` returns [{ file, line, text }]. A `warn` rule is reported but
@@ -212,23 +239,7 @@ const RULES = [
     title: "Inline length off the 4/8 spacing scale",
     fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
     warn: true,
-    run: () => {
-      const out = [];
-      const re = new RegExp(`\\b(${SPACING_PROPS}):\\s*"?(-?[0-9]+(?:\\.[0-9]+)?)(px)?"?`, "g");
-      for (const file of collectAll(ADMIN_DIRS, [".tsx"])) {
-        const src = readFileSync(file, "utf-8");
-        for (const block of inlineStyleBlocks(src)) {
-          re.lastIndex = 0;
-          let m;
-          while ((m = re.exec(block.text)) !== null) {
-            if (!SPACING_SCALE.has(Math.abs(Number(m[2])))) {
-              out.push({ file, line: block.line, text: `${m[1]}: ${m[2]}${m[3] ?? ""}` });
-            }
-          }
-        }
-      }
-      return out;
-    },
+    run: () => offScaleSpacing(collectAll(ADMIN_DIRS, [".tsx"])),
   },
   {
     key: "card-proxy",
@@ -267,6 +278,43 @@ const RULES = [
       }
       return out;
     },
+  },
+
+  // ── Respondent surface (G1, G13, G12, G14) ──
+  // Recorded from the state after Step 4c of the tidy. Same ratchet: a file
+  // may not rise above its count, and a file with no entry stays at zero.
+  {
+    key: "respondent-hex-in-tsx",
+    rule: "G1",
+    title: "Hex colour literal in respondent TSX",
+    fix: "Use a class, or var(--cam-*) where the value must be inline. New values go in tokens.css.",
+    run: () =>
+      findPerLine(collectRespondent([".ts", ".tsx"]), (line) => /#[0-9a-fA-F]{3,8}\b/.test(stripJsComment(line))),
+  },
+  {
+    key: "respondent-font-size-literal",
+    rule: "G13",
+    title: "Literal font size in a respondent inline style",
+    fix: "Use the class, or a --cam-font-size-* token.",
+    run: () => findPerLine(collectRespondent([".ts", ".tsx"]), (line) => /fontSize:\s*["']?[0-9]/.test(line)),
+  },
+  {
+    key: "respondent-locale-format",
+    rule: "G12",
+    title: "Local toLocale* formatting on the respondent surface",
+    fix: "Use count / percent / stamp / shortStamp / clockTime / elapsedSince from lib/admin-data-state.ts.",
+    run: () =>
+      findPerLine(collectRespondent([".ts", ".tsx"]), (line) =>
+        /\.toLocale(String|DateString|TimeString)\s*\(/.test(stripJsComment(line))
+      ),
+  },
+  {
+    key: "respondent-spacing-off-scale",
+    rule: "G14",
+    title: "Inline length off the 4/8 spacing scale (respondent)",
+    fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
+    warn: true,
+    run: () => offScaleSpacing(collectRespondent([".tsx"])),
   },
 ];
 
