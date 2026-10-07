@@ -1253,6 +1253,9 @@
     "unreadAriaLabel": "Unread",
     "viewAll": "View all"
   },
+  "adminNotificationsPage": {
+    "closeAriaLabel": "Close"
+  },
   "adminError": {
     "title": "An error occurred while loading",
     "fallbackMessage": "The administration module could not start correctly. If a new version has just been deployed, reload the page to load it.",
