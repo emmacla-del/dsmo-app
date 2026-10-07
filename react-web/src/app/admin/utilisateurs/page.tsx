@@ -15,6 +15,7 @@ import {
 } from "@/lib/user-directory";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { InviteAgentDialog } from "@/components/admin/InviteAgentDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
@@ -72,12 +73,13 @@ function MethodBadge({ method }: { method: string | null }) {
 }
 
 export default function OnefopUsersPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(USER_ADMIN_ROLES);
+  const { isLoading, forbidden, user } = useAdminScreenGuard(USER_ADMIN_ROLES);
   const tRoot = useTranslations();
   const t = useTranslations("adminUtilisateursPage");
   const locale = asUiLocale(useLocale());
   const enabled = !isLoading && !forbidden;
   const [createOpen, setCreateOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [profileAgent, setProfileAgent] = useState<AgentItem | null>(null);
   const [reassignAgent, setReassignAgent] = useState<AgentItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -138,10 +140,13 @@ export default function OnefopUsersPage() {
       actions={
         <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
           <AdminHeaderActions />
+          {/* Inviting is the primary way in: the agent sets their own
+              password. Direct creation, which hands the admin a temporary
+              password to pass on, stays as the secondary path. */}
           {enabled && (
             <button
               type="button"
-              className="cam-button cam-button-primary cam-button-sm"
+              className="cam-button cam-button-secondary cam-button-sm"
               onClick={() => setCreateOpen(true)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
@@ -149,6 +154,15 @@ export default function OnefopUsersPage() {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
               {t("addOfficer")}
+            </button>
+          )}
+          {enabled && (
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              onClick={() => setInviteOpen(true)}
+            >
+              {tRoot("adminStaffInvitation.openButton")}
             </button>
           )}
         </div>
@@ -353,6 +367,8 @@ export default function OnefopUsersPage() {
           </table>
         </div>
       </section>
+
+      <InviteAgentDialog open={inviteOpen} onClose={() => setInviteOpen(false)} actorRole={user?.role} />
 
       {/* Ajouter Agent Dialog */}
       <CreateAgentDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => showToast(t("officerCreated"))} />
