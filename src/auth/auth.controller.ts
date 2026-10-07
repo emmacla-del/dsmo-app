@@ -2,6 +2,7 @@ import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, G
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { StaffInvitationService } from './staff-invitation.service';
+import { StaffInvitationLinkService } from './staff-invitation-link.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -37,6 +38,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private staffInvitations: StaffInvitationService,
+    private staffInvitationLinks: StaffInvitationLinkService,
   ) { }
 
   // ── Health check — wakes Render server on app startup ──
@@ -193,6 +195,61 @@ export class AuthController {
     password?: string;
   }) {
     return this.staffInvitations.accept(body);
+  }
+
+  // ── Group invitation links (see staff-invitation-link.service.ts) ──
+  // One link for a group of staff, posted in a WhatsApp group; each person
+  // picks their service and post within the link's scope and gets an account
+  // that waits for approval.
+  @Post('admin/staff-invitation-links')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  async createStaffInvitationLink(@Request() req: any, @Body() body: {
+    label?: string;
+    level?: string;
+    region?: string;
+    department?: string;
+    expiresInDays?: number;
+    maxUses?: number;
+  }) {
+    return this.staffInvitationLinks.create(body, { id: req.user.id, role: req.user.role });
+  }
+
+  @Get('admin/staff-invitation-links')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  async listStaffInvitationLinks(@Request() req: any) {
+    return this.staffInvitationLinks.list({ role: req.user.role });
+  }
+
+  @Patch('admin/staff-invitation-links/:id/revoke')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  async revokeStaffInvitationLink(@Request() req: any, @Param('id') id: string) {
+    return this.staffInvitationLinks.revoke(id, { id: req.user.id, role: req.user.role });
+  }
+
+  // Public: the person holding the link is not signed in. Token in the body,
+  // not the URL, so it stays out of access logs.
+  @Throttle(RECOVERY_THROTTLE)
+  @Post('staff-invitation-links/preview')
+  async previewStaffInvitationLink(@Body() body: { token?: string }) {
+    return this.staffInvitationLinks.preview(body?.token);
+  }
+
+  @Throttle(RECOVERY_THROTTLE)
+  @Post('staff-invitation-links/sign-up')
+  async signUpWithStaffInvitationLink(@Body() body: {
+    token?: string;
+    email?: string;
+    serviceCode?: string;
+    positionType?: string;
+    firstName?: string;
+    lastName?: string;
+    matricule?: string;
+    password?: string;
+  }) {
+    return this.staffInvitationLinks.signUp(body);
   }
 
   // Admin-assisted declarant registration — Phase 2 of
