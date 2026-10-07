@@ -65,6 +65,12 @@ export interface ActorSummaryActor {
   region: string | null;
   department: string | null;
   lastActionAt: string | null;
+  /**
+   * The latest decision (ALL_DECISION_ACTIONS) the admin recorded, at any
+   * time — the moment the NO_RECENT_ACTIVITY reminder counts from, so the
+   * dashboard can preview that reminder exactly.
+   */
+  lastDecisionAt: string | null;
   field: {
     registrationsMade: number;
     conversions: number;
@@ -156,7 +162,14 @@ export class ActorSummaryService {
         a.displayName.localeCompare(b.displayName),
     );
 
-    return { periodStart: start.toISOString(), periodEnd: now.toISOString(), actors };
+    // staleAfterDays: the threshold behind processing.stale and the
+    // STALE_BACKLOG reminder, so the dashboard states it instead of copying it.
+    return {
+      periodStart: start.toISOString(),
+      periodEnd: now.toISOString(),
+      staleAfterDays: STALE_AFTER_DAYS,
+      actors,
+    };
   }
 
   async nudge(actor: ActingUser, body: unknown, now = new Date()) {
@@ -225,9 +238,12 @@ export class ActorSummaryService {
     const ids = users.map((user) => user.id);
     const staleBefore = new Date(now.getTime() - STALE_AFTER_DAYS * DAY_MS);
 
+    // One groupBy per (user, action) yields both the latest action of any kind
+    // and the latest decision, without a sixth parallel query against the
+    // session-mode pool.
     const [lastActions, decisionRows, fieldRows, backlogRows, coverage] = await Promise.all([
       this.prisma.auditLog.groupBy({
-        by: ['userId'],
+        by: ['userId', 'action'],
         where: { userId: { in: ids } },
         _max: { timestamp: true },
       }),
@@ -259,7 +275,11 @@ export class ActorSummaryService {
     const filedAt = new Map(registrants.map((row) => [row.id, row.createdAt]));
 
     return users.map((user) => {
-      const lastAction = lastActions.find((row) => row.userId === user.id)?._max.timestamp ?? null;
+      const own = lastActions.filter((row) => row.userId === user.id);
+      const lastAction = latest(own.map((row) => row._max.timestamp));
+      const lastDecision = latest(
+        own.filter((row) => ALL_DECISION_ACTIONS.includes(row.action)).map((row) => row._max.timestamp),
+      );
 
       const decisions = { approved: 0, rejected: 0, corrections: 0 };
       const days: number[] = [];
@@ -290,6 +310,7 @@ export class ActorSummaryService {
         region: user.region,
         department: user.department,
         lastActionAt: lastAction ? lastAction.toISOString() : null,
+        lastDecisionAt: lastDecision ? lastDecision.toISOString() : null,
         field: {
           registrationsMade: made.length,
           conversions,
@@ -372,16 +393,27 @@ export class ActorSummaryService {
       select: { timestamp: true },
     });
     const body = last
-      ? `Aucune décision enregistrée sur votre compte depuis ${Math.max(
-          1,
-          Math.floor((now.getTime() - last.timestamp.getTime()) / DAY_MS),
-        )} jours.`
+      ? `Aucune décision enregistrée sur votre compte depuis ${daysSince(last.timestamp, now)} jours.`
       : 'Aucune décision n’a encore été enregistrée sur votre compte.';
     return { subject: 'Relance : aucune activité récente', body, linkHref: '/admin/dossiers' };
   }
 }
 
 // ── Pure helpers (exported for tests) ──────────────────────────────────────
+
+/** The latest of several timestamps, or null when there is none. */
+export function latest(timestamps: (Date | null | undefined)[]): Date | null {
+  return timestamps.reduce<Date | null>((max, value) => (value && (!max || value > max) ? value : max), null);
+}
+
+/**
+ * Whole days from `since` to `now`, at least 1 — the figure the
+ * NO_RECENT_ACTIVITY reminder states. The dashboard's preview repeats this
+ * formula (react-web/src/lib/actor-summary.ts); keep the two in step.
+ */
+export function daysSince(since: Date, now: Date): number {
+  return Math.max(1, Math.floor((now.getTime() - since.getTime()) / DAY_MS));
+}
 
 export function parsePeriod(raw: unknown): ActorSummaryPeriod {
   if (raw == null || raw === '') return '30d';
