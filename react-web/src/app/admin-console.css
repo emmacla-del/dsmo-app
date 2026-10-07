@@ -2919,6 +2919,12 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   min-width: 12rem;
 }
 
+/* The totals row of a quota or coverage table. */
+.cam-target-table tfoot tr {
+  font-weight: 600;
+  border-top: 2px solid var(--cam-border);
+}
+
 .cam-target-table .cam-target-expand {
   display: inline-flex;
   align-items: center;

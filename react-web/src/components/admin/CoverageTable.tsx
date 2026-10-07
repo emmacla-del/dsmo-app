@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { count, percent } from "@/lib/admin-data-state";
 import type { CoverageResponse, StockCounts } from "@/lib/pilotage-targets";
 import { formatCoverageCount, modeLabel } from "@/lib/pilotage-target-payload";
 
@@ -164,13 +165,12 @@ function CountCells({
   );
 }
 
+// Shared formatters (G12): one locale decision, in lib/admin-data-state.
 function fmt(value: number | null | undefined, locale: UiLocale): string {
-  if (value == null) return "—";
-  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
+  return count(value, locale);
 }
 
+// A 0–1 ratio as a percentage with at most one decimal: "50 %", "50,5 %".
 function fmtRate(rate: number | null | undefined, locale: UiLocale): string {
-  if (rate == null) return "—";
-  const digits = (rate * 100).toLocaleString(locale === "en" ? "en-GB" : "fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
-  return locale === "en" ? `${digits}%` : `${digits} %`;
+  return percent(rate == null ? null : rate * 100, 1, locale, 0);
 }

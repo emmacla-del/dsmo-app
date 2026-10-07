@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { count } from "@/lib/admin-data-state";
 import {
   applyEditMode,
   modeLabel,
@@ -306,8 +307,9 @@ function TargetInput({
   );
 }
 
+// Shared formatter (G12): one locale decision, in lib/admin-data-state.
 function formatNumber(value: number, locale: UiLocale): string {
-  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
+  return count(value, locale);
 }
 
 function modeBadgeClass(mode: NormalizedRegion["mode"]): string {
