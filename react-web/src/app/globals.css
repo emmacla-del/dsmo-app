@@ -276,29 +276,6 @@ body {
   margin-bottom: var(--cam-space-6);
 }
 
-.cam-auth-page .seal {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto var(--cam-space-3);
-  border-radius: var(--cam-radius-full);
-  border: 1px dashed var(--cam-border-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cam-text-muted);
-  font-size: var(--cam-font-size-3xs);
-  line-height: 1.3;
-  background: var(--cam-surface-subtle);
-  text-transform: lowercase;
-}
-
-.cam-auth-page .seal-note {
-  font-size: var(--cam-font-size-3xs);
-  color: var(--cam-text-muted);
-  margin-bottom: var(--cam-space-4);
-  letter-spacing: var(--cam-tracking-caption);
-}
-
 .cam-auth-page .brand-name {
   font-size: var(--cam-font-size-2xl);
   font-weight: var(--cam-font-weight-bold);
@@ -754,14 +731,10 @@ body {
   margin: 0 auto;
 }
 
-/* The emblem placeholder, the note explaining it and the CAM-LEAP wordmark
-   are all hidden on this route. The first two are a reminder to the team
-   rather than information for the respondent; the third is a second title
-   on a page whose real title is the section in the frame, and on a 680px
-   laptop it was costing the form a line it could not spare. The subtitle
-   stays and carries the identity on its own, on one line. */
-.cam-auth-page--wizard .seal,
-.cam-auth-page--wizard .seal-note,
+/* The CAM-LEAP wordmark is hidden on this route: it is a second title on a
+   page whose real title is the section in the frame, and on a 680px laptop
+   it was costing the form a line it could not spare. The subtitle stays and
+   carries the identity on its own, on one line. */
 .cam-auth-page--wizard .brand-name {
   display: none;
 }
@@ -835,19 +808,88 @@ body {
   color: var(--cam-text-muted);
 }
 
-.cam-auth-page--wizard .flow-footer a {
+.cam-auth-page--wizard :is(.flow-footer, .flow-panel-foot) a {
   color: var(--cam-text-muted);
   font-weight: var(--cam-font-weight-semibold);
   text-decoration: none;
 }
 
-.cam-auth-page--wizard .flow-footer a:hover {
+.cam-auth-page--wizard :is(.flow-footer, .flow-panel-foot) a:hover {
   text-decoration: underline;
 }
 
 .cam-auth-page--wizard .flow-footer-sep {
   margin: 0 var(--cam-space-2);
   color: var(--cam-border-strong);
+}
+
+/* ── Split: the dossier panel beside the body ──
+   On a narrow screen .flow-split is just the body, between the header and
+   the footer. From 1080px -- the panel, the 600px frame and their gutters
+   side by side -- the panel appears on the left and the header and footer
+   go: the panel carries the identity, the navigation and the way out. */
+.cam-auth-page--wizard .flow-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.cam-auth-page--wizard .flow-panel {
+  display: none;
+}
+
+/* Never a scroller: one line per step summary, and the panel is sized to
+   fit six steps at 680px tall. overflow: hidden keeps a pathological
+   summary from growing a second scrollbar beside the frame's. */
+.cam-auth-page--wizard .flow-panel {
+  flex: 0 0 var(--cam-container-compact);
+  width: var(--cam-container-compact);
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+  padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
+  background: var(--cam-surface);
+  border-right: var(--cam-border-width) solid var(--cam-border);
+  overflow: hidden;
+}
+
+.cam-auth-page--wizard .flow-panel-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+}
+
+/* The landing page's emblem, at panel size, on the same soft green disc. */
+.cam-auth-page--wizard .flow-panel-emblem {
+  flex: none;
+  width: var(--cam-space-7);
+  height: var(--cam-space-7);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-success-bg);
+  display: grid;
+  place-items: center;
+}
+
+.cam-auth-page--wizard .flow-panel-wordmark {
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  letter-spacing: var(--cam-tracking-tight);
+  line-height: var(--cam-line-height-tight);
+  color: var(--cam-text);
+}
+
+.cam-auth-page--wizard .flow-panel-sub {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-2xs);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page--wizard .flow-panel-foot {
+  margin-top: auto;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
 }
 
 /* Short viewports: the header gives back what it can, since the frame's
@@ -882,6 +924,24 @@ body {
   }
 }
 
+/* Wide: the dossier panel replaces the header and the footer. After the
+   short-viewport rule above, so the body's padding here wins at 1366x680. */
+@media (min-width: 1080px) {
+  .cam-auth-page--wizard .flow-header,
+  .cam-auth-page--wizard .flow-footer {
+    display: none;
+  }
+
+  .cam-auth-page--wizard .flow-panel {
+    display: flex;
+  }
+
+  .cam-auth-page--wizard .flow-body {
+    flex: 1 1 auto;
+    padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
+  }
+}
+
 /* The cascade affordance on the location step. It used to be a separate flex
    sibling of the .field with a marginTop: 28px tuned by hand to the height of
    a stacked label -- which broke the moment a label wrapped, and would break
@@ -909,6 +969,15 @@ body {
   color: var(--cam-green-dark);
   line-height: var(--cam-line-height-title);
   margin: 0 0 var(--cam-step-header-gap);
+}
+
+/* The heading takes focus on every section change so the respondent is not
+   left on <body>, but it is not a control: a ring around a title reads as
+   something to click. Headings are only ever focused programmatically
+   (tabIndex -1), so no keyboard user loses a ring they could act on. */
+.cam-auth-page--wizard .step-header-title:focus,
+.cam-auth-page .receipt-title:focus {
+  outline: none;
 }
 
 .cam-auth-page--wizard .step-header-subtitle {
@@ -1463,37 +1532,37 @@ body {
   margin-bottom: var(--cam-space-4);
 }
 
-/* ── Continue link ──
-   Not a button bar: finishing a section with optional fields is reported by
-   a plain text link under the fields, in the reading order the respondent is
-   already in. The sections that advance by themselves never render it. */
-.cam-auth-page--wizard .flow-continue {
-  margin: var(--cam-space-5) 0 0;
+/* ── Frame footer: the step's primary action ──
+   Pinned under the scrolling content, beside the missing-fields notice, so
+   "Continuer" is on screen however tall the section is -- the tallest one
+   used to put it at the end of more than two frames of scrolling. A sibling
+   of .flow-frame-scroll, so it adds no scroller and the frame's border
+   closes around it. One green action per screen (CLAUDE.md section 11). */
+.cam-auth-page--wizard .flow-frame-foot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--cam-space-3) var(--cam-frame-scroll-pad-x);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
 }
 
-.cam-auth-page--wizard .flow-continue-link {
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: var(--cam-font-size-sm);
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-green);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
-.cam-auth-page--wizard .flow-continue-link:hover {
-  color: var(--cam-green-dark);
-}
-
-/* Deliberately NOT greyed out. The link stays legible and clickable while
+/* Deliberately NOT greyed out. The button stays legible and clickable while
    the section is incomplete, because clicking it is how the respondent finds
    out what is missing -- aria-disabled says "this will not advance you yet"
    to assistive tech without taking the control away from anyone. */
 .cam-auth-page--wizard .flow-continue-link[aria-disabled="true"] {
   cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .cam-auth-page--wizard .flow-frame-foot {
+    padding: var(--cam-space-3) var(--cam-section-pad);
+  }
+
+  .cam-auth-page--wizard .flow-frame-foot .btn-primary {
+    width: 100%;
+  }
 }
 
 /* ── Screen-reader-only text ── */
@@ -1822,7 +1891,7 @@ body {
 /* Complete: solid green, check mark, dark label. A check mark means complete
    and nothing else -- "Recapitulatif" is never complete from field state, so
    it can never show one before the registration has been sent. */
-.cam-auth-page .progress-step-item.is-done .progress-step-circle {
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-done .progress-step-circle {
   background: var(--cam-green);
   border-color: var(--cam-green);
   color: var(--cam-surface);
@@ -1839,8 +1908,8 @@ body {
 
 /* Current: a gold ring. Gold, not green, because green means "answered" and
    the section in hand is usually the one that is not. */
-.cam-auth-page .progress-step-item.is-current .progress-step-circle,
-.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-current .progress-step-circle,
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-currentComplete .progress-step-circle {
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
   box-shadow: var(--cam-focus-shadow-gold);
@@ -1849,7 +1918,7 @@ body {
 /* Current AND complete -- the respondent came back to an answered section.
    The gold ring says "you are here", the soft green fill says "this one is
    done": two facts, two channels, no check mark competing with the ring. */
-.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-currentComplete .progress-step-circle {
   background: var(--cam-success-bg);
   color: var(--cam-green-dark);
 }
@@ -1864,7 +1933,7 @@ body {
    point -- it is the same gold as "you are here" but visibly unfinished, so
    an abandoned section is distinguishable from the current one at a glance
    and still reads as somewhere to go back to. */
-.cam-auth-page .progress-step-item.is-revealed .progress-step-circle {
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-revealed .progress-step-circle {
   border-style: dashed;
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
@@ -1876,7 +1945,7 @@ body {
 
 /* Not revealed yet: grey and disabled. Shown rather than hidden, because
    "six steps, three to go" is worth knowing. */
-.cam-auth-page .progress-step-item.is-locked .progress-step-circle {
+.cam-auth-page :is(.progress-step-item, .step-list-item).is-locked .progress-step-circle {
   background: var(--cam-surface-subtle);
   border-color: var(--cam-border);
   color: var(--cam-border-strong);
@@ -1898,6 +1967,117 @@ body {
   outline: 2px solid var(--cam-focus);
   outline-offset: 3px;
   border-radius: var(--cam-radius-md);
+}
+
+/* ── Dossier panel step list (RegistrationStepList.tsx) ──
+   The same six steps and the same circle states as the rail above (the
+   state rules there match both), laid out vertically so each finished step
+   has room to say what it holds. Wide screens only -- see .flow-panel. */
+.cam-auth-page .step-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-auth-page .step-list-item {
+  position: relative;
+}
+
+/* The connector, from just under one circle to just above the next. 14px is
+   the centre of the 30px circle less half the line; the top is the item's
+   padding plus the circle, and both ends keep a hairline clear. */
+.cam-auth-page .step-list-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: calc(var(--cam-space-2) + 30px + var(--cam-space-hairline));
+  bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
+  width: 2px;
+  background: var(--cam-border);
+}
+
+.cam-auth-page .step-list-item.is-done:not(:last-child)::after {
+  background: var(--cam-green);
+}
+
+.cam-auth-page .step-list-button {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  column-gap: var(--cam-space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--cam-space-2) 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* A locked item still takes a click -- it answers "why can't I go there?" --
+   so it keeps the pointer, as the rail's does. */
+.cam-auth-page .step-list-button[aria-disabled="true"] {
+  cursor: pointer;
+}
+
+.cam-auth-page .step-list-button:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-md);
+}
+
+.cam-auth-page .step-list-button:not([aria-disabled="true"]):hover .progress-step-circle {
+  border-color: var(--cam-green);
+}
+
+.cam-auth-page .step-list-name {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+  line-height: var(--cam-line-height-ui);
+  min-width: 0;
+}
+
+.cam-auth-page .step-list-item:is(.is-current, .is-currentComplete) .step-list-name {
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-auth-page .step-list-item.is-revealed .step-list-name {
+  color: var(--cam-text-muted);
+}
+
+/* Same reasoning as the rail's locked label: the name stays readable. */
+.cam-auth-page .step-list-item.is-locked .step-list-name {
+  color: var(--cam-rail-upcoming);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+/* Underlined, because it is how a finished step is reached again. The
+   whole row is the button; this is the visible word for what it does. */
+.cam-auth-page .step-list-edit {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* One line, whatever the answers: the panel must never scroll, so a long
+   summary truncates rather than wraps. The full text is in the button's
+   accessible name. */
+.cam-auth-page .step-list-summary {
+  grid-column: 2 / -1;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  line-height: var(--cam-line-height-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Said once, when the first circle turns green and the rail stops being a

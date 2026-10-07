@@ -17,6 +17,7 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
+  REGISTRATION_STEPS,
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
@@ -70,7 +71,9 @@ import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
+import { RegistrationStepList } from "@/components/auth/RegistrationStepList";
 import { StepHeader } from "@/components/auth/StepHeader";
+import { CameroonEmblem } from "@/components/landing/CameroonEmblem";
 
 // CAM-LEAP Official Administrative Registration Wizard
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
@@ -1706,22 +1709,52 @@ export default function RegisterPage() {
     }
   }
 
+  // The way out of the wizard and the help contact. Rendered twice -- in the
+  // dossier panel on a wide screen, under the frame on a narrow one -- and
+  // CSS shows one of the two, so each sits where that layout keeps its chrome.
+  const exitLinks = (
+    <>
+      <a
+        href="/login"
+        onClick={(e) => {
+          // An in-app navigation away from a part-filled form is
+          // confirmable; see the dialog below.
+          if (!hasEnteredData) return;
+          e.preventDefault();
+          setLeaveTo("/login");
+        }}
+      >
+        {reached === 0
+          ? t("registerPage.alreadyRegisteredSignIn")
+          : t("registerPage.backToSignInLink")}
+      </a>
+      <span className="flow-footer-sep" aria-hidden="true">·</span>
+      {t("loginPage.needHelpText")}{" "}
+      <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
+        {t("loginPage.whatsappLink")}
+      </a>
+    </>
+  );
+
   // One screen, one frame, one section, one scrollbar.
   //
-  // The page itself does not scroll: it is a 100dvh flex column of the
-  // header that carries the rail, and a body that gives every remaining
-  // pixel to a single bordered frame. The frame's inner
-  // region is the only scroll container on the route, so a long section
-  // scrolls inside the frame while the rail -- the navigation -- stays put
-  // without needing position: sticky to do it.
+  // The page itself does not scroll. On a wide screen it is two columns: the
+  // dossier panel -- identity, the six steps with what each holds, the way
+  // out -- and a body that gives every remaining pixel to a single bordered
+  // frame. On a narrow screen the panel is not shown and the page is a
+  // 100dvh column of the header that carries the rail, the body and a
+  // one-line footer. Either way the frame's inner region is the only scroll
+  // container on the route, so a long section scrolls inside the frame while
+  // the navigation stays put without needing position: sticky to do it.
   //
   // Every revealed section stays MOUNTED and is merely hidden: a section the
   // respondent has left keeps its state and its in-flight requests, and the
   // email-availability check running when they moved on still lands.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
-      {/* Sticky by structure, not by position: this is a fixed-size row of
-          the page's flex column, so nothing can scroll underneath it. */}
+      {/* Narrow screens only. Sticky by structure, not by position: this is
+          a fixed-size row of the page's flex column, so nothing can scroll
+          underneath it. */}
       <header className="flow-header">
         <div className="flow-header-inner">
           <AuthHeader />
@@ -1740,126 +1773,150 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      <div className="flow-body">
-        {/* The frame: the one bordered element on the page, and the query
-            container the side-by-side field layout measures. */}
-        <div className="flow-frame">
-          <div className="flow-frame-scroll" ref={frameScrollRef}>
-            {/* Above the section rather than inside the review: a failure
-                sends the respondent to the section that failed, and the
-                message has to travel with them. */}
-            {submitError && (
-              <div className="auth-error-box" role="alert">
-                {submitError}
+      {/* The step announcement, outside both navigations: on a wide screen
+          the rail above is not rendered and on a narrow one the panel below
+          is not, and a live region that is not rendered announces nothing.
+          Visually hidden, so it is in the tree at every width. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {t("registerPage.stepIndicator", { current: current + 1, total: STEPS.length })}
+        {" — "}
+        {t(`registerPage.${REGISTRATION_STEPS[current].labelKey}`)}
+      </p>
+
+      <div className="flow-split">
+        {/* Wide screens only: the dossier panel. */}
+        <div className="flow-panel">
+          <div className="flow-panel-identity">
+            <span className="flow-panel-emblem">
+              <CameroonEmblem label={t("landingPage.emblemLabel")} />
+            </span>
+            <div>
+              <div className="flow-panel-wordmark">{t("authShared.wordmark")}</div>
+              <p className="flow-panel-sub">{t("authShared.subtitle")}</p>
+            </div>
+          </div>
+
+          <RegistrationStepList
+            currentIndex={current}
+            reached={reached}
+            completed={completed}
+            summaries={railSummaries}
+            onSelect={goToSection}
+          />
+
+          <div className="flow-panel-foot">{exitLinks}</div>
+        </div>
+
+        <div className="flow-body">
+          {/* The frame: the one bordered element in the body, and the query
+              container the side-by-side field layout measures. */}
+          <div className="flow-frame">
+            <div className="flow-frame-scroll" ref={frameScrollRef}>
+              {/* Above the section rather than inside the review: a failure
+                  sends the respondent to the section that failed, and the
+                  message has to travel with them. */}
+              {submitError && (
+                <div className="auth-error-box" role="alert">
+                  {submitError}
+                </div>
+              )}
+
+              <form
+                className="cam-form-flow"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmitPress();
+                }}
+                onKeyDown={handleFormKeyDown}
+              >
+                {STEPS.slice(0, reached + 1).map((id, idx) => (
+                  <section
+                    key={id}
+                    className="wizard-section"
+                    hidden={idx !== current}
+                    aria-labelledby={`reg-section-title-${id}`}
+                    // Trigger (a): focus leaving the section's LAST field for
+                    // somewhere outside the section. Capture, because blur does
+                    // not bubble. relatedTarget is what distinguishes "moved on"
+                    // from "moved to another field in here" -- tabbing between
+                    // the section's own fields must never raise errors, and a
+                    // null relatedTarget (clicked the page chrome, switched
+                    // windows) is deliberately NOT treated as leaving.
+                    //
+                    // The same blur is what arms the advance once the last field
+                    // has been changed (see armFromField): leaving the field for
+                    // the continue button, or for anywhere outside the section,
+                    // says the respondent is done with it.
+                    onBlurCapture={(e) => {
+                      if (idx !== current) return;
+                      if (!currentLastFieldId) return;
+                      if ((e.target as HTMLElement).id !== currentLastFieldId) return;
+                      const next = e.relatedTarget as HTMLElement | null;
+                      if (!next) return;
+                      // The continue button is pinned to the frame below the
+                      // scrolling content, outside this <section> in the DOM,
+                      // but it is still this section's own control.
+                      if (e.currentTarget.contains(next) || next.closest("[data-flow-continue]")) {
+                        if (lastFieldEditedRef.current && !isFormField(next)) setAdvanceArmed(true);
+                        return;
+                      }
+                      if (lastFieldEditedRef.current) setAdvanceArmed(true);
+                      promptMissing();
+                    }}
+                  >
+                    {renderSection(id)}
+                  </section>
+                ))}
+              </form>
+            </div>
+
+            {/* Pinned to the frame, not placed in the scrolling content: it
+                reports fields that may be anywhere in a section taller than
+                the frame, so it has to stay on screen while the respondent
+                scrolls to them. Outside .flow-frame-scroll, so it adds no
+                scroller. */}
+            {shownErrors.length > 0 && (
+              <div className="flow-missing-notice" role="alert">
+                {t("registerPage.missingFieldsNotice", {
+                  count: shownErrors.length,
+                  names: shownErrors.map((f) => f.name).join(", "),
+                })}
               </div>
             )}
 
-            <form
-              className="cam-form-flow"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmitPress();
-              }}
-              onKeyDown={handleFormKeyDown}
-            >
-              {STEPS.slice(0, reached + 1).map((id, idx) => (
-                <section
-                  key={id}
-                  className="wizard-section"
-                  hidden={idx !== current}
-                  aria-labelledby={`reg-section-title-${id}`}
-                  // Trigger (a): focus leaving the section's LAST field for
-                  // somewhere outside the section. Capture, because blur does
-                  // not bubble. relatedTarget is what distinguishes "moved on"
-                  // from "moved to another field in here" -- tabbing between
-                  // the section's own fields must never raise errors, and a
-                  // null relatedTarget (clicked the page chrome, switched
-                  // windows) is deliberately NOT treated as leaving.
-                  //
-                  // The same blur is what arms the advance once the last field
-                  // has been changed (see armFromField): leaving the field for
-                  // the continue link below it, or for anywhere outside the
-                  // section, says the respondent is done with it.
-                  onBlurCapture={(e) => {
-                    if (idx !== current) return;
-                    if (!currentLastFieldId) return;
-                    if ((e.target as HTMLElement).id !== currentLastFieldId) return;
-                    const next = e.relatedTarget as HTMLElement | null;
-                    if (!next) return;
-                    if (e.currentTarget.contains(next)) {
-                      if (lastFieldEditedRef.current && !isFormField(next)) setAdvanceArmed(true);
-                      return;
-                    }
-                    if (lastFieldEditedRef.current) setAdvanceArmed(true);
-                    promptMissing();
+            {/* The step's one primary action, pinned under the scrolling
+                content so it is on screen however tall the section is.
+                Present on the furthest revealed section whether or not it is
+                complete: a control that disappears until the form is correct
+                cannot tell anyone what is wrong with the form. The class name
+                is kept from the text link this replaced, which the layout
+                test selects by. */}
+            {showContinueLink && (
+              <div className="flow-frame-foot">
+                <button
+                  type="button"
+                  className="btn-primary btn-primary--inline flow-continue-link"
+                  data-flow-continue
+                  aria-disabled={continueBlocked || undefined}
+                  // Trigger (b). Never the `disabled` attribute: a disabled
+                  // button swallows the click, and the click is how the
+                  // respondent asks what is missing.
+                  onClick={() => {
+                    if (promptMissing()) return;
+                    advanceFrom(current);
                   }}
                 >
-                  {renderSection(id)}
-
-                  {/* A text link, not a button bar. Present on the furthest
-                      revealed section whether or not it is complete: a
-                      control that disappears until the form is correct
-                      cannot tell anyone what is wrong with the form. */}
-                  {idx === current && showContinueLink && (
-                    <p className="flow-continue">
-                      <button
-                        type="button"
-                        className="flow-continue-link"
-                        aria-disabled={continueBlocked || undefined}
-                        // Trigger (b). Never the `disabled` attribute: a
-                        // disabled button swallows the click, and the click
-                        // is how the respondent asks what is missing.
-                        onClick={() => {
-                          if (promptMissing()) return;
-                          advanceFrom(current);
-                        }}
-                      >
-                        {t("registerPage.continueToNextStep")}
-                        <span aria-hidden="true"> →</span>
-                      </button>
-                    </p>
-                  )}
-                </section>
-              ))}
-            </form>
+                  {t("registerPage.continueButton")}
+                  <span aria-hidden="true"> →</span>
+                </button>
+              </div>
+            )}
           </div>
-
-          {/* Pinned to the frame, not placed in the scrolling content: it
-              reports fields that may be anywhere in a section taller than the
-              frame, so it has to stay on screen while the respondent scrolls
-              to them. Outside .flow-frame-scroll, so it adds no scroller. */}
-          {shownErrors.length > 0 && (
-            <div className="flow-missing-notice" role="alert">
-              {t("registerPage.missingFieldsNotice", {
-                count: shownErrors.length,
-                names: shownErrors.map((f) => f.name).join(", "),
-              })}
-            </div>
-          )}
         </div>
       </div>
 
-      <div className="flow-footer">
-        <a
-          href="/login"
-          onClick={(e) => {
-            // An in-app navigation away from a part-filled form is
-            // confirmable; see the dialog below.
-            if (!hasEnteredData) return;
-            e.preventDefault();
-            setLeaveTo("/login");
-          }}
-        >
-          {reached === 0
-            ? t("registerPage.alreadyRegisteredSignIn")
-            : t("registerPage.backToSignInLink")}
-        </a>
-        <span className="flow-footer-sep" aria-hidden="true">·</span>
-        {t("loginPage.needHelpText")}{" "}
-        <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
-          {t("loginPage.whatsappLink")}
-        </a>
-      </div>
+      {/* Narrow screens only; the panel carries these on a wide one. */}
+      <div className="flow-footer">{exitLinks}</div>
 
       {/* Entity-type change confirmation. Only raised when there is
           something to lose: with step 3 still empty the type switches

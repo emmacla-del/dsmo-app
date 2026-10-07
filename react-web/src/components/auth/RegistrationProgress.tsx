@@ -53,20 +53,20 @@ export function RegistrationProgress({
   const total = REGISTRATION_STEPS.length;
   const activeIdx = Math.min(Math.max(currentIndex, 0), total - 1);
   const currentItem = REGISTRATION_STEPS[activeIdx];
+  const caption = `${t("stepIndicator", { current: activeIdx + 1, total })} — ${t(currentItem.labelKey)}`;
 
   return (
     <div className="registration-progress">
-      {/* The one line that always says where the respondent is. Below 560px
-          the rail's labels are hidden, so this is the only thing naming the
-          step; it is announced on change for the same reason. */}
       {/* Below 560px the rail's labels are hidden and this is the only thing
-          naming the step, which is also why it is announced on change. Above
-          that width the labels say it already, so CSS hides this rather than
-          printing the step's name twice. */}
-      <p className="progress-caption" aria-live="polite">
-        {t("stepIndicator", { current: activeIdx + 1, total })}
-        {" — "}
-        {t(currentItem.labelKey)}
+          naming the step visually. Above that width the labels say it
+          already, so CSS hides this rather than printing the step's name
+          twice. aria-hidden because the step announcement lives in the page
+          itself (register/page.tsx), outside this rail: the rail is not
+          rendered at all on a wide screen, where the side panel's step list
+          takes its place, and a live region that is not rendered announces
+          nothing. */}
+      <p className="progress-caption" aria-hidden="true">
+        {caption}
       </p>
 
       <div className="progress-rail" aria-label={t("railLabel")}>
