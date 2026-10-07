@@ -110,22 +110,18 @@ export function withCampaignPeriod(schema: OnefopSchema, period: CampaignPeriod)
 
 /**
  * Column headers of the project-programme KPI table (KPI_PERIODS order:
- * current, outlook_dec, outlook_june). « current » is the round's period;
- * the two outlooks keep the AST's dates (31/12 and 30/06) in the year the
- * period ends, as the fixed labels did for 2026. Without a period the
- * outlooks drop the year, as the official PDF does.
+ * current, outlook_dec, outlook_june). « current » is the round's period.
+ * The outlooks name no date or year: which year « fin juin » refers to (the
+ * campaign's, or the one after the December outlook) is awaiting ONEFOP's
+ * answer, so they use the official PDF's wording
+ * (src/pdf/i18n/fr.json projectProgram.outcomes) until then.
  */
 export function kpiPeriodLabels(period: CampaignPeriod): LocalizedText[] {
   const phrase = periodPhrase(period);
-  const year = period.end?.getUTCFullYear();
   const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
   return [
     { fr: capitalise(phrase.fr), en: capitalise(phrase.en) },
-    year
-      ? { fr: `Perspectives au 31/12/${year}`, en: `Outlook at 31/12/${year}` }
-      : { fr: "Perspectives à fin décembre", en: "Outlook at end of December" },
-    year
-      ? { fr: `Perspectives au 30/06/${year}`, en: `Outlook at 30/06/${year}` }
-      : { fr: "Perspectives à fin juin", en: "Outlook at end of June" },
+    { fr: "Perspectives à fin Décembre", en: "Outlook at end of December" },
+    { fr: "Perspectives à fin Juin", en: "Outlook at end of June" },
   ];
 }

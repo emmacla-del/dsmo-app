@@ -65,16 +65,16 @@ test("the AST's own output is reproduced for a 2026 campaign", () => {
     .flatMap((e) => e.sections.flatMap((s) => s.fields))
     .find((f) => f.id === "VT4_10")!;
   assert.match(vt.label!.fr, /\(2024-2025\)/);
-  assert.deepEqual(kpiPeriodLabels(period).slice(1), [
-    { fr: "Perspectives au 31/12/2026", en: "Outlook at 31/12/2026" },
-    { fr: "Perspectives au 30/06/2026", en: "Outlook at 30/06/2026" },
-  ]);
 });
 
-test("KPI headers follow the period, and drop the year when there is none", () => {
+test("the KPI period column follows the campaign; the outlooks name no date", () => {
   assert.deepEqual(kpiPeriodLabels(H1_2027)[0], { fr: "Du 01/01/2027 au 30/06/2027", en: "From 01/01/2027 to 30/06/2027" });
-  assert.equal(kpiPeriodLabels(H1_2027)[1].fr, "Perspectives au 31/12/2027");
-  assert.deepEqual(kpiPeriodLabels(NONE)[1], { fr: "Perspectives à fin décembre", en: "Outlook at end of December" });
+  const outlooks = [
+    { fr: "Perspectives à fin Décembre", en: "Outlook at end of December" },
+    { fr: "Perspectives à fin Juin", en: "Outlook at end of June" },
+  ];
+  assert.deepEqual(kpiPeriodLabels(H1_2027).slice(1), outlooks);
+  assert.deepEqual(kpiPeriodLabels(NONE).slice(1), outlooks);
 });
 
 test("text without a placeholder is left as the same object", () => {
