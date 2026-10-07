@@ -41,17 +41,29 @@ const rel = (p) => relative(root, p).replace(/\\/g, "/");
 
 // ── Scan sets ───────────────────────────────────────────────────────────────
 
+// Registration wizard, appended to ADMIN_DIRS below. The two admin entries
+// stay first. datastate-adoption does not scan these: the wizard does not
+// use DataState. Phase 3 exempts .table-official from bare-table here.
+const WIZARD_DIRS = [
+  join(root, "src", "app", "register"),
+  join(root, "src", "components", "auth"),
+];
+
 const ADMIN_DIRS = [
   join(root, "src", "app", "admin"),
   join(root, "src", "components", "admin"),
+  ...WIZARD_DIRS,
 ];
 
 // The respondent surface: everything under src/app and src/components that
-// is not admin. The grammar applies G1, G13 and G14 to it (and G12 is kept at
-// zero); its own class namespace and density are its business, so the
-// admin-only rules (tables, cards, DataState) do not run here.
+// is not admin. The registration wizard is in ADMIN_DIRS, so it is not
+// scanned here. The grammar applies G1, G13 and G14 to this surface (and
+// G12 is kept at zero); its own class namespace and density are its
+// business, so the admin-only rules (tables, cards, DataState) do not run here.
 const RESPONDENT_ROOTS = [join(root, "src", "app"), join(root, "src", "components")];
-const isAdminPath = (p) => ADMIN_DIRS.some((d) => p === d || relative(d, p).split(/[\\/]/)[0] !== "..");
+const isUnder = (dirs, p) => dirs.some((d) => p === d || relative(d, p).split(/[\\/]/)[0] !== "..");
+const isAdminPath = (p) => isUnder(ADMIN_DIRS, p);
+const isWizardPath = (p) => isUnder(WIZARD_DIRS, p);
 
 // The shared CSS layer. globals.css imports tokens.css and admin-console.css,
 // so these reach every surface, admin and respondent alike.
@@ -271,6 +283,8 @@ const RULES = [
     run: () => {
       const out = [];
       for (const file of collectAll(ADMIN_DIRS, [".tsx"])) {
+        // The wizard keeps its own state model. This rule stays admin-only.
+        if (isWizardPath(file)) continue;
         const src = readFileSync(file, "utf-8");
         if (/\buseQuer(y|ies)\b/.test(src) && !/\bDataState\b/.test(src)) {
           out.push({ file, line: 1, text: "useQuery without DataState" });
@@ -278,6 +292,35 @@ const RULES = [
       }
       return out;
     },
+  },
+  // Wizard only, advisory until Phase 3. ESLint cannot ratchet, so these
+  // live here: a rise warns now and blocks once the severity flips.
+  {
+    key: "rgba-literal",
+    rule: "alpha",
+    title: "rgba() outside tokens.css",
+    fix: "Use a color-mix purpose token from tokens.css (--cam-scrim, --cam-green-wash, --cam-focus-shadow).",
+    warn: true,
+    run: () =>
+      findPerLine(collectAll(WIZARD_DIRS, [".ts", ".tsx"]), (line) =>
+        /rgba\s*\(/.test(stripJsComment(line))
+      ),
+  },
+  {
+    key: "font-metric-literal",
+    rule: "type",
+    title: "Raw fontWeight, lineHeight, or letterSpacing in TSX",
+    fix: "Use --cam-font-weight-*, --cam-line-height-*, or --cam-tracking-*.",
+    warn: true,
+    run: () =>
+      findPerLine(collectAll(WIZARD_DIRS, [".ts", ".tsx"]), (line) => {
+        const m = stripJsComment(line).match(
+          /\b(fontWeight|lineHeight|letterSpacing)\s*:\s*([^,}\n]+)/
+        );
+        if (!m) return false;
+        const value = m[2].trim().replace(/^["']|["']$/g, "");
+        return !value.startsWith("var(--cam-");
+      }),
   },
 
   // ── Respondent surface (G1, G13, G12, G14) ──

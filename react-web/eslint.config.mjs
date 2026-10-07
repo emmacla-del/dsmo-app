@@ -108,6 +108,39 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Registration wizard. G13 (literal fontSize) is not in this block: ESLint
+  // does not ratchet, and the wizard still has font-size literals. That
+  // selector turns on in Phase 3, after Phase 2 clears them. G7, G12, and
+  // the Tailwind half of G1 measured zero, so they error immediately. The
+  // mock-dataset guard stays on the admin block above.
+  {
+    files: [
+      "src/app/register/**/*.{ts,tsx}",
+      "src/components/auth/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[property.name=/^toLocale(String|DateString|TimeString)$/]",
+          message:
+            "G12: use count / percent / stamp / shortStamp / elapsedSince from lib/admin-data-state.ts instead of toLocale*, so dates and numbers format the same on every admin screen.",
+        },
+        {
+          selector: "Property[key.name='position'][value.value='fixed']",
+          message:
+            "G7: use AdminDialog instead of a position:fixed overlay — it is a native <dialog>, so focus trap, Escape, inert background and focus return are handled.",
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='className'] :matches(Literal[value=/(^|\\s)(bg|text|border|ring|divide|from|via|to)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3}(\\s|$)/], TemplateElement[value.raw=/(^|\\s)(bg|text|border|ring|divide|from|via|to)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3}(\\s|$)/])",
+          message:
+            "G1: colour comes from a cam-* class or a --cam-* token, never a Tailwind palette class. See docs/standards/admin-ui-grammar.md.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
