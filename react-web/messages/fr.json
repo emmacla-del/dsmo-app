@@ -1253,6 +1253,9 @@
     "unreadAriaLabel": "Non lue",
     "viewAll": "Voir tout"
   },
+  "adminNotificationsPage": {
+    "closeAriaLabel": "Fermer"
+  },
   "adminError": {
     "title": "Une erreur est survenue lors du chargement",
     "fallbackMessage": "Le module d'administration n'a pas pu s'initialiser correctement. Si un nouveau déploiement vient d'avoir lieu, actualisez la page pour charger la dernière version.",

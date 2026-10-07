@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
+import { asUiLocale } from "@/lib/register-i18n";
 import {
   NOTIFICATIONS_QUERY_KEY,
   listNotifications,
@@ -13,6 +15,8 @@ import {
 } from "@/lib/notifications-inbox";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState } from "@/components/admin/DataState";
+import { resolveDataState, stamp } from "@/lib/admin-data-state";
 
 /**
  * The caller's own notification inbox — Phase 3 of
@@ -31,6 +35,9 @@ export default function NotificationsPage() {
   const status = useAuthStore((s) => s.status);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const tRoot = useTranslations();
+  const t = useTranslations("notificationBell");
+  const locale = asUiLocale(useLocale());
   const [error, setError] = useState<string | null>(null);
 
   const listQuery = useQuery({
@@ -53,102 +60,88 @@ export default function NotificationsPage() {
   }
 
   const items = listQuery.data ?? [];
+  const title = tRoot("adminNav.routes.notifications");
+
+  const listState = resolveDataState({
+    isLoading: listQuery.isLoading,
+    isError: listQuery.isError,
+    error: listQuery.error,
+    rowCount: listQuery.data ? items.length : null,
+  });
 
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Notifications" }]}
-        title="Notifications"
+        breadcrumb={[{ label: title }]}
+        title={title}
         hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
 
       {error && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ margin: "16px 0" }}>
+        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
           <span>{error}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setError(null)}>×</button>
+          <button
+            type="button"
+            className="cam-admin-notice-close"
+            aria-label={tRoot("adminNotificationsPage.closeAriaLabel")}
+            onClick={() => setError(null)}
+          >
+            ×
+          </button>
         </div>
       )}
 
-      {listQuery.isLoading && <p className="cam-admin-lede">Chargement…</p>}
-      {listQuery.isError && (
-        <div className="cam-admin-notice cam-admin-notice--error" role="alert">
-          Impossible de charger les notifications.
+      <section className="cam-admin-section" aria-label={title}>
+        <div className="cam-admin-section-body">
+          {listState !== "ready" ? (
+            <DataState
+              state={listState}
+              resource={title}
+              error={listQuery.error}
+              onRetry={() => listQuery.refetch()}
+              title={
+                listState === "loading"
+                  ? tRoot("common.loading")
+                  : listState === "error"
+                    ? t("loadError")
+                    : listState === "empty"
+                      ? t("empty")
+                      : undefined
+              }
+            />
+          ) : (
+            // Read rows stay in place, muted, with no unread dot: the inbox
+            // stays stable so a row does not move under the cursor.
+            <ol className="cam-dash-timeline">
+              {items.map((item) => {
+                const isRead = !!item.readAt;
+                return (
+                  <li key={item.id}>
+                    <span className="cam-dash-timeline-time">{stamp(item.createdAt, true, locale)}</span>
+                    {isRead ? (
+                      <span className="cam-dash-timeline-dot" aria-hidden="true" style={{ visibility: "hidden" }} />
+                    ) : (
+                      <span className="cam-dash-timeline-dot cam-dash-timeline-dot--error" role="img" aria-label={t("unreadAriaLabel")} />
+                    )}
+                    <span className={`cam-dash-timeline-body${isRead ? " cam-admin-muted" : ""}`}>
+                      {/* The subject opens the notification: it marks it read
+                          and, when it carries one, follows its link. */}
+                      <button type="button" className="cam-text-button" onClick={() => open(item)}>
+                        {item.subject}
+                      </button>
+                      <span className="cam-admin-meta"> · {notificationKindLabel(item.kind)}</span>
+                      <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "pre-wrap" }}>
+                        {item.body}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </div>
-      )}
-
-      {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
-        <p className="cam-admin-lede">Aucune notification.</p>
-      )}
-
-      <ul style={{ listStyle: "none", margin: "20px 0 0", padding: 0 }}>
-        {items.map((item) => {
-          const isRead = !!item.readAt;
-          return (
-            <li
-              key={item.id}
-              style={{
-                borderBottom: "1px solid var(--cam-border)",
-                padding: "16px 0",
-                // Read rows are dimmed rather than hidden or re-ordered: the
-                // inbox stays stable so a row does not move under the cursor.
-                opacity: isRead ? 0.6 : 1,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => open(item)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  font: "inherit",
-                  color: "inherit",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                  {!isRead && (
-                    <span
-                      aria-label="Non lue"
-                      style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--cam-error)", flexShrink: 0 }}
-                    />
-                  )}
-                  <strong style={{ fontSize: 14 }}>{item.subject}</strong>
-                  <span style={{ fontSize: 11, color: "var(--cam-text-muted)" }}>
-                    {notificationKindLabel(item.kind)}
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--cam-text-muted)", marginLeft: "auto" }}>
-                    {formatStamp(item.createdAt)}
-                  </span>
-                </div>
-                <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--cam-text-muted)", whiteSpace: "pre-wrap" }}>
-                  {item.body}
-                </p>
-                {item.linkHref && (
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--cam-green-dark)" }}>Voir</span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      </section>
     </div>
   );
-}
-
-/** Date and time, since a nudge's recency is the point of reading it. */
-function formatStamp(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
