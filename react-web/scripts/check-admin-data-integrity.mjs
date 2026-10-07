@@ -6,6 +6,13 @@
  *  - Fabricated mock/demo datasets or fixtures (FIGMA_*, DEFAULT_SAMPLE_*, etc.)
  *  - Hardcoded administrative defaults (e.g. fallback campaign strings, fake user IDs)
  *  - Invented administrative person names or company entities in UI code
+ *  - Fixed years and placeholder counts in admin interface text (« Campagne
+ *    2026 », « cible 2026 », « depuis N jours »): a figure shown to an admin
+ *    comes from a record, not from the text. Read from string literals and
+ *    JSX text (not comments or code) under src/app/admin,
+ *    src/components/admin, src/lib and src/hooks, and from the admin* namespaces of
+ *    messages/fr.json and messages/en.json. Legitimate cases are listed in
+ *    TEXT_ALLOWLIST with a reason.
  *
  * Excludes test files, build artifacts, test fixtures, and scripts.
  *
@@ -16,6 +23,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const root = resolve(fileURLToPath(import.meta.url), "..", "..");
 
@@ -82,6 +90,35 @@ const FORBIDDEN_PATTERNS = [
   },
 ];
 
+// Rules read from interface text only (see header).
+const TEXT_RULES = [
+  {
+    regex: /\b(?:19|20)\d{2}\b/,
+    description: "Fixed year in interface text (derive it from the campaign, target or clock)",
+  },
+  {
+    regex: /\bN\s+(?:jours?|days?|mois|months?|semaines?|weeks?|dossiers?|files?)\b/,
+    description: "Placeholder count in interface text (state the real figure)",
+  },
+];
+
+const TEXT_SCAN_DIRS = [
+  join(root, "src", "app", "admin"),
+  join(root, "src", "components", "admin"),
+  join(root, "src", "lib"),
+  join(root, "src", "hooks"),
+];
+const TEXT_SCAN_CATALOGUES = ["fr", "en"].map((locale) => join(root, "messages", `${locale}.json`));
+
+// "<path>#<message key>" for catalogue entries, "<path>#<literal text>" for
+// source text. Each entry says why the text may keep its figure.
+const TEXT_ALLOWLIST = new Map([
+  ["messages/fr.json#adminCampagnesPage.referenceYearPlaceholder", "input placeholder showing the expected format"],
+  ["messages/en.json#adminCampagnesPage.referenceYearPlaceholder", "input placeholder showing the expected format"],
+  ["src/lib/onefop-validation.ts#L'année doit être ≥ 1900", "validation bound, not a reporting year"],
+  ["src/lib/onefop-validation.ts#Year must be ≥ 1900", "validation bound, not a reporting year"],
+]);
+
 function isTestFile(filePath) {
   const normalized = filePath.replace(/\\/g, "/");
   return (
@@ -142,6 +179,53 @@ for (const file of allFiles) {
       }
     }
   });
+}
+
+function reportText(location, allowKey, text) {
+  for (const rule of TEXT_RULES) {
+    if (!rule.regex.test(text) || TEXT_ALLOWLIST.has(allowKey)) continue;
+    console.error(
+      `\x1b[31m[INTEGRITY VIOLATION]\x1b[0m ${location}\n` +
+        `  Pattern: ${rule.description} (${rule.regex})\n` +
+        `  Text: ${text.trim()}\n`
+    );
+    violationsCount++;
+  }
+}
+
+const textFiles = TEXT_SCAN_DIRS.flatMap((dir) => collectFiles(dir));
+
+for (const file of textFiles) {
+  const rel = relative(root, file).replace(/\\/g, "/");
+  const kind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file, readFileSync(file, "utf-8"), ts.ScriptTarget.Latest, true, kind);
+  const visit = (node) => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node) ||
+      ts.isJsxText(node)
+    ) {
+      const { line } = source.getLineAndCharacterOfPosition(node.getStart());
+      reportText(`${rel}:${line + 1}`, `${rel}#${node.text.trim()}`, node.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+}
+
+for (const catalogue of TEXT_SCAN_CATALOGUES) {
+  const rel = relative(root, catalogue).replace(/\\/g, "/");
+  const walk = (node, key) => {
+    if (typeof node === "string") reportText(`${rel} ${key}`, `${rel}#${key}`, node);
+    else if (node && typeof node === "object") for (const [k, v] of Object.entries(node)) walk(v, `${key}.${k}`);
+  };
+  const messages = JSON.parse(readFileSync(catalogue, "utf-8"));
+  for (const [namespace, value] of Object.entries(messages)) {
+    if (namespace.startsWith("admin")) walk(value, namespace);
+  }
 }
 
 if (violationsCount > 0) {
