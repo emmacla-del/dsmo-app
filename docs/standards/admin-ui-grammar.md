@@ -196,7 +196,9 @@ The baseline at the end of Step 0:
 | `card-proxy` | 140 | 16 | advisory |
 | `datastate-adoption` | 14 | 14 | advisory |
 
-The three advisory rules never block. Off-scale spacing has real exceptions (`42%`, a `2px` hairline); a card is not mechanically distinguishable from a `<div>`, so `card-proxy` checks a proxy and says so; and `DataState` has legitimate non-adopters (`annuaire` and `sectors` are thin wrappers). The ratchet still stops all three growing.
+The three advisory rules never block. Off-scale spacing has real exceptions (`42%`, a `2px` hairline); a card is not mechanically distinguishable from a `<div>`, so `card-proxy` checks a proxy and says so; and `DataState` has legitimate non-adopters. Since Step 4 of the tidy the only `datastate-adoption` entries are `AdminHeaderActions`, `AdminPageHeader` and `admin/layout`: chrome, which queries for badges and campaign names but never stands in for a page's data. The ratchet still stops all three rules growing.
+
+**The respondent surface is ratcheted too.** Four rules — `respondent-hex-in-tsx`, `respondent-font-size-literal`, `respondent-locale-format` and `respondent-spacing-off-scale` (advisory) — cover everything under `src/app` and `src/components` that is not admin, which is the scope §Respondent surface gives G1, G13 and G14 (G12 is held at zero). The admin-only rules do not run there. A `var(--cam-*)` on the respondent side carries no hex fallback: every token it uses is defined in `tokens.css`, so a fallback could only ever be dead or, on an undefined name, the real colour in disguise.
 
 **Why the rules arrive now rather than after.** The current state is what "after" produces: `dossiers/[id]` *was* tidy, in `66f9eec3`, and nothing prevented the next styling commit from undoing it. Rules that arrive after a tidy protect nothing during the tidy — which is precisely when eleven pages are being rewritten. Under the ratchet, `339c4a63` fails at its first hex, in a file whose baseline was zero.
 

@@ -15,11 +15,20 @@
 | 1 | Dossier pair | ✅ Landed (5c01f157, 4fb5139f) | 694\* |
 | 2 | Directory cluster | ✅ Landed (195b59e1, 1f2c6b4e, 4fc133f1, 71f14b52) | 650 |
 | 3 | Tailwind island + pilotage | ✅ Landed (3f1d1c04, 8a036846, 909fcb81, 10d95ad0, 2cbf5879, a51731b5, e260c236, d786117e, 0e09b555) | 141 |
-| 4 | Residue + respondent + copy | ⏳ Not started | — |
+| 4a | Residue pages | ✅ Landed (c4f8d9be, 92a10e83, a865cfa8, 000c8223, d93f76a3, a509c59d, 0225267a, 8fd53c42, 516b2a8d) | 69 |
+| 4b | Shared admin components | ✅ Landed (ade10594, a0f2cc08, 0972edb9, a6750b4e, 48d056e7, ed04c76d, 72b3002a, 92f2bcc1, dc7dafc0, aad8f3c9, 9f658d52, f10b4369) | 61 |
+| 4c | Respondent side (plan §2.3) | ✅ Landed (6b265905, a83ae482, fa9768e2, 565f4662, da2976f4, 9b2672d6) | — † |
+| 4d | Copy pass (Part 4) | ⏳ Awaiting sign-off of D4–D6, D11–D14 and the §4.3 sense-split | — |
 
 The ratchet baseline (`scripts/ui-grammar-baseline.json`, summed across all rules) went from 1,618 after Step 0 to 274 after Step 2. Every rule for the six files in Steps 1–2 — `dossiers`, `dossiers/[id]`, `centre-qualite`, `utilisateurs`, `etablissement-detail`, `etablissements` — is now at zero; none of them has a baseline entry left.
 
 Step 3 took it from 274 to 133: 33 from the Tailwind island (`diffusion`, `equipe`, `journal-audit`, `parametres`) and 108 from `pilotage`, which the plan grouped with `questionnaires` and is done here instead; `questionnaires` moves to Step 4. The island's real debt was Tailwind utilities, which the ratchet does not count, so its progress measure is ESLint: the G1 Tailwind-palette rule went from 186 violations to 0 across the four pages. Every rule for those five files is at zero, and `bare-table` now has no baseline entries anywhere in the console. Two `setState`-in-render bugs (`diffusion`, `parametres`) and one link lost in `339c4a63` (`pilotage`'s activity feed) were fixed in their own commits ahead of each restyle. `.cam-dash-timeline-dot` gained status-tone modifiers, the step's one shared-CSS change. The `diffusion` scope radio, which does not reach the export filters, was raised separately for review; the restyle leaves that behaviour unchanged.
+
+Steps 4a–4b took the admin baseline from 133 to **3**. The three that remain are `datastate-adoption` entries for `AdminHeaderActions`, `AdminPageHeader` and `admin/layout`, which are chrome and legitimately render no data state. Every other admin rule — hex, font-size literals, local formatting, bare tables, off-scale spacing, card proxies — has no entry anywhere, so any new violation fails outright. `questionnaires` moved into 4a from Step 3. Fix commits ahead of restyles in Step 4: a render-time impure call (`campagnes`), the sidebar brand "NEFOP" → "ONEFOP", and keyboard access to the companies directory's sort and detail. Seventeen classes of the pre-Figma shell were deleted as unused (48d056e7).
+
+† Step 4c is not counted against the admin baseline: the respondent surface had no ratchet until 9b2672d6. It removed 692 dead `var(--cam-*, #hex)` fallbacks (198 of which named a colour the screen never showed), defined the eight tokens that 15 live fallbacks stood in for, restyled `/home/declarations`' summary cards (D10) onto the 940px measure, and moved the four respondent `toLocale*` calls onto the shared formatters. The respondent ratchet then recorded 355 hex lines, 475 font-size literals and 350 off-scale spacings across the questionnaire and `/home` code. Restyling the questionnaire wizards themselves is **not** part of this plan: it is questionnaire UX and needs a UX review first (CLAUDE.md §19).
+
+Open items raised during Step 4, outside the tidy: the `diffusion` export scope radio (official export semantics); five intentional `set-state-in-effect` sites (`cibles` ×2, `CoveragePanel` ×2, `admin/layout`); `UsersDirectory`'s unreachable agent-roster mode; and `OnefopSubmissionSuccess`, which shows the declarant an invented "ONEFOP-SUB-…" reference when no submission id comes back.
 
 From Step 3 on, `npx eslint` on each touched file is a per-commit gate alongside `tsc`, `next build`, `npm test`, `check:ui-grammar` and `check:admin-integrity`.
 
