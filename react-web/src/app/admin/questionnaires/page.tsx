@@ -18,8 +18,11 @@ import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
 import { APPROVAL_ROLES } from "@/lib/roles";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
-// "Homologué", "En vigueur", the regulatory format and the export formats are
-// fixed text, not read from any record (flagged for domain review).
+// Every figure here is read from the generated schema or the submission
+// counts. The Figma frame's « Homologué » / « En vigueur » badges, the
+// « DSMO-ONEFOP-v2 » format and the « arrêté d'homologation » sentence had
+// no record behind them and are gone; the schema version is shown instead.
+// The export formats line matches what /admin/diffusion offers.
 // The questionnaire structure is owned by the canonical AST
 // (lib/core/focus/compiler/onefop_ast.dart); this page reads the
 // generated public/schemas/onefop.schema.json for section counts and schema details.
@@ -93,12 +96,6 @@ export default function QuestionnairesPage() {
             <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
               <div className="cam-pilot-kpi-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <FileIcon />
-                <span
-                  className="cam-pilot-badge"
-                  style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}
-                >
-                  {t("certified")}
-                </span>
               </div>
 
               <h3 id={`q-${q.formType}`} className="cam-dash-card-title" style={{ marginTop: "var(--cam-space-3)" }}>
@@ -117,8 +114,10 @@ export default function QuestionnairesPage() {
                   </strong>
                 </div>
                 <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="cam-admin-meta">{t("regulatoryFormat")}</span>
-                  <strong style={{ color: "var(--cam-green)" }}>DSMO-ONEFOP-v2</strong>
+                  <span className="cam-admin-meta">{t("schemaVersion")}</span>
+                  <strong style={{ color: "var(--cam-green)" }}>
+                    {schemaQuery.data ? `v${schemaQuery.data.schemaVersion}` : schemaQuery.isLoading ? "…" : metricUnavailable(locale)}
+                  </strong>
                 </div>
               </div>
 
@@ -204,9 +203,6 @@ export default function QuestionnairesPage() {
                 <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>
                   {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
                 </span>
-                <span className="cam-pilot-badge" style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}>
-                  {t("inForce")}
-                </span>
               </div>
               <div className="cam-admin-meta" style={{ marginTop: "4px" }}>
                 {t("entityTypeLine")} <code>{selectedPreview.formType}</code> &middot; {t("exportFormatLine")}
@@ -215,7 +211,7 @@ export default function QuestionnairesPage() {
 
             <div>
               <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>
-                {t("certifiedSections")} {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
+                {t("surveySections")} {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
               </div>
               {schemaQuery.data?.entities[selectedPreview.schemaKey]?.sections &&
               schemaQuery.data.entities[selectedPreview.schemaKey].sections.length > 0 ? (
