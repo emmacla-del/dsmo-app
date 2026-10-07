@@ -359,7 +359,66 @@ const RULES = [
     warn: true,
     run: () => offScaleSpacing(collectRespondent([".tsx"])),
   },
+
+  // ── Copy: retired terms in the admin catalogue (plan Part 4, §5.4) ──
+  {
+    key: "copy-retired-term",
+    rule: "copy",
+    title: "Retired term in admin copy (messages/fr.json, admin* namespaces)",
+    fix: "dossier (record) / déclaration (what a declarant files) / quota — see docs/audit/app-tidy-copy-glossary-2026-10-07.md. A surviving sense goes on the allowlist in this rule, with its reason.",
+    run: () => retiredCopyTerms(),
+  },
 ];
+
+/**
+ * The copy pass retired four words from staff copy, each in one sense only
+ * (plan §4.3): "fiche" and "soumission" as the record, "cible" and
+ * "objectif" as a quota. A blind word-ban would break correct French, so the
+ * surviving senses are allowlisted by key. The participle "ciblé(e)s"
+ * (a campaign's scope) is a different word and is not matched.
+ */
+const RETIRED_COPY = [
+  { term: "fiche (record)", re: /\bfiches?\b/i },
+  { term: "soumission (record)", re: /\bsoumissions?\b/i },
+  { term: "cible (quota)", re: /\bcibles?\b/i },
+  { term: "objectif (quota)", re: /\bobjectifs?\b/i },
+];
+
+const RETIRED_COPY_ALLOWLIST = new Map([
+  // "fiche" as the questionnaire template — correct statistical French.
+  ["adminQuestionnairesPage.subtitle", "fiche: template"],
+  ["adminQuestionnairesPage.registerBody", "fiche: template"],
+  // "soumission" as the act of submitting.
+  ["adminDossiersPage.statusCorrectionsNote", "soumission: act (resubmission)"],
+  ["adminDossierPage.historyEmptyHint", "soumission: act (date de soumission)"],
+  ["adminInscriptionsPage.dateFilterLabel", "soumission: act (date de soumission)"],
+  // Record-sense, but outside the plan's approved §4.3 list: recorded in the
+  // glossary as candidates for a later copy decision, not changed.
+  ["adminCampagnesPage.deleteBody", "candidate (glossary §Not changed)"],
+  ["adminCampagnesPage.trackingUnavailable", "candidate (glossary §Not changed)"],
+  ["adminParametresPage.role.REGIONAL_ADMIN.description", "candidate (glossary §Not changed)"],
+]);
+
+function retiredCopyTerms() {
+  const file = join(root, "messages", "fr.json");
+  const catalogue = JSON.parse(readFileSync(file, "utf-8"));
+  const out = [];
+  const walk = (node, path) => {
+    for (const [k, v] of Object.entries(node)) {
+      const key = path ? `${path}.${k}` : k;
+      if (v && typeof v === "object") walk(v, key);
+      else if (typeof v === "string" && !RETIRED_COPY_ALLOWLIST.has(key)) {
+        for (const { term, re } of RETIRED_COPY) {
+          if (re.test(v)) out.push({ file, line: 1, text: `${key} — ${term}: ${v.slice(0, 80)}` });
+        }
+      }
+    }
+  };
+  for (const [ns, node] of Object.entries(catalogue)) {
+    if (ns.startsWith("admin") && node && typeof node === "object") walk(node, ns);
+  }
+  return out;
+}
 
 // ── Phantom tokens — blocks immediately, never baselined ────────────────────
 // Every var(--cam-*) must resolve to a definition. A reference with no
