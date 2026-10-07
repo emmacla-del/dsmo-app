@@ -645,6 +645,14 @@
   overflow: hidden;
 }
 
+/* Inside a container that is already the card: keep the dividers between
+   the figures, drop the strip's own box so no card sits inside another. */
+.cam-admin-stats--flush {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
 /* Dividers on both axes; the strip's overflow:hidden trims the outer edges,
    so wrapped rows stay ruled at any width. */
 .cam-admin-stat {
