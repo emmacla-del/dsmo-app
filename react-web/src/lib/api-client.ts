@@ -165,6 +165,16 @@ function handleCompanyNotActive(path: string): void {
   }
 }
 
+/**
+ * The language the API should write its error messages in (X-Locale, read
+ * by the backend's LocalizedHttpExceptionFilter; French when absent): the
+ * interface language, from the NEXT_LOCALE cookie. Every request to the API
+ * carries it, including the few that bypass apiFetch.
+ */
+export function localeHeader(): Record<string, string> {
+  return { "X-Locale": currentUiLocale() };
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -172,6 +182,7 @@ export async function apiFetch<T>(
   const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...localeHeader(),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
@@ -768,6 +779,7 @@ async function downloadExportBlob(path: string, filters: Record<string, any>, la
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...localeHeader(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(filters),

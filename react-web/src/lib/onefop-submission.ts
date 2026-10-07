@@ -3,7 +3,7 @@
 // Real backend wiring for drafts and final submission — src/onefop/
 // onefop.controller.ts (draft) and src/questionnaires/
 // questionnaires.controller.ts (submit), both read directly this session.
-import { API_BASE_URL, ApiError, apiFetch, getToken } from "./api-client";
+import { API_BASE_URL, ApiError, apiFetch, getToken, localeHeader } from "./api-client";
 import type { FormData, OnefopEntity } from "./onefop-schema";
 import { applyQuizDerivedTableSemantics } from "@/components/modern-jobs/scope/QuizSemantics";
 
@@ -173,6 +173,7 @@ export async function fetchDeclarationPreviewPdf(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...localeHeader(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ entityType: normalizedType, quarterCode, data: preparedData, locale }),
