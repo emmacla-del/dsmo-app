@@ -2409,7 +2409,8 @@
     "confirmAssignment": "Confirmer l'affectation",
     "assignedRegion": "Région d'affectation",
     "noRegionAssigned": "Aucune région affectée",
-    "allRegionDepartments": "Tous les départements de la région"
+    "allRegionDepartments": "Tous les départements de la région",
+    "selectRegion": "Sélectionner une région"
   },
   "adminDiffusionPage": {
     "allEmployers": "Tous les employeurs",
@@ -2436,7 +2437,8 @@
     "spssDownloaded": "Syntaxe SPSS téléchargée avec succès.",
     "spssFailed": "Impossible de télécharger la syntaxe SPSS : {message}.",
     "forbidden": "Accès restreint à la gestion et diffusion nationale des données.",
-    "subtitle": "Gérer, filtrer et exporter les données collectées - Campagne 2026",
+    "subtitle": "Gérer, filtrer et exporter les données collectées",
+    "subtitleWithCampaign": "Gérer, filtrer et exporter les données collectées — {campaign}",
     "closeAriaLabel": "Fermer",
     "kpiTotal": "Total Déclarations",
     "kpiTotalHint": "Dossiers enregistrés, hors brouillons",
