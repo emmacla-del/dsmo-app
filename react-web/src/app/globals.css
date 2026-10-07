@@ -1555,6 +1555,20 @@ body {
   color: var(--cam-text);
 }
 
+/* In-flow primary. The shared .btn-primary is full width, which is right
+   for the login card and wrong for a button that sits at the end of the
+   review or beside Cancel. 10px / 22px are the padding those three buttons
+   already had. The submit keeps a 160px floor; the two confirmations do
+   not, so the floor is a second modifier rather than part of this one. */
+.cam-auth-page--wizard .btn-primary--inline {
+  width: auto;
+  padding: 10px 22px;
+}
+
+.cam-auth-page--wizard .btn-primary--submit {
+  min-width: 160px;
+}
+
 .cam-auth-page--wizard .submit-row {
   display: flex;
   justify-content: flex-end;
