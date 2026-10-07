@@ -19,13 +19,21 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { listUsers } from "@/lib/user-directory";
-import type { UserRole } from "@/lib/user-types";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { DataStateRow } from "@/components/admin/DataState";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AUDIT_ROLES } from "@/lib/roles";
 
 const PAGE_SIZE = 12;
+
+// The tone an audit action maps to decides its badge class (G1).
+const TONE_BADGE: Record<"neutral" | "success" | "warn" | "danger", string> = {
+  neutral: "cam-badge-neutral",
+  success: "cam-badge-success",
+  warn: "cam-badge-warning",
+  danger: "cam-badge-error",
+};
 
 /**
  * One audit row as rendered. Every field is mapped from an AuditLogEntry the
@@ -216,293 +224,226 @@ function JournalAuditContent() {
     rowCount: auditQuery.data?.items.length ?? null,
   });
 
-  if (isLoading) return null;
+  const header = (
+    <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.journalAudit") }]}
+      title={tRoot("adminNav.routes.journalAudit")}
+      actions={<AdminHeaderActions />}
+    />
+  );
 
-  if (forbidden) {
+  // The screen guard's two non-ready outcomes keep the page chrome and say
+  // what is happening. Neither renders nothing (G10).
+  if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">{t("forbidden")}</p>
+        {header}
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("resource")}
+          title={isLoading ? tRoot("common.loading") : t("forbidden")}
+        />
       </div>
     );
   }
 
   return (
     <div className="cam-admin-page">
-      {/* ── Top Header matching Figma administration/journal-audit.png ── */}
-      <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.journalAudit") }]}
-        title={tRoot("adminNav.routes.journalAudit")}
-      />
+      {header}
 
-      {/* ── Filter Bar matching Figma ── */}
-      <section
-        aria-label={t("filtersAriaLabel")}
-        className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-          {/* Période */}
-          <div className="lg:col-span-2">
-            <label htmlFor="filter-period" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              {t("periodLabel")}
-            </label>
-            <div className="relative">
+      <section className="cam-admin-section" aria-label={t("filtersAriaLabel")}>
+        <div className="cam-admin-section-body">
+          <div className="cam-admin-filters">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="filter-period">{t("periodLabel")}</label>
               <select
                 id="filter-period"
+                className="cam-select"
                 value={period}
                 onChange={(e) => { setPeriod(e.target.value); setCurrentPage(1); }}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 {PERIOD_VALUES.map((value) => (
                   <option key={value} value={value}>{t(`period.${value}`)}</option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 1 5 5 9 1" />
-                </svg>
-              </div>
             </div>
-          </div>
 
-          {/* Acteur — real accounts from GET /auth/users, filtered by id */}
-          <div className="lg:col-span-3">
-            <label htmlFor="filter-actor" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              {t("actorLabel")}
-            </label>
-            <div className="relative">
+            {/* Acteur — real accounts from GET /auth/users, filtered by id */}
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="filter-actor">{t("actorLabel")}</label>
               <select
                 id="filter-actor"
+                className="cam-select"
                 value={actor}
                 onChange={(e) => { setActor(e.target.value); setCurrentPage(1); }}
                 disabled={actorsQuery.isLoading}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 {actorOptions.map((a) => (
                   <option key={a.value} value={a.value}>{a.label}</option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 1 5 5 9 1" />
-                </svg>
-              </div>
             </div>
-          </div>
 
-          {/* Type d'action — only actions the backend actually writes */}
-          <div className="lg:col-span-2">
-            <label htmlFor="filter-action" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              {t("actionTypeLabel")}
-            </label>
-            <div className="relative">
+            {/* Type d'action — only actions the backend actually writes */}
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="filter-action">{t("actionTypeLabel")}</label>
               <select
                 id="filter-action"
+                className="cam-select"
                 value={action}
                 onChange={(e) => { setAction(e.target.value); setCurrentPage(1); }}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 <option value="">{t("allActions")}</option>
                 {ACTION_VALUES.map((value) => (
                   <option key={value} value={value}>{auditActionLabel(value, locale)}</option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 1 5 5 9 1" />
-                </svg>
-              </div>
             </div>
-          </div>
 
-          {/* Ressource */}
-          <div className="lg:col-span-2">
-            <label htmlFor="filter-resource" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              {t("resourceLabel")}
-            </label>
-            <div className="relative">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="filter-resource">{t("resourceLabel")}</label>
               <select
                 id="filter-resource"
+                className="cam-select"
                 value={resourceType}
                 onChange={(e) => { setResourceType(e.target.value); setCurrentPage(1); }}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 <option value="">{t("allResources")}</option>
                 {RESOURCE_TYPE_VALUES.map((value) => (
                   <option key={value} value={value}>{auditResourceLabel(value, locale)}</option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 1 5 5 9 1" />
-                </svg>
-              </div>
             </div>
-          </div>
 
-          {/* Identifiant de la ressource — exact match, server-side */}
-          <div className="lg:col-span-2">
-            <label htmlFor="filter-resource-id" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              {t("idLabel")}
-            </label>
-            <div className="relative">
-              <input
-                id="filter-resource-id"
-                type="text"
-                placeholder={t("idPlaceholder")}
-                value={resourceIdInput}
-                onChange={(e) => setResourceIdInput(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
-              />
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {/* Identifiant de la ressource — exact match, server-side */}
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="filter-resource-id">{t("idLabel")}</label>
+              <div className="cam-admin-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
+                <input
+                  id="filter-resource-id"
+                  type="text"
+                  className="cam-input"
+                  placeholder={t("idPlaceholder")}
+                  value={resourceIdInput}
+                  onChange={(e) => setResourceIdInput(e.target.value)}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Réinitialiser */}
-          <div className="lg:col-span-1 flex justify-end">
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="w-full sm:w-auto px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer shadow-xs whitespace-nowrap"
-            >
-              {t("reset")}
-            </button>
+            <div>
+              <button type="button" className="cam-button cam-button-secondary" onClick={handleResetFilters}>
+                {t("reset")}
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Table Card matching Figma administration/journal-audit.png ── */}
-      <section
-        aria-label={t("registerAriaLabel")}
-        className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-4">{t("timestampColumn")}</th>
-                <th className="py-3.5 px-4">{t("actorColumn")}</th>
-                <th className="py-3.5 px-4">{t("actionColumn")}</th>
-                <th className="py-3.5 px-4">{t("objectColumn")}</th>
-                <th className="py-3.5 px-4">{t("detailsColumn")}</th>
-                <th className="py-3.5 px-4 text-right">{t("transitionColumn")}</th>
+      <div className="cam-table-wrapper" role="region" aria-label={t("registerAriaLabel")}>
+        <table className="cam-table">
+          <thead>
+            <tr>
+              <th scope="col">{t("timestampColumn")}</th>
+              <th scope="col">{t("actorColumn")}</th>
+              <th scope="col">{t("actionColumn")}</th>
+              <th scope="col">{t("objectColumn")}</th>
+              <th scope="col">{t("detailsColumn")}</th>
+              <th scope="col" className="text-right">{t("transitionColumn")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Loading, error, authorization refusal and "no records" stay
+                distinct. There is no branch that renders sample rows. */}
+            <DataStateRow
+              colSpan={6}
+              state={tableState}
+              resource={t("resource")}
+              error={auditQuery.error}
+              onRetry={() => auditQuery.refetch()}
+              title={tableState === "empty" ? t("emptyTitle") : undefined}
+              hint={tableState === "empty" ? t("emptyHint") : undefined}
+            />
+            {displayItems.map((row) => (
+              // The action badge carries the tone; the row is not tinted a
+              // second time.
+              <tr key={row.id}>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <span className="cam-admin-meta">{row.timestamp}</span>
+                </td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <span className="cam-admin-strong">{row.actor}</span>
+                  {/* Role comes from the audit entry's joined user record;
+                      omitted entirely for system-generated entries. */}
+                  {row.actorRole && (
+                    <span className="cam-admin-meta" style={{ display: "block" }}>{row.actorRole}</span>
+                  )}
+                </td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <span className={`cam-badge ${TONE_BADGE[row.actionTone]}`}>{row.action}</span>
+                </td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <span className="cam-admin-strong">{row.object}</span>
+                </td>
+                <td
+                  title={row.details}
+                  style={{ maxWidth: 448, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {row.details}
+                </td>
+                <td className="text-right" style={{ whiteSpace: "nowrap" }}>
+                  {row.transition ? (
+                    <span className={`cam-badge ${TONE_BADGE[row.transitionTone ?? "neutral"]}`}>{row.transition}</span>
+                  ) : (
+                    <span className="cam-admin-muted">{NOT_PROVIDED}</span>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
-              {/* Loading, error, authorization refusal and "no records" stay
-                  distinct. There is no branch that renders sample rows. */}
-              <DataStateRow
-                colSpan={6}
-                state={tableState}
-                resource={t("resource")}
-                error={auditQuery.error}
-                onRetry={() => auditQuery.refetch()}
-                title={tableState === "empty" ? t("emptyTitle") : undefined}
-                hint={tableState === "empty" ? t("emptyHint") : undefined}
-              />
-              {displayItems.map((row) => {
-                const actionBadgeClass =
-                  row.actionTone === "success"
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                    : row.actionTone === "warn"
-                      ? "bg-amber-50 text-amber-800 border-amber-200"
-                      : row.actionTone === "danger"
-                        ? "bg-rose-50 text-rose-800 border-rose-200"
-                        : "bg-slate-100 text-slate-700 border-slate-200";
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-                const transitionTextClass =
-                  row.transitionTone === "success"
-                    ? "text-emerald-700 font-semibold"
-                    : row.transitionTone === "warn"
-                      ? "text-amber-700 font-semibold"
-                      : row.transitionTone === "danger"
-                        ? "text-rose-700 font-semibold"
-                        : "text-slate-600";
-
-                return (
-                  <tr
-                    key={row.id}
-                    className={`transition-colors ${
-                      row.actionTone === "danger" ? "bg-rose-50/50 hover:bg-rose-50/80" : "hover:bg-slate-50/60"
-                    }`}
-                  >
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-500">
-                      {row.timestamp}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="font-bold text-slate-900">{row.actor}</span>
-                      {/* Role comes from the audit entry's joined user record;
-                          omitted entirely for system-generated entries. */}
-                      {row.actorRole && (
-                        <span className="block text-[11px] font-normal text-slate-500">{row.actorRole}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-medium border ${actionBadgeClass}`}>
-                        {row.action}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                      {row.object}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 max-w-md truncate" title={row.details}>
-                      {row.details}
-                    </td>
-                    <td className={`py-3 px-4 text-right whitespace-nowrap ${transitionTextClass}`}>
-                      {row.transition ?? NOT_PROVIDED}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination driven by the server-reported `total` for the same
-            filtered query. No fixed page buttons: the number of pages is
-            whatever the real total implies, and the range reflects the rows
-            actually returned. */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-slate-100 text-xs text-slate-500">
-          <div>
-            {totalEvents === null
-              ? NOT_PROVIDED
-              : totalEvents === 0
-                ? t("zeroEvents")
-                : t("showingRange", {
-                    first: count(firstShown, locale),
-                    last: count(lastShown, locale),
-                    total: count(totalEvents, locale),
-                    count: totalEvents,
-                  })}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
-            >
-              {t("previous")}
-            </button>
-            <span className="px-2 font-semibold text-slate-700">
-              {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
-            </span>
-            <button
-              type="button"
-              disabled={pageCount === null || currentPage >= pageCount}
-              onClick={() => setCurrentPage((prev) => prev + 1)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
-            >
-              {t("next")}
-            </button>
-          </div>
-        </div>
-      </section>
-
+      {/* Pagination driven by the server-reported `total` for the same
+          filtered query. No fixed page buttons: the number of pages is
+          whatever the real total implies, and the range reflects the rows
+          actually returned. */}
+      <div className="cam-pagination">
+        <span className="cam-pagination-info">
+          {totalEvents === null
+            ? NOT_PROVIDED
+            : totalEvents === 0
+              ? t("zeroEvents")
+              : t("showingRange", {
+                  first: count(firstShown, locale),
+                  last: count(lastShown, locale),
+                  total: count(totalEvents, locale),
+                  count: totalEvents,
+                })}
+        </span>
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+        >
+          {t("previous")}
+        </button>
+        <span className="cam-pagination-info">
+          {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
+        </span>
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          disabled={pageCount === null || currentPage >= pageCount}
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+        >
+          {t("next")}
+        </button>
+      </div>
     </div>
   );
 }
