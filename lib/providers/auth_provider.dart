@@ -239,50 +239,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     return response.data['message'] as String;
   }
 
-  Future<void> register(
-    String email,
-    String password,
-    String firstName,
-    String lastName,
-    String role, {
-    String? region,
-    String? department,
-    String? matricule,
-    String? poste,
-    String? serviceCode,
-  }) async {
-    if (state is AsyncLoading) return;
-    state = const AsyncValue.loading();
-    try {
-      final response = await _api.post('/auth/register', data: {
-        'email': email,
-        'password': password,
-        'firstName': firstName,
-        'lastName': lastName,
-        'role': role,
-        if (region != null) 'region': region,
-        if (department != null) 'department': department,
-        if (matricule != null) 'matricule': matricule,
-        if (poste != null) 'poste': poste,
-        if (serviceCode != null) 'serviceCode': serviceCode,
-      });
-
-      if (role != 'COMPANY') {
-        state = const AsyncValue.data(null);
-        return;
-      }
-
-      final token = response.data['access_token'] as String?;
-      if (token == null) throw 'Aucun token reçu après inscription.';
-      await _api.setToken(token);
-      final userJson = response.data['user'] as Map<String, dynamic>;
-      await _api.cacheUser(userJson);
-      state = AsyncValue.data(User.fromJson(userJson));
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
   Future<void> registerCompany({
     required String email,
     required String password,
