@@ -92,7 +92,7 @@ export function TableCompletionIndicator({
             alignItems: "center",
             gap: "4px",
             padding: "5px 10px",
-            background: "var(--cam-surface, #ffffff)",
+            background: "var(--cam-surface)",
             border: "1px solid var(--cam-amber-border, #fcd34d)",
             borderRadius: "var(--cam-radius-xs, 4px)",
             color: "var(--cam-amber-text, #92400e)",

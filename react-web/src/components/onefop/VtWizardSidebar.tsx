@@ -308,7 +308,7 @@ export function VtWizardSidebar({
             style={{
               height: "100%",
               width: `${(doneCount / Math.max(1, sections.length)) * 100}%`,
-              background: "var(--cam-gold, #e8a020)",
+              background: "var(--cam-gold)",
               transition: "width 0.3s ease",
             }}
           />
@@ -317,7 +317,7 @@ export function VtWizardSidebar({
         {/* Bottom Accreditation Box */}
         <div
           style={{
-            background: "var(--cam-success-bg, #eaf3ec)",
+            background: "var(--cam-success-bg)",
             border: "1px solid rgba(255, 255, 255, 0.15)",
             borderRadius: "var(--cam-radius-control, 6px)",
             padding: "10px 12px",
@@ -327,7 +327,7 @@ export function VtWizardSidebar({
             style={{
               fontSize: 11.5,
               fontWeight: 800,
-              color: "var(--cam-green-dark, #144a28)",
+              color: "var(--cam-green-dark)",
               marginBottom: 2,
               letterSpacing: "0.04em",
             }}
@@ -337,7 +337,7 @@ export function VtWizardSidebar({
           <div
             style={{
               fontSize: 10,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               lineHeight: 1.25,
               opacity: 0.9,
             }}

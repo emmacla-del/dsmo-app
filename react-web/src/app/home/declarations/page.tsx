@@ -81,8 +81,8 @@ function getOnefopStatusLabel(t: Translator, status: string): string {
 const GROUP_COLOR: Record<Group, string> = {
   draft: "var(--cam-text-muted)",
   pending: "#2563eb",
-  approved: "var(--cam-success, #16a34a)",
-  rejected: "var(--cam-error, #dc2626)",
+  approved: "var(--cam-success)",
+  rejected: "var(--cam-error)",
   correction: "#d97706",
 };
 
@@ -286,7 +286,7 @@ export default function CompanyDeclarationsPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
           <SummaryCard label={t("homeDeclarationsPage.statusSubmitted")} value={submittedCount} color="#2563eb" />
           <SummaryCard label={t("homeDeclarationsPage.statusPendingReview")} value={underReviewCount} color="#2563eb" />
-          <SummaryCard label={t("homeDeclarationsPage.summaryApprovedLabel")} value={approvedCount} color="var(--cam-success, #16a34a)" />
+          <SummaryCard label={t("homeDeclarationsPage.summaryApprovedLabel")} value={approvedCount} color="var(--cam-success)" />
           <SummaryCard label={t("homeDeclarationsPage.summaryDraftLabel")} value={draftCount} color="var(--cam-text-muted)" />
         </div>
       )}
@@ -444,7 +444,7 @@ function DeclarationTile({
       <div style={{
         padding: "3px 9px",
         borderRadius: 6,
-        background: entry.stream === "DSMO" ? "var(--cam-accent-soft, #e8f0fe)" : "#f0fdf4",
+        background: entry.stream === "DSMO" ? "var(--cam-accent-soft)" : "#f0fdf4",
         color: entry.stream === "DSMO" ? "var(--cam-accent)" : "#16a34a",
         fontSize: 11,
         fontWeight: 700,

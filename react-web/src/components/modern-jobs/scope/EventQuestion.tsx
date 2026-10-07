@@ -137,15 +137,15 @@ export function EventQuestion({
             flex: 1,
             padding: "11px 18px",
             borderRadius: "var(--cam-radius-control, 6px)",
-            border: value === true ? "2px solid var(--cam-green, #1e6b3a)" : "1px solid var(--cam-border, #cbd5e1)",
+            border: value === true ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
             background:
               value === true
-                ? "var(--cam-success-bg, #eaf3ec)"
-                : "var(--cam-surface, #ffffff)",
+                ? "var(--cam-success-bg)"
+                : "var(--cam-surface)",
             color:
               value === true
-                ? "var(--cam-green, #1e6b3a)"
-                : "var(--cam-text, #0b1f14)",
+                ? "var(--cam-green)"
+                : "var(--cam-text)",
             fontWeight: 700,
             fontSize: 15,
             cursor: "pointer",
@@ -165,15 +165,15 @@ export function EventQuestion({
             flex: 1,
             padding: "11px 18px",
             borderRadius: "var(--cam-radius-control, 6px)",
-            border: value === false ? "2px solid var(--cam-green, #1e6b3a)" : "1px solid var(--cam-border, #cbd5e1)",
+            border: value === false ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
             background:
               value === false
-                ? "var(--cam-success-bg, #eaf3ec)"
-                : "var(--cam-surface, #ffffff)",
+                ? "var(--cam-success-bg)"
+                : "var(--cam-surface)",
             color:
               value === false
-                ? "var(--cam-green, #1e6b3a)"
-                : "var(--cam-text, #0b1f14)",
+                ? "var(--cam-green)"
+                : "var(--cam-text)",
             fontWeight: 700,
             fontSize: 15,
             cursor: "pointer",
@@ -235,8 +235,8 @@ export function EventQuestion({
       className="cam-quiz-card"
       style={{
         boxSizing: "border-box",
-        background: "var(--cam-surface, #ffffff)",
-        border: "1px solid var(--cam-border, #cbd5e1)",
+        background: "var(--cam-surface)",
+        border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-md, 8px)",
         padding: "clamp(16px, 2.5vw, 24px)",
         boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
@@ -265,8 +265,8 @@ export function EventQuestion({
           <div
             style={{
               padding: "11px 16px",
-              background: "var(--cam-bg, #f8faf9)",
-              borderLeft: "3px solid var(--cam-green, #1e6b3a)",
+              background: "var(--cam-bg)",
+              borderLeft: "3px solid var(--cam-green)",
               borderRadius: "0 4px 4px 0",
               fontSize: 13,
               color: "#334155",
@@ -287,7 +287,7 @@ export function EventQuestion({
             style={{
               fontSize: 18,
               fontWeight: 700,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               margin: "0 0 8px",
               lineHeight: 1.35,
             }}
@@ -362,7 +362,7 @@ export function EventQuestion({
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              color: "var(--cam-green, #1a5c3a)",
+              color: "var(--cam-green)",
               marginBottom: 6,
             }}
           >
@@ -374,11 +374,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("applicationsCspQ")}
               </p>
               <ConditionalOptions
@@ -396,11 +396,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("applicationsAgeQ")}
               </p>
               <ConditionalOptions
@@ -418,11 +418,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("recruitmentTypes")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("recruitTypesQ")}
               </p>
               <ConditionalOptions
@@ -440,11 +440,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("recruitCspQ")}
               </p>
               <ConditionalOptions
@@ -462,11 +462,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("recruitAgeQ")}
               </p>
               <ConditionalOptions
@@ -484,11 +484,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("diplomaLevels")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("recruitDiplomaQ")}
               </p>
               <ConditionalOptions
@@ -506,11 +506,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("disabilityTitle")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("disabilityQ")}
               </p>
               {renderYesNo(
@@ -526,11 +526,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("vulnerableTitle")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("vulnerableQ")}
               </p>
               {renderYesNo(
@@ -546,11 +546,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("primoSeekersCspQ")}
               </p>
               <ConditionalOptions
@@ -568,11 +568,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("primoSeekersAgeQ")}
               </p>
               <ConditionalOptions
@@ -590,11 +590,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("recruitmentTypes")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("primoWorkersTypesQ")}
               </p>
               <ConditionalOptions
@@ -612,11 +612,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("primoWorkersCspQ")}
               </p>
               <ConditionalOptions
@@ -634,11 +634,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("primoWorkersAgeQ")}
               </p>
               <ConditionalOptions
@@ -656,11 +656,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("departureReasons")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("departureReasonsQ")}
               </p>
               <ConditionalOptions
@@ -684,11 +684,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("technicalTitle")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("technicalQ")}
               </p>
               {renderYesNo(
@@ -704,11 +704,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text, #1c1f1d)", margin: "0 0 6px" }}
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--cam-text)", margin: "0 0 6px" }}
               >
                 {t("internTypes")}
               </h2>
-              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #64748b)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {t("internTypesQ")}
               </p>
               <ConditionalOptions
@@ -732,7 +732,7 @@ export function EventQuestion({
           justifyContent: "space-between",
           marginTop: "auto",
           paddingTop: 12,
-          borderTop: "1px solid var(--cam-border, #e2e8f0)",
+          borderTop: "1px solid var(--cam-border)",
           gap: 12,
           flexShrink: 0,
         }}
@@ -743,7 +743,7 @@ export function EventQuestion({
           style={{
             background: "transparent",
             border: "none",
-            color: "var(--cam-text-muted, #64748b)",
+            color: "var(--cam-text-muted)",
             fontSize: "var(--cam-font-size-sm, 14px)",
             fontWeight: 600,
             cursor: "pointer",
@@ -755,11 +755,11 @@ export function EventQuestion({
             transition: "all 0.15s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--cam-text, #1c1f1d)";
-            e.currentTarget.style.background = "var(--cam-surface-subtle, #f8fafc)";
+            e.currentTarget.style.color = "var(--cam-text)";
+            e.currentTarget.style.background = "var(--cam-surface-subtle)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--cam-text-muted, #64748b)";
+            e.currentTarget.style.color = "var(--cam-text-muted)";
             e.currentTarget.style.background = "transparent";
           }}
         >
@@ -772,8 +772,8 @@ export function EventQuestion({
           onClick={onContinue}
           disabled={!canContinue}
           style={{
-            background: canContinue ? "var(--cam-green, #1e6b3a)" : "var(--cam-border, #cbd5e1)",
-            color: canContinue ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+            background: canContinue ? "var(--cam-green)" : "var(--cam-border)",
+            color: canContinue ? "#ffffff" : "var(--cam-text-muted)",
             border: "none",
             borderRadius: "var(--cam-radius-control, 6px)",
             height: "var(--cam-button-height, 42px)",

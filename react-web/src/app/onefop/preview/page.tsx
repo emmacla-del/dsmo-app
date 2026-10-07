@@ -231,8 +231,8 @@ function OnefopDeclarationContent() {
     <main
       style={{
         minHeight: "100vh",
-        background: "var(--cam-bg, #fafaf7)",
-        color: "var(--cam-text, #0b1f14)",
+        background: "var(--cam-bg)",
+        color: "var(--cam-text)",
         fontFamily: "var(--cam-font-sans, sans-serif)",
         paddingBottom: 0,
       }}

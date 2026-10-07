@@ -36,8 +36,8 @@ export function FormSectionCard({
       id={id}
       className={className}
       style={{
-        background: "var(--cam-surface, #ffffff)",
-        border: "1px solid var(--cam-border, #d8ddd3)",
+        background: "var(--cam-surface)",
+        border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-md, 8px)",
         padding: "var(--cam-space-5, 24px)",
         marginBottom: "var(--cam-space-5, 24px)",
@@ -67,7 +67,7 @@ export function FormSectionCard({
                   fontWeight: 700,
                   letterSpacing: "0.05em",
                   textTransform: "uppercase",
-                  color: "var(--cam-green-dark, #144a28)",
+                  color: "var(--cam-green-dark)",
                   marginBottom: 4,
                 }}
               >
@@ -79,7 +79,7 @@ export function FormSectionCard({
                 style={{
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
                   fontWeight: 600,
-                  color: "var(--cam-text-muted, #4a5a50)",
+                  color: "var(--cam-text-muted)",
                   margin: 0,
                   textTransform: "uppercase",
                   letterSpacing: "0.02em",
@@ -92,7 +92,7 @@ export function FormSectionCard({
               <p
                 style={{
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                  color: "var(--cam-text-muted, #4a5a50)",
+                  color: "var(--cam-text-muted)",
                   margin: "var(--cam-space-1, 4px) 0 0",
                   lineHeight: 1.4,
                 }}

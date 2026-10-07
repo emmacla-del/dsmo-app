@@ -462,7 +462,7 @@ export default function DsmoDeclarationWizardPage() {
       <div style={{ marginBottom: 12 }}>
         <label style={{ display: "block", fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 4, fontWeight: 500 }}>{label}</label>
         {children}
-        {error && <div style={{ color: "var(--cam-error, #dc2626)", fontSize: 11, marginTop: 2 }}>{error}</div>}
+        {error && <div style={{ color: "var(--cam-error)", fontSize: 11, marginTop: 2 }}>{error}</div>}
       </div>
     );
   }
@@ -481,7 +481,7 @@ export default function DsmoDeclarationWizardPage() {
         style={{
           width: "100%",
           fontSize: 13,
-          background: readOnly ? "var(--cam-accent-soft, #e8f0fe)" : undefined,
+          background: readOnly ? "var(--cam-accent-soft)" : undefined,
           color: readOnly ? accent : undefined,
           fontWeight: readOnly ? 700 : undefined,
         }}
@@ -604,7 +604,7 @@ export default function DsmoDeclarationWizardPage() {
             <NumInput value={String(totalEmp)} readOnly />
           </Field>
         </div>
-        {fieldErrors.total && <div style={{ color: "var(--cam-error, #dc2626)", fontSize: 12, marginBottom: 8 }}>{fieldErrors.total}</div>}
+        {fieldErrors.total && <div style={{ color: "var(--cam-error)", fontSize: 12, marginBottom: 8 }}>{fieldErrors.total}</div>}
 
         <SectionHeader title={L.sectionWorkforcePrevious} />
         <p style={{ fontSize: 12, color: "var(--cam-text-muted)", margin: "0 0 8px" }}>{L.helperOptionalTotal}</p>
@@ -635,7 +635,7 @@ export default function DsmoDeclarationWizardPage() {
             </thead>
             <tbody>
               {movRows.map(({ label, prefix }, ri) => (
-                <tr key={prefix} style={{ background: ri % 2 === 0 ? "#fff" : "var(--cam-surface, #f8fafc)" }}>
+                <tr key={prefix} style={{ background: ri % 2 === 0 ? "#fff" : "var(--cam-surface)" }}>
                   <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</td>
                   {MOV_SUFFIXES.map((suf) => (
                     <td key={suf} style={{ border: "1px solid var(--cam-border)", padding: 4, textAlign: "center" }}>
@@ -653,13 +653,13 @@ export default function DsmoDeclarationWizardPage() {
                       />
                     </td>
                   ))}
-                  <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 700, color: accent, background: "var(--cam-accent-soft, #e8f0fe)" }}>
+                  <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 700, color: accent, background: "var(--cam-accent-soft)" }}>
                     {movRowTotal(prefix)}
                   </td>
                 </tr>
               ))}
               {/* Column totals row */}
-              <tr style={{ background: "var(--cam-accent-soft, #e8f0fe)" }}>
+              <tr style={{ background: "var(--cam-accent-soft)" }}>
                 <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", fontWeight: 700, color: accent }}>{L.colTotal}</td>
                 {MOV_SUFFIXES.map((suf) => (
                   <td key={suf} style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 700, color: accent }}>

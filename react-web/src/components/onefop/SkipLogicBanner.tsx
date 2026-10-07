@@ -28,7 +28,7 @@ export function SkipLogicBanner({
       role="status"
       className={className}
       style={{
-        background: "var(--cam-surface, #ffffff)",
+        background: "var(--cam-surface)",
         border: "1px solid var(--vt-accent-soft, #c6e3d0)",
         borderRadius: "var(--cam-radius-md, 8px)",
         padding: "var(--cam-space-4, 16px)",
@@ -47,7 +47,7 @@ export function SkipLogicBanner({
           height: 32,
           borderRadius: "50%",
           background: "var(--vt-accent-soft, #eaf3ec)",
-          color: "var(--cam-green, #1a5c3a)",
+          color: "var(--cam-green)",
           display: "grid",
           placeItems: "center",
           fontSize: 16,
@@ -64,7 +64,7 @@ export function SkipLogicBanner({
             style={{
               fontSize: "var(--cam-font-size-base, 14px)",
               fontWeight: 700,
-              color: "var(--cam-green, #1a5c3a)",
+              color: "var(--cam-green)",
               margin: "0 0 4px",
             }}
           >
@@ -74,7 +74,7 @@ export function SkipLogicBanner({
         <p
           style={{
             fontSize: "var(--cam-font-size-sm, 13px)",
-            color: "var(--cam-text, #1c1f1d)",
+            color: "var(--cam-text)",
             margin: 0,
             lineHeight: 1.45,
           }}
@@ -91,9 +91,9 @@ export function SkipLogicBanner({
               marginTop: "var(--cam-space-2, 8px)",
               padding: "2px 8px",
               borderRadius: "var(--cam-radius-sm, 4px)",
-              background: "var(--cam-success-bg, #f0fdf4)",
-              border: "1px solid var(--cam-green, #1a5c3a)",
-              color: "var(--cam-green, #1a5c3a)",
+              background: "var(--cam-success-bg)",
+              border: "1px solid var(--cam-green)",
+              color: "var(--cam-green)",
               fontSize: 11,
               fontWeight: 700,
             }}

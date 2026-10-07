@@ -35,7 +35,7 @@ export function SovereignMasthead({
       {/* ── 1. Official Government Disclosure Banner (USWDS Style) ── */}
       <div
         style={{
-          background: "var(--cam-green-dark, #144a28)",
+          background: "var(--cam-green-dark)",
           color: "#E2E8F0",
           padding: "4px 16px",
           display: "flex",
@@ -59,20 +59,20 @@ export function SovereignMasthead({
             flexShrink: 0,
           }}
         >
-          <div style={{ flex: 1, background: "var(--cam-flag-green, #0e5c2b)" }} />
+          <div style={{ flex: 1, background: "var(--cam-flag-green)" }} />
           <div
             style={{
               flex: 1,
-              background: "var(--cam-flag-red, #b3202c)",
+              background: "var(--cam-flag-red)",
               position: "relative",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <span style={{ color: "var(--cam-flag-yellow, #f0b429)", fontSize: "7px", lineHeight: 1 }}>★</span>
+            <span style={{ color: "var(--cam-flag-yellow)", fontSize: "7px", lineHeight: 1 }}>★</span>
           </div>
-          <div style={{ flex: 1, background: "var(--cam-flag-yellow, #f0b429)" }} />
+          <div style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
         </div>
 
         <div style={{ flex: 1, minWidth: 260 }}>{t("sovereignMasthead.officialPortalNotice")}</div>
@@ -83,7 +83,7 @@ export function SovereignMasthead({
           style={{
             background: "none",
             border: "none",
-            color: "var(--cam-gold, #e8a020)",
+            color: "var(--cam-gold)",
             fontSize: "11px",
             fontWeight: 600,
             cursor: "pointer",
@@ -118,7 +118,7 @@ export function SovereignMasthead({
       {/* ── 2. Sovereign Bilateral Header (Republic of Cameroon / Ministries) ── */}
       <div
         style={{
-          background: "var(--cam-green-dark, #144a28)",
+          background: "var(--cam-green-dark)",
           color: "#FFFFFF",
           padding: compact ? "8px 16px" : "12px 20px",
           display: "flex",
@@ -135,7 +135,7 @@ export function SovereignMasthead({
             {t("sovereignMasthead.republicHeadingFr")}
           </div>
           <div style={{ fontSize: "10px", fontStyle: "italic", color: "#E2E8F0" }}>{t("sovereignMasthead.mottoFr")}</div>
-          <div style={{ fontSize: "9px", fontWeight: 700, color: "var(--cam-gold, #e8a020)", marginTop: "2px" }}>
+          <div style={{ fontSize: "9px", fontWeight: 700, color: "var(--cam-gold)", marginTop: "2px" }}>
             {t("sovereignMasthead.ministryHeadingFr")}
           </div>
         </div>
@@ -147,9 +147,9 @@ export function SovereignMasthead({
             style={{
               fontSize: "8px",
               fontWeight: 800,
-              background: "var(--cam-green, #1e6b3a)",
+              background: "var(--cam-green)",
               color: "#FFFFFF",
-              border: "1px solid var(--cam-gold, #e8a020)",
+              border: "1px solid var(--cam-gold)",
               borderRadius: "3px",
               padding: "1px 8px",
               marginTop: "2px",
@@ -166,7 +166,7 @@ export function SovereignMasthead({
             {t("sovereignMasthead.republicHeadingEn")}
           </div>
           <div style={{ fontSize: "10px", fontStyle: "italic", color: "#E2E8F0" }}>{t("sovereignMasthead.mottoEn")}</div>
-          <div style={{ fontSize: "9px", fontWeight: 700, color: "var(--cam-gold, #e8a020)", marginTop: "2px" }}>
+          <div style={{ fontSize: "9px", fontWeight: 700, color: "var(--cam-gold)", marginTop: "2px" }}>
             {t("sovereignMasthead.ministryHeadingEn")}
           </div>
         </div>
@@ -175,8 +175,8 @@ export function SovereignMasthead({
       {/* ── 3. Establishment Identification Bar ── */}
       <div
         style={{
-          background: "var(--cam-surface-subtle, #fbfbf9)",
-          borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface-subtle)",
+          borderBottom: "1px solid var(--cam-border)",
           padding: "6px 16px",
           display: "flex",
           alignItems: "center",
@@ -185,7 +185,7 @@ export function SovereignMasthead({
           flexWrap: "wrap",
         }}
       >
-        <span style={{ fontWeight: 700, color: "var(--cam-text, #0b1f14)", display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ fontWeight: 700, color: "var(--cam-text)", display: "flex", alignItems: "center", gap: "6px" }}>
           <span aria-hidden="true">🏛️</span>
           {establishmentName || t("sovereignMasthead.currentDeclarationFallback")}
         </span>
@@ -193,8 +193,8 @@ export function SovereignMasthead({
         {taxNumber && (
           <span
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #d8ddd3)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "3px",
               padding: "1px 6px",
               fontSize: "11px",
@@ -208,8 +208,8 @@ export function SovereignMasthead({
         {cnpsNumber && (
           <span
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #d8ddd3)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "3px",
               padding: "1px 6px",
               fontSize: "11px",
@@ -222,8 +222,8 @@ export function SovereignMasthead({
 
         <span
           style={{
-            background: "var(--cam-surface, #ffffff)",
-            border: "1px solid var(--cam-border, #d8ddd3)",
+            background: "var(--cam-surface)",
+            border: "1px solid var(--cam-border)",
             borderRadius: "3px",
             padding: "1px 6px",
             fontSize: "11px",
@@ -235,7 +235,7 @@ export function SovereignMasthead({
         <span
           style={{
             marginLeft: "auto",
-            background: "var(--cam-green, #1e6b3a)",
+            background: "var(--cam-green)",
             color: "#FFFFFF",
             fontWeight: 800,
             fontSize: "10px",

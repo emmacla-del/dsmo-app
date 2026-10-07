@@ -44,7 +44,7 @@ export function EventProgress({
         gap: inCard ? "var(--cam-space-3, 12px) var(--cam-space-4, 16px)" : "8px 12px",
         paddingBottom: inCard ? "var(--cam-space-3, 12px)" : 14,
         marginBottom: inCard ? "var(--cam-space-3, 12px)" : 20,
-        borderBottom: "1px solid var(--cam-border, #e2e8f0)",
+        borderBottom: "1px solid var(--cam-border)",
         fontSize: 13,
         ...style,
       }}
@@ -55,7 +55,7 @@ export function EventProgress({
           alignItems: "center",
           gap: 6,
           fontWeight: 800,
-          color: "var(--cam-green, #1a5c3a)",
+          color: "var(--cam-green)",
           letterSpacing: "0.03em",
           textTransform: "uppercase",
           fontSize: 11.5,
@@ -86,20 +86,20 @@ export function EventProgress({
         {groups.map((grp) => {
           const bullet = grp.isActive ? "●" : grp.isComplete ? "✓" : "○";
           const color = grp.isActive
-            ? "var(--cam-green, #1a5c3a)"
+            ? "var(--cam-green)"
             : grp.isComplete
-              ? "var(--cam-text, #1c1f1d)"
-              : "var(--cam-text-muted, #94a3b8)";
+              ? "var(--cam-text)"
+              : "var(--cam-text-muted)";
           const fontWeight = grp.isActive ? 700 : grp.isComplete ? 600 : 500;
           const background = grp.isActive
-            ? "var(--cam-success-bg, #eaf3ec)"
+            ? "var(--cam-success-bg)"
             : grp.isComplete
-              ? "var(--cam-surface-subtle, #f8fafc)"
+              ? "var(--cam-surface-subtle)"
               : "transparent";
           const border = grp.isActive
-            ? "1px solid var(--cam-success-border, #c3e6cb)"
+            ? "1px solid var(--cam-success-border)"
             : grp.isComplete
-              ? "1px solid var(--cam-border, #e2e8f0)"
+              ? "1px solid var(--cam-border)"
               : "1px solid transparent";
 
           return (
@@ -132,7 +132,7 @@ export function EventProgress({
               <span
                 style={{
                   fontSize: grp.isComplete && !grp.isActive ? 11 : 12,
-                  color: grp.isActive ? "var(--cam-green, #1a5c3a)" : grp.isComplete ? "var(--cam-success, #1e6b3a)" : "inherit",
+                  color: grp.isActive ? "var(--cam-green)" : grp.isComplete ? "var(--cam-success)" : "inherit",
                 }}
               >
                 {bullet}

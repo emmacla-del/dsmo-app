@@ -214,9 +214,9 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
         style={{
           width: "100%",
           maxWidth: 520,
-          background: "var(--cam-surface, #ffffff)",
+          background: "var(--cam-surface)",
           borderRadius: "16px",
-          border: "1px solid var(--cam-border, #e2e8f0)",
+          border: "1px solid var(--cam-border)",
           boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
           overflow: "hidden",
           display: "flex",
@@ -233,7 +233,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 margin: 0,
                 fontSize: 22,
                 fontWeight: 700,
-                color: "var(--cam-text, #0f172a)",
+                color: "var(--cam-text)",
                 letterSpacing: "-0.01em",
               }}
             >
@@ -243,7 +243,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
               style={{
                 margin: "6px 0 24px",
                 fontSize: 14,
-                color: "var(--cam-text-muted, #64748b)",
+                color: "var(--cam-text-muted)",
                 lineHeight: 1.4,
               }}
             >
@@ -261,8 +261,8 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   gap: 16,
                   padding: "16px",
                   borderRadius: "12px",
-                  border: "1.5px solid var(--cam-border, #e2e8f0)",
-                  background: "var(--cam-surface, #ffffff)",
+                  border: "1.5px solid var(--cam-border)",
+                  background: "var(--cam-surface)",
                   textAlign: "left",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
@@ -298,7 +298,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                     style={{
                       fontSize: 15,
                       fontWeight: 700,
-                      color: "var(--cam-text, #0f172a)",
+                      color: "var(--cam-text)",
                       marginBottom: 3,
                     }}
                   >
@@ -307,7 +307,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   <div
                     style={{
                       fontSize: 12.5,
-                      color: "var(--cam-text-muted, #64748b)",
+                      color: "var(--cam-text-muted)",
                       lineHeight: 1.35,
                     }}
                   >
@@ -316,7 +316,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 </div>
                 <span
                   style={{
-                    color: "var(--cam-text-muted, #94a3b8)",
+                    color: "var(--cam-text-muted)",
                     fontSize: 18,
                     alignSelf: "center",
                   }}
@@ -336,8 +336,8 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   gap: 16,
                   padding: "16px",
                   borderRadius: "12px",
-                  border: "1.5px solid var(--cam-border, #e2e8f0)",
-                  background: "var(--cam-surface, #ffffff)",
+                  border: "1.5px solid var(--cam-border)",
+                  background: "var(--cam-surface)",
                   textAlign: "left",
                   cursor: checkingCompany ? "wait" : "pointer",
                   opacity: checkingCompany ? 0.7 : 1,
@@ -349,8 +349,8 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   e.currentTarget.style.backgroundColor = "#eff6ff";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--cam-border, #e2e8f0)";
-                  e.currentTarget.style.backgroundColor = "var(--cam-surface, #ffffff)";
+                  e.currentTarget.style.borderColor = "var(--cam-border)";
+                  e.currentTarget.style.backgroundColor = "var(--cam-surface)";
                 }}
               >
                 <div
@@ -374,7 +374,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                     style={{
                       fontSize: 15,
                       fontWeight: 700,
-                      color: "var(--cam-text, #0f172a)",
+                      color: "var(--cam-text)",
                       marginBottom: 3,
                     }}
                   >
@@ -383,7 +383,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   <div
                     style={{
                       fontSize: 12.5,
-                      color: "var(--cam-text-muted, #64748b)",
+                      color: "var(--cam-text-muted)",
                       lineHeight: 1.35,
                     }}
                   >
@@ -394,7 +394,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 </div>
                 <span
                   style={{
-                    color: "var(--cam-text-muted, #94a3b8)",
+                    color: "var(--cam-text-muted)",
                     fontSize: 18,
                     alignSelf: "center",
                   }}
@@ -411,7 +411,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 style={{
                   background: "none",
                   border: "none",
-                  color: "var(--cam-text-muted, #64748b)",
+                  color: "var(--cam-text-muted)",
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -428,19 +428,19 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
         {/* Step 2: Entity/Form selection (matches Flutter's _pickEntityType) */}
         {step === "entity" && (
           <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-            <div style={{ padding: "24px 24px 16px", borderBottom: "1px solid var(--cam-border, #e2e8f0)" }}>
+            <div style={{ padding: "24px 24px 16px", borderBottom: "1px solid var(--cam-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   type="button"
                   onClick={() => setStep("type")}
                   style={{
                     background: "none",
-                    border: "1px solid var(--cam-border, #e2e8f0)",
+                    border: "1px solid var(--cam-border)",
                     borderRadius: "8px",
                     padding: "4px 8px",
                     cursor: "pointer",
                     fontSize: 13,
-                    color: "var(--cam-text-muted, #64748b)",
+                    color: "var(--cam-text-muted)",
                     display: "flex",
                     alignItems: "center",
                     gap: 4,
@@ -455,7 +455,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                     margin: 0,
                     fontSize: 19,
                     fontWeight: 700,
-                    color: "var(--cam-text, #0f172a)",
+                    color: "var(--cam-text)",
                     letterSpacing: "-0.01em",
                   }}
                 >
@@ -466,7 +466,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 style={{
                   margin: "8px 0 0",
                   fontSize: 13,
-                  color: "var(--cam-text-muted, #64748b)",
+                  color: "var(--cam-text-muted)",
                   lineHeight: 1.4,
                 }}
               >
@@ -498,8 +498,8 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                     gap: 14,
                     padding: "12px 14px",
                     borderRadius: "10px",
-                    border: `1.5px solid ${opt.isVt ? "#9333ea" : "var(--cam-border, #e2e8f0)"}`,
-                    background: opt.isVt ? "rgba(147, 51, 234, 0.04)" : "var(--cam-surface, #ffffff)",
+                    border: `1.5px solid ${opt.isVt ? "#9333ea" : "var(--cam-border)"}`,
+                    background: opt.isVt ? "rgba(147, 51, 234, 0.04)" : "var(--cam-surface)",
                     textAlign: "left",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
@@ -512,10 +512,10 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                       : "var(--cam-accent-soft)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = opt.isVt ? "#9333ea" : "var(--cam-border, #e2e8f0)";
+                    e.currentTarget.style.borderColor = opt.isVt ? "#9333ea" : "var(--cam-border)";
                     e.currentTarget.style.backgroundColor = opt.isVt
                       ? "rgba(147, 51, 234, 0.04)"
-                      : "var(--cam-surface, #ffffff)";
+                      : "var(--cam-surface)";
                   }}
                 >
                   <span style={{ fontSize: 20, flexShrink: 0 }}>{opt.icon}</span>
@@ -524,7 +524,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                       style={{
                         fontSize: 14,
                         fontWeight: 600,
-                        color: opt.isVt ? "#7e22ce" : "var(--cam-text, #0f172a)",
+                        color: opt.isVt ? "#7e22ce" : "var(--cam-text)",
                       }}
                     >
                       {t(ENTITY_LABEL_KEYS[opt.key])}
@@ -546,7 +546,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                   )}
                   <span
                     style={{
-                      color: "var(--cam-text-muted, #94a3b8)",
+                      color: "var(--cam-text-muted)",
                       fontSize: 16,
                     }}
                   >
@@ -559,7 +559,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
             <div
               style={{
                 padding: "14px 24px",
-                borderTop: "1px solid var(--cam-border, #e2e8f0)",
+                borderTop: "1px solid var(--cam-border)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -571,7 +571,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 style={{
                   background: "none",
                   border: "none",
-                  color: "var(--cam-text-muted, #64748b)",
+                  color: "var(--cam-text-muted)",
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -585,7 +585,7 @@ export function NewDeclarationDialog({ isOpen, onClose }: NewDeclarationDialogPr
                 style={{
                   background: "none",
                   border: "none",
-                  color: "var(--cam-text-muted, #64748b)",
+                  color: "var(--cam-text-muted)",
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",

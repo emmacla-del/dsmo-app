@@ -213,12 +213,12 @@ export function ModernJobsSidebar({
     const { state, dot, title, detail, onClick, current } = opts;
     const dotStyle: React.CSSProperties =
       state === "done"
-        ? { background: "var(--cam-green, #1e6b3a)", color: "#ffffff", border: "1px solid var(--cam-green, #1e6b3a)" }
+        ? { background: "var(--cam-green)", color: "#ffffff", border: "1px solid var(--cam-green)" }
         : state === "active"
-          ? { background: "var(--cam-green, #1e6b3a)", color: "#ffffff", border: "1px solid var(--cam-green, #1e6b3a)" }
+          ? { background: "var(--cam-green)", color: "#ffffff", border: "1px solid var(--cam-green)" }
           : state === "error"
-            ? { background: "var(--cam-error-bg, #fbeceb)", color: "var(--cam-error, #b3261e)", border: "1px solid var(--cam-error-border, #f2b8b5)" }
-            : { background: "var(--cam-surface, #ffffff)", color: "var(--cam-text-muted, #4a5a50)", border: "1px solid var(--cam-border-strong, #aab5a3)" };
+            ? { background: "var(--cam-error-bg)", color: "var(--cam-error)", border: "1px solid var(--cam-error-border)" }
+            : { background: "var(--cam-surface)", color: "var(--cam-text-muted)", border: "1px solid var(--cam-border-strong)" };
     return (
       <button
         key={opts.key}
@@ -229,7 +229,7 @@ export function ModernJobsSidebar({
         style={{
           width: "100%",
           textAlign: "left",
-          background: current ? "var(--cam-success-bg, #eaf3ec)" : "transparent",
+          background: current ? "var(--cam-success-bg)" : "transparent",
           border: "none",
           borderRadius: "var(--cam-radius-control, 6px)",
           padding: "10px 8px",
@@ -263,7 +263,7 @@ export function ModernJobsSidebar({
               display: "block",
               fontSize: "var(--cam-font-size-sm, 0.875rem)",
               fontWeight: current ? 700 : 600,
-              color: state === "error" ? "var(--cam-error, #b3261e)" : "var(--cam-text, #0b1f14)",
+              color: state === "error" ? "var(--cam-error)" : "var(--cam-text)",
             }}
           >
             {title}
@@ -274,7 +274,7 @@ export function ModernJobsSidebar({
                 display: "block",
                 marginTop: 2,
                 fontSize: "var(--cam-font-size-2xs, 0.6875rem)",
-                color: state === "error" ? "var(--cam-error, #b3261e)" : "var(--cam-text-muted, #4a5a50)",
+                color: state === "error" ? "var(--cam-error)" : "var(--cam-text-muted)",
               }}
             >
               {detail}
@@ -293,8 +293,8 @@ export function ModernJobsSidebar({
       style={{
         width: "var(--vt-sidebar-width, 280px)",
         flex: "0 0 var(--vt-sidebar-width, 280px)",
-        background: "var(--cam-surface-subtle, #fbfbf9)",
-        borderRight: "var(--cam-border-width, 1px) solid var(--cam-border, #d8ddd3)",
+        background: "var(--cam-surface-subtle)",
+        borderRight: "var(--cam-border-width, 1px) solid var(--cam-border)",
         display: "flex",
         flexDirection: "column",
         // Pinned under the header: the sidebar stays in view while the
@@ -303,7 +303,7 @@ export function ModernJobsSidebar({
         top: "var(--mj-header-h, 0px)",
         alignSelf: "flex-start",
         height: "calc(100vh - var(--mj-header-h, 0px))",
-        color: "var(--cam-text, #0b1f14)",
+        color: "var(--cam-text)",
       }}
     >
       {/* Header: title + progress */}
@@ -313,7 +313,7 @@ export function ModernJobsSidebar({
             fontSize: 15,
             fontWeight: 700,
             letterSpacing: "0.02em",
-            color: "var(--cam-text, #0b1f14)",
+            color: "var(--cam-text)",
           }}
         >
           {t("contents")}
@@ -321,7 +321,7 @@ export function ModernJobsSidebar({
         <div
           style={{
             fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             margin: "4px 0 10px",
           }}
         >
@@ -344,7 +344,7 @@ export function ModernJobsSidebar({
             style={{
               height: "100%",
               width: `${progressPercent}%`,
-              background: "var(--cam-green, #1e6b3a)",
+              background: "var(--cam-green)",
               borderRadius: "var(--cam-radius-full, 9999px)",
               transition: "width 0.3s ease",
             }}
@@ -457,7 +457,7 @@ export function ModernJobsSidebar({
               width: 32,
               height: 32,
               borderRadius: "var(--cam-radius-full, 9999px)",
-              background: "var(--cam-green-dark, #144a28)",
+              background: "var(--cam-green-dark)",
               color: "#ffffff",
               display: "grid",
               placeItems: "center",

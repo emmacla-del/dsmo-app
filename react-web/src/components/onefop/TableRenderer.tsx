@@ -246,7 +246,7 @@ function CellInput({
         computed={computed}
         style={{
           ...cellInputStyle,
-          ...(isMissing ? { outline: "2px solid var(--cam-error, #b3261e)", outlineOffset: "-2px" } : {}),
+          ...(isMissing ? { outline: "2px solid var(--cam-error)", outlineOffset: "-2px" } : {}),
         }}
         value={(data[cellId] as string) ?? (computed ? "0" : "")}
         readOnly={computed}

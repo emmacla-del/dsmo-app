@@ -288,7 +288,7 @@ export function Section1ThematicRenderer({
             <p
               style={{
                 fontSize: 13,
-                color: "var(--cam-text-muted, #64748b)",
+                color: "var(--cam-text-muted)",
                 marginTop: -4,
                 marginBottom: 16,
                 lineHeight: 1.4,

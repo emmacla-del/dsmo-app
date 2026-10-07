@@ -273,17 +273,17 @@ export function AdaptiveStatisticalTable({
   const statusBadge =
     tableStatus === "complete"
       ? {
-          background: "var(--cam-success-bg, #eaf3ec)",
-          color: "var(--cam-success, #1e6b3a)",
-          border: "1px solid var(--cam-success-border, #c3e0cb)",
+          background: "var(--cam-success-bg)",
+          color: "var(--cam-success)",
+          border: "1px solid var(--cam-success-border)",
           icon: "✓",
           label: t("statusCompleted"),
         }
       : tableStatus === "in-progress"
         ? {
-            background: "var(--cam-surface-subtle, #fbfbf9)",
-            color: "var(--cam-text-muted, #4a5a50)",
-            border: "1px solid var(--cam-border, #d8ddd3)",
+            background: "var(--cam-surface-subtle)",
+            color: "var(--cam-text-muted)",
+            border: "1px solid var(--cam-border)",
             icon: "●",
             label: t("statusInProgress"),
           }
@@ -464,7 +464,7 @@ export function AdaptiveStatisticalTable({
                 style={{
                   fontFamily: "var(--cam-font-serif)",
                   fontSize: "var(--cam-font-size-lg, 1.125rem)",
-                  color: "var(--cam-text, #0b1f14)",
+                  color: "var(--cam-text)",
                   lineHeight: 1.4,
                 }}
               >
@@ -504,7 +504,7 @@ export function AdaptiveStatisticalTable({
                 fontFamily: "var(--cam-font-serif)",
                 fontSize: "var(--cam-font-size-lg, 1.125rem)",
                 fontWeight: 700,
-                color: "var(--cam-text, #0b1f14)",
+                color: "var(--cam-text)",
                 margin: 0,
                 lineHeight: 1.35,
               }}
@@ -535,14 +535,14 @@ export function AdaptiveStatisticalTable({
             display: "flex",
             alignItems: "center",
             gap: 6,
-            borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+            borderBottom: "1px solid var(--cam-border)",
             padding: "6px 0",
             overflowX: "auto",
             // Pinned under the header + section pills while the table scrolls.
             position: "sticky",
             top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px))",
             zIndex: 26,
-            background: "var(--cam-surface, #ffffff)",
+            background: "var(--cam-surface)",
           }}
         >
           {definition.cspSlices.map((cspKey) => {
@@ -562,9 +562,9 @@ export function AdaptiveStatisticalTable({
                   fontWeight: 700,
                   borderRadius: "var(--cam-radius-sm, 4px) var(--cam-radius-sm, 4px) 0 0",
                   borderBottom: "2px solid",
-                  borderColor: isActive ? "var(--cam-green, #1e6b3a)" : "transparent",
-                  color: isActive ? "var(--cam-green, #1e6b3a)" : "var(--cam-text-muted, #4a5a50)",
-                  background: isActive ? "var(--cam-success-bg, #eaf3ec)" : "transparent",
+                  borderColor: isActive ? "var(--cam-green)" : "transparent",
+                  color: isActive ? "var(--cam-green)" : "var(--cam-text-muted)",
+                  background: isActive ? "var(--cam-success-bg)" : "transparent",
                   boxShadow: isActive ? "var(--cam-shadow-sm, 0 1px 2px rgba(20, 30, 20, 0.04))" : "none",
                   cursor: "pointer",
                   whiteSpace: "nowrap",
@@ -610,7 +610,7 @@ export function AdaptiveStatisticalTable({
                 gap: "var(--cam-space-2, 8px)",
                 marginTop: "var(--cam-space-2, 8px)",
                 fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                color: "var(--cam-text-muted, #4a5a50)",
+                color: "var(--cam-text-muted)",
               }}
             >
               <span style={{ flex: 1 }}>
@@ -659,9 +659,9 @@ function blockNavButtonStyle(isDisabled: boolean): React.CSSProperties {
     fontSize: "var(--cam-font-size-xs, 0.8125rem)",
     fontWeight: 600,
     fontFamily: "var(--cam-font-sans)",
-    color: "var(--cam-text, #0b1f14)",
-    background: "var(--cam-surface, #ffffff)",
-    border: "1px solid var(--cam-border-strong, #aab5a3)",
+    color: "var(--cam-text)",
+    background: "var(--cam-surface)",
+    border: "1px solid var(--cam-border-strong)",
     borderRadius: "var(--cam-radius-sm, 4px)",
     cursor: isDisabled ? "default" : "pointer",
     opacity: isDisabled ? 0.4 : 1,
@@ -699,7 +699,7 @@ function BlockTabs({
         position: "sticky",
         top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px) + var(--mj-csp-h, 0px))",
         zIndex: 25,
-        background: "var(--cam-surface, #ffffff)",
+        background: "var(--cam-surface)",
         paddingTop: 4,
       }}
     >
@@ -731,11 +731,11 @@ function BlockTabs({
               fontFamily: "var(--cam-font-sans)",
               whiteSpace: "nowrap",
               cursor: "pointer",
-              color: isActive ? "var(--cam-text, #0b1f14)" : "var(--cam-text-muted, #4a5a50)",
-              background: isActive ? "var(--cam-surface, #ffffff)" : "transparent",
+              color: isActive ? "var(--cam-text)" : "var(--cam-text-muted)",
+              background: isActive ? "var(--cam-surface)" : "transparent",
               border: "1px solid",
               borderColor: isActive ? "#475569" : "transparent",
-              borderBottomColor: isActive ? "var(--cam-surface, #ffffff)" : "transparent",
+              borderBottomColor: isActive ? "var(--cam-surface)" : "transparent",
               borderRadius: "var(--cam-radius-sm, 4px) var(--cam-radius-sm, 4px) 0 0",
             }}
           >
@@ -753,15 +753,15 @@ function BlockTabs({
                 border: "1px solid",
                 borderColor:
                   state === "complete"
-                    ? "var(--cam-success, #1e6b3a)"
+                    ? "var(--cam-success)"
                     : state === "partial"
-                      ? "var(--cam-success, #1e6b3a)"
-                      : "var(--cam-border-strong, #aab5a3)",
+                      ? "var(--cam-success)"
+                      : "var(--cam-border-strong)",
                 background:
                   state === "complete"
-                    ? "var(--cam-success, #1e6b3a)"
+                    ? "var(--cam-success)"
                     : state === "partial"
-                      ? "linear-gradient(90deg, var(--cam-success, #1e6b3a) 50%, transparent 50%)"
+                      ? "linear-gradient(90deg, var(--cam-success) 50%, transparent 50%)"
                       : "transparent",
               }}
             >
@@ -778,7 +778,7 @@ function BlockTabs({
             padding: "7px 10px",
             fontSize: "var(--cam-font-size-xs, 0.8125rem)",
             fontStyle: "italic",
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             whiteSpace: "nowrap",
           }}
         >

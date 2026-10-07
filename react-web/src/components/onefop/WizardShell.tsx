@@ -448,7 +448,7 @@ export function WizardShell({
           style={{
             width: 68,
             flex: "0 0 68px",
-            background: "var(--cam-green-dark, #144a28)",
+            background: "var(--cam-green-dark)",
             borderRight: "1px solid rgba(255, 255, 255, 0.12)",
             padding: "16px 0",
           }}
@@ -499,14 +499,14 @@ export function WizardShell({
                     border: current
                       ? "2px solid #ffffff"
                       : done
-                        ? "1px solid var(--cam-green, #1e6b3a)"
+                        ? "1px solid var(--cam-green)"
                         : "1px solid rgba(255, 255, 255, 0.2)",
                     background: current
                       ? "#ffffff"
                       : done
-                        ? "var(--cam-green, #1e6b3a)"
+                        ? "var(--cam-green)"
                         : "rgba(255, 255, 255, 0.08)",
-                    color: current ? "var(--cam-green-dark, #144a28)" : "#ffffff",
+                    color: current ? "var(--cam-green-dark)" : "#ffffff",
                     fontWeight: 800,
                     cursor: "pointer",
                   }}
@@ -1161,12 +1161,12 @@ export function WizardShell({
             padding: "7px 12px",
             borderRadius: 999,
             border: `1px solid ${
-                saveToast === "failed" ? "var(--cam-error-border, #f2b8b5)" : "var(--cam-success-border, #c3e0cb)"
+                saveToast === "failed" ? "var(--cam-error-border)" : "var(--cam-success-border)"
               }`,
             background:
-              saveToast === "failed" ? "var(--cam-error-bg, #fbeceb)" : "var(--cam-success-bg, #eaf3ec)",
+              saveToast === "failed" ? "var(--cam-error-bg)" : "var(--cam-success-bg)",
             color:
-              saveToast === "failed" ? "var(--cam-error, #b3261e)" : "var(--cam-success, #1e6b3a)",
+              saveToast === "failed" ? "var(--cam-error)" : "var(--cam-success)",
             fontSize: 12,
             fontWeight: 700,
             fontFamily: isVt ? "var(--vt-font)" : undefined,
