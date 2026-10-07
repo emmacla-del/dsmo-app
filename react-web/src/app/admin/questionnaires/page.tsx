@@ -13,7 +13,7 @@ import { localized } from "@/lib/onefop-schema";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-
+import { DataState } from "@/components/admin/DataState";
 import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
 import { APPROVAL_ROLES } from "@/lib/roles";
 
@@ -37,17 +37,6 @@ const QUESTIONNAIRES: { schemaKey: string; formType: string }[] = [
   { schemaKey: "ong", formType: "ONG" },
   { schemaKey: "vocationalTraining", formType: "VOCATIONAL_TRAINING" },
 ];
-
-function FileIcon() {
-  return (
-    <span className="cam-pilot-kpi-icon" aria-hidden="true" style={{ background: "rgba(30,107,58,0.12)", color: "var(--cam-green)" }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-      </svg>
-    </span>
-  );
-}
 
 export default function QuestionnairesPage() {
   const role = useAuthStore((s) => s.user?.role);
@@ -79,9 +68,12 @@ export default function QuestionnairesPage() {
       />
 
       {schemaQuery.isError && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>{t("schemaError", { message: (schemaQuery.error as Error).message })}</span>
-        </div>
+        <DataState
+          state="error"
+          resource={tRoot("adminNav.routes.questionnaires")}
+          title={t("schemaError", { message: (schemaQuery.error as Error).message })}
+          onRetry={() => schemaQuery.refetch()}
+        />
       )}
 
       {/* Grid of 7 Questionnaires */}
@@ -89,34 +81,38 @@ export default function QuestionnairesPage() {
         {QUESTIONNAIRES.map((q, i) => {
           const entity = schemaQuery.data?.entities[q.schemaKey];
           const totalQuery = totals[i];
-          const total = !canReadSubmissions || totalQuery.isError
+          // A count still loading shows the neutral marker, never "…" (G10).
+          const totalLoading = canReadSubmissions && totalQuery.isLoading;
+          const total = !canReadSubmissions || totalQuery.isError || !totalQuery.data
             ? NOT_PROVIDED
-            : totalQuery.data ? count(totalQuery.data.total, locale) : "…";
+            : count(totalQuery.data.total, locale);
           return (
             <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
-              <div className="cam-pilot-kpi-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <FileIcon />
-              </div>
 
-              <h3 id={`q-${q.formType}`} className="cam-dash-card-title" style={{ marginTop: "var(--cam-space-3)" }}>
+              <h3 id={`q-${q.formType}`} className="cam-dash-card-title">
                 {typeLabel(q.formType)}
               </h3>
               
-              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 var(--cam-space-4)" }}>
+              <p className="cam-dash-card-sub" style={{ marginBottom: "var(--cam-space-4)" }}>
                 {entity ? t("sectionCount", { count: count(entity.sectionCount, locale) }) : schemaQuery.isLoading ? t("loadingSections") : metricUnavailable(locale)}
               </p>
 
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-                <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
+                <div className="cam-dash-metric-row">
                   <span className="cam-admin-meta">{t("totalDeclarations")}</span>
-                  <strong style={{ color: "var(--cam-text)" }} title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
+                  <strong
+                    title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}
+                    aria-busy={totalLoading || undefined}
+                  >
                     {total}
                   </strong>
                 </div>
-                <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
+                <div className="cam-dash-metric-row">
                   <span className="cam-admin-meta">{t("schemaVersion")}</span>
-                  <strong style={{ color: "var(--cam-green)" }}>
-                    {schemaQuery.data ? `v${schemaQuery.data.schemaVersion}` : schemaQuery.isLoading ? "…" : metricUnavailable(locale)}
+                  <strong aria-busy={schemaQuery.isLoading || undefined}>
+                    {schemaQuery.data
+                      ? `v${schemaQuery.data.schemaVersion}`
+                      : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale)}
                   </strong>
                 </div>
               </div>
@@ -125,13 +121,13 @@ export default function QuestionnairesPage() {
                 {canReadSubmissions ? (
                   <Link
                     href={`/admin/dossiers?formType=${q.formType}`}
-                    className="cam-button cam-button-primary cam-button-sm"
+                    className="cam-button cam-button-secondary cam-button-sm"
                     style={{ flex: 1, justifyContent: "center" }}
                   >
                     {t("viewFiles")}
                   </Link>
                 ) : (
-                  <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled style={{ flex: 1 }}>
+                  <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled style={{ flex: 1 }}>
                     {t("viewFiles")}
                   </button>
                 )}
@@ -150,7 +146,7 @@ export default function QuestionnairesPage() {
       </div>
 
       {/* Structure Information Card */}
-      <section className="cam-dash-card" aria-labelledby="q-viewer-title" style={{ marginTop: "var(--cam-space-5)" }}>
+      <section className="cam-dash-card" aria-labelledby="q-viewer-title">
         <div className="cam-dash-card-head">
           <h3 id="q-viewer-title" className="cam-dash-card-title">{t("registerTitle")}</h3>
         </div>
@@ -158,7 +154,7 @@ export default function QuestionnairesPage() {
           {t("registerBody")}
         </p>
         {schemaQuery.data && (
-          <p className="cam-admin-meta" style={{ marginTop: "var(--cam-space-2)", fontWeight: 600 }}>
+          <p className="cam-admin-meta cam-admin-strong" style={{ margin: "var(--cam-space-2) 0 0" }}>
             {t("activeSchema", {
               version: schemaQuery.data.schemaVersion,
               sections: schemaQuery.data.astTotals.sections,
@@ -198,14 +194,12 @@ export default function QuestionnairesPage() {
           }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-            <div style={{ background: "var(--cam-surface-subtle)", padding: "0.75rem 1rem", borderRadius: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>
-                  {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
-                </span>
+            <div>
+              <div className="cam-admin-strong">
+                {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
               </div>
-              <div className="cam-admin-meta" style={{ marginTop: "4px" }}>
-                {t("entityTypeLine")} <code>{selectedPreview.formType}</code> &middot; {t("exportFormatLine")}
+              <div className="cam-admin-meta">
+                {t("entityTypeLine")} <code className="cam-admin-code">{selectedPreview.formType}</code> &middot; {t("exportFormatLine")}
               </div>
             </div>
 
@@ -219,33 +213,27 @@ export default function QuestionnairesPage() {
                   {schemaQuery.data.entities[selectedPreview.schemaKey].sections.map((sec) => (
                     <div
                       key={sec.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "0.75rem",
-                        borderRadius: "6px",
-                        background: "var(--cam-surface)",
-                        border: "1px solid var(--cam-border)",
-                      }}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--cam-text)" }}>
+                        {/* The section title is AST data, rendered as the schema
+                            carries it in the console locale. */}
+                        <div className="cam-admin-strong">
                           {(sec.title ? localized(sec.title, locale) : "") || sec.id}
                         </div>
-                        <div className="cam-admin-meta" style={{ fontSize: "0.75rem" }}>
-                          {t("sectionId")} <code>{sec.id}</code>
+                        <div className="cam-admin-meta">
+                          {t("sectionId")} <code className="cam-admin-code">{sec.id}</code>
                           {sec.order !== null ? t("sectionOrder", { order: sec.order }) : ""}
                         </div>
                       </div>
-                      <span className="cam-admin-meta" style={{ fontWeight: 600 }}>
+                      <span className="cam-admin-meta cam-admin-strong" style={{ whiteSpace: "nowrap" }}>
                         {t("fieldCount", { count: sec.fields.length })}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="cam-admin-meta">
+                <p className="cam-admin-meta" style={{ margin: 0 }}>
                   {schemaQuery.isLoading
                     ? t("loadingStructure")
                     : t("noStructure")}
