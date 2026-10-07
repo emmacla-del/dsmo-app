@@ -289,6 +289,24 @@
   --vt-sidebar-width: 280px;
   --vt-content-max: 940px;
   --vt-font: var(--cam-font-sans);
+
+  /* ── Respondent tokens recorded from live fallbacks ──
+     These names were referenced in the questionnaire and /home code with a
+     hex fallback but never defined, so the fallback was what rendered. Each
+     is defined here with that rendered value (the majority value where two
+     call sites disagreed), so the name is real and nothing visibly moves.
+     They are a record of what the respondent side shows, not new palette
+     choices: --cam-primary in particular is a Tailwind blue on the locale
+     switcher, not the brand primary (--cam-green). Redirecting them onto
+     the core palette belongs with the wizard restyle's UX review. */
+  --cam-border-subtle: #eef0eb;
+  --cam-surface-2: #f1f5f9;
+  --cam-bg-subtle: #f8fafc;
+  --cam-primary: #1d4ed8;
+  --cam-amber-bg: #fff8e6;
+  --cam-amber-border: #fcd34d;
+  --cam-amber-badge: #fef3c7;
+  --cam-amber-text: #92400e;
 }
 
 .vt-wizard {

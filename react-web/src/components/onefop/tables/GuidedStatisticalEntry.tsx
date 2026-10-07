@@ -552,7 +552,7 @@ export function GuidedStatisticalEntry({
           </div>
         )}
 
-        <div className="bg-white border border-[var(--cam-border)] rounded-[8px] divide-y divide-[var(--cam-border-subtle,#eef0eb)]">
+        <div className="bg-white border border-[var(--cam-border)] rounded-[8px] divide-y divide-[var(--cam-border-subtle)]">
           {groups.map((g) => (
             <div key={g.title} className="px-4 sm:px-5 py-3">
               <div className="text-[13px] font-bold text-[var(--cam-text)] mb-1">{g.title}</div>
@@ -667,7 +667,7 @@ export function GuidedStatisticalEntry({
         className="flex flex-col gap-5 bg-white border border-[var(--cam-border)] rounded-[8px] p-5 sm:p-7"
       >
         {/* ── Context: group being asked about ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-[6px] bg-[var(--cam-surface-subtle)] border border-[var(--cam-border-subtle,#eef0eb)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-[6px] bg-[var(--cam-surface-subtle)] border border-[var(--cam-border-subtle)]">
           <div className="text-[15px] font-bold text-[var(--cam-text)]">
             {q.categoryTag || q.rowLabel}
             {q.dimensionTag && <span className="font-semibold"> · {q.dimensionTag}</span>}
@@ -776,7 +776,7 @@ export function GuidedStatisticalEntry({
 
         {/* ── Women / men split (other gender deduced) ── */}
         {hasMultipleBreakdowns && targetNum !== null && targetNum > 0 && isGenderSplit && (
-          <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle,#e2e7df)] flex flex-col gap-2.5">
+          <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle)] flex flex-col gap-2.5">
             <label
               htmlFor={`${baseId}_${q.id}_split`}
               className="text-sm sm:text-base font-semibold text-[var(--cam-text)]"
@@ -836,7 +836,7 @@ export function GuidedStatisticalEntry({
         {hasMultipleBreakdowns && targetNum !== null && targetNum > 0 && !isGenderSplit && (() => {
           const sum = qBreakdowns.reduce((acc, b) => acc + (b.value ?? 0), 0);
           return (
-            <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle,#e2e7df)] flex flex-col gap-3">
+            <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle)] flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-[var(--cam-text)] m-0">{q.subPrompt}</p>
                 {sum === targetNum ? (

@@ -44,7 +44,7 @@ export function LocaleSwitcher({ variant = "default" }: { variant?: "default" | 
                 : "1px solid var(--cam-border)",
               background: isMasthead
                 ? isCurrent ? "#ffffff" : "transparent"
-                : isCurrent ? "var(--cam-primary, #1d4ed8)" : "transparent",
+                : isCurrent ? "var(--cam-primary)" : "transparent",
               color: isMasthead
                 ? isCurrent ? "#0e3d23" : "#ffffff"
                 : isCurrent ? "#fff" : "inherit",
