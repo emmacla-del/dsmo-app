@@ -126,6 +126,21 @@ const REGISTRATION_METHOD_LABELS_EN: Record<string, string> = {
   INVITATION_LINK: "Group link",
 };
 
+/**
+ * Days a pending company file may wait for a reviewer before it counts as
+ * left waiting. Mirrors REGISTRATION_OVERDUE_DAYS in
+ * src/auth/registration-overdue.ts, which decides the `overdue` flag; this
+ * copy only words the labels.
+ */
+export const REGISTRATION_OVERDUE_DAYS = 7;
+
+/** Whole days a file has been waiting, for its "En retard" badge. */
+export function daysWaiting(since: string | null, now: Date = new Date()): number | null {
+  if (!since) return null;
+  const ms = now.getTime() - new Date(since).getTime();
+  return ms >= 0 ? Math.floor(ms / 86_400_000) : 0;
+}
+
 /** The badge label for a method, or null when the account predates tracking. */
 export function registrationMethodLabel(method: string | null | undefined, locale: UiLocale = "fr"): string | null {
   if (!method) return null;
