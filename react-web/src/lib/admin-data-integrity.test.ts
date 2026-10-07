@@ -16,6 +16,7 @@ import {
   meterWidth,
   stamp,
   shortStamp,
+  clockTime,
   elapsedSince,
   resolveDataState,
   dataStateMessage,
@@ -417,4 +418,13 @@ test("pilotage data rules: national actors truthfully read national stats", () =
     : null;
 
   assert.equal(totalInscriptions, 4500);
+});
+
+test("clockTime: time to the second in the console locale, neutral when absent", () => {
+  const d = new Date(2026, 9, 7, 9, 5, 3);
+  assert.equal(clockTime(d, "fr"), "09:05:03");
+  assert.equal(clockTime(d, "en"), "09:05:03");
+  assert.equal(clockTime(d.toISOString(), "fr"), "09:05:03");
+  assert.equal(clockTime(null), NOT_PROVIDED);
+  assert.equal(clockTime("not a date"), NOT_PROVIDED);
 });
