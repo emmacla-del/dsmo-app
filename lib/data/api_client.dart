@@ -217,42 +217,6 @@ class ApiClient {
 
   // ==================== AUTH METHODS ====================
 
-  Future<Map<String, dynamic>> registerMinefopUser({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String role,
-    String? region,
-    String? department,
-    String? matricule,
-    String? poste,
-    String? serviceCode,
-    String? positionType,
-  }) async {
-    try {
-      final response = await dio.post('/auth/register', data: {
-        'email': email,
-        'password': password,
-        'firstName': firstName,
-        'lastName': lastName,
-        'role': role,
-        if (region != null) 'region': region,
-        if (department != null) 'department': department,
-        if (matricule != null) 'matricule': matricule,
-        if (poste != null) 'poste': poste,
-        if (serviceCode != null) 'serviceCode': serviceCode,
-        if (positionType != null) 'positionType': positionType,
-      });
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
-  }
-
   /// SUPER_ADMIN-only: creates a MINEFOP agent account directly (skips the
   /// PENDING_APPROVAL step). Returns `{'user': {...}, 'temporaryPassword': '...'}`
   /// — the password is only ever returned this once, so the caller must show
@@ -417,34 +381,6 @@ class ApiClient {
         message: _handleError(e),
       );
     }
-  }
-
-  @Deprecated(
-      'Use registerCompany() for COMPANY users or registerMinefopUser() for MINEFOP users')
-  Future<Map<String, dynamic>> register({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String role,
-    String? region,
-    String? department,
-    String? matricule,
-    String? poste,
-    String? serviceCode,
-  }) async {
-    return registerMinefopUser(
-      email: email,
-      password: password,
-      firstName: firstName,
-      lastName: lastName,
-      role: role,
-      region: region,
-      department: department,
-      matricule: matricule,
-      poste: poste,
-      serviceCode: serviceCode,
-    );
   }
 
   Future<Map<String, dynamic>> login({
