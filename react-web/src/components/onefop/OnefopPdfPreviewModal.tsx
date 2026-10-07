@@ -146,15 +146,15 @@ export function OnefopPdfPreviewModal({
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          border: "1px solid var(--cam-border)",
         }}
       >
         {/* ── HEADER ── */}
         <header
           style={{
             padding: "12px 20px",
-            background: "var(--cam-surface, #ffffff)",
-            borderBottom: "1px solid var(--cam-border, #e5eae7)",
+            background: "var(--cam-surface)",
+            borderBottom: "1px solid var(--cam-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -171,13 +171,13 @@ export function OnefopPdfPreviewModal({
                   fontSize: 16,
                   fontWeight: 700,
                   margin: 0,
-                  color: "var(--cam-text, #0b1f14)",
+                  color: "var(--cam-text)",
                   letterSpacing: "-0.01em",
                 }}
               >
                 {isFr ? "Vérification officielle avant soumission" : "Official Review before Final Submission"}
               </h2>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {establishmentName ? `${establishmentName} • ` : ""}
                 {quarterCode || (isFr ? "Période active" : "Active period")}
               </div>
@@ -190,10 +190,10 @@ export function OnefopPdfPreviewModal({
             <div
               style={{
                 display: "inline-flex",
-                background: "var(--cam-bg, #f3f5f1)",
+                background: "var(--cam-bg)",
                 borderRadius: "6px",
                 padding: "2px",
-                border: "1px solid var(--cam-border, #d8ddd3)",
+                border: "1px solid var(--cam-border)",
               }}
             >
               <button
@@ -201,8 +201,8 @@ export function OnefopPdfPreviewModal({
                 onClick={() => handleSwitchLocale("fr")}
                 style={{
                   border: "none",
-                  background: activeLocale === "fr" ? "var(--cam-green, #1e6b3a)" : "transparent",
-                  color: activeLocale === "fr" ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                  background: activeLocale === "fr" ? "var(--cam-green)" : "transparent",
+                  color: activeLocale === "fr" ? "#ffffff" : "var(--cam-text)",
                   fontWeight: activeLocale === "fr" ? 700 : 500,
                   fontSize: 12,
                   padding: "4px 10px",
@@ -218,8 +218,8 @@ export function OnefopPdfPreviewModal({
                 onClick={() => handleSwitchLocale("en")}
                 style={{
                   border: "none",
-                  background: activeLocale === "en" ? "var(--cam-green, #1e6b3a)" : "transparent",
-                  color: activeLocale === "en" ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                  background: activeLocale === "en" ? "var(--cam-green)" : "transparent",
+                  color: activeLocale === "en" ? "#ffffff" : "var(--cam-text)",
                   fontWeight: activeLocale === "en" ? 700 : 500,
                   fontSize: 12,
                   padding: "4px 10px",
@@ -239,8 +239,8 @@ export function OnefopPdfPreviewModal({
               aria-label={isFr ? "Fermer" : "Close"}
               style={{
                 background: "transparent",
-                border: "1px solid var(--cam-border, #d8ddd3)",
-                color: "var(--cam-text-muted, #4a5a50)",
+                border: "1px solid var(--cam-border)",
+                color: "var(--cam-text-muted)",
                 borderRadius: "6px",
                 width: 34,
                 height: 34,
@@ -274,7 +274,7 @@ export function OnefopPdfPreviewModal({
               margin: 0,
               fontSize: 13,
               lineHeight: 1.4,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
             }}
           >
             <strong>
@@ -282,7 +282,7 @@ export function OnefopPdfPreviewModal({
                 ? "Vérifiez attentivement les informations ci-dessous avant de soumettre définitivement."
                 : "Review the information below carefully before submitting permanently."}
             </strong>{" "}
-            <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>
+            <span style={{ color: "var(--cam-text-muted)" }}>
               {isFr
                 ? "Ce document représente la version officielle qui sera archivée et transmise aux services statistiques du MINEFOP."
                 : "This document represents the official legal copy that will be archived and filed with MINEFOP statistical services."}
@@ -321,17 +321,17 @@ export function OnefopPdfPreviewModal({
                   width: 36,
                   height: 36,
                   border: "3px solid #d8ddd3",
-                  borderTopColor: "var(--cam-green, #1e6b3a)",
+                  borderTopColor: "var(--cam-green)",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
                 }}
               />
               <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
               <div style={{ textAlign: "center" }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
                   {isFr ? "Génération de l'aperçu PDF officiel..." : "Generating official PDF preview..."}
                 </p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--cam-text-muted, #4a5a50)" }}>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--cam-text-muted)" }}>
                   {isFr
                     ? "Mise en page réglementaire Handlebars & Puppeteer"
                     : "Official Handlebars & Puppeteer layout rendering"}
@@ -355,14 +355,14 @@ export function OnefopPdfPreviewModal({
               <h3 style={{ margin: "10px 0 6px", fontSize: 15, fontWeight: 700, color: "#d9530f" }}>
                 {isFr ? "Erreur de chargement de l'aperçu" : "Preview Loading Error"}
               </h3>
-              <p style={{ fontSize: 13, color: "var(--cam-text-muted, #4a5a50)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {loadError}
               </p>
               <button
                 type="button"
                 onClick={() => loadPdf(activeLocale)}
                 style={{
-                  background: "var(--cam-green, #1e6b3a)",
+                  background: "var(--cam-green)",
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "4px",
@@ -443,8 +443,8 @@ export function OnefopPdfPreviewModal({
         <footer
           style={{
             padding: "12px 20px",
-            background: "var(--cam-surface, #ffffff)",
-            borderTop: "1px solid var(--cam-border, #e5eae7)",
+            background: "var(--cam-surface)",
+            borderTop: "1px solid var(--cam-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -460,8 +460,8 @@ export function OnefopPdfPreviewModal({
             disabled={isSubmitting}
             style={{
               background: "transparent",
-              border: "1px solid var(--cam-border, #d8ddd3)",
-              color: "var(--cam-text, #0b1f14)",
+              border: "1px solid var(--cam-border)",
+              color: "var(--cam-text)",
               borderRadius: "6px",
               padding: "10px 20px",
               fontSize: 14,
@@ -484,9 +484,9 @@ export function OnefopPdfPreviewModal({
               onClick={handleDownload}
               disabled={loading || !blobUrl || isSubmitting}
               style={{
-                background: "var(--cam-surface, #ffffff)",
-                border: "1px solid var(--cam-border, #d8ddd3)",
-                color: "var(--cam-text, #0b1f14)",
+                background: "var(--cam-surface)",
+                border: "1px solid var(--cam-border)",
+                color: "var(--cam-text)",
                 borderRadius: "6px",
                 padding: "10px 20px",
                 fontSize: 14,
@@ -508,7 +508,7 @@ export function OnefopPdfPreviewModal({
                 onClick={() => onSubmitFinal()}
                 disabled={loading || isSubmitting}
                 style={{
-                  background: "var(--cam-green, #1e6b3a)",
+                  background: "var(--cam-green)",
                   border: "none",
                   color: "#ffffff",
                   borderRadius: "6px",

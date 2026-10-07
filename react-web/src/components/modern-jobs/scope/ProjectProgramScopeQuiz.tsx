@@ -414,8 +414,8 @@ export function ProjectProgramScopeQuiz({
       {/* Quiz Banner / Header */}
       <div
         style={{
-          background: "var(--cam-surface, #ffffff)",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 28px)",
           marginBottom: 24,
@@ -430,7 +430,7 @@ export function ProjectProgramScopeQuiz({
                 padding: "3px 10px",
                 borderRadius: "var(--cam-radius-full, 9999px)",
                 background: "rgba(30, 107, 58, 0.12)",
-                color: "var(--cam-green, #1e6b3a)",
+                color: "var(--cam-green)",
                 fontSize: 12,
                 fontWeight: 700,
                 letterSpacing: "0.04em",
@@ -445,7 +445,7 @@ export function ProjectProgramScopeQuiz({
                 fontSize: "clamp(20px, 3vw, 24px)",
                 fontWeight: 800,
                 margin: "0 0 8px",
-                color: "var(--cam-text, #0b1f14)",
+                color: "var(--cam-text)",
                 lineHeight: 1.25,
               }}
             >
@@ -456,7 +456,7 @@ export function ProjectProgramScopeQuiz({
             <p
               style={{
                 fontSize: 14,
-                color: "var(--cam-text-muted, #4a5a50)",
+                color: "var(--cam-text-muted)",
                 lineHeight: 1.5,
                 margin: 0,
                 maxWidth: 720,
@@ -471,18 +471,18 @@ export function ProjectProgramScopeQuiz({
           {establishmentName && (
             <div
               style={{
-                background: "var(--cam-surface-subtle, #fbfbf9)",
-                border: "1px solid var(--cam-border, #d8ddd3)",
+                background: "var(--cam-surface-subtle)",
+                border: "1px solid var(--cam-border)",
                 borderRadius: "var(--cam-radius-control, 6px)",
                 padding: "8px 14px",
                 fontSize: 12,
-                color: "var(--cam-text-muted, #4a5a50)",
+                color: "var(--cam-text-muted)",
               }}
             >
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
                 {isEn ? "Structure" : "Structure"}
               </div>
-              <div style={{ fontWeight: 700, color: "var(--cam-text, #0b1f14)", marginTop: 2 }}>
+              <div style={{ fontWeight: 700, color: "var(--cam-text)", marginTop: 2 }}>
                 {establishmentName}
               </div>
             </div>
@@ -498,7 +498,7 @@ export function ProjectProgramScopeQuiz({
               background: "rgba(30, 107, 58, 0.08)",
               border: "1px solid rgba(30, 107, 58, 0.25)",
               fontSize: 13,
-              color: "var(--cam-green-dark, #144a28)",
+              color: "var(--cam-green-dark)",
               display: "flex",
               alignItems: "center",
               gap: 8,
@@ -518,8 +518,8 @@ export function ProjectProgramScopeQuiz({
       <section
         aria-labelledby="quiz-part1-title"
         style={{
-          background: "var(--cam-surface, #ffffff)",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
           marginBottom: 20,
@@ -532,8 +532,8 @@ export function ProjectProgramScopeQuiz({
               width: 28,
               height: 28,
               borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart1Complete ? "var(--cam-green, #1e6b3a)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart1Complete ? "#ffffff" : "var(--cam-text, #0b1f14)",
+              background: isPart1Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
+              color: isPart1Complete ? "#ffffff" : "var(--cam-text)",
               display: "grid",
               placeItems: "center",
               fontSize: 13,
@@ -547,7 +547,7 @@ export function ProjectProgramScopeQuiz({
             style={{
               fontSize: 17,
               fontWeight: 800,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               margin: 0,
             }}
           >
@@ -559,7 +559,7 @@ export function ProjectProgramScopeQuiz({
         <p
           style={{
             fontSize: 13.5,
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             lineHeight: 1.5,
             margin: "0 0 16px 38px",
           }}
@@ -582,9 +582,9 @@ export function ProjectProgramScopeQuiz({
                   padding: "12px 14px",
                   borderRadius: "var(--cam-radius-control, 6px)",
                   border: isChecked
-                    ? "2px solid var(--cam-green, #1e6b3a)"
-                    : "1px solid var(--cam-border, #d8ddd3)",
-                  background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface, #ffffff)",
+                    ? "2px solid var(--cam-green)"
+                    : "1px solid var(--cam-border)",
+                  background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                 }}
@@ -597,15 +597,15 @@ export function ProjectProgramScopeQuiz({
                     marginTop: 3,
                     width: 18,
                     height: 18,
-                    accentColor: "var(--cam-green, #1e6b3a)",
+                    accentColor: "var(--cam-green)",
                     cursor: "pointer",
                   }}
                 />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
                     {isEn ? opt.titleEn : opt.titleFr}
                   </div>
-                  <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+                  <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                     {isEn ? opt.descEn : opt.descFr}
                   </div>
                 </div>
@@ -622,9 +622,9 @@ export function ProjectProgramScopeQuiz({
               padding: "12px 14px",
               borderRadius: "var(--cam-radius-control, 6px)",
               border: noOutcomes
-                ? "2px solid var(--cam-green, #1e6b3a)"
-                : "1px dashed var(--cam-border-strong, #aab5a3)",
-              background: noOutcomes ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface-subtle, #fbfbf9)",
+                ? "2px solid var(--cam-green)"
+                : "1px dashed var(--cam-border-strong)",
+              background: noOutcomes ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface-subtle)",
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
@@ -637,17 +637,17 @@ export function ProjectProgramScopeQuiz({
                 marginTop: 3,
                 width: 18,
                 height: 18,
-                accentColor: "var(--cam-green, #1e6b3a)",
+                accentColor: "var(--cam-green)",
                 cursor: "pointer",
               }}
             />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
                 {isEn
                   ? "No beneficiaries placed or trained during this period"
                   : "Aucun bénéficiaire inséré ou formé au cours de la période"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {isEn
                   ? "Select this option if no outcome has been recorded yet. Realizations will be initialized to 0."
                   : "Sélectionnez cette option si aucun résultat n'a été enregistré. Les réalisations de la période seront initialisées à 0."}
@@ -661,8 +661,8 @@ export function ProjectProgramScopeQuiz({
       <section
         aria-labelledby="quiz-part2-title"
         style={{
-          background: "var(--cam-surface, #ffffff)",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
           marginBottom: 20,
@@ -675,8 +675,8 @@ export function ProjectProgramScopeQuiz({
               width: 28,
               height: 28,
               borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart2Complete ? "var(--cam-green, #1e6b3a)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart2Complete ? "#ffffff" : "var(--cam-text, #0b1f14)",
+              background: isPart2Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
+              color: isPart2Complete ? "#ffffff" : "var(--cam-text)",
               display: "grid",
               placeItems: "center",
               fontSize: 13,
@@ -690,7 +690,7 @@ export function ProjectProgramScopeQuiz({
             style={{
               fontSize: 17,
               fontWeight: 800,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               margin: 0,
             }}
           >
@@ -702,7 +702,7 @@ export function ProjectProgramScopeQuiz({
         <p
           style={{
             fontSize: 13.5,
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             lineHeight: 1.5,
             margin: "0 0 18px 38px",
           }}
@@ -718,18 +718,18 @@ export function ProjectProgramScopeQuiz({
             style={{
               padding: "16px",
               borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border, #d8ddd3)",
-              background: "var(--cam-surface-subtle, #fbfbf9)",
+              border: "1px solid var(--cam-border)",
+              background: "var(--cam-surface-subtle)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
                   {isEn
                     ? "2.1 Permanent staff (open-ended contract or civil servant) — Table 4.1"
                     : "2.1 Personnel permanent (CDI ou statutaire) — Tableau 4.1"}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
                     ? "Personnel holding open-ended employment contracts or permanent statutory appointment."
                     : "Personnel titulaire d'un contrat à durée indéterminée ou d'un statut permanent dans la structure."}
@@ -743,10 +743,10 @@ export function ProjectProgramScopeQuiz({
                     padding: "8px 18px",
                     borderRadius: "var(--cam-radius-sm, 6px)",
                     border: hasPermanentStaff === true
-                      ? "2px solid var(--cam-green, #1e6b3a)"
-                      : "1px solid var(--cam-border, #d8ddd3)",
-                    background: hasPermanentStaff === true ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                    color: hasPermanentStaff === true ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                      ? "2px solid var(--cam-green)"
+                      : "1px solid var(--cam-border)",
+                    background: hasPermanentStaff === true ? "var(--cam-green)" : "#ffffff",
+                    color: hasPermanentStaff === true ? "#ffffff" : "var(--cam-text)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -762,10 +762,10 @@ export function ProjectProgramScopeQuiz({
                     padding: "8px 18px",
                     borderRadius: "var(--cam-radius-sm, 6px)",
                     border: hasPermanentStaff === false
-                      ? "2px solid var(--cam-green, #1e6b3a)"
-                      : "1px solid var(--cam-border, #d8ddd3)",
-                    background: hasPermanentStaff === false ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                    color: hasPermanentStaff === false ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                      ? "2px solid var(--cam-green)"
+                      : "1px solid var(--cam-border)",
+                    background: hasPermanentStaff === false ? "var(--cam-green)" : "#ffffff",
+                    color: hasPermanentStaff === false ? "#ffffff" : "var(--cam-text)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -777,14 +777,14 @@ export function ProjectProgramScopeQuiz({
               </div>
             </div>
             {hasPermanentStaff === true && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-green, #1e6b3a)", fontWeight: 600 }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-green)", fontWeight: 600 }}>
                 {isEn
                   ? "✓ Table 4.1 will be open for breakdown by CSP, sex, and age."
                   : "✓ Le tableau 4.1 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
               </div>
             )}
             {hasPermanentStaff === false && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-text-muted, #4a5a50)" }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-text-muted)" }}>
                 {isEn
                   ? "Table 4.1 will be recorded as None (cells initialized to zero)."
                   : "Le tableau 4.1 sera enregistré à Néant (cellules initialisées à zéro)."}
@@ -797,18 +797,18 @@ export function ProjectProgramScopeQuiz({
             style={{
               padding: "16px",
               borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border, #d8ddd3)",
-              background: "var(--cam-surface-subtle, #fbfbf9)",
+              border: "1px solid var(--cam-border)",
+              background: "var(--cam-surface-subtle)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
                   {isEn
                     ? "2.2 Temporary staff (fixed-term, seasonal, consultant) — Table 4.2"
                     : "2.2 Personnel temporaire (CDD, vacataires, consultants) — Tableau 4.2"}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
                     ? "Personnel holding fixed-term contracts, service providers, or casual staff."
                     : "Personnel sous contrat à durée déterminée, vacataires, consultants ou saisonniers."}
@@ -822,10 +822,10 @@ export function ProjectProgramScopeQuiz({
                     padding: "8px 18px",
                     borderRadius: "var(--cam-radius-sm, 6px)",
                     border: hasTemporaryStaff === true
-                      ? "2px solid var(--cam-green, #1e6b3a)"
-                      : "1px solid var(--cam-border, #d8ddd3)",
-                    background: hasTemporaryStaff === true ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                    color: hasTemporaryStaff === true ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                      ? "2px solid var(--cam-green)"
+                      : "1px solid var(--cam-border)",
+                    background: hasTemporaryStaff === true ? "var(--cam-green)" : "#ffffff",
+                    color: hasTemporaryStaff === true ? "#ffffff" : "var(--cam-text)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -841,10 +841,10 @@ export function ProjectProgramScopeQuiz({
                     padding: "8px 18px",
                     borderRadius: "var(--cam-radius-sm, 6px)",
                     border: hasTemporaryStaff === false
-                      ? "2px solid var(--cam-green, #1e6b3a)"
-                      : "1px solid var(--cam-border, #d8ddd3)",
-                    background: hasTemporaryStaff === false ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                    color: hasTemporaryStaff === false ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                      ? "2px solid var(--cam-green)"
+                      : "1px solid var(--cam-border)",
+                    background: hasTemporaryStaff === false ? "var(--cam-green)" : "#ffffff",
+                    color: hasTemporaryStaff === false ? "#ffffff" : "var(--cam-text)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -856,14 +856,14 @@ export function ProjectProgramScopeQuiz({
               </div>
             </div>
             {hasTemporaryStaff === true && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-green, #1e6b3a)", fontWeight: 600 }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-green)", fontWeight: 600 }}>
                 {isEn
                   ? "✓ Table 4.2 will be open for breakdown by CSP, sex, and age."
                   : "✓ Le tableau 4.2 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
               </div>
             )}
             {hasTemporaryStaff === false && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-text-muted, #4a5a50)" }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: "var(--cam-text-muted)" }}>
                 {isEn
                   ? "Table 4.2 will be recorded as None (cells initialized to zero)."
                   : "Le tableau 4.2 sera enregistré à Néant (cellules initialisées à zéro)."}
@@ -877,8 +877,8 @@ export function ProjectProgramScopeQuiz({
       <section
         aria-labelledby="quiz-part3-title"
         style={{
-          background: "var(--cam-surface, #ffffff)",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
           marginBottom: 24,
@@ -891,8 +891,8 @@ export function ProjectProgramScopeQuiz({
               width: 28,
               height: 28,
               borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart3Complete ? "var(--cam-green, #1e6b3a)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart3Complete ? "#ffffff" : "var(--cam-text, #0b1f14)",
+              background: isPart3Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
+              color: isPart3Complete ? "#ffffff" : "var(--cam-text)",
               display: "grid",
               placeItems: "center",
               fontSize: 13,
@@ -906,7 +906,7 @@ export function ProjectProgramScopeQuiz({
             style={{
               fontSize: 17,
               fontWeight: 800,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               margin: 0,
             }}
           >
@@ -926,19 +926,19 @@ export function ProjectProgramScopeQuiz({
               gap: 16,
               padding: "16px",
               borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border, #d8ddd3)",
-              background: "var(--cam-surface-subtle, #fbfbf9)",
+              border: "1px solid var(--cam-border)",
+              background: "var(--cam-surface-subtle)",
               marginBottom: 16,
               flexWrap: "wrap",
             }}
           >
             <div style={{ flex: "1 1 300px" }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
                 {isEn
                   ? "Did your structure or project carry out recruitments during the period (since January 1st)?"
                   : "Votre structure ou projet a-t-il effectué des recrutements durant la période (depuis le 1er janvier) ?"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {isEn
                   ? "Recruitments of permanent, temporary, disabled, or vulnerable workers."
                   : "Recrutements de nouveaux collaborateurs (permanents, temporaires, handicapés, vulnérables)."}
@@ -952,10 +952,10 @@ export function ProjectProgramScopeQuiz({
                   padding: "8px 18px",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   border: hasRecruitment === true
-                    ? "2px solid var(--cam-green, #1e6b3a)"
-                    : "1px solid var(--cam-border, #d8ddd3)",
-                  background: hasRecruitment === true ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                  color: hasRecruitment === true ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                    ? "2px solid var(--cam-green)"
+                    : "1px solid var(--cam-border)",
+                  background: hasRecruitment === true ? "var(--cam-green)" : "#ffffff",
+                  color: hasRecruitment === true ? "#ffffff" : "var(--cam-text)",
                   fontSize: 13,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -974,10 +974,10 @@ export function ProjectProgramScopeQuiz({
                   padding: "8px 18px",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   border: hasRecruitment === false
-                    ? "2px solid var(--cam-green, #1e6b3a)"
-                    : "1px solid var(--cam-border, #d8ddd3)",
-                  background: hasRecruitment === false ? "var(--cam-green, #1e6b3a)" : "#ffffff",
-                  color: hasRecruitment === false ? "#ffffff" : "var(--cam-text, #0b1f14)",
+                    ? "2px solid var(--cam-green)"
+                    : "1px solid var(--cam-border)",
+                  background: hasRecruitment === false ? "var(--cam-green)" : "#ffffff",
+                  color: hasRecruitment === false ? "#ffffff" : "var(--cam-text)",
                   fontSize: 13,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -997,7 +997,7 @@ export function ProjectProgramScopeQuiz({
                 background: "rgba(30, 107, 58, 0.08)",
                 border: "1px solid rgba(30, 107, 58, 0.2)",
                 fontSize: 13,
-                color: "var(--cam-green-dark, #144a28)",
+                color: "var(--cam-green-dark)",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -1018,7 +1018,7 @@ export function ProjectProgramScopeQuiz({
                 style={{
                   fontSize: 13.5,
                   fontWeight: 600,
-                  color: "var(--cam-text, #0b1f14)",
+                  color: "var(--cam-text)",
                   margin: "0 0 12px",
                 }}
               >
@@ -1039,9 +1039,9 @@ export function ProjectProgramScopeQuiz({
                         padding: "12px 14px",
                         borderRadius: "var(--cam-radius-control, 6px)",
                         border: isChecked
-                          ? "2px solid var(--cam-green, #1e6b3a)"
-                          : "1px solid var(--cam-border, #d8ddd3)",
-                        background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface, #ffffff)",
+                          ? "2px solid var(--cam-green)"
+                          : "1px solid var(--cam-border)",
+                        background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface)",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                       }}
@@ -1054,15 +1054,15 @@ export function ProjectProgramScopeQuiz({
                           marginTop: 3,
                           width: 18,
                           height: 18,
-                          accentColor: "var(--cam-green, #1e6b3a)",
+                          accentColor: "var(--cam-green)",
                           cursor: "pointer",
                         }}
                       />
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text, #0b1f14)" }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
                           {isEn ? opt.titleEn : opt.titleFr}
                         </div>
-                        <div style={{ fontSize: 12.5, color: "var(--cam-text-muted, #4a5a50)", marginTop: 2 }}>
+                        <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
                           {isEn ? opt.descEn : opt.descFr}
                         </div>
                       </div>
@@ -1078,7 +1078,7 @@ export function ProjectProgramScopeQuiz({
                     borderRadius: "var(--cam-radius-sm, 4px)",
                     background: "rgba(179, 38, 30, 0.08)",
                     border: "1px solid rgba(179, 38, 30, 0.3)",
-                    color: "var(--cam-error, #b3261e)",
+                    color: "var(--cam-error)",
                     fontSize: 12.5,
                     fontWeight: 600,
                   }}
@@ -1096,58 +1096,58 @@ export function ProjectProgramScopeQuiz({
       {/* Scope Summary Preview Box */}
       <div
         style={{
-          background: "var(--cam-surface-subtle, #fbfbf9)",
-          border: "1px solid var(--cam-border, #d8ddd3)",
+          background: "var(--cam-surface-subtle)",
+          border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "16px 20px",
           marginBottom: 24,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--cam-text-muted, #4a5a50)", marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--cam-text-muted)", marginBottom: 8 }}>
           {isEn ? "Statistical tables configuration" : "Configuration des tableaux statistiques"}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, fontSize: 12.5 }}>
           <div>
             <strong>{isEn ? "Section 3:" : "Section 3 :"}</strong>{" "}
             {noOutcomes
-              ? <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None (0)" : "Néant (0)"}</span>
-              : <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{outcomes.length} {isEn ? "outcome(s) active" : "objectif(s) actif(s)"}</span>}
+              ? <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None (0)" : "Néant (0)"}</span>
+              : <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{outcomes.length} {isEn ? "outcome(s) active" : "objectif(s) actif(s)"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.1 Permanent workers:" : "4.1 Permanents :"}</strong>{" "}
             {hasPermanentStaff === true
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.2 Temporary workers:" : "4.2 Temporaires :"}</strong>{" "}
             {hasTemporaryStaff === true
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.3 Permanent recruits:" : "4.3 Recrut. permanents :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("permanent")
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.4 Temporary recruits:" : "4.4 Recrut. temporaires :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("temporary")
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.5 Recruits with a disability:" : "4.5 Recrut. handicapés :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("disability")
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
             <strong>{isEn ? "4.6 Vulnerable recruits:" : "4.6 Recrut. vulnérables :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("vulnerable")
-              ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
+              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
+              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
         </div>
       </div>
@@ -1159,12 +1159,12 @@ export function ProjectProgramScopeQuiz({
           onClick={onBack}
           style={{
             background: "transparent",
-            border: "1px solid var(--cam-border, #d8ddd3)",
+            border: "1px solid var(--cam-border)",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "10px 20px",
             fontSize: 14,
             fontWeight: 600,
-            color: "var(--cam-text, #0b1f14)",
+            color: "var(--cam-text)",
             cursor: "pointer",
           }}
         >
@@ -1176,7 +1176,7 @@ export function ProjectProgramScopeQuiz({
           onClick={handleProceed}
           disabled={!isFormComplete}
           style={{
-            background: isFormComplete ? "var(--cam-green, #1e6b3a)" : "var(--cam-border-strong, #aab5a3)",
+            background: isFormComplete ? "var(--cam-green)" : "var(--cam-border-strong)",
             border: "none",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "11px 26px",
@@ -1210,8 +1210,8 @@ export function ProjectProgramScopeQuiz({
         >
           <div
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #cbd5e1)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "var(--cam-radius-md, 8px)",
               padding: "clamp(20px, 4vw, 28px)",
               maxWidth: 520,
@@ -1223,11 +1223,11 @@ export function ProjectProgramScopeQuiz({
               <span style={{ fontSize: 24 }} aria-hidden="true">
                 ⚠️
               </span>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text, #1c1f1d)" }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}>
                 {isEn ? "Confirm Nil Declaration" : "Confirmation d'une déclaration à néant"}
               </h3>
             </div>
-            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #4b5563)", lineHeight: 1.5, margin: "0 0 20px" }}>
+            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", lineHeight: 1.5, margin: "0 0 20px" }}>
               {isEn
                 ? "You have indicated no beneficiaries placed or trained, no permanent or temporary staff, and no recruitments during this period. All official statistical tables in Sections 3 and 4 will be recorded as None. Do you confirm this situation?"
                 : "Vous avez indiqué aucun bénéficiaire inséré ou formé, aucun personnel permanent ou temporaire, et aucun recrutement au cours de cette période. Tous les tableaux statistiques officiels des sections 3 et 4 seront enregistrés à néant. Confirmez-vous cette situation ?"}
@@ -1238,7 +1238,7 @@ export function ProjectProgramScopeQuiz({
                 onClick={() => setShowPlausibilityModal(false)}
                 style={{
                   background: "transparent",
-                  border: "1px solid var(--cam-border, #cbd5e1)",
+                  border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",
                   fontSize: 13,
@@ -1256,7 +1256,7 @@ export function ProjectProgramScopeQuiz({
                   onComplete();
                 }}
                 style={{
-                  background: "var(--cam-green, #1e6b3a)",
+                  background: "var(--cam-green)",
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",
@@ -1291,8 +1291,8 @@ export function ProjectProgramScopeQuiz({
         >
           <div
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #cbd5e1)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "var(--cam-radius-md, 8px)",
               padding: "clamp(20px, 4vw, 28px)",
               maxWidth: 520,
@@ -1304,11 +1304,11 @@ export function ProjectProgramScopeQuiz({
               <span style={{ fontSize: 24 }} aria-hidden="true">
                 ⚠️
               </span>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text, #1c1f1d)" }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}>
                 {isEn ? "Previously Entered Figures Will Be Cleared" : "Données déjà saisies non retenues"}
               </h3>
             </div>
-            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted, #4b5563)", lineHeight: 1.5, margin: "0 0 20px" }}>
+            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", lineHeight: 1.5, margin: "0 0 20px" }}>
               {isEn
                 ? "Certain tables or outcome categories for which numbers were previously entered are now deselected according to your quiz choices. These numbers will be cleared to zero. Do you wish to proceed?"
                 : "Certaines rubriques pour lesquelles des chiffres ont été saisis précédemment ne seront plus déposées conformément à vos choix dans le quiz. Ces chiffres seront réinitialisés à zéro. Souhaitez-vous continuer ?"}
@@ -1319,7 +1319,7 @@ export function ProjectProgramScopeQuiz({
                 onClick={() => setShowDroppedDataModal(false)}
                 style={{
                   background: "transparent",
-                  border: "1px solid var(--cam-border, #cbd5e1)",
+                  border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",
                   fontSize: 13,
@@ -1337,7 +1337,7 @@ export function ProjectProgramScopeQuiz({
                   onComplete();
                 }}
                 style={{
-                  background: "var(--cam-green, #1e6b3a)",
+                  background: "var(--cam-green)",
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",

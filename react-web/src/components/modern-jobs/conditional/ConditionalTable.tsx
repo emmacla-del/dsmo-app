@@ -52,7 +52,7 @@ export function ConditionalTable({
         style={{
           marginBottom: "var(--cam-space-6, 32px)",
           paddingBottom: "var(--cam-space-5, 24px)",
-          borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+          borderBottom: "1px solid var(--cam-border)",
         }}
       >
         {followUp && (
@@ -60,7 +60,7 @@ export function ConditionalTable({
             style={{
               fontSize: 14,
               fontWeight: 600,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               margin: "0 0 12px",
               lineHeight: 1.4,
             }}
@@ -77,7 +77,7 @@ export function ConditionalTable({
               borderRadius: "var(--cam-radius-sm, 4px)",
               background: "rgba(179, 38, 30, 0.08)",
               border: "1px solid rgba(179, 38, 30, 0.3)",
-              color: "var(--cam-error, #b3261e)",
+              color: "var(--cam-error)",
               fontSize: 13,
               fontWeight: 600,
               display: "flex",
@@ -99,7 +99,7 @@ export function ConditionalTable({
       style={{
         marginBottom: "var(--cam-space-6, 32px)",
         paddingBottom: "var(--cam-space-5, 24px)",
-        borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+        borderBottom: "1px solid var(--cam-border)",
       }}
     >
       <GatewayQuestion

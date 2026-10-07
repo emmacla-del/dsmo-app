@@ -293,7 +293,7 @@ function VtWizardStakeholderInformedCard({
             <tr
               style={{
                 backgroundColor: "var(--cam-bg-subtle, #f8fafc)",
-                borderBottom: "2px solid var(--cam-border, #e2e8f0)",
+                borderBottom: "2px solid var(--cam-border)",
               }}
             >
               <th
@@ -349,7 +349,7 @@ function VtWizardStakeholderInformedCard({
                 <tr
                   key={role.id}
                   style={{
-                    borderBottom: idx < stakeholders.length - 1 ? "1px solid var(--cam-border, #f1f5f9)" : "none",
+                    borderBottom: idx < stakeholders.length - 1 ? "1px solid var(--cam-border)" : "none",
                     backgroundColor: idx % 2 === 1 ? "rgba(248, 250, 252, 0.5)" : "#ffffff",
                     transition: "background-color 0.15s ease",
                   }}

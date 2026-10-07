@@ -43,8 +43,8 @@ export function FactsFrame({
       aria-label={title}
       className={className}
       style={{
-        background: "var(--cam-surface, #ffffff)",
-        border: "1px solid var(--cam-border, #cbd5e1)",
+        background: "var(--cam-surface)",
+        border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-md, 8px)",
         padding: "16px 18px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
@@ -53,7 +53,7 @@ export function FactsFrame({
     >
       <div
         style={{
-          borderBottom: "1px solid var(--cam-border, #e2e8f0)",
+          borderBottom: "1px solid var(--cam-border)",
           paddingBottom: 10,
           marginBottom: 12,
           display: "flex",
@@ -66,7 +66,7 @@ export function FactsFrame({
             margin: 0,
             fontSize: 14,
             fontWeight: 700,
-            color: "var(--cam-text, #1c1f1d)",
+            color: "var(--cam-text)",
           }}
         >
           {title}
@@ -83,7 +83,7 @@ export function FactsFrame({
             style={{
               background: "none",
               border: "none",
-              color: "var(--cam-green, #1a5c3a)",
+              color: "var(--cam-green)",
               fontSize: 11,
               fontWeight: 600,
               cursor: "pointer",
@@ -101,7 +101,7 @@ export function FactsFrame({
           style={{
             margin: 0,
             fontSize: 13,
-            color: "var(--cam-text-muted, #64748b)",
+            color: "var(--cam-text-muted)",
             fontStyle: "italic",
             lineHeight: 1.4,
             padding: "8px 0",
@@ -124,14 +124,14 @@ export function FactsFrame({
                   padding: "8px 10px",
                   borderRadius: 6,
                   border: isActive
-                    ? "1px solid var(--cam-green, #1a5c3a)"
+                    ? "1px solid var(--cam-green)"
                     : "1px solid transparent",
                   background: isActive
                     ? "var(--vt-accent-soft, #eaf3ec)"
                     : "transparent",
                   color: isActive
-                    ? "var(--cam-green, #1a5c3a)"
-                    : "var(--cam-text, #1c1f1d)",
+                    ? "var(--cam-green)"
+                    : "var(--cam-text)",
                   cursor: "pointer",
                   transition: "all 0.12s ease",
                   display: "flex",
@@ -151,7 +151,7 @@ export function FactsFrame({
                   <span
                     style={{
                       fontSize: 10,
-                      color: line.isAnswered ? "var(--cam-green, #1a5c3a)" : "var(--cam-text-muted, #94a3b8)",
+                      color: line.isAnswered ? "var(--cam-green)" : "var(--cam-text-muted)",
                     }}
                   >
                     {line.isAnswered ? "✓" : "○"}
@@ -162,10 +162,10 @@ export function FactsFrame({
                   style={{
                     fontSize: 12,
                     color: isActive
-                      ? "var(--cam-green, #1a5c3a)"
+                      ? "var(--cam-green)"
                       : line.isAnswered
-                        ? "var(--cam-text-muted, #4b5563)"
-                        : "var(--cam-text-muted, #94a3b8)",
+                        ? "var(--cam-text-muted)"
+                        : "var(--cam-text-muted)",
                     fontStyle: line.isAnswered ? "normal" : "italic",
                     lineHeight: 1.35,
                     paddingLeft: 14,

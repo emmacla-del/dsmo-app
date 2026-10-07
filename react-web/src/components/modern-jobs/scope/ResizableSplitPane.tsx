@@ -292,8 +292,8 @@ export function ResizableSplitPane({
             borderRadius: 3,
             background:
               isDraggingLeft || isHoveredLeft
-                ? "var(--cam-green, #1a5c3a)"
-                : "var(--cam-border, #cbd5e1)",
+                ? "var(--cam-green)"
+                : "var(--cam-border)",
             boxShadow: isDraggingLeft ? "0 0 0 3px rgba(26, 92, 58, 0.15)" : "none",
             transition: isDraggingLeft ? "none" : "all 0.15s ease",
           }}
@@ -307,9 +307,9 @@ export function ResizableSplitPane({
             width: 14,
             height: 44,
             borderRadius: "var(--cam-radius-full, 9999px)",
-            background: isDraggingLeft || isHoveredLeft ? "var(--cam-green, #1a5c3a)" : "var(--cam-surface, #ffffff)",
+            background: isDraggingLeft || isHoveredLeft ? "var(--cam-green)" : "var(--cam-surface)",
             border: `1.5px solid ${
-              isDraggingLeft || isHoveredLeft ? "var(--cam-green, #1a5c3a)" : "var(--cam-border, #cbd5e1)"
+              isDraggingLeft || isHoveredLeft ? "var(--cam-green)" : "var(--cam-border)"
             }`,
             boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
             display: "flex",
@@ -325,7 +325,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
           <span
@@ -333,7 +333,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
           <span
@@ -341,7 +341,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingLeft || isHoveredLeft ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
         </div>
@@ -413,8 +413,8 @@ export function ResizableSplitPane({
             borderRadius: 3,
             background:
               isDraggingRight || isHoveredRight
-                ? "var(--cam-green, #1a5c3a)"
-                : "var(--cam-border, #cbd5e1)",
+                ? "var(--cam-green)"
+                : "var(--cam-border)",
             boxShadow: isDraggingRight ? "0 0 0 3px rgba(26, 92, 58, 0.15)" : "none",
             transition: isDraggingRight ? "none" : "all 0.15s ease",
           }}
@@ -428,9 +428,9 @@ export function ResizableSplitPane({
             width: 14,
             height: 44,
             borderRadius: "var(--cam-radius-full, 9999px)",
-            background: isDraggingRight || isHoveredRight ? "var(--cam-green, #1a5c3a)" : "var(--cam-surface, #ffffff)",
+            background: isDraggingRight || isHoveredRight ? "var(--cam-green)" : "var(--cam-surface)",
             border: `1.5px solid ${
-              isDraggingRight || isHoveredRight ? "var(--cam-green, #1a5c3a)" : "var(--cam-border, #cbd5e1)"
+              isDraggingRight || isHoveredRight ? "var(--cam-green)" : "var(--cam-border)"
             }`,
             boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
             display: "flex",
@@ -446,7 +446,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
           <span
@@ -454,7 +454,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
           <span
@@ -462,7 +462,7 @@ export function ResizableSplitPane({
               width: 4,
               height: 1.5,
               borderRadius: 1,
-              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted, #94a3b8)",
+              background: isDraggingRight || isHoveredRight ? "#ffffff" : "var(--cam-text-muted)",
             }}
           />
         </div>

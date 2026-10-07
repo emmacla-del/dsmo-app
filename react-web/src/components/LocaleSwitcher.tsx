@@ -41,7 +41,7 @@ export function LocaleSwitcher({ variant = "default" }: { variant?: "default" | 
               borderRadius: isMasthead ? 4 : 6,
               border: isMasthead
                 ? isCurrent ? "1px solid #ffffff" : "1px solid rgba(255, 255, 255, 0.3)"
-                : "1px solid var(--cam-border, #d0d5dd)",
+                : "1px solid var(--cam-border)",
               background: isMasthead
                 ? isCurrent ? "#ffffff" : "transparent"
                 : isCurrent ? "var(--cam-primary, #1d4ed8)" : "transparent",

@@ -19,7 +19,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: "var(--cam-font-size-base, 0.9375rem)",
   fontWeight: 600,
   lineHeight: 1.4,
-  color: "var(--cam-text, #0b1f14)",
+  color: "var(--cam-text)",
   marginBottom: "var(--cam-space-2, 8px)",
 };
 

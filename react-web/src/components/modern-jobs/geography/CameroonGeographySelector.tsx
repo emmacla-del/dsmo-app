@@ -207,7 +207,7 @@ export function CameroonGeographySelector({
       }}
     >
       <div style={{ paddingTop: 4 }}>
-        <div style={{ fontSize: 12, color: "var(--cam-text-muted, #64748b)", marginBottom: 8, fontStyle: "italic" }}>
+        <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 8, fontStyle: "italic" }}>
           {t("dependsHint")}
         </div>
 
@@ -219,7 +219,7 @@ export function CameroonGeographySelector({
               display: "block",
               fontSize: "var(--cam-font-size-base, 0.9375rem)",
               fontWeight: 600,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               marginBottom: 4,
             }}
           >
@@ -285,7 +285,7 @@ export function CameroonGeographySelector({
                 display: "block",
                 fontSize: "var(--cam-font-size-base, 0.9375rem)",
                 fontWeight: 600,
-                color: !selectedRegionId ? "#94a3b8" : "var(--cam-text, #0b1f14)",
+                color: !selectedRegionId ? "#94a3b8" : "var(--cam-text)",
                 marginBottom: 4,
               }}
             >
@@ -352,7 +352,7 @@ export function CameroonGeographySelector({
                 display: "block",
                 fontSize: "var(--cam-font-size-base, 0.9375rem)",
                 fontWeight: 600,
-                color: !selectedDeptId ? "#94a3b8" : "var(--cam-text, #0b1f14)",
+                color: !selectedDeptId ? "#94a3b8" : "var(--cam-text)",
                 marginBottom: 4,
               }}
             >
@@ -410,7 +410,7 @@ export function CameroonGeographySelector({
               display: "block",
               fontSize: "var(--cam-font-size-base, 0.9375rem)",
               fontWeight: 600,
-              color: "var(--cam-text, #0b1f14)",
+              color: "var(--cam-text)",
               marginBottom: 4,
             }}
           >

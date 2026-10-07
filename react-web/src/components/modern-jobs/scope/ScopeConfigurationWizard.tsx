@@ -733,7 +733,7 @@ export function EventFactInterview({
           style={{
             fontSize: "clamp(20px, 2.5vw, 24px)",
             fontWeight: 700,
-            color: "var(--cam-text, #0b1f14)",
+            color: "var(--cam-text)",
             margin: "0 0 6px",
             letterSpacing: "-0.01em",
           }}
@@ -743,7 +743,7 @@ export function EventFactInterview({
         <p
           style={{
             fontSize: 14,
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             margin: 0,
             lineHeight: 1.5,
           }}
@@ -810,8 +810,8 @@ export function EventFactInterview({
         >
           <div
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #cbd5e1)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "var(--cam-radius-md, 8px)",
               padding: "clamp(20px, 4vw, 28px)",
               maxWidth: 520,
@@ -825,7 +825,7 @@ export function EventFactInterview({
               </span>
               <h3
                 id="dropped-data-modal-title"
-                style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text, #1c1f1d)" }}
+                style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}
               >
                 {t("excludedTitle")}
               </h3>
@@ -833,7 +833,7 @@ export function EventFactInterview({
             <p
               style={{
                 fontSize: 13.5,
-                color: "var(--cam-text-muted, #4b5563)",
+                color: "var(--cam-text-muted)",
                 lineHeight: 1.5,
                 margin: "0 0 20px",
               }}
@@ -849,7 +849,7 @@ export function EventFactInterview({
                 }}
                 style={{
                   background: "transparent",
-                  border: "1px solid var(--cam-border, #cbd5e1)",
+                  border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",
                   fontSize: 13,
@@ -874,7 +874,7 @@ export function EventFactInterview({
                   }
                 }}
                 style={{
-                  background: "var(--cam-green, #1a5c3a)",
+                  background: "var(--cam-green)",
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
@@ -910,8 +910,8 @@ export function EventFactInterview({
         >
           <div
             style={{
-              background: "var(--cam-surface, #ffffff)",
-              border: "1px solid var(--cam-border, #cbd5e1)",
+              background: "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
               borderRadius: "var(--cam-radius-md, 8px)",
               padding: "clamp(20px, 4vw, 28px)",
               maxWidth: 520,
@@ -924,7 +924,7 @@ export function EventFactInterview({
               style={{
                 fontSize: 17,
                 fontWeight: 800,
-                color: "var(--cam-text, #1c1f1d)",
+                color: "var(--cam-text)",
                 margin: "0 0 10px",
               }}
             >
@@ -933,7 +933,7 @@ export function EventFactInterview({
             <p
               style={{
                 fontSize: 13.5,
-                color: "var(--cam-text-muted, #4b5563)",
+                color: "var(--cam-text-muted)",
                 lineHeight: 1.5,
                 margin: "0 0 20px",
               }}
@@ -946,7 +946,7 @@ export function EventFactInterview({
                 onClick={() => setShowPlausibilityModal(false)}
                 style={{
                   background: "transparent",
-                  border: "1px solid var(--cam-border, #cbd5e1)",
+                  border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "8px 18px",
                   fontSize: 13,
@@ -960,7 +960,7 @@ export function EventFactInterview({
                 type="button"
                 onClick={handleConfirmGlobalNone}
                 style={{
-                  background: "var(--cam-green, #1a5c3a)",
+                  background: "var(--cam-green)",
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "8px 20px",

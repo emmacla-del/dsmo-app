@@ -55,8 +55,8 @@ export function ModernJobsNavigation({
         left: 0,
         right: 0,
         zIndex: 40,
-        background: "var(--cam-surface, #ffffff)",
-        borderTop: "1px solid var(--cam-border, #d8ddd3)",
+        background: "var(--cam-surface)",
+        borderTop: "1px solid var(--cam-border)",
         boxShadow: "0 -2px 8px rgba(0, 0, 0, 0.04)",
       }}
     >
@@ -73,7 +73,7 @@ export function ModernJobsNavigation({
           <div
             aria-hidden="true"
             style={{
-              borderRight: "1px solid var(--cam-border, #d8ddd3)",
+              borderRight: "1px solid var(--cam-border)",
               height: "100%",
               minHeight: 64,
             }}
@@ -109,7 +109,7 @@ export function ModernJobsNavigation({
               style={{
                 background: "transparent",
                 border: "none",
-                color: isFirst ? "var(--cam-border-strong, #aab5a3)" : "var(--cam-text-muted, #4a5a50)",
+                color: isFirst ? "var(--cam-border-strong)" : "var(--cam-text-muted)",
                 fontSize: "var(--cam-font-size-sm, 14px)",
                 fontWeight: 600,
                 fontFamily: "var(--cam-font-sans)",
@@ -132,7 +132,7 @@ export function ModernJobsNavigation({
               disabled={!canAdvance || isSubmitting}
               className="cam-hoverable"
               style={{
-                background: "var(--cam-green, #1e6b3a)",
+                background: "var(--cam-green)",
                 border: "none",
                 color: "#ffffff",
                 borderRadius: "var(--cam-radius-control, 6px)",

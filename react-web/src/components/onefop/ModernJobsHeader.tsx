@@ -62,7 +62,7 @@ export function ModernJobsHeader({
   return (
     <header
       style={{
-        background: "var(--cam-green-dark, #144a28)",
+        background: "var(--cam-green-dark)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
         boxShadow: "0 2px 8px rgba(11, 31, 20, 0.15)",
         position: "sticky",
@@ -72,9 +72,9 @@ export function ModernJobsHeader({
     >
       {/* Cameroon Tricolor Accent Bar */}
       <div style={{ height: 4, display: "flex", width: "100%" }}>
-        <div style={{ flex: 1, background: "var(--cam-flag-green, #0e5c2b)" }} />
-        <div style={{ flex: 1, background: "var(--cam-flag-red, #b3202c)" }} />
-        <div style={{ flex: 1, background: "var(--cam-flag-yellow, #f0b429)" }} />
+        <div style={{ flex: 1, background: "var(--cam-flag-green)" }} />
+        <div style={{ flex: 1, background: "var(--cam-flag-red)" }} />
+        <div style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
       </div>
 
       <style>{`
@@ -199,7 +199,7 @@ export function ModernJobsHeader({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "var(--cam-gold, #f0b429)",
+                color: "var(--cam-gold)",
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
               }}
@@ -236,7 +236,7 @@ export function ModernJobsHeader({
               whiteSpace: "nowrap",
             }}
           >
-            <span style={{ color: saving ? "var(--cam-gold, #f0b429)" : "var(--cam-success, #34d399)", fontSize: 12, lineHeight: 1, flexShrink: 0 }}>
+            <span style={{ color: saving ? "var(--cam-gold)" : "var(--cam-success)", fontSize: 12, lineHeight: 1, flexShrink: 0 }}>
               {saving ? "●" : "✓"}
             </span>
             <span style={{ opacity: 0.9 }}>

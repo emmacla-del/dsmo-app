@@ -78,14 +78,14 @@ export function ConditionalOptions({
               padding: "7px 10px",
               borderRadius: 4,
               border: isSelected
-                ? "1px solid var(--cam-green, #1a5c3a)"
-                : "1px solid var(--cam-border, #cbd5e1)",
+                ? "1px solid var(--cam-green)"
+                : "1px solid var(--cam-border)",
               background: isSelected
                 ? "var(--vt-accent-soft, #eaf3ec)"
-                : "var(--cam-surface, #ffffff)",
+                : "var(--cam-surface)",
               color: isSelected
-                ? "var(--cam-green, #1a5c3a)"
-                : "var(--cam-text, #1c1f1d)",
+                ? "var(--cam-green)"
+                : "var(--cam-text)",
               fontWeight: isSelected ? 600 : 400,
               fontSize: 13,
               cursor: "pointer",
@@ -102,8 +102,8 @@ export function ConditionalOptions({
                 style={{
                   fontSize: 11,
                   color: isSelected
-                    ? "var(--cam-green, #1a5c3a)"
-                    : "var(--cam-text-muted, #64748b)",
+                    ? "var(--cam-green)"
+                    : "var(--cam-text-muted)",
                   fontWeight: 400,
                 }}
               >

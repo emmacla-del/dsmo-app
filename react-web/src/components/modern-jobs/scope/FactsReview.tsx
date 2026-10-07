@@ -41,8 +41,8 @@ export function FactsReview({
   return (
     <div
       style={{
-        background: "var(--cam-surface, #ffffff)",
-        border: "1px solid var(--cam-border, #cbd5e1)",
+        background: "var(--cam-surface)",
+        border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-md, 8px)",
         padding: "clamp(20px, 4vw, 36px)",
         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -50,7 +50,7 @@ export function FactsReview({
     >
       <div
         style={{
-          borderBottom: "2px solid var(--cam-green, #1a5c3a)",
+          borderBottom: "2px solid var(--cam-green)",
           paddingBottom: 12,
           marginBottom: 20,
         }}
@@ -60,7 +60,7 @@ export function FactsReview({
             fontSize: 20,
             fontWeight: 800,
             margin: "0 0 6px",
-            color: "var(--cam-text, #1c1f1d)",
+            color: "var(--cam-text)",
           }}
         >
           {title}
@@ -68,7 +68,7 @@ export function FactsReview({
         <p
           style={{
             fontSize: 13,
-            color: "var(--cam-text-muted, #64748b)",
+            color: "var(--cam-text-muted)",
             margin: 0,
             lineHeight: 1.45,
           }}
@@ -120,7 +120,7 @@ export function FactsReview({
           flexWrap: "wrap",
           gap: 12,
           paddingTop: 16,
-          borderTop: "1px solid var(--cam-border, #e2e8f0)",
+          borderTop: "1px solid var(--cam-border)",
         }}
       >
         <button
@@ -128,12 +128,12 @@ export function FactsReview({
           onClick={onModify}
           style={{
             background: "transparent",
-            border: "1px solid var(--cam-border, #cbd5e1)",
+            border: "1px solid var(--cam-border)",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "9px 20px",
             fontSize: 13,
             fontWeight: 600,
-            color: "var(--cam-text, #1c1f1d)",
+            color: "var(--cam-text)",
             cursor: "pointer",
             transition: "all 0.15s ease",
           }}
@@ -145,7 +145,7 @@ export function FactsReview({
           onClick={onConfirmProceed}
           className="cam-hoverable"
           style={{
-            background: "var(--cam-green, #1a5c3a)",
+            background: "var(--cam-green)",
             border: "none",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "10px 22px",

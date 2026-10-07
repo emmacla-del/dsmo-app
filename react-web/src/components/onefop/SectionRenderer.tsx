@@ -486,8 +486,8 @@ export function SectionRenderer({
               padding: "8px 12px",
               borderRadius: "var(--cam-radius-sm, 6px)",
               background: "var(--vt-accent-soft, #eaf3ec)",
-              border: "1px solid var(--cam-green, #1a5c3a)",
-              color: "var(--cam-green, #1a5c3a)",
+              border: "1px solid var(--cam-green)",
+              color: "var(--cam-green)",
               fontSize: 12.5,
               fontWeight: 600,
             }}
@@ -513,9 +513,9 @@ export function SectionRenderer({
               gap: 8,
               padding: "8px 12px",
               borderRadius: "var(--cam-radius-sm, 6px)",
-              background: "var(--cam-success-bg, #eaf3ec)",
-              border: "1px solid var(--cam-green, #1e6b3a)",
-              color: "var(--cam-green, #1e6b3a)",
+              background: "var(--cam-success-bg)",
+              border: "1px solid var(--cam-green)",
+              color: "var(--cam-green)",
               fontSize: 12.5,
               fontWeight: 600,
             }}
@@ -573,7 +573,7 @@ export function SectionRenderer({
                 borderRadius: 0,
                 padding: "0 0 var(--cam-space-5, 24px) 0",
                 marginBottom: "var(--cam-space-5, 24px)",
-                borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border, #d8ddd3)" : "none",
+                borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
                 maxWidth: "840px",
               }
             : chunkHasTable
@@ -681,7 +681,7 @@ export function SectionRenderer({
         className="mj-section-masthead"
         data-collapse={isMultiTableSection ? "true" : "false"}
         style={{
-          borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+          borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-4, 16px)",
           marginBottom: "var(--cam-space-5, 24px)",
           width: "100%",
@@ -705,7 +705,7 @@ export function SectionRenderer({
                 fontFamily: "var(--cam-font-serif)",
                 fontSize: "var(--cam-font-size-xl, 1.5rem)",
                 fontWeight: 700,
-                color: "var(--cam-text, #0b1f14)",
+                color: "var(--cam-text)",
                 margin: 0,
                 lineHeight: 1.25,
                 textTransform: "uppercase",
@@ -720,7 +720,7 @@ export function SectionRenderer({
               style={{
                 fontFamily: "var(--cam-font-sans)",
                 fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                color: "var(--cam-text-muted, #4a5a50)",
+                color: "var(--cam-text-muted)",
                 margin: "var(--cam-space-1, 4px) 0 0 0",
               }}
             >
@@ -772,10 +772,10 @@ export function SectionRenderer({
             position: "sticky",
             top: "var(--mj-header-h, 0px)",
             zIndex: 30,
-            background: "var(--cam-bg, #fafaf7)",
+            background: "var(--cam-bg)",
             margin: "calc(-1 * var(--cam-space-3, 12px)) 0 var(--cam-space-3, 12px)",
             padding: "var(--cam-space-2, 8px) 0",
-            borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+            borderBottom: "1px solid var(--cam-border)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
@@ -802,26 +802,26 @@ export function SectionRenderer({
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
                   fontWeight: isCurrent ? 600 : 500,
                   background: isCurrent
-                    ? "var(--cam-green, #1e6b3a)"
+                    ? "var(--cam-green)"
                     : chunkHasError
-                      ? "var(--cam-error-bg, #fbeceb)"
+                      ? "var(--cam-error-bg)"
                       : chunkAllAnswered
-                        ? "var(--cam-success-bg, #eaf3ec)"
-                        : "var(--cam-surface, #ffffff)",
+                        ? "var(--cam-success-bg)"
+                        : "var(--cam-surface)",
                   color: isCurrent
                     ? "#ffffff"
                     : chunkHasError
-                      ? "var(--cam-error, #b3261e)"
+                      ? "var(--cam-error)"
                       : chunkAllAnswered
-                        ? "var(--cam-green, #1e6b3a)"
-                        : "var(--cam-text-muted, #4a5a50)",
+                        ? "var(--cam-green)"
+                        : "var(--cam-text-muted)",
                   border: isCurrent
-                    ? "1px solid var(--cam-green, #1e6b3a)"
+                    ? "1px solid var(--cam-green)"
                     : chunkHasError
-                      ? "1px solid var(--cam-error-border, #f2b8b5)"
+                      ? "1px solid var(--cam-error-border)"
                       : chunkAllAnswered
-                        ? "1px solid var(--cam-success-border, #c3e0cb)"
-                        : "1px solid var(--cam-border-strong, #aab5a3)",
+                        ? "1px solid var(--cam-success-border)"
+                        : "1px solid var(--cam-border-strong)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                   whiteSpace: "nowrap",
@@ -847,15 +847,15 @@ export function SectionRenderer({
               aria-label={t("shortcutsAria")}
               className="cam-hoverable"
               style={{
-                background: showShortcutsHelp ? "var(--cam-surface-subtle, #fbfbf9)" : "var(--cam-surface, #ffffff)",
-                border: "1px solid var(--cam-border, #d8ddd3)",
+                background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
+                border: "1px solid var(--cam-border)",
                 borderRadius: "var(--cam-radius-control, 6px)",
                 width: 32,
                 height: 32,
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--cam-text-muted, #4a5a50)",
+                color: "var(--cam-text-muted)",
                 cursor: "pointer",
               }}
             >
@@ -880,22 +880,22 @@ export function SectionRenderer({
           className="cam-panel-fade-in"
           style={{
             marginBottom: "var(--cam-space-3, 12px)",
-            background: "var(--cam-surface-subtle, #fbfbf9)",
-            border: "1px solid var(--cam-border, #d8ddd3)",
+            background: "var(--cam-surface-subtle)",
+            border: "1px solid var(--cam-border)",
             borderRadius: "var(--cam-radius-control, 6px)",
             padding: "10px 14px",
             fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-            color: "var(--cam-text, #0b1f14)",
+            color: "var(--cam-text)",
             display: "flex",
             flexWrap: "wrap",
             gap: 16,
           }}
         >
-          <div><kbd style={{ background: "var(--cam-border, #d8ddd3)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>Tab</kbd> : {t("shortcutNextCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border, #d8ddd3)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border, #d8ddd3)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border, #d8ddd3)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border, #d8ddd3)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>Tab</kbd> : {t("shortcutNextCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
         </div>
       )}
 
@@ -914,8 +914,8 @@ export function SectionRenderer({
       ) : section.id === "section0" ? (
         <div
           style={{
-            background: "var(--cam-surface, #ffffff)",
-            border: "var(--cam-border-width, 1px) solid var(--cam-border, #d8ddd3)",
+            background: "var(--cam-surface)",
+            border: "var(--cam-border-width, 1px) solid var(--cam-border)",
             borderRadius: "var(--cam-radius-md, 8px)",
             padding: "var(--cam-space-5, 24px)",
             maxWidth: 780,
@@ -928,7 +928,7 @@ export function SectionRenderer({
             style={{
               fontSize: "var(--cam-font-size-xs, 0.8125rem)",
               fontWeight: 500,
-              color: "var(--cam-text-muted, #4a5a50)",
+              color: "var(--cam-text-muted)",
               marginBottom: "var(--cam-space-3, 12px)",
               textTransform: "uppercase",
               letterSpacing: "0.02em",
@@ -1045,8 +1045,8 @@ export function SectionRenderer({
             return (
               <div
                 style={{
-                  background: "var(--cam-surface, #ffffff)",
-                  border: "1px dashed var(--cam-border, #cbd5e1)",
+                  background: "var(--cam-surface)",
+                  border: "1px dashed var(--cam-border)",
                   borderRadius: "var(--cam-radius-md, 8px)",
                   padding: "36px 24px",
                   textAlign: "center",
@@ -1058,7 +1058,7 @@ export function SectionRenderer({
                     fontSize: 16,
                     fontWeight: 700,
                     margin: "0 0 8px",
-                    color: "var(--cam-text, #1c1f1d)",
+                    color: "var(--cam-text)",
                   }}
                 >
                   {t("allNone")}
@@ -1066,7 +1066,7 @@ export function SectionRenderer({
                 <p
                   style={{
                     fontSize: 13,
-                    color: "var(--cam-text-muted, #64748b)",
+                    color: "var(--cam-text-muted)",
                     maxWidth: 520,
                     margin: "0 auto 20px",
                     lineHeight: 1.5,
@@ -1079,13 +1079,13 @@ export function SectionRenderer({
                     type="button"
                     onClick={onOpenScope}
                     style={{
-                      background: "var(--cam-surface, #ffffff)",
-                      border: "1px solid var(--cam-border, #d8ddd3)",
+                      background: "var(--cam-surface)",
+                      border: "1px solid var(--cam-border)",
                       borderRadius: "var(--cam-radius-sm, 4px)",
                       padding: "8px 18px",
                       fontSize: 13,
                       fontWeight: 600,
-                      color: "var(--cam-green, #1e6b3a)",
+                      color: "var(--cam-green)",
                       cursor: "pointer",
                       transition: "all 0.15s ease",
                     }}
@@ -1138,8 +1138,8 @@ function EntryModeSwitch({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    background: active ? "var(--cam-text, #0b1f14)" : "transparent",
-    color: active ? "#ffffff" : "var(--cam-text-muted, #4a5a50)",
+    background: active ? "var(--cam-text)" : "transparent",
+    color: active ? "#ffffff" : "var(--cam-text-muted)",
     border: "none",
     borderRadius: "var(--cam-radius-sm, 4px)",
     padding: "5px 12px",
@@ -1155,8 +1155,8 @@ function EntryModeSwitch({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        background: "var(--cam-surface, #ffffff)",
-        border: "1px solid var(--cam-border, #d8ddd3)",
+        background: "var(--cam-surface)",
+        border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-control, 6px)",
         padding: 2,
       }}

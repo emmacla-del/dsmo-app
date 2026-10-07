@@ -104,9 +104,9 @@ export function VtValidationScreen({
       {/* Title */}
       <div
         style={{
-          borderLeft: "4px solid var(--cam-green-dark, #144a28)",
+          borderLeft: "4px solid var(--cam-green-dark)",
           paddingLeft: "var(--cam-space-3, 12px)",
-          borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+          borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-2, 8px)",
           marginBottom: "var(--cam-space-5, 20px)",
         }}
@@ -115,7 +115,7 @@ export function VtValidationScreen({
           style={{
             fontSize: "20px",
             fontWeight: 800,
-            color: "var(--cam-text, #0b1f14)",
+            color: "var(--cam-text)",
             margin: 0,
             letterSpacing: "-0.01em",
           }}
@@ -201,7 +201,7 @@ export function VtValidationScreen({
         <div
           style={{
             background: "rgba(232, 160, 32, 0.08)",
-            border: "1px solid var(--cam-gold, #e8a020)",
+            border: "1px solid var(--cam-gold)",
             borderRadius: "var(--cam-radius-md)",
             padding: "14px 18px",
             fontSize: "13.5px",
@@ -243,7 +243,7 @@ export function VtValidationScreen({
             stats.state === "done"
               ? "var(--cam-green)"
               : isHighlighted
-                ? "var(--cam-border-strong, #aab5a3)"
+                ? "var(--cam-border-strong)"
                 : "var(--cam-border)";
 
           return (

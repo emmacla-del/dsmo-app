@@ -80,7 +80,7 @@ export function GatewayQuestion({
             fontWeight: 700,
             letterSpacing: "0.04em",
             textTransform: "uppercase",
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
           }}
         >
           {paperCode}
@@ -92,7 +92,7 @@ export function GatewayQuestion({
         style={{
           fontSize: 18,
           fontWeight: 700,
-          color: "var(--cam-text, #0b1f14)",
+          color: "var(--cam-text)",
           margin: "6px 0 8px",
           lineHeight: 1.35,
         }}
@@ -101,7 +101,7 @@ export function GatewayQuestion({
         <span
           aria-hidden="true"
           style={{
-            color: "var(--cam-error, #b3261e)",
+            color: "var(--cam-error)",
             marginLeft: 6,
             fontWeight: 700,
           }}
@@ -114,7 +114,7 @@ export function GatewayQuestion({
         <p
           style={{
             fontSize: 14,
-            color: "var(--cam-text-muted, #4a5a50)",
+            color: "var(--cam-text-muted)",
             margin: "0 0 14px",
             lineHeight: 1.45,
             maxWidth: 640,
@@ -145,7 +145,7 @@ export function GatewayQuestion({
           style={{
             fontSize: 13,
             fontWeight: 600,
-            color: "var(--cam-error, #b3261e)",
+            color: "var(--cam-error)",
             margin: "10px 0 0",
           }}
         >
