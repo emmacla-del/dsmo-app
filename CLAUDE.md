@@ -283,6 +283,12 @@ Primary location:
 
 `react-web/src/app/tokens.css`
 
+How to use those tokens on an administrative screen - the class
+vocabulary, the colour, typography and spacing rules, and the
+reference page - is specified in:
+
+`docs/standards/admin-ui-grammar.md`
+
 Do not introduce arbitrary colors, spacing systems, typography,
 or competing design systems without architectural review.
 
@@ -391,6 +397,10 @@ AI agents must:
 9. never fabricate successful test results
 10. stop and request architectural review when a change crosses
    specialist boundaries
+11. run `npm run check:ui-grammar` in `react-web/` after any change
+   under `app/admin/**` or `components/admin/**`, and never raise a
+   baseline in `scripts/ui-grammar-baseline.json` to make a change
+   pass
 
 ---
 
