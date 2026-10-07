@@ -2400,7 +2400,6 @@
     "officialEmail": "Official email",
     "region": "Region",
     "department": "Department",
-    "allDepartments": "All departments",
     "reassignTitle": "Reassign territory — {name}",
     "reassignEyebrow": "Officer's geographical assignment",
     "saving": "Saving…",
@@ -2408,7 +2407,12 @@
     "assignedRegion": "Assigned region",
     "noRegionAssigned": "No region assigned",
     "allRegionDepartments": "All departments in the region",
-    "selectRegion": "Select a region"
+    "selectRegion": "Select a region",
+    "officerRole": "Officer type",
+    "roleRegionalHint": "Covers the whole region",
+    "roleDivisionalHint": "Covers one department of the region",
+    "selectDepartment": "Select a department",
+    "selectRegionFirst": "Select a region first"
   },
   "adminDiffusionPage": {
     "allEmployers": "All employers",
