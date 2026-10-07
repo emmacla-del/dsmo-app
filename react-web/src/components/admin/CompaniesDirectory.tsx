@@ -184,28 +184,53 @@ export function CompaniesDirectory() {
               <thead>
                 <tr>
                   {COLUMNS.map((col, i) => (
+                    // The header was a clickable <th>: no keyboard access and no
+                    // announced sort. The button is focusable; aria-sort states
+                    // the current order on the column.
                     <th
                       key={col.key}
                       scope="col"
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() =>
-                        setSort((prev) => ({
-                          index: i,
-                          ascending: prev?.index === i ? !prev.ascending : true,
-                        }))
-                      }
+                      aria-sort={sort?.index === i ? (sort.ascending ? "ascending" : "descending") : "none"}
                     >
-                      {t(col.labelKey)}
-                      {sort?.index === i ? (sort.ascending ? " ▲" : " ▼") : ""}
+                      <button
+                        type="button"
+                        className="cam-table-sort"
+                        onClick={() =>
+                          setSort((prev) => ({
+                            index: i,
+                            ascending: prev?.index === i ? !prev.ascending : true,
+                          }))
+                        }
+                      >
+                        {t(col.labelKey)}
+                        {sort?.index === i ? <span aria-hidden="true">{sort.ascending ? " ▲" : " ▼"}</span> : null}
+                      </button>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {sortedCompanies.map((c) => (
+                  // The whole row stays clickable for the mouse; the name is a
+                  // button so the detail opens from the keyboard too.
                   <tr key={c.id} onClick={() => setSelected(c)} style={{ cursor: "pointer" }}>
                     {COLUMNS.map((col) => (
-                      <td key={col.key}>{col.render(c)}</td>
+                      <td key={col.key}>
+                        {col.key === "name" ? (
+                          <button
+                            type="button"
+                            className="cam-text-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelected(c);
+                            }}
+                          >
+                            {col.render(c)}
+                          </button>
+                        ) : (
+                          col.render(c)
+                        )}
+                      </td>
                     ))}
                   </tr>
                 ))}
