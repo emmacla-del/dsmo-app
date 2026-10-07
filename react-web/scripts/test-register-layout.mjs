@@ -583,13 +583,24 @@ async function runRail(browser) {
     whileTyping + " / " + (await page.inputValue("#reg-phone2").catch(() => "?"))
   );
 
-  // Leaving it (Tab, onto the continue link) is the "done here" signal.
+  // Tab from the last field reaches Retour first, in the frame footer: a
+  // respondent heading back must not be pushed forward on the way.
   await page.keyboard.press("Tab");
+  await page.waitForTimeout(500);
+  check(
+    (await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby")) ===
+      "reg-section-title-respondent",
+    "tabbing from the LAST field onto Retour does not advance"
+  );
+
+  // Enter on the last field is the keyboard's "done here".
+  await page.focus("#reg-phone2");
+  await page.keyboard.press("Enter");
   await page.waitForTimeout(500);
   const afterPhone2 = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(
     afterPhone2 === "reg-section-title-entityInfo",
-    "leaving the changed LAST field advances to Informations",
+    "Enter on the changed LAST field advances to Informations",
     afterPhone2 || ""
   );
   const focusedAfter = await page.evaluate(() => document.activeElement?.id ?? null);
