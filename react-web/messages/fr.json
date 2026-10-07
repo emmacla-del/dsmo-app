@@ -1626,7 +1626,21 @@
     "rejectAudit": "Cette action génère une entrée d'audit AUDIT_REJECT.",
     "rejectFailed": "Le rejet a échoué : {message}.",
     "rejecting": "Rejet en cours...",
-    "confirmRejection": "Confirmer le Rejet"
+    "confirmRejection": "Confirmer le Rejet",
+    "axisLoading": "Chargement…",
+    "axisUnavailable": "Données non disponibles",
+    "axis2Blocking": "{count, plural, one {# anomalie bloquante} other {# anomalies bloquantes}}",
+    "axis2Warnings": "{count, plural, one {# avertissement} other {# avertissements}}",
+    "axis2None": "Aucune anomalie",
+    "axis3Eligible": "Éligible",
+    "axis3NotEligible": "Non éligible",
+    "exclusion": {
+      "EXCL_BLOCKING_ANOMALY_OPEN": "Anomalie bloquante ouverte",
+      "EXCL_WAITING_NAT_VISA": "En attente de visa",
+      "EXCL_CORRECTION_PENDING": "Correction en attente",
+      "EXCL_REJECTED": "Rejeté",
+      "EXCL_DRAFT_ONLY": "Brouillon"
+    }
   },
   "adminEquipePage": {
     "accessDenied": "Accès réservé aux administrateurs centraux et régionaux.",
