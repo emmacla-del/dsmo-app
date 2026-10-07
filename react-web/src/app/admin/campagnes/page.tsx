@@ -19,8 +19,6 @@ import {
   campaignPeriodicity,
   formatCampaignDate,
   canActivate,
-  canArchive,
-  canDelete,
   isRegistrationCampaign,
   type Campaign,
   type CampaignDetail,
@@ -28,13 +26,15 @@ import {
   type CampaignPurpose,
 } from "@/lib/campaigns";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
-import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { asUiLocale } from "@/lib/register-i18n";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState } from "@/components/admin/DataState";
+import { count } from "@/lib/admin-data-state";
 
 // @Roles on POST /campaigns/:id/activate|pause|close|remind (campaign.controller.ts).
 // Every other role that reaches this page (REGIONAL_ADMIN) reads only.
@@ -184,12 +184,21 @@ export default function CampagnesPage() {
     onError: failed,
   });
 
-  if (isLoading) return null;
-
-  if (forbidden) {
+  // The screen guard's two non-ready outcomes keep the page chrome and say
+  // what is happening. Neither renders nothing (G10).
+  if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">{t("forbidden")}</p>
+        <AdminPageHeader
+          breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.campagnes") }]}
+          title={tRoot("adminNav.routes.campagnes")}
+          actions={<AdminHeaderActions />}
+        />
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={tRoot("adminNav.routes.campagnes")}
+          title={isLoading ? tRoot("common.loading") : t("forbidden")}
+        />
       </div>
     );
   }
@@ -217,7 +226,7 @@ export default function CampagnesPage() {
                   style={disabled ? GATED_OFF : undefined}
                   onClick={() => setCreateOpen(true)}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: 6 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
@@ -283,16 +292,17 @@ export default function CampagnesPage() {
           </div>
           <div className="cam-pilot-panel-body" style={otherCampaigns.length > 0 && !allQuery.isError ? { padding: 0 } : undefined}>
             {allQuery.isLoading ? (
-              <div className="cam-admin-empty">{tRoot("common.loading")}</div>
+              <DataState dense state="loading" resource={tRoot("adminNav.routes.campagnes")} title={tRoot("common.loading")} />
             ) : allQuery.isError ? (
-              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                <span>{t("loadError", { message: (allQuery.error as Error).message })}</span>
-              </div>
+              <DataState
+                dense
+                state="error"
+                resource={tRoot("adminNav.routes.campagnes")}
+                title={t("loadError", { message: (allQuery.error as Error).message })}
+                onRetry={() => allQuery.refetch()}
+              />
             ) : otherCampaigns.length === 0 ? (
-              <div className="cam-admin-empty">
-                <strong>{t("noOtherTitle")}</strong>
-                {t("noOtherHint")}
-              </div>
+              <DataState dense state="empty" resource={tRoot("adminNav.routes.campagnes")} title={t("noOtherTitle")} hint={t("noOtherHint")} />
             ) : (
               // Wide tables scroll horizontally inside the panel; no second bordered box.
               <div style={{ overflowX: "auto" }}>
@@ -304,59 +314,49 @@ export default function CampagnesPage() {
                       <th scope="col">{t("openingColumn")}</th>
                       <th scope="col">{t("closingColumn")}</th>
                       <th scope="col">{t("statusColumn")}</th>
-                      <th scope="col" style={{ textAlign: "right" }}>{t("actionsColumn")}</th>
+                      <th scope="col" className="text-right">{t("actionsColumn")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {otherCampaigns.map((c) => (
                       <tr key={c.id}>
-                        <td style={{ maxWidth: 360, padding: "10px 14px", verticalAlign: "middle" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                        <td style={{ maxWidth: 360 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", minWidth: 0 }}>
                             <div
                               className="cam-admin-strong"
                               title={c.name}
-                              style={{
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                color: "var(--cam-text)",
-                                minWidth: 0,
-                              }}
+                              style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}
                             >
                               {formatCampaignDisplayName(c.name)}
                             </div>
                             {/* Same name as the collection campaign of the quarter; the tag tells them apart. Collection rows stay untagged. */}
                             {isRegistrationCampaign(c) && (
-                              <span className="cam-badge cam-badge-info" style={{ fontSize: "11px", fontWeight: 600, flexShrink: 0 }}>
+                              <span className="cam-badge cam-badge-info" style={{ flexShrink: 0 }}>
                                 {t("purpose.REGISTRATION")}
                               </span>
                             )}
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-                            <span className="cam-admin-code cam-admin-muted" style={{ fontSize: "11px" }}>{c.code}</span>
-                          </div>
+                          <span className="cam-admin-code cam-admin-muted">{c.code}</span>
                         </td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
-                          <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
+                          <span className="cam-badge cam-badge-neutral">
                             {c.collectionType ?? (campaignPeriodicity(c) ? t(`periodicity.${campaignPeriodicity(c)}`) : "—")}
                           </span>
                           {c.referenceYear && c.referenceQuarter && (
-                            <div style={{ fontSize: "11px", color: "var(--cam-text-muted)", marginTop: "2px" }}>
+                            <div className="cam-admin-meta">
                               {quarterRef(t, c.referenceYear, c.referenceQuarter)}
                             </div>
                           )}
                         </td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>{fmt(c.startDate)}</td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{fmt(c.startDate)}</td>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
                           {fmt(effectiveDeadline(c))}
                           {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && (
-                            <div className="cam-admin-meta" style={{ color: "var(--cam-info)", fontSize: "11px" }}>{t("extendedWas", { date: fmt(c.deadline) })}</div>
+                            <div className="cam-admin-meta">{t("extendedWas", { date: fmt(c.deadline) })}</div>
                           )}
                         </td>
-                        <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
+                        <td><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
+                        <td className="text-right" style={{ whiteSpace: "nowrap" }}>
                           <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center", justifyContent: "flex-end" }}>
                             {canActivate(c.status) && !isRegistrationCampaign(c) && (
                               <Gated allowed={canMutate}>
@@ -599,12 +599,12 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
       <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
-            <h2 className="cam-admin-h2" style={{ margin: 0 }} title={c.name}>{formatCampaignDisplayName(c.name)}</h2>
-            <span className="cam-admin-code" style={{ fontSize: "12px", background: "var(--cam-surface-subtle)", padding: "2px 8px", borderRadius: "4px" }}>
+            <h2 className="cam-admin-h2" title={c.name}>{formatCampaignDisplayName(c.name)}</h2>
+            <span className="cam-admin-code cam-admin-muted">
               {c.code}
             </span>
             {c.referenceYear && c.referenceQuarter && (
-              <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
+              <span className="cam-badge cam-badge-neutral">
                 {quarterRef(t, c.referenceYear, c.referenceQuarter)}
               </span>
             )}
@@ -626,7 +626,7 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
           </div>
           <div className="cam-admin-stat">
             <div className="cam-admin-stat-label">{t("targetedEstablishments")}</div>
-            <div className="cam-admin-stat-value">{typeof expected === "number" ? intlNumber(expected, locale) : "—"}</div>
+            <div className="cam-admin-stat-value">{count(expected, locale)}</div>
             <div className="cam-admin-stat-hint">{t("expectedAtActivation")}</div>
           </div>
           <div className="cam-admin-stat">
@@ -797,7 +797,7 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
             <div><dt>{t("detailRegions")}</dt><dd>{list(d.targetRegions)}</dd></div>
             <div><dt>{t("detailDepartments")}</dt><dd>{list(d.targetDepartments)}</dd></div>
             <div><dt>{t("detailEntityTypes")}</dt><dd>{list(d.targetEntityTypes, (type) => typeLabel(tRoot, type))}</dd></div>
-            <div><dt>{t("targetedEstablishments")}</dt><dd>{typeof campaign.progress?.total === "number" ? intlNumber(campaign.progress.total, locale) : "—"}</dd></div>
+            <div><dt>{t("targetedEstablishments")}</dt><dd>{count(campaign.progress?.total, locale)}</dd></div>
           </dl>
           {d.description && <p style={{ margin: 0 }}>{d.description}</p>}
           <div>
@@ -946,7 +946,7 @@ function CreateCampaignDialog({
             <option value="COLLECTION">{t("purposeCollection")}</option>
             <option value="REGISTRATION">{t("purposeRegistration")}</option>
           </select>
-          <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
+          <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
             {t("purposeHint")}
           </p>
         </div>
@@ -1004,7 +1004,7 @@ function CreateCampaignDialog({
                 </select>
               </div>
             </div>
-            <p className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
+            <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
               {t("referenceHint")}
             </p>
           </div>
@@ -1066,12 +1066,11 @@ function CreateCampaignDialog({
         </div>
 
         {!registration && (
-          <label style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", cursor: "pointer", fontSize: "13px", marginTop: "var(--cam-space-1)" }}>
+          <label className="cam-admin-choice">
             <input
               type="checkbox"
               checked={autoReminders}
               onChange={(e) => setAutoReminders(e.target.checked)}
-              style={{ width: 16, height: 16 }}
             />
             <span>{t("autoReminders")}</span>
           </label>
@@ -1079,8 +1078,4 @@ function CreateCampaignDialog({
       </form>
     </AdminDialog>
   );
-}
-
-function intlNumber(value: number, locale: UiLocale): string {
-  return value.toLocaleString(locale === "en" ? "en-GB" : "fr-FR");
 }
