@@ -2,6 +2,7 @@
 
 import React, { type KeyboardEvent } from "react";
 import { useLocale } from "next-intl";
+import { count } from "@/lib/admin-data-state";
 import type { FormData } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import type {
@@ -239,8 +240,8 @@ export function LiveTablePreview({
                     const isUnanswered = unansweredSet.has(cellDef.fieldKey);
                     const isComputed = cellDef.kind === "computed" || isTotal;
                     const canEdit = !isTotal && !isSubtotal && isEditableKey(cellDef.fieldKey);
-                    const display =
-                      val != null ? val.toLocaleString() : "—";
+                    // The console locale, not the browser's (G12); "—" when empty.
+                    const display = count(val, locale);
 
                     return (
                       <td
