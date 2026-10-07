@@ -109,6 +109,7 @@
    --cam-font-size-xs: 0.8125rem;    /* 13px */
    --cam-font-size-sm: 0.875rem;     /* 14px */
    --cam-font-size-base: 0.9375rem;  /* 15px */
+   --cam-font-size-input-ios: 16px;  /* stops iOS zooming a focused control; not a ladder step */
    --cam-font-size-lg: 1.125rem;     /* 18px */
    --cam-font-size-xl: 1.5rem;       /* 24px */
    --cam-font-size-2xl: 1.5625rem;   /* 25px */
@@ -235,9 +236,9 @@
    --cam-field-height: var(--cam-form-field-height);
    --cam-field-radius: 8px;
    --cam-field-border-width: 1.5px;
-   /* Radio and checkbox control size. The wizard radio (17px), the certify
-     checkbox (18px) and the login checkbox (15px) still write their own
-     lengths; Phase 2 points them here. */
+   /* Radio and checkbox control size. The wizard radio, the certify
+     checkbox and the login checkbox all read this. The login checkbox
+     was 15px; it is now 18px. */
    --cam-choice-size: 18px;
 
    /* Off-ladder insets in the auth stylesheet. Each keeps the length the
