@@ -127,12 +127,12 @@ const REGISTRATION_METHOD_LABELS_EN: Record<string, string> = {
 };
 
 /**
- * Days a pending company file may wait for a reviewer before it counts as
- * left waiting. Mirrors REGISTRATION_OVERDUE_DAYS in
- * src/auth/registration-overdue.ts, which decides the `overdue` flag; this
- * copy only words the labels.
+ * The overdue threshold to word the labels with until the queue has answered.
+ * The threshold itself is a platform setting (/admin/parametres); the queue
+ * returns the value it applied as `overdueDays`, and the screen uses that.
+ * Mirrors REGISTRATION_OVERDUE_DEFAULT_DAYS in src/auth/registration-overdue.ts.
  */
-export const REGISTRATION_OVERDUE_DAYS = 7;
+export const REGISTRATION_OVERDUE_DEFAULT_DAYS = 7;
 
 /** Whole days a file has been waiting, for its "En retard" badge. */
 export function daysWaiting(since: string | null, now: Date = new Date()): number | null {

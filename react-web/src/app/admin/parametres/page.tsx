@@ -10,10 +10,14 @@ import { useAuthStore } from "@/lib/auth-store";
 import type { UserRole } from "@/lib/user-types";
 import {
   COUNTRY_OPTIONS,
+  REGISTRATION_OVERDUE_MAX_DAYS,
+  REGISTRATION_OVERDUE_MIN_DAYS,
   TIMEZONE_OPTIONS,
   getSystemSettings,
   updateObservatoryIdentity,
+  updateRegistrationOverdueDays,
 } from "@/lib/system-settings";
+import { REGISTRATION_OVERDUE_DEFAULT_DAYS } from "@/lib/inscriptions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
@@ -121,6 +125,34 @@ function ParametresContent() {
       setTimeout(() => setSaveSuccess(false), 4000);
     },
   });
+
+  // Registration follow-up: the overdue threshold. Its own form and its own
+  // (secondary) save, so changing it never resubmits the identity fields.
+  const [overdueDraft, setOverdueDraft] = useState<string | null>(null);
+  const overdueInput = overdueDraft ?? String(stored?.registrationOverdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS);
+  const overdueValue = Number(overdueInput);
+  const overdueValid =
+    /^\d+$/.test(overdueInput) &&
+    overdueValue >= REGISTRATION_OVERDUE_MIN_DAYS &&
+    overdueValue <= REGISTRATION_OVERDUE_MAX_DAYS;
+
+  const overdueMutation = useMutation({
+    mutationFn: updateRegistrationOverdueDays,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["system-settings"], data);
+      // The queue's labels and flags follow the new threshold on next view.
+      queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+      setOverdueDraft(null);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
+    },
+  });
+
+  const handleSaveOverdue = (e: FormEvent) => {
+    e.preventDefault();
+    if (!overdueValid) return;
+    overdueMutation.mutate(overdueValue);
+  };
 
   const handleSaveIdentity = (e: FormEvent) => {
     e.preventDefault();
@@ -238,6 +270,54 @@ function ParametresContent() {
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-5)" }}>
             <button type="submit" className="cam-button cam-button-primary" disabled={identityMutation.isPending}>
               {identityMutation.isPending ? t("saving") : t("save")}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* ── Suivi des inscriptions ── */}
+      <section className="cam-admin-section" aria-labelledby="registration-followup-title">
+        <div className="cam-admin-section-head">
+          <h2 id="registration-followup-title" className="cam-admin-h2">{t("registrationTitle")}</h2>
+        </div>
+
+        <form onSubmit={handleSaveOverdue} className="cam-admin-section-body" noValidate>
+          {overdueMutation.isError && (
+            <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+              <span>{(overdueMutation.error as Error).message}</span>
+            </div>
+          )}
+
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="registration-overdue-days">{t("overdueDaysLabel")}</label>
+            <input
+              id="registration-overdue-days"
+              type="number"
+              inputMode="numeric"
+              className="cam-input"
+              style={{ maxWidth: "8rem" }}
+              min={REGISTRATION_OVERDUE_MIN_DAYS}
+              max={REGISTRATION_OVERDUE_MAX_DAYS}
+              step={1}
+              value={overdueInput}
+              onChange={(e) => setOverdueDraft(e.target.value)}
+              aria-invalid={!overdueValid || undefined}
+              aria-describedby="registration-overdue-days-hint"
+            />
+            <p id="registration-overdue-days-hint" className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
+              {overdueValid
+                ? t("overdueDaysHint")
+                : t("overdueDaysInvalid", { min: REGISTRATION_OVERDUE_MIN_DAYS, max: REGISTRATION_OVERDUE_MAX_DAYS })}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-5)" }}>
+            <button
+              type="submit"
+              className="cam-button cam-button-secondary"
+              disabled={!overdueValid || overdueMutation.isPending || settingsQuery.isLoading}
+            >
+              {overdueMutation.isPending ? t("saving") : t("saveOverdue")}
             </button>
           </div>
         </form>
