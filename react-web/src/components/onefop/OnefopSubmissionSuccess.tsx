@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { stamp } from "@/lib/admin-data-state";
+import { NOT_PROVIDED, stamp } from "@/lib/admin-data-state";
 
 export interface OnefopSubmissionSuccessProps {
   /** Raw result message string, often in format "Déclaration enregistrée avec succès (ID: 12345)" */
   rawResult?: string | null;
-  /** Explicit submission ID if available */
-  submissionId?: string;
+  /**
+   * The submission reference the server returned (OnefopSubmission.submissionId,
+   * the one staff search by). Pass it whenever the submit response is at hand.
+   */
+  submissionId?: string | null;
   /** Entity type (enterprise, vocationalTraining, cooperative, ctd, etc.) */
   entityType?: string;
   /** Entity/establishment name (e.g. ACME Corp) */
@@ -52,12 +55,15 @@ export function OnefopSubmissionSuccess({
 }: OnefopSubmissionSuccessProps) {
   const isFr = locale === "fr";
 
-  // Extract ID from raw string if not provided explicitly
+  // The reference the server returned. Read from the result message only as a
+  // fallback for a caller that does not pass it. Never invented: a reference
+  // a declarant may quote to MINEFOP must exist in the register, so an absent
+  // one shows as absent. (It used to fall back to "ONEFOP-SUB-<time>", a slug
+  // of the message, or "ONEFOP-REF-VALID".)
   const effectiveSubmissionId = useMemo(() => {
     if (explicitSubmissionId) return explicitSubmissionId;
-    if (!rawResult) return "ONEFOP-SUB-" + Date.now().toString(36).toUpperCase();
-    const match = /\b(?:ID|id):\s*([a-zA-Z0-9_-]+)/i.exec(rawResult);
-    return match ? match[1] : rawResult.replace(/[^\w-]/g, "").slice(0, 16) || "ONEFOP-REF-VALID";
+    const match = rawResult ? /\b(?:ID|id):\s*([a-zA-Z0-9_-]+)/i.exec(rawResult) : null;
+    return match && match[1] !== "undefined" && match[1] !== "null" ? match[1] : null;
   }, [explicitSubmissionId, rawResult]);
 
   // Formatted date
@@ -178,7 +184,7 @@ export function OnefopSubmissionSuccess({
                 {isFr ? "Identifiant officiel de dépôt" : "Official Filing Reference ID"}
               </span>
               <span className="font-mono text-sm sm:text-base font-extrabold text-[var(--cam-green-dark)] select-all">
-                {effectiveSubmissionId}
+                {effectiveSubmissionId ?? NOT_PROVIDED}
               </span>
             </div>
 
@@ -280,7 +286,7 @@ export function OnefopSubmissionSuccess({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
             <div className="bg-[var(--cam-surface)] p-3 rounded-lg border border-[var(--cam-border)] shadow-2xs">
               <div className="text-[var(--cam-text-muted)] font-medium">
                 {isFr ? "Structure / Établissement" : "Organization / Facility"}
@@ -320,17 +326,11 @@ export function OnefopSubmissionSuccess({
               </div>
             </div>
 
-            <div className="bg-[var(--cam-surface)] p-3 rounded-lg border border-[var(--cam-border)] shadow-2xs">
-              <div className="text-[var(--cam-text-muted)] font-medium">
-                {isFr ? "Certification Numérique" : "Digital Certification"}
-              </div>
-              <div className="font-mono text-[11px] text-[var(--cam-text-muted)] mt-0.5 truncate">
-                SHA256:{effectiveSubmissionId.slice(0, 8)}...
-              </div>
-              <div className="text-[11px] text-[var(--cam-green)] font-bold mt-0.5">
-                {isFr ? "Intégrité certifiée ✓" : "Integrity verified ✓"}
-              </div>
-            </div>
+            {/* A "Certification Numérique" card stood here: "SHA256:" over the
+                first 8 characters of the submission reference, captioned
+                "Intégrité certifiée ✓". Nothing was hashed or verified, so it
+                is gone rather than kept as a claim an official receipt cannot
+                back. */}
           </div>
         </div>
 

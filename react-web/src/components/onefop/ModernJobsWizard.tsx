@@ -27,6 +27,8 @@ export interface ModernJobsWizardProps {
   onSubmitFinal?: () => void;
   isSubmitting?: boolean;
   submissionResult?: string | null;
+  /** The submission reference the server returned, for the receipt. */
+  submissionId?: string | null;
   submissionError?: { summary: string; items: string[] } | null;
   onPreviewPdf?: (locale?: "fr" | "en") => void;
   isGeneratingPdf?: boolean;
@@ -60,6 +62,7 @@ export function ModernJobsWizard({
   onSubmitFinal,
   isSubmitting = false,
   submissionResult = null,
+  submissionId = null,
   submissionError = null,
   onPreviewPdf,
   isGeneratingPdf = false,
@@ -556,6 +559,7 @@ export function ModernJobsWizard({
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <OnefopSubmissionSuccess
                   rawResult={submissionResult}
+                  submissionId={submissionId}
                   entityType={entity.entityType}
                   establishmentName={effectiveEstablishment}
                   niu={(data["S1Q01"] as string) || (data["VT1_1"] as string) || (data["NIU"] as string)}

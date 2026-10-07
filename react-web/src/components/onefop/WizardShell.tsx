@@ -134,6 +134,9 @@ export function WizardShell({
   const [isValidationStage, setIsValidationStage] = useState(false);
   const [attemptedAdvance, setAttemptedAdvance] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<string | null>(null);
+  // The reference the server returned, passed to the receipt as is rather
+  // than read back out of the message string.
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [taskListOpen, setTaskListOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [saveToast, setSaveToast] = useState<"saved" | "failed" | null>(null);
@@ -226,6 +229,7 @@ export function WizardShell({
       // prior-quarter data the next time they open this entity type.
       if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
+      setSubmissionId(result.submissionId || null);
     },
   });
 
@@ -670,6 +674,7 @@ export function WizardShell({
           quarterStatusMessage={quarterStatusMessage}
           isSubmitting={submitMutation.isPending}
           submissionResult={submissionResult}
+          submissionId={submissionId}
           submissionError={submissionError}
           onPreviewPdf={() => setPreviewModalOpen(true)}
           isGeneratingPdf={pdfMutation.isPending}
@@ -687,6 +692,7 @@ export function WizardShell({
           onSubmitFinal={() => submitMutation.mutate()}
           isSubmitting={submitMutation.isPending}
           submissionResult={submissionResult}
+          submissionId={submissionId}
           submissionError={submissionError}
           establishmentName={effectiveEstablishment}
         />
@@ -755,6 +761,7 @@ export function WizardShell({
             {submissionResult ? (
               <OnefopSubmissionSuccess
                 rawResult={submissionResult}
+                submissionId={submissionId}
                 entityType={entity.entityType}
                 establishmentName={effectiveEstablishment}
                 niu={(data["VT1_1"] as string) || (data["NIU"] as string)}
@@ -824,6 +831,7 @@ export function WizardShell({
               onSubmitFinal={() => submitMutation.mutate()}
               isSubmitting={submitMutation.isPending}
               submissionResult={submissionResult}
+              submissionId={submissionId}
               submissionError={submissionError}
               establishmentName={effectiveEstablishment}
             />
@@ -1214,6 +1222,7 @@ export function WizardShell({
         onSubmitFinal={() => submitMutation.mutate()}
         isSubmitting={submitMutation.isPending}
         submissionResult={submissionResult}
+        submissionId={submissionId}
         submissionError={submissionError}
         establishmentName={effectiveEstablishment}
       />
