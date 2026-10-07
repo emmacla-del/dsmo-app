@@ -18,6 +18,8 @@ interface OnefopPdfPreviewModalProps {
   onSubmitFinal?: () => Promise<void> | void;
   isSubmitting?: boolean;
   submissionResult?: string | null;
+  /** The submission reference the server returned, for the receipt. */
+  submissionId?: string | null;
   submissionError?: { summary: string; items: string[] } | null;
   establishmentName?: string;
 }
@@ -33,6 +35,7 @@ export function OnefopPdfPreviewModal({
   onSubmitFinal,
   isSubmitting = false,
   submissionResult,
+  submissionId,
   submissionError,
   establishmentName,
 }: OnefopPdfPreviewModalProps) {
@@ -404,6 +407,7 @@ export function OnefopPdfPreviewModal({
             >
               <OnefopSubmissionSuccess
                 rawResult={submissionResult}
+                submissionId={submissionId}
                 entityType={entityType}
                 establishmentName={establishmentName}
                 quarterCode={quarterCode || undefined}
