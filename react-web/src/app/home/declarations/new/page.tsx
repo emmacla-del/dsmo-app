@@ -627,7 +627,7 @@ export default function DsmoDeclarationWizardPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: "var(--cam-surface-2, #f1f5f9)" }}>
+              <tr style={{ background: "var(--cam-surface-2)" }}>
                 {[L.colMovement, L.colCat13, L.colCat46, L.colCat79, L.colCat1012, L.colNd, L.colTotal].map((h) => (
                   <th key={h} style={{ border: "1px solid var(--cam-border)", padding: "8px 10px", textAlign: "center", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                 ))}

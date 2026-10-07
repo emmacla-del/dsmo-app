@@ -335,7 +335,7 @@ export function ModernJobsSidebar({
           aria-label={t("completedSections")}
           style={{
             height: 6,
-            background: "var(--cam-border-subtle, #eef0eb)",
+            background: "var(--cam-border-subtle)",
             borderRadius: "var(--cam-radius-full, 9999px)",
             overflow: "hidden",
           }}

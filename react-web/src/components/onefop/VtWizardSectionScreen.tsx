@@ -292,7 +292,7 @@ function VtWizardStakeholderInformedCard({
           <thead>
             <tr
               style={{
-                backgroundColor: "var(--cam-bg-subtle, #f8fafc)",
+                backgroundColor: "var(--cam-bg-subtle)",
                 borderBottom: "2px solid var(--cam-border)",
               }}
             >
