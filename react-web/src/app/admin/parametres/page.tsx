@@ -131,255 +131,191 @@ function ParametresContent() {
     });
   };
 
-  if (isLoading) return null;
+  const header = (
+    <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.parametres") }]}
+      title={tRoot("adminNav.routes.parametres")}
+      subtitle={t("subtitle")}
+      actions={
+        <AdminHeaderActions
+          showCampaignPill={false}
+          showBell={false}
+          showSearchInput={true}
+        />
+      }
+    />
+  );
 
-  if (forbidden) {
+  // The screen guard's two non-ready outcomes keep the page chrome and say
+  // what is happening. Neither renders nothing (G10).
+  if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">{t("forbidden")}</p>
+        {header}
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("auditResource")}
+          title={isLoading ? tRoot("common.loading") : t("forbidden")}
+        />
       </div>
     );
   }
 
   return (
     <div className="cam-admin-page">
-      {/* ── Top Header matching Figma administration/parametres.png ── */}
-      <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.parametres") }]}
-        title={tRoot("adminNav.routes.parametres")}
-        subtitle={t("subtitle")}
-        actions={
-          <AdminHeaderActions
-            showCampaignPill={false}
-            showBell={false}
-            showSearchInput={true}
-          />
-        }
-      />
+      {header}
 
       {saveSuccess && (
-        <div role="status" className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium mb-4">
-          {t("saved")}
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
+          <span>{t("saved")}</span>
         </div>
       )}
 
-      {/* ── Single column: identity, roles, recent audit ── */}
-      <div className="flex flex-col gap-6">
+      {/* ── Informations de l'Observatoire ── */}
+      <section className="cam-admin-section" aria-labelledby="obs-info-title">
+        <div className="cam-admin-section-head">
+          <h2 id="obs-info-title" className="cam-admin-h2">{t("identityTitle")}</h2>
+        </div>
 
-          {/* ── Informations de l'Observatoire ── */}
-          <section
-            aria-labelledby="obs-info-title"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="mb-5">
-              <h2 id="obs-info-title" className="text-base font-bold text-slate-900">
-                {t("identityTitle")}
-              </h2>
-            </div>
+        <form onSubmit={handleSaveIdentity} className="cam-admin-section-body">
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="obs-name">{t("nameLabel")}</label>
+            <input
+              id="obs-name"
+              type="text"
+              className="cam-input"
+              value={observatoryName}
+              onChange={(e) => setObservatoryName(e.target.value)}
+              placeholder="Observatoire National de l'Emploi"
+            />
+          </div>
 
-            <form onSubmit={handleSaveIdentity} className="space-y-4">
-              {/* Nom de l'observatoire */}
-              <div>
-                <label htmlFor="obs-name" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                  {t("nameLabel")}
-                </label>
-                <input
-                  id="obs-name"
-                  type="text"
-                  value={observatoryName}
-                  onChange={(e) => setObservatoryName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
-                  placeholder="Observatoire National de l'Emploi"
-                />
-              </div>
-
-              {/* Pays & Langue row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="obs-country" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                    {t("countryLabel")}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="obs-country"
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                      className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
-                    >
-                      {COUNTRY_OPTIONS.map((c) => (
-                        <option key={c.value} value={c.value}>{c.value === "CM" ? t("country.CM") : c.label}</option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="1 1 5 5 9 1" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="obs-lang" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                    {t("languageLabel")}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="obs-lang"
-                      value={defaultLanguage}
-                      onChange={(e) => setDefaultLanguage(e.target.value)}
-                      className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
-                    >
-                      <option value="fr">{t("languageFr")}</option>
-                      <option value="en">{t("languageEn")}</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="1 1 5 5 9 1" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Fuseau horaire */}
-              <div>
-                <label htmlFor="obs-timezone" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                  {t("timezoneLabel")}
-                </label>
-                <div className="relative">
-                  <select
-                    id="obs-timezone"
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
-                  >
-                    <option value="Africa/Douala">Africa/Douala (GMT+1)</option>
-                    {TIMEZONE_OPTIONS.filter((tz) => tz.value !== "Africa/Douala").map((tz) => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="1 1 5 5 9 1" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action button */}
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={identityMutation.isPending}
-                  className="bg-[#006644] hover:bg-[#005438] active:bg-[#004730] text-white font-medium text-sm py-2.5 px-6 rounded-lg transition-all shadow-xs cursor-pointer disabled:opacity-60"
-                >
-                  {identityMutation.isPending ? t("saving") : t("save")}
-                </button>
-              </div>
-            </form>
-          </section>
-
-          {/* ── Rôles & Permissions ── */}
-          <section
-            aria-labelledby="roles-permissions-title"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 id="roles-permissions-title" className="text-base font-bold text-slate-900">
-                  {t("rolesTitle")}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {t("rolesSubtitle")}
-                </p>
-              </div>
-              <Link
-                href="/admin/utilisateurs"
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs text-decoration-none"
+          <div className="cam-admin-filters">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="obs-country">{t("countryLabel")}</label>
+              <select
+                id="obs-country"
+                className="cam-select"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
               >
-                {t("manageAssignments")}
-              </Link>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {roles.map((id) => (
-                <div key={id} className="py-3.5 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                    <div className="sm:col-span-4 font-semibold text-sm text-slate-900 flex items-center gap-2">
-                      <span>{t(`role.${id}.name`)}</span>
-                      <code className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                        {id}
-                      </code>
-                    </div>
-                    <div className="sm:col-span-8 text-xs text-slate-500">
-                      {t(`role.${id}.description`)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Journal d'Audit Récent ── */}
-          <section
-            aria-labelledby="recent-audit-title"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 id="recent-audit-title" className="text-base font-bold text-slate-900">
-                {t("recentAuditTitle")}
-              </h2>
-              <Link
-                href="/admin/journal-audit"
-                className="text-xs font-semibold text-[#006644] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>{t("fullLogLink")}</span>
-                <span>→</span>
-              </Link>
-            </div>
-
-            {/* Source: GET /audit/reports?paginate=true, newest first
-                (lib/audit-log.ts). Real entries only — no seeded list. */}
-            {recentAuditState !== "ready" ? (
-              <DataState
-                dense
-                state={recentAuditState}
-                resource={t("auditResource")}
-                error={recentAuditQuery.error}
-                onRetry={() => recentAuditQuery.refetch()}
-                title={
-                  recentAuditState === "empty"
-                    ? t("auditEmptyTitle")
-                    : recentAuditState === "forbidden"
-                      ? t("auditForbiddenTitle")
-                      : undefined
-                }
-                hint={
-                  recentAuditState === "empty"
-                    ? t("auditEmptyHint")
-                    : undefined
-                }
-              />
-            ) : (
-              <div className="space-y-2">
-                {(recentAuditQuery.data?.items ?? []).map((e) => (
-                  <div
-                    key={e.id}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-2.5 px-3 rounded-lg bg-slate-50/70 border border-slate-100 text-xs items-center"
-                  >
-                    <div className="sm:col-span-3 text-slate-400">{stamp(e.timestamp, true, locale)}</div>
-                    <div className="sm:col-span-3 font-semibold text-slate-800">{auditActorName(e, locale)}</div>
-                    <div className="sm:col-span-6 text-slate-600 truncate" title={auditDetailsSummary(e, locale)}>
-                      {auditActionLabel(e.action, locale)} — {auditDetailsSummary(e, locale)}
-                    </div>
-                  </div>
+                {COUNTRY_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.value === "CM" ? t("country.CM") : c.label}</option>
                 ))}
+              </select>
+            </div>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="obs-lang">{t("languageLabel")}</label>
+              <select
+                id="obs-lang"
+                className="cam-select"
+                value={defaultLanguage}
+                onChange={(e) => setDefaultLanguage(e.target.value)}
+              >
+                <option value="fr">{t("languageFr")}</option>
+                <option value="en">{t("languageEn")}</option>
+              </select>
+            </div>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="obs-timezone">{t("timezoneLabel")}</label>
+              <select
+                id="obs-timezone"
+                className="cam-select"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+              >
+                <option value="Africa/Douala">Africa/Douala (GMT+1)</option>
+                {TIMEZONE_OPTIONS.filter((tz) => tz.value !== "Africa/Douala").map((tz) => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-5)" }}>
+            <button type="submit" className="cam-button cam-button-primary" disabled={identityMutation.isPending}>
+              {identityMutation.isPending ? t("saving") : t("save")}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* ── Rôles & Permissions ── */}
+      <section className="cam-admin-section" aria-labelledby="roles-permissions-title">
+        <div className="cam-admin-section-head">
+          <div>
+            <h2 id="roles-permissions-title" className="cam-admin-h2">{t("rolesTitle")}</h2>
+            <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("rolesSubtitle")}</p>
+          </div>
+          <Link href="/admin/utilisateurs" className="cam-button cam-button-secondary cam-button-sm">
+            {t("manageAssignments")}
+          </Link>
+        </div>
+
+        <div className="cam-admin-section-body">
+          <dl className="cam-param-roles">
+            {roles.map((id) => (
+              <div key={id}>
+                <dt>
+                  {t(`role.${id}.name`)}
+                  <span className="cam-admin-code cam-admin-muted" style={{ display: "block" }}>{id}</span>
+                </dt>
+                <dd>{t(`role.${id}.description`)}</dd>
               </div>
-            )}
-          </section>
+            ))}
+          </dl>
+        </div>
+      </section>
 
-      </div>
+      {/* ── Journal d'Audit Récent ── */}
+      <section className="cam-admin-section" aria-labelledby="recent-audit-title">
+        <div className="cam-admin-section-head">
+          <h2 id="recent-audit-title" className="cam-admin-h2">{t("recentAuditTitle")}</h2>
+          <Link href="/admin/journal-audit" className="cam-text-button">
+            {t("fullLogLink")} →
+          </Link>
+        </div>
 
+        {/* Source: GET /audit/reports?paginate=true, newest first
+            (lib/audit-log.ts). Real entries only — no seeded list. */}
+        <div className="cam-admin-section-body">
+          {recentAuditState !== "ready" ? (
+            <DataState
+              dense
+              state={recentAuditState}
+              resource={t("auditResource")}
+              error={recentAuditQuery.error}
+              onRetry={() => recentAuditQuery.refetch()}
+              title={
+                recentAuditState === "empty"
+                  ? t("auditEmptyTitle")
+                  : recentAuditState === "forbidden"
+                    ? t("auditForbiddenTitle")
+                    : undefined
+              }
+              hint={
+                recentAuditState === "empty"
+                  ? t("auditEmptyHint")
+                  : undefined
+              }
+            />
+          ) : (
+            <ul className="cam-param-audit">
+              {(recentAuditQuery.data?.items ?? []).map((e) => (
+                <li key={e.id}>
+                  <time dateTime={e.timestamp}>{stamp(e.timestamp, true, locale)}</time>
+                  <strong>{auditActorName(e, locale)}</strong>
+                  <span title={auditDetailsSummary(e, locale)}>
+                    {auditActionLabel(e.action, locale)} — {auditDetailsSummary(e, locale)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
