@@ -7,7 +7,10 @@ import { getSectors } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
-import type { UserRole } from "@/lib/user-types";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 
 export default function AdminSectorsPage() {
   const t = useTranslations();
@@ -34,94 +37,122 @@ export default function AdminSectorsPage() {
     return categoryFilter ? all.filter((s) => s.category === categoryFilter) : all;
   }, [sectorsQuery.data, categoryFilter]);
 
-  // The admin layout already guards the console; these states only cover a
-  // role outside STAFF_ROLES reaching the URL directly.
-  if (isLoading) return null;
+  const header = (
+    <AdminPageHeader
+      breadcrumb={[{ label: t("adminNav.hubs.donnees") }, { label: t("adminNav.routes.sectors") }]}
+      title={t("adminNav.routes.sectors")}
+      actions={<AdminHeaderActions showCampaignPill={false} />}
+    />
+  );
 
-  if (forbidden) {
+  // The admin layout already guards the console; these states only cover a
+  // role outside STAFF_ROLES reaching the URL directly. Both keep the page
+  // chrome rather than rendering nothing or a hand-built heading.
+  if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <div>
-          <h1 className="cam-admin-h1">{t("adminSectorsPage.accessDeniedTitle")}</h1>
-          <p className="cam-admin-lede">{t("adminSectorsPage.accessDeniedMessage")}</p>
-        </div>
-        <div>
-          <button className="cam-button cam-button-secondary cam-button-sm" onClick={logout}>
-            {t("adminSectorsPage.logoutButton")}
-          </button>
-        </div>
+        {header}
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("adminNav.routes.sectors")}
+          title={isLoading ? t("common.loading") : t("adminSectorsPage.accessDeniedTitle")}
+          hint={forbidden ? t("adminSectorsPage.accessDeniedMessage") : undefined}
+        />
+        {forbidden && (
+          <div>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={logout}>
+              {t("adminSectorsPage.logoutButton")}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
+  const tableState = resolveDataState({
+    isLoading: sectorsQuery.isLoading,
+    isError: sectorsQuery.isError,
+    error: sectorsQuery.error,
+    rowCount: sectorsQuery.data ? filteredSectors.length : null,
+  });
+
   return (
     <div className="cam-admin-page">
-      <div className="cam-admin-page-toolbar">
-        <div className="cam-field" style={{ margin: 0, minWidth: 220 }}>
-          <label className="cam-admin-label" htmlFor="sector-category-filter">
-            {t("adminSectorsPage.categoryFilterLabel")}
-          </label>
-          <select
-            id="sector-category-filter"
-            className="cam-select"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-          >
-            <option value="">{t("adminSectorsPage.allCategoriesOption")}</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {sectorsQuery.isError && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>{t("adminSectorsPage.loadErrorMessage")}</span>
-        </div>
-      )}
+      {header}
 
       <section className="cam-admin-section">
         <div className="cam-admin-section-head">
-          <h2 className="cam-admin-h2">Nomenclature</h2>
+          <h2 className="cam-admin-h2">{t("adminSectorsPage.pageTitle")}</h2>
           {sectorsQuery.isSuccess && (
             <span className="cam-admin-meta">
-              {filteredSectors.length} secteur{filteredSectors.length > 1 ? "s" : ""}
+              {t("adminSectorsPage.sectorCount", { count: filteredSectors.length })}
             </span>
           )}
         </div>
-        {sectorsQuery.isLoading ? (
-          <p className="cam-admin-empty" style={{ margin: 0 }}>{t("adminSectorsPage.loadingSectors")}</p>
-        ) : sectorsQuery.isSuccess && filteredSectors.length === 0 ? (
-          <p className="cam-admin-empty" style={{ margin: 0 }}>{t("adminSectorsPage.emptyState")}</p>
-        ) : sectorsQuery.isSuccess ? (
-          <div className="cam-table-wrapper">
-            <table className="cam-table">
-              <thead>
-                <tr>
-                  <th scope="col">{t("adminSectorsPage.columnName")}</th>
-                  <th scope="col">{t("adminSectorsPage.columnNameEn")}</th>
-                  <th scope="col">{t("adminSectorsPage.columnCategory")}</th>
-                  <th scope="col">{t("adminSectorsPage.columnCode")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSectors.map((s) => (
-                  <tr key={s.id}>
-                    <td className="cam-admin-strong">{s.name}</td>
-                    <td className="cam-admin-muted">{s.nameEn ?? "—"}</td>
-                    <td>
-                      <span className="cam-badge cam-badge-neutral">{s.category ?? "—"}</span>
-                    </td>
-                    <td>
-                      <span className="cam-admin-code">{s.code ?? "—"}</span>
-                    </td>
-                  </tr>
+        <div className="cam-admin-section-body">
+          <div className="cam-admin-filters">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="sector-category-filter">
+                {t("adminSectorsPage.categoryFilterLabel")}
+              </label>
+              <select
+                id="sector-category-filter"
+                className="cam-select"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="">{t("adminSectorsPage.allCategoriesOption")}</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </div>
           </div>
-        ) : null}
+        </div>
+        <div className="cam-table-wrapper">
+          <table className="cam-table">
+            <thead>
+              <tr>
+                <th scope="col">{t("adminSectorsPage.columnName")}</th>
+                <th scope="col">{t("adminSectorsPage.columnNameEn")}</th>
+                <th scope="col">{t("adminSectorsPage.columnCategory")}</th>
+                <th scope="col">{t("adminSectorsPage.columnCode")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Loading, failure and "no sector in this category" are three
+                  distinct renders. */}
+              <DataStateRow
+                colSpan={4}
+                state={tableState}
+                resource={t("adminNav.routes.sectors")}
+                error={sectorsQuery.error}
+                onRetry={() => sectorsQuery.refetch()}
+                title={
+                  tableState === "loading"
+                    ? t("adminSectorsPage.loadingSectors")
+                    : tableState === "error"
+                      ? t("adminSectorsPage.loadErrorMessage")
+                      : tableState === "empty"
+                        ? t("adminSectorsPage.emptyState")
+                        : undefined
+                }
+              />
+              {tableState === "ready" && filteredSectors.map((s) => (
+                <tr key={s.id}>
+                  <td className="cam-admin-strong">{s.name}</td>
+                  <td className="cam-admin-muted">{s.nameEn ?? NOT_PROVIDED}</td>
+                  <td>
+                    <span className="cam-badge cam-badge-neutral">{s.category ?? NOT_PROVIDED}</span>
+                  </td>
+                  <td>
+                    <span className="cam-admin-code">{s.code ?? NOT_PROVIDED}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

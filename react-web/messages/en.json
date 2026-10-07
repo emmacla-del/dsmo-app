@@ -24,7 +24,8 @@
     "columnName": "Name",
     "columnNameEn": "Name (EN)",
     "columnCategory": "Category",
-    "columnCode": "Code"
+    "columnCode": "Code",
+    "sectorCount": "{count, plural, one {# sector} other {# sectors}}"
   },
   "forgotPasswordPage": {
     "passwordTooShortError": "Password must be at least 8 characters long.",
