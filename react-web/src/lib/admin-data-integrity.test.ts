@@ -82,6 +82,16 @@ test("percent: renders percentage string and strictly preserves 0", () => {
   assert.equal(percent(NaN), NOT_PROVIDED);
 });
 
+test("percent: a minimum below the maximum drops a zero decimal, keeps a real one", () => {
+  assert.equal(percent(50, 1, "fr", 0), "50 %");
+  assert.equal(percent(50.5, 1, "fr", 0), "50,5 %");
+  assert.equal(percent(50.04, 1, "fr", 0), "50 %");
+  assert.equal(percent(50, 1, "en", 0), "50%");
+  assert.equal(percent(66.67, 1, "en", 0), "66.7%");
+  // Without the fourth argument the behaviour is unchanged: fixed digits.
+  assert.equal(percent(50, 1, "fr"), "50,0 %");
+});
+
 test("rate: calculates rounded rate, preserving 0 and returning null on zero denominator", () => {
   // Legitimate zero numerator yields zero rate, not null
   assert.equal(rate(0, 100), 0);
