@@ -24,7 +24,8 @@
     "columnName": "Nom",
     "columnNameEn": "Nom (EN)",
     "columnCategory": "Catégorie",
-    "columnCode": "Code"
+    "columnCode": "Code",
+    "sectorCount": "{count, plural, one {# secteur} other {# secteurs}}"
   },
   "forgotPasswordPage": {
     "passwordTooShortError": "Le mot de passe doit contenir au moins 8 caractères.",
