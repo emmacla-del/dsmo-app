@@ -20,6 +20,7 @@ import { buildUserListWhere, type UserListFilterParams } from './user-list-filte
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
 import { toPublicUser } from './public-user';
+import { isOverdue, overdueCutoff, waitingSince } from './registration-overdue';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import {
@@ -1459,6 +1460,9 @@ export class AuthService {
       search?: string;
       status?: string;
       createdBy?: string;
+      // Only files the reviewers have left waiting past
+      // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
+      overdue?: boolean;
       page?: number;
       pageSize?: number;
     },
@@ -1511,6 +1515,19 @@ export class AuthService {
     const createdBy = params.createdBy?.trim();
     if (createdBy) userWhere.createdBy = createdBy;
 
+    // Overdue: pending, registered before the cutoff, and not resubmitted
+    // since -- the same rule as waitingSince() on each row. It replaces any
+    // status filter (only PENDING_APPROVAL files can be overdue) and narrows
+    // the date range to before the cutoff.
+    const cutoff = overdueCutoff();
+    if (params.overdue) {
+      userWhere.status = 'PENDING_APPROVAL';
+      const recentlyResubmitted = await this.usersResubmittedSince(cutoff);
+      if (recentlyResubmitted.length > 0) userWhere.id = { notIn: recentlyResubmitted };
+      createdAt.lt = createdAt.lte && createdAt.lte < cutoff ? createdAt.lte : cutoff;
+      delete createdAt.lte;
+    }
+
     const where: Record<string, unknown> = {
       ...regionScope,
       user: userWhere,
@@ -1558,13 +1575,21 @@ export class AuthService {
 
     const items = await this.withDuplicateHints(companies);
     const resubmissions = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
-    const itemsWithResubmission = items.map((item) => ({
-      ...item,
-      lastResubmission: resubmissions.get(item.id) ?? null,
-    }));
+    const itemsWithResubmission = items.map((item) => {
+      const lastResubmission = resubmissions.get(item.id) ?? null;
+      const since = waitingSince(item.status, item.submittedAt, lastResubmission?.at ?? null);
+      return {
+        ...item,
+        lastResubmission,
+        // When the reviewers' wait began, and whether it is past
+        // REGISTRATION_OVERDUE_DAYS. null / false when it is not their move.
+        waitingSince: since,
+        overdue: isOverdue(since),
+      };
+    });
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
-    const counts = await this.companyRegistrationCounts(regionScope);
+    const counts = await this.companyRegistrationCounts(regionScope, cutoff);
     return { items: itemsWithResubmission, total, page, pageSize, counts };
   }
 
@@ -1784,14 +1809,37 @@ export class AuthService {
     });
   }
 
-  private async companyRegistrationCounts(scope: Record<string, unknown>) {
+  private async companyRegistrationCounts(scope: Record<string, unknown>, cutoff: Date) {
     const [pending, complements, approved, rejected] = await Promise.all([
       this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'PENDING_APPROVAL' } } }),
       this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'COMPLEMENTS_REQUESTED' } } }),
       this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'ACTIVE' } } }),
       this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'REJECTED' } } }),
     ]);
-    return { pending, complements, approved, rejected };
+    // After the four above rather than alongside them: the session-mode pool
+    // is small (15) and wide fan-outs have exhausted it before.
+    const recentlyResubmitted = await this.usersResubmittedSince(cutoff);
+    const overdue = await this.prisma.company.count({
+      where: {
+        ...scope,
+        createdAt: { lt: cutoff },
+        user: {
+          role: 'COMPANY',
+          status: 'PENDING_APPROVAL',
+          ...(recentlyResubmitted.length > 0 ? { id: { notIn: recentlyResubmitted } } : {}),
+        },
+      },
+    });
+    return { pending, complements, approved, rejected, overdue };
+  }
+
+  /** Company accounts that resubmitted corrections at or after `since`. */
+  private async usersResubmittedSince(since: Date): Promise<string[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: { action: 'COMPANY_REGISTRATION_RESUBMITTED', resourceType: 'User', createdAt: { gte: since } },
+      select: { resourceId: true },
+    });
+    return [...new Set(rows.map((r) => r.resourceId))];
   }
 
   private async withDuplicateHints(

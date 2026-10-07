@@ -676,6 +676,8 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
         count: jest.fn(async () => 0),
         findMany: jest.fn(async () => []),
       },
+      // The overdue count looks up recent resubmissions (registration-overdue.ts).
+      auditLog: { findMany: jest.fn(async () => []) },
     };
     return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
   }
@@ -733,6 +735,8 @@ describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', ()
         count: jest.fn(async () => 0),
         findMany: jest.fn(async () => []),
       },
+      // The overdue count looks up recent resubmissions (registration-overdue.ts).
+      auditLog: { findMany: jest.fn(async () => []) },
     };
     return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
   }
