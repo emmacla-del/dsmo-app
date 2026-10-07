@@ -28,13 +28,16 @@
 // The platform role is not chosen: it is the service's roleMapping, so a
 // post in the Delegation Regionale (DREFOP) is a REGIONAL_ADMIN, one in the
 // Delegation Departementale (DDEFOP) a DIVISIONAL_ADMIN, and one in a
-// central or attached service an ADMIN_ONEFOP.
+// central or attached service a CENTRAL_AGENT (national read-only).
+//
+// ADMIN_ONEFOP is never derived from a service. A SUPER_ADMIN grants it
+// explicitly (grantAdminOnefop) on a central post, so only a SUPER_ADMIN
+// ever creates a central administrator.
 //
 // Who may invite whom follows staff-scope.ts and adds nothing to it:
-// SUPER_ADMIN invites anyone in INVITABLE_ROLES; ADMIN_ONEFOP invites the
-// territorial roles only (manageableRolesFor), so it can never mint its own
-// rank -- in organigramme terms, it can invite into the deconcentrated
-// services only.
+// SUPER_ADMIN invites anyone; ADMIN_ONEFOP invites the roles it manages
+// (manageableRolesFor: territorial staff and central agents) and can never
+// mint its own rank.
 import {
   BadRequestException,
   ConflictException,
@@ -57,8 +60,12 @@ export const STAFF_INVITATION_PURPOSE = 'staff_invitation';
 
 // ADMIN_ONEFOP is the central administrator. AUDITOR is not invitable: the
 // role is deferred (decision 2026-10-05).
-export const INVITABLE_ROLES = ['ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
+export const INVITABLE_ROLES = ['ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT'] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
+
+// The roles a service's roleMapping may give. ADMIN_ONEFOP is not one of
+// them: it is granted, never derived.
+const SERVICE_ROLES: readonly string[] = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT'];
 
 // Any service may take an agent who holds none of its head posts: "Cadre".
 // The organigramme seed lists head posts only (delegue, chef de service,
@@ -98,6 +105,9 @@ export interface CreateStaffInvitationInput {
   positionType?: string;
   region?: string;
   department?: string;
+  // SUPER_ADMIN only, central posts only: make the invitee an ADMIN_ONEFOP
+  // instead of a CENTRAL_AGENT.
+  grantAdminOnefop?: boolean;
 }
 
 export interface AcceptStaffInvitationInput {
@@ -142,9 +152,16 @@ export class StaffInvitationService {
     if (!service || !service.isActive) {
       throw new BadRequestException("Service inconnu dans l'organigramme.");
     }
-    const role = service.roleMapping as string;
-    if (!(INVITABLE_ROLES as readonly string[]).includes(role)) {
+    const serviceRole = service.roleMapping as string;
+    if (!SERVICE_ROLES.includes(serviceRole)) {
       throw new BadRequestException("Ce service ne peut pas recevoir d'invitation.");
+    }
+    let role = serviceRole;
+    if (input.grantAdminOnefop === true) {
+      if (serviceRole !== 'CENTRAL_AGENT') {
+        throw new BadRequestException("Le rôle d'administrateur ONEFOP ne s'accorde que sur un poste central.");
+      }
+      role = 'ADMIN_ONEFOP';
     }
     assertCanInvite(actor.role, role);
 

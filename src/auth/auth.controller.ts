@@ -6,7 +6,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES } from './staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
@@ -170,6 +170,7 @@ export class AuthController {
     positionType?: string;
     region?: string;
     department?: string;
+    grantAdminOnefop?: boolean;
   }) {
     return this.staffInvitations.create(body, { id: req.user.id, role: req.user.role });
   }
@@ -321,7 +322,7 @@ export class AuthController {
 
   @Get('company-registrations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES, ...READ_ONLY_NATIONAL_ROLES)
   async listCompanyRegistrations(
     @Request() req: any,
     @Query('entityType') entityType?: string,

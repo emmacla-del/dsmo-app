@@ -24,7 +24,17 @@ export const ONEFOP_STAFF_ROLES = [
   'REGIONAL_ADMIN',
   'DIVISIONAL_ADMIN',
   'AUDITOR',
+  'CENTRAL_AGENT',
 ] as const;
+
+/**
+ * Read-only national staff (central and attached services). Spread into the
+ * @Roles of GET endpoints only -- pilotage, the establishment directory,
+ * the dossier reads. Never on a mutation, never on an export: the
+ * controller guard test (central-agent-read-only.spec.ts) fails if it is.
+ * Its national row scope comes from READ_NATIONAL_ROLES in territory.ts.
+ */
+export const READ_ONLY_NATIONAL_ROLES = ['CENTRAL_AGENT'] as const;
 
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
 export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
@@ -42,6 +52,7 @@ export const DIRECTORY_ROLES = [
   'ADMIN_ONEFOP',
   'REGIONAL_ADMIN',
   'DIVISIONAL_ADMIN',
+  ...READ_ONLY_NATIONAL_ROLES,
 ] as const;
 
 /** null = unrestricted; otherwise the only target roles the actor may manage. */

@@ -11,6 +11,7 @@ import { PILOTAGE_READ_ROLES, PILOTAGE_WRITE_ROLES, PilotageController } from '.
 const ENUM_ROLES = [
   'ADMIN_ONEFOP',
   'AUDITOR',
+  'CENTRAL_AGENT',
   'COMPANY',
   'DIVISIONAL_ADMIN',
   'REGIONAL_ADMIN',
@@ -54,6 +55,9 @@ describe('PilotageController roles', () => {
     expect(write.has(UserRole.ADMIN_ONEFOP)).toBe(true);
     expect(read.has(UserRole.REGIONAL_ADMIN)).toBe(true);
     expect(read.has(UserRole.DIVISIONAL_ADMIN)).toBe(true);
+    // Central staff read the pilotage figures nationally and change nothing.
+    expect(read.has(UserRole.CENTRAL_AGENT)).toBe(true);
+    expect(write.has(UserRole.CENTRAL_AGENT)).toBe(false);
 
     for (const [name, allowed] of handlers) {
       const handler = PilotageController.prototype[name];
