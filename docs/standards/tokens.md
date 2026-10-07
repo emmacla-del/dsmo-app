@@ -9,9 +9,14 @@ The weight, line-height, letter-spacing, field-width, choice-size, and alpha pur
 
 ## Rules
 
-1. **Translucency.** `rgba()` may appear only inside `tokens.css`, and only as `color-mix()` of a solid colour defined in that file. A wash, a scrim, and a focus ring are purpose tokens (`--cam-green-wash`, `--cam-scrim`, `--cam-focus-shadow`). A new percentage at a call site is not a token.
+1. **Rule.** `rgba()` inside `tokens.css` is prohibited except for `--cam-shadow-sm`. In the rest of the codebase, `rgba()` is discouraged but not yet eliminated. Known remaining uses (measured 2026-10-07):
 
-   The one exception is `--cam-shadow-sm`: `rgba(20, 30, 20, 0.04)`. Its base colour is not a token, so it cannot be a `color-mix` of a defined solid colour. A second exception means that shadow-base colour needs naming. No other file may add an `rgba()`.
+   - `admin-console.css` — 38 uses
+   - `globals.css` — 4 uses: three in `@keyframes onefopPulse`, one on `.sovereign-text-input.has-error:focus`
+
+   These predate the alpha convention. A follow-up will convert them. A new `rgba()` outside `tokens.css` should be a `color-mix` purpose token or a new token.
+
+   **Exception.** `--cam-shadow-sm` remains `rgba(20, 30, 20, 0.04)`. Its base colour is not a token, so it cannot be expressed as a color-mix of a defined solid colour. It is the only exception inside `tokens.css`; a second one is a signal that a shadow-base colour needs to be named.
 
 2. **Off-ladder values.** A length, size, weight, radius, or line-height that is not on its ladder is a purpose token, named for the job, and has a row below. The ladders are:
 
