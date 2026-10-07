@@ -104,13 +104,13 @@ export function VtWizardSidebar({
             marginBottom: 6,
           }}
         >
-          SOMMAIRE
+          {locale === "en" ? "CONTENTS" : "SOMMAIRE"}
         </div>
 
         {/* Progress Bar */}
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 6 }}>
           <span style={{ fontWeight: 600, color: "#64748b" }}>
-            {doneCount} sur {sections.length} {locale === "en" ? "sections" : "sections"}
+            {locale === "en" ? `${doneCount} of ${sections.length} sections` : `${doneCount} sur ${sections.length} sections`}
           </span>
           <span style={{ fontWeight: 700, color: "#0e4d29" }}>
             {Math.round((doneCount / sections.length) * 100)}%
@@ -332,7 +332,7 @@ export function VtWizardSidebar({
               letterSpacing: "0.04em",
             }}
           >
-            MINFOP
+            MINEFOP
           </div>
           <div
             style={{
@@ -342,7 +342,9 @@ export function VtWizardSidebar({
               opacity: 0.9,
             }}
           >
-            Ministère de l'Emploi et de la Formation Professionnelle
+            {locale === "en"
+              ? "Ministry of Employment and Vocational Training"
+              : "Ministère de l'Emploi et de la Formation Professionnelle"}
           </div>
         </div>
       </div>

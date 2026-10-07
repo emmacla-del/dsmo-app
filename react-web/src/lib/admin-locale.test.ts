@@ -26,6 +26,8 @@ import { buildTargetPayload, describeStored, formatCoverageCount, modeLabel, nor
 import { formatApiError } from "./pilotage-targets";
 import { navItemsForRole, roleLabelKey } from "./role-navigation";
 import { currentUiLocale } from "./ui-locale";
+import { buildSectionUnits } from "./onefop-units";
+import type { OnefopField, OnefopSection } from "./onefop-schema";
 import { approvalGate, registrationMethodLabel, verificationRows } from "./inscriptions";
 import { CAMPAIGN_PERIODICITIES, CAMPAIGN_PURPOSE_LABELS, CAMPAIGN_STATUS_LABELS, REMINDER_TYPES } from "./campaigns";
 import { ANOMALY_STATUS_LABELS } from "./anomaly-registry";
@@ -297,4 +299,22 @@ test("/home navigation: every role badge and nav item has a label in both catalo
 
 test("currentUiLocale: French outside the browser", () => {
   assert.equal(currentUiLocale(), "fr");
+});
+
+test("wizard units: titles in the selected language, paper-form presentation without one", () => {
+  const field = (id: string, type: string, fr: string, en: string): OnefopField => ({
+    id, paperCode: null, path: null, type, required: false,
+    label: { fr, en }, hint: null, instruction: null, options: null, visibility: null, table: null,
+  });
+  const section: OnefopSection = {
+    id: "s", order: 1, title: { fr: "SECTION 3. DÉPARTS", en: "SECTION 3. DEPARTURES" },
+    description: null, entityTypes: null, subsections: [],
+    fields: [field("a", "text", "Nom", "Name"), field("t", "table", "Tableau des départs", "Departures table")],
+  };
+  const en = buildSectionUnits(section, "en");
+  assert.deepEqual(en.map((u) => u.title), ["SECTION 3. DEPARTURES - Part 1", "Departures table"]);
+  const fr = buildSectionUnits(section, "fr");
+  assert.deepEqual(fr.map((u) => u.title), ["SECTION 3. DÉPARTS - Partie 1", "Tableau des départs"]);
+  // No locale: unchanged paper-form presentation.
+  assert.match(buildSectionUnits(section)[1].title, /Tableau des départs.*Departures table/);
 });
