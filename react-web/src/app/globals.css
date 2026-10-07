@@ -321,7 +321,7 @@ body {
    not a .cam-badge. */
 .cam-auth-page .receipt-hero {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--cam-auth-block-gap);
 }
 
 .cam-auth-page .receipt-disc {
@@ -351,7 +351,7 @@ body {
   font-weight: var(--cam-font-weight-bold);
   color: var(--cam-green-dark);
   background: rgba(30, 107, 58, 0.08);
-  padding: 2px var(--cam-space-2);
+  padding: var(--cam-space-hairline) var(--cam-space-2);
   border-radius: var(--cam-radius-md);
   display: inline-block;
 }
@@ -374,20 +374,20 @@ body {
 }
 
 .cam-auth-page .card-body {
-  padding: 26px 26px 22px;
+  padding: var(--cam-auth-card-pad) var(--cam-auth-card-pad) var(--cam-auth-card-pad-bottom);
 }
 
 /* Tabs */
 .cam-auth-page .tabs {
   display: flex;
-  gap: 22px;
-  margin-bottom: 22px;
+  gap: var(--cam-auth-tab-gap);
+  margin-bottom: var(--cam-auth-tab-gap);
 }
 
 .cam-auth-page .tab {
   background: none;
   border: none;
-  padding: 0 0 10px;
+  padding: 0 0 var(--cam-auth-inset-10);
   font-size: var(--cam-font-size-base);
   font-weight: 600;
   color: var(--cam-text-muted);
@@ -415,7 +415,7 @@ body {
   display: block;
   font-size: var(--cam-font-size-xs);
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: var(--cam-field-stack-gap);
   color: var(--cam-text);
 }
 
@@ -438,7 +438,7 @@ body {
 .cam-auth-page input:not([type]),
 .cam-auth-page textarea {
   width: 100%;
-  padding: 10px var(--cam-space-3);
+  padding: var(--cam-auth-inset-10) var(--cam-space-3);
   font-size: var(--cam-font-size-base);
   border: 1px solid var(--cam-green);
   border-radius: var(--cam-radius-control);
@@ -452,7 +452,7 @@ body {
 
 .cam-auth-page select {
   width: 100%;
-  padding: 10px var(--cam-space-3);
+  padding: var(--cam-auth-inset-10) var(--cam-space-3);
   font-size: var(--cam-font-size-base);
   border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-control);
@@ -465,7 +465,7 @@ body {
 }
 
 .cam-auth-page input[type="password"] {
-  padding-right: 40px;
+  padding-right: var(--cam-auth-eye-pad);
 }
 
 .cam-auth-page input:focus,
@@ -491,7 +491,7 @@ body {
 /* Eye toggle for password visibility */
 .cam-auth-page .eye-toggle {
   position: absolute;
-  right: 10px;
+  right: var(--cam-auth-inset-10);
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -519,14 +519,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 10px 0 20px;
+  margin: var(--cam-auth-inset-10) 0 var(--cam-auth-block-gap);
   font-size: var(--cam-font-size-xs);
 }
 
 .cam-auth-page .stay-signed-in {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--cam-auth-check-gap);
   color: var(--cam-text);
   cursor: pointer;
   margin-bottom: 0;
@@ -555,7 +555,7 @@ body {
 /* Buttons */
 .cam-auth-page .btn-primary {
   width: 100%;
-  padding: 12px;
+  padding: var(--cam-space-3);
   background: var(--cam-green);
   color: var(--cam-surface);
   border: none;
@@ -580,7 +580,7 @@ body {
 }
 
 .cam-auth-page .btn-secondary {
-  padding: 10px var(--cam-space-4);
+  padding: var(--cam-auth-inset-10) var(--cam-space-4);
   background: transparent;
   color: var(--cam-text);
   border: var(--cam-border-width) solid var(--cam-border);
@@ -607,7 +607,7 @@ body {
 /* Card footer */
 .cam-auth-page .card-footer {
   border-top: var(--cam-border-width) solid var(--cam-border);
-  padding: 14px 26px;
+  padding: var(--cam-auth-footer-pad-y) var(--cam-auth-card-pad);
   text-align: center;
   background: var(--cam-surface-subtle);
 }
@@ -630,7 +630,7 @@ body {
 /* External help line */
 .cam-auth-page .help {
   text-align: center;
-  margin-top: 20px;
+  margin-top: var(--cam-auth-block-gap);
   font-size: var(--cam-font-size-xs);
   color: var(--cam-text-muted);
 }
@@ -651,7 +651,7 @@ body {
   color: var(--cam-error);
   border: var(--cam-border-width) solid var(--cam-error-border);
   border-radius: var(--cam-radius-control);
-  padding: 10px var(--cam-space-3);
+  padding: var(--cam-auth-inset-10) var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   margin-bottom: var(--cam-space-3);
 }
@@ -661,7 +661,7 @@ body {
   color: var(--cam-green-dark);
   border: var(--cam-border-width) solid var(--cam-success-border);
   border-radius: var(--cam-radius-control);
-  padding: 10px var(--cam-space-3);
+  padding: var(--cam-auth-inset-10) var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   margin-bottom: var(--cam-space-3);
 }
@@ -669,7 +669,7 @@ body {
 /* Status pill (verify-email) */
 .cam-auth-page .status-pill {
   display: inline-block;
-  padding: var(--cam-space-1) 10px;
+  padding: var(--cam-space-1) var(--cam-auth-inset-10);
   border-radius: var(--cam-radius-control);
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
@@ -822,7 +822,7 @@ body {
      in use, so a platform-default 15-17px bar is a visible bite out of the
      input column on every section, tall or short. */
   scrollbar-width: thin;
-  padding: 20px 22px 8px;
+  padding: var(--cam-frame-scroll-pad-top) var(--cam-frame-scroll-pad-x) var(--cam-space-2);
 }
 
 /* One line under the frame: the way back to sign-in and the help contact,
@@ -1385,7 +1385,7 @@ body {
 .cam-auth-page .table-official th,
 .cam-auth-page .table-official td {
   border: 1px solid var(--cam-table-grid);
-  padding: 8px 12px;
+  padding: var(--cam-space-2) var(--cam-space-3);
   text-align: left;
   vertical-align: top;
 }
@@ -1500,7 +1500,7 @@ body {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: var(--cam-sr-offset);
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
@@ -1559,7 +1559,7 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--cam-space-hairline);
 }
 
 .cam-auth-page--wizard .section-collapsed-title {
@@ -1618,7 +1618,7 @@ body {
 .cam-auth-page .review-honour-notice {
   border-left: 3px solid var(--cam-green);
   background: var(--cam-success-bg);
-  padding: 10px 14px;
+  padding: var(--cam-auth-inset-10) var(--cam-honour-pad-x);
   font-size: var(--cam-font-size-3xs);
   line-height: 1.5;
   color: var(--cam-text);
@@ -1640,7 +1640,7 @@ body {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-  margin-top: 2px;
+  margin-top: var(--cam-space-hairline);
   accent-color: var(--cam-green);
   cursor: pointer;
 }
@@ -1658,7 +1658,7 @@ body {
    not, so the floor is a second modifier rather than part of this one. */
 .cam-auth-page--wizard .btn-primary--inline {
   width: auto;
-  padding: 10px 22px;
+  padding: var(--cam-auth-inset-10) var(--cam-inline-button-pad-x);
 }
 
 .cam-auth-page--wizard .btn-primary--submit {
@@ -1948,10 +1948,10 @@ body {
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
   cursor: pointer;
-  padding: 3px 8px;
+  padding: var(--cam-edit-pad-y) var(--cam-space-2);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--cam-space-1);
   transition: all 0.15s ease;
 }
 
@@ -1964,8 +1964,8 @@ body {
 /* Password strength segments */
 .cam-auth-page .password-strength-meter {
   display: flex;
-  gap: 4px;
-  margin-top: 6px;
+  gap: var(--cam-space-1);
+  margin-top: var(--cam-field-stack-gap);
 }
 
 .cam-auth-page .password-strength-seg {

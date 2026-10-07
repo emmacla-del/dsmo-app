@@ -137,11 +137,26 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-field-label-col` | `160px` | Wizard field | Side-by-side label column. |
 | `--cam-field-label-gap` | `12px` | Wizard field | Gap between the label column and the input. Matches `--cam-space-3`. |
 | `--cam-field-row-gap` | `16px` | Wizard field | Gap between field rows. Matches `--cam-space-4`. |
-| `--cam-field-stack-gap` | `6px` | Wizard field | Gap between a stacked label and its input. Purpose value, off the space ladder. |
+| `--cam-field-stack-gap` | `6px` | Wizard field | Gap between a stacked label and its input. Also the shared auth label gap and the password-meter offset. Purpose value, off the space ladder. |
 | `--cam-field-height` | `var(--cam-form-field-height)` | Wizard field | Wizard control height. Aliases the density token, so one change moves both surfaces. |
 | `--cam-field-radius` | `8px` | Radius | Wizard input radius. Purpose value, off the radius ladder, so the focus ring does not hug the border. |
 | `--cam-field-border-width` | `1.5px` | Wizard field | Wizard input border. Purpose value. |
 | `--cam-choice-size` | `18px` | Wizard field | Radio and checkbox control size. Classes still write 15px, 17px, and 18px. |
+| `--cam-auth-card-pad` | `26px` | Spacing | Auth card body, top and inline. Not `--cam-card-pad-x`: that one shrinks on a phone, and this card does not. |
+| `--cam-auth-card-pad-bottom` | `22px` | Spacing | Auth card body, bottom. |
+| `--cam-auth-tab-gap` | `22px` | Spacing | Gap and block margin of the login tabs. |
+| `--cam-auth-inset-10` | `10px` | Spacing | Inset on auth controls, notices, the tab rule, the status pill, and the in-flow button. |
+| `--cam-auth-eye-pad` | `40px` | Spacing | Inline end padding so the password eye does not cover the value. |
+| `--cam-auth-check-gap` | `7px` | Spacing | Gap between the login checkbox and its label. |
+| `--cam-auth-footer-pad-y` | `14px` | Spacing | Auth card footer, block axis. |
+| `--cam-auth-block-gap` | `20px` | Spacing | Space under the auth sub-row, the help line, and the receipt hero. |
+| `--cam-frame-scroll-pad-top` | `20px` | Spacing | Padding at the top of the wizard's scrolling frame. |
+| `--cam-frame-scroll-pad-x` | `22px` | Spacing | Inline padding of the wizard's scrolling frame. |
+| `--cam-inline-button-pad-x` | `22px` | Spacing | Inline padding of `.btn-primary--inline`. |
+| `--cam-honour-pad-x` | `14px` | Spacing | Inline padding of the review honour notice. |
+| `--cam-edit-pad-y` | `3px` | Spacing | Block padding of the review edit button. |
+| `--cam-space-hairline` | `2px` | Spacing | Optical nudge below the 4px step: certify checkbox, collapsed title stack, establishment-ID chip. |
+| `--cam-sr-offset` | `-1px` | Spacing | Clip offset for visually-hidden text. Not a space step. |
 | `--cam-field-width-full` | `100%` | Wizard field | Default FormRow width. |
 | `--cam-field-width-medium` | `280px` | Wizard field | FormRow `medium`: NIU, CNPS, registration numbers. |
 | `--cam-field-width-short` | `220px` | Wizard field | FormRow `short`: phone, year, counts. |
