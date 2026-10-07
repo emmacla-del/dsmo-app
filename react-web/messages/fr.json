@@ -2336,6 +2336,10 @@
       "COMPANY": {
         "name": "Déclarant",
         "description": "Dépôt et suivi des déclarations de l'établissement. Aucun accès aux écrans d'administration."
+      },
+      "CENTRAL_AGENT": {
+        "name": "Agent central",
+        "description": "Personnel des services centraux et rattachés du MINEFOP. Consultation nationale du tableau de bord, des dossiers et du répertoire des établissements. Aucun droit d'écriture, aucun export."
       }
     },
     "forbidden": "Accès restreint aux super-administrateurs.",
@@ -2534,7 +2538,8 @@
       "REGIONAL_ADMIN": "Délégation Régionale",
       "ADMIN_ONEFOP": "Admin · ONEFOP",
       "SUPER_ADMIN": "Super Admin · DSMO + ONEFOP",
-      "AUDITOR": "Auditeur"
+      "AUDITOR": "Auditeur",
+      "CENTRAL_AGENT": "Agent central · MINEFOP"
     },
     "item": {
       "home": "Accueil",
@@ -2551,7 +2556,8 @@
       "onefopUsers": "Utilisateurs ONEFOP",
       "establishmentRegister": "Répertoire des Établissements",
       "dsmoStatistics": "Statistiques DSMO",
-      "userEntityManagement": "Gestion des Utilisateurs & Entités"
+      "userEntityManagement": "Gestion des Utilisateurs & Entités",
+      "fileConsultation": "Consultation des Dossiers"
     }
   },
   "homeRegistrationPendingPage": {
@@ -2607,7 +2613,7 @@
     "levelHint": {
       "regional": "Délégué régional et agents de la délégation, pour une région",
       "departmental": "Délégué départemental et agents de la délégation, pour un département",
-      "central": "Administrateur central (ONEFOP, directions, inspections…)"
+      "central": "Agent central en lecture seule (ONEFOP, directions, inspections…)"
     },
     "serviceLabel": "Service",
     "selectService": "— Choisir le service —",
@@ -2636,7 +2642,16 @@
     "phoneLabel": "Numéro WhatsApp de l'agent",
     "phonePlaceholder": "Facultatif, ex : 655000000",
     "phoneHint": "Sans numéro, WhatsApp vous demandera à qui envoyer le message.",
-    "sendWhatsapp": "Envoyer via WhatsApp"
+    "sendWhatsapp": "Envoyer via WhatsApp",
+    "grantAdmin": "Faire de cette personne un administrateur ONEFOP",
+    "grantAdminHint": "Accès complet d'administration nationale, au lieu de la consultation seule. Lien valable 24 h.",
+    "accessLabel": "Accès",
+    "access": {
+      "ADMIN_ONEFOP": "Administrateur ONEFOP (administration nationale)",
+      "CENTRAL_AGENT": "Agent central (consultation nationale, lecture seule)",
+      "REGIONAL_ADMIN": "Administrateur régional",
+      "DIVISIONAL_ADMIN": "Administrateur départemental"
+    }
   },
   "inscriptionAgentPage": {
     "title": "Créer votre compte agent",

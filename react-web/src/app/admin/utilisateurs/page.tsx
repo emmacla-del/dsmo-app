@@ -20,10 +20,15 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
-import { USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
+import { READ_ONLY_ROLES, USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
 import { registrationMethodBadgeClass, registrationMethodLabel } from "@/lib/inscriptions";
 
 const AGENTS_PAGE_SIZE = 50;
+
+// The staff this screen lists: territorial officers and the read-only
+// central agents, i.e. the roles an ADMIN_ONEFOP manages (backend
+// ONEFOP_STAFF_ROLES, AUDITOR aside). ADMIN_ONEFOP itself stays off the list.
+const LISTED_STAFF_ROLES = [...TERRITORIAL_ROLES, ...READ_ONLY_ROLES];
 
 // The field roles listed on this screen are TERRITORIAL_ROLES (@/lib/roles,
 // re-exported by @/lib/user-directory) — the roles whose authorised scope is
@@ -96,7 +101,7 @@ export default function OnefopUsersPage() {
   const agentsQuery = useQuery({
     queryKey: ["auth", "users", "onefop-agents"],
     enabled,
-    queryFn: () => listUsers({ roles: TERRITORIAL_ROLES, page: 1, pageSize: AGENTS_PAGE_SIZE }),
+    queryFn: () => listUsers({ roles: LISTED_STAFF_ROLES, page: 1, pageSize: AGENTS_PAGE_SIZE }),
   });
 
   /**
@@ -109,13 +114,13 @@ export default function OnefopUsersPage() {
   const activeCountQuery = useQuery({
     queryKey: ["auth", "users", "onefop-agents", "active"],
     enabled,
-    queryFn: () => listUsers({ roles: TERRITORIAL_ROLES, isActive: true, page: 1, pageSize: 1 }),
+    queryFn: () => listUsers({ roles: LISTED_STAFF_ROLES, isActive: true, page: 1, pageSize: 1 }),
   });
 
   const inactiveCountQuery = useQuery({
     queryKey: ["auth", "users", "onefop-agents", "inactive"],
     enabled,
-    queryFn: () => listUsers({ roles: TERRITORIAL_ROLES, isActive: false, page: 1, pageSize: 1 }),
+    queryFn: () => listUsers({ roles: LISTED_STAFF_ROLES, isActive: false, page: 1, pageSize: 1 }),
   });
 
   const now = new Date();
@@ -124,7 +129,7 @@ export default function OnefopUsersPage() {
   const newThisMonthQuery = useQuery({
     queryKey: ["auth", "users", "onefop-agents", "new-this-month", startOfMonth],
     enabled,
-    queryFn: () => listUsers({ roles: TERRITORIAL_ROLES, fromCreatedAt: startOfMonth, page: 1, pageSize: 1 }),
+    queryFn: () => listUsers({ roles: LISTED_STAFF_ROLES, fromCreatedAt: startOfMonth, page: 1, pageSize: 1 }),
   });
 
   const showToast = (msg: string) => {

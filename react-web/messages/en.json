@@ -2336,6 +2336,10 @@
       "COMPANY": {
         "name": "Respondent",
         "description": "Filing and tracking of the establishment's declarations. No access to the administration screens."
+      },
+      "CENTRAL_AGENT": {
+        "name": "Central officer",
+        "description": "Staff of the central and attached MINEFOP services. National read access to the dashboard, the dossiers and the establishment register. No write access, no exports."
       }
     },
     "forbidden": "Access restricted to super administrators.",
@@ -2534,7 +2538,8 @@
       "REGIONAL_ADMIN": "Regional Delegation",
       "ADMIN_ONEFOP": "Admin · ONEFOP",
       "SUPER_ADMIN": "Super Admin · DSMO + ONEFOP",
-      "AUDITOR": "Auditor"
+      "AUDITOR": "Auditor",
+      "CENTRAL_AGENT": "Central officer · MINEFOP"
     },
     "item": {
       "home": "Home",
@@ -2551,7 +2556,8 @@
       "onefopUsers": "ONEFOP users",
       "establishmentRegister": "Establishment register",
       "dsmoStatistics": "DSMO statistics",
-      "userEntityManagement": "User & entity management"
+      "userEntityManagement": "User & entity management",
+      "fileConsultation": "File consultation"
     }
   },
   "homeRegistrationPendingPage": {
@@ -2607,7 +2613,7 @@
     "levelHint": {
       "regional": "Regional delegate and delegation staff, for one region",
       "departmental": "Divisional delegate and delegation staff, for one division",
-      "central": "Central administrator (ONEFOP, directorates, inspectorates…)"
+      "central": "Read-only central officer (ONEFOP, directorates, inspectorates…)"
     },
     "serviceLabel": "Service",
     "selectService": "— Choose the service —",
@@ -2636,7 +2642,16 @@
     "phoneLabel": "Officer's WhatsApp number",
     "phonePlaceholder": "Optional, e.g. 655000000",
     "phoneHint": "Without a number, WhatsApp will ask who to send the message to.",
-    "sendWhatsapp": "Send via WhatsApp"
+    "sendWhatsapp": "Send via WhatsApp",
+    "grantAdmin": "Make this person an ONEFOP administrator",
+    "grantAdminHint": "Full national administration rights instead of read-only access. Link valid 24 h.",
+    "accessLabel": "Access",
+    "access": {
+      "ADMIN_ONEFOP": "ONEFOP administrator (national administration)",
+      "CENTRAL_AGENT": "Central officer (national, read-only)",
+      "REGIONAL_ADMIN": "Regional administrator",
+      "DIVISIONAL_ADMIN": "Divisional administrator"
+    }
   },
   "inscriptionAgentPage": {
     "title": "Create your officer account",

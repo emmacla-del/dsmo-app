@@ -288,6 +288,7 @@ const ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
     REGIONAL_ADMIN: "Régional",
     DIVISIONAL_ADMIN: "Divisionnaire",
     AUDITOR: "Auditeur",
+    CENTRAL_AGENT: "Agent central",
     COMPANY: "Entreprise",
   },
   en: {
@@ -296,6 +297,7 @@ const ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
     REGIONAL_ADMIN: "Regional",
     DIVISIONAL_ADMIN: "Departmental",
     AUDITOR: "Auditor",
+    CENTRAL_AGENT: "Central officer",
     COMPANY: "Company",
   },
 };
@@ -310,6 +312,7 @@ const ROLE_COLORS: Record<string, string> = {
   REGIONAL_ADMIN: "var(--cam-info)",
   DIVISIONAL_ADMIN: "var(--cam-info)",
   AUDITOR: "var(--cam-warning)",
+  CENTRAL_AGENT: "var(--cam-info)",
   COMPANY: "var(--cam-green)",
 };
 

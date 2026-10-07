@@ -35,7 +35,7 @@ export function resolveEffectiveRole(user: User): string {
 // Labels from _roleLabel (home_screen.dart), carried over to the new role
 // names. They are message keys under homeNav.role; each used to be one
 // "Français/ English" string, from before this app had an i18n layer.
-const ROLE_LABEL_KEYS = new Set(["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR"]);
+const ROLE_LABEL_KEYS = new Set(["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR", "CENTRAL_AGENT"]);
 
 /** Message key for a role's /home badge, or null for an unknown role (shown as stored). */
 export function roleLabelKey(role: string): string | null {
@@ -91,6 +91,12 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     // notification composer is implemented. The slug is intentionally omitted
     // until that component exists — see the deleted DSMO SendNotificationForm
     // in git history for the shape it should take.
+  ],
+  // Read-only central staff: the national dashboard and the dossiers, to
+  // consult. Nothing that acts.
+  CENTRAL_AGENT: [
+    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
+    { slug: "dossiers", labelKey: "homeNav.item.fileConsultation", route: "/admin/dossiers" },
   ],
   // Union of the former CENTRAL and SUPER_ADMIN_ONEFOP lists (see header).
   ADMIN_ONEFOP: [

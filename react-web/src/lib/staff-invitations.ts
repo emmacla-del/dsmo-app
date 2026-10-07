@@ -54,11 +54,20 @@ export type InvitationLevel = "regional" | "departmental" | "central";
 
 export const INVITATION_LEVELS: readonly InvitationLevel[] = ["regional", "departmental", "central"];
 
-/** Levels an actor may invite to: only SUPER_ADMIN reaches central services. */
+/**
+ * Levels an actor may invite to. Both administrator roles reach all three:
+ * a central post gives CENTRAL_AGENT (read-only), which ADMIN_ONEFOP
+ * manages. Making someone an ADMIN_ONEFOP is a separate, SUPER_ADMIN-only
+ * choice -- see canGrantAdminOnefop.
+ */
 export function invitationLevelsFor(actorRole: string | null | undefined): InvitationLevel[] {
-  if (actorRole === "SUPER_ADMIN") return [...INVITATION_LEVELS];
-  if (actorRole === "ADMIN_ONEFOP") return ["regional", "departmental"];
+  if (actorRole === "SUPER_ADMIN" || actorRole === "ADMIN_ONEFOP") return [...INVITATION_LEVELS];
   return [];
+}
+
+/** Only a SUPER_ADMIN, and only on a central post, may grant ADMIN_ONEFOP. */
+export function canGrantAdminOnefop(actorRole: string | null | undefined, level: InvitationLevel | null): boolean {
+  return actorRole === "SUPER_ADMIN" && level === "central";
 }
 
 const LEVEL_ROOT: Record<Exclude<InvitationLevel, "central">, string> = {
@@ -120,6 +129,9 @@ export interface CreateStaffInvitationBody {
   positionType: string;
   region?: string;
   department?: string;
+  // SUPER_ADMIN, central post: the invitee becomes ADMIN_ONEFOP rather than
+  // CENTRAL_AGENT. The server refuses it from anyone else or elsewhere.
+  grantAdminOnefop?: boolean;
 }
 
 export interface StaffInvitation {
