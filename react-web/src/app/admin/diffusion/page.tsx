@@ -200,15 +200,17 @@ export default function DiffusionPage() {
   // Scope mode radio: all | campaign | region | custom
   const [scopeMode, setScopeMode] = useState<"all" | "campaign" | "region" | "custom">("all");
 
-  // Dropdown states
-  const [selectedCampaign, setSelectedCampaign] = useState("");
-
-  useMemo(() => {
-    if (campaignsQuery.data && campaignsQuery.data.length > 0 && !selectedCampaign) {
-      const active = campaignsQuery.data.find((c) => c.status === "ACTIVE");
-      setSelectedCampaign(active?.code || active?.name || campaignsQuery.data[0].code || campaignsQuery.data[0].name || "");
-    }
-  }, [campaignsQuery.data, selectedCampaign]);
+  // Dropdown states. The campaign the actor picked, or "" until they pick
+  // one; until then the active campaign (else the first listed) is used.
+  // Derived rather than copied into state, so no setState runs in render.
+  const [campaignChoice, setCampaignChoice] = useState("");
+  const defaultCampaign = useMemo(() => {
+    const campaigns = campaignsQuery.data ?? [];
+    if (campaigns.length === 0) return "";
+    const active = campaigns.find((c) => c.status === "ACTIVE");
+    return active?.code || active?.name || campaigns[0].code || campaigns[0].name || "";
+  }, [campaignsQuery.data]);
+  const selectedCampaign = campaignChoice || defaultCampaign;
 
   // The <select> carries code || name || id (that is what the filename and the
   // scope label show), so the campaign's real id has to be resolved back out
@@ -731,7 +733,7 @@ export default function DiffusionPage() {
                 <select
                   id="select-campagne"
                   value={selectedCampaign}
-                  onChange={(e) => setSelectedCampaign(e.target.value)}
+                  onChange={(e) => setCampaignChoice(e.target.value)}
                   className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
                   {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
