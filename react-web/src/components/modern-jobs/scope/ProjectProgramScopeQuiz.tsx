@@ -1108,43 +1108,43 @@ export function ProjectProgramScopeQuiz({
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, fontSize: 12.5 }}>
           <div>
-            <strong>Section 3 :</strong>{" "}
+            <strong>{isEn ? "Section 3:" : "Section 3 :"}</strong>{" "}
             {noOutcomes
               ? <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None (0)" : "Néant (0)"}</span>
               : <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{outcomes.length} {isEn ? "outcome(s) active" : "objectif(s) actif(s)"}</span>}
           </div>
           <div>
-            <strong>4.1 Permanents :</strong>{" "}
+            <strong>{isEn ? "4.1 Permanent workers:" : "4.1 Permanents :"}</strong>{" "}
             {hasPermanentStaff === true
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
-            <strong>4.2 Temporaires :</strong>{" "}
+            <strong>{isEn ? "4.2 Temporary workers:" : "4.2 Temporaires :"}</strong>{" "}
             {hasTemporaryStaff === true
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
-            <strong>4.3 Recrut. permanents :</strong>{" "}
+            <strong>{isEn ? "4.3 Permanent recruits:" : "4.3 Recrut. permanents :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("permanent")
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
-            <strong>4.4 Recrut. temporaires :</strong>{" "}
+            <strong>{isEn ? "4.4 Temporary recruits:" : "4.4 Recrut. temporaires :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("temporary")
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
-            <strong>4.5 Recrut. handicapés :</strong>{" "}
+            <strong>{isEn ? "4.5 Recruits with a disability:" : "4.5 Recrut. handicapés :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("disability")
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}
           </div>
           <div>
-            <strong>4.6 Recrut. vulnérables :</strong>{" "}
+            <strong>{isEn ? "4.6 Vulnerable recruits:" : "4.6 Recrut. vulnérables :"}</strong>{" "}
             {hasRecruitment && recruitmentTypes.includes("vulnerable")
               ? <span style={{ color: "var(--cam-green, #1e6b3a)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
               : <span style={{ color: "var(--cam-text-muted, #4a5a50)" }}>{isEn ? "None" : "Néant"}</span>}

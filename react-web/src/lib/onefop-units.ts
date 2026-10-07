@@ -6,7 +6,7 @@
 // into discrete, digestible units so the user is not overwhelmed by dozens of
 // complex tables stacked in an endless scroll.
 
-import { bilingual, isFieldVisible, type FormData, type OnefopField, type OnefopSection } from "./onefop-schema";
+import { bilingual, isFieldVisible, localized, type FormData, type OnefopField, type OnefopSection } from "./onefop-schema";
 
 export interface FormUnit {
   key: string;
@@ -44,7 +44,12 @@ function deriveUnitShortLabel(fields: OnefopField[], subsectionTitle: string | n
  * - Each table field becomes its own distinct Unit
  * - Runs of simple scalar fields between tables form Simple Units
  */
-export function buildSectionUnits(section: OnefopSection): FormUnit[] {
+export function buildSectionUnits(section: OnefopSection, locale?: "fr" | "en"): FormUnit[] {
+  // With a locale, titles are the AST's text in that language (what the
+  // wizard shows on screen); without one, the paper-form "Français/ English"
+  // presentation, as before.
+  const text = (value: Parameters<typeof bilingual>[0]) => (locale ? localized(value, locale) : bilingual(value));
+  const part = locale === "en" ? "Part" : "Partie";
   const units: FormUnit[] = [];
   let currentSimpleFields: OnefopField[] = [];
   let currentSubsection: string | null = null;
@@ -53,7 +58,7 @@ export function buildSectionUnits(section: OnefopSection): FormUnit[] {
   // Map each field to its subsection title
   const subsectionByField = new Map<string, string>();
   for (const sub of section.subsections) {
-    const title = bilingual(sub.title);
+    const title = text(sub.title);
     for (const id of sub.fieldIds) {
       subsectionByField.set(id, title);
     }
@@ -63,7 +68,7 @@ export function buildSectionUnits(section: OnefopSection): FormUnit[] {
     if (currentSimpleFields.length === 0) return;
     unitCount++;
     const shortLabel = deriveUnitShortLabel(currentSimpleFields, currentSubsection, unitCount);
-    const title = currentSubsection || `${bilingual(section.title)} - Partie ${unitCount}`;
+    const title = currentSubsection || `${text(section.title)} - ${part} ${unitCount}`;
     units.push({
       key: `${section.id}_unit_${unitCount}`,
       sectionId: section.id,
@@ -85,7 +90,7 @@ export function buildSectionUnits(section: OnefopSection): FormUnit[] {
       // Flush preceding scalar fields if any
       flushSimpleFields();
       unitCount++;
-      const tableTitle = bilingual(field.label) || fieldSub || field.id;
+      const tableTitle = text(field.label) || fieldSub || field.id;
       const shortLabel = field.paperCode || `T${unitCount}`;
       units.push({
         key: `${section.id}_table_${field.id}`,

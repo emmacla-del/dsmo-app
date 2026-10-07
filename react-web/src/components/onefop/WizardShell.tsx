@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
-import { bilingual, localized } from "@/lib/onefop-schema";
+import { localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
 import { buildSectionUnits, isUnitVisible, FormUnit } from "@/lib/onefop-units";
 import {
@@ -181,7 +181,7 @@ export function WizardShell({
       previewTab = window.open("", "_blank");
       if (previewTab) {
         previewTab.document.write(
-          `<!DOCTYPE html><html><head><title>Aperçu PDF...</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1e6b3a;"><p style="font-size:16px;font-weight:600;">${loc === "en" ? "Generating official PDF preview..." : "Génération de l'aperçu PDF officiel en cours..."}</p></body></html>`
+          `<!DOCTYPE html><html><head><title>${loc === "en" ? "PDF preview..." : "Aperçu PDF..."}</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1e6b3a;"><p style="font-size:16px;font-weight:600;">${loc === "en" ? "Generating official PDF preview..." : "Génération de l'aperçu PDF officiel en cours..."}</p></body></html>`
         );
       }
     } catch {
@@ -212,7 +212,13 @@ export function WizardShell({
 
   const submitMutation = useMutation({
     mutationFn: () => {
-      if (!effectiveQuarter) return Promise.reject(new Error("Période active non disponible — rechargez la page."));
+      if (!effectiveQuarter) {
+        return Promise.reject(new Error(
+          formLocale === "en"
+            ? "Active period not available — reload the page."
+            : "Période active non disponible — rechargez la page.",
+        ));
+      }
       return submitDeclaration(entityType, effectiveQuarter, data, false, entity, formId);
     },
     onSuccess: (result) => {
@@ -279,10 +285,10 @@ export function WizardShell({
 
   const sectionUnits = useMemo(() => {
     if (!currentSection) return [];
-    return buildSectionUnits(currentSection).filter((unit) =>
+    return buildSectionUnits(currentSection, formLocale).filter((unit) =>
       isUnitVisible(unit, data),
     );
-  }, [currentSection, data]);
+  }, [currentSection, data, formLocale]);
 
   const clampedUnitIndex = Math.min(
     unitIndex,
@@ -294,9 +300,9 @@ export function WizardShell({
   const sectionIssues = useMemo(
     () =>
       currentSection
-        ? validateSectionData(currentSection, data)
+        ? validateSectionData(currentSection, data, formLocale)
         : [],
-    [currentSection, data],
+    [currentSection, data, formLocale],
   );
 
   const showErrors = attemptedAdvance || attemptedSubmit;
@@ -925,7 +931,7 @@ export function WizardShell({
                       }}
                     >
                       {t("wizardShell.sectionHeader", { current: clampedSectionIndex + 1, total: sections.length })}{" "}
-                      {bilingual(currentSection.title)}
+                      {localized(currentSection.title, formLocale)}
                     </span>
 
                     {sectionUnits.length > 1 && currentUnit && (
