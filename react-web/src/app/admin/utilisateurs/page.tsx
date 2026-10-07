@@ -15,11 +15,12 @@ import {
 } from "@/lib/user-directory";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { DataStateRow } from "@/components/admin/DataState";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
-import { registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
+import { registrationMethodBadgeClass, registrationMethodLabel } from "@/lib/inscriptions";
 
 const AGENTS_PAGE_SIZE = 50;
 
@@ -46,7 +47,6 @@ const AGENTS_PAGE_SIZE = 50;
  */
 interface AgentItem {
   id: string;
-  initials: string;
   name: string;
   email: string;
   role: string;
@@ -67,20 +67,8 @@ interface AgentItem {
 /** The registration-method badge, or a dash for an account that predates tracking. */
 function MethodBadge({ method }: { method: string | null }) {
   const label = registrationMethodLabel(method, asUiLocale(useLocale()));
-  if (!label) return <span style={{ color: "#9ca3af" }}>{NOT_PROVIDED}</span>;
-  const tone = registrationMethodTone(method);
-  return (
-    <span style={{ fontSize: 11, background: tone.bg, color: tone.color, padding: "3px 9px", borderRadius: 9999, fontWeight: 600, whiteSpace: "nowrap" }}>
-      {label}
-    </span>
-  );
-}
-
-/** Initials from the parts of the name the record actually carries. */
-function initialsOf(first: string, last: string): string {
-  const a = first.trim()[0] ?? "";
-  const b = last.trim()[0] ?? first.trim()[1] ?? "";
-  return (a + b).toUpperCase() || "—";
+  if (!label) return <span className="cam-admin-muted">{NOT_PROVIDED}</span>;
+  return <span className={`cam-badge ${registrationMethodBadgeClass(method)}`}>{label}</span>;
 }
 
 export default function OnefopUsersPage() {
@@ -142,13 +130,44 @@ export default function OnefopUsersPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  if (isLoading) return null;
+  const header = (
+    <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.utilisateurs") }]}
+      title={tRoot("adminNav.routes.utilisateurs")}
+      subtitle={t("subtitle")}
+      actions={
+        <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
+          <AdminHeaderActions />
+          {enabled && (
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              onClick={() => setCreateOpen(true)}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              {t("addOfficer")}
+            </button>
+          )}
+        </div>
+      }
+    />
+  );
 
-  if (forbidden) {
+  // The screen guard's two non-ready outcomes keep the page chrome and say
+  // what is happening. Neither renders nothing (G10).
+  if (isLoading || forbidden) {
     return (
-      <div className="cam-admin-page" style={{ padding: "32px" }}>
-        <h1 className="cam-admin-h1">{t("forbiddenTitle")}</h1>
-        <p className="cam-admin-lede">{t("forbiddenBody")}</p>
+      <div className="cam-admin-page">
+        {header}
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("resource")}
+          title={forbidden ? t("forbiddenTitle") : undefined}
+          hint={forbidden ? t("forbiddenBody") : undefined}
+        />
       </div>
     );
   }
@@ -163,7 +182,6 @@ export default function OnefopUsersPage() {
     const last = u.lastName?.trim() || "";
     return {
       id: u.id,
-      initials: initialsOf(first, last),
       name: `${first} ${last}`.trim(),
       email: u.email,
       role: u.role,
@@ -187,115 +205,65 @@ export default function OnefopUsersPage() {
     rowCount: agentsQuery.data?.users.length ?? null,
   });
 
+  // Headcount. Each figure is the server-reported total of its own
+  // role-filtered query; "new this month" filters on createdAt server-side.
+  const headcount = [
+    { key: "active", label: t("kpiActive"), query: activeCountQuery, hint: t("kpiActiveHint") },
+    { key: "inactive", label: t("kpiInactive"), query: inactiveCountQuery, hint: t("kpiInactiveHint") },
+    { key: "new", label: t("kpiNew"), query: newThisMonthQuery, hint: t("kpiNewHint") },
+  ];
+
   return (
-    <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
-      {/* Top Header matching Figma declarants/utilisateurs.png */}
-      <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.utilisateurs") }]}
-        title={tRoot("adminNav.routes.utilisateurs")}
-        subtitle={t("subtitle")}
-        actions={
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 20px",
-              background: "#164e32",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-          >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> {t("addOfficer")}
-          </button>
-        }
-      />
+    <div className="cam-admin-page">
+      {header}
 
       {toastMessage && (
-        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
           <span>{toastMessage}</span>
-          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#065f46" }}>×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)}>×</button>
         </div>
       )}
 
-      {/* Headcount. The two figures with a source are the server-reported
-          totals of the active and inactive role-filtered queries. "Nouvelles
-          inscriptions (mois)" has none: /auth/users accepts no createdAt range
-          filter, so a monthly figure cannot be computed server-side and a
-          count over one page would not be a monthly total. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 16 }}>
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiActive")}
+      {/* Three tiles, so the four-column .cam-pilot-kpis grid is widened to
+          auto-fit rather than leaving an empty fourth column. */}
+      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginBottom: 0 }}>
+        {headcount.map((k) => (
+          <div key={k.key} className="cam-pilot-kpi">
+            <span className="cam-pilot-kpi-label">{k.label}</span>
+            <span className="cam-pilot-kpi-value" aria-busy={k.query.isLoading || undefined}>
+              {k.query.isLoading ? NOT_PROVIDED : count(k.query.data?.total ?? null, locale)}
+            </span>
+            <span className="cam-pilot-kpi-trend">{k.hint}</span>
           </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {activeCountQuery.isLoading ? "…" : count(activeCountQuery.data?.total ?? null, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            {t("kpiActiveHint")}
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiInactive")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {inactiveCountQuery.isLoading ? "…" : count(inactiveCountQuery.data?.total ?? null, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
-            {t("kpiInactiveHint")}
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiNew")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {newThisMonthQuery.isLoading ? "…" : count(newThisMonthQuery.data?.total ?? null, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
-            {t("kpiNewHint")}
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Agent table.
           Columns are sourced directly from GET /auth/users (AuthService.listUsers),
           including authoritative lastLoginAt and submissionsCount relations. */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e5e7eb", gap: 12, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: 0 }}>
-            {t("tableTitle")}
-          </h2>
-          <span style={{ fontSize: 12, color: "#6b7280" }}>
+      <section className="cam-admin-section" aria-labelledby="agents-table-title">
+        <div className="cam-admin-section-head">
+          <h2 id="agents-table-title" className="cam-admin-h2">{t("tableTitle")}</h2>
+          <span className="cam-admin-meta">
             {tableState === "ready"
               ? t("shownOf", { shown: count(agents.length, locale), total: count(agentsQuery.data?.total ?? null, locale) })
               : NOT_PROVIDED}
           </span>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+        <div className="cam-table-wrapper">
+          <table className="cam-table">
             <thead>
-              <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("nameColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("roleColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("territoryColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("staffNumberColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("formsColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("lastSignInColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("createdColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("registeredByColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>{t("statusColumn")}</th>
-                <th scope="col" style={{ padding: "14px 18px", textAlign: "right", fontWeight: 600 }}>{t("actionsColumn")}</th>
+              <tr>
+                <th scope="col">{t("nameColumn")}</th>
+                <th scope="col">{t("roleColumn")}</th>
+                <th scope="col">{t("territoryColumn")}</th>
+                <th scope="col">{t("staffNumberColumn")}</th>
+                <th scope="col" className="text-right">{t("formsColumn")}</th>
+                <th scope="col">{t("lastSignInColumn")}</th>
+                <th scope="col">{t("createdColumn")}</th>
+                <th scope="col">{t("registeredByColumn")}</th>
+                <th scope="col">{t("statusColumn")}</th>
+                <th scope="col" className="text-right">{t("actionsColumn")}</th>
               </tr>
             </thead>
             <tbody>
@@ -309,112 +277,75 @@ export default function OnefopUsersPage() {
                 hint={tableState === "empty" ? t("emptyHint") : undefined}
               />
               {agents.map((agent) => (
-                <tr key={agent.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13, height: 60 }}>
-                  <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: "50%",
-                          background: "#004d3d",
-                          color: "#ffffff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {agent.initials}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: "#111827" }}>{agent.name}</div>
-                        <div style={{ fontSize: 11, color: "#6b7280" }}>{agent.email}</div>
-                      </div>
-                    </div>
+                <tr key={agent.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="cam-admin-strong" style={{ display: "block" }}>{agent.name}</span>
+                    <span className="cam-admin-meta">{agent.email}</span>
                   </td>
 
                   {/* Role label from the stored role value. */}
-                  <td style={{ padding: "12px 18px", color: "#4b5563", whiteSpace: "nowrap" }}>
-                    {directoryRoleLabel(agent.role, locale)}
-                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>{directoryRoleLabel(agent.role, locale)}</td>
 
                   {/* Territory exactly as stored. An account whose role is
                       territorial but whose territory is unset is reported as
                       unassigned — the backend fails that scope closed. */}
-                  <td style={{ padding: "12px 18px", color: "#4b5563" }}>
+                  <td>
                     {agent.region ?? (hasRole(agent.role, TERRITORIAL_ROLES) ? t("noTerritory") : NOT_PROVIDED)}
                     {agent.department && (
-                      <span style={{ display: "block", fontSize: 11, color: "#6b7280" }}>{agent.department}</span>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>{agent.department}</span>
                     )}
                   </td>
 
-                  <td style={{ padding: "12px 18px", color: "#4b5563", fontFamily: "ui-monospace, monospace" }}>
-                    {agent.matricule ?? NOT_PROVIDED}
+                  <td>
+                    <span className="cam-admin-code">{agent.matricule ?? NOT_PROVIDED}</span>
                   </td>
 
-                  <td style={{ padding: "12px 18px", color: "#111827", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {count(agent.submissionsCount, locale)}
+                  <td className="text-right">
+                    <span className="cam-admin-strong">{count(agent.submissionsCount, locale)}</span>
                   </td>
 
-                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
-                    {agent.lastLoginAt ? elapsedSince(agent.lastLoginAt, locale) : NOT_PROVIDED}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="cam-admin-meta">
+                      {agent.lastLoginAt ? elapsedSince(agent.lastLoginAt, locale) : NOT_PROVIDED}
+                    </span>
                   </td>
 
-                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
-                    {stamp(agent.createdAt, false, locale)}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="cam-admin-meta">{stamp(agent.createdAt, false, locale)}</span>
                   </td>
 
                   {/* Who minted the account and how. An account created by an
                       admin names that admin; one that self-registered carries
                       the method badge alone. */}
-                  <td style={{ padding: "12px 18px", color: "#4b5563", fontSize: 12 }}>
+                  <td>
                     {agent.createdByName && (
-                      <div style={{ marginBottom: 3 }}>{agent.createdByName}</div>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>{agent.createdByName}</span>
                     )}
                     <MethodBadge method={agent.registrationMethod} />
                   </td>
 
-                  <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        background: agent.isActive ? "#064e3b" : "#6b7280",
-                        color: "#ffffff",
-                        padding: "4px 12px",
-                        borderRadius: 9999,
-                        fontWeight: 600,
-                      }}
-                    >
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className={`cam-badge ${agent.isActive ? "cam-badge-success" : "cam-badge-neutral"}`}>
                       {agent.isActive ? t("active") : t("inactive")}
                     </span>
                     {/* Registration state as stored, when it is not simply
                         ACTIVE — e.g. PENDING_APPROVAL, REJECTED. */}
                     {agent.status && agent.status !== "ACTIVE" && (
-                      <span style={{ display: "block", fontSize: 11, color: "#6b7280", marginTop: 3 }}>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>
                         {ACCOUNT_STATUS_CODES.has(agent.status) ? t(`accountStatus.${agent.status}`) : agent.status}
                       </span>
                     )}
                   </td>
 
-                  <td style={{ padding: "12px 18px", textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setProfileAgent(agent)}
-                      style={{ background: "none", border: "none", color: "#004d3d", fontWeight: 600, fontSize: 13, cursor: "pointer", padding: "2px 6px" }}
-                    >
-                      {t("profile")}
-                    </button>
-                    <span style={{ color: "#d1d5db", margin: "0 6px" }}>|</span>
-                    <button
-                      type="button"
-                      onClick={() => setReassignAgent(agent)}
-                      style={{ background: "none", border: "none", color: "#004d3d", fontWeight: 600, fontSize: 13, cursor: "pointer", padding: "2px 6px" }}
-                    >
-                      {t("reassign")}
-                    </button>
+                  <td className="text-right">
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", whiteSpace: "nowrap" }}>
+                      <button type="button" className="cam-text-button" onClick={() => setProfileAgent(agent)}>
+                        {t("profile")}
+                      </button>
+                      <button type="button" className="cam-text-button" onClick={() => setReassignAgent(agent)}>
+                        {t("reassign")}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -443,39 +374,39 @@ export default function OnefopUsersPage() {
             </button>
           }
         >
-          <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 14 }}>
+          <dl className="cam-admin-kv">
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("emailLabel")}</div>
-              <div style={{ fontWeight: 600, color: "#111827", marginTop: 2 }}>{profileAgent.email}</div>
+              <dt>{t("emailLabel")}</dt>
+              <dd>{profileAgent.email}</dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("roleLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{directoryRoleLabel(profileAgent.role, locale)}</div>
+              <dt>{t("roleLabel")}</dt>
+              <dd>{directoryRoleLabel(profileAgent.role, locale)}</dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("territoryLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>
+              <dt>{t("territoryLabel")}</dt>
+              <dd>
                 {profileAgent.region ?? (hasRole(profileAgent.role, TERRITORIAL_ROLES) ? t("noTerritory") : NOT_PROVIDED)}
                 {profileAgent.department ? ` (${profileAgent.department})` : ""}
-              </div>
+              </dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("staffNumberLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.matricule ?? NOT_PROVIDED}</div>
+              <dt>{t("staffNumberLabel")}</dt>
+              <dd>{profileAgent.matricule ?? NOT_PROVIDED}</dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("createdLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{stamp(profileAgent.createdAt, false, locale)}</div>
+              <dt>{t("createdLabel")}</dt>
+              <dd>{stamp(profileAgent.createdAt, false, locale)}</dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("formsLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2, fontWeight: 600 }}>{count(profileAgent.submissionsCount, locale)}</div>
+              <dt>{t("formsLabel")}</dt>
+              <dd>{count(profileAgent.submissionsCount, locale)}</dd>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{t("lastSignInLabel")}</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.lastLoginAt ? stamp(profileAgent.lastLoginAt, true, locale) : NOT_PROVIDED}</div>
+              <dt>{t("lastSignInLabel")}</dt>
+              <dd>{profileAgent.lastLoginAt ? stamp(profileAgent.lastLoginAt, true, locale) : NOT_PROVIDED}</dd>
             </div>
-          </div>
+          </dl>
         </AdminDialog>
       )}
 
@@ -559,7 +490,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
       title={t("createTitle")}
       eyebrow={t("createEyebrow")}
       footer={
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", width: "100%" }}>
           <button type="button" className="cam-button cam-button-secondary" onClick={close}>
             {created ? t("close") : tRoot("common.cancel")}
           </button>
@@ -569,7 +500,6 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
               className="cam-button cam-button-primary"
               disabled={mutation.isPending || !form.email || !form.firstName || !form.lastName || !territoryComplete}
               onClick={() => mutation.mutate()}
-              style={{ background: "#004d3d" }}
             >
               {mutation.isPending ? t("creating") : t("createOfficer")}
             </button>
@@ -578,29 +508,31 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
       }
     >
       {created ? (
-        <div style={{ fontSize: 13, background: "#ecfdf5", border: "1px solid #a7f3d0", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontWeight: 700, color: "#065f46", fontSize: 14 }}>{t("createdTitle")}</div>
-          <div style={{ marginTop: 8, color: "#065f46" }}>{t("createdEmail")} <strong>{created.email}</strong></div>
-          <div style={{ marginTop: 4, color: "#065f46" }}>{t("temporaryPassword")} <code style={{ background: "#d1fae5", padding: "2px 6px", borderRadius: 4 }}>{created.temporaryPassword}</code></div>
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
+          <div>
+            <strong>{t("createdTitle")}</strong>
+            <div>{t("createdEmail")} <strong>{created.email}</strong></div>
+            <div>{t("temporaryPassword")} <code className="cam-admin-code">{created.temporaryPassword}</code></div>
+          </div>
         </div>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("firstName")}</label>
-              <input type="text" className="cam-input" value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} required />
+        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 var(--cam-space-3)" }}>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="officer-first-name">{t("firstName")}</label>
+              <input id="officer-first-name" type="text" className="cam-input" value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} required />
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("lastName")}</label>
-              <input type="text" className="cam-input" value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} required />
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="officer-last-name">{t("lastName")}</label>
+              <input id="officer-last-name" type="text" className="cam-input" value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} required />
             </div>
           </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("officialEmail")}</label>
-            <input type="email" className="cam-input" value={form.email} onChange={(e) => set("email")(e.target.value)} required />
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="officer-email">{t("officialEmail")}</label>
+            <input id="officer-email" type="email" className="cam-input" value={form.email} onChange={(e) => set("email")(e.target.value)} required />
           </div>
-          <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-            <legend style={{ padding: 0, fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-text-muted)", textTransform: "uppercase", marginBottom: 4 }}>{t("officerRole")}</legend>
+          <fieldset style={{ border: "none", margin: "0 0 var(--cam-space-4)", padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+            <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("officerRole")}</legend>
             {OFFICER_ROLES.map((role) => (
               <label key={role} className="cam-admin-choice">
                 <input
@@ -619,19 +551,20 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
               </label>
             ))}
           </fieldset>
-          <div style={{ display: "grid", gridTemplateColumns: isDivisional ? "1fr 1fr" : "1fr", gap: 12 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("region")}</label>
-              <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
+          <div style={{ display: "grid", gridTemplateColumns: isDivisional ? "1fr 1fr" : "1fr", gap: "0 var(--cam-space-3)" }}>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="officer-region">{t("region")}</label>
+              <select id="officer-region" className="cam-select" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
                 <option value="" disabled>{t("selectRegion")}</option>
                 {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             {isDivisional && (
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("department")}</label>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="officer-department">{t("department")}</label>
                 <select
-                  className="cam-input"
+                  id="officer-department"
+                  className="cam-select"
                   value={form.department}
                   onChange={(e) => set("department")(e.target.value)}
                   disabled={!form.region}
@@ -684,35 +617,32 @@ function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClo
       title={t("reassignTitle", { name: agent.name })}
       eyebrow={t("reassignEyebrow")}
       footer={
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", width: "100%" }}>
           <button type="button" className="cam-button cam-button-secondary" onClick={onClose}>{tRoot("common.cancel")}</button>
           <button
             type="button"
             className="cam-button cam-button-primary"
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            style={{ background: "#004d3d" }}
           >
             {mutation.isPending ? t("saving") : t("confirmAssignment")}
           </button>
         </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("assignedRegion")}</label>
-          <select className="cam-input" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
-            <option value="">{t("noRegionAssigned")}</option>
-            {regions.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("department")}</label>
-          <select className="cam-input" value={department} onChange={(e) => setDepartment(e.target.value)}>
-            <option value="">{t("allRegionDepartments")}</option>
-            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="reassign-region">{t("assignedRegion")}</label>
+        <select id="reassign-region" className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
+          <option value="">{t("noRegionAssigned")}</option>
+          {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="reassign-department">{t("department")}</label>
+        <select id="reassign-department" className="cam-select" value={department} onChange={(e) => setDepartment(e.target.value)}>
+          <option value="">{t("allRegionDepartments")}</option>
+          {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
       </div>
     </AdminDialog>
   );
