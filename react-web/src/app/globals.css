@@ -1176,11 +1176,11 @@ body {
      hint and the error line keep the control's right edge instead of running
      the full width under a short box. */
   .cam-auth-page--wizard .cam-form-flow .field--short>*:not(label) {
-    max-width: 220px;
+    max-width: var(--cam-field-width-short);
   }
 
   .cam-auth-page--wizard .cam-form-flow .field--medium>*:not(label) {
-    max-width: 280px;
+    max-width: var(--cam-field-width-medium);
   }
 }
 
@@ -1337,11 +1337,11 @@ body {
 /* Narrow: the caps still apply, so a phone number does not stretch the full
    width of a phone screen either. */
 .cam-auth-page--wizard .cam-form-flow .field--short .input-row {
-  max-width: 220px;
+  max-width: var(--cam-field-width-short);
 }
 
 .cam-auth-page--wizard .cam-form-flow .field--medium .input-row {
-  max-width: 280px;
+  max-width: var(--cam-field-width-medium);
 }
 
 /* Two-column responsive field grid */
