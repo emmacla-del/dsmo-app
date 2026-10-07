@@ -49,6 +49,8 @@
    /* Selected fill (10%) and hover fill (5%) of brand green. */
    --cam-green-wash: color-mix(in srgb, var(--cam-green) 10%, transparent);
    --cam-green-wash-hover: color-mix(in srgb, var(--cam-green) 5%, transparent);
+   /* Establishment-ID chip. 8% is not the 10% selected fill. */
+   --cam-green-wash-soft: color-mix(in srgb, var(--cam-green) 8%, transparent);
    --cam-error: #b3261e;
    --cam-error-bg: #fbeceb;
    --cam-error-border: #f2b8b5;
@@ -116,13 +118,15 @@
    --cam-font-size-3xl: 2rem;        /* 32px */
    --cam-line-height-base: 1.5;
    /* Named by job. --cam-line-height-label is load-bearing: the wizard
-     label rule still writes line-height: 1.3 and the side-by-side
-     alignment calc still writes 1.3em. Those two literals are this
-     token and must not drift from it. */
+     label rule and the side-by-side alignment calc both read it, so the
+     label's first line stays on the input's text. */
    --cam-line-height-tight: 1.2;
    --cam-line-height-title: 1.25;
    --cam-line-height-label: 1.3;
    --cam-line-height-ui: 1.4;
+   /* Multi-line wizard copy: option labels, certify text, section notes.
+     1.45 is deliberate; --cam-line-height-ui is 1.4. */
+   --cam-line-height-copy: 1.45;
 
    --cam-font-weight-regular: 400;
    --cam-font-weight-medium: 500;
@@ -203,10 +207,10 @@
 
      The label's first line is put on the same optical line as the text inside
      the input by the @container rule itself, with
-     calc((--cam-field-height - 1.3em) / 2) -- computed from the control
-     height rather than from a hand-tuned constant, so changing the height
-     moves the label with it. 1.3em is --cam-line-height-label. The calc in
-     globals.css still writes the literal; the two must stay equal.
+     calc((--cam-field-height - (var(--cam-line-height-label) * 1em)) / 2)
+     -- computed from the control height rather than from a hand-tuned
+     constant, so changing the height moves the label with it. The calc
+     in globals.css reads the same token.
      (The constant it replaces, --cam-field-label-pad-top, is gone for
      exactly that reason.)
 

@@ -75,7 +75,7 @@ export function RegistrationReview({
                 {step === "security" && (
                   <tr>
                     <td className="label-cell">{t("registerPage.reviewStatusLabel")}</td>
-                    <td className="value-cell" style={{ color: "var(--cam-green-dark)", fontWeight: 600 }}>
+                    <td className="value-cell value-cell--ready">
                       {t("registerPage.reviewStatusReady")}
                     </td>
                   </tr>
