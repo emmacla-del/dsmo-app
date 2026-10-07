@@ -8,6 +8,36 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// A shared invitation link for a group of MINEFOP staff (e.g. "Personnel
+// DREFOP Centre"), posted in a WhatsApp group. Anyone holding it may ask for
+// an account within its scope -- the level (regional / departmental /
+// central) and, for a delegation, the territory -- choosing their own
+// service and post there. Accounts it creates wait for approval
+// (PENDING_APPROVAL). See src/auth/staff-invitation-link.service.ts.
+//
+// The secret is never stored: tokenHash is its SHA-256. A link stops
+// working when it expires, when useCount reaches maxUses, or when revoked.
+model StaffInvitationLink {
+  id            String    @id @default(uuid())
+  tokenHash     String    @unique
+  label         String
+  // 'regional' | 'departmental' | 'central'
+  level         String
+  region        String?
+  department    String?
+  maxUses       Int
+  useCount      Int       @default(0)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedBy     String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  createdByUser User?     @relation("StaffInvitationLinkCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([createdBy])
+  @@map("staff_invitation_links")
+}
+
 model MinefopService {
   code               String            @id
   name               String
@@ -198,6 +228,7 @@ model User {
   frozenCampaigns            CampaignFreeze[]   @relation("CampaignFrozenBy")
   campaignQuotasCreated            CampaignQuota[]            @relation("CampaignQuotaCreatedBy")
   campaignQuotasUpdated            CampaignQuota[]            @relation("CampaignQuotaUpdatedBy")
+  staffInvitationLinks             StaffInvitationLink[]      @relation("StaffInvitationLinkCreatedBy")
 
   @@index([role])
   @@index([serviceCode])

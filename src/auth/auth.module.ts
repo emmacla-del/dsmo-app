@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { StaffInvitationService } from './staff-invitation.service';
+import { StaffInvitationLinkService } from './staff-invitation-link.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalStrategy } from './local.strategy';
@@ -21,7 +22,7 @@ import { ActiveCompanyGuard } from './active-company.guard';
     }),
     DsmoModule,
   ],
-  providers: [AuthService, StaffInvitationService, JwtStrategy, LocalStrategy, ActiveCompanyGuard],
+  providers: [AuthService, StaffInvitationService, StaffInvitationLinkService, JwtStrategy, LocalStrategy, ActiveCompanyGuard],
   controllers: [AuthController],
   exports: [AuthService, ActiveCompanyGuard], // ✅ Export AuthService and ActiveCompanyGuard
 })
