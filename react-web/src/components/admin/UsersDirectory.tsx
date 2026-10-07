@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,7 +11,6 @@ import {
   activateUser,
   approveUser,
   deleteUser,
-  directoryRoleColor,
   directoryRoleLabel,
   directoryUserName,
   listUsers,
@@ -23,6 +22,9 @@ import {
 } from "@/lib/user-directory";
 import { ADMIN_ROLES } from "@/lib/roles";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState } from "@/components/admin/DataState";
+import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 
 const PAGE_SIZE = 20;
 
@@ -88,7 +90,6 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
   const [regionFilter, setRegionFilter] = useState("");
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<Modal | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -151,16 +152,18 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
     onSuccess: () => { invalidate(); setModal(null); },
   });
 
-  useEffect(() => {
-    if (modal) dialogRef.current?.showModal();
-    else dialogRef.current?.close();
-  }, [modal]);
+  const listState = resolveDataState({
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    rowCount: query.data ? query.data.users.length : null,
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
       <div className="cam-admin-filters">
         <div className="cam-field">
-          <label className="cam-label" htmlFor="users-search">Rechercher</label>
+          <label className="cam-admin-label" htmlFor="users-search">Rechercher</label>
           <div className="cam-admin-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
@@ -177,7 +180,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
           </div>
         </div>
         <div className="cam-field">
-          <label className="cam-label" htmlFor="users-role">{t("usersDirectory.roleLabel")}</label>
+          <label className="cam-admin-label" htmlFor="users-role">{t("usersDirectory.roleLabel")}</label>
           <select
             id="users-role"
             className="cam-select"
@@ -200,7 +203,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
         </div>
         {showRegionFilter && (
           <div className="cam-field">
-            <label className="cam-label" htmlFor="users-region">{t("usersDirectory.regionLabel")}</label>
+            <label className="cam-admin-label" htmlFor="users-region">{t("usersDirectory.regionLabel")}</label>
             <select
               id="users-region"
               className="cam-select"
@@ -239,15 +242,28 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
       </div>
 
       {filterIgnored && (
-        <p role="alert" style={{ color: "var(--cam-warning)", fontSize: "var(--cam-font-size-sm)", marginBottom: "var(--cam-space-3)" }}>
-          {t("usersDirectory.filterIgnoredWarning")}
-        </p>
+        <div role="alert" className="cam-admin-notice cam-admin-notice--warn">
+          <span>{t("usersDirectory.filterIgnoredWarning")}</span>
+        </div>
       )}
-      {query.isLoading && <p className="cam-admin-empty">{t("common.loading")}</p>}
-      {query.isError && <div role="alert" style={{ color: "var(--cam-error)" }}>{t("usersDirectory.loadError", { error: (query.error as Error).message })}</div>}
-      {query.data && query.data.users.length === 0 && <p className="cam-admin-empty">{t("usersDirectory.emptyState")}</p>}
+      {listState !== "ready" && (
+        <DataState
+          state={listState}
+          resource={t("adminNav.routes.annuaire")}
+          onRetry={() => query.refetch()}
+          title={
+            listState === "loading"
+              ? t("common.loading")
+              : listState === "error"
+                ? t("usersDirectory.loadError", { error: (query.error as Error).message })
+                : listState === "empty"
+                  ? t("usersDirectory.emptyState")
+                  : undefined
+          }
+        />
+      )}
 
-      {query.data && query.data.users.length > 0 && (
+      {listState === "ready" && query.data && (
         <>
           <div className="cam-table-wrapper">
             <table className="cam-table">
@@ -257,7 +273,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                   <th scope="col">{agentRoster ? t("usersDirectory.regionColumn") : t("usersDirectory.locationColumn")}</th>
                   <th scope="col">{t("usersDirectory.roleColumn")}</th>
                   <th scope="col">{t("usersDirectory.statusColumn")}</th>
-                  <th scope="col" style={{ textAlign: "right" }}>{t("usersDirectory.actionsColumn")}</th>
+                  <th scope="col" className="text-right">{t("usersDirectory.actionsColumn")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -270,19 +286,15 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                       <td>
                         <div style={agentRoster ? { display: "flex", alignItems: "center", gap: "var(--cam-space-3)" } : undefined}>
                           {agentRoster && (
-                            <span aria-hidden="true" style={avatarStyle}>{initialsOf(u)}</span>
+                            <span aria-hidden="true" className="cam-admin-initials">{initialsOf(u)}</span>
                           )}
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, color: agentRoster ? "var(--cam-green-dark)" : undefined }}>{name || u.email}</div>
+                            <div className="cam-admin-strong">{name || u.email}</div>
                             {name && (
-                              <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                                {u.email}
-                              </div>
+                              <div className="cam-admin-meta">{u.email}</div>
                             )}
                             {u.matricule && (
-                              <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-text-muted)" }}>
-                                {u.matricule}
-                              </div>
+                              <div className="cam-admin-code cam-admin-muted">{u.matricule}</div>
                             )}
                           </div>
                         </div>
@@ -290,19 +302,17 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                       <td>
                         {agentRoster ? (
                           <>
-                            <div style={{ color: u.region ? "var(--cam-text)" : "var(--cam-text-muted)" }}>{u.region || "—"}</div>
+                            <div className={u.region ? undefined : "cam-admin-muted"}>{u.region || NOT_PROVIDED}</div>
                             {u.department && (
-                              <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{u.department}</div>
+                              <div className="cam-admin-meta">{u.department}</div>
                             )}
                           </>
                         ) : (
-                          <span style={{ color: location ? "var(--cam-text)" : "var(--cam-text-muted)" }}>
-                            {location || "—"}
-                          </span>
+                          <span className={location ? undefined : "cam-admin-muted"}>{location || NOT_PROVIDED}</span>
                         )}
                       </td>
                       <td>
-                        <span className="cam-badge cam-badge-neutral" style={{ color: directoryRoleColor(u.role), borderColor: "var(--cam-border)" }}>
+                        <span className="cam-badge cam-badge-neutral">
                           {directoryRoleLabel(u.role, locale)}
                         </span>
                       </td>
@@ -315,7 +325,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                           {meta.label}
                         </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="text-right">
                         {agentRoster ? (
                           <RosterActions
                             user={u}
@@ -402,18 +412,12 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
         </>
       )}
 
-      <dialog
-        ref={dialogRef}
-        onClose={() => setModal(null)}
-        className="cam-admin-dialog"
-        style={{ width: "min(460px, calc(100vw - 32px))" }}
-      >
         {modal?.type === "approve" && (
           <ConfirmModal
             title={t("usersDirectory.approveAgentTitle")}
             body={t("usersDirectory.approveConfirmBody", { name: directoryUserName(modal.user) || modal.user.email })}
             confirmLabel={t("usersDirectory.approve")}
-            confirmColor="var(--cam-success)"
+            confirmVariant="primary"
             pending={approveMutation.isPending}
             error={approveMutation.error as Error | null}
             onCancel={() => setModal(null)}
@@ -429,7 +433,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                 : t("usersDirectory.reactivateBody", { name: directoryUserName(modal.user) || modal.user.email })
             }
             confirmLabel={modal.user.isActive ? t("usersDirectory.suspend") : t("usersDirectory.reactivate")}
-            confirmColor={modal.user.isActive ? "var(--cam-warning)" : "var(--cam-success)"}
+            confirmVariant={modal.user.isActive ? "danger" : "primary"}
             pending={toggleMutation.isPending}
             error={toggleMutation.error as Error | null}
             onCancel={() => setModal(null)}
@@ -474,15 +478,9 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             onConfirm={() => deleteMutation.mutate(modal.user.id)}
           />
         )}
-      </dialog>
     </div>
   );
 }
-
-const avatarStyle: React.CSSProperties = {
-  width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: "var(--cam-radius-full)",
-  background: "var(--cam-green-dark)", color: "#fff", fontSize: "var(--cam-font-size-3xs)", fontWeight: 700,
-};
 
 function initialsOf(u: DirectoryUser): string {
   const fromName = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join("");
@@ -509,11 +507,10 @@ function RosterActions({ user, canReassign, onOpen }: { user: DirectoryUser; can
     <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: "var(--cam-space-2)" }}>
       {actions.map((a, i) => (
         <span key={a.type} style={{ display: "inline-flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
-          {i > 0 && <span aria-hidden="true" style={{ color: "var(--cam-border-strong)" }}>|</span>}
+          {i > 0 && <span aria-hidden="true" className="cam-admin-muted">|</span>}
           <button
             type="button"
-            className="cam-text-button"
-            style={a.danger ? { color: "var(--cam-error)" } : undefined}
+            className={`cam-text-button${a.danger ? " is-danger" : ""}`}
             onClick={() => onOpen(a.type)}
           >
             {a.label}
@@ -524,35 +521,52 @@ function RosterActions({ user, canReassign, onOpen }: { user: DirectoryUser; can
   );
 }
 
-const modalBodyStyle: React.CSSProperties = { padding: "var(--cam-space-5)" };
-const modalTitleStyle: React.CSSProperties = { fontSize: "var(--cam-font-size-lg)", fontWeight: 700, margin: "0 0 var(--cam-space-2)" };
-const modalActionsRow: React.CSSProperties = { display: "flex", gap: "var(--cam-space-3)", marginTop: "var(--cam-space-4)" };
-const cancelBtnStyle: React.CSSProperties = { flex: 1 };
-
 function ErrorLine({ error }: { error: Error | null }) {
   const t = useTranslations();
   if (!error) return null;
-  return <p role="alert" style={{ color: "var(--cam-error)", marginTop: "var(--cam-space-3)", fontSize: "var(--cam-font-size-sm)" }}>{t("usersDirectory.actionError", { error: error.message })}</p>;
+  return (
+    <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+      <span>{t("usersDirectory.actionError", { error: error.message })}</span>
+    </div>
+  );
 }
 
-function ConfirmModal({
-  title, body, confirmLabel, confirmColor, pending, error, onCancel, onConfirm,
-}: {
-  title: string; body: string; confirmLabel: string; confirmColor: string; pending: boolean; error: Error | null; onCancel: () => void; onConfirm: () => void;
-}) {
+/** Cancel on the left of the footer, the dialog's one decision on the right. */
+function ModalFooter({ onCancel, children }: { onCancel: () => void; children?: React.ReactNode }) {
   const t = useTranslations();
   return (
-    <div style={modalBodyStyle}>
-      <h2 style={modalTitleStyle}>{title}</h2>
-      <p style={{ color: "var(--cam-text-muted)" }}>{body}</p>
-      <div style={modalActionsRow}>
-        <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
-        <button type="button" className="cam-button" disabled={pending} onClick={onConfirm} style={{ flex: 1, color: "#fff", background: confirmColor }}>
-          {pending ? "…" : confirmLabel}
-        </button>
-      </div>
-      <ErrorLine error={error} />
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", width: "100%" }}>
+      <button type="button" className="cam-button cam-button-secondary" onClick={onCancel}>{t("common.cancel")}</button>
+      {children}
     </div>
+  );
+}
+
+// Each confirmation is its own AdminDialog (G7): native <dialog>, focus
+// trap, Escape and focus return, with its title as the dialog's label.
+function ConfirmModal({
+  title, body, confirmLabel, confirmVariant, pending, error, onCancel, onConfirm,
+}: {
+  title: string; body: string; confirmLabel: string; confirmVariant: "primary" | "danger"; pending: boolean; error: Error | null; onCancel: () => void; onConfirm: () => void;
+}) {
+  return (
+    <AdminDialog
+      open
+      onClose={onCancel}
+      title={title}
+      footer={
+        <ModalFooter onCancel={onCancel}>
+          <button type="button" className={`cam-button cam-button-${confirmVariant}`} disabled={pending} onClick={onConfirm}>
+            {pending ? "…" : confirmLabel}
+          </button>
+        </ModalFooter>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
+        <p className="cam-admin-meta" style={{ margin: 0 }}>{body}</p>
+        <ErrorLine error={error} />
+      </div>
+    </AdminDialog>
   );
 }
 
@@ -560,26 +574,38 @@ function RejectModal({ user, pending, error, onCancel, onConfirm }: { user: Dire
   const t = useTranslations();
   const [reason, setReason] = useState("");
   return (
-    <div style={modalBodyStyle}>
-      <h2 style={modalTitleStyle}>{t("usersDirectory.rejectTitle", { name: directoryUserName(user) || user.email })}</h2>
-      <label style={{ display: "block", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-        {t("usersDirectory.rejectReasonLabel")}
-      </label>
-      <textarea
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        rows={3}
-        placeholder={t("usersDirectory.rejectReasonPlaceholder")}
-        style={{ width: "100%", border: "1px solid var(--cam-border-strong)", borderRadius: "var(--cam-radius-sm)", padding: "var(--cam-space-2)", fontFamily: "inherit" }}
-      />
-      <div style={modalActionsRow}>
-        <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
-        <button type="button" className="cam-button" disabled={pending || !reason.trim()} onClick={() => onConfirm(reason.trim())} style={{ flex: 1, color: "#fff", background: "var(--cam-error)" }}>
-          {pending ? "…" : t("usersDirectory.confirmRejectButton")}
-        </button>
+    <AdminDialog
+      open
+      onClose={onCancel}
+      title={t("usersDirectory.rejectTitle", { name: directoryUserName(user) || user.email })}
+      footer={
+        <ModalFooter onCancel={onCancel}>
+          <button
+            type="button"
+            className="cam-button cam-button-danger"
+            disabled={pending || !reason.trim()}
+            onClick={() => onConfirm(reason.trim())}
+          >
+            {pending ? "…" : t("usersDirectory.confirmRejectButton")}
+          </button>
+        </ModalFooter>
+      }
+    >
+      {/* The label is now bound to the field; it was a free-standing
+          <label> with no htmlFor. */}
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="users-reject-reason">{t("usersDirectory.rejectReasonLabel")}</label>
+        <textarea
+          id="users-reject-reason"
+          className="cam-admin-textarea"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          placeholder={t("usersDirectory.rejectReasonPlaceholder")}
+        />
       </div>
       <ErrorLine error={error} />
-    </div>
+    </AdminDialog>
   );
 }
 
@@ -587,29 +613,25 @@ function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user:
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
   return (
-    <div style={modalBodyStyle}>
-      <h2 style={modalTitleStyle}>{t("usersDirectory.editRoleTitle")}</h2>
-      <div style={{ maxHeight: 320, overflowY: "auto" }}>
+    <AdminDialog open onClose={onCancel} title={t("usersDirectory.editRoleTitle")} footer={<ModalFooter onCancel={onCancel} />}>
+      {/* Picking a role applies it; the current one is marked. */}
+      <div style={{ display: "flex", flexDirection: "column", maxHeight: 320, overflowY: "auto" }}>
         {roles.map((r) => (
           <button
             key={r}
             type="button"
+            className={`cam-text-button${r === user.role ? "" : " cam-admin-strong"}`}
+            aria-current={r === user.role ? "true" : undefined}
             disabled={pending}
             onClick={() => onConfirm(r)}
-            style={{
-              display: "block", width: "100%", textAlign: "left", padding: "var(--cam-space-2) 0", border: "none", background: "none",
-              cursor: "pointer", fontWeight: r === user.role ? 700 : 500, color: r === user.role ? "var(--cam-green)" : "var(--cam-text)",
-            }}
+            style={{ textAlign: "left", padding: "var(--cam-space-2) 0" }}
           >
             {directoryRoleLabel(r, locale)} {r === user.role && "✓"}
           </button>
         ))}
       </div>
-      <div style={modalActionsRow}>
-        <button type="button" className="cam-button cam-button-secondary" style={{ width: "100%" }} onClick={onCancel}>{t("common.cancel")}</button>
-      </div>
       <ErrorLine error={error} />
-    </div>
+    </AdminDialog>
   );
 }
 
@@ -634,46 +656,48 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
       : role === "DIVISIONAL_ADMIN" && !department
         ? t("usersDirectory.reassignDepartmentRequired")
         : null;
-  const fieldStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "var(--cam-space-1)", marginTop: "var(--cam-space-3)" };
   return (
-    <div style={modalBodyStyle}>
-      <h2 style={modalTitleStyle}>{t("usersDirectory.reassignTitle", { name: directoryUserName(user) || user.email })}</h2>
-      <p style={{ color: "var(--cam-text-muted)", fontSize: "var(--cam-font-size-sm)" }}>{t("usersDirectory.reassignHint")}</p>
-      <div style={fieldStyle}>
-        <label className="cam-label" htmlFor="reassign-role">{t("usersDirectory.roleColumn")}</label>
+    <AdminDialog
+      open
+      onClose={onCancel}
+      title={t("usersDirectory.reassignTitle", { name: directoryUserName(user) || user.email })}
+      footer={
+        <ModalFooter onCancel={onCancel}>
+          <button
+            type="button"
+            className="cam-button cam-button-primary"
+            disabled={pending || !!missing}
+            onClick={() => onConfirm({ role, region, department })}
+          >
+            {pending ? "…" : t("usersDirectory.reassignSubmit")}
+          </button>
+        </ModalFooter>
+      }
+    >
+      <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("usersDirectory.reassignHint")}</p>
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="reassign-role">{t("usersDirectory.roleColumn")}</label>
         <select id="reassign-role" className="cam-select" value={role} onChange={(e) => setRole(e.target.value)}>
           {roles.map((r) => <option key={r} value={r}>{directoryRoleLabel(r, locale)}</option>)}
         </select>
       </div>
-      <div style={fieldStyle}>
-        <label className="cam-label" htmlFor="reassign-region">{t("usersDirectory.reassignRegionLabel")}</label>
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="reassign-region">{t("usersDirectory.reassignRegionLabel")}</label>
         <select id="reassign-region" className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
           <option value="">{t("usersDirectory.reassignNone")}</option>
           {directoryRegions.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
-      <div style={fieldStyle}>
-        <label className="cam-label" htmlFor="reassign-department">{t("usersDirectory.reassignDepartmentLabel")}</label>
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="reassign-department">{t("usersDirectory.reassignDepartmentLabel")}</label>
         <select id="reassign-department" className="cam-select" value={department} disabled={!region} onChange={(e) => setDepartment(e.target.value)}>
           <option value="">{t("usersDirectory.reassignNone")}</option>
           {departments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
-      {missing && <p role="alert" style={{ color: "var(--cam-warning)", fontSize: "var(--cam-font-size-sm)", marginTop: "var(--cam-space-3)" }}>{missing}</p>}
-      <div style={modalActionsRow}>
-        <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
-        <button
-          type="button"
-          className="cam-button cam-button-primary"
-          style={{ flex: 1 }}
-          disabled={pending || !!missing}
-          onClick={() => onConfirm({ role, region, department })}
-        >
-          {pending ? "…" : t("usersDirectory.reassignSubmit")}
-        </button>
-      </div>
+      {missing && <p role="alert" className="cam-field-error" style={{ margin: 0 }}>{missing}</p>}
       <ErrorLine error={error} />
-    </div>
+    </AdminDialog>
   );
 }
 
@@ -685,37 +709,35 @@ function DeleteModal({ user, pending, error, onCancel, onConfirm }: { user: Dire
   const [typed, setTyped] = useState("");
   const matches = typed.trim() === user.email;
   return (
-    <div style={modalBodyStyle}>
-      <h2 style={modalTitleStyle}>{t("usersDirectory.deleteUserTitle", { name: directoryUserName(user) || user.email })}</h2>
-      <p style={{ color: "var(--cam-text-muted)", fontSize: "var(--cam-font-size-sm)" }}>
-        {t("usersDirectory.deleteWarning")}
-      </p>
-      <p style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 500, marginTop: "var(--cam-space-3)" }}>
-        {t("usersDirectory.typeToConfirmLabel", { email: user.email })}
-      </p>
-      <input
-        type="text"
-        value={typed}
-        onChange={(e) => setTyped(e.target.value)}
-        placeholder={user.email}
-        style={{ width: "100%", height: "var(--cam-form-field-height)", border: "1px solid var(--cam-border-strong)", borderRadius: "var(--cam-radius-sm)", padding: "0 var(--cam-space-3)" }}
-      />
-      <div style={modalActionsRow}>
-        <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
-        <button
-          type="button"
-          disabled={!matches || pending}
-          onClick={onConfirm}
-          style={{
-            flex: 1, height: "var(--cam-form-field-height)", border: "none", color: "#fff",
-            background: matches ? "var(--cam-error)" : "var(--cam-border-strong)", borderRadius: "var(--cam-radius-sm)",
-            cursor: matches ? "pointer" : "not-allowed",
-          }}
-        >
-          {pending ? "…" : t("usersDirectory.delete")}
-        </button>
+    <AdminDialog
+      open
+      onClose={onCancel}
+      title={t("usersDirectory.deleteUserTitle", { name: directoryUserName(user) || user.email })}
+      footer={
+        <ModalFooter onCancel={onCancel}>
+          <button type="button" className="cam-button cam-button-danger" disabled={!matches || pending} onClick={onConfirm}>
+            {pending ? "…" : t("usersDirectory.delete")}
+          </button>
+        </ModalFooter>
+      }
+    >
+      <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("usersDirectory.deleteWarning")}</p>
+      {/* The "type the e-mail" instruction is now the input's label; the
+          input had none. */}
+      <div className="cam-field">
+        <label className="cam-admin-label" htmlFor="users-delete-confirm">
+          {t("usersDirectory.typeToConfirmLabel", { email: user.email })}
+        </label>
+        <input
+          id="users-delete-confirm"
+          type="text"
+          className="cam-input"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={user.email}
+        />
       </div>
       <ErrorLine error={error} />
-    </div>
+    </AdminDialog>
   );
 }
