@@ -72,71 +72,29 @@ const ENTITY_TYPE_VALUES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINIST
 // Labels: adminDiffusionPage.status.<value>.
 const STATUS_VALUES = ["APPROVED", "ALL", "PENDING_REVIEW", "REJECTED"];
 
+// Export formats offered. Labels: adminDiffusionPage.<labelKey>.
+const EXPORT_FORMATS = [
+  { id: ".sav", labelKey: "formatSav" },
+  { id: ".csv", labelKey: "formatCsv" },
+  { id: ".xlsx", labelKey: "formatXlsx" },
+] as const;
+
+type ScopeMode = "all" | "campaign" | "region" | "custom";
+
+// Scope radio. "all" carries its own count-bearing label; the others are
+// labelled through adminDiffusionPage.<key>.
+const SCOPE_MODES: ScopeMode[] = ["all", "campaign", "region", "custom"];
+const SCOPE_LABEL_KEYS: Record<Exclude<ScopeMode, "all">, string> = {
+  campaign: "scopeByCampaign",
+  region: "scopeByRegion",
+  custom: "scopeCustom",
+};
+
 type Translate = ReturnType<typeof useTranslations>;
 
 function typeLabel(tRoot: Translate, type: string): string {
   return ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
 }
-
-// Icons matching Figma donnees/exports.png
-const IconFileCheck = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-    <polyline points="10 9 9 9 8 9" />
-  </svg>
-);
-
-const IconCheckCircle = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-    <polyline points="22 4 12 14.01 9 11.01" />
-  </svg>
-);
-
-const IconClock = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-
-const IconXCircle = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="15" y1="9" x2="9" y2="15" />
-    <line x1="9" y1="9" x2="15" y2="15" />
-  </svg>
-);
-
-const IconDownloadTray = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-const IconPlayLaunch = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="5 3 19 12 5 21 5 3" />
-  </svg>
-);
-
-const IconSpinner = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin" aria-hidden="true">
-    <line x1="12" y1="2" x2="12" y2="6" />
-    <line x1="12" y1="18" x2="12" y2="22" />
-    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-    <line x1="2" y1="12" x2="6" y2="12" />
-    <line x1="18" y1="12" x2="22" y2="12" />
-    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-  </svg>
-);
 
 function formatExportFormat(fmt: string): string {
   switch (fmt?.toUpperCase()) {
@@ -198,7 +156,7 @@ export default function DiffusionPage() {
   const [includeCodebook, setIncludeCodebook] = useState(true);
 
   // Scope mode radio: all | campaign | region | custom
-  const [scopeMode, setScopeMode] = useState<"all" | "campaign" | "region" | "custom">("all");
+  const [scopeMode, setScopeMode] = useState<ScopeMode>("all");
 
   // Dropdown states. The campaign the actor picked, or "" until they pick
   // one; until then the active campaign (else the first listed) is used.
@@ -439,302 +397,169 @@ export default function DiffusionPage() {
     }
   };
 
-  if (isLoading) return null;
+  const header = (
+    <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.donnees") }, { label: tRoot("adminNav.routes.diffusion") }]}
+      title={tRoot("adminNav.routes.diffusion")}
+      subtitle={activeCampaignName ? t("subtitleWithCampaign", { campaign: activeCampaignName }) : t("subtitle")}
+      actions={
+        <AdminHeaderActions
+          showCampaignPill={false}
+          showBell={false}
+          showSearchInput={true}
+        />
+      }
+    />
+  );
 
-  if (forbidden) {
+  // The screen guard's two non-ready outcomes keep the page chrome and say
+  // what is happening. Neither renders nothing (G10).
+  if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <p className="cam-admin-lede">{t("forbidden")}</p>
+        {header}
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("historyResource")}
+          title={isLoading ? tRoot("common.loading") : t("forbidden")}
+        />
       </div>
     );
   }
 
+  // Repository KPIs: counts from GET /data-management/stats, rates derived
+  // from them. No month-over-month trend: the endpoint returns a single
+  // snapshot with no prior period to compare against.
+  const repositoryKpis = [
+    { key: "total", label: t("kpiTotal"), value: totalSubmissions, hint: t("kpiTotalHint") },
+    { key: "approved", label: t("kpiValidated"), value: approvedCount, hint: t("kpiValidatedRate", { rate: percent(approvedRate, 0, locale) }) },
+    { key: "pending", label: t("kpiPending"), value: pendingCount, hint: t("kpiPendingRate", { rate: percent(pendingRate, 0, locale) }) },
+    { key: "rejected", label: t("kpiRejected"), value: rejectedCount, hint: t("kpiRejectedRate", { rate: percent(rejectedRate, 0, locale) }) },
+  ];
+
+  // Volume and structure of the dataset.
+  //  - Total enregistrements: GET /data-management/stats (totals.onefopSubmissions).
+  //  - Variables / Sections: the canonical ONEFOP schema served at
+  //    /schemas/onefop.schema.json (astTotals.questions / astTotals.sections),
+  //    compiled from onefop_ast.dart.
+  // "Taille estimée" is not shown: nothing computes the byte size of an
+  // extract before it is generated.
+  const datasetFigures = [
+    { key: "records", label: t("totalRecords"), loading: statsQuery.isLoading, value: totalSubmissions },
+    { key: "variables", label: t("schemaVariables"), loading: schemaQuery.isLoading, value: schemaQuery.data?.astTotals.questions ?? null },
+    { key: "sections", label: t("schemaSections"), loading: schemaQuery.isLoading, value: schemaQuery.data?.astTotals.sections ?? null },
+  ];
+
+  const historyState = serverHistoryQuery.isLoading
+    ? "loading"
+    : serverHistoryQuery.isError
+      ? "error"
+      : !serverHistoryQuery.data || serverHistoryQuery.data.length === 0
+        ? "empty"
+        : "ready";
+
   return (
     <div className="cam-admin-page">
-      {/* ── Top App Bar (AdminPageHeader with right search, territory & flag) ── */}
-      <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.donnees") }, { label: tRoot("adminNav.routes.diffusion") }]}
-        title={tRoot("adminNav.routes.diffusion")}
-        subtitle={activeCampaignName ? t("subtitleWithCampaign", { campaign: activeCampaignName }) : t("subtitle")}
-        actions={
-          <AdminHeaderActions
-            showCampaignPill={false}
-            showBell={false}
-            showSearchInput={true}
-          />
-        }
-      />
+      {header}
 
-      {/* Alerts / feedback */}
       {errorAlert && (
-        <div role="alert" className="flex items-center justify-between p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
           <span>{errorAlert}</span>
-          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setErrorAlert(null)} className="text-red-500 hover:text-red-800 text-lg font-bold cursor-pointer">×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setErrorAlert(null)}>×</button>
         </div>
       )}
       {successToast && (
-        <div role="status" className="flex items-center justify-between p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
           <span>{successToast}</span>
-          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setSuccessToast(null)} className="text-emerald-600 hover:text-emerald-900 text-lg font-bold cursor-pointer">×</button>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setSuccessToast(null)}>×</button>
         </div>
       )}
 
-      {/* ── 4 KPI Cards (Figma donnees/exports.png) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Déclarations */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              {t("kpiTotal")}
+      <div className="cam-pilot-kpis" style={{ marginBottom: 0 }}>
+        {repositoryKpis.map((k) => (
+          <div key={k.key} className="cam-pilot-kpi">
+            <span className="cam-pilot-kpi-label">{k.label}</span>
+            <span className="cam-pilot-kpi-value" aria-busy={statsQuery.isLoading || undefined}>
+              {statsQuery.isLoading ? NOT_PROVIDED : count(k.value, locale)}
             </span>
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <IconFileCheck />
-            </div>
+            <span className="cam-pilot-kpi-trend">{k.hint}</span>
           </div>
-          <div className="mt-3">
-            <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(totalSubmissions, locale)}
-            </div>
-            {/* No month-over-month trend: /data-management/stats returns a
-                single snapshot with no prior period to compare against. */}
-            <div className="text-xs font-semibold text-slate-500 mt-2">
-              {t("kpiTotalHint")}
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Déclarations Validées */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              {t("kpiValidated")}
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <IconCheckCircle />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(approvedCount, locale)}
-            </div>
-            <div className="text-xs font-semibold text-slate-600 mt-2">
-              {t("kpiValidatedRate", { rate: percent(approvedRate, 0, locale) })}
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: En Attente de Révision */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              {t("kpiPending")}
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <IconClock />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(pendingCount, locale)}
-            </div>
-            <div className="text-xs font-semibold text-amber-600 mt-2">
-              {t("kpiPendingRate", { rate: percent(pendingRate, 0, locale) })}
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Déclarations Rejetées */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-              {t("kpiRejected")}
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-              <IconXCircle />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : count(rejectedCount, locale)}
-            </div>
-            <div className="text-xs font-semibold text-rose-600 mt-2">
-              {t("kpiRejectedRate", { rate: percent(rejectedRate, 0, locale) })}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* ── Two-Column Layout (Configuration & Dataset Summary) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* ── Left Column: Configuration de l'Export ── */}
-        <section
-          aria-labelledby="export-config-heading"
-          className="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-        >
-          <div className="mb-5">
-            <h2 id="export-config-heading" className="text-lg font-bold text-slate-900">
-              {t("configTitle")}
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {t("configSubtitle")}
-            </p>
-          </div>
-
-          {/* Section 1: FORMAT DE FICHIER */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              {t("formatTitle")}
-            </div>
-            <div className="space-y-2.5">
-              {[
-                { id: ".sav", label: t("formatSav") },
-                { id: ".csv", label: t("formatCsv") },
-                { id: ".xlsx", label: t("formatXlsx") },
-              ].map((fmt) => {
-                const isChecked = selectedFormat === fmt.id;
-                return (
-                  <label
-                    key={fmt.id}
-                    className="flex items-center gap-3 cursor-pointer group select-none"
-                  >
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="radio"
-                        name="file-format"
-                        checked={isChecked}
-                        onChange={() => setSelectedFormat(fmt.id as any)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                          isChecked
-                            ? "border-[#006644] bg-[#006644]"
-                            : "border-slate-300 bg-white group-hover:border-slate-400"
-                        }`}
-                      >
-                        {isChecked && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </div>
-                    <span className={`text-sm ${isChecked ? "font-semibold text-slate-900" : "font-normal text-slate-700"}`}>
-                      {fmt.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 my-5" />
-
-          {/* Section 2: CODEBOOK & SYNTAXE */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              {t("codebookTitle")}
-            </div>
+      <div className="cam-admin-grid">
+        {/* ── Left column: export configuration ── */}
+        <section className="cam-admin-section" aria-labelledby="export-config-heading">
+          <div className="cam-admin-section-head">
             <div>
-              <label className="flex items-start gap-3 cursor-pointer select-none">
-                <div className="relative flex items-center justify-center mt-0.5">
+              <h2 id="export-config-heading" className="cam-admin-h2">{t("configTitle")}</h2>
+              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("configSubtitle")}</p>
+            </div>
+          </div>
+
+          <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
+            {/* Native radios and checkbox (CLAUDE.md §9). They were hidden
+                with sr-only behind a drawn circle, which left keyboard focus
+                with no visible indicator. */}
+            <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+              <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>{t("formatTitle")}</legend>
+              {EXPORT_FORMATS.map((fmt) => (
+                <label key={fmt.id} className="cam-admin-choice">
                   <input
-                    type="checkbox"
-                    checked={includeCodebook}
-                    onChange={(e) => setIncludeCodebook(e.target.checked)}
-                    className="sr-only"
+                    type="radio"
+                    name="file-format"
+                    checked={selectedFormat === fmt.id}
+                    onChange={() => setSelectedFormat(fmt.id)}
                   />
-                  <div
-                    className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                      includeCodebook
-                        ? "border-[#006644] bg-[#006644] text-white"
-                        : "border-slate-300 bg-white"
-                    }`}
-                  >
-                    {includeCodebook && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="1 4 3.5 6.5 9 1" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-slate-800">
-                    {t("codebookLabel")}
+                  <span>{t(fmt.labelKey)}</span>
+                </label>
+              ))}
+            </fieldset>
+
+            <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+              <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>{t("codebookTitle")}</legend>
+              <label className="cam-admin-choice">
+                <input
+                  type="checkbox"
+                  checked={includeCodebook}
+                  onChange={(e) => setIncludeCodebook(e.target.checked)}
+                />
+                <span>
+                  {t("codebookLabel")}
+                  <span className="cam-admin-choice-hint">{t("codebookHint")}</span>
+                </span>
+              </label>
+            </fieldset>
+
+            <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+              <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>{t("scopeTitle")}</legend>
+              {SCOPE_MODES.map((id) => (
+                <label key={id} className="cam-admin-choice">
+                  <input
+                    type="radio"
+                    name="scope-mode"
+                    checked={scopeMode === id}
+                    onChange={() => setScopeMode(id)}
+                  />
+                  <span>
+                    {id === "all"
+                      ? totalSubmissions === null
+                        ? t("scopeAll")
+                        : t("scopeAllCount", { count: count(totalSubmissions, locale) })
+                      : t(SCOPE_LABEL_KEYS[id])}
                   </span>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {t("codebookHint")}
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
+                </label>
+              ))}
+            </fieldset>
 
-          <div className="border-t border-slate-100 my-5" />
-
-          {/* Section 3: PÉRIMÈTRE DES DONNÉES */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              {t("scopeTitle")}
-            </div>
-            <div className="space-y-2.5">
-              {[
-                {
-                  id: "all",
-                  label:
-                    totalSubmissions === null
-                      ? t("scopeAll")
-                      : t("scopeAllCount", { count: count(totalSubmissions, locale) }),
-                },
-                { id: "campaign", label: t("scopeByCampaign") },
-                { id: "region", label: t("scopeByRegion") },
-                { id: "custom", label: t("scopeCustom") },
-              ].map((scp) => {
-                const isChecked = scopeMode === scp.id;
-                return (
-                  <label
-                    key={scp.id}
-                    className="flex items-center gap-3 cursor-pointer group select-none"
-                  >
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="radio"
-                        name="scope-mode"
-                        checked={isChecked}
-                        onChange={() => setScopeMode(scp.id as any)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                          isChecked
-                            ? "border-[#006644] bg-[#006644]"
-                            : "border-slate-300 bg-white group-hover:border-slate-400"
-                        }`}
-                      >
-                        {isChecked && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </div>
-                    <span className={`text-sm ${isChecked ? "font-semibold text-slate-900" : "font-normal text-slate-700"}`}>
-                      {scp.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 my-5" />
-
-          {/* ── Dropdowns Row (Campagne, Région, Statut) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            {/* Dropdown 1: CAMPAGNE */}
-            <div>
-              <label htmlFor="select-campagne" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                {t("campaignLabel")}
-              </label>
-              <div className="relative">
+            <div className="cam-admin-filters">
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="select-campagne">{t("campaignLabel")}</label>
                 <select
                   id="select-campagne"
+                  className="cam-select"
                   value={selectedCampaign}
                   onChange={(e) => setCampaignChoice(e.target.value)}
-                  className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
                   {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
                     campaignsQuery.data.map((c) => (
@@ -748,261 +573,180 @@ export default function DiffusionPage() {
                     </option>
                   )}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="1 1 5 5 9 1" />
-                  </svg>
-                </div>
               </div>
-            </div>
 
-            {/* Dropdown 2: RÉGION */}
-            <div>
-              <label htmlFor="select-region" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                {t("regionLabel")}
-              </label>
-              <div className="relative">
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="select-region">{t("regionLabel")}</label>
                 <select
                   id="select-region"
+                  className="cam-select"
                   value={selectedRegion}
                   onChange={(e) => {
                     setSelectedRegion(e.target.value);
                     setSelectedDepartment("");
                   }}
-                  className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
                   {CAMEROON_REGIONS.map((r) => (
                     <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="1 1 5 5 9 1" />
-                  </svg>
-                </div>
               </div>
-            </div>
 
-            {/* Dropdown 3: STATUT */}
-            <div>
-              <label htmlFor="select-statut" className="block text-[10px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                {t("statusLabel")}
-              </label>
-              <div className="relative">
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="select-statut">{t("statusLabel")}</label>
                 <select
                   id="select-statut"
+                  className="cam-select"
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
                   {STATUS_VALUES.map((value) => (
                     <option key={value} value={value}>{t(`status.${value}`)}</option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="1 1 5 5 9 1" />
-                  </svg>
-                </div>
               </div>
             </div>
-          </div>
 
-          {/* Granular filters (collapsible, never dropped) */}
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="text-xs font-medium text-[#006644] hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>{showAdvancedFilters ? t("hideFilters") : t("showFilters")}</span>
-              <span className="text-[10px]">{showAdvancedFilters ? "▲" : "▼"}</span>
-            </button>
+            {/* Granular filters (collapsible, never dropped) */}
+            <div>
+              <button
+                type="button"
+                className="cam-text-button"
+                aria-expanded={showAdvancedFilters}
+                aria-controls="diffusion-advanced-filters"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                {showAdvancedFilters ? t("hideFilters") : t("showFilters")} {showAdvancedFilters ? "▲" : "▼"}
+              </button>
 
-            {showAdvancedFilters && (
-              <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="adv-dept" className="block text-[10px] font-semibold text-slate-600 mb-1">
-                    {t("departmentFor", { scope: selectedRegion !== "Toutes" ? selectedRegion : t("national") })}
-                  </label>
-                  <select
-                    id="adv-dept"
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                    disabled={selectedRegion === "Toutes"}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 disabled:opacity-50"
-                  >
-                    <option value="">{t("allDepartments")}</option>
-                    {availableDepartments.map((d) => (
-                      <option key={d.name} value={d.name}>{d.name}</option>
-                    ))}
-                  </select>
+              {showAdvancedFilters && (
+                <div id="diffusion-advanced-filters" className="cam-admin-filters" style={{ marginTop: "var(--cam-space-3)" }}>
+                  <div className="cam-field">
+                    <label className="cam-admin-label" htmlFor="adv-dept">
+                      {t("departmentFor", { scope: selectedRegion !== "Toutes" ? selectedRegion : t("national") })}
+                    </label>
+                    <select
+                      id="adv-dept"
+                      className="cam-select"
+                      value={selectedDepartment}
+                      onChange={(e) => setSelectedDepartment(e.target.value)}
+                      disabled={selectedRegion === "Toutes"}
+                    >
+                      <option value="">{t("allDepartments")}</option>
+                      {availableDepartments.map((d) => (
+                        <option key={d.name} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="cam-field">
+                    <label className="cam-admin-label" htmlFor="adv-entity">{t("establishmentType")}</label>
+                    <select
+                      id="adv-entity"
+                      className="cam-select"
+                      value={selectedEntityType}
+                      onChange={(e) => setSelectedEntityType(e.target.value)}
+                    >
+                      <option value="">{t("allEmployers")}</option>
+                      {ENTITY_TYPE_VALUES.map((value) => (
+                        <option key={value} value={value}>{typeLabel(tRoot, value)}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="adv-entity" className="block text-[10px] font-semibold text-slate-600 mb-1">
-                    {t("establishmentType")}
-                  </label>
-                  <select
-                    id="adv-entity"
-                    value={selectedEntityType}
-                    onChange={(e) => setSelectedEntityType(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
-                  >
-                    <option value="">{t("allEmployers")}</option>
-                    {ENTITY_TYPE_VALUES.map((value) => (
-                      <option key={value} value={value}>{typeLabel(tRoot, value)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* ── Main CTA: Lancer l'Export ── */}
-          <div>
-            <button
-              type="button"
-              onClick={handleLaunchExport}
-              disabled={isExporting}
-              className="w-full bg-[#006644] hover:bg-[#005438] active:bg-[#004730] text-white font-semibold text-sm py-3 px-6 rounded-lg transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isExporting ? <IconSpinner /> : <IconPlayLaunch />}
-              <span>{isExporting ? t("generating") : t("launch")}</span>
-            </button>
-            <div className="text-[11px] text-slate-400 text-center mt-2.5">
-              {t("spssCompatible")}
+            {/* The page's one primary action. */}
+            <div>
+              <button
+                type="button"
+                className="cam-button cam-button-primary"
+                style={{ width: "100%" }}
+                onClick={handleLaunchExport}
+                disabled={isExporting}
+              >
+                {isExporting ? t("generating") : t("launch")}
+              </button>
+              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-2) 0 0", textAlign: "center" }}>
+                {t("spssCompatible")}
+              </p>
             </div>
           </div>
         </section>
 
-        {/* ── Right Column: Résumé & Codebooks Disponibles ── */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-
-          {/* ── Card 1: Résumé du Jeu de Données ── */}
-          <section
-            aria-labelledby="dataset-summary-heading"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="mb-5">
-              <h2 id="dataset-summary-heading" className="text-base font-bold text-slate-900">
-                {t("summaryTitle")}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {t("summarySubtitle")}
-              </p>
-            </div>
-
-            {/* Volume and structure of the dataset.
-                - Total enregistrements: GET /data-management/stats
-                  (totals.onefopSubmissions).
-                - Variables / Sections: the canonical ONEFOP schema served at
-                  /schemas/onefop.schema.json (astTotals.questions /
-                  astTotals.sections), compiled from onefop_ast.dart.
-                "Taille estimée" is not shown: nothing computes the byte size
-                of an extract before it is generated. */}
-            <div className="space-y-2.5 text-sm text-slate-600 mb-5">
-              <div className="flex items-center justify-between">
-                <span>{t("totalRecords")}</span>
-                <span className="font-bold text-slate-900">
-                  {statsQuery.isLoading ? "…" : count(totalSubmissions, locale)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t("schemaVariables")}</span>
-                <span className="font-bold text-slate-900">
-                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.questions ?? null, locale)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t("schemaSections")}</span>
-                <span className="font-bold text-slate-900">
-                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.sections ?? null, locale)}
-                </span>
+        {/* ── Right column: dataset summary and documentation ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
+          <section className="cam-admin-section" aria-labelledby="dataset-summary-heading">
+            <div className="cam-admin-section-head">
+              <div>
+                <h2 id="dataset-summary-heading" className="cam-admin-h2">{t("summaryTitle")}</h2>
+                <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("summarySubtitle")}</p>
               </div>
             </div>
 
-            <div className="border-t border-slate-100 my-4" />
+            <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
+              <dl className="cam-admin-kv">
+                {datasetFigures.map((f) => (
+                  <div key={f.key}>
+                    <dt>{f.label}</dt>
+                    <dd aria-busy={f.loading || undefined}>{f.loading ? NOT_PROVIDED : count(f.value, locale)}</dd>
+                  </div>
+                ))}
+              </dl>
 
-            {/* Breakdown by employer type.
-                Source: GET /admin/questionnaires?formType=<T>&limit=1 per
-                type — `total` is the count of the whole filtered query under
-                the caller's server-side scope, not of the returned page.
-                Share = that type's total / the sum of the retrieved totals,
-                rendered only once every query has answered, so a partial load
-                can never produce a wrong share. */}
-            <div>
-              <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-                {t("breakdownTitle")}
+              {/* Breakdown by employer type.
+                  Source: GET /admin/questionnaires?formType=<T>&limit=1 per
+                  type — `total` is the count of the whole filtered query under
+                  the caller's server-side scope, not of the returned page.
+                  Share = that type's total / the sum of the retrieved totals,
+                  rendered only once every query has answered, so a partial load
+                  can never produce a wrong share. */}
+              <div>
+                <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("breakdownTitle")}</h3>
+                {typeBreakdownState !== "ready" ? (
+                  <DataState
+                    dense
+                    state={typeBreakdownState}
+                    resource={t("breakdownResource")}
+                    error={typeTotals.find((q) => q.isError)?.error}
+                  />
+                ) : (
+                  <ul className="cam-admin-bars">
+                    {typeBreakdown.map((row) => (
+                      <li key={row.formType} className="cam-admin-bar">
+                        <span>{row.label}</span>
+                        <div className="cam-admin-bar-track">
+                          <div className="cam-admin-bar-fill" style={{ width: meterWidth(row.share) }} />
+                        </div>
+                        <span className="cam-admin-bar-value">{count(row.total, locale)}</span>
+                        <span className="cam-admin-bar-note">{percent(row.share, 0, locale)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-
-              {typeBreakdownState !== "ready" ? (
-                <DataState
-                  dense
-                  state={typeBreakdownState}
-                  resource={t("breakdownResource")}
-                  error={typeTotals.find((q) => q.isError)?.error}
-                />
-              ) : (
-                <div className="space-y-3">
-                  {typeBreakdown.map((row) => (
-                    <div key={row.formType} className="flex items-center text-xs">
-                      <span className="w-28 font-medium text-slate-700 shrink-0">
-                        {row.label}
-                      </span>
-                      <div className="flex-1 h-2 rounded-full bg-slate-100 mx-3 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[#006644]"
-                          style={{ width: meterWidth(row.share) }}
-                        />
-                      </div>
-                      <span className="w-12 text-right font-bold text-slate-800 shrink-0">
-                        {count(row.total, locale)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </section>
 
-          {/* ── Card 2: Documentation du jeu de données ── */}
-          <section
-            aria-labelledby="codebooks-heading"
-            className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-          >
-            <div className="mb-4">
-              <h2 id="codebooks-heading" className="text-base font-bold text-slate-900">
-                {t("docsTitle")}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {t("docsSubtitle")}
-              </p>
+          <section className="cam-admin-section" aria-labelledby="codebooks-heading">
+            <div className="cam-admin-section-head">
+              <div>
+                <h2 id="codebooks-heading" className="cam-admin-h2">{t("docsTitle")}</h2>
+                <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("docsSubtitle")}</p>
+              </div>
             </div>
 
-            <div className="space-y-3.5 pt-2">
+            <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
               {/* Server-generated SPSS syntax — the only documentation
                   artefact with an authoritative source. Its size is unknown
                   before the request, so none is claimed. */}
-              <button
-                type="button"
-                onClick={handleDownloadCodebookSps}
-                className="w-full text-left flex items-start gap-3 group cursor-pointer p-1.5 -mx-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                <div className="text-[#006644] mt-0.5 shrink-0 group-hover:scale-105 transition-transform">
-                  <IconDownloadTray />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-800 group-hover:text-[#006644] transition-colors">
-                    {t("spssCurrent")}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {t("spssOnDemand")}
-                  </div>
-                </div>
-              </button>
-            </div>
+              <div>
+                <button type="button" className="cam-text-button" onClick={handleDownloadCodebookSps}>
+                  {t("spssCurrent")}
+                </button>
+                <div className="cam-admin-meta">{t("spssOnDemand")}</div>
+              </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-100">
               <DataState
                 dense
                 state="unavailable"
@@ -1012,75 +756,56 @@ export default function DiffusionPage() {
               />
             </div>
           </section>
-
         </div>
       </div>
 
-      {/* ── Bottom Section: Historique des Exports Récents (Figma donnees/exports.png) ── */}
-      <section
-        aria-labelledby="recent-exports-heading"
-        className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
-      >
-        <div className="mb-4">
-          <h2 id="recent-exports-heading" className="text-base font-bold text-slate-900">
-            {t("historyTitle")}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {t("historySubtitle")}
-          </p>
+      {/* ── Recent export history ── */}
+      <section className="cam-admin-section" aria-labelledby="recent-exports-heading">
+        <div className="cam-admin-section-head">
+          <div>
+            <h2 id="recent-exports-heading" className="cam-admin-h2">{t("historyTitle")}</h2>
+            <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("historySubtitle")}</p>
+          </div>
         </div>
 
-        {serverHistoryQuery.isLoading ? (
-          <DataState
-            state="loading"
-            resource={t("historyResource")}
-            title={t("historyLoading")}
-          />
-        ) : serverHistoryQuery.isError ? (
-          <DataState
-            state="error"
-            resource={t("historyResource")}
-            error={serverHistoryQuery.error}
-            onRetry={() => serverHistoryQuery.refetch()}
-          />
-        ) : !serverHistoryQuery.data || serverHistoryQuery.data.length === 0 ? (
-          <DataState
-            state="empty"
-            resource={t("historyResource")}
-            title={t("historyEmptyTitle")}
-            hint={t("historyEmptyHint")}
-          />
+        {historyState !== "ready" ? (
+          <div className="cam-admin-section-body">
+            <DataState
+              state={historyState}
+              resource={t("historyResource")}
+              error={serverHistoryQuery.error}
+              onRetry={() => serverHistoryQuery.refetch()}
+              title={historyState === "loading" ? t("historyLoading") : historyState === "empty" ? t("historyEmptyTitle") : undefined}
+              hint={historyState === "empty" ? t("historyEmptyHint") : undefined}
+            />
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="cam-table-wrapper">
+            <table className="cam-table">
               <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
-                  <th className="py-3 px-3">{t("dateColumn")}</th>
-                  <th className="py-3 px-3">{t("userColumn")}</th>
-                  <th className="py-3 px-3">{t("formatColumn")}</th>
-                  <th className="py-3 px-3">{t("scopeColumn")}</th>
+                <tr>
+                  <th scope="col">{t("dateColumn")}</th>
+                  <th scope="col">{t("userColumn")}</th>
+                  <th scope="col">{t("formatColumn")}</th>
+                  <th scope="col">{t("scopeColumn")}</th>
                 </tr>
               </thead>
-              <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
-                {serverHistoryQuery.data.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                      {stamp(row.timestamp, true, locale)}
+              <tbody>
+                {(serverHistoryQuery.data ?? []).map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span className="cam-admin-meta">{stamp(row.timestamp, true, locale)}</span>
                     </td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                      {row.user?.name || row.user?.email || NOT_PROVIDED}
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <span className="cam-admin-strong">{row.user?.name || row.user?.email || NOT_PROVIDED}</span>
                       {row.user?.role && (
-                        <span className="ml-1.5 text-[10px] font-normal text-slate-500">
-                          ({directoryRoleLabel(row.user.role, locale)})
+                        <span className="cam-admin-meta" style={{ display: "block" }}>
+                          {directoryRoleLabel(row.user.role, locale)}
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
-                      {formatExportFormat(row.format)}
-                    </td>
-                    <td className="py-3.5 px-3 text-slate-600">
-                      {formatExportScope(row.filters, tRoot)}
-                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>{formatExportFormat(row.format)}</td>
+                    <td>{formatExportScope(row.filters, tRoot)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1088,7 +813,6 @@ export default function DiffusionPage() {
           </div>
         )}
       </section>
-
     </div>
   );
 }
