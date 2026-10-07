@@ -39,6 +39,13 @@ const SUBMISSION_STATUS_KEYS: Record<string, string> = {
   REJECTED: "adminDossierPage.statusRejected",
 };
 
+// The stored submission status decides the badge class; anything else is neutral.
+const SUBMISSION_STATUS_BADGE: Record<string, string> = {
+  APPROVED: "cam-badge-success",
+  PENDING_REVIEW: "cam-badge-warning",
+  REJECTED: "cam-badge-error",
+};
+
 // Account statuses with a label under adminEtablissementPage.accountStatus.
 const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "ACTIVE", "REJECTED", "COMPLEMENTS_REQUESTED"]);
 
@@ -47,29 +54,12 @@ const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "ACTIVE", "REJECTED", 
 // loaded yet is not treated as authorised. Account management is SUPER_ADMIN
 // alone (SETTINGS_ROLES membership).
 
-const CARD: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 24,
-};
-
-const KEY: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  textTransform: "uppercase",
-  color: "#6b7280",
-  letterSpacing: "0.04em",
-};
-
-const VAL: React.CSSProperties = { fontSize: 14, color: "#111827", marginTop: 2 };
-
-/** One label/value pair; absent values print the neutral marker. */
+/** One label/value pair inside a .cam-admin-kv list; absent values print the neutral marker. */
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <div style={KEY}>{label}</div>
-      <div style={VAL}>{fact(value)}</div>
+      <dt>{label}</dt>
+      <dd>{fact(value)}</dd>
     </div>
   );
 }
@@ -209,38 +199,45 @@ function EtablissementDetail() {
   });
 
   // ── Nothing renders without an authoritative record ─────────────────────
+  // The chrome still does: the reader keeps the breadcrumb and the way back.
   if (!company) {
     return (
-      <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
-        <Link href="/admin/etablissements" style={{ fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}>
-          {t("backLink")}
-        </Link>
-        <div style={{ marginTop: 20, maxWidth: 820 }}>
-          <DataState
-            state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
-            resource={t("resource")}
-            error={companyQuery.error}
-            onRetry={() => companyQuery.refetch()}
-            title={
-              !id
-                ? t("noIdTitle")
-                : pageState === "forbidden"
-                  ? t("accessDenied")
-                  : pageState === "error"
-                    ? undefined
-                    : t("notFoundTitle")
-            }
-            hint={
-              !id
-                ? t("noIdHint")
-                : pageState === "forbidden"
-                  ? t("accessDeniedHint")
-                  : pageState === "error"
-                    ? undefined
-                    : t("notFoundHint")
-            }
-          />
-        </div>
+      <div className="cam-admin-page">
+        <AdminPageHeader
+          backHref="/admin/etablissements"
+          breadcrumb={[
+            { label: tRoot("adminNav.hubs.declarants") },
+            { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
+          ]}
+          title={t("titleFallback")}
+          subtitle={t("subtitle")}
+          hideTabs={true}
+          actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
+        />
+        <DataState
+          state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
+          resource={t("resource")}
+          error={companyQuery.error}
+          onRetry={() => companyQuery.refetch()}
+          title={
+            !id
+              ? t("noIdTitle")
+              : pageState === "forbidden"
+                ? t("accessDenied")
+                : pageState === "error"
+                  ? undefined
+                  : t("notFoundTitle")
+          }
+          hint={
+            !id
+              ? t("noIdHint")
+              : pageState === "forbidden"
+                ? t("accessDeniedHint")
+                : pageState === "error"
+                  ? undefined
+                  : t("notFoundHint")
+          }
+        />
       </div>
     );
   }
@@ -251,9 +248,13 @@ function EtablissementDetail() {
     .trim();
   const isSuspended = !!linkedAccount && !linkedAccount.isActive;
   const shortName = company.name?.split("—")[0].trim() || null;
+  const accountPending = suspendMutation.isPending || activateMutation.isPending;
+  const toggleAccount = () => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate());
 
   return (
-    <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
+    <div className="cam-admin-page">
+      {/* The header carries what the hero card used to: the name as the
+          title, the account state as the badge, and the one account action. */}
       <AdminPageHeader
         backHref="/admin/etablissements"
         breadcrumb={[
@@ -263,84 +264,63 @@ function EtablissementDetail() {
         ]}
         title={shortName ?? t("titleFallback")}
         subtitle={t("subtitle")}
+        statusBadge={
+          !linkedAccount
+            ? { label: t("badgeNoAccount"), variant: "neutral" }
+            : isSuspended
+              ? { label: t("badgeSuspended"), variant: "rejected" }
+              : { label: t("badgeActive"), variant: "active" }
+        }
         hideTabs={true}
-        actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
-      />
-
-
-      {toastMessage && (
-        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>{toastMessage}</span>
-          <button type="button" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#065f46" }}>×</button>
-        </div>
-      )}
-
-      {actionError && (
-        <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
-          {actionError}
-        </div>
-      )}
-
-      {/* ── Hero: every value is this establishment's own stored field ── */}
-      <section style={{ ...CARD, padding: "24px 28px", marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: 0 }}>
-                {fact(company.name)}
-              </h1>
-              {company.entityType && (
-                <span style={{ fontSize: 11, background: "rgba(0, 122, 94, 0.08)", color: "#004d3d", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>
-                  {typeDisplay(company.entityType)}
-                </span>
-              )}
-              {/* Account state, or an explicit "no linked account". */}
-              <span
-                style={{
-                  fontSize: 11,
-                  background: !linkedAccount ? "#f3f4f6" : isSuspended ? "#fee2e2" : "#dcfce7",
-                  color: !linkedAccount ? "#6b7280" : isSuspended ? "#b91c1c" : "#15803d",
-                  padding: "3px 10px",
-                  borderRadius: 9999,
-                  fontWeight: 600,
-                }}
-              >
-                {!linkedAccount ? t("badgeNoAccount") : isSuspended ? t("badgeSuspended") : t("badgeActive")}
-              </span>
-            </div>
-            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-              {t("idLabel")} <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.establishmentId)}</strong>
-              {" | "}
-              {t("mainActivityLabel")} <strong style={{ color: "#111827" }}>{fact(company.mainActivity)}</strong>
-            </p>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        actions={
+          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
+            <AdminHeaderActions showCampaignPill={false} showBell={false} />
             {/* Shown only when there is a real account to act on and the role
                 may act on it. The button performs the real call. */}
             {linkedAccount && canManageAccount && (
               <button
                 type="button"
-                disabled={suspendMutation.isPending || activateMutation.isPending}
-                onClick={() => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate())}
-                style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #fca5a5", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#b91c1c", cursor: "pointer" }}
+                className={`cam-button cam-button-sm ${isSuspended ? "cam-button-primary" : "cam-button-danger"}`}
+                disabled={accountPending}
+                onClick={toggleAccount}
               >
                 {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
               </button>
             )}
           </div>
-        </div>
-      </section>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "flex-start" }}>
+      {/* Every value is this establishment's own stored field. */}
+      <p className="cam-admin-meta" style={{ margin: 0 }}>
+        {company.entityType && <>{typeDisplay(company.entityType)} · </>}
+        {t("idLabel")} <span className="cam-admin-code cam-admin-strong">{fact(company.establishmentId)}</span>
+        {" · "}
+        {t("mainActivityLabel")} <span className="cam-admin-strong">{fact(company.mainActivity)}</span>
+      </p>
+
+      {toastMessage && (
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
+          <span>{toastMessage}</span>
+          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)}>×</button>
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+          <span>{actionError}</span>
+        </div>
+      )}
+
+      <div className="cam-admin-grid">
         {/* ── Left column ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
           {/* Identification: Company model fields only. */}
-          <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              {t("generalInfoTitle")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+          <section className="cam-admin-section" aria-labelledby="etab-general-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-general-title" className="cam-admin-h2">{t("generalInfoTitle")}</h2>
+            </div>
+            <dl className="cam-admin-kv cam-admin-section-body">
               <Field label={t("field.name")} value={company.name} />
               <Field label={t("field.entityType")} value={company.entityType ? typeDisplay(company.entityType) : null} />
               <Field label={t("field.registrationNumber")} value={company.registrationNumber} />
@@ -362,192 +342,110 @@ function EtablissementDetail() {
                 value={respondent ? `${respondent}${company.respondentFunction ? ` — ${company.respondentFunction}` : ""}` : null}
               />
               <Field label={t("field.contactPhone")} value={company.respondentPhone} />
-            </div>
+            </dl>
           </section>
 
           {/* Workforce as last declared on the Company record. */}
-          <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              {t("workforceTitle")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-              <div>
-                <div style={KEY}>{t("workforceTotal")}</div>
-                <div style={VAL}>{count(company.totalEmployees, locale)}</div>
-              </div>
-              <div>
-                <div style={KEY}>{t("men")}</div>
-                <div style={VAL}>{count(company.menCount, locale)}</div>
-              </div>
-              <div>
-                <div style={KEY}>{t("women")}</div>
-                <div style={VAL}>{count(company.womenCount, locale)}</div>
-              </div>
-              <div>
-                <div style={KEY}>{t("workforceLastYear")}</div>
-                <div style={VAL}>{count(company.lastYearTotal, locale)}</div>
-              </div>
+          <section className="cam-admin-section" aria-labelledby="etab-workforce-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-workforce-title" className="cam-admin-h2">{t("workforceTitle")}</h2>
             </div>
+            <dl className="cam-admin-kv cam-admin-section-body">
+              <Field label={t("workforceTotal")} value={count(company.totalEmployees, locale)} />
+              <Field label={t("men")} value={count(company.menCount, locale)} />
+              <Field label={t("women")} value={count(company.womenCount, locale)} />
+              <Field label={t("workforceLastYear")} value={count(company.lastYearTotal, locale)} />
+            </dl>
           </section>
 
           {/* Submission history for this company */}
-          <section style={CARD}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
+          <section className="cam-admin-section" aria-labelledby="etab-submissions-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-submissions-title" className="cam-admin-h2">
                 {t("submissionHistoryTitle")}{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}
               </h2>
-              {company && (
-                <Link
-                  href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}
-                  style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
-                >
-                  {t("allFilesLink")}
-                </Link>
-              )}
+              <Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`} className="cam-text-button">
+                {t("allFilesLink")}
+              </Link>
             </div>
 
-            {submissionsState !== "ready" ? (
-              <DataState
-                dense
-                state={submissionsState}
-                resource={t("submissionsResource")}
-                error={submissionsQuery.error}
-                onRetry={() => submissionsQuery.refetch()}
-                title={submissionsState === "empty" ? t("noSubmissionTitle") : undefined}
-                hint={submissionsState === "empty" ? t("noSubmissionHint") : undefined}
-              />
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {submissionsQuery.data?.items.map((sub) => (
-                  <div
-                    key={sub.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 12px",
-                      border: "1px solid #f1f5f9",
-                      borderRadius: 6,
-                      background: "#f8fafc",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
-                        {sub.submissionId || sub.id}
+            <div className="cam-admin-section-body">
+              {submissionsState !== "ready" ? (
+                <DataState
+                  dense
+                  state={submissionsState}
+                  resource={t("submissionsResource")}
+                  error={submissionsQuery.error}
+                  onRetry={() => submissionsQuery.refetch()}
+                  title={submissionsState === "empty" ? t("noSubmissionTitle") : undefined}
+                  hint={submissionsState === "empty" ? t("noSubmissionHint") : undefined}
+                />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+                  {submissionsQuery.data?.items.map((sub) => (
+                    <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
+                      <div>
+                        <div className="cam-admin-strong">{sub.submissionId || sub.id}</div>
+                        <div className="cam-admin-meta">
+                          {t("receivedLine", { date: stamp(sub.submissionDate || sub.createdAt, true, locale), type: typeDisplay(sub.formType) })}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                        {t("receivedLine", { date: stamp(sub.submissionDate || sub.createdAt, true, locale), type: typeDisplay(sub.formType) })}
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
+                        <span className={`cam-badge ${SUBMISSION_STATUS_BADGE[sub.status] ?? "cam-badge-neutral"}`}>
+                          {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
+                        </span>
+                        <Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`} className="cam-button cam-button-secondary cam-button-sm">
+                          {t("openLink")}
+                        </Link>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: 9999,
-                          background:
-                            sub.status === "APPROVED"
-                              ? "#dcfce7"
-                              : sub.status === "PENDING_REVIEW"
-                                ? "#fef3c7"
-                                : sub.status === "REJECTED"
-                                  ? "#fee2e2"
-                                  : "#f1f5f9",
-                          color:
-                            sub.status === "APPROVED"
-                              ? "#15803d"
-                              : sub.status === "PENDING_REVIEW"
-                                ? "#b45309"
-                                : sub.status === "REJECTED"
-                                  ? "#b91c1c"
-                                  : "#475569",
-                        }}
-                      >
-                        {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
-                      </span>
-                      <Link
-                        href={`/admin/dossiers/${encodeURIComponent(sub.id)}`}
-                        style={{
-                          fontSize: 12,
-                          color: "#004d3d",
-                          fontWeight: 600,
-                          textDecoration: "none",
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          background: "#ffffff",
-                          border: "1px solid #cbd5e1",
-                        }}
-                      >
-                        {t("openLink")}
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         </div>
 
         {/* ── Right column ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
           {/* Exactly one account can be linked: Company.user is singular. */}
-          <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              {t("linkedAccountTitle")}
-            </h2>
-            {!linkedAccount ? (
-              <DataState
-                dense
-                state="empty"
-                resource={t("linkedAccountResource")}
-                title={t("noLinkedAccountTitle")}
-                hint={t("noLinkedAccountHint")}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAccountOpen(true)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  background: "#ffffff",
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  {/* The account's own email. No display name is invented:
-                      /companies returns only id, email, status and
-                      isActive for the linked user. */}
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fact(linkedAccount.email)}</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    {t("accountStatusLine", {
-                      status: ACCOUNT_STATUS_CODES.has(linkedAccount.status ?? "")
-                        ? t(`accountStatus.${linkedAccount.status}`)
-                        : fact(linkedAccount.status),
-                    })}
+          <section className="cam-admin-section" aria-labelledby="etab-account-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-account-title" className="cam-admin-h2">{t("linkedAccountTitle")}</h2>
+            </div>
+            <div className="cam-admin-section-body">
+              {!linkedAccount ? (
+                <DataState
+                  dense
+                  state="empty"
+                  resource={t("linkedAccountResource")}
+                  title={t("noLinkedAccountTitle")}
+                  hint={t("noLinkedAccountHint")}
+                />
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-3)" }}>
+                  <div style={{ minWidth: 0 }}>
+                    {/* The account's own email. No display name is invented:
+                        /companies returns only id, email, status and
+                        isActive for the linked user. */}
+                    <div className="cam-admin-strong">{fact(linkedAccount.email)}</div>
+                    <div className="cam-admin-meta">
+                      {t("accountStatusLine", {
+                        status: ACCOUNT_STATUS_CODES.has(linkedAccount.status ?? "")
+                          ? t(`accountStatus.${linkedAccount.status}`)
+                          : fact(linkedAccount.status),
+                      })}
+                    </div>
+                    <button type="button" className="cam-text-button" onClick={() => setAccountOpen(true)}>
+                      {t("manageTitle")}
+                    </button>
                   </div>
+                  <span className={`cam-badge ${linkedAccount.isActive ? "cam-badge-success" : "cam-badge-neutral"}`}>
+                    {linkedAccount.isActive ? t("activeBadge") : t("inactiveBadge")}
+                  </span>
                 </div>
-                <span
-                  style={{
-                    fontSize: 10,
-                    background: linkedAccount.isActive ? "#dcfce7" : "#f3f4f6",
-                    color: linkedAccount.isActive ? "#15803d" : "#6b7280",
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    fontWeight: 700,
-                  }}
-                >
-                  {linkedAccount.isActive ? t("activeBadge") : t("inactiveBadge")}
-                </span>
-              </button>
-            )}
+              )}
+            </div>
           </section>
 
           {/* Registration metadata.
@@ -556,76 +454,78 @@ function EtablissementDetail() {
               the registration IP, a geolocation, a last-modified stamp and a
               document-verification status; none of those is stored anywhere,
               so none is shown. */}
-          <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              {t("accountInfoTitle")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-              <Field label={t("registrationDate")} value={stamp(company.createdAt, false, locale)} />
+          <section className="cam-admin-section" aria-labelledby="etab-registration-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-registration-title" className="cam-admin-h2">{t("accountInfoTitle")}</h2>
             </div>
-            <div style={{ marginTop: 14 }}>
-              <DataState
-                dense
-                state="unavailable"
-                resource={t("metadataResource")}
-                title={t("metadataTitle")}
-                hint={t("metadataHint")}
-              />
+            <div className="cam-admin-section-body">
+              <dl className="cam-admin-kv">
+                <Field label={t("registrationDate")} value={stamp(company.createdAt, false, locale)} />
+              </dl>
+              <div style={{ marginTop: "var(--cam-space-4)" }}>
+                <DataState
+                  dense
+                  state="unavailable"
+                  resource={t("metadataResource")}
+                  title={t("metadataTitle")}
+                  hint={t("metadataHint")}
+                />
+              </div>
             </div>
           </section>
 
           {/* Real audit entries for the linked account. */}
-          <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              {t("auditTitle")}
-            </h2>
-            {!linkedAccount ? (
-              <DataState
-                dense
-                state="empty"
-                resource={t("auditResource")}
-                title={t("noLinkedAccountTitle")}
-                hint={t("auditNoAccountHint")}
-              />
-            ) : auditState !== "ready" ? (
-              <DataState
-                dense
-                state={auditState}
-                resource={t("auditResource")}
-                error={auditQuery.error}
-                onRetry={() => auditQuery.refetch()}
-                title={
-                  auditState === "empty"
-                    ? t("auditEmptyTitle")
-                    : auditState === "forbidden"
-                      ? t("auditForbiddenTitle")
-                      : undefined
-                }
-                hint={auditState === "empty" ? t("auditEmptyHint") : undefined}
-              />
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
-                {(auditQuery.data?.items ?? []).map((e) => (
-                  <div key={e.id}>
-                    <div style={{ color: "#6b7280" }}>{stamp(e.timestamp, true, locale)}</div>
-                    <div style={{ fontWeight: 600, color: "#111827" }}>{auditActorName(e, locale)}</div>
-                    <div style={{ color: "#4b5563" }}>{auditActionLabel(e.action, locale)}</div>
-                    <div style={{ color: "#6b7280" }}>{auditDetailsSummary(e, locale)}</div>
-                    {auditTransition(e, locale) && (
-                      <div style={{ color: "#6b7280", fontStyle: "italic" }}>{auditTransition(e, locale)}</div>
-                    )}
-                  </div>
-                ))}
-                <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
+          <section className="cam-admin-section" aria-labelledby="etab-audit-title">
+            <div className="cam-admin-section-head">
+              <h2 id="etab-audit-title" className="cam-admin-h2">{t("auditTitle")}</h2>
+            </div>
+            <div className="cam-admin-section-body">
+              {!linkedAccount ? (
+                <DataState
+                  dense
+                  state="empty"
+                  resource={t("auditResource")}
+                  title={t("noLinkedAccountTitle")}
+                  hint={t("auditNoAccountHint")}
+                />
+              ) : auditState !== "ready" ? (
+                <DataState
+                  dense
+                  state={auditState}
+                  resource={t("auditResource")}
+                  error={auditQuery.error}
+                  onRetry={() => auditQuery.refetch()}
+                  title={
+                    auditState === "empty"
+                      ? t("auditEmptyTitle")
+                      : auditState === "forbidden"
+                        ? t("auditForbiddenTitle")
+                        : undefined
+                  }
+                  hint={auditState === "empty" ? t("auditEmptyHint") : undefined}
+                />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+                  {(auditQuery.data?.items ?? []).map((e) => (
+                    <div key={e.id}>
+                      <div className="cam-admin-meta">{stamp(e.timestamp, true, locale)}</div>
+                      <div className="cam-admin-strong">{auditActorName(e, locale)}</div>
+                      <div>{auditActionLabel(e.action, locale)}</div>
+                      <div className="cam-admin-meta">{auditDetailsSummary(e, locale)}</div>
+                      {auditTransition(e, locale) && (
+                        <div className="cam-admin-meta">{auditTransition(e, locale)}</div>
+                      )}
+                    </div>
+                  ))}
                   <Link
                     href={`/admin/journal-audit?resourceId=${encodeURIComponent(linkedAccount.id)}`}
-                    style={{ fontSize: 13, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
+                    className="cam-text-button"
                   >
                     {t("fullLogLink")}
                   </Link>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </section>
         </div>
       </div>
@@ -641,29 +541,28 @@ function EtablissementDetail() {
         onClose={() => setAccountOpen(false)}
         wide
         title={t("manageTitle")}
-        eyebrow={
-          <div style={{ color: "#4b5563", textTransform: "none", fontWeight: 500, fontSize: 13, marginBottom: 4, letterSpacing: "normal" }}>
-            <span style={{ fontWeight: 600, color: "#111827" }}>{fact(linkedAccount?.email)}</span>
-            <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-              {t("registeredOn", { name: fact(shortName), date: stamp(company.createdAt, false, locale) })}
-            </div>
-          </div>
-        }
         footer={
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>
-              {t("actionsLogged")}
-            </span>
-            <button type="button" className="cam-button cam-button-secondary" onClick={() => setAccountOpen(false)} style={{ padding: "8px 18px", borderRadius: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)", width: "100%" }}>
+            <span className="cam-admin-meta">{t("actionsLogged")}</span>
+            <button type="button" className="cam-button cam-button-secondary" onClick={() => setAccountOpen(false)}>
               {t("closeButton")}
             </button>
           </div>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
+          {/* Whose account this is. Was an inline-restyled eyebrow; the
+              eyebrow slot is an uppercase label, not a place for an email. */}
+          <div>
+            <div className="cam-admin-strong">{fact(linkedAccount?.email)}</div>
+            <div className="cam-admin-meta">
+              {t("registeredOn", { name: fact(shortName), date: stamp(company.createdAt, false, locale) })}
+            </div>
+          </div>
+
           {actionError && (
-            <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 6, fontSize: 13 }}>
-              {actionError}
+            <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+              <span>{actionError}</span>
             </div>
           )}
 
@@ -677,35 +576,29 @@ function EtablissementDetail() {
           ) : (
             <>
               <div>
-                <div style={{ ...KEY, marginBottom: 12 }}>{t("accountActions")}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6, gap: 12 }}>
+                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("accountActions")}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                    <div className="cam-admin-strong">
                       {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
                     </div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                      {isSuspended
-                        ? t("reactivateHint")
-                        : t("suspendHint")}
+                    <div className="cam-admin-meta">
+                      {isSuspended ? t("reactivateHint") : t("suspendHint")}
                     </div>
                   </div>
                   <button
                     type="button"
-                    disabled={suspendMutation.isPending || activateMutation.isPending}
-                    onClick={() => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate())}
-                    style={{ padding: "6px 14px", background: isSuspended ? "#004d3d" : "#d97706", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                    className={`cam-button cam-button-sm ${isSuspended ? "cam-button-primary" : "cam-button-danger"}`}
+                    disabled={accountPending}
+                    onClick={toggleAccount}
                   >
-                    {suspendMutation.isPending || activateMutation.isPending
-                      ? t("saving")
-                      : isSuspended
-                        ? t("reactivate")
-                        : t("suspend")}
+                    {accountPending ? t("saving") : isSuspended ? t("reactivate") : t("suspend")}
                   </button>
                 </div>
               </div>
 
               <div>
-                <div style={{ ...KEY, marginBottom: 8 }}>{t("signInHistory")}</div>
+                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("signInHistory")}</div>
                 <DataState
                   dense
                   state="unavailable"
@@ -715,20 +608,18 @@ function EtablissementDetail() {
                 />
               </div>
 
-              <div style={{ border: "1px solid #fecaca", borderRadius: 8, padding: 14, background: "#fff5f5" }}>
-                <div style={{ ...KEY, color: "#dc2626", marginBottom: 10 }}>{t("dangerZone")}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div>
+                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("dangerZone")}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{t("deleteAccount")}</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                      {t("deleteHint")}
-                    </div>
+                    <div className="cam-admin-strong">{t("deleteAccount")}</div>
+                    <div className="cam-admin-meta">{t("deleteHint")}</div>
                   </div>
                   <button
                     type="button"
+                    className="cam-button cam-button-danger cam-button-sm"
                     disabled={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate()}
-                    style={{ padding: "6px 14px", background: "#ffffff", color: "#b91c1c", border: "1px solid #ef4444", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
                     {deleteMutation.isPending ? t("deleting") : t("delete")}
                   </button>
