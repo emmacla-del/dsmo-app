@@ -1843,7 +1843,12 @@
     "rejectAccount": "Rejeter le compte",
     "requestComplements": "Demander des compléments",
     "rejectReasonLabel": "Motif de rejet",
-    "complementsMessageLabel": "Message de compléments"
+    "complementsMessageLabel": "Message de compléments",
+    "statusOverdue": "En retard (plus de {days} j)",
+    "kpiOverdue": "En retard (> {days} j)",
+    "overdueNotice": "{count, plural, one {# dossier attend une décision depuis plus de {days} jours.} other {# dossiers attendent une décision depuis plus de {days} jours.}}",
+    "overdueShow": "Afficher",
+    "overdueBadge": "En retard · {days} j"
   },
   "adminEtablissementsPage": {
     "subtitle": "Registre des entités déclarantes et gestion des comptes",

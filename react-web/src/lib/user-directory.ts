@@ -151,6 +151,11 @@ export interface CompanyRegistrationItem {
     at: string;
     changes: Record<string, { before: unknown; after: unknown }>;
   } | null;
+  // When the reviewers' wait on the file began (registration, or the last
+  // resubmission), and whether it is past REGISTRATION_OVERDUE_DAYS. null /
+  // false when the file is not the reviewers' move (src/auth/registration-overdue.ts).
+  waitingSince: string | null;
+  overdue: boolean;
 }
 
 export interface CompanyRegistrationsResult {
@@ -158,7 +163,7 @@ export interface CompanyRegistrationsResult {
   total: number;
   page: number;
   pageSize: number;
-  counts: { pending: number; complements: number; approved: number; rejected: number };
+  counts: { pending: number; complements: number; approved: number; rejected: number; overdue: number };
 }
 
 export function listCompanyRegistrations(params: {
@@ -171,6 +176,8 @@ export function listCompanyRegistrations(params: {
   status?: string;
   /** Only files registered by this admin (User.createdBy). */
   createdBy?: string;
+  /** Only files left waiting past REGISTRATION_OVERDUE_DAYS; overrides `status`. */
+  overdue?: boolean;
   page?: number;
   pageSize?: number;
 }) {
@@ -182,6 +189,7 @@ export function listCompanyRegistrations(params: {
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
   if (params.createdBy) query.set("createdBy", params.createdBy);
+  if (params.overdue) query.set("overdue", "true");
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   const qs = query.toString();

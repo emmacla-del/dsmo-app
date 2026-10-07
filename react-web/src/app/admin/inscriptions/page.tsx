@@ -25,6 +25,8 @@ import {
   verificationFlags,
   verificationRows,
   type VerificationMarks,
+  REGISTRATION_OVERDUE_DAYS,
+  daysWaiting,
 } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -136,12 +138,16 @@ function InscriptionsContent() {
 
   const from = dateRange === "30" ? daysAgo(30) : dateRange === "90" ? daysAgo(90) : undefined;
 
+  // "OVERDUE" is a view of the queue, not a stored status: files the
+  // reviewers have left waiting past REGISTRATION_OVERDUE_DAYS.
+  const overdueOnly = statusFilter === "OVERDUE";
   const queueQuery = useQuery({
     queryKey: ["auth", "company-registrations", search, statusFilter, typeFilter, region, from, createdBy, page],
     queryFn: () =>
       listCompanyRegistrations({
         search,
-        status: statusFilter || undefined,
+        status: overdueOnly ? undefined : statusFilter || undefined,
+        overdue: overdueOnly || undefined,
         createdBy: createdBy || undefined,
         entityType: typeFilter || undefined,
         region: region || undefined,
@@ -241,6 +247,7 @@ function InscriptionsContent() {
     { key: "complements", label: t("kpiComplements"), value: counts?.complements },
     { key: "approved", label: t("kpiApproved"), value: counts?.approved },
     { key: "rejected", label: t("kpiRejected"), value: counts?.rejected },
+    { key: "overdue", label: t("kpiOverdue", { days: REGISTRATION_OVERDUE_DAYS }), value: counts?.overdue },
   ];
 
   return (
@@ -301,7 +308,24 @@ function InscriptionsContent() {
         </div>
       )}
 
-      <div className="cam-pilot-kpis" style={{ marginBottom: 0 }}>
+      {/* Files the reviewers have not decided in time. The national
+          administration may decide any file; this is where it sees which. */}
+      {!!counts?.overdue && !overdueOnly && (
+        <div role="status" className="cam-admin-notice cam-admin-notice--warn">
+          <span>{t("overdueNotice", { count: counts.overdue, days: REGISTRATION_OVERDUE_DAYS })}</span>
+          <button
+            type="button"
+            className="cam-text-button"
+            style={{ marginLeft: "auto" }}
+            onClick={() => { setStatusFilter("OVERDUE"); setPage(1); }}
+          >
+            {t("overdueShow")}
+          </button>
+        </div>
+      )}
+
+      {/* Five tiles: auto-fit rather than the four-column default. */}
+      <div className="cam-pilot-kpis" style={{ marginBottom: 0, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {queueKpis.map((k) => (
           <div key={k.key} className="cam-pilot-kpi">
             <span className="cam-pilot-kpi-label">{k.label}</span>
@@ -335,6 +359,7 @@ function InscriptionsContent() {
               <option value="ALL">{t("statusAll")}</option>
               <option value="PENDING_APPROVAL">{t("statusPending")}</option>
               <option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
+              <option value="OVERDUE">{t("statusOverdue", { days: REGISTRATION_OVERDUE_DAYS })}</option>
               <option value="ACTIVE">{t("statusApproved")}</option>
               <option value="REJECTED">{t("statusRejected")}</option>
             </select>
@@ -407,6 +432,11 @@ function InscriptionsContent() {
                     <span className={`cam-badge ${badge?.className ?? "cam-badge-neutral"}`}>
                       {badge ? t(badge.textKey) : item.status}
                     </span>
+                    {item.overdue && (
+                      <span className="cam-badge cam-badge-error" style={{ display: "block", width: "fit-content", marginTop: "var(--cam-space-1)" }}>
+                        {t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? REGISTRATION_OVERDUE_DAYS })}
+                      </span>
+                    )}
                   </td>
                   <td>{item.duplicateHints.length > 0 ? count(item.duplicateHints.length, locale) : NOT_PROVIDED}</td>
                   <td>

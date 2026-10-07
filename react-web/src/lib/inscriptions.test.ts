@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { approvalGate, inscriptionsHref, verificationFlags, verificationRows } from "./inscriptions";
+import { approvalGate, daysWaiting, inscriptionsHref, verificationFlags, verificationRows } from "./inscriptions";
 
 test("the queue is the default view: no ?vue=", () => {
   assert.equal(inscriptionsHref("", "file"), "/admin/inscriptions");
@@ -126,4 +126,11 @@ test("the payload flags are true only for rows marked ✓", () => {
   // No CNPS row, no CNPS flag.
   const admin = verificationRows({ ...enterprise, entityType: "ADMINISTRATION" });
   assert.equal("cnpsVerified" in verificationFlags(admin, allOk), false);
+});
+
+test("daysWaiting counts whole days, and nothing for a file not waiting", () => {
+  const now = new Date("2026-10-15T12:00:00Z");
+  assert.equal(daysWaiting("2026-10-06T13:00:00Z", now), 8);
+  assert.equal(daysWaiting("2026-10-15T11:00:00Z", now), 0);
+  assert.equal(daysWaiting(null, now), null);
 });

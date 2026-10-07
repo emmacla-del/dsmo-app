@@ -1843,7 +1843,12 @@
     "rejectAccount": "Reject the account",
     "requestComplements": "Request further information",
     "rejectReasonLabel": "Rejection reason",
-    "complementsMessageLabel": "Message requesting further information"
+    "complementsMessageLabel": "Message requesting further information",
+    "statusOverdue": "Overdue (more than {days} d)",
+    "kpiOverdue": "Overdue (> {days} d)",
+    "overdueNotice": "{count, plural, one {# file has been awaiting a decision for more than {days} days.} other {# files have been awaiting a decision for more than {days} days.}}",
+    "overdueShow": "Show",
+    "overdueBadge": "Overdue · {days} d"
   },
   "adminEtablissementsPage": {
     "subtitle": "Register of reporting entities and account management",
