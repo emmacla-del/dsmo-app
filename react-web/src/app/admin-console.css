@@ -404,6 +404,19 @@
   min-width: 0;
 }
 
+/* Error-boundary mark (app/admin/error.tsx): the one place a crash is
+   announced, so it carries the error tone at a glance. */
+.cam-admin-error-mark {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: var(--cam-space-4);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+}
+
 /* ── AdminPageHeader: breadcrumb, title row, subtitle, actions, sub-tabs ──
    Drawn as it rendered inline before these rules existed. */
 .cam-admin-page-header {
