@@ -297,7 +297,15 @@ function RecentActivity({
                 </span>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} aria-hidden="true" />
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#111827" }}>
-                  <strong>{name}</strong> — <span style={{ color: "#4b5563" }}>{meta.label}</span>
+                  {/* Each entry opens its dossier, as it did before the
+                      339c4a63 restyle dropped the link. */}
+                  {s.id ? (
+                    <Link href={`/admin/dossiers/${encodeURIComponent(s.id)}`}>
+                      <strong>{name}</strong>
+                    </Link>
+                  ) : (
+                    <strong>{name}</strong>
+                  )} — <span style={{ color: "#4b5563" }}>{meta.label}</span>
                 </span>
                 {region && (
                   <span style={{ fontSize: 11, background: "#f3f4f6", padding: "2px 8px", borderRadius: 4, color: "#4b5563", flexShrink: 0, fontWeight: 500 }}>
