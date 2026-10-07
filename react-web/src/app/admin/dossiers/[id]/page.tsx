@@ -14,6 +14,8 @@ import {
   type AdminDossier,
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole } from "@/lib/roles";
 import {
@@ -36,11 +38,14 @@ import {
 } from "@/lib/dossier-axes";
 
 // Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
-const AXIS_TONE_STYLE: Record<AxisTone, { background: string; color: string }> = {
-  success: { background: "#ecfdf5", color: "#047857" },
-  warning: { background: "#fef3c7", color: "#d97706" },
-  error: { background: "#fef2f2", color: "#b91c1c" },
-  neutral: { background: "#f3f4f6", color: "#6b7280" },
+// Axis verdict -> .cam-dossier-pill modifier. `neutral` keeps the base pill
+// with no modifier: it is the absence of a verdict (the diagnostic could not
+// be read, or the axis does not apply), not a fourth kind of verdict.
+const AXIS_PILL: Record<AxisTone, string> = {
+  success: "cam-dossier-pill--ok",
+  warning: "cam-dossier-pill--warn",
+  error: "cam-dossier-pill--error",
+  neutral: "",
 };
 
 /**
@@ -49,12 +54,15 @@ const AXIS_TONE_STYLE: Record<AxisTone, { background: string; color: string }> =
  * `null` (no status on the record) is its own case: it is reported, never
  * folded into "en instance".
  */
-// `labelKey` is under adminDossierPage.
-const STATUS_BADGES: Record<string, { labelKey: string; bg: string; color: string }> = {
-  PENDING_REVIEW: { labelKey: "statusPending", bg: "#fef3c7", color: "#d97706" },
-  APPROVED: { labelKey: "statusEndorsed", bg: "#ecfdf5", color: "#047857" },
-  CORRECTION_REQUESTED: { labelKey: "statusCorrection", bg: "#fff7ed", color: "#c2410c" },
-  REJECTED: { labelKey: "statusRejected", bg: "#fef2f2", color: "#b91c1c" },
+// `labelKey` is under adminDossierPage; `variant` is an AdminStatusBadge
+// tone, so the badge follows the tokens instead of a copy of their values.
+// A status absent from this map is NOT folded into any of the four: it keeps
+// its own branch at the call site (see `statusBadge` below).
+const STATUS_BADGES: Record<string, { labelKey: string; variant: "pending" | "validated" | "correction" | "rejected" }> = {
+  PENDING_REVIEW: { labelKey: "statusPending", variant: "pending" },
+  APPROVED: { labelKey: "statusEndorsed", variant: "validated" },
+  CORRECTION_REQUESTED: { labelKey: "statusCorrection", variant: "correction" },
+  REJECTED: { labelKey: "statusRejected", variant: "rejected" },
 };
 
 /**
@@ -150,6 +158,13 @@ function SubmissionDetailContent() {
   const queryClient = useQueryClient();
   const t = useTranslations("adminDossierPage");
   const tCommon = useTranslations("common");
+  const tRoot = useTranslations();
+  // Supervision > Dossiers > (this dossier). The hub and route labels are
+  // the sidebar's own keys, so the trail cannot drift from the nav.
+  const breadcrumb = [
+    { label: tRoot("adminNav.hubs.supervision") },
+    { label: tRoot("adminNav.routes.dossiers"), href: "/admin/dossiers" },
+  ];
   const locale = asUiLocale(useLocale());
   /** A respondent-entered field: its value, or "not recorded" in the console locale. */
   const recorded = (value: unknown) => {
@@ -196,18 +211,7 @@ function SubmissionDetailContent() {
       ? "unavailable"
       : "ready";
   const axisBadge = (badge: AxisBadge) => (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 12px",
-        borderRadius: 9999,
-        ...AXIS_TONE_STYLE[badge.tone],
-        fontSize: 12,
-        fontWeight: 700,
-      }}
-    >
+    <span className={`cam-dossier-pill ${AXIS_PILL[badge.tone]}`.trimEnd()}>
       {t(badge.key, badge.values)}
     </span>
   );
@@ -274,11 +278,6 @@ function SubmissionDetailContent() {
     },
   });
 
-  // Same three conditions the submit button disables on, so the button's
-  // colour and its enabled state can never disagree.
-  const correctionReady =
-    certifiedCorrection && !!correctionAction.trim() && !!correctionProblem.trim();
-
   const openCorrectionModal = () => {
     setCorrectionSuccess(false);
     correctionMutation.reset();
@@ -338,7 +337,7 @@ function SubmissionDetailContent() {
   // preserved).
   const timeline = (() => {
     if (!dossier) return [];
-    const steps: Array<{ key: string; title: string; detail: string | null; stamp: string; color: string }> = [];
+    const steps: Array<{ key: string; title: string; detail: string | null; stamp: string; dot: string }> = [];
 
     if (dossier.submissionDate) {
       steps.push({
@@ -346,25 +345,25 @@ function SubmissionDetailContent() {
         title: t("timelineReceived"),
         detail: dossier.quarterCode ? t("timelineCampaign", { code: dossier.quarterCode }) : null,
         stamp: stamp(dossier.submissionDate, true, locale),
-        color: "#0d9488",
+        dot: "",
       });
     }
 
     if (dossier.reviewedAt) {
       const decision =
         dossier.status === "APPROVED"
-          ? { title: t("timelineEndorsed"), color: "#16a34a" }
+          ? { title: t("timelineEndorsed"), dot: "" }
           : dossier.status === "REJECTED"
-            ? { title: t("timelineRejected"), color: "#dc2626" }
+            ? { title: t("timelineRejected"), dot: "is-rejected" }
             : dossier.status === "CORRECTION_REQUESTED"
-              ? { title: t("timelineCorrection"), color: "#d97706" }
-              : { title: t("timelineDecision"), color: "#6b7280" };
+              ? { title: t("timelineCorrection"), dot: "is-current" }
+              : { title: t("timelineDecision"), dot: "" };
       steps.push({
         key: "reviewed",
         title: decision.title,
         detail: dossier.rejectionReason ?? null,
         stamp: stamp(dossier.reviewedAt, true, locale),
-        color: decision.color,
+        dot: decision.dot,
       });
     }
 
@@ -378,960 +377,296 @@ function SubmissionDetailContent() {
    */
   if (!dossier) {
     return (
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "32px 0" }}>
-        <Link
-          href="/admin/dossiers"
-          style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
-        >
-          {t("backToFilesLink")}
-        </Link>
-        <div style={{ marginTop: 20 }}>
-          <DataState
-            state={pageState === "ready" ? "notFound" : pageState}
-            resource={t("fileResource")}
-            error={dossierQuery.error}
-            onRetry={() => dossierQuery.refetch()}
-            title={
-              pageState === "notFound" || pageState === "ready"
-                ? t("fileNotFound")
-                : pageState === "forbidden"
-                  ? t("accessDenied")
-                  : undefined
-            }
-            hint={
-              pageState === "notFound" || pageState === "ready"
-                ? t("fileNotFoundHint")
-                : pageState === "forbidden"
-                  ? t("accessDeniedHint")
-                  : undefined
-            }
-          />
-        </div>
+      <div className="cam-admin-page">
+        <AdminPageHeader
+          breadcrumb={breadcrumb}
+          backHref="/admin/dossiers"
+          title={t("fileTitle", { ref: id })}
+        />
+        <DataState
+          state={pageState === "ready" ? "notFound" : pageState}
+          resource={t("fileResource")}
+          error={dossierQuery.error}
+          onRetry={() => dossierQuery.refetch()}
+          title={
+            pageState === "notFound" || pageState === "ready"
+              ? t("fileNotFound")
+              : pageState === "forbidden"
+                ? t("accessDenied")
+                : undefined
+          }
+          hint={
+            pageState === "notFound" || pageState === "ready"
+              ? t("fileNotFoundHint")
+              : pageState === "forbidden"
+                ? t("accessDeniedHint")
+                : undefined
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 0 32px 0" }}>
-      {/* ── Top Header matching Figma _id.png ── */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 16,
+    <div className="cam-admin-page">
+      {/* Header, status badge and the three decision actions. The page used to
+          hand-build an <h1>, a back arrow and a status pill here, which is why
+          it was the one screen in the console with no shared chrome at all;
+          admin/layout.tsx already excludes this route from its own fallback
+          header, so none of that needed re-adding. */}
+      <AdminPageHeader
+        breadcrumb={breadcrumb}
+        backHref="/admin/dossiers"
+        title={t("fileTitle", { ref })}
+        subtitle={`${t("submittedOn", { date: submittedOn })}${region ? t("regionSuffix", { region }) : ""}${dossier.department ? ` / ${dossier.department}` : ""}`}
+        statusBadge={{
+          // A record with no stored status says so, in its own neutral tone,
+          // rather than defaulting into "en attente".
+          label: statusBadge ? t(statusBadge.labelKey) : t("statusNotRecorded"),
+          variant: statusBadge ? statusBadge.variant : "neutral",
         }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link
-            href="/admin/dossiers"
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: "50%",
-              background: "#e5e7eb",
-              border: "1px solid #d1d5db",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#374151",
-              textDecoration: "none",
-              fontSize: 16,
-              fontWeight: "bold",
-              transition: "background 0.15s ease",
-            }}
-            aria-label={t("backToFilesAriaLabel")}
-          >
-            ←
-          </Link>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>
-                {t("fileTitle", { ref })}
-              </h1>
-              {/* Badge reflects the dossier's stored status. A record with no
-                  status says so rather than defaulting to "en attente". */}
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "3px 10px",
-                  borderRadius: 9999,
-                  background: statusBadge?.bg ?? "#f3f4f6",
-                  color: statusBadge?.color ?? "#6b7280",
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: statusBadge?.color ?? "#9ca3af",
-                  }}
-                />
-                {statusBadge ? t(statusBadge.labelKey) : t("statusNotRecorded")}
-              </span>
-            </div>
-            {/* Submission date and territory as stored. The record holds no
-                supervisor relation (OnefopSubmission.reviewedBy is a bare
-                account id, set only once a decision is taken), so none is
-                named here. */}
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-              {t("submittedOn", { date: submittedOn })}
-              {region ? t("regionSuffix", { region }) : ""}
-              {dossier.department ? ` / ${dossier.department}` : ""}
-            </p>
-          </div>
-        </div>
+        actions={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
+              {t("rejectFormButton")}
+            </button>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
+              {t("requestCorrectionButton")}
+            </button>
+            <button type="button" className="cam-button cam-button-primary cam-button-sm" onClick={openApproveModal}>
+              {t("validateArchiveButton")}
+            </button>
+          </>
+        }
+      />
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            type="button"
-            onClick={openRejectModal}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 16px",
-              borderRadius: 6,
-              border: "1px solid #dc2626",
-              background: "#ffffff",
-              color: "#dc2626",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            {t("rejectFormButton")}
-          </button>
-          <button
-            type="button"
-            onClick={openCorrectionModal}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 16px",
-              borderRadius: 6,
-              border: "1px solid #d97706",
-              background: "#ffffff",
-              color: "#d97706",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M8 16H3v5" />
-            </svg>
-            {t("requestCorrectionButton")}
-          </button>
-          <button
-            type="button"
-            onClick={openApproveModal}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 16px",
-              borderRadius: 6,
-              border: "none",
-              background: "#1e6b3a",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            {t("validateArchiveButton")}
-          </button>
-        </div>
-      </div>
-
-      {/* A Tableau de bord / Dossiers / Traçabilité pill row sat here. It
-          mixed an Administration page (Traçabilité, AUDIT_ROLES only) into
+      {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It
+          mixed an Administration page (Tracabilite, AUDIT_ROLES only) into
           the Supervision row and left out the hub's other pages. A detail
           page leads back to its list: the back arrow above does that. */}
 
-      {/* ── 3-Axis Diagnostic Strip: each badge is read from the dossier or
-          its diagnostic (lib/dossier-axes.ts). ── */}
+      {/* 3-axis diagnostic strip: each badge is read from the dossier or its
+          diagnostic (lib/dossier-axes.ts). The strip's left edge followed a
+          fixed amber; .cam-dossier-axes carries is-approved / is-rejected, so
+          it now follows the dossier's own decision. */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 20,
-          padding: "18px 24px",
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderLeft: "4px solid #f59e0b",
-          borderRadius: 8,
-          marginBottom: 20,
-        }}
+        className={`cam-dossier-axes${
+          dossier.status === "APPROVED" ? " is-approved" : dossier.status === "REJECTED" ? " is-rejected" : ""
+        }`}
       >
-        <div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#374151",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: 8,
-            }}
-          >
-            {t("axis1Title")}
-          </div>
+        <div className="cam-dossier-axis">
+          <p className="cam-dossier-label">{t("axis1Title")}</p>
           {axisBadge(endorsementAxis(dossier.status))}
         </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#374151",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: 8,
-            }}
-          >
-            {t("axis2Title")}
-          </div>
+        <div className="cam-dossier-axis">
+          <p className="cam-dossier-label">{t("axis2Title")}</p>
           {axisBadge(qualityAxis(diagnosticState, diag))}
         </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#374151",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: 8,
-            }}
-          >
-            {t("axis3Title")}
-          </div>
+        <div className="cam-dossier-axis">
+          <p className="cam-dossier-label">{t("axis3Title")}</p>
           {axisBadge(eligibilityAxis(diagnosticState, diag))}
         </div>
       </div>
 
-      {/* ── Two Columns Content matching Figma _id.png ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "380px 1fr",
-          gap: 20,
-          alignItems: "start",
-        }}
-      >
-        {/* Left Column: Respondent and Structure Cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Informations sur le Répondant */}
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: 20,
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#111827",
-                margin: 0,
-                paddingBottom: 14,
-                borderBottom: "1px solid #e5e7eb",
-              }}
-            >
-              {t("respondentCardTitle")}
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+      <div className="cam-dossier-grid" style={{ marginTop: "var(--cam-space-5)" }}>
+        {/* Left: respondent and structure, as stored */}
+        <div className="cam-dash-column">
+          <section className="cam-dash-card">
+            <h2 className="cam-dossier-card-title">{t("respondentCardTitle")}</h2>
+            {/* Submission date and territory as stored. The record holds no
+                supervisor relation (OnefopSubmission.reviewedBy is a bare
+                account id, set only once a decision is taken), so none is
+                named here. */}
+            <dl className="cam-dossier-fields">
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("fullNameLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {recorded(dossier.respondent?.respondentName)}
-                </div>
+                <dt>{t("fullNameLabel")}</dt>
+                <dd>{recorded(dossier.respondent?.respondentName)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("functionLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {recorded(dossier.respondent?.respondentFunction)}
-                </div>
+                <dt>{t("functionLabel")}</dt>
+                <dd>{recorded(dossier.respondent?.respondentFunction)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("phoneLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {recorded(dossier.respondent?.phone1)}
-                </div>
+                <dt>{t("phoneLabel")}</dt>
+                <dd>{recorded(dossier.respondent?.phone1)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("emailLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {recorded(dossier.respondent?.email)}
-                </div>
+                <dt>{t("emailLabel")}</dt>
+                <dd>{recorded(dossier.respondent?.email)}</dd>
               </div>
-            </div>
-          </div>
+            </dl>
+          </section>
 
-          {/* Informations de la Structure */}
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: 20,
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#111827",
-                margin: 0,
-                paddingBottom: 14,
-                borderBottom: "1px solid #e5e7eb",
-              }}
-            >
-              {t("organisationCardTitle")}
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+          <section className="cam-dash-card">
+            <h2 className="cam-dossier-card-title">{t("organisationCardTitle")}</h2>
+            <dl className="cam-dossier-fields">
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("companyNameLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.companyName)}
-                </div>
+                <dt>{t("companyNameLabel")}</dt>
+                <dd>{fact(detail.companyName)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("headOfficeLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.headOffice)}
-                </div>
+                <dt>{t("headOfficeLabel")}</dt>
+                <dd>{fact(detail.headOffice)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("sectorLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.sector)}
-                </div>
+                <dt>{t("sectorLabel")}</dt>
+                <dd>{fact(detail.sector)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("branchLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.branch)}
-                </div>
+                <dt>{t("branchLabel")}</dt>
+                <dd>{fact(detail.branch)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("companySizeLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.enterpriseSize)}
-                </div>
+                <dt>{t("companySizeLabel")}</dt>
+                <dd>{fact(detail.enterpriseSize)}</dd>
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 2,
-                  }}
-                >
-                  {t("permanentEmployeesLabel")}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {fact(detail.permanentWorkers)}
-                </div>
+                <dt>{t("permanentEmployeesLabel")}</dt>
+                <dd>{fact(detail.permanentWorkers)}</dd>
               </div>
-            </div>
-          </div>
+            </dl>
+          </section>
         </div>
 
-        {/* Right Column: 4 Accordion Sections matching Figma _id.png */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Section 1 : Identification de l'Établissement (Expanded) */}
-          <div
-            style={{
-              borderRadius: 8,
-              overflow: "hidden",
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
+        {/* Right: the four questionnaire sections, as native disclosures.
+            These were <button>-driven divs; <details>/<summary> is what
+            .cam-dossier-section styles, and it carries the open state,
+            keyboard behaviour and the expanded/collapsed announcement that
+            the hand-built version did not. One open at a time is preserved
+            through `expandedSection`. */}
+        <div className="cam-dash-column" style={{ gap: "var(--cam-space-3)" }}>
+          <details
+            className="cam-dossier-section"
+            open={expandedSection === 1}
+            onToggle={(e) => {
+              // React closing a sibling fires that sibling's toggle with
+              // open === false; without this guard it would clear the
+              // section the reader just opened.
+              if (e.currentTarget.open) setExpandedSection(1);
+              else setExpandedSection((cur) => (cur === 1 ? null : cur));
             }}
           >
-            <button
-              type="button"
-              onClick={() => setExpandedSection(expandedSection === 1 ? null : 1)}
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 20px",
-                background: "#1e6b3a",
-                color: "#ffffff",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 15,
-                fontWeight: 600,
-                textAlign: "left",
-              }}
-            >
-              <span>{section1Title}</span>
-              <span style={{ fontSize: 14, transform: expandedSection === 1 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                ⌄
-              </span>
-            </button>
-            {expandedSection === 1 && (
-              <div style={{ padding: "20px" }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 16,
-                  }}
-                >
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("regionOfLocationLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {recorded(detail.region ?? dossier.region)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("departmentLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {recorded(detail.department ?? dossier.department)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("townLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {recorded(detail.commune ?? dossier.subdivision)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("addressLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {fact(detail.locality)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("yearCreatedLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {fact(detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#374151",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("legalStatusLabel")}
-                    </label>
-                    <div
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #f3f4f6",
-                        borderRadius: 6,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        color: "#111827",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {legalStatus(detail.legalStatus)}
-                    </div>
-                  </div>
+            <summary>{section1Title}</summary>
+            <div className="cam-dossier-section-body">
+              <dl className="cam-dossier-fields cam-dossier-fields--two">
+                <div>
+                  <dt>{t("regionOfLocationLabel")}</dt>
+                  <dd>{recorded(detail.region ?? dossier.region)}</dd>
                 </div>
-              </div>
-            )}
-          </div>
+                <div>
+                  <dt>{t("departmentLabel")}</dt>
+                  <dd>{recorded(detail.department ?? dossier.department)}</dd>
+                </div>
+                <div>
+                  <dt>{t("townLabel")}</dt>
+                  <dd>{recorded(detail.commune ?? dossier.subdivision)}</dd>
+                </div>
+                <div>
+                  <dt>{t("addressLabel")}</dt>
+                  <dd>{fact(detail.locality)}</dd>
+                </div>
+                <div>
+                  <dt>{t("yearCreatedLabel")}</dt>
+                  <dd>{fact(detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation)}</dd>
+                </div>
+                <div>
+                  <dt>{t("legalStatusLabel")}</dt>
+                  <dd>{legalStatus(detail.legalStatus)}</dd>
+                </div>
+              </dl>
+            </div>
+          </details>
 
-          {/* Section 2 : Emploi et Conditions de Travail */}
-          <div
-            style={{
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              overflow: "hidden",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setExpandedSection(expandedSection === 2 ? null : 2)}
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 20px",
-                background: "#ffffff",
-                color: "#111827",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 15,
-                fontWeight: 600,
-                textAlign: "left",
+          {([2, 3, 4] as const).map((n) => (
+            <details
+              key={n}
+              className="cam-dossier-section"
+              open={expandedSection === n}
+              onToggle={(e) => {
+                if (e.currentTarget.open) setExpandedSection(n);
+                else setExpandedSection((cur) => (cur === n ? null : cur));
               }}
             >
-              <span>{t("section2")}</span>
-              <span style={{ fontSize: 14, transform: expandedSection === 2 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                ⌄
-              </span>
-            </button>
-            {expandedSection === 2 && (
-              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
+              <summary>{t(`section${n}`)}</summary>
+              <div className="cam-dossier-section-body">
                 <DataState
                   dense
                   state="unavailable"
                   resource={t("sectionDataResource")}
                   title={t("sectionDataTitle")}
-                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[2].backing })}
+                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[n].backing })}
                 />
               </div>
-            )}
-          </div>
+            </details>
+          ))}
 
-          {/* Section 3 : Départs, Licenciements et Retraites */}
-          <div
-            style={{
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              overflow: "hidden",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setExpandedSection(expandedSection === 3 ? null : 3)}
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 20px",
-                background: "#ffffff",
-                color: "#111827",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 15,
-                fontWeight: 600,
-                textAlign: "left",
-              }}
-            >
-              <span>{t("section3")}</span>
-              <span style={{ fontSize: 14, transform: expandedSection === 3 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                ⌄
-              </span>
-            </button>
-            {expandedSection === 3 && (
-              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
-                <DataState
-                  dense
-                  state="unavailable"
-                  resource={t("sectionDataResource")}
-                  title={t("sectionDataTitle")}
-                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[3].backing })}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Section 4 : Stage et Formation Professionnelle continue */}
-          <div
-            style={{
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              overflow: "hidden",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setExpandedSection(expandedSection === 4 ? null : 4)}
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 20px",
-                background: "#ffffff",
-                color: "#111827",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 15,
-                fontWeight: 600,
-                textAlign: "left",
-              }}
-            >
-              <span>{t("section4")}</span>
-              <span style={{ fontSize: 14, transform: expandedSection === 4 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                ⌄
-              </span>
-            </button>
-            {expandedSection === 4 && (
-              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
-                <DataState
-                  dense
-                  state="unavailable"
-                  resource={t("sectionDataResource")}
-                  title={t("sectionDataTitle")}
-                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[4].backing })}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* ── Retained Quality Anomalies & Alerts Widgets ── */}
+          {/* Retained quality anomalies and alerts */}
           {diag && diag.blockingAnomalies && diag.blockingAnomalies.length > 0 && (
-            <div style={{ background: "#ffffff", border: "1px solid #fecaca", borderRadius: 8, padding: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626" }} />
-                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b91c1c", margin: 0 }}>
-                  {t("blockingAnomaliesTitle", { count: diag.blockingAnomalies.length })}
-                </h3>
-              </div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+            <section className="cam-dash-card">
+              <h3 className="cam-dossier-card-title">
+                {t("blockingAnomaliesTitle", { count: diag.blockingAnomalies.length })}
+              </h3>
+              <ul className="cam-admin-issues" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.blockingAnomalies.map((ano, idx) => (
-                  <li key={idx} style={{ marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, color: "#991b1b" }}>{ano.ruleCode}</span> · {ano.description}
-                    <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-                      {t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}
-                    </div>
+                  <li key={idx}>
+                    <span className="cam-admin-issue-code">{ano.ruleCode}</span> &middot; {ano.description}
+                    <p className="cam-admin-meta" style={{ margin: 0 }}>
+                      {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
+                    </p>
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
 
           {diag && diag.warningAnomalies && diag.warningAnomalies.length > 0 && (
-            <div style={{ background: "#ffffff", border: "1px solid #fde68a", borderRadius: 8, padding: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#d97706" }} />
-                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b45309", margin: 0 }}>
-                  {t("coherenceWarningsTitle", { count: diag.warningAnomalies.length })}
-                </h3>
-              </div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+            <section className="cam-dash-card">
+              <h3 className="cam-dossier-card-title">
+                {t("coherenceWarningsTitle", { count: diag.warningAnomalies.length })}
+              </h3>
+              <ul className="cam-admin-issues is-warn" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.warningAnomalies.map((ano, idx) => (
-                  <li key={idx} style={{ marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, color: "#92400e" }}>{ano.ruleCode}</span> · {ano.description}
-                    <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-                      {t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}
-                    </div>
+                  <li key={idx}>
+                    <span className="cam-admin-issue-code">{ano.ruleCode}</span> &middot; {ano.description}
+                    <p className="cam-admin-meta" style={{ margin: 0 }}>
+                      {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
+                    </p>
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
 
           {diag && (!diag.blockingAnomalies || diag.blockingAnomalies.length === 0) && (!diag.warningAnomalies || diag.warningAnomalies.length === 0) && (
-            <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "12px 16px", color: "#065f46", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-              <span>✓</span>
-              <span>{t("noAnomalyDetected")}</span>
-            </div>
+            <p className="cam-admin-notice cam-admin-notice--success">{t("noAnomalyDetected")}</p>
           )}
         </div>
       </div>
 
-      {/* ── Instruction history ──
-          Built only from timestamps stored on the dossier:
-            - submissionDate  → reception by the central server
-            - reviewedAt      → the administrative decision, labelled by the
-                                stored status (visa / rejet / correction)
-            - rejectionReason → the recorded motive, when there is one
+      {/* Instruction history. Built only from timestamps stored on the
+          dossier:
+            - submissionDate  -> reception by the central server
+            - reviewedAt      -> the administrative decision, labelled by the
+                                 stored status (visa / rejet / correction)
+            - rejectionReason -> the recorded motive, when there is one
           No step is shown for a timestamp the record does not carry, and no
           actor is named: `reviewedBy` holds a bare account id, and the named
           history of who did what lives in the audit journal, which is linked
           rather than reconstructed here. */}
-      <div
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          padding: "20px 24px",
-          marginTop: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            paddingBottom: 14,
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
-            {t("historyTitle")}
-          </h2>
+      <section className="cam-admin-section" style={{ marginTop: "var(--cam-space-5)" }}>
+        <div className="cam-admin-section-head">
+          <h2 className="cam-admin-h2">{t("historyTitle")}</h2>
           {canReadAudit && (
             <Link
               href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
-              style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+              className="cam-text-button"
             >
               {t("auditEventsLink")}
             </Link>
           )}
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 20 }}>
-          {timeline.length === 0 ? (
+        <div className="cam-admin-section-body">
+          {timeline.length === 0 && dossier.status !== "PENDING_REVIEW" ? (
             <DataState
               dense
               state="empty"
@@ -1340,777 +675,305 @@ function SubmissionDetailContent() {
               hint={t("historyEmptyHint")}
             />
           ) : (
-            timeline.map((step) => (
-              <div key={step.key} style={{ display: "flex", gap: 12 }}>
-                <span
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    background: step.color,
-                    marginTop: 4,
-                    flexShrink: 0,
-                  }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{step.title}</div>
-                  {step.detail && (
-                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{step.detail}</div>
-                  )}
-                  <div style={{ fontSize: 12, fontWeight: 600, color: step.color, marginTop: 4 }}>
-                    {step.stamp}
+            <ul className="cam-dossier-history">
+              {timeline.map((step) => (
+                <li key={step.key}>
+                  <span className={`cam-dossier-history-dot ${step.dot}`.trimEnd()} aria-hidden="true" />
+                  <div>
+                    <strong>{step.title}</strong>
+                    {step.detail && <p className="cam-dossier-note">{step.detail}</p>}
+                    <p className="cam-dossier-note">{step.stamp}</p>
                   </div>
-                </div>
-              </div>
-            ))
+                </li>
+              ))}
+              {/* Pending states are shown as pending, with no predicted approver. */}
+              {dossier.status === "PENDING_REVIEW" && (
+                <li>
+                  <span className="cam-dossier-history-dot is-current" aria-hidden="true" />
+                  <div>
+                    <strong>{t("awaitingDecision")}</strong>
+                    <p className="cam-dossier-note">{t("noDecisionRecorded")}</p>
+                  </div>
+                </li>
+              )}
+            </ul>
           )}
+        </div>
+      </section>
 
-          {/* Pending states are shown as pending, with no predicted approver. */}
-          {dossier.status === "PENDING_REVIEW" && (
-            <div style={{ display: "flex", gap: 12 }}>
-              <span
-                style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  background: "#f59e0b",
-                  marginTop: 4,
-                  flexShrink: 0,
-                }}
+      {/* Retour pour correction. The three overlays this page carried each
+          declared aria-modal="true" with no focus trap, no Escape handler and
+          no focus return; AdminDialog is a native <dialog>, so showModal()
+          provides all three. */}
+      <AdminDialog
+        open={isCorrectionOpen}
+        onClose={() => setIsCorrectionOpen(false)}
+        title={t("correctionTitle")}
+        eyebrow={t("declarationLine", { ref, name: name ?? "\u2014" })}
+        footer={
+          <>
+            <span className="cam-admin-meta" style={{ marginInlineEnd: "auto" }}>{t("correctionAudit")}</span>
+            <button
+              type="button"
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsCorrectionOpen(false)}
+            >
+              {correctionSuccess ? t("closeButton") : tCommon("cancel")}
+            </button>
+            {!correctionSuccess && (
+              <button
+                type="button"
+                className="cam-button cam-button-primary cam-button-sm"
+                onClick={() => correctionMutation.mutate()}
+                disabled={
+                  correctionMutation.isPending ||
+                  !certifiedCorrection ||
+                  !correctionAction.trim() ||
+                  !correctionProblem.trim()
+                }
+              >
+                {correctionMutation.isPending ? t("sending") : t("confirmReturn")}
+              </button>
+            )}
+          </>
+        }
+      >
+        {correctionSuccess ? (
+          <p className="cam-admin-notice cam-admin-notice--success">{t("correctionSuccess")}</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="modal-correction-section">
+                {t("correctionSectionLabel")}
+              </label>
+              <select
+                id="modal-correction-section"
+                className="cam-select"
+                value={correctionSection}
+                onChange={(e) => setCorrectionSection(e.target.value)}
+              >
+                <option value="">{t("selectSection")}</option>
+                {/* The value is the canonical French AST title, because it is
+                    stored in the correction comment -- the official record
+                    sent to the respondent. Only the label follows the locale. */}
+                <option value={section1Fr}>{section1Title}</option>
+                <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
+                <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
+                <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
+              </select>
+            </div>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="modal-correction-problem">
+                {t("correctionProblemLabel")}
+              </label>
+              {/* Written by the reviewer. Nothing is pre-filled: this text is
+                  persisted with the dossier and sent to the respondent, so a
+                  prepared statement about figures the dossier may not contain
+                  would become a real administrative finding. */}
+              <textarea
+                id="modal-correction-problem"
+                className="cam-admin-textarea"
+                rows={3}
+                value={correctionProblem}
+                onChange={(e) => setCorrectionProblem(e.target.value)}
+                placeholder={t("correctionProblemPlaceholder")}
               />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                  {t("awaitingDecision")}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
-                  {t("noDecisionRecorded")}
-                </div>
-              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── Modal: Retour pour Correction matching Figma retour-correction.png ── */}
-      {isCorrectionOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="correction-title"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-          onClick={() => setIsCorrectionOpen(false)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 580,
-              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
-              overflow: "hidden",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 id="correction-title" style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  {t("correctionTitle")}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setIsCorrectionOpen(false)}
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: "50%",
-                    border: "1.5px solid #9ca3af",
-                    background: "transparent",
-                    color: "#6b7280",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
-                  aria-label={t("closeAriaLabel")}
-                >
-                  ✕
-                </button>
-              </div>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                {t("declarationLine", { ref, name: name ?? "—" })}
+            <div className="cam-field">
+              <p className="cam-admin-label" style={{ margin: 0 }}>{t("correctionAxisLabel")}</p>
+              {/* Source: GET /admin/questionnaires/:id/diagnostic --
+                  axis2BlockingCount / axis2WarningCount as computed by
+                  EligibilityEngineService. Reported as "non disponible" when
+                  the diagnostic could not be read. */}
+              <p className="cam-dossier-note">
+                {diag
+                  ? t("axis2Diagnostic", {
+                      blocking: count(diag.axis2BlockingCount, locale),
+                      warnings: count(diag.axis2WarningCount, locale),
+                    })
+                  : t("axis2Unavailable", { unavailable: metricUnavailable(locale) })}
               </p>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-              {correctionSuccess ? (
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    background: "#ecfdf5",
-                    border: "1px solid #a7f3d0",
-                    borderRadius: 6,
-                    color: "#065f46",
-                    fontSize: 14,
-                  }}
-                >
-                  {t("correctionSuccess")}
-                </div>
-              ) : (
-                <>
-                  {/* 1. Section concernée */}
-                  <div>
-                    <label
-                      htmlFor="modal-correction-section"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("correctionSectionLabel")}
-                    </label>
-                    <select
-                      id="modal-correction-section"
-                      value={correctionSection}
-                      onChange={(e) => setCorrectionSection(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 14,
-                        color: "#111827",
-                        background: "#ffffff",
-                      }}
-                    >
-                      <option value="">{t("selectSection")}</option>
-                      <option value={section1Fr}>{section1Title}</option>
-                      <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
-                      <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
-                      <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
-                    </select>
-                  </div>
-
-                  {/* 2. Problème identifié */}
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("correctionProblemLabel")}
-                    </div>
-                    {/* Written by the reviewer. Nothing is pre-filled: this
-                        text is persisted with the dossier and sent to the
-                        respondent, so a prepared statement about figures the
-                        dossier may not contain would become a real
-                        administrative finding. */}
-                    <textarea
-                      id="modal-correction-problem"
-                      rows={3}
-                      value={correctionProblem}
-                      onChange={(e) => setCorrectionProblem(e.target.value)}
-                      placeholder={t("correctionProblemPlaceholder")}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 13,
-                        lineHeight: 1.4,
-                        color: "#111827",
-                        resize: "vertical",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  </div>
-
-                  {/* 3. Axe de qualité affecté */}
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("correctionAxisLabel")}
-                    </div>
-                    {/* Source: GET /admin/questionnaires/:id/diagnostic —
-                        axis2BlockingCount / axis2WarningCount as computed by
-                        EligibilityEngineService. Reported as "non disponible"
-                        when the diagnostic could not be read. */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        color: diag && diag.axis2BlockingCount > 0 ? "#dc2626" : "#6b7280",
-                        fontSize: 13,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <span>●</span>
-                      <span>
-                        {diag
-                          ? t("axis2Diagnostic", {
-                              blocking: count(diag.axis2BlockingCount, locale),
-                              warnings: count(diag.axis2WarningCount, locale),
-                            })
-                          : t("axis2Unavailable", { unavailable: metricUnavailable(locale) })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 4. Action demandée */}
-                  <div>
-                    <label
-                      htmlFor="modal-correction-action"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("correctionActionLabel")}
-                    </label>
-                    <textarea
-                      id="modal-correction-action"
-                      rows={3}
-                      value={correctionAction}
-                      onChange={(e) => setCorrectionAction(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 13,
-                        lineHeight: 1.4,
-                        color: "#111827",
-                        resize: "vertical",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  </div>
-
-                  {/* Checkbox */}
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 13,
-                      color: "#374151",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={requireJustificatifs}
-                      onChange={(e) => setRequireJustificatifs(e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: "pointer" }}
-                    />
-                    <span>{t("requestDocuments")}</span>
-                  </label>
-
-                  {/* Délai de correction accordé */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 13, color: "#374151" }}>{t("correctionDelayLabel")}</span>
-                    <select
-                      value={correctionDelay}
-                      onChange={(e) => setCorrectionDelay(e.target.value)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 13,
-                        color: "#111827",
-                        background: "#ffffff",
-                      }}
-                    >
-                      {CORRECTION_DELAYS.map((delay) => (
-                        <option key={delay.value} value={delay.value}>{t(delay.labelKey)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      fontSize: 13,
-                      color: "#374151",
-                      cursor: "pointer",
-                      padding: 10,
-                      background: "#fffbeb",
-                      border: "1px solid #fde68a",
-                      borderRadius: 6,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={certifiedCorrection}
-                      onChange={(e) => setCertifiedCorrection(e.target.checked)}
-                      style={{ marginTop: 2, cursor: "pointer" }}
-                    />
-                    <span>
-                      <strong>{t("certifyStrong")}</strong> {t("correctionCertifyRest")}
-                    </span>
-                  </label>
-
-                  {correctionMutation.isError && (
-                    <div
-                      role="alert"
-                      style={{
-                        padding: 12,
-                        borderRadius: 6,
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        color: "#b91c1c",
-                        fontSize: 13,
-                        marginTop: 12,
-                      }}
-                    >
-                      {t("correctionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownError") })}
-                    </div>
-                  )}
-                </>
-              )}
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="modal-correction-action">
+                {t("correctionActionLabel")}
+              </label>
+              <textarea
+                id="modal-correction-action"
+                className="cam-admin-textarea"
+                rows={3}
+                value={correctionAction}
+                onChange={(e) => setCorrectionAction(e.target.value)}
+              />
             </div>
 
-            {/* Modal Footer matching Figma */}
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                background: "#f9fafb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontSize: 11, color: "#6b7280" }}>
-                {t("correctionAudit")}
+            <label className="cam-admin-choice">
+              <input
+                type="checkbox"
+                checked={requireJustificatifs}
+                onChange={(e) => setRequireJustificatifs(e.target.checked)}
+              />
+              <span>{t("requestDocuments")}</span>
+            </label>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="modal-correction-delay">
+                {t("correctionDelayLabel")}
+              </label>
+              <select
+                id="modal-correction-delay"
+                className="cam-select"
+                value={correctionDelay}
+                onChange={(e) => setCorrectionDelay(e.target.value)}
+              >
+                {/* As above: the value is the French text stored in the
+                    comment; the label is translated. */}
+                {CORRECTION_DELAYS.map((delay) => (
+                  <option key={delay.value} value={delay.value}>{t(delay.labelKey)}</option>
+                ))}
+              </select>
+            </div>
+
+            <label className="cam-admin-choice">
+              <input
+                type="checkbox"
+                checked={certifiedCorrection}
+                onChange={(e) => setCertifiedCorrection(e.target.checked)}
+              />
+              <span>
+                <strong>{t("certifyStrong")}</strong> {t("correctionCertifyRest")}
               </span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setIsCorrectionOpen(false)}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: 6,
-                    border: "1px solid #d1d5db",
-                    background: "#ffffff",
-                    color: "#374151",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                  }}
-                >
-                  {correctionSuccess ? t("closeButton") : tCommon("cancel")}
-                </button>
-                {!correctionSuccess && (
-                  <button
-                    type="button"
-                    onClick={() => correctionMutation.mutate()}
-                    disabled={
-                      correctionMutation.isPending ||
-                      !certifiedCorrection ||
-                      !correctionAction.trim() ||
-                      !correctionProblem.trim()
-                    }
-                    style={{
-                      padding: "8px 18px",
-                      borderRadius: 6,
-                      border: "none",
-                      background: correctionReady ? "#d97706" : "#fcd34d",
-                      color: "#ffffff",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: correctionReady ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    {correctionMutation.isPending ? t("sending") : t("confirmReturn")}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </label>
 
-      {/* ── Modal: Valider et Archiver ── */}
-      {isApproveOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-          onClick={() => setIsApproveOpen(false)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 500,
-              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
-              overflow: "hidden",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                {t("validateArchiveButton")}
-              </h2>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                {t("declarationLine", { ref, name: name ?? "—" })}
-              </p>
-            </div>
-            <div style={{ padding: "20px 24px" }}>
-              {approveSuccess ? (
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    background: "#ecfdf5",
-                    border: "1px solid #a7f3d0",
-                    borderRadius: 6,
-                    color: "#065f46",
-                    fontSize: 14,
-                  }}
-                >
-                  {t("approveSuccess")}
-                </div>
-              ) : (
-                <>
-                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    {t("approveBody")}
-                  </p>
-                  {approveMutation.isError && (
-                    <div
-                      role="alert"
-                      style={{
-                        padding: 12,
-                        borderRadius: 6,
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        color: "#b91c1c",
-                        fontSize: 13,
-                        marginTop: 12,
-                      }}
-                    >
-                      {t("approveFailed", { message: (approveMutation.error as Error)?.message ?? t("unknownError") })}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                background: "#f9fafb",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-              }}
+            {correctionMutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+                {t("correctionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownError") })}
+              </div>
+            )}
+          </div>
+        )}
+      </AdminDialog>
+
+      {/* Valider et archiver */}
+      <AdminDialog
+        open={isApproveOpen}
+        onClose={() => setIsApproveOpen(false)}
+        title={t("validateArchiveButton")}
+        eyebrow={t("declarationLine", { ref, name: name ?? "\u2014" })}
+        footer={
+          <>
+            <button
+              type="button"
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsApproveOpen(false)}
             >
+              {approveSuccess ? t("closeButton") : tCommon("cancel")}
+            </button>
+            {!approveSuccess && (
               <button
                 type="button"
-                onClick={() => setIsApproveOpen(false)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
+                className="cam-button cam-button-primary cam-button-sm"
+                onClick={() => approveMutation.mutate()}
+                disabled={approveMutation.isPending}
               >
-                {approveSuccess ? t("closeButton") : tCommon("cancel")}
+                {approveMutation.isPending ? t("validating") : t("confirmValidation")}
               </button>
-              {!approveSuccess && (
-                <button
-                  type="button"
-                  onClick={() => approveMutation.mutate()}
-                  disabled={approveMutation.isPending}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "#1e6b3a",
-                    color: "#ffffff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {approveMutation.isPending ? t("validating") : t("confirmValidation")}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal: Rejeter la Fiche (Retained Action) ── */}
-      {isRejectOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-          onClick={() => setIsRejectOpen(false)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 520,
-              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
-              overflow: "hidden",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  {t("rejectFormButton")}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setIsRejectOpen(false)}
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: "50%",
-                    border: "1.5px solid #9ca3af",
-                    background: "transparent",
-                    color: "#6b7280",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
-                  aria-label={t("closeAriaLabel")}
-                >
-                  ✕
-                </button>
+            )}
+          </>
+        }
+      >
+        {approveSuccess ? (
+          <p className="cam-admin-notice cam-admin-notice--success">{t("approveSuccess")}</p>
+        ) : (
+          <>
+            <p style={{ margin: 0 }}>{t("approveBody")}</p>
+            {approveMutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginTop: "var(--cam-space-3)" }}>
+                {t("approveFailed", { message: (approveMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                {t("declarationLine", { ref, name: name ?? "—" })}
-              </p>
-            </div>
+            )}
+          </>
+        )}
+      </AdminDialog>
 
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-              {rejectSuccess ? (
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
-                    borderRadius: 6,
-                    color: "#991b1b",
-                    fontSize: 14,
-                  }}
-                >
-                  {t("rejectSuccess")}
-                </div>
-              ) : (
-                <>
-                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    {t("rejectBody")}
-                  </p>
-
-                  <div>
-                    <label
-                      htmlFor="reject-motif"
-                      style={{
-                        display: "block",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("rejectReasonLabel")} <span style={{ color: "#dc2626" }}>*</span>
-                    </label>
-                    <textarea
-                      id="reject-motif"
-                      rows={3}
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder={t("rejectReasonPlaceholder")}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 13,
-                        lineHeight: 1.4,
-                        color: "#111827",
-                        resize: "vertical",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
-                      <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
-                        {t("reasonTooShort", { length: rejectReason.trim().length })}
-                      </p>
-                    )}
-                  </div>
-
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      fontSize: 13,
-                      color: "#374151",
-                      cursor: "pointer",
-                      padding: 10,
-                      background: "#fff5f5",
-                      border: "1px solid #fecaca",
-                      borderRadius: 6,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={certifiedReject}
-                      onChange={(e) => setCertifiedReject(e.target.checked)}
-                      style={{ marginTop: 2, cursor: "pointer" }}
-                    />
-                    <span>
-                      <strong>{t("certifyStrong")}</strong> {t("rejectCertifyRest")}
-                    </span>
-                  </label>
-
-                  <p style={{ margin: 0, fontSize: 11, color: "#6b7280" }}>
-                    {t("rejectAudit")}
-                  </p>
-
-                  {rejectMutation.isError && (
-                    <div
-                      role="alert"
-                      style={{
-                        padding: 12,
-                        borderRadius: 6,
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        color: "#b91c1c",
-                        fontSize: 13,
-                      }}
-                    >
-                      {t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                background: "#f9fafb",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-              }}
+      {/* Rejeter (retained action) */}
+      <AdminDialog
+        open={isRejectOpen}
+        onClose={() => setIsRejectOpen(false)}
+        title={t("rejectFormButton")}
+        eyebrow={t("declarationLine", { ref, name: name ?? "\u2014" })}
+        footer={
+          <>
+            <button
+              type="button"
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsRejectOpen(false)}
             >
+              {rejectSuccess ? t("closeButton") : tCommon("cancel")}
+            </button>
+            {!rejectSuccess && (
               <button
                 type="button"
-                onClick={() => setIsRejectOpen(false)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
+                className="cam-button cam-button-danger cam-button-sm"
+                onClick={() => rejectMutation.mutate()}
+                disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
               >
-                {rejectSuccess ? t("closeButton") : tCommon("cancel")}
+                {rejectMutation.isPending ? t("rejecting") : t("confirmRejection")}
               </button>
-              {!rejectSuccess && (
-                <button
-                  type="button"
-                  onClick={() => rejectMutation.mutate()}
-                  disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: certifiedReject && rejectReason.trim().length >= 10 ? "#dc2626" : "#fca5a5",
-                    color: "#ffffff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {rejectMutation.isPending ? t("rejecting") : t("confirmRejection")}
-                </button>
+            )}
+          </>
+        }
+      >
+        {rejectSuccess ? (
+          <p className="cam-admin-notice cam-admin-notice--error">{t("rejectSuccess")}</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+            <p style={{ margin: 0 }}>{t("rejectBody")}</p>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="reject-motif">
+                {t("rejectReasonLabel")} <span aria-hidden="true">*</span>
+              </label>
+              <textarea
+                id="reject-motif"
+                className="cam-admin-textarea"
+                rows={3}
+                required
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder={t("rejectReasonPlaceholder")}
+              />
+              {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
+                <p className="cam-field-error" style={{ margin: "var(--cam-space-1) 0 0" }}>
+                  {t("reasonTooShort", { length: rejectReason.trim().length })}
+                </p>
               )}
             </div>
+
+            <label className="cam-admin-choice">
+              <input
+                type="checkbox"
+                checked={certifiedReject}
+                onChange={(e) => setCertifiedReject(e.target.checked)}
+              />
+              <span>
+                <strong>{t("certifyStrong")}</strong> {t("rejectCertifyRest")}
+              </span>
+            </label>
+
+            <p className="cam-admin-meta" style={{ margin: 0 }}>{t("rejectAudit")}</p>
+
+            {rejectMutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+                {t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </AdminDialog>
     </div>
   );
 }
