@@ -6,7 +6,6 @@
       "src/app/admin/diffusion/page.tsx": 11,
       "src/app/admin/equipe/page.tsx": 6,
       "src/app/admin/error.tsx": 1,
-      "src/app/admin/etablissements/page.tsx": 61,
       "src/app/admin/inscriptions/page.tsx": 9,
       "src/app/admin/journal-audit/page.tsx": 5,
       "src/app/admin/parametres/page.tsx": 6,
@@ -18,7 +17,6 @@
     "font-size-literal": {
       "src/app/admin/campagnes/page.tsx": 11,
       "src/app/admin/error.tsx": 3,
-      "src/app/admin/etablissements/page.tsx": 37,
       "src/app/admin/inscriptions/nouvelle/page.tsx": 1,
       "src/app/admin/inscriptions/page.tsx": 4,
       "src/app/admin/notifications/page.tsx": 5,
@@ -37,13 +35,11 @@
     },
     "bare-table": {
       "src/app/admin/diffusion/page.tsx": 1,
-      "src/app/admin/etablissements/page.tsx": 1,
       "src/app/admin/journal-audit/page.tsx": 1
     },
     "spacing-off-scale": {
       "src/app/admin/campagnes/page.tsx": 12,
       "src/app/admin/error.tsx": 2,
-      "src/app/admin/etablissements/page.tsx": 18,
       "src/app/admin/inscriptions/nouvelle/page.tsx": 2,
       "src/app/admin/inscriptions/page.tsx": 5,
       "src/app/admin/notifications/page.tsx": 3,
@@ -58,7 +54,6 @@
     },
     "card-proxy": {
       "src/app/admin/campagnes/page.tsx": 1,
-      "src/app/admin/etablissements/page.tsx": 18,
       "src/app/admin/inscriptions/page.tsx": 1,
       "src/app/admin/notifications/page.tsx": 1,
       "src/app/admin/pilotage/page.tsx": 5,
