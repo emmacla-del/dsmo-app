@@ -428,45 +428,179 @@
   min-width: 0;
 }
 
-/* Active campaign pill (page header actions) */
+/* ── Page header actions (AdminHeaderActions, NotificationBell) ──
+   These classes draw the header as it renders today: they replaced inline
+   styles that had drifted from an earlier version of these same rules. */
+.cam-admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  flex-shrink: 0;
+}
+
+/* Active campaign pill */
 .cam-admin-campaign-pill {
   display: inline-flex;
   align-items: center;
   gap: var(--cam-space-2);
-  padding: 4px var(--cam-space-3);
-  border: var(--cam-border-width) solid var(--cam-flag-yellow);
+  max-width: 200px;
+  padding: var(--cam-space-1) var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-full);
-  background: rgba(240, 180, 41, 0.1);
-  color: var(--cam-text);
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 600;
+  background: var(--cam-surface);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 500;
   white-space: nowrap;
-}
-
-.cam-admin-campaign-pill > .cam-admin-campaign-pill-dot,
-.cam-admin-campaign-pill > span:first-child:empty {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-flag-yellow);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
   flex-shrink: 0;
 }
 
+.cam-admin-campaign-pill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Muted when no campaign is active, gold when one is. */
+.cam-admin-campaign-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border-strong);
+  flex-shrink: 0;
+}
+
+.cam-admin-campaign-pill-dot.is-active {
+  background: var(--cam-gold);
+}
+
+/* The account's territorial scope, stated (not a selector). */
 .cam-admin-scope {
   display: inline-flex;
   align-items: center;
-  gap: var(--cam-space-2);
-  padding: 4px var(--cam-space-3);
-  border: var(--cam-border-width) solid var(--cam-green-dark);
+  padding: var(--cam-space-1) var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-text);
   border-radius: var(--cam-radius-full);
-  color: var(--cam-green-dark);
-  font-size: var(--cam-font-size-3xs);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-2xs);
   font-weight: 600;
   white-space: nowrap;
 }
 
-/* Cameroon flag circle (page header actions) */
+/* Round icon control (search link, notification bell). */
+.cam-admin-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cam-radius-full);
+  background: none;
+  color: var(--cam-text-muted);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cam-admin-icon-button:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+/* Header search: a compact pill input that opens the dossier list. */
+.cam-admin-header-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cam-admin-header-search svg {
+  position: absolute;
+  left: var(--cam-space-3);
+  color: var(--cam-placeholder);
+  pointer-events: none;
+}
+
+.cam-admin-header-search input {
+  width: 170px;
+  padding: var(--cam-space-1) var(--cam-space-4) var(--cam-space-1) 34px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-admin-header-search input:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+}
+
+/* Notification bell: unread badge and the preview popover. */
+.cam-admin-bell {
+  position: relative;
+  display: inline-flex;
+}
+
+.cam-admin-bell-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--cam-space-1);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-error);
+  color: var(--cam-surface);
+  font-size: var(--cam-font-size-4xs);
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.cam-admin-bell-panel {
+  position: absolute;
+  top: 40px;
+  /* Anchored to the bell's right edge: the bell sits near the end of the
+     header row, so a left-anchored panel would overflow. */
+  right: 0;
+  z-index: var(--cam-z-dropdown);
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.cam-admin-bell-head {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 700;
+}
+
+.cam-admin-bell-body {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--cam-space-4);
+}
+
+.cam-admin-bell-foot {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  text-align: center;
+}
+
+/* Cameroon flag circle */
 .cam-admin-flag-circle {
+  position: relative;
   width: 24px;
   height: 24px;
   border-radius: var(--cam-radius-full);
@@ -479,6 +613,24 @@
 
 .cam-admin-flag-circle span {
   flex: 1;
+}
+
+.cam-admin-flag-circle .cam-admin-flag-green { background: var(--cam-flag-green); }
+.cam-admin-flag-circle .cam-admin-flag-yellow { background: var(--cam-flag-yellow); }
+
+.cam-admin-flag-circle .cam-admin-flag-red {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cam-flag-red);
+}
+
+.cam-admin-flag-star {
+  position: absolute;
+  color: var(--cam-flag-yellow);
+  font-size: var(--cam-font-size-4xs);
+  line-height: 1;
 }
 
 /* Tablet / phone only: holds the drawer toggle above the page header. */
