@@ -98,25 +98,7 @@ function Badge({ count }: { count: number }) {
   const t = useTranslations("adminSidebar");
   if (count <= 0) return null;
   return (
-    <span
-      aria-label={t("badgeAriaLabel", { count })}
-      style={{
-        marginLeft: "auto",
-        minWidth: 20,
-        height: 20,
-        padding: "0 6px",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 10,
-        background: "var(--cam-flag-yellow)",
-        color: "var(--cam-text)",
-        fontSize: "var(--cam-font-size-3xs)",
-        fontWeight: 700,
-        lineHeight: 1,
-        flexShrink: 0,
-      }}
-    >
+    <span className="cam-admin-rail-badge" aria-label={t("badgeAriaLabel", { count })}>
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -164,59 +146,20 @@ export function AdminSidebar({
   }
 
   return (
-    <aside
-      id="cam-admin-rail"
-      className="cam-admin-rail"
-      aria-label={t("navAriaLabel")}
-      style={{
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--cam-green-dark)",
-        overflowY: "auto",
-        overflowX: "hidden",
-      }}
-    >
+    <aside id="cam-admin-rail" className="cam-admin-rail" aria-label={t("navAriaLabel")}>
       {/* ── Cameroon flag ribbon ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          flexShrink: 0,
-          height: 4,
-          background: `linear-gradient(90deg,
-            var(--cam-flag-green)  0 33.33%,
-            var(--cam-flag-red)   33.33% 66.66%,
-            var(--cam-flag-yellow) 66.66% 100%)`,
-        }}
-      />
+      <div className="cam-admin-ribbon" aria-hidden="true" />
 
       {/* ── Brand ── */}
-      <div style={{ padding: "24px 20px 16px", flexShrink: 0 }}>
-        <div>
-          <div style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 900, color: "var(--cam-surface)", letterSpacing: "0.06em", lineHeight: 1.1 }}>
-            ONEFOP
-          </div>
-          <div style={{ fontSize: "var(--cam-font-size-4xs)", fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
-            {t("brandSubtitle")}
-          </div>
-        </div>
+      <div className="cam-admin-rail-brand">
+        <div className="cam-admin-rail-brand-name">ONEFOP</div>
+        <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
         {/* Cameroon stripes */}
-        <div
-          aria-hidden="true"
-          style={{
-            marginTop: 14,
-            height: 3,
-            borderRadius: 2,
-            background: `linear-gradient(90deg,
-              var(--cam-flag-green)  0 33.33%,
-              var(--cam-flag-red)    33.33% 66.66%,
-              var(--cam-flag-yellow) 66.66% 100%)`,
-          }}
-        />
+        <div className="cam-admin-rail-stripes" aria-hidden="true" />
       </div>
 
       {/* ── 6 Primary Navigation Hubs ── */}
-      <nav style={{ flex: "1 0 auto", padding: "12px 12px var(--cam-space-4)", display: "flex", flexDirection: "column", gap: 4 }}>
+      <nav className="cam-admin-rail-nav">
         {visibleHubs.map((hub) => {
           const isActive = activeHub?.key === hub.key;
           const badgeCount = getBadgeCount(hub.badgeKey);
@@ -227,40 +170,12 @@ export function AdminSidebar({
               href={hub.href}
               className="cam-admin-rail-hub"
               aria-current={isActive ? "page" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 14px",
-                borderRadius: 8,
-                textDecoration: "none",
-                fontSize: "var(--cam-font-size-sm)",
-                fontWeight: isActive ? 600 : 500,
-                background: isActive ? "var(--cam-green)" : "transparent",
-                color: isActive ? "var(--cam-surface)" : "rgba(255, 255, 255, 0.78)",
-                boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.25)" : "none",
-                transition: "all 0.15s ease",
-              }}
             >
-              <span
-                aria-hidden="true"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 24,
-                  height: 24,
-                  color: isActive ? "var(--cam-surface)" : "rgba(255, 255, 255, 0.78)",
-                  flexShrink: 0,
-                  transition: "color 0.15s ease",
-                }}
-              >
+              <span className="cam-admin-rail-hub-icon" aria-hidden="true">
                 <HubIcon name={hub.iconName} />
               </span>
 
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {tNav(`hubs.${hub.key}`)}
-              </span>
+              <span className="cam-admin-rail-hub-label">{tNav(`hubs.${hub.key}`)}</span>
 
               {badgeCount > 0 && <Badge count={badgeCount} />}
             </Link>
@@ -269,68 +184,18 @@ export function AdminSidebar({
       </nav>
 
       {/* ── Footer: user card ── */}
-      <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "12px 16px" }}>
-        {/* User card */}
+      <div className="cam-admin-rail-account">
         {user && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <div
-                aria-hidden="true"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.15)",
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: "var(--cam-font-size-3xs)",
-                  fontWeight: 700,
-                  color: "var(--cam-surface)",
-                  flexShrink: 0,
-                }}
-              >
-                {user.initials}
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-surface)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {user.displayName}
-                </div>
-                <div style={{ fontSize: "var(--cam-font-size-3xs)", color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {user.roleLabel}
-                </div>
+          <div className="cam-admin-rail-user">
+            <div className="cam-admin-rail-user-id">
+              <div className="cam-admin-rail-avatar" aria-hidden="true">{user.initials}</div>
+              <div className="cam-admin-rail-user-text">
+                <div className="cam-admin-rail-user-name">{user.displayName}</div>
+                <div className="cam-admin-rail-user-role">{user.roleLabel}</div>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="cam-admin-logout-button"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: "var(--cam-font-size-3xs)",
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.8)",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "background 0.15s, color 0.15s",
-                width: "100%",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                e.currentTarget.style.color = "var(--cam-surface)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                e.currentTarget.style.color = "rgba(255,255,255,0.8)";
-              }}
-            >
+            <button type="button" onClick={handleLogout} className="cam-admin-rail-logout">
               <svg
                 width="13"
                 height="13"
@@ -354,7 +219,7 @@ export function AdminSidebar({
         {/* Console language. The rail is the one element every admin page
             renders (several pages carry no header actions), so the switcher
             lives here rather than in AdminHeaderActions. */}
-        <div style={{ marginTop: user ? 10 : 0, display: "flex", justifyContent: "center" }}>
+        <div className="cam-admin-rail-locale">
           <LocaleSwitcher variant="masthead" />
         </div>
       </div>
