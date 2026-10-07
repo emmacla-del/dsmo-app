@@ -1675,13 +1675,13 @@
     "sendNudge": "Envoyer la relance",
     "templateLabel": "Modèle de notification",
     "template": {
-      "STALE_BACKLOG": "Dossiers en attente depuis plus de 7 jours",
+      "STALE_BACKLOG": "Dossiers en attente depuis plus de {days} jours",
       "BEHIND_TARGET": "Retard sur la cible de couverture",
       "NO_RECENT_ACTIVITY": "Aucune décision récente"
     },
     "previewLabel": "Aperçu du message généré :",
     "previewNote": "Le message est envoyé en français.",
-    "noStaleWarning": "Attention : cet administrateur n'a aucun dossier en attente depuis plus de 7 jours.",
+    "noStaleWarning": "Attention : cet administrateur n'a aucun dossier en attente depuis plus de {days} jours.",
     "noTargetWarning": "Attention : aucune cible n'est définie pour ce ressort.",
     "customMessageLabel": "Message personnalisé complémentaire (facultatif)",
     "customMessagePlaceholder": "Ajoutez des précisions ou consignes particulières…",

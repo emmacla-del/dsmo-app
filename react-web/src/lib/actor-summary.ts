@@ -29,6 +29,11 @@ export interface ActorSummaryActor {
   region: string | null;
   department: string | null;
   lastActionAt: string | null;
+  /**
+   * The latest decision the admin recorded, at any time — what the
+   * NO_RECENT_ACTIVITY reminder counts from. Absent from an older server.
+   */
+  lastDecisionAt?: string | null;
   field: {
     registrationsMade: number;
     conversions: number;
@@ -53,6 +58,8 @@ export interface ActorSummaryActor {
 export interface ActorSummaryResponse {
   periodStart: string;
   periodEnd: string;
+  /** The server's stale-backlog threshold in days. Absent from an older server. */
+  staleAfterDays?: number;
   actors: ActorSummaryActor[];
 }
 

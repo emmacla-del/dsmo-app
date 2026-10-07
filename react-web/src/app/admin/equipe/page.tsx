@@ -23,6 +23,7 @@ import {
   type ActorSummaryPeriod,
   type NudgeTemplate,
 } from "@/lib/actor-summary";
+import { DEFAULT_STALE_AFTER_DAYS, nudgePreview } from "@/lib/nudge-preview";
 
 /**
  * Territorial Admin Monitoring Dashboard — Phase 4 of
@@ -123,6 +124,7 @@ function EquipeContent() {
   }
 
   const actors = summaryQuery.data?.actors ?? [];
+  const staleAfterDays = summaryQuery.data?.staleAfterDays ?? DEFAULT_STALE_AFTER_DAYS;
 
   if (isLoading) return null;
 
@@ -328,7 +330,7 @@ function EquipeContent() {
               >
                 {NUDGE_TEMPLATE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {t(`adminEquipePage.template.${opt.value}`)}
+                    {t(`adminEquipePage.template.${opt.value}`, { days: staleAfterDays })}
                   </option>
                 ))}
               </select>
@@ -336,38 +338,22 @@ function EquipeContent() {
 
             {/* Template preview hint. The quoted text previews what the server
                 sends, which is French; it is not translated, so the preview
-                never shows a message the recipient will not receive. */}
+                never shows a message the recipient will not receive. Its
+                figures come from the summary (lib/nudge-preview.ts). */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600">
               <span className="font-semibold text-slate-700 block mb-1">{t("adminEquipePage.previewLabel")}</span>
-              {nudgeTemplate === "STALE_BACKLOG" && (
-                <span>
-                  &ldquo;Vous avez {nudgeTarget.processing.stale} dossier
-                  {nudgeTarget.processing.stale > 1 ? "s" : ""} en attente depuis plus de 7 jours.&rdquo;
-                  {nudgeTarget.processing.stale === 0 && (
-                    <span className="text-amber-700 block mt-1">
-                      {t("adminEquipePage.noStaleWarning")}
-                    </span>
-                  )}
+              {(() => {
+                const preview = nudgePreview(nudgeTemplate, nudgeTarget, { staleAfterDays });
+                return preview ? <span>&ldquo;{preview}&rdquo;</span> : null;
+              })()}
+              {nudgeTemplate === "STALE_BACKLOG" && nudgeTarget.processing.stale === 0 && (
+                <span className="text-amber-700 block mt-1">
+                  {t("adminEquipePage.noStaleWarning", { days: staleAfterDays })}
                 </span>
               )}
-              {nudgeTemplate === "BEHIND_TARGET" && (
-                <span>
-                  &ldquo;
-                  {nudgeTarget.role === "DIVISIONAL_ADMIN" ? "Votre département" : "Votre région"} est à{" "}
-                  {nudgeTarget.coverage.percent != null
-                    ? `${Math.round(nudgeTarget.coverage.percent * 100)}%`
-                    : "—"}{" "}
-                  de la cible 2026.&rdquo;
-                  {nudgeTarget.coverage.percent == null && (
-                    <span className="text-amber-700 block mt-1">
-                      {t("adminEquipePage.noTargetWarning")}
-                    </span>
-                  )}
-                </span>
-              )}
-              {nudgeTemplate === "NO_RECENT_ACTIVITY" && (
-                <span>
-                  &ldquo;Aucune décision enregistrée sur votre compte depuis N jours.&rdquo;
+              {nudgeTemplate === "BEHIND_TARGET" && nudgeTarget.coverage.percent == null && (
+                <span className="text-amber-700 block mt-1">
+                  {t("adminEquipePage.noTargetWarning")}
                 </span>
               )}
               {locale === "en" && (
