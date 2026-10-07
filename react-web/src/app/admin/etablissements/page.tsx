@@ -15,7 +15,7 @@ import {
 } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
-import { DIRECTORY_ROLES } from "@/lib/roles";
+import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -120,7 +120,10 @@ export default function EtablissementsPage() {
   const role = useAuthStore((s) => s.user?.role);
   // Fails closed: an unknown or not-yet-loaded role is not authorised. The
   // previous `!role ||` made a missing role read as permitted.
-  const canRead = !!role && DIRECTORY_ROLES.includes(role);
+  const canRead = !!role && DIRECTORY_READ_ROLES.includes(role);
+  // Central agents consult the register: no export, no registration on a
+  // company's behalf, no account management.
+  const readOnly = isReadOnlyRole(role);
 
   const { regions: territoryRegions } = useTerritoryRegions();
   const CAMEROON_REGIONS: string[] = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
@@ -323,10 +326,13 @@ export default function EtablissementsPage() {
         actions={
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center", flexWrap: "wrap" }}>
             <AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />
+            {!readOnly && (
             <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={exportCsv}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               {t("exportButton")}
             </button>
+            )}
+            {!readOnly && (
             <button
               type="button"
               className="cam-button cam-button-primary cam-button-sm"
@@ -341,6 +347,7 @@ export default function EtablissementsPage() {
               </svg>
               {tRoot("adminNav.routes.nouvelleInscription")}
             </button>
+            )}
           </div>
         }
       />
@@ -452,7 +459,9 @@ export default function EtablissementsPage() {
                   <td className="text-right">
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", whiteSpace: "nowrap" }}>
                       <Link href={detailHref} className="cam-text-button">{t("viewDetails")}</Link>
-                      <Link href={`${detailHref}&manage=true`} className="cam-text-button">{t("manageUsers")}</Link>
+                      {!readOnly && (
+                        <Link href={`${detailHref}&manage=true`} className="cam-text-button">{t("manageUsers")}</Link>
+                      )}
                     </div>
                   </td>
                 </tr>

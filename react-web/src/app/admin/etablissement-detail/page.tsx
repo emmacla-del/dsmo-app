@@ -28,7 +28,7 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
-import { AUDIT_ROLES, NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { AUDIT_ROLES, NATIONAL_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
 // Submission statuses render with the file-detail labels (adminDossierPage);
 // an unknown status shows as stored.
@@ -80,7 +80,8 @@ function EtablissementDetail() {
   const id = searchParams.get("id")?.trim() ?? "";
 
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = hasRole(role, NATIONAL_ROLES);
+  // National readers, the read-only central staff included.
+  const canRead = hasRole(role, NATIONAL_READ_ROLES);
   const canManageAccount = hasRole(role, SETTINGS_ROLES);
   const canReadAudit = hasRole(role, AUDIT_ROLES);
 

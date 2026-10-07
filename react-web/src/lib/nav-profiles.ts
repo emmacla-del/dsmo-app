@@ -114,6 +114,14 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   AUDITOR: {
     hubs: ["administration"],
   },
+  // Read-only central staff: the national dashboard and the dossiers
+  // ("supervision"), and the establishment directory ("declarants", which
+  // resolves to /admin/etablissements -- the registration queue is
+  // APPROVAL_ROLES). No collecte, qualite, donnees or administration: those
+  // hubs are about acting, and every action is refused to the role.
+  CENTRAL_AGENT: {
+    hubs: ["supervision", "declarants"],
+  },
   // Not a console role: the /admin layout guard (ADMIN_ROLES) turns COMPANY
   // away before any sidebar renders. Present so the Record stays total.
   COMPANY: {

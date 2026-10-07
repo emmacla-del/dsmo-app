@@ -17,7 +17,7 @@ import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useAuthStore } from "@/lib/auth-store";
-import { AUDIT_ROLES, hasRole } from "@/lib/roles";
+import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import {
   NOT_PROVIDED,
   count,
@@ -179,6 +179,9 @@ function SubmissionDetailContent() {
   // The journal is AUDIT_ROLES-only (GET /audit/reports is platform-wide), so
   // its links render only for roles that can open it — not as a 403.
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
+  // Central agents consult a dossier; approve, reject and request
+  // correction are not offered (and are refused server-side).
+  const readOnly = isReadOnlyRole(useAuthStore((s) => s.user?.role));
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id],
@@ -425,7 +428,7 @@ function SubmissionDetailContent() {
           label: statusBadge ? t(statusBadge.labelKey) : t("statusNotRecorded"),
           variant: statusBadge ? statusBadge.variant : "neutral",
         }}
-        actions={
+        actions={readOnly ? undefined : (
           <>
             <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
               {t("rejectFormButton")}
@@ -437,7 +440,7 @@ function SubmissionDetailContent() {
               {t("validateArchiveButton")}
             </button>
           </>
-        }
+        )}
       />
 
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It

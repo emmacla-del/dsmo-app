@@ -5,6 +5,7 @@ import {
   APPROVAL_ROLES,
   AUDIT_ROLES,
   CAMPAIGN_ROLES,
+  DIRECTORY_READ_ROLES,
   DIRECTORY_ROLES,
   MONITORING_ROLES,
   NATIONAL_ROLES,
@@ -111,7 +112,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // the longest matching prefix, so this entry — not the queue's — gates
       // it.
       { label: "Nouvelle inscription", labelKey: "nouvelleInscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES, hidden: true },
-      { label: "Établissements", labelKey: "etablissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
+      { label: "Établissements", labelKey: "etablissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_READ_ROLES },
       // Annuaire moved to Administration: it is account administration, and
       // its page admits USER_ADMIN_ROLES only — listed here under
       // DIRECTORY_ROLES, it showed territorial roles a link that refused them.
@@ -119,7 +120,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // has roles to gate them with — unlisted, RequireAdminRole found no
       // match and let any staff role through, AUDITOR included. `hidden`
       // keeps them out of the sidebar and the sub-navigation tabs.
-      { label: "Détail établissement", labelKey: "etablissementDetail", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_ROLES, hidden: true },
+      { label: "Détail établissement", labelKey: "etablissementDetail", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_READ_ROLES, hidden: true },
     ],
   },
   {

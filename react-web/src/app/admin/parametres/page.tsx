@@ -47,7 +47,8 @@ const SYSTEM_ROLE_ORDER: Record<UserRole, number> = {
   REGIONAL_ADMIN: 2,
   DIVISIONAL_ADMIN: 3,
   AUDITOR: 4,
-  COMPANY: 5,
+  CENTRAL_AGENT: 5,
+  COMPANY: 6,
 };
 
 export default function ParametresPage() {

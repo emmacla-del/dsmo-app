@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  canGrantAdminOnefop,
   invitationLevelsFor,
   invitationMessage,
   invitationUrl,
@@ -34,11 +35,19 @@ const TREE: OrgServiceNode[] = [
   node("ONEFOP", "RATTACHE"),
 ];
 
-test("only SUPER_ADMIN may invite into central services", () => {
+test("both administrator roles invite to every level; nobody else invites", () => {
   assert.deepEqual(invitationLevelsFor("SUPER_ADMIN"), ["regional", "departmental", "central"]);
-  assert.deepEqual(invitationLevelsFor("ADMIN_ONEFOP"), ["regional", "departmental"]);
+  assert.deepEqual(invitationLevelsFor("ADMIN_ONEFOP"), ["regional", "departmental", "central"]);
   assert.deepEqual(invitationLevelsFor("REGIONAL_ADMIN"), []);
+  assert.deepEqual(invitationLevelsFor("CENTRAL_AGENT"), []);
   assert.deepEqual(invitationLevelsFor(undefined), []);
+});
+
+test("only SUPER_ADMIN grants ADMIN_ONEFOP, and only on a central post", () => {
+  assert.equal(canGrantAdminOnefop("SUPER_ADMIN", "central"), true);
+  assert.equal(canGrantAdminOnefop("SUPER_ADMIN", "regional"), false);
+  assert.equal(canGrantAdminOnefop("ADMIN_ONEFOP", "central"), false);
+  assert.equal(canGrantAdminOnefop("SUPER_ADMIN", null), false);
 });
 
 test("a delegation level is its subtree, root first, indented by depth", () => {

@@ -11,6 +11,7 @@ import { formatApiError } from "@/lib/pilotage-targets";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
   GENERIC_POSITION_TYPE,
+  canGrantAdminOnefop,
   createStaffInvitation,
   getOrganigramme,
   getServicePositions,
@@ -34,10 +35,19 @@ import {
 // send over WhatsApp; the agent sets their own password, so no temporary
 // password ever travels.
 //
-// Levels follow the server's rule: ADMIN_ONEFOP reaches the two delegations,
-// SUPER_ADMIN the central and attached services too.
+// Levels follow the server's rule: both administrator roles reach every
+// level, and a central post gives a read-only CENTRAL_AGENT. Making the
+// invitee an ADMIN_ONEFOP instead is an explicit, SUPER_ADMIN-only box.
 
-const EMPTY = { level: "" as InvitationLevel | "", serviceCode: "", positionType: "", region: "", department: "", email: "" };
+const EMPTY = {
+  level: "" as InvitationLevel | "",
+  serviceCode: "",
+  positionType: "",
+  region: "",
+  department: "",
+  email: "",
+  grantAdminOnefop: false,
+};
 
 // Visual indentation of a sub-service in a native <select>, which cannot be
 // styled per option: two no-break spaces per organigramme level.
@@ -74,6 +84,7 @@ export function InviteAgentDialog({
   const services = level && treeQuery.data ? servicesForLevel(treeQuery.data, level, locale) : [];
   const needsRegion = level ? levelNeedsRegion(level) : false;
   const needsDepartment = level ? levelNeedsDepartment(level) : false;
+  const canGrant = canGrantAdminOnefop(actorRole, level);
   // The organigramme is the one thing the form cannot work without: until it
   // is here, the service list says why it is not (loading, failed, empty).
   const treeState = resolveDataState({
@@ -91,17 +102,18 @@ export function InviteAgentDialog({
         positionType: form.positionType,
         region: needsRegion ? form.region : undefined,
         department: needsDepartment ? form.department : undefined,
+        grantAdminOnefop: canGrant && form.grantAdminOnefop ? true : undefined,
       }),
     onSuccess: (res) => setCreated(res),
   });
 
   // Changing a choice clears what depended on it: a new level empties the
   // service, a new service the post, a new region the department.
-  const set = (key: keyof typeof EMPTY) => (value: string) =>
+  const set = (key: Exclude<keyof typeof EMPTY, "grantAdminOnefop">) => (value: string) =>
     setForm((f) => ({
       ...f,
       [key]: value,
-      ...(key === "level" ? { serviceCode: "", positionType: "", department: "" } : {}),
+      ...(key === "level" ? { serviceCode: "", positionType: "", department: "", grantAdminOnefop: false } : {}),
       ...(key === "serviceCode" ? { positionType: "" } : {}),
       ...(key === "region" ? { department: "" } : {}),
     }));
@@ -192,6 +204,13 @@ export function InviteAgentDialog({
                 <dd>{territoryPhrase(created.region, created.department)}</dd>
               </div>
             )}
+          </dl>
+
+          <dl className="cam-admin-kv">
+            <div>
+              <dt>{t("accessLabel")}</dt>
+              <dd>{t(`access.${created.role}`)}</dd>
+            </div>
           </dl>
 
           <div className="cam-field">
@@ -319,6 +338,20 @@ export function InviteAgentDialog({
                     </div>
                   )}
                 </div>
+              )}
+
+              {canGrant && (
+                <label className="cam-admin-choice" style={{ marginBottom: "var(--cam-space-4)" }}>
+                  <input
+                    type="checkbox"
+                    checked={form.grantAdminOnefop}
+                    onChange={(e) => setForm((f) => ({ ...f, grantAdminOnefop: e.target.checked }))}
+                  />
+                  <span>
+                    {t("grantAdmin")}
+                    <span className="cam-admin-choice-hint">{t("grantAdminHint")}</span>
+                  </span>
+                </label>
               )}
 
               <div className="cam-field">

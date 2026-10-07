@@ -28,7 +28,7 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
-import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { hrefWith, parseDossierStatus, type DossierStatus } from "@/lib/admin-url";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 
@@ -103,6 +103,9 @@ export default function DossiersPage() {
 function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
+  // Central agents consult: no selection column, no visa / reject / export
+  // toolbar. The server refuses all three to the role regardless.
+  const readOnly = isReadOnlyRole(user?.role);
   const t = useTranslations("adminDossiersPage");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
@@ -121,7 +124,7 @@ function DossiersContent() {
       ? (user.region ? t("scopeRegional", { region: user.region }) : t("scopeRegionalUnassigned"))
       : user?.role === "DIVISIONAL_ADMIN"
         ? (user.department ? t("scopeDepartmental", { department: user.department }) : t("scopeDepartmentalUnassigned"))
-        : hasRole(user?.role, NATIONAL_ROLES)
+        : hasRole(user?.role, NATIONAL_READ_ROLES)
           ? t("scopeNational")
           : t("scopeUnassigned");
   const { regions: territoryRegions } = useTerritoryRegions();
@@ -524,6 +527,7 @@ function DossiersContent() {
 
       {/* ── Action toolbar. One primary action (the visa); reject is the
           danger variant and export the secondary one. ── */}
+      {!readOnly && (
       <div className="cam-admin-selection">
         <button
           type="button"
@@ -555,6 +559,7 @@ function DossiersContent() {
           {t("exportButton")}
         </button>
       </div>
+      )}
 
       {/* ── Table. .cam-table-wrapper carries the surface, border, radius
           and the horizontal scroll this nine-column table needs on a narrow
@@ -563,14 +568,16 @@ function DossiersContent() {
         <table className="cam-table">
           <thead>
             <tr>
-              <th scope="col" className="text-center">
-                <input
-                  type="checkbox"
-                  className="cam-admin-table-check"
-                  checked={allShownSelected}
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                />
-              </th>
+              {!readOnly && (
+                <th scope="col" className="text-center">
+                  <input
+                    type="checkbox"
+                    className="cam-admin-table-check"
+                    checked={allShownSelected}
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                  />
+                </th>
+              )}
               <th scope="col">{t("formIdColumn")}</th>
               <th scope="col">{t("respondentColumn")}</th>
               <th scope="col">{t("organisationColumn")}</th>
@@ -585,7 +592,7 @@ function DossiersContent() {
             {/* Loading, error, authorization refusal and "no dossiers" are
                 reported separately; no branch substitutes sample rows. */}
             <DataStateRow
-              colSpan={9}
+              colSpan={readOnly ? 8 : 9}
               state={tableState}
               resource={t("filesResource")}
               error={questionnairesQuery.error}
@@ -655,14 +662,16 @@ function DossiersContent() {
 
               return (
                 <tr key={d.id}>
-                  <td className="text-center">
-                    <input
-                      type="checkbox"
-                      className="cam-admin-table-check"
-                      checked={selectedIds.has(d.id)}
-                      onChange={(e) => toggleSelect(d.id, e.target.checked)}
-                    />
-                  </td>
+                  {!readOnly && (
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        className="cam-admin-table-check"
+                        checked={selectedIds.has(d.id)}
+                        onChange={(e) => toggleSelect(d.id, e.target.checked)}
+                      />
+                    </td>
+                  )}
                   <td>
                     <Link
                       href={`/admin/dossiers/${encodeURIComponent(d.id)}`}

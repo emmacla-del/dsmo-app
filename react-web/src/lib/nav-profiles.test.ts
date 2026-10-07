@@ -31,6 +31,7 @@ test("each role's rail is exactly its profile, in declared order", () => {
     REGIONAL_ADMIN: ["supervision", "collecte", "declarants", "qualite"],
     DIVISIONAL_ADMIN: ["supervision", "collecte", "declarants", "qualite"],
     AUDITOR: ["administration"],
+    CENTRAL_AGENT: ["supervision", "declarants"],
     COMPANY: [],
   };
 
