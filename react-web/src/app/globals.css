@@ -315,6 +315,47 @@ body {
   line-height: 1.4;
 }
 
+/* Receipt only. The success screen reuses .brand-name and .brand-sub, whose
+   shared sizes are 25px and 14px. These modifiers keep the receipt at 20px
+   and 13px. The ID is the code treatment: mono, bold, a green wash. It is
+   not a .cam-badge. */
+.cam-auth-page .receipt-hero {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.cam-auth-page .receipt-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--cam-radius-full);
+  background: rgba(30, 107, 58, 0.1);
+  color: var(--cam-green);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-auth-page .receipt-title {
+  font-size: var(--cam-step-title-size);
+  margin-bottom: var(--cam-space-1);
+}
+
+.cam-auth-page .receipt-subtitle {
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-auth-page .receipt-id {
+  font-family: var(--cam-font-mono, monospace);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-green-dark);
+  background: rgba(30, 107, 58, 0.08);
+  padding: 2px var(--cam-space-2);
+  border-radius: var(--cam-radius-md);
+  display: inline-block;
+}
+
 /* --- Card: the transaction surface --- */
 .cam-auth-page .card {
   background: var(--cam-surface);
@@ -1325,6 +1366,19 @@ body {
   color: var(--cam-text);
   font-weight: 500;
   word-break: break-word;
+}
+
+.cam-auth-page .table-official td.value-cell--bold {
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-auth-page .table-official td.value-cell--strong {
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-auth-page .table-official td.value-cell--ready {
+  color: var(--cam-green-dark);
+  font-weight: var(--cam-font-weight-semibold);
 }
 
 /* A note that belongs to one section, shown under its heading rather than
