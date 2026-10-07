@@ -7,6 +7,22 @@
 
 ---
 
+## Progress
+
+| Step | Scope | Status | Baseline drop |
+|---|---|---|---:|
+| 0 | Shared layer + ratchet | ✅ Landed (416d84da, ab6f995e) | — |
+| 1 | Dossier pair | ✅ Landed (5c01f157, 4fb5139f) | 694\* |
+| 2 | Directory cluster | ✅ Landed (195b59e1, 1f2c6b4e, 4fc133f1, 71f14b52) | 650 |
+| 3 | Tailwind island | ⏳ In progress | — |
+| 4 | Residue + respondent + copy | ⏳ Not started | — |
+
+The ratchet baseline (`scripts/ui-grammar-baseline.json`, summed across all rules) went from 1,618 after Step 0 to 274 after Step 2. Every rule for the six files in Steps 1–2 — `dossiers`, `dossiers/[id]`, `centre-qualite`, `utilisateurs`, `etablissement-detail`, `etablissements` — is now at zero; none of them has a baseline entry left.
+
+\* 692 from the two dossier commits; the other 2 came from `3b398319` (add-officer form), which landed between Steps 0 and 1.
+
+---
+
 ## Findings that change the plan
 
 Four measurements taken while preparing this plan are not in the audit, and each one moves the recommendation. They are stated first because the rest of the document rests on them.
