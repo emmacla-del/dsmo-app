@@ -501,63 +501,6 @@ export class AuthService {
     return toPublicUser(user);
   }
 
-  async register(
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-    role: string,
-    region?: string,
-    department?: string,
-    matricule?: string,
-    poste?: string,
-    serviceCode?: string,
-  ) {
-    email = normalizeEmail(email);
-    const existingUser = await this.prisma.user.findFirst({ where: emailMatch(email) });
-    if (existingUser) {
-      throw new ConflictException('Un utilisateur avec cet email existe déjà');
-    }
-
-    let canonicalRegion = region ?? null;
-    let canonicalDepartment = department ?? null;
-    if (role === 'REGIONAL_ADMIN' || role === 'DIVISIONAL_ADMIN') {
-      const resolved = await resolveStaffTerritory(this.prisma, role, { region, department });
-      canonicalRegion = resolved.region;
-      canonicalDepartment = resolved.department;
-    }
-
-    const hashed = await bcrypt.hash(password, 10);
-    const isMinefop = role !== 'COMPANY';
-    try {
-      const user = await this.prisma.user.create({
-        data: {
-          email,
-          passwordHash: hashed,
-          firstName,
-          lastName,
-          role: role as any,
-          region: canonicalRegion,
-          department: canonicalDepartment,
-          matricule,
-          poste,
-          serviceCode: serviceCode ?? null,
-          status: isMinefop ? 'PENDING_APPROVAL' : 'ACTIVE',
-          isActive: !isMinefop,
-          // Phase 1: a public self-registration has no creating admin, so
-          // createdBy stays null — that absence is the signal, not a gap.
-          registrationMethod: 'SELF_REGISTRATION',
-        },
-      });
-      return toPublicUser(user);
-    } catch (error: any) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Un utilisateur avec cet email existe déjà');
-      }
-      throw error;
-    }
-  }
-
   // Roles a SUPER_ADMIN may create through adminCreateMinefopUser — the
   // MINEFOP field-agent roles only. SUPER_ADMIN, ADMIN_ONEFOP and AUDITOR
   // have no creation path: ADMIN_ONEFOP is excluded so that an ADMIN_ONEFOP

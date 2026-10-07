@@ -144,15 +144,6 @@ describe('case-insensitive lookups', () => {
 });
 
 describe('staff email normalisation', () => {
-  it('register stores a staff email trimmed and lowercased, after a case-insensitive duplicate check', async () => {
-    const prisma = makePrisma();
-    await makeService(prisma).register(' Agent.Nkomo@MINEFOP.cm ', 'Secret123!', 'Awa', 'Nkomo', 'ADMIN_ONEFOP');
-    expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: insensitive('agent.nkomo@minefop.cm') });
-    expect(prisma.user.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ email: 'agent.nkomo@minefop.cm' }),
-    });
-  });
-
   it('adminCreateMinefopUser stores the email lowercased and refuses a case-variant of a taken one', async () => {
     const prisma = makePrisma();
     const service = makeService(prisma);
