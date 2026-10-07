@@ -1675,13 +1675,13 @@
     "sendNudge": "Send the reminder",
     "templateLabel": "Notification template",
     "template": {
-      "STALE_BACKLOG": "Files pending for more than 7 days",
+      "STALE_BACKLOG": "Files pending for more than {days} days",
       "BEHIND_TARGET": "Behind the coverage target",
       "NO_RECENT_ACTIVITY": "No recent decision"
     },
     "previewLabel": "Preview of the generated message:",
     "previewNote": "The message is sent in French.",
-    "noStaleWarning": "Note: this administrator has no file pending for more than 7 days.",
+    "noStaleWarning": "Note: this administrator has no file pending for more than {days} days.",
     "noTargetWarning": "Note: no target is set for this territory.",
     "customMessageLabel": "Additional custom message (optional)",
     "customMessagePlaceholder": "Add details or specific instructions…",
