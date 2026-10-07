@@ -1853,11 +1853,17 @@ export default function RegisterPage() {
                       if ((e.target as HTMLElement).id !== currentLastFieldId) return;
                       const next = e.relatedTarget as HTMLElement | null;
                       if (!next) return;
-                      // The continue button is pinned to the frame below the
-                      // scrolling content, outside this <section> in the DOM,
-                      // but it is still this section's own control.
-                      if (e.currentTarget.contains(next) || next.closest("[data-flow-continue]")) {
-                        if (lastFieldEditedRef.current && !isFormField(next)) setAdvanceArmed(true);
+                      // The frame footer's Retour and Continuer are pinned
+                      // below the scrolling content, outside this <section>
+                      // in the DOM, but they are still this section's own
+                      // controls. Only moving to Continuer says "done here":
+                      // a respondent heading for Retour must not be pushed
+                      // forward on the way.
+                      const toBack = next.closest("[data-flow-back]");
+                      if (e.currentTarget.contains(next) || toBack || next.closest("[data-flow-continue]")) {
+                        if (lastFieldEditedRef.current && !isFormField(next) && !toBack) {
+                          setAdvanceArmed(true);
+                        }
                         return;
                       }
                       if (lastFieldEditedRef.current) setAdvanceArmed(true);
@@ -1884,24 +1890,48 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* The step's one primary action, pinned under the scrolling
-                content so it is on screen however tall the section is.
-                Present on the furthest revealed section whether or not it is
-                complete: a control that disappears until the form is correct
-                cannot tell anyone what is wrong with the form. The class name
-                is kept from the text link this replaced, which the layout
-                test selects by. */}
-            {showContinueLink && (
-              <div className="flow-frame-foot">
+            {/* Pinned under the scrolling content, so both actions are on
+                screen however tall the section is.
+
+                Retour: every section but the first. The step list (or the
+                rail) can jump anywhere already revealed; this is the plain
+                one-step-back respondents look for at the bottom of a form.
+
+                Continuer: the step's one primary action, on every section
+                but the review. At the frontier it is trigger (b) -- shown
+                whether or not the section is complete, because a control
+                that disappears until the form is correct cannot tell anyone
+                what is wrong with the form. On a section the respondent has
+                come back to, it moves on to the next revealed one, which
+                nothing on screen used to offer. The class name is kept from
+                the text link this replaced, which the layout test selects
+                by. */}
+            <div className="flow-frame-foot">
+              {current > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary flow-back"
+                  data-flow-back
+                  onClick={() => goToSection(current - 1)}
+                >
+                  <span aria-hidden="true">← </span>
+                  {t("registerPage.backButton")}
+                </button>
+              )}
+              {current < LAST_INDEX && (
                 <button
                   type="button"
                   className="btn-primary btn-primary--inline flow-continue-link"
                   data-flow-continue
-                  aria-disabled={continueBlocked || undefined}
-                  // Trigger (b). Never the `disabled` attribute: a disabled
-                  // button swallows the click, and the click is how the
+                  aria-disabled={(showContinueLink && continueBlocked) || undefined}
+                  // Never the `disabled` attribute: a disabled button
+                  // swallows the click, and the click is how the
                   // respondent asks what is missing.
                   onClick={() => {
+                    if (!showContinueLink) {
+                      goToSection(current + 1);
+                      return;
+                    }
                     if (promptMissing()) return;
                     advanceFrom(current);
                   }}
@@ -1909,8 +1939,8 @@ export default function RegisterPage() {
                   {t("registerPage.continueButton")}
                   <span aria-hidden="true"> →</span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

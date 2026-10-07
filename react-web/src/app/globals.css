@@ -1542,6 +1542,8 @@ body {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--cam-space-3);
   padding: var(--cam-space-3) var(--cam-frame-scroll-pad-x);
   border-top: var(--cam-border-width) solid var(--cam-border);
   background: var(--cam-surface);
@@ -1555,13 +1557,28 @@ body {
   cursor: pointer;
 }
 
+/* Retour sits at the left edge, Continuer at the right: the usual places
+   for back and forward at the foot of a form. A secondary, outlined button,
+   so the green one stays the screen's single primary action. */
+.cam-auth-page--wizard .flow-back {
+  margin-right: auto;
+}
+
 @media (max-width: 640px) {
   .cam-auth-page--wizard .flow-frame-foot {
     padding: var(--cam-space-3) var(--cam-section-pad);
   }
 
-  .cam-auth-page--wizard .flow-frame-foot .btn-primary {
-    width: 100%;
+  /* Phone: the buttons share the row. Continuer takes the larger share and
+     fills it alone on the first step. */
+  .cam-auth-page--wizard .flow-frame-foot > .flow-back {
+    flex: 1 1 0;
+    margin-right: 0;
+  }
+
+  .cam-auth-page--wizard .flow-frame-foot > .btn-primary {
+    flex: 2 1 0;
+    width: auto;
   }
 }
 
