@@ -379,6 +379,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Pays non pris en charge.', en: 'Unsupported country.' },
   { fr: 'Langue non prise en charge.', en: 'Unsupported language.' },
   { fr: 'Fuseau horaire inconnu.', en: 'Unknown time zone.' },
+  { fr: 'Le délai doit être un nombre entier de jours entre {0} et {1}.', en: 'The delay must be a whole number of days between {0} and {1}.' },
 
   // ── Input validation (class-validator defaults, custom DTO messages) ─
   { fr: 'Le code ne doit contenir que des majuscules, des chiffres et des tirets', en: 'Code must contain only uppercase letters, numbers, and hyphens' },

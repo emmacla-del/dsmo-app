@@ -20,7 +20,7 @@ import { buildUserListWhere, type UserListFilterParams } from './user-list-filte
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
 import { toPublicUser } from './public-user';
-import { isOverdue, overdueCutoff, waitingSince } from './registration-overdue';
+import { isOverdue, overdueCutoff, overdueDaysFrom, waitingSince } from './registration-overdue';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import {
@@ -1518,8 +1518,10 @@ export class AuthService {
     // Overdue: pending, registered before the cutoff, and not resubmitted
     // since -- the same rule as waitingSince() on each row. It replaces any
     // status filter (only PENDING_APPROVAL files can be overdue) and narrows
-    // the date range to before the cutoff.
-    const cutoff = overdueCutoff();
+    // the date range to before the cutoff. The threshold is the platform
+    // setting (/admin/parametres), read once per request.
+    const overdueDays = overdueDaysFrom((await this.systemSettings.getSettings()).registrationOverdueDays);
+    const cutoff = overdueCutoff(overdueDays);
     if (params.overdue) {
       userWhere.status = 'PENDING_APPROVAL';
       const recentlyResubmitted = await this.usersResubmittedSince(cutoff);
@@ -1584,13 +1586,15 @@ export class AuthService {
         // When the reviewers' wait began, and whether it is past
         // REGISTRATION_OVERDUE_DAYS. null / false when it is not their move.
         waitingSince: since,
-        overdue: isOverdue(since),
+        overdue: isOverdue(since, overdueDays),
       };
     });
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
     const counts = await this.companyRegistrationCounts(regionScope, cutoff);
-    return { items: itemsWithResubmission, total, page, pageSize, counts };
+    // overdueDays travels with the list so the screen words "plus de N jours"
+    // with the threshold actually applied.
+    return { items: itemsWithResubmission, total, page, pageSize, counts, overdueDays };
   }
 
   /**

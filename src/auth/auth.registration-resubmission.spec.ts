@@ -415,7 +415,7 @@ describe('AuthService.listCompanyRegistrations — resubmission diff and ADMINIS
       },
       auditLog: { findMany: jest.fn(async () => auditRows) },
     };
-    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, {} as any) };
+    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }
 
   const resubmittedRow = {

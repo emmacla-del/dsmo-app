@@ -1,6 +1,7 @@
 // src/system-settings/system-settings.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { REGISTRATION_OVERDUE_MAX_DAYS, REGISTRATION_OVERDUE_MIN_DAYS } from '../auth/registration-overdue';
 
 const SINGLETON_ID = 'singleton';
 
@@ -14,6 +15,8 @@ export interface SystemSettingsUpdate {
   countryCode?: string | null;
   defaultLanguage?: string | null;
   timezone?: string | null;
+  // Days before a pending company registration is flagged overdue.
+  registrationOverdueDays?: number;
 }
 
 // Values the /admin/parametres form offers. The platform ships FR and EN
@@ -58,6 +61,20 @@ export function validateIdentityFields(data: SystemSettingsUpdate): SystemSettin
   const timezone = text('timezone');
   if (timezone && !isValidTimezone(timezone)) {
     throw new BadRequestException('Fuseau horaire inconnu.');
+  }
+
+  if (data.registrationOverdueDays !== undefined) {
+    const days = data.registrationOverdueDays;
+    if (
+      typeof days !== 'number' ||
+      !Number.isInteger(days) ||
+      days < REGISTRATION_OVERDUE_MIN_DAYS ||
+      days > REGISTRATION_OVERDUE_MAX_DAYS
+    ) {
+      throw new BadRequestException(
+        `Le délai doit être un nombre entier de jours entre ${REGISTRATION_OVERDUE_MIN_DAYS} et ${REGISTRATION_OVERDUE_MAX_DAYS}.`,
+      );
+    }
   }
 
   if (name !== undefined) out.observatoryName = name;

@@ -1939,6 +1939,10 @@ model SystemSettings {
   countryCode        String?
   defaultLanguage    String?
   timezone           String?
+  // Days a pending company registration may wait for a reviewer before the
+  // queue flags it overdue (/admin/inscriptions). See
+  // src/auth/registration-overdue.ts.
+  registrationOverdueDays Int    @default(7)
   updatedBy          String?
   updatedAt          DateTime @updatedAt
 
