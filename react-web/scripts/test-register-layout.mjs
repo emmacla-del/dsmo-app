@@ -63,6 +63,11 @@ async function newCleanContext(browser, options) {
   return context;
 }
 
+// The nth step (1-based) of whichever navigation is on screen.
+function railItem(page, n) {
+  return page.locator(RAIL_ITEMS).locator("visible=true").nth(n - 1);
+}
+
 async function continueOn(page) {
   if (!(await continueEnabled(page))) return false;
   await page.click(".flow-continue-link");
@@ -234,14 +239,24 @@ const measurePlaceholderVsLabel = () => {
   };
 };
 
+// The step navigation is the horizontal rail on a narrow screen and the
+// dossier panel's vertical list from 1080px; only one of the two is rendered
+// at a time. Both carry the same states and accessible names, so every rail
+// check reads whichever one is on screen. On the list, the state class sits
+// on the <li> around the button.
+const RAIL_ITEMS = ".progress-rail .progress-step-item, .step-list .step-list-button";
+
 const railStates = () =>
-  Array.from(document.querySelectorAll(".progress-rail .progress-step-item")).map((b) => {
+  Array.from(
+    document.querySelectorAll(".progress-rail .progress-step-item, .step-list .step-list-button")
+  ).filter((b) => b.offsetParent !== null).map((b) => {
     const circle = b.querySelector(".progress-step-circle");
-    const labelEl = b.querySelector(".progress-step-label");
+    const labelEl = b.querySelector(".progress-step-label, .step-list-name");
+    const stateEl = b.closest(".step-list-item") || b;
     return {
       label: labelEl ? labelEl.textContent.trim() : "",
       labelHidden: labelEl ? getComputedStyle(labelEl).display === "none" : true,
-      cls: Array.from(b.classList).find((c) => c.indexOf("is-") === 0) || "",
+      cls: Array.from(stateEl.classList).find((c) => c.indexOf("is-") === 0) || "",
       // aria-disabled, not the `disabled` property: a locked item still takes
       // a click, which is how it gets to say what the current section is
       // missing. See item 11 trigger (d).
@@ -341,7 +356,7 @@ async function runViewport(browser, vp) {
       L.borderedExtras.join(" | ") || "none"
     );
     if (phase === "section 1") {
-      check(!L.sealVisible, "emblem placeholder hidden on this route");
+      check(!L.sealVisible, "no emblem placeholder on this route");
     }
   }
 
@@ -452,12 +467,17 @@ async function runRail(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".progress-rail");
+  await page.waitForSelector(".step-list");
 
-  console.log("\n── rail navigation (1280x720) ──");
+  console.log("\n── step navigation (1280x720: the dossier panel) ──");
+
+  check(
+    await page.isVisible(".flow-panel") && !(await page.isVisible(".flow-header")),
+    "the dossier panel replaces the header at 1280px"
+  );
 
   let rail = await page.evaluate(railStates);
-  check(rail.length === 6, "six rail items", String(rail.length));
+  check(rail.length === 6, "six step items", String(rail.length));
   check(
     rail.slice(1).every((r) => r.disabled),
     "every unrevealed item is marked unavailable (aria-disabled)"
@@ -494,14 +514,20 @@ async function runRail(browser) {
     "a completed item offers editing in its accessible name",
     rail[0].ariaLabel || ""
   );
+  // The summary is a visible line under the step name in the panel, and part
+  // of the item's accessible name (the rail on a narrow screen keeps it in
+  // its tooltip).
   check(
-    (rail[0].title || "").indexOf("—") !== -1,
-    "a completed item's tooltip carries its summary",
-    rail[0].title || ""
+    /Entreprise|Company/.test(rail[0].ariaLabel || "") &&
+      /Entreprise|Company/.test(
+        (await page.textContent(".step-list-item.is-done .step-list-summary").catch(() => "")) || ""
+      ),
+    "a completed item shows its summary and carries it in its accessible name",
+    rail[0].ariaLabel || ""
   );
 
   // Back to the type list.
-  await page.click(".progress-rail .progress-step-item:nth-child(1)");
+  await railItem(page, 1).click();
   await page.waitForTimeout(250);
   check(
     await page.isVisible('input[name="entityType"]'),
@@ -520,7 +546,7 @@ async function runRail(browser) {
   );
 
   // Fill Declarant.
-  await page.click(".progress-rail .progress-step-item:nth-child(2)");
+  await railItem(page, 2).click();
   await page.waitForTimeout(200);
   await page.fill("#reg-first-name", "Emmanuel");
   await page.fill("#reg-last-name", "Biya");
@@ -543,20 +569,45 @@ async function runRail(browser) {
 
   // Optional field present and still usable: the proof the section did not
   // advance the instant its required fields were satisfied.
-  await page.fill("#reg-phone2", "233000000");
+  //
+  // Typed key by key, NOT page.fill: fill sets the whole value in one input
+  // event, which is exactly what hid the bug where the first keystroke in
+  // the last field opened the next section and swallowed the rest.
+  await page.type("#reg-phone2", "233000000", { delay: 40 });
+  await page.waitForTimeout(500);
+  const whileTyping = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
+  check(
+    whileTyping === "reg-section-title-respondent" &&
+      (await page.inputValue("#reg-phone2")) === "233000000",
+    "typing into the LAST field keeps the section open until the respondent leaves it",
+    whileTyping + " / " + (await page.inputValue("#reg-phone2").catch(() => "?"))
+  );
+
+  // Leaving it (Tab, onto the continue link) is the "done here" signal.
+  await page.keyboard.press("Tab");
   await page.waitForTimeout(500);
   const afterPhone2 = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(
     afterPhone2 === "reg-section-title-entityInfo",
-    "changing the LAST field advances to Informations",
+    "leaving the changed LAST field advances to Informations",
     afterPhone2 || ""
+  );
+  const focusedAfter = await page.evaluate(() => document.activeElement?.id ?? null);
+  check(
+    focusedAfter === "reg-section-title-entityInfo",
+    "focus lands on the new section's heading, not on <body>",
+    focusedAfter || "body"
+  );
+  check(
+    (await page.$$eval("h1", (hs) => hs.filter((h) => h.offsetParent !== null).length)) === 1,
+    "exactly one visible <h1> on the page"
   );
 
   console.log("\n── entity-type guard ──");
   await page.fill("#reg-entity-companyName", "SARL Exemple");
   await page.waitForTimeout(250);
 
-  await page.click(".progress-rail .progress-step-item:nth-child(1)");
+  await railItem(page, 1).click();
   await page.waitForTimeout(250);
   await page.click('input[name="entityType"][value="cooperative"]');
   await page.waitForTimeout(250);
@@ -568,14 +619,14 @@ async function runRail(browser) {
     await page.isChecked('input[name="entityType"][value="enterprise"]'),
     "Cancel keeps the original type"
   );
-  await page.click(".progress-rail .progress-step-item:nth-child(3)");
+  await railItem(page, 3).click();
   await page.waitForTimeout(250);
   check(
     (await page.inputValue("#reg-entity-companyName")) === "SARL Exemple",
     "Cancel keeps the Informations data"
   );
 
-  await page.click(".progress-rail .progress-step-item:nth-child(1)");
+  await railItem(page, 1).click();
   await page.waitForTimeout(250);
   await page.click('input[name="entityType"][value="cooperative"]');
   await page.waitForTimeout(250);
@@ -899,7 +950,7 @@ async function runPrompts(browser) {
   check(st.notice === null, "the notice clears when the section is satisfied");
 
   // (d) a locked rail item.
-  await page.click(".progress-rail .progress-step-item:nth-child(5)", { force: true });
+  await railItem(page, 5).click({ force: true });
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
@@ -953,9 +1004,7 @@ async function runPrompts(browser) {
   await page.focus("#reg-phone2");
   // Tabbing INSIDE the section must not trigger anything, so the control
   // focused next is deliberately outside the form.
-  await page.evaluate(() => {
-    document.querySelector(".progress-rail .progress-step-item").focus();
-  });
+  await railItem(page, 1).focus();
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
