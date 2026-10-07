@@ -13,6 +13,10 @@ export interface ActiveQuarter {
   label?: string;
   deadline?: string;
   message?: string;
+  /** The round's data-collection period — what the questionnaire's
+   *  period-based questions refer to (lib/campaign-period.ts). */
+  periodStart?: string | null;
+  periodEnd?: string | null;
 }
 
 export function getActiveQuarter() {
