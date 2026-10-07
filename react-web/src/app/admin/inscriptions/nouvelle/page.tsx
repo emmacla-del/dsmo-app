@@ -29,6 +29,7 @@ import { useEmailAvailability } from "@/lib/use-email-availability";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState } from "@/components/admin/DataState";
 
 // Organisation types in the order offered, with the public wizard's labels.
 // Those avoid administrative codes (CTD/ONG/CFP) that ENTITY_CONFIGS titles
@@ -226,8 +227,27 @@ export default function NouvelleInscriptionPage() {
     }
   }
 
-  if (isLoading) return <p className="cam-admin-lede">{t("common.loading")}</p>;
-  if (forbidden) return <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.accessDeniedMessage")}</p>;
+  if (isLoading || forbidden) {
+    return (
+      <div className="cam-admin-page">
+        <AdminPageHeader
+          breadcrumb={[
+            { label: t("adminNav.hubs.declarants") },
+            { label: t("adminNav.routes.inscriptions"), href: "/admin/inscriptions" },
+            { label: t("adminNav.routes.nouvelleInscription") },
+          ]}
+          title={t("adminInscriptionsNouvellePage.title")}
+          backHref="/admin/inscriptions"
+          actions={<AdminHeaderActions showCampaignPill={false} />}
+        />
+        <DataState
+          state={isLoading ? "loading" : "forbidden"}
+          resource={t("adminNav.routes.nouvelleInscription")}
+          title={isLoading ? t("common.loading") : t("adminInscriptionsNouvellePage.accessDeniedMessage")}
+        />
+      </div>
+    );
+  }
 
   const entityOption = entityType ? ENTITY_OPTIONS.find((option) => option.type === entityType) : undefined;
   const selectPlaceholder = t("adminInscriptionsNouvellePage.selectPlaceholder");
@@ -248,7 +268,7 @@ export default function NouvelleInscriptionPage() {
       <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
 
       {error && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginBottom: 16 }}>
+        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
           <span>{error}</span>
           <button type="button" className="cam-admin-notice-close" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</button>
         </div>
@@ -261,7 +281,7 @@ export default function NouvelleInscriptionPage() {
         }}
       >
         <Section title={t("adminInscriptionsNouvellePage.entityTypeTitle")}>
-          <div role="radiogroup" aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <div role="radiogroup" aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--cam-space-3)" }}>
             {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }) => (
               <label key={type} className="cam-admin-choice">
                 <input
@@ -351,7 +371,7 @@ export default function NouvelleInscriptionPage() {
           </FieldGrid>
         </Section>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "8px 0 32px" }}>
+        <div style={{ display: "flex", gap: "var(--cam-space-3)", alignItems: "center", margin: "var(--cam-space-2) 0 var(--cam-space-6)" }}>
           <button type="submit" className="cam-button cam-button-primary" disabled={mutation.isPending}>
             {mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
@@ -376,31 +396,27 @@ export default function NouvelleInscriptionPage() {
         {result && (
           <div>
             <p>{t("adminInscriptionsNouvellePage.successBody")}</p>
-            <FieldGrid>
-              <div className="cam-target-year">
-                {t("adminInscriptionsNouvellePage.loginEmailLabel")}
-                <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>{result.user.email}</span>
+            <dl className="cam-admin-kv">
+              <div>
+                <dt>{t("adminInscriptionsNouvellePage.loginEmailLabel")}</dt>
+                <dd><span className="cam-admin-code">{result.user.email}</span></dd>
               </div>
               {result.company.establishmentId && (
-                <div className="cam-target-year">
-                  {t("adminInscriptionsNouvellePage.establishmentIdLabel")}
-                  <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace" }}>
-                    {result.company.establishmentId}
-                  </span>
+                <div>
+                  <dt>{t("adminInscriptionsNouvellePage.establishmentIdLabel")}</dt>
+                  <dd><span className="cam-admin-code">{result.company.establishmentId}</span></dd>
                 </div>
               )}
-              <div className="cam-target-year">
-                {t("adminInscriptionsNouvellePage.temporaryPasswordLabel")}
-                <span style={{ fontWeight: 400, fontFamily: "ui-monospace, monospace", fontSize: 16 }}>
-                  {result.temporaryPassword}
-                </span>
+              <div>
+                <dt>{t("adminInscriptionsNouvellePage.temporaryPasswordLabel")}</dt>
+                <dd><span className="cam-admin-code">{result.temporaryPassword}</span></dd>
               </div>
-            </FieldGrid>
-            <p style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            </dl>
+            <p style={{ display: "flex", gap: "var(--cam-space-3)", alignItems: "center" }}>
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={copyPassword}>
                 {t("adminInscriptionsNouvellePage.copyPasswordButton")}
               </button>
-              {copied && <span className="cam-admin-lede" style={{ margin: 0 }}>{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
+              {copied && <span className="cam-admin-meta" role="status">{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
             </p>
             <div className="cam-admin-notice cam-admin-notice--warn" role="status">
               {t("adminInscriptionsNouvellePage.passwordShownOnceWarning")}
@@ -414,8 +430,8 @@ export default function NouvelleInscriptionPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 28 }}>
-      <h2 className="cam-admin-h2" style={{ marginBottom: 12 }}>{title}</h2>
+    <section style={{ marginBottom: "var(--cam-space-6)" }}>
+      <h2 className="cam-admin-h2" style={{ marginBottom: "var(--cam-space-3)" }}>{title}</h2>
       {children}
     </section>
   );
@@ -423,7 +439,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FieldGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 var(--cam-space-4)" }}>
       {children}
     </div>
   );
@@ -448,9 +464,8 @@ function Text({
   after?: ReactNode;
 }) {
   return (
-    <label className="cam-target-year">
-      {label}
-      {required && <span aria-hidden="true"> *</span>}
+    <label className="cam-field">
+      <span className="cam-admin-label">{label}{required && <span aria-hidden="true"> *</span>}</span>
       <input
         className="cam-input"
         type={type}
@@ -481,9 +496,8 @@ function Select({
   required?: boolean;
 }) {
   return (
-    <label className="cam-target-year">
-      {label}
-      {required && <span aria-hidden="true"> *</span>}
+    <label className="cam-field">
+      <span className="cam-admin-label">{label}{required && <span aria-hidden="true"> *</span>}</span>
       <select className="cam-select" value={value} required={required} onChange={(e) => onChange(e.target.value)}>
         <option value="">{placeholder}</option>
         {options.map((option) => (
@@ -513,9 +527,8 @@ function EntityFieldInput({
 
   if (field.kind === "select") {
     return (
-      <label className="cam-target-year">
-        {label}
-        {field.required && <span aria-hidden="true"> *</span>}
+      <label className="cam-field">
+        <span className="cam-admin-label">{label}{field.required && <span aria-hidden="true"> *</span>}</span>
         <select className="cam-select" value={value} required={field.required} onChange={(e) => onChange(e.target.value)}>
           <option value="">{selectPlaceholder}</option>
           {(field.options ?? []).map((option) => (
