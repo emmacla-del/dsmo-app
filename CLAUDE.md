@@ -287,7 +287,7 @@ How to use those tokens on an administrative screen - the class
 vocabulary, the colour, typography and spacing rules, and the
 reference page - is specified in:
 
-`docs/standards/admin-ui-grammar.md`
+`docs/standards/ui-grammar.md`
 
 Do not introduce arbitrary colors, spacing systems, typography,
 or competing design systems without architectural review.
