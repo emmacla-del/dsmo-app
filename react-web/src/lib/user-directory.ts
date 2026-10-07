@@ -152,7 +152,7 @@ export interface CompanyRegistrationItem {
     changes: Record<string, { before: unknown; after: unknown }>;
   } | null;
   // When the reviewers' wait on the file began (registration, or the last
-  // resubmission), and whether it is past REGISTRATION_OVERDUE_DAYS. null /
+  // resubmission), and whether it is past the overdue threshold. null /
   // false when the file is not the reviewers' move (src/auth/registration-overdue.ts).
   waitingSince: string | null;
   overdue: boolean;
@@ -164,6 +164,8 @@ export interface CompanyRegistrationsResult {
   page: number;
   pageSize: number;
   counts: { pending: number; complements: number; approved: number; rejected: number; overdue: number };
+  // The overdue threshold applied, in days (the /admin/parametres setting).
+  overdueDays: number;
 }
 
 export function listCompanyRegistrations(params: {
@@ -176,7 +178,7 @@ export function listCompanyRegistrations(params: {
   status?: string;
   /** Only files registered by this admin (User.createdBy). */
   createdBy?: string;
-  /** Only files left waiting past REGISTRATION_OVERDUE_DAYS; overrides `status`. */
+  /** Only files left waiting past the overdue threshold (/admin/parametres); overrides `status`. */
   overdue?: boolean;
   page?: number;
   pageSize?: number;

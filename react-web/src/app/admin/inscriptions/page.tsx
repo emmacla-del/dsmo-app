@@ -25,7 +25,7 @@ import {
   verificationFlags,
   verificationRows,
   type VerificationMarks,
-  REGISTRATION_OVERDUE_DAYS,
+  REGISTRATION_OVERDUE_DEFAULT_DAYS,
   daysWaiting,
 } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -139,7 +139,7 @@ function InscriptionsContent() {
   const from = dateRange === "30" ? daysAgo(30) : dateRange === "90" ? daysAgo(90) : undefined;
 
   // "OVERDUE" is a view of the queue, not a stored status: files the
-  // reviewers have left waiting past REGISTRATION_OVERDUE_DAYS.
+  // reviewers have left waiting past the threshold set in /admin/parametres.
   const overdueOnly = statusFilter === "OVERDUE";
   const queueQuery = useQuery({
     queryKey: ["auth", "company-registrations", search, statusFilter, typeFilter, region, from, createdBy, page],
@@ -229,6 +229,8 @@ function InscriptionsContent() {
   const items = queueQuery.data?.items ?? [];
   // null until the queue answers: a tile never shows a zero it has not read.
   const counts = queueQuery.data?.counts ?? null;
+  // The threshold the server applied, so the labels match the flags.
+  const overdueDays = queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS;
   const total = queueQuery.data?.total ?? 0;
   const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
   const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -247,7 +249,7 @@ function InscriptionsContent() {
     { key: "complements", label: t("kpiComplements"), value: counts?.complements },
     { key: "approved", label: t("kpiApproved"), value: counts?.approved },
     { key: "rejected", label: t("kpiRejected"), value: counts?.rejected },
-    { key: "overdue", label: t("kpiOverdue", { days: REGISTRATION_OVERDUE_DAYS }), value: counts?.overdue },
+    { key: "overdue", label: t("kpiOverdue", { days: overdueDays }), value: counts?.overdue },
   ];
 
   return (
@@ -312,7 +314,7 @@ function InscriptionsContent() {
           administration may decide any file; this is where it sees which. */}
       {!!counts?.overdue && !overdueOnly && (
         <div role="status" className="cam-admin-notice cam-admin-notice--warn">
-          <span>{t("overdueNotice", { count: counts.overdue, days: REGISTRATION_OVERDUE_DAYS })}</span>
+          <span>{t("overdueNotice", { count: counts.overdue, days: overdueDays })}</span>
           <button
             type="button"
             className="cam-text-button"
@@ -359,7 +361,7 @@ function InscriptionsContent() {
               <option value="ALL">{t("statusAll")}</option>
               <option value="PENDING_APPROVAL">{t("statusPending")}</option>
               <option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
-              <option value="OVERDUE">{t("statusOverdue", { days: REGISTRATION_OVERDUE_DAYS })}</option>
+              <option value="OVERDUE">{t("statusOverdue", { days: overdueDays })}</option>
               <option value="ACTIVE">{t("statusApproved")}</option>
               <option value="REJECTED">{t("statusRejected")}</option>
             </select>
@@ -434,7 +436,7 @@ function InscriptionsContent() {
                     </span>
                     {item.overdue && (
                       <span className="cam-badge cam-badge-error" style={{ display: "block", width: "fit-content", marginTop: "var(--cam-space-1)" }}>
-                        {t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? REGISTRATION_OVERDUE_DAYS })}
+                        {t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}
                       </span>
                     )}
                   </td>

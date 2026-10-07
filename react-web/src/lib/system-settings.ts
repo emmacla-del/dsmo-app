@@ -3,7 +3,8 @@
 // GET / PATCH /system-settings — src/system-settings/system-settings.controller.ts.
 // Roles: SUPER_ADMIN only. The singleton row also holds security settings
 // (password length, maintenance mode); /admin/parametres reads the row but
-// only ever sends the observatory identity fields below.
+// only ever sends the observatory identity fields and the registration
+// overdue threshold below.
 import { apiFetch } from "./api-client";
 
 export interface SystemSettings {
@@ -12,6 +13,9 @@ export interface SystemSettings {
   countryCode: string | null;
   defaultLanguage: string | null;
   timezone: string | null;
+  // Days before a pending company registration is flagged overdue on
+  // /admin/inscriptions (src/auth/registration-overdue.ts).
+  registrationOverdueDays: number;
   updatedBy: string | null;
   updatedAt: string;
 }
@@ -33,10 +37,22 @@ export const LANGUAGE_OPTIONS = [
 // Cameroon has a single time zone; the server accepts any IANA zone.
 export const TIMEZONE_OPTIONS = [{ value: "Africa/Douala", label: "Africa/Douala (GMT+1)" }];
 
+// Must match REGISTRATION_OVERDUE_MIN_DAYS / _MAX_DAYS in
+// src/auth/registration-overdue.ts.
+export const REGISTRATION_OVERDUE_MIN_DAYS = 1;
+export const REGISTRATION_OVERDUE_MAX_DAYS = 90;
+
 export function getSystemSettings(): Promise<SystemSettings> {
   return apiFetch<SystemSettings>("/system-settings");
 }
 
 export function updateObservatoryIdentity(body: ObservatoryIdentityUpdate): Promise<SystemSettings> {
   return apiFetch<SystemSettings>("/system-settings", { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function updateRegistrationOverdueDays(days: number): Promise<SystemSettings> {
+  return apiFetch<SystemSettings>("/system-settings", {
+    method: "PATCH",
+    body: JSON.stringify({ registrationOverdueDays: days }),
+  });
 }
