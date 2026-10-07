@@ -852,11 +852,10 @@ function CreateCampaignDialog({
   // collectionType, so switching back to Collecte restores the user's choice.
   const effectiveModule: "DSMO" | "ONEFOP" = registration ? "ONEFOP" : collectionType;
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const defaultDeadline = new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0];
-
-  const [startDate, setStartDate] = useState(todayStr);
-  const [deadline, setDeadline] = useState(defaultDeadline);
+  // Today and today + 90 days, read once when the form mounts. Lazy
+  // initialisers, so the clock is not read again on every render.
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [deadline, setDeadline] = useState(() => new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0]);
   const [referenceYear, setReferenceYear] = useState("");
   const [referenceQuarter, setReferenceQuarter] = useState("");
   const [description, setDescription] = useState("");
