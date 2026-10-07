@@ -840,6 +840,16 @@
   color: var(--cam-text-muted);
 }
 
+/* Inline validation text under a control: why this value is not yet
+   acceptable. Distinct from .cam-admin-notice, which is a bordered block for
+   the outcome of an operation -- a character-count hint under a textarea is
+   not an operation result and should not be boxed like one. */
+.cam-field-error {
+  display: block;
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-error);
+}
+
 .cam-admin-table-check {
   accent-color: var(--cam-green);
   width: 16px;
