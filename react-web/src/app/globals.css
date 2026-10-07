@@ -286,7 +286,7 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--cam-text-muted);
-  font-size: 10px;
+  font-size: var(--cam-font-size-3xs);
   line-height: 1.3;
   background: var(--cam-surface-subtle);
   text-transform: lowercase;
@@ -535,8 +535,8 @@ body {
 }
 
 .cam-auth-page .stay-signed-in input {
-  width: 15px;
-  height: 15px;
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
   accent-color: var(--cam-green);
   margin: 0;
   cursor: pointer;
@@ -1043,13 +1043,14 @@ body {
    scroll, that leaves the respondent inside a magnified form with the rail
    off-screen -- so phones get 16px controls rather than the 15px base. The
    value typed is what has to be 16px; the placeholder may stay smaller,
-   because a placeholder is never focused text. */
+   because a placeholder is never focused text. 16px is
+   --cam-font-size-input-ios and is not a step on the font-size ladder. */
 @media (max-width: 640px) {
 
   .cam-auth-page--wizard .cam-form-flow input,
   .cam-auth-page--wizard .cam-form-flow select,
   .cam-auth-page--wizard .cam-form-flow textarea {
-    font-size: 16px;
+    font-size: var(--cam-font-size-input-ios);
   }
 }
 
@@ -1058,9 +1059,9 @@ body {
    Sharing it made an example value read with the same weight as the label
    naming the field, so a column of untouched inputs looked filled in. A
    placeholder is an absence; it has to sit visibly behind both the label
-   and the value. 14px literal rather than --cam-font-size-sm, because the
-   control steps up to 16px on phones (see the iOS rule above) and the
-   placeholder deliberately does not follow: it is never focused text.
+   and the value. It stays at --cam-font-size-sm (14px) when the control
+   steps up to --cam-font-size-input-ios on phones, because a placeholder
+   is never focused text.
    opacity: 1 because Firefox dims placeholders by default, which would put
    the colour somewhere neither token says. */
 /* A select showing its empty option is displaying a placeholder, but the
@@ -1082,12 +1083,12 @@ body {
    is order-independent, which the specificity fight was not. */
 @media (min-width: 641px) {
   .cam-auth-page--wizard .cam-form-flow select:has(option[value=""]:checked) {
-    font-size: 14px;
+    font-size: var(--cam-font-size-sm);
   }
 }
 
 .cam-auth-page--wizard .cam-form-flow :is(input, textarea)::placeholder {
-  font-size: 14px;
+  font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-regular);
   color: var(--cam-placeholder);
   opacity: 1;
@@ -1638,8 +1639,8 @@ body {
 }
 
 .cam-auth-page--wizard .certify-row input {
-  width: 18px;
-  height: 18px;
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
   flex: 0 0 auto;
   margin-top: var(--cam-space-hairline);
   accent-color: var(--cam-green);

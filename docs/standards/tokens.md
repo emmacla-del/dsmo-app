@@ -91,6 +91,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-font-size-xs` | `0.8125rem` (13px) | Font size | Hints, kickers, compact labels. |
 | `--cam-font-size-sm` | `0.875rem` (14px) | Font size | Field labels and secondary body. |
 | `--cam-font-size-base` | `0.9375rem` (15px) | Font size | Body copy. |
+| `--cam-font-size-input-ios` | `16px` | Font size | Wizard controls on a phone. Stops iOS zooming a focused field. Not a ladder step. |
 | `--cam-font-size-lg` | `1.125rem` (18px) | Font size | Dialog titles and large body. |
 | `--cam-font-size-xl` | `1.5rem` (24px) | Font size | Large heading. |
 | `--cam-font-size-2xl` | `1.5625rem` (25px) | Font size | Auth brand name. Panel KPIs. |
@@ -143,7 +144,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-field-height` | `var(--cam-form-field-height)` | Wizard field | Wizard control height. Aliases the density token, so one change moves both surfaces. |
 | `--cam-field-radius` | `8px` | Radius | Wizard input radius. Purpose value, off the radius ladder, so the focus ring does not hug the border. |
 | `--cam-field-border-width` | `1.5px` | Wizard field | Wizard input border. Purpose value. |
-| `--cam-choice-size` | `18px` | Wizard field | Radio and checkbox control size. Classes still write 15px, 17px, and 18px. |
+| `--cam-choice-size` | `18px` | Wizard field | Radio and checkbox control size. The login checkbox moves from 15px to 18px. The certify checkbox was already 18px. |
 | `--cam-auth-card-pad` | `26px` | Spacing | Auth card body, top and inline. Not `--cam-card-pad-x`: that one shrinks on a phone, and this card does not. |
 | `--cam-auth-card-pad-bottom` | `22px` | Spacing | Auth card body, bottom. |
 | `--cam-auth-tab-gap` | `22px` | Spacing | Gap and block margin of the login tabs. |
