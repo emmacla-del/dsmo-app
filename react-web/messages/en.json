@@ -1626,7 +1626,21 @@
     "rejectAudit": "This action creates an audit log entry AUDIT_REJECT.",
     "rejectFailed": "The rejection failed: {message}.",
     "rejecting": "Rejecting…",
-    "confirmRejection": "Confirm rejection"
+    "confirmRejection": "Confirm rejection",
+    "axisLoading": "Loading…",
+    "axisUnavailable": "Data not available",
+    "axis2Blocking": "{count, plural, one {# blocking anomaly} other {# blocking anomalies}}",
+    "axis2Warnings": "{count, plural, one {# warning} other {# warnings}}",
+    "axis2None": "No anomaly",
+    "axis3Eligible": "Eligible",
+    "axis3NotEligible": "Not eligible",
+    "exclusion": {
+      "EXCL_BLOCKING_ANOMALY_OPEN": "Blocking anomaly open",
+      "EXCL_WAITING_NAT_VISA": "Awaiting endorsement",
+      "EXCL_CORRECTION_PENDING": "Correction pending",
+      "EXCL_REJECTED": "Rejected",
+      "EXCL_DRAFT_ONLY": "Draft"
+    }
   },
   "adminEquipePage": {
     "accessDenied": "Access reserved for central and regional administrators.",

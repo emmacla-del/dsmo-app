@@ -26,6 +26,22 @@ import {
   stamp,
 } from "@/lib/admin-data-state";
 import { asUiLocale } from "@/lib/register-i18n";
+import {
+  eligibilityAxis,
+  endorsementAxis,
+  qualityAxis,
+  type AxisBadge,
+  type AxisTone,
+  type DiagnosticState,
+} from "@/lib/dossier-axes";
+
+// Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
+const AXIS_TONE_STYLE: Record<AxisTone, { background: string; color: string }> = {
+  success: { background: "#ecfdf5", color: "#047857" },
+  warning: { background: "#fef3c7", color: "#d97706" },
+  error: { background: "#fef2f2", color: "#b91c1c" },
+  neutral: { background: "#f3f4f6", color: "#6b7280" },
+};
 
 /**
  * Administrative status of the dossier, exactly as stored.
@@ -172,6 +188,29 @@ function SubmissionDetailContent() {
    */
   const dossier = dossierQuery.data ?? null;
   const diag = diagnosticQuery.data ?? null;
+  // The strip's badges are the records' own values; a diagnostic that failed
+  // to load reads as "not available", never as a figure.
+  const diagnosticState: DiagnosticState = diagnosticQuery.isLoading
+    ? "loading"
+    : diagnosticQuery.isError || !diag
+      ? "unavailable"
+      : "ready";
+  const axisBadge = (badge: AxisBadge) => (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 12px",
+        borderRadius: 9999,
+        ...AXIS_TONE_STYLE[badge.tone],
+        fontSize: 12,
+        fontWeight: 700,
+      }}
+    >
+      {t(badge.key, badge.values)}
+    </span>
+  );
   const detail: Detail = dossier ? entityDetail(dossier) : {};
 
   const pageState = resolveDataState({
@@ -557,7 +596,8 @@ function SubmissionDetailContent() {
           the Supervision row and left out the hub's other pages. A detail
           page leads back to its list: the back arrow above does that. */}
 
-      {/* ── 3-Axis Diagnostic Strip matching Figma _id.png ── */}
+      {/* ── 3-Axis Diagnostic Strip: each badge is read from the dossier or
+          its diagnostic (lib/dossier-axes.ts). ── */}
       <div
         style={{
           display: "grid",
@@ -584,21 +624,7 @@ function SubmissionDetailContent() {
           >
             {t("axis1Title")}
           </div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 12px",
-              borderRadius: 9999,
-              background: "#fef3c7",
-              color: "#d97706",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            ⏱ EN INSTANCE
-          </span>
+          {axisBadge(endorsementAxis(dossier.status))}
         </div>
 
         <div>
@@ -614,21 +640,7 @@ function SubmissionDetailContent() {
           >
             {t("axis2Title")}
           </div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 12px",
-              borderRadius: 9999,
-              background: "#fef3c7",
-              color: "#d97706",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            🚩 2 Avertissements
-          </span>
+          {axisBadge(qualityAxis(diagnosticState, diag))}
         </div>
 
         <div>
@@ -644,21 +656,7 @@ function SubmissionDetailContent() {
           >
             {t("axis3Title")}
           </div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 12px",
-              borderRadius: 9999,
-              background: "#fef3c7",
-              color: "#d97706",
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            En attente d&apos;arbitrage
-          </span>
+          {axisBadge(eligibilityAxis(diagnosticState, diag))}
         </div>
       </div>
 
