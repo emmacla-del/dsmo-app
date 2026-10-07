@@ -91,7 +91,7 @@ test("stamp / count / percent: en-GB keeps day-first dates and drops the French 
 
 test("dataStateMessage: English messages, French default untouched", () => {
   assert.equal(dataStateMessage("error", "the files", "en"), "Unable to load the files.");
-  assert.equal(dataStateMessage("empty", "the files", "en"), "No records for the files.");
+  assert.equal(dataStateMessage("empty", "the files", "en"), "No results found for the files.");
   assert.equal(dataStateMessage("unavailable", "x", "en"), "Data not available");
   assert.equal(dataStateMessage("error", "les dossiers"), "Impossible de charger les dossiers.");
   assert.equal(dataStateMessage("ready", "x", "en"), null);
