@@ -499,7 +499,9 @@ export default function OnefopUsersPage() {
 const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "REJECTED", "COMPLEMENTS_REQUESTED"]);
 
 // ── Ajouter Agent Dialog ────────────────────────────────────────────────────────
-const EMPTY_FORM = { firstName: "", lastName: "", email: "", role: "REGIONAL_ADMIN", region: "Littoral", department: "", matricule: "", poste: "" };
+// No default region: the server requires one for a regional officer, and a
+// preselected « Littoral » turned a careless submit into a Littoral account.
+const EMPTY_FORM = { firstName: "", lastName: "", email: "", role: "REGIONAL_ADMIN", region: "", department: "", matricule: "", poste: "" };
 
 function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
   const queryClient = useQueryClient();
@@ -555,7 +557,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <button
               type="button"
               className="cam-button cam-button-primary"
-              disabled={mutation.isPending || !form.email || !form.firstName || !form.lastName}
+              disabled={mutation.isPending || !form.email || !form.firstName || !form.lastName || !form.region}
               onClick={() => mutation.mutate()}
               style={{ background: "#004d3d" }}
             >
@@ -590,7 +592,8 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>{t("region")}</label>
-              <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)}>
+              <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
+                <option value="" disabled>{t("selectRegion")}</option>
                 {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>

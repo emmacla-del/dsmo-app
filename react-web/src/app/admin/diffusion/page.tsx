@@ -16,7 +16,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
@@ -171,6 +171,10 @@ export default function DiffusionPage() {
   const t = useTranslations("adminDiffusionPage");
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
+  // The subtitle names the active campaign, when there is one, instead of
+  // a fixed « Campagne 2026 ».
+  const { activeCampaign } = useActiveCampaign();
+  const activeCampaignName = activeCampaign?.name || activeCampaign?.code || null;
 
   // Stats query
   const statsQuery = useQuery({
@@ -449,8 +453,7 @@ export default function DiffusionPage() {
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.donnees") }, { label: tRoot("adminNav.routes.diffusion") }]}
         title={tRoot("adminNav.routes.diffusion")}
-        // "Campagne 2026" is fixed text, not the active campaign (flagged).
-        subtitle={t("subtitle")}
+        subtitle={activeCampaignName ? t("subtitleWithCampaign", { campaign: activeCampaignName }) : t("subtitle")}
         actions={
           <AdminHeaderActions
             showCampaignPill={false}
