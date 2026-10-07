@@ -150,21 +150,6 @@
   overflow-y: auto;
 }
 
-.cam-admin-rail-link {
-  cursor: pointer;
-  user-select: none;
-}
-
-.cam-admin-rail-link:hover:not([aria-current="page"]) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: var(--cam-surface) !important;
-}
-
-.cam-admin-rail-link:focus-visible {
-  outline: 2px solid var(--cam-flag-yellow);
-  outline-offset: -2px;
-}
-
 /* ── AdminSidebar: brand, hub links, account card ──
    Drawn as it rendered inline before these rules existed. White washes stay
    as rgba: they are tints of the dark rail, not palette colours. */
@@ -385,45 +370,6 @@
   );
 }
 
-.cam-admin-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  padding: var(--cam-space-4) var(--cam-space-5) var(--cam-space-3);
-  flex-shrink: 0;
-}
-
-.cam-admin-seal {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: var(--cam-radius-control);
-  background: var(--cam-surface);
-  color: var(--cam-green-dark);
-  font-size: var(--cam-font-size-sm);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.cam-admin-brand-name {
-  font-size: var(--cam-font-size-base);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--cam-surface);
-  line-height: 1.2;
-}
-
-.cam-admin-brand-sub {
-  font-size: var(--cam-font-size-4xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--cam-info-border);
-  margin-top: 2px;
-}
-
 .cam-admin-campaign {
   display: flex;
   align-items: center;
@@ -449,175 +395,6 @@
   border-radius: var(--cam-radius-full);
   background: currentColor;
   flex-shrink: 0;
-}
-
-.cam-admin-nav {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--cam-space-2) var(--cam-space-3) var(--cam-space-4);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cam-admin-nav-group {
-  margin: var(--cam-space-4) var(--cam-space-2) var(--cam-space-1);
-  padding: var(--cam-space-3) var(--cam-space-2) 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: rgba(191, 191, 191, 0.55);
-}
-
-.cam-admin-nav-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  min-height: 40px;
-  padding: 10px 12px;
-  margin: 2px 0;
-  border-radius: var(--cam-radius-control);
-  font-size: var(--cam-font-size-sm);
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.75);
-  text-decoration: none;
-  transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.cam-admin-nav-link svg {
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.cam-admin-nav-link:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--cam-surface);
-}
-
-.cam-admin-nav-link:hover svg {
-  color: var(--cam-surface);
-}
-
-.cam-admin-nav-link:focus-visible {
-  outline: 2px solid var(--cam-flag-yellow);
-  outline-offset: -2px;
-}
-
-.cam-admin-nav-link[aria-current="page"] {
-  background: var(--cam-green);
-  color: var(--cam-surface);
-  font-weight: 600;
-}
-
-.cam-admin-nav-link[aria-current="page"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 0 var(--cam-radius-full) var(--cam-radius-full) 0;
-  background: var(--cam-flag-yellow);
-}
-
-.cam-admin-nav-link[aria-current="page"] svg {
-  color: var(--cam-surface);
-}
-
-.cam-admin-nav-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cam-admin-nav-count {
-  flex-shrink: 0;
-  min-width: 22px;
-  padding: 1px 7px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-flag-yellow);
-  color: var(--cam-green-dark);
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 700;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* User account section at bottom */
-.cam-admin-account {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  padding: var(--cam-space-4) var(--cam-space-5);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
-}
-
-.cam-admin-avatar {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: var(--cam-radius-full);
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: var(--cam-surface);
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 700;
-  overflow: hidden;
-}
-
-.cam-admin-account-name {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-surface);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cam-admin-account-role {
-  font-size: var(--cam-font-size-3xs);
-  color: var(--cam-info-border);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cam-admin-rail-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--cam-space-2) var(--cam-space-5) var(--cam-space-4);
-  font-size: var(--cam-font-size-xs);
-  flex-shrink: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.cam-admin-rail-foot a {
-  color: rgba(255, 255, 255, 0.45);
-  text-decoration: none;
-}
-
-.cam-admin-rail-foot a:hover {
-  color: var(--cam-surface);
-}
-
-.cam-admin-logout {
-  background: none;
-  border: none;
-  padding: var(--cam-space-1) 0;
-  font: inherit;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
-  cursor: pointer;
-}
-
-.cam-admin-logout:hover {
-  color: var(--cam-surface);
 }
 
 /* ── Main body ── */
@@ -1061,14 +838,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-5);
-}
-
-.cam-admin-page-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--cam-space-3) var(--cam-space-5);
 }
 
 .cam-admin-h1 {
