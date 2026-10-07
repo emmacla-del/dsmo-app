@@ -18,7 +18,7 @@
 | 4a | Residue pages | ✅ Landed (c4f8d9be, 92a10e83, a865cfa8, 000c8223, d93f76a3, a509c59d, 0225267a, 8fd53c42, 516b2a8d) | 69 |
 | 4b | Shared admin components | ✅ Landed (ade10594, a0f2cc08, 0972edb9, a6750b4e, 48d056e7, ed04c76d, 72b3002a, 92f2bcc1, dc7dafc0, aad8f3c9, 9f658d52, f10b4369) | 61 |
 | 4c | Respondent side (plan §2.3) | ✅ Landed (6b265905, a83ae482, fa9768e2, 565f4662, da2976f4, 9b2672d6) | — † |
-| 4d | Copy pass (Part 4) | ⏳ Awaiting sign-off of D4–D6, D11–D14 and the §4.3 sense-split | — |
+| 4d | Copy pass (Part 4) | ✅ Landed (eb76f5e0, 5017a56f, a678f5f0; rule 601be9ae). Every string old → new: `docs/audit/app-tidy-copy-glossary-2026-10-07.md` | — |
 
 The ratchet baseline (`scripts/ui-grammar-baseline.json`, summed across all rules) went from 1,618 after Step 0 to 274 after Step 2. Every rule for the six files in Steps 1–2 — `dossiers`, `dossiers/[id]`, `centre-qualite`, `utilisateurs`, `etablissement-detail`, `etablissements` — is now at zero; none of them has a baseline entry left.
 
