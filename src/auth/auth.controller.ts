@@ -392,6 +392,7 @@ export class AuthController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('createdBy') createdBy?: string,
+    @Query('overdue') overdue?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -403,6 +404,7 @@ export class AuthController {
       search,
       status,
       createdBy,
+      overdue: overdue === 'true',
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });
