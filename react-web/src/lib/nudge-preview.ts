@@ -7,12 +7,10 @@
 //
 // It used to print « plus de 7 jours », « la cible 2026 » and « depuis N
 // jours » as fixed text. Each figure now comes from the summary response
-// (staleAfterDays, lastDecisionAt) or the calendar year the server uses.
+// (staleAfterDays, lastDecisionAt) or the calendar year the server uses —
+// there is no fallback figure.
 import type { ActorSummaryActor, NudgeTemplate } from "./actor-summary";
 import { doualaCalendarYear } from "./pilotage-targets";
-
-/** The server's STALE_AFTER_DAYS, for a response that predates the field. */
-export const DEFAULT_STALE_AFTER_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,15 +23,15 @@ export function daysSince(sinceIso: string, now: Date = new Date()): number {
 }
 
 export interface NudgePreviewContext {
-  staleAfterDays?: number;
+  staleAfterDays: number;
   now?: Date;
 }
 
 /** The reminder body the server would send to `actor`, or null if it would refuse. */
 export function nudgePreview(
   template: NudgeTemplate,
-  actor: Pick<ActorSummaryActor, "role" | "coverage" | "processing"> & { lastDecisionAt?: string | null },
-  { staleAfterDays = DEFAULT_STALE_AFTER_DAYS, now = new Date() }: NudgePreviewContext = {},
+  actor: Pick<ActorSummaryActor, "role" | "coverage" | "processing" | "lastDecisionAt">,
+  { staleAfterDays, now = new Date() }: NudgePreviewContext,
 ): string | null {
   if (template === "STALE_BACKLOG") {
     const stale = actor.processing.stale;
@@ -46,11 +44,7 @@ export function nudgePreview(
     const scope = actor.role === "DIVISIONAL_ADMIN" ? "Votre département" : "Votre région";
     return `${scope} est à ${Math.round(percent * 100)}% de la cible ${doualaCalendarYear(now)}.`;
   }
-  // NO_RECENT_ACTIVITY. A response without the field (an older server) keeps
-  // the count unstated rather than claiming the admin never decided.
-  if (actor.lastDecisionAt === undefined) {
-    return "Aucune décision enregistrée sur votre compte depuis N jours.";
-  }
+  // NO_RECENT_ACTIVITY
   return actor.lastDecisionAt
     ? `Aucune décision enregistrée sur votre compte depuis ${daysSince(actor.lastDecisionAt, now)} jours.`
     : "Aucune décision n’a encore été enregistrée sur votre compte.";

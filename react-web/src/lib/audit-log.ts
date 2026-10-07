@@ -52,14 +52,6 @@ export function listAuditLog(params: AuditLogParams) {
   return apiFetch<AuditLogPage>(`/audit/reports?${query.toString()}`);
 }
 
-// Same windows as the dossier list (ADMIN_LIST_PERIODS on the backend).
-export const AUDIT_PERIODS: Array<{ value: string; label: string }> = [
-  { value: "7d", label: "7 derniers jours" },
-  { value: "30d", label: "30 derniers jours" },
-  { value: "3m", label: "3 derniers mois" },
-  { value: "12m", label: "12 derniers mois" },
-];
-
 type Tone = "success" | "warning" | "error" | "info" | "neutral";
 
 // Every action string the backend writes today (grep auditLog.create /

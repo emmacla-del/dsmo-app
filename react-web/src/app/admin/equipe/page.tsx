@@ -23,7 +23,7 @@ import {
   type ActorSummaryPeriod,
   type NudgeTemplate,
 } from "@/lib/actor-summary";
-import { DEFAULT_STALE_AFTER_DAYS, nudgePreview } from "@/lib/nudge-preview";
+import { nudgePreview } from "@/lib/nudge-preview";
 
 /**
  * Territorial Admin Monitoring Dashboard — Phase 4 of
@@ -124,7 +124,8 @@ function EquipeContent() {
   }
 
   const actors = summaryQuery.data?.actors ?? [];
-  const staleAfterDays = summaryQuery.data?.staleAfterDays ?? DEFAULT_STALE_AFTER_DAYS;
+  // The server's threshold; the reminder dialog only opens from a loaded summary.
+  const staleAfterDays = summaryQuery.data?.staleAfterDays;
 
   if (isLoading) return null;
 
@@ -186,8 +187,8 @@ function EquipeContent() {
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 {ACTOR_SUMMARY_PERIODS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {t(`adminEquipePage.period.${p.value}`)}
+                  <option key={p} value={p}>
+                    {t(`adminEquipePage.period.${p}`)}
                   </option>
                 ))}
               </select>
@@ -316,7 +317,7 @@ function EquipeContent() {
           </div>
         }
       >
-        {nudgeTarget && (
+        {nudgeTarget && staleAfterDays != null && (
           <form id="nudge-form" onSubmit={handleSendNudge} className="space-y-4">
             <div>
               <label htmlFor="nudge-template" className="block text-xs font-semibold text-slate-700 mb-1">
@@ -328,9 +329,9 @@ function EquipeContent() {
                 onChange={(e) => setNudgeTemplate(e.target.value as NudgeTemplate)}
                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644]"
               >
-                {NUDGE_TEMPLATE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {t(`adminEquipePage.template.${opt.value}`, { days: staleAfterDays })}
+                {NUDGE_TEMPLATE_OPTIONS.map((template) => (
+                  <option key={template} value={template}>
+                    {t(`adminEquipePage.template.${template}`, { days: staleAfterDays })}
                   </option>
                 ))}
               </select>
