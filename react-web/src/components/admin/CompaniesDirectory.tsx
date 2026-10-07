@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   ENTITY_TYPE_OPTION_KEYS,
@@ -9,11 +9,14 @@ import {
   contactValue,
   dash,
   entityTypeLabel,
-  formatDate,
   genderBreakdown,
   hasRealNiu,
   listCompanies,
 } from "@/lib/companies-directory";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 
 const PAGE_SIZE = 20;
 
@@ -29,7 +32,7 @@ interface Column {
   render: (c: Company) => React.ReactNode;
 }
 
-function useColumns(t: ReturnType<typeof useTranslations>): Column[] {
+function useColumns(t: ReturnType<typeof useTranslations>, locale: UiLocale): Column[] {
   return [
     {
       key: "name",
@@ -71,7 +74,7 @@ function useColumns(t: ReturnType<typeof useTranslations>): Column[] {
       key: "createdAt",
       labelKey: "companiesDirectory.createdAtColumn",
       compare: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      render: (c) => formatDate(c.createdAt),
+      render: (c) => stamp(c.createdAt, false, locale),
     },
     {
       key: "contact",
@@ -94,13 +97,13 @@ function useColumns(t: ReturnType<typeof useTranslations>): Column[] {
 
 export function CompaniesDirectory() {
   const t = useTranslations();
-  const COLUMNS = useColumns(t);
+  const locale = asUiLocale(useLocale());
+  const COLUMNS = useColumns(t, locale);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ index: number; ascending: boolean } | null>(null);
   const [selected, setSelected] = useState<Company | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -125,14 +128,13 @@ export function CompaniesDirectory() {
   }, [query.data, sort]);
 
   const total = query.data?.total ?? 0;
+  const listState = resolveDataState({
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    rowCount: query.data ? sortedCompanies.length : null,
+  });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  useEffect(() => {
-    if (selected) dialogRef.current?.showModal();
-    else {
-      try { dialogRef.current?.close(); } catch { /* already closed */ }
-    }
-  }, [selected]);
 
   return (
     <div>
@@ -164,20 +166,24 @@ export function CompaniesDirectory() {
         {t("companiesDirectory.resultsCount", { count: total })}
       </p>
 
-      {query.isLoading && <p>{t("common.loading")}</p>}
-      {query.isError && (
-        <div role="alert" style={{ color: "var(--cam-error)", fontSize: "var(--cam-font-size-sm)" }}>
-          {t("companiesDirectory.loadError", { error: (query.error as Error).message })}
-          <button type="button" onClick={() => query.refetch()} className="cam-text-button" style={{ marginLeft: "var(--cam-space-3)" }}>
-            {t("common.retry")}
-          </button>
-        </div>
-      )}
-      {query.data && sortedCompanies.length === 0 && (
-        <p className="cam-admin-meta">{t("companiesDirectory.emptyState")}</p>
+      {listState !== "ready" && (
+        <DataState
+          state={listState}
+          resource={t("adminNav.routes.annuaire")}
+          onRetry={() => query.refetch()}
+          title={
+            listState === "loading"
+              ? t("common.loading")
+              : listState === "error"
+                ? t("companiesDirectory.loadError", { error: (query.error as Error).message })
+                : listState === "empty"
+                  ? t("companiesDirectory.emptyState")
+                  : undefined
+          }
+        />
       )}
 
-      {query.data && sortedCompanies.length > 0 && (
+      {listState === "ready" && (
         <>
           <div className="cam-table-wrapper">
             <table className="cam-table">
@@ -252,13 +258,21 @@ export function CompaniesDirectory() {
         </>
       )}
 
-      <dialog
-        ref={dialogRef}
-        className="cam-admin-dialog"
-        onClose={() => setSelected(null)}
-      >
-        {selected && <CompanyDetail company={selected} onClose={() => setSelected(null)} />}
-      </dialog>
+      {selected && (
+        <AdminDialog
+          open={!!selected}
+          onClose={() => setSelected(null)}
+          eyebrow={typeLabel(t, selected.entityType) || t("companiesDirectory.establishmentFallback")}
+          title={selected.name ?? NOT_PROVIDED}
+          footer={
+            <button type="button" onClick={() => setSelected(null)} className="cam-button cam-button-secondary cam-button-sm">
+              {t("companiesDirectory.closeAriaLabel")}
+            </button>
+          }
+        >
+          <CompanyDetail company={selected} />
+        </AdminDialog>
+      )}
     </div>
   );
 }
@@ -266,10 +280,10 @@ export function CompaniesDirectory() {
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <>
-      <dt className="cam-admin-meta" style={{ padding: "5px 0", margin: 0 }}>{label}</dt>
-      <dd className="cam-admin-strong" style={{ margin: 0, padding: "5px 0", wordBreak: "break-word" }}>{value}</dd>
-    </>
+    <div>
+      <dt>{label}</dt>
+      <dd style={{ wordBreak: "break-word" }}>{value}</dd>
+    </div>
   );
 }
 
@@ -278,16 +292,8 @@ function DetailSection({ title, rows }: { title: string; rows: [string, string |
   if (present.length === 0) return null;
   return (
     <div>
-      <h3 className="cam-admin-dialog-eyebrow" style={{ margin: "0 0 var(--cam-space-2)" }}>{title}</h3>
-      <dl
-        style={{
-          margin: 0,
-          display: "grid",
-          gridTemplateColumns: "140px 1fr",
-          rowGap: 0,
-          borderTop: "var(--cam-border-width) solid var(--cam-border)",
-        }}
-      >
+      <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>{title}</h3>
+      <dl className="cam-admin-kv">
         {present.map(([label, value]) => (
           <DetailRow key={label} label={label} value={value} />
         ))}
@@ -296,40 +302,23 @@ function DetailSection({ title, rows }: { title: string; rows: [string, string |
   );
 }
 
-function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () => void }) {
+function CompanyDetail({ company: c }: { company: Company }) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const respondentName = [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ");
 
   return (
-    <>
-      <div className="cam-admin-dialog-head">
-        <div style={{ minWidth: 0 }}>
-          <p className="cam-admin-dialog-eyebrow" style={{ margin: "0 0 4px" }}>
-            {typeLabel(t, c.entityType) || t("companiesDirectory.establishmentFallback")}
-          </p>
-          <h2 className="cam-admin-dialog-title">{c.name ?? "—"}</h2>
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "var(--cam-space-2)", marginTop: "var(--cam-space-1)" }}>
-            {c.establishmentId && (
-              <code className="cam-admin-code cam-admin-muted">{c.establishmentId}</code>
-            )}
-            <span className={c.user?.isActive ? "cam-badge cam-badge-success" : "cam-badge cam-badge-error"}>
-              {c.user?.isActive
-                ? t("companiesDirectory.statusActive")
-                : t("companiesDirectory.statusSuspended")}
-            </span>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="cam-admin-dialog-close"
-          onClick={onClose}
-          aria-label={t("companiesDirectory.closeAriaLabel")}
-        >
-          ×
-        </button>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "var(--cam-space-2)" }}>
+        {c.establishmentId && (
+          <code className="cam-admin-code cam-admin-muted">{c.establishmentId}</code>
+        )}
+        <span className={c.user?.isActive ? "cam-badge cam-badge-success" : "cam-badge cam-badge-error"}>
+          {c.user?.isActive
+            ? t("companiesDirectory.statusActive")
+            : t("companiesDirectory.statusSuspended")}
+        </span>
       </div>
-
-      <div className="cam-admin-dialog-body">
         <DetailSection
           title={t("companiesDirectory.sectionIdentity")}
           rows={[
@@ -342,7 +331,7 @@ function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () 
             [t("companiesDirectory.cnpsNumberLabel"), c.cnpsNumber],
             [t("companiesDirectory.yearOfCreationLabel"), c.yearOfCreation],
             [t("companiesDirectory.enterpriseSizeLabel"), c.enterpriseSize],
-            [t("companiesDirectory.registeredOnLabel"), formatDate(c.createdAt)],
+            [t("companiesDirectory.registeredOnLabel"), stamp(c.createdAt, false, locale)],
           ]}
         />
         <DetailSection
@@ -379,19 +368,12 @@ function CompanyDetail({ company: c, onClose }: { company: Company; onClose: () 
         <DetailSection
           title={t("companiesDirectory.sectionWorkforce")}
           rows={[
-            [t("companiesDirectory.totalWorkforceLabel"), c.totalEmployees?.toString()],
+            [t("companiesDirectory.totalWorkforceLabel"), c.totalEmployees == null ? null : count(c.totalEmployees, locale)],
             [t("companiesDirectory.breakdownLabel"), genderBreakdown(c.menCount, c.womenCount)],
-            [t("companiesDirectory.previousYearTotalLabel"), c.lastYearTotal?.toString()],
+            [t("companiesDirectory.previousYearTotalLabel"), c.lastYearTotal == null ? null : count(c.lastYearTotal, locale)],
             [t("companiesDirectory.previousYearBreakdownLabel"), genderBreakdown(c.lastYearMenCount, c.lastYearWomenCount)],
           ]}
         />
-      </div>
-
-      <div className="cam-admin-dialog-foot">
-        <button type="button" onClick={onClose} className="cam-button cam-button-secondary cam-button-sm">
-          Fermer
-        </button>
-      </div>
-    </>
+    </div>
   );
 }
