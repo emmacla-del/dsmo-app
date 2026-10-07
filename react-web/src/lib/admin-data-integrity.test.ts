@@ -204,7 +204,7 @@ test("resolveDataState: sourceAvailable: false outranks loading and errors", () 
 
 test("dataStateMessage: provides explicit honest messages and null for ready", () => {
   assert.equal(dataStateMessage("ready", "dossiers"), null);
-  assert.ok(dataStateMessage("empty", "dossiers")?.includes("Aucun enregistrement pour dossiers"));
+  assert.ok(dataStateMessage("empty", "dossiers")?.includes("Aucun résultat trouvé pour dossiers"));
   assert.ok(dataStateMessage("error", "dossiers")?.includes("Impossible de charger dossiers"));
   assert.ok(dataStateMessage("forbidden", "dossiers")?.includes("Accès non autorisé"));
   assert.ok(dataStateMessage("notFound", "dossier")?.includes("Enregistrement introuvable"));

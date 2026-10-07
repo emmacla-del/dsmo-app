@@ -314,7 +314,9 @@ export function dataStateMessage(state: DataState, resource: string, locale: UiL
     case "error":
       return en ? `Unable to load ${resource}.` : `Impossible de charger ${resource}.`;
     case "empty":
-      return en ? `No records for ${resource}.` : `Aucun enregistrement pour ${resource}.`;
+      // "Found", not "recorded" (D11): the list may be empty because a filter
+      // excluded everything, not because nothing was ever recorded.
+      return en ? `No results found for ${resource}.` : `Aucun résultat trouvé pour ${resource}.`;
     case "ready":
       return null;
   }

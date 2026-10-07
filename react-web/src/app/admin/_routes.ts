@@ -131,7 +131,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: ADMIN_ROLES,
     matchPrefixes: ["/admin/centre-qualite"],
     subRoutes: [
-      { label: "Centre Qualité", labelKey: "centreQualite", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
+      { label: "Contrôle Qualité", labelKey: "centreQualite", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
       // The "Anomalies" entry pointed at /admin/files-attente?tab=anomalies.
       // That page rendered the same blocking-anomaly registry and the same
       // resolution dialog /admin/centre-qualite already carries, so it was
