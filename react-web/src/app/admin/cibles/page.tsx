@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
@@ -101,7 +102,7 @@ function CiblesContent() {
       />
 
       {!canWrite && (
-        <p className="cam-admin-notice" style={{ marginBottom: "var(--cam-space-4)" }}>
+        <p className="cam-admin-notice cam-admin-notice--info">
           {user?.department
             ? t("adminCiblesPage.readOnlyDepartment", { department: user.department })
             : user?.region
@@ -264,9 +265,18 @@ function TargetsPanel({
     setConfirmOpen(false);
   }
 
-  if (query.isLoading) return <p className="cam-admin-lede">{t("common.loading")}</p>;
+  if (query.isLoading) {
+    return <DataState state="loading" resource={t("adminNav.routes.cibles")} title={t("common.loading")} />;
+  }
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
+    return (
+      <DataState
+        state="error"
+        resource={t("adminNav.routes.cibles")}
+        title={formatApiError(query.error, locale)}
+        onRetry={() => query.refetch()}
+      />
+    );
   }
 
   const saveError = mutation.isError ? formatApiError(mutation.error, locale) : null;
@@ -289,7 +299,7 @@ function TargetsPanel({
 
       {query.data && (
         <p className="cam-admin-lede">
-          {query.data.campaign.name} ({query.data.campaign.code}) — {query.data.campaign.status}
+          {query.data.campaign.name} ({query.data.campaign.code}) — {campaignStatusLabel(t, query.data.campaign.status)}
         </p>
       )}
 
@@ -365,6 +375,7 @@ function QuotasPanel({
   showCentral: boolean;
 }) {
   const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
   const listQuery = useQuery({
     queryKey: ["campaigns", "all"],
@@ -388,15 +399,24 @@ function QuotasPanel({
   }, [canList, campagneParam, selected, onCampagneChange]);
 
   if (!canList && !campagneParam) {
-    return <p className="cam-admin-lede">{t("noCampaignListDepartmental")}</p>;
+    return <DataState state="unavailable" resource={tRoot("adminNav.routes.cibles")} title={t("noCampaignListDepartmental")} />;
   }
 
-  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">{t("loadingCampaigns")}</p>;
+  if (canList && listQuery.isLoading) {
+    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingCampaigns")} />;
+  }
   if (canList && listQuery.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error, locale)}</div>;
+    return (
+      <DataState
+        state="error"
+        resource={tRoot("adminNav.routes.cibles")}
+        title={formatApiError(listQuery.error, locale)}
+        onRetry={() => listQuery.refetch()}
+      />
+    );
   }
   if (canList && onefop.length === 0) {
-    return <p className="cam-admin-lede">{t("noOnefopCampaign")}</p>;
+    return <DataState state="empty" resource={tRoot("adminNav.routes.cibles")} title={t("noOnefopCampaign")} />;
   }
 
   const campaignId = campagneParam || selected;
@@ -421,7 +441,7 @@ function QuotasPanel({
               <optgroup label={t("collectionCampaignsGroup")}>
                 {collection.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
-                    {campaign.code} — {campaign.name} ({campaign.status})
+                    {campaign.code} — {campaign.name} ({campaignStatusLabel(tRoot, campaign.status)})
                   </option>
                 ))}
               </optgroup>
@@ -467,6 +487,7 @@ function ReturnsPanel({
   onCampagneChange: (id: string) => void;
 }) {
   const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
   const listQuery = useQuery({
     queryKey: ["campaigns", "all"],
@@ -503,15 +524,24 @@ function ReturnsPanel({
   }, [canList, listQuery.isSuccess, campagneParam, paramShowable, selected, onCampagneChange]);
 
   if (!canList && !campagneParam) {
-    return <p className="cam-admin-lede">{t("noCampaignListDepartmental")}</p>;
+    return <DataState state="unavailable" resource={tRoot("adminNav.routes.cibles")} title={t("noCampaignListDepartmental")} />;
   }
 
-  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">{t("loadingCampaigns")}</p>;
+  if (canList && listQuery.isLoading) {
+    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingCampaigns")} />;
+  }
   if (canList && listQuery.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error, locale)}</div>;
+    return (
+      <DataState
+        state="error"
+        resource={tRoot("adminNav.routes.cibles")}
+        title={formatApiError(listQuery.error, locale)}
+        onRetry={() => listQuery.refetch()}
+      />
+    );
   }
   if (canList && onefop.length === 0) {
-    return <p className="cam-admin-lede">{t("noOnefopCollectionCampaign")}</p>;
+    return <DataState state="empty" resource={tRoot("adminNav.routes.cibles")} title={t("noOnefopCollectionCampaign")} />;
   }
 
   const campaignId = selected;
@@ -528,7 +558,7 @@ function ReturnsPanel({
           >
             {onefop.map((campaign) => (
               <option key={campaign.id} value={campaign.id}>
-                {campaign.code} — {campaign.name} ({campaign.status})
+                {campaign.code} — {campaign.name} ({campaignStatusLabel(tRoot, campaign.status)})
               </option>
             ))}
           </select>
@@ -541,6 +571,7 @@ function ReturnsPanel({
 
 function ReturnsContent({ campaignId }: { campaignId: string }) {
   const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
   const query = useQuery({
     queryKey: ["admin", "pilotage", "returns", campaignId],
@@ -556,16 +587,25 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
     setExpanded(new Set(query.data.regions.map((region) => region.regionId)));
   }, [query.data]);
 
-  if (query.isLoading) return <p className="cam-admin-lede">{t("loadingReturns")}</p>;
+  if (query.isLoading) {
+    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingReturns")} />;
+  }
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
+    return (
+      <DataState
+        state="error"
+        resource={tRoot("adminNav.routes.cibles")}
+        title={formatApiError(query.error, locale)}
+        onRetry={() => query.refetch()}
+      />
+    );
   }
   if (!query.data) return null;
 
   return (
     <>
       <p className="cam-admin-lede">
-        {query.data.campaign.name} ({query.data.campaign.code}) — {query.data.campaign.status}
+        {query.data.campaign.name} ({query.data.campaign.code}) — {campaignStatusLabel(tRoot, query.data.campaign.status)}
       </p>
       <CampaignReturnsTable
         data={query.data}
@@ -581,6 +621,14 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
       />
     </>
   );
+}
+
+// A campaign's stored status as its label (adminCampagnesPage.status), not as
+// the raw enum code; an unknown status shows as stored.
+const CAMPAIGN_STATUS_CODES = new Set(["DRAFT", "ACTIVE", "PAUSED", "CLOSED", "ARCHIVED"]);
+
+function campaignStatusLabel(tRoot: ReturnType<typeof useTranslations>, status: string): string {
+  return CAMPAIGN_STATUS_CODES.has(status) ? tRoot(`adminCampagnesPage.status.${status}`) : status;
 }
 
 function preferredCampaignId(campaigns: Campaign[]): string {
