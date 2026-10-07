@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
@@ -93,26 +93,24 @@ function ParametresContent() {
     rowCount: recentAuditQuery.data?.items.length ?? null,
   });
 
-  // Observatory Form state. The default name is the official French title of
-  // a stored setting, so it is not translated.
-  const [observatoryName, setObservatoryName] = useState("Observatoire National de l'Emploi");
-  const [countryCode, setCountryCode] = useState(COUNTRY_OPTIONS[0].value);
-  const [defaultLanguage, setDefaultLanguage] = useState("fr");
-  const [timezone, setTimezone] = useState("Africa/Douala");
+  // Observatory form. Each field is the actor's edit if they have made one,
+  // else the stored setting, else the default. Derived rather than copied
+  // into state when the settings arrive, so no setState runs in render. The
+  // default name is the official French title of a stored setting, so it is
+  // not translated.
+  const stored = settingsQuery.data;
+  const [nameDraft, setObservatoryName] = useState<string | null>(null);
+  const [countryDraft, setCountryCode] = useState<string | null>(null);
+  const [languageDraft, setDefaultLanguage] = useState<string | null>(null);
+  const [timezoneDraft, setTimezone] = useState<string | null>(null);
+  const observatoryName = nameDraft ?? (stored?.observatoryName || "Observatoire National de l'Emploi");
+  const countryCode = countryDraft ?? (stored?.countryCode || COUNTRY_OPTIONS[0].value);
+  const defaultLanguage = languageDraft ?? (stored?.defaultLanguage || "fr");
+  const timezone = timezoneDraft ?? (stored?.timezone || "Africa/Douala");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Authoritative statutory system roles, in display order.
   const roles = (Object.keys(SYSTEM_ROLE_ORDER) as UserRole[]).sort((a, b) => SYSTEM_ROLE_ORDER[a] - SYSTEM_ROLE_ORDER[b]);
-
-  // Sync initial stored settings
-  useMemo(() => {
-    if (settingsQuery.data) {
-      if (settingsQuery.data.observatoryName) setObservatoryName(settingsQuery.data.observatoryName);
-      if (settingsQuery.data.countryCode) setCountryCode(settingsQuery.data.countryCode);
-      if (settingsQuery.data.defaultLanguage) setDefaultLanguage(settingsQuery.data.defaultLanguage);
-      if (settingsQuery.data.timezone) setTimezone(settingsQuery.data.timezone);
-    }
-  }, [settingsQuery.data]);
 
   const identityMutation = useMutation({
     mutationFn: updateObservatoryIdentity,
