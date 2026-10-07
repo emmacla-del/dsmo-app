@@ -266,6 +266,8 @@ Wizard only. **[CORRECTED]** The numbered steps below still cite line numbers fr
 
 **Effort:** 3–5 days, including the login check. **Risk:** highest — `.cam-auth-page` is shared with login. **Ships alone:** yes, after Phase 0.
 
+**Post-Phase 2 follow-up (2026-10-07):** `FormRow`'s `--medium` and `--short` rules were left as literals in Phase 2. They now read `--cam-field-width-medium` and `--cam-field-width-short`. That is the container-query cap on every input-column child, and the stacked cap on `.input-row`. The D4 tokens existed before Phase 2; Phase 2 didn't consume them. `.field--full` has no rule to convert: `full` adds no class, and the default is the column width.
+
 ---
 
 ## Phase 3 — The ratchet becomes a gate
@@ -378,13 +380,13 @@ No page touched. Reviewable in one sitting. Revertible with one `git revert`. Th
 
 ## Cross-references
 
-- `react-web/docs/audit/app-tidy-audit-2026-10-06.md` — the map
-- `react-web/docs/standards/app-tidy-plan-2026-10-06.md` — the admin tidy plan (Steps 0–3 landed)
-- `react-web/docs/standards/ui-grammar.md` — the 15 rules both surfaces obey (renamed from `admin-ui-grammar.md` in Phase 4)
+- `docs/standards/ui-grammar.md` — the 15 rules both surfaces obey
+- `docs/standards/tokens.md` — the token catalogue
+- `react-web/docs/standards/token-harmonisation-plan-2026-10-07.md` — this plan
 - `react-web/src/app/tokens.css` — the token definitions
 - `react-web/scripts/check-admin-ui-grammar.mjs` — the guard
 - `react-web/scripts/ui-grammar-baseline.json` — the ratchet baseline
-- `react-web/CLAUDE.md` §12 (design-token location) and §18 (agent enforcement)
+- `CLAUDE.md` §12 (design-token location) and §18 (agent enforcement)
 
 ---
 
