@@ -5,14 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  API_BASE_URL,
-  bulkVisaDeclarations,
-  bulkRejectDeclarations,
-  getPilotageQueues,
-  getToken,
-  listAdminQuestionnaires,
-} from "@/lib/api-client";
+import { API_BASE_URL, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueues, getToken, listAdminQuestionnaires, localeHeader } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -397,7 +390,7 @@ function DossiersContent() {
       const token = getToken();
       const resp = await fetch(
         `${API_BASE_URL}/admin/questionnaires/export?${params.toString()}`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        { headers: { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) } },
       );
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
