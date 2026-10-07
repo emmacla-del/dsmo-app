@@ -236,6 +236,29 @@
      lengths; Phase 2 points them here. */
    --cam-choice-size: 18px;
 
+   /* Off-ladder insets in the auth stylesheet. Each keeps the length the
+     screen already used. None of them follows the phone chrome tightening:
+     --cam-card-pad-x is 26px too, but it becomes 16px at 640px, and the
+     auth card does not. */
+   --cam-auth-card-pad: 26px;
+   --cam-auth-card-pad-bottom: 22px;
+   --cam-auth-tab-gap: 22px;
+   --cam-auth-inset-10: 10px;
+   --cam-auth-eye-pad: 40px;
+   --cam-auth-check-gap: 7px;
+   --cam-auth-footer-pad-y: 14px;
+   --cam-auth-block-gap: 20px;
+   --cam-frame-scroll-pad-top: 20px;
+   --cam-frame-scroll-pad-x: 22px;
+   --cam-inline-button-pad-x: 22px;
+   --cam-honour-pad-x: 14px;
+   --cam-edit-pad-y: 3px;
+   /* Smaller than the 4px step. The certify box, the collapsed title stack,
+     and the establishment-ID chip use it. Not a new ladder step. */
+   --cam-space-hairline: 2px;
+   /* Visually-hidden clip. 0 would leave a 1px box that can scroll. */
+   --cam-sr-offset: -1px;
+
    /* FormRow `size`. full is the default column. medium caps NIU, CNPS and
      registration numbers at 280px; short caps phone, year and counts at
      220px. Admin keeps its minmax grid and does not use these. */
