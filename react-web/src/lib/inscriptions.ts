@@ -114,12 +114,14 @@ export const REGISTRATION_METHOD_LABELS: Record<string, string> = {
   SELF_REGISTRATION: "Auto-service",
   ADMIN_CREATED: "Créé par admin",
   ASSISTED: "Assisté",
+  INVITATION: "Invitation",
 };
 
 const REGISTRATION_METHOD_LABELS_EN: Record<string, string> = {
   SELF_REGISTRATION: "Self-service",
   ADMIN_CREATED: "Created by admin",
   ASSISTED: "Assisted",
+  INVITATION: "Invitation",
 };
 
 /** The badge label for a method, or null when the account predates tracking. */
@@ -137,7 +139,7 @@ export function registrationMethodLabel(method: string | null | undefined, local
  */
 export function registrationMethodBadgeClass(method: string | null | undefined): string {
   if (method === "ASSISTED") return "cam-badge-success";
-  if (method === "ADMIN_CREATED") return "cam-badge-info";
+  if (method === "ADMIN_CREATED" || method === "INVITATION") return "cam-badge-info";
   return "cam-badge-neutral";
 }
 
