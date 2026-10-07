@@ -3,7 +3,6 @@
   "note": "Per-file violation counts for scripts/check-admin-ui-grammar.mjs. The check fails when a count rises above its entry here, or when a file absent from a rule (baseline 0) gains one. Lower these as each step of docs/audit/app-tidy-plan-2026-10-06.md lands; never raise one to make a commit pass. Rewritten only by --update, so a change is always visible in the diff.",
   "rules": {
     "hex-in-tsx": {
-      "src/app/admin/diffusion/page.tsx": 11,
       "src/app/admin/equipe/page.tsx": 6,
       "src/app/admin/error.tsx": 1,
       "src/app/admin/inscriptions/page.tsx": 9,
@@ -34,7 +33,6 @@
       "src/components/admin/TargetGrid.tsx": 1
     },
     "bare-table": {
-      "src/app/admin/diffusion/page.tsx": 1,
       "src/app/admin/journal-audit/page.tsx": 1
     },
     "spacing-off-scale": {
