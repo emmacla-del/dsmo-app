@@ -156,10 +156,19 @@ export function count(value: number | null | undefined, locale: UiLocale = "fr")
 /**
  * Render a percentage. Pass `null` when the rate is not calculable (e.g. the
  * denominator is 0 or either operand is missing) — do not pass a stand-in.
+ *
+ * `fractionDigits` is the most decimals shown; `minFractionDigits` (default:
+ * the same) the fewest. Pass 1 and 0 for "50 %" alongside "50,5 %", as the
+ * quota and coverage tables do, rather than "50,0 %".
  */
-export function percent(value: number | null | undefined, fractionDigits = 0, locale: UiLocale = "fr"): string {
+export function percent(
+  value: number | null | undefined,
+  fractionDigits = 0,
+  locale: UiLocale = "fr",
+  minFractionDigits: number = fractionDigits,
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) return NOT_PROVIDED;
-  const digits = value.toLocaleString(INTL_LOCALE[locale], { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+  const digits = value.toLocaleString(INTL_LOCALE[locale], { minimumFractionDigits: minFractionDigits, maximumFractionDigits: fractionDigits });
   // French sets a space before the percent sign; English does not.
   return locale === "en" ? `${digits}%` : `${digits} %`;
 }
