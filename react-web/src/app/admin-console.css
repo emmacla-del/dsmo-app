@@ -144,11 +144,13 @@
   background: var(--cam-green-dark);
   border-right: none;
   z-index: var(--cam-z-nav);
-  overflow: hidden;
+  flex-shrink: 0;
+  /* The rail scrolls on its own only when its hubs outgrow a short screen. */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.cam-admin-rail-link,
-.cam-admin-rail-hub {
+.cam-admin-rail-link {
   cursor: pointer;
   user-select: none;
 }
@@ -158,20 +160,217 @@
   color: var(--cam-surface) !important;
 }
 
+.cam-admin-rail-link:focus-visible {
+  outline: 2px solid var(--cam-flag-yellow);
+  outline-offset: -2px;
+}
+
+/* ── AdminSidebar: brand, hub links, account card ──
+   Drawn as it rendered inline before these rules existed. White washes stay
+   as rgba: they are tints of the dark rail, not palette colours. */
+.cam-admin-rail-brand {
+  flex-shrink: 0;
+  padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
+}
+
+.cam-admin-rail-brand-name {
+  font-size: var(--cam-font-size-lg);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  color: var(--cam-surface);
+}
+
+.cam-admin-rail-brand-sub {
+  margin-top: var(--cam-space-1);
+  font-size: var(--cam-font-size-4xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cam-admin-rail-stripes {
+  height: 3px;
+  margin-top: var(--cam-space-4);
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--cam-flag-green) 0 33.33%,
+    var(--cam-flag-red) 33.33% 66.66%,
+    var(--cam-flag-yellow) 66.66% 100%
+  );
+}
+
+.cam-admin-rail-nav {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-4);
+}
+
+.cam-admin-rail-hub {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-radius: 8px;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cam-admin-rail-hub[aria-current="page"] {
+  background: var(--cam-green);
+  color: var(--cam-surface);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
 .cam-admin-rail-hub:hover:not([aria-current="page"]) {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: var(--cam-surface) !important;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--cam-surface);
 }
 
-.cam-admin-rail-hub:hover:not([aria-current="page"]) span[aria-hidden="true"] {
-  color: var(--cam-surface) !important;
-  background: rgba(255, 255, 255, 0.15) !important;
-}
-
-.cam-admin-rail-link:focus-visible,
 .cam-admin-rail-hub:focus-visible {
   outline: 2px solid var(--cam-flag-yellow);
   outline-offset: -2px;
+}
+
+.cam-admin-rail-hub-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--cam-radius-control);
+  transition: background-color 0.15s ease;
+}
+
+.cam-admin-rail-hub:hover:not([aria-current="page"]) .cam-admin-rail-hub-icon {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.cam-admin-rail-hub-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-admin-rail-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 var(--cam-space-1);
+  flex-shrink: 0;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-flag-yellow);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cam-admin-rail-account {
+  flex-shrink: 0;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-top: var(--cam-border-width) solid rgba(255, 255, 255, 0.1);
+}
+
+.cam-admin-rail-user {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+}
+
+.cam-admin-rail-user-id {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+}
+
+.cam-admin-rail-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--cam-radius-full);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--cam-surface);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 700;
+}
+
+.cam-admin-rail-user-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cam-admin-rail-user-name,
+.cam-admin-rail-user-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-admin-rail-user-name {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  color: var(--cam-surface);
+}
+
+.cam-admin-rail-user-role {
+  font-size: var(--cam-font-size-3xs);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cam-admin-rail-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cam-space-2);
+  width: 100%;
+  padding: var(--cam-space-1) var(--cam-space-3);
+  border: var(--cam-border-width) solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--cam-radius-control);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cam-admin-rail-logout:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--cam-surface);
+}
+
+.cam-admin-rail-logout:focus-visible {
+  outline: 2px solid var(--cam-flag-yellow);
+  outline-offset: 2px;
+}
+
+.cam-admin-rail-locale {
+  display: flex;
+  justify-content: center;
+}
+
+.cam-admin-rail-user + .cam-admin-rail-locale {
+  margin-top: var(--cam-space-3);
 }
 
 /* Cameroon flag stripe at the top of the sidebar */
