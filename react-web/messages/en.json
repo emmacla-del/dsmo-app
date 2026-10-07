@@ -1776,6 +1776,7 @@
     "searchPlaceholder": "Name, NIU, email…",
     "noQueueAccess": "You do not have access to this queue.",
     "loadError": "Unable to load registrations.",
+    "emptyTitle": "No registration found",
     "organisationColumn": "Organisation",
     "typeColumn": "Type",
     "territoryColumn": "Territory",

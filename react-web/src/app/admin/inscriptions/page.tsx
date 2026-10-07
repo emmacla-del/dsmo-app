@@ -14,14 +14,14 @@ import {
   type ApproveUserOptions,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
-import { ENTITY_TYPE_OPTION_KEYS, formatDate, hasRealNiu } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
 import {
   approvalGate,
   inscriptionsHref,
+  registrationMethodBadgeClass,
   registrationMethodLabel,
-  registrationMethodTone,
   verificationFlags,
   verificationRows,
   type VerificationMarks,
@@ -30,6 +30,8 @@ import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { CoveragePanel } from "@/components/admin/CoveragePanel";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
@@ -50,14 +52,15 @@ const FIELD_KEYS = new Set([
   "regionId", "departmentId", "subdivisionId",
 ]);
 
-// `textKey` is under adminInscriptionsPage; an unknown status shows as itself.
-function statusLabel(status: string): { textKey: string | null; text: string; bg: string; color: string } {
-  if (status === "PENDING_APPROVAL") return { textKey: "badgePending", text: status, bg: "#fef3c7", color: "#b45309" };
-  if (status === "COMPLEMENTS_REQUESTED") return { textKey: "badgeComplements", text: status, bg: "#eff6ff", color: "#1d4ed8" };
-  if (status === "ACTIVE") return { textKey: "badgeApproved", text: status, bg: "#004d3d", color: "#ffffff" };
-  if (status === "REJECTED") return { textKey: "badgeRejected", text: status, bg: "#fee2e2", color: "#b91c1c" };
-  return { textKey: null, text: status, bg: "#f1f5f9", color: "#475569" };
-}
+// The stored account status decides the badge: its label (a key under
+// adminInscriptionsPage) and its class. An unknown status shows as itself,
+// neutral.
+const STATUS_BADGE: Record<string, { textKey: string; className: string }> = {
+  PENDING_APPROVAL: { textKey: "badgePending", className: "cam-badge-warning" },
+  COMPLEMENTS_REQUESTED: { textKey: "badgeComplements", className: "cam-badge-info" },
+  ACTIVE: { textKey: "badgeApproved", className: "cam-badge-success" },
+  REJECTED: { textKey: "badgeRejected", className: "cam-badge-error" },
+};
 
 function daysAgo(days: number): string {
   const date = new Date();
@@ -218,11 +221,27 @@ function InscriptionsContent() {
   // The region filter is applied by the API, inside the reviewer's own
   // territory scope, so paging and the totals stay consistent with it.
   const items = queueQuery.data?.items ?? [];
-  const counts = queueQuery.data?.counts ?? { pending: 0, complements: 0, approved: 0, rejected: 0 };
+  // null until the queue answers: a tile never shows a zero it has not read.
+  const counts = queueQuery.data?.counts ?? null;
   const total = queueQuery.data?.total ?? 0;
   const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
   const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const end = Math.min(page * PAGE_SIZE, total);
+
+  const tableState = resolveDataState({
+    roleAllowed: canReadQueue,
+    isLoading: queueQuery.isLoading,
+    isError: queueQuery.isError,
+    error: queueQuery.error,
+    rowCount: queueQuery.data ? items.length : null,
+  });
+
+  const queueKpis = [
+    { key: "pending", label: t("kpiPending"), value: counts?.pending },
+    { key: "complements", label: t("kpiComplements"), value: counts?.complements },
+    { key: "approved", label: t("kpiApproved"), value: counts?.approved },
+    { key: "rejected", label: t("kpiRejected"), value: counts?.rejected },
+  ];
 
   return (
     <div className="cam-admin-page">
@@ -255,7 +274,7 @@ function InscriptionsContent() {
 
       {vue === "file" && (<>
       {createdBy && (
-        <div role="status" className="cam-admin-notice cam-admin-notice--info" style={{ marginBottom: 16 }}>
+        <div role="status" className="cam-admin-notice cam-admin-notice--info">
           <span>
             {t("createdByFilter")}{" "}
             <strong>{items.find((i) => i.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}</strong>
@@ -276,35 +295,42 @@ function InscriptionsContent() {
       )}
 
       {notice && (
-        <div role={notice.tone === "error" ? "alert" : "status"} className={`cam-admin-notice cam-admin-notice--${notice.tone}`} style={{ marginBottom: 16 }}>
+        <div role={notice.tone === "error" ? "alert" : "status"} className={`cam-admin-notice cam-admin-notice--${notice.tone}`}>
           <span>{notice.text}</span>
           <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setNotice(null)}>×</button>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 24 }}>
-        <Kpi value={counts.pending} label={t("kpiPending")} accent="#f59e0b" />
-        <Kpi value={counts.complements} label={t("kpiComplements")} accent="#2563eb" />
-        <Kpi value={counts.approved} label={t("kpiApproved")} accent="#007a5e" />
-        <Kpi value={counts.rejected} label={t("kpiRejected")} accent="#dc2626" />
+      <div className="cam-pilot-kpis" style={{ marginBottom: 0 }}>
+        {queueKpis.map((k) => (
+          <div key={k.key} className="cam-pilot-kpi">
+            <span className="cam-pilot-kpi-label">{k.label}</span>
+            <span className="cam-pilot-kpi-value" aria-busy={queueQuery.isLoading || undefined}>
+              {count(k.value, locale)}
+            </span>
+          </div>
+        ))}
       </div>
 
-      <section className="cam-admin-panel" style={{ marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 14, alignItems: "flex-end" }}>
-          <Filter label={t("typeFilterLabel")}>
-            <select className="cam-select" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
+      {/* Was className="cam-admin-panel", a class defined nowhere, so the
+          filter bar rendered unstyled. */}
+      <section className="cam-admin-section">
+        <div className="cam-admin-section-body">
+        <div className="cam-admin-filters">
+          <Filter id="inscriptions-type" label={t("typeFilterLabel")}>
+            <select id="inscriptions-type" className="cam-select" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
               <option value="">{t("allTypes")}</option>
               {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}
             </select>
           </Filter>
-          <Filter label={t("regionFilterLabel")}>
-            <select className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }}>
+          <Filter id="inscriptions-region" label={t("regionFilterLabel")}>
+            <select id="inscriptions-region" className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }}>
               <option value="">{t("allRegions")}</option>
               {territoryRegions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Filter>
-          <Filter label={t("statusFilterLabel")}>
-            <select className="cam-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+          <Filter id="inscriptions-status" label={t("statusFilterLabel")}>
+            <select id="inscriptions-status" className="cam-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="">{t("statusInQueue")}</option>
               <option value="ALL">{t("statusAll")}</option>
               <option value="PENDING_APPROVAL">{t("statusPending")}</option>
@@ -313,25 +339,22 @@ function InscriptionsContent() {
               <option value="REJECTED">{t("statusRejected")}</option>
             </select>
           </Filter>
-          <Filter label={t("dateFilterLabel")}>
-            <select className="cam-select" value={dateRange} onChange={(e) => { setDateRange(e.target.value); setPage(1); }}>
+          <Filter id="inscriptions-date" label={t("dateFilterLabel")}>
+            <select id="inscriptions-date" className="cam-select" value={dateRange} onChange={(e) => { setDateRange(e.target.value); setPage(1); }}>
               <option value="all">{t("allDates")}</option>
               <option value="30">{t("last30Days")}</option>
               <option value="90">{t("last90Days")}</option>
             </select>
           </Filter>
-          <Filter label={t("searchLabel")}>
-            <input className="cam-input" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t("searchPlaceholder")} />
+          <Filter id="inscriptions-search" label={t("searchLabel")}>
+            <input id="inscriptions-search" className="cam-input" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t("searchPlaceholder")} />
           </Filter>
+        </div>
         </div>
       </section>
 
-      {!canReadQueue && <p className="cam-admin-lede">{t("noQueueAccess")}</p>}
-      {queueQuery.isLoading && <p className="cam-admin-lede">{tRoot("common.loading")}</p>}
-      {queueQuery.isError && <div className="cam-admin-notice cam-admin-notice--error" role="alert">{t("loadError")}</div>}
-
-      <section className="cam-dash-table-wrap">
-        <table className="cam-dash-table">
+      <div className="cam-table-wrapper">
+        <table className="cam-table">
           <thead>
             <tr>
               <th scope="col">{t("organisationColumn")}</th>
@@ -345,27 +368,47 @@ function InscriptionsContent() {
             </tr>
           </thead>
           <tbody>
+            {/* Loading, failure, no access and "nothing matches" are four
+                distinct renders. */}
+            <DataStateRow
+              colSpan={8}
+              state={tableState}
+              resource={tRoot("adminNav.routes.inscriptions")}
+              error={queueQuery.error}
+              onRetry={() => queueQuery.refetch()}
+              title={
+                tableState === "loading"
+                  ? tRoot("common.loading")
+                  : tableState === "error"
+                    ? t("loadError")
+                    : tableState === "forbidden"
+                      ? t("noQueueAccess")
+                      : tableState === "empty"
+                        ? t("emptyTitle")
+                        : undefined
+              }
+            />
             {items.map((item) => {
-              const badge = statusLabel(item.status);
+              const badge = STATUS_BADGE[item.status];
               return (
                 <tr key={item.id}>
                   <th scope="row">{item.organisation}</th>
                   <td>{entityLabel(item.entityType)}</td>
                   <td>{[item.region, item.department].filter(Boolean).join(" / ")}</td>
-                  <td>{formatDate(item.submittedAt)}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{stamp(item.submittedAt, false, locale)}</td>
                   <td>
                     {/* An assisted or admin-created file names its author; a
                         self-service one has none, which reads as the method
                         badge alone rather than as a missing name. */}
-                    {item.createdByName && <div>{item.createdByName}</div>}
+                    {item.createdByName && <span className="cam-admin-meta" style={{ display: "block" }}>{item.createdByName}</span>}
                     <MethodBadge method={item.registrationMethod} />
                   </td>
                   <td>
-                    <span style={{ fontSize: 11, background: badge.bg, color: badge.color, padding: "4px 10px", borderRadius: 9999, fontWeight: 600 }}>
-                      {badge.textKey ? t(badge.textKey) : badge.text}
+                    <span className={`cam-badge ${badge?.className ?? "cam-badge-neutral"}`}>
+                      {badge ? t(badge.textKey) : item.status}
                     </span>
                   </td>
-                  <td>{item.duplicateHints.length > 0 ? item.duplicateHints.length : "—"}</td>
+                  <td>{item.duplicateHints.length > 0 ? count(item.duplicateHints.length, locale) : NOT_PROVIDED}</td>
                   <td>
                     <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => { setNotice(null); setReviewing(item); }}>
                       {t("reviewButton")}
@@ -376,14 +419,15 @@ function InscriptionsContent() {
             })}
           </tbody>
         </table>
-        <div style={{ padding: "14px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="cam-admin-lede" style={{ margin: 0 }}>{t("showingRange", { start, end, total })}</span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("previousButton")}</button>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>{t("nextButton")}</button>
-          </div>
-        </div>
-      </section>
+      </div>
+
+      <div className="cam-pagination">
+        <span className="cam-pagination-info">
+          {t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}
+        </span>
+        <button type="button" className="cam-pagination-btn" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("previousButton")}</button>
+        <button type="button" className="cam-pagination-btn" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>{t("nextButton")}</button>
+      </div>
       </>)}
 
       <AdminDialog
@@ -407,7 +451,7 @@ function InscriptionsContent() {
         }
       >
         {reviewing && (
-          <div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
             {/* The dialog is modal, so the page-level notice sits behind it:
                 a refused decision is repeated here, where the reviewer is. */}
             {notice?.tone === "error" && (
@@ -415,9 +459,9 @@ function InscriptionsContent() {
                 <span>{notice.text}</span>
               </div>
             )}
-            <p>{t("typeLine")} <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
-            <p>{t("niuLine", { niu: hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber ?? "—" : "—" })}</p>
-            <p>{t("registeredOnLine", { date: formatDate(reviewing.submittedAt) })}</p>
+            <p style={{ margin: 0 }}>{t("typeLine")} <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
+            <p style={{ margin: 0 }}>{t("niuLine", { niu: hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber ?? NOT_PROVIDED : NOT_PROVIDED })}</p>
+            <p style={{ margin: 0 }}>{t("registeredOnLine", { date: stamp(reviewing.submittedAt, false, locale) })}</p>
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 {reviewing.duplicateHints.map((hint) => <p key={hint} style={{ margin: 0 }}>{hint}</p>)}
@@ -425,8 +469,8 @@ function InscriptionsContent() {
             )}
             {reviewing.lastResubmission && (
               <div>
-                <p style={{ marginBottom: 4 }}>
-                  <strong>{t("correctionsSent")}</strong> {t("correctionsSentOn", { date: formatDate(reviewing.lastResubmission.at) })}
+                <p style={{ margin: "0 0 var(--cam-space-1)" }}>
+                  <strong>{t("correctionsSent")}</strong> {t("correctionsSentOn", { date: stamp(reviewing.lastResubmission.at, false, locale) })}
                 </p>
                 {Object.keys(reviewing.lastResubmission.changes).length === 0 ? (
                   <p style={{ margin: 0 }}>{t("resubmittedUnchanged")}</p>
@@ -452,7 +496,7 @@ function InscriptionsContent() {
                 )}
               </div>
             )}
-            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-2)" }}>{t("toVerifyTitle")}</h3>
+            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-2) 0 0" }}>{t("toVerifyTitle")}</h3>
             <table className="cam-dash-table">
               <thead>
                 <tr>
@@ -465,7 +509,7 @@ function InscriptionsContent() {
                 {rows.map((row) => (
                   <tr key={row.key}>
                     <th scope="row">{row.label}</th>
-                    <td>{row.value ?? <span style={{ color: "var(--cam-text-muted)" }}>{t("notRecorded")}</span>}</td>
+                    <td>{row.value ?? <span className="cam-admin-muted">{t("notRecorded")}</span>}</td>
                     <td>
                       {/* Neither radio checked = not answered yet. An empty
                           value cannot be attested, so its ✓ is disabled. */}
@@ -495,17 +539,19 @@ function InscriptionsContent() {
                 ))}
               </tbody>
             </table>
-            <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-4) 0 var(--cam-space-1)" }}>{t("respondentTitle")}</h3>
-            <p className="cam-admin-choice-hint" style={{ margin: "0 0 var(--cam-space-2)" }}>{t("respondentNote")}</p>
+            <div>
+              <h3 className="cam-admin-label" style={{ margin: "var(--cam-space-2) 0 0" }}>{t("respondentTitle")}</h3>
+              <p className="cam-admin-choice-hint" style={{ margin: 0 }}>{t("respondentNote")}</p>
+            </div>
             <dl className="cam-admin-kv">
               <div>
                 <dt>{t("nameLabel")}</dt>
-                <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || "—"}</dd>
+                <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || NOT_PROVIDED}</dd>
               </div>
-              <div><dt>{t("functionLabel")}</dt><dd>{reviewing.respondentFunction || "—"}</dd></div>
+              <div><dt>{t("functionLabel")}</dt><dd>{reviewing.respondentFunction || NOT_PROVIDED}</dd></div>
               <div>
                 <dt>{t("phoneLabel")}</dt>
-                <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || "—"}</dd>
+                <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || NOT_PROVIDED}</dd>
               </div>
               <div><dt>{t("loginEmailLabel")}</dt><dd>{reviewing.email}</dd></div>
               <div>
@@ -522,7 +568,7 @@ function InscriptionsContent() {
                 {t("centralConfirmed")}
               </label>
             )}
-            <div className="cam-target-modes" role="radiogroup" aria-label={t("decisionAriaLabel")}>
+            <div role="radiogroup" aria-label={t("decisionAriaLabel")} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
               <label className="cam-admin-choice">
                 <input type="radio" name="decision" checked={decision === "APPROVE"} onChange={() => setDecision("APPROVE")} />
                 {t("approveAccount")}
@@ -537,15 +583,17 @@ function InscriptionsContent() {
               </label>
             </div>
             {decision === "APPROVE" && approveBlocked && (
-              <p id="inscription-approve-blocked" role="status" className="cam-admin-choice-hint" style={{ margin: "var(--cam-space-2) 0 0" }}>
+              <p id="inscription-approve-blocked" role="status" className="cam-admin-choice-hint" style={{ margin: 0 }}>
                 {approveBlocked}
               </p>
             )}
             {decision !== "APPROVE" && (
-              <label className="cam-target-year">
-                {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}
-                <textarea className="cam-input" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
-              </label>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="inscription-decision-comment">
+                  {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}
+                </label>
+                <textarea id="inscription-decision-comment" className="cam-admin-textarea" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+              </div>
             )}
           </div>
         )}
@@ -557,29 +605,16 @@ function InscriptionsContent() {
 /** The registration-method badge, or a dash for a row that predates tracking. */
 function MethodBadge({ method }: { method: string | null }) {
   const label = registrationMethodLabel(method, asUiLocale(useLocale()));
-  if (!label) return <span>—</span>;
-  const tone = registrationMethodTone(method);
-  return (
-    <span style={{ fontSize: 11, background: tone.bg, color: tone.color, padding: "3px 9px", borderRadius: 9999, fontWeight: 600, whiteSpace: "nowrap" }}>
-      {label}
-    </span>
-  );
+  if (!label) return <span className="cam-admin-muted">{NOT_PROVIDED}</span>;
+  return <span className={`cam-badge ${registrationMethodBadgeClass(method)}`}>{label}</span>;
 }
 
-function Kpi({ value, label, accent }: { value: number; label: string; accent: string }) {
+/** One filter control: a .cam-field with its label bound to the control. */
+function Filter({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--cam-surface)", border: "1px solid var(--cam-border)", borderLeft: `4px solid ${accent}`, borderRadius: 8, padding: "20px 24px" }}>
-      <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 13, color: "var(--cam-text-muted)", marginTop: 8 }}>{label}</div>
-    </div>
-  );
-}
-
-function Filter({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="cam-target-year">
-      {label}
+    <div className="cam-field">
+      <label className="cam-admin-label" htmlFor={id}>{label}</label>
       {children}
-    </label>
+    </div>
   );
 }

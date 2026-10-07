@@ -130,21 +130,10 @@ export function registrationMethodLabel(method: string | null | undefined, local
 }
 
 /**
- * Badge colours per method, as design tokens. ASSISTED is the one that marks
- * field work, so it reads in the brand green; auto-service is neutral, because
- * it is the unremarkable majority.
- */
-export function registrationMethodTone(method: string | null | undefined): { bg: string; color: string } {
-  if (method === "ASSISTED") return { bg: "var(--cam-green-dark)", color: "#ffffff" };
-  if (method === "ADMIN_CREATED") return { bg: "var(--cam-info-bg)", color: "var(--cam-info)" };
-  return { bg: "var(--cam-surface-subtle)", color: "var(--cam-text-muted)" };
-}
-
-/**
- * The same mapping as registrationMethodTone, as a .cam-badge-* class: the
- * enum decides the class and the class decides the colour (UI grammar G1).
- * registrationMethodTone stays until its last caller, /admin/inscriptions,
- * moves to this one.
+ * The badge class for a registration method: the enum decides the class and
+ * the class decides the colour (UI grammar G1). ASSISTED marks field work, so
+ * it reads as success; auto-service is neutral, because it is the
+ * unremarkable majority.
  */
 export function registrationMethodBadgeClass(method: string | null | undefined): string {
   if (method === "ASSISTED") return "cam-badge-success";

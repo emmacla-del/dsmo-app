@@ -1776,6 +1776,7 @@
     "searchPlaceholder": "Nom, NIU, e-mail…",
     "noQueueAccess": "Vous n'avez pas accès à cette file.",
     "loadError": "Impossible de charger les inscriptions.",
+    "emptyTitle": "Aucune inscription trouvée",
     "organisationColumn": "Organisation",
     "typeColumn": "Type",
     "territoryColumn": "Territoire",
