@@ -162,6 +162,25 @@ body {
   width: 100%;
 }
 
+/* ── /home/declarations summary figures (respondent composition) ──
+   Sits inside a .cam-dash-card; the tone names a status, not a palette. */
+.cam-summary-value {
+  font-size: var(--cam-font-size-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-summary-value--info    { color: var(--cam-info); }
+.cam-summary-value--success { color: var(--cam-success); }
+.cam-summary-value--muted   { color: var(--cam-text-muted); }
+
+.cam-summary-label {
+  margin-top: var(--cam-space-1);
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+}
+
 .cam-error-box {
   background: var(--cam-error-bg);
   color: var(--cam-error);

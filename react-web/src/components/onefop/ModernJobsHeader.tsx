@@ -1,6 +1,8 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
+import { clockTime } from "@/lib/admin-data-state";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 interface ModernJobsHeaderProps {
@@ -56,7 +58,7 @@ export function ModernJobsHeader({
   })();
 
   const formattedSaveTime = lastSavedAt
-    ? lastSavedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    ? clockTime(lastSavedAt, asUiLocale(locale))
     : null;
 
   return (

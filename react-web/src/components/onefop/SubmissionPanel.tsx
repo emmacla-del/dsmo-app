@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
+import { stamp } from "@/lib/admin-data-state";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import {
@@ -68,6 +70,7 @@ export function SubmissionPanel({
   formId,
 }: SubmissionPanelProps) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   const [lastResult, setLastResult] = useState<string | null>(null);
   const quarterQuery = useQuery({ queryKey: ["onefop", "active-quarter"], queryFn: getActiveQuarter });
 
@@ -160,7 +163,8 @@ export function SubmissionPanel({
           {quarterQuery.data.isOpen
             ? t("submissionPanel.periodOpenMessage", {
                 code: quarterQuery.data.code ?? "",
-                deadline: new Date(quarterQuery.data.deadline!).toLocaleDateString(),
+                // The console locale, not the browser's (G12).
+                deadline: stamp(quarterQuery.data.deadline, false, locale),
               })
             : (quarterQuery.data.message ?? t("submissionPanel.noPeriodOpen"))}
         </p>

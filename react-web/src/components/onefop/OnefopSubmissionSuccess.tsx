@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { stamp } from "@/lib/admin-data-state";
 
 export interface OnefopSubmissionSuccessProps {
   /** Raw result message string, often in format "Déclaration enregistrée avec succès (ID: 12345)" */
@@ -68,7 +69,8 @@ export function OnefopSubmissionSuccess({
         timeStyle: "short",
       }).format(d);
     } catch {
-      return d.toLocaleString();
+      // The shared formatter, in the receipt's language, if Intl rejects fr-CM / en-CM.
+      return stamp(d.toISOString(), true, isFr ? "fr" : "en");
     }
   }, [submittedAt, isFr]);
 

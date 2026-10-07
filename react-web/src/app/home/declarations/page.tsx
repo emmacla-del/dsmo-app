@@ -80,10 +80,10 @@ function getOnefopStatusLabel(t: Translator, status: string): string {
 
 const GROUP_COLOR: Record<Group, string> = {
   draft: "var(--cam-text-muted)",
-  pending: "#2563eb",
+  pending: "var(--cam-info)",
   approved: "var(--cam-success)",
   rejected: "var(--cam-error)",
-  correction: "#d97706",
+  correction: "var(--cam-warning)",
 };
 
 function formatDate(d: Date | null, t: Translator): string {
@@ -260,7 +260,9 @@ export default function CompanyDeclarationsPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
+    // The respondent content measure (--vt-content-max, 940px), so /home has
+    // two measures — 600 wizard, 940 content — rather than a third.
+    <div style={{ maxWidth: "var(--vt-content-max)", margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
         <div>
@@ -284,10 +286,10 @@ export default function CompanyDeclarationsPage() {
       {/* Summary cards */}
       {!loading && !error && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-          <SummaryCard label={t("homeDeclarationsPage.statusSubmitted")} value={submittedCount} color="#2563eb" />
-          <SummaryCard label={t("homeDeclarationsPage.statusPendingReview")} value={underReviewCount} color="#2563eb" />
-          <SummaryCard label={t("homeDeclarationsPage.summaryApprovedLabel")} value={approvedCount} color="var(--cam-success)" />
-          <SummaryCard label={t("homeDeclarationsPage.summaryDraftLabel")} value={draftCount} color="var(--cam-text-muted)" />
+          <SummaryCard label={t("homeDeclarationsPage.statusSubmitted")} value={submittedCount} tone="info" />
+          <SummaryCard label={t("homeDeclarationsPage.statusPendingReview")} value={underReviewCount} tone="info" />
+          <SummaryCard label={t("homeDeclarationsPage.summaryApprovedLabel")} value={approvedCount} tone="success" />
+          <SummaryCard label={t("homeDeclarationsPage.summaryDraftLabel")} value={draftCount} tone="muted" />
         </div>
       )}
 
@@ -395,17 +397,13 @@ export default function CompanyDeclarationsPage() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function SummaryCard({ label, value, color }: { label: string; value: number; color: string }) {
+// Respondent-styled, not KpiTile (plan D10): KpiTile carries a staff work
+// queue's semantics — tone edge, arrow, link — that mean nothing here.
+function SummaryCard({ label, value, tone }: { label: string; value: number; tone: "info" | "success" | "muted" }) {
   return (
-    <div style={{
-      background: "var(--cam-surface)",
-      border: "1px solid var(--cam-border)",
-      borderRadius: 10,
-      padding: "14px 16px",
-      textAlign: "center",
-    }}>
-      <div style={{ fontSize: 26, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>{label}</div>
+    <div className="cam-dash-card" style={{ textAlign: "center" }}>
+      <div className={`cam-summary-value cam-summary-value--${tone}`}>{value}</div>
+      <div className="cam-summary-label">{label}</div>
     </div>
   );
 }
