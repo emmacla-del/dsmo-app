@@ -217,7 +217,7 @@ export function AdminHeaderActions({
       >
         <span style={{ flex: 1, background: "var(--cam-flag-green)" }} />
         <span style={{ flex: 1, background: "var(--cam-flag-red)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: "var(--cam-flag-yellow)", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
+          <span style={{ color: "var(--cam-flag-yellow)", fontSize: "var(--cam-font-size-4xs)", lineHeight: 1, position: "absolute" }}>★</span>
         </span>
         <span style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
       </span>

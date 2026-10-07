@@ -217,7 +217,7 @@
 }
 
 .cam-admin-brand-sub {
-  font-size: 9px;
+  font-size: var(--cam-font-size-4xs);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;

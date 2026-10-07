@@ -99,13 +99,15 @@ Size and weight come from the class. **A page sets no `fontSize`.** Where a one-
 
 | Token | Size | Token | Size |
 |---|---:|---|---:|
-| `3xs` | 11px | `base` | 15px |
-| `2xs` | 12px | `lg` | 18px |
-| `xs` | 13px | `xl` | 24px |
-| `sm` | 14px | `2xl` | 25px |
-| | | `3xl` | 32px |
+| `4xs` | 9px | `base` | 15px |
+| `3xs` | 11px | `lg` | 18px |
+| `2xs` | 12px | `xl` | 24px |
+| `xs` | 13px | `2xl` | 25px |
+| `sm` | 14px | `3xl` | 32px |
 
 The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was added: 12px is the most-used raw font size in the app, and a token called `2xs` that rendered *smaller* than one called `3xs` would misread at every call site.
+
+`4xs` exists for two pieces of sidebar micro-copy that are deliberately below the body floor — the uppercase, letter-spaced brand sub-label and the star in the flag circle. It is a record of an existing intent, not an invitation: nothing new should reach for it. There is no 10px step, so the sidebar's one 10.5px label rounds up to `3xs`.
 
 ### G14 — Spacing
 

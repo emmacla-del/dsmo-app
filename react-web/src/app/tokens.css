@@ -81,6 +81,12 @@
      was added between it and xs: 12px is the most-used raw font size in the
      app, so it had to become a token, and a token called 2xs that rendered
      smaller than the one called 3xs would misread at every call site. */
+  /* 9px exists for two pieces of sidebar micro-copy that are deliberately
+     below the body floor: the uppercase, letter-spaced brand sub-label, and
+     the star inside the flag circle. Raising either to 11px would change a
+     size that was chosen small on purpose, so the ladder gains a step
+     instead. Nothing new should reach for it. */
+  --cam-font-size-4xs: 0.5625rem;   /* 9px */
   --cam-font-size-3xs: 0.6875rem;   /* 11px */
   --cam-font-size-2xs: 0.75rem;     /* 12px */
   --cam-font-size-xs: 0.8125rem;    /* 13px */

@@ -179,7 +179,7 @@ const RULES = [
     key: "font-size-literal",
     rule: "G13",
     title: "Literal font size in an inline style",
-    fix: "Use the class, or a --cam-font-size-* token (3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
+    fix: "Use the class, or a --cam-font-size-* token (4xs 9, 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
     run: () =>
       findPerLine(collectAll(ADMIN_DIRS, [".ts", ".tsx"]), (line) =>
         /fontSize:\s*["']?[0-9]/.test(line)

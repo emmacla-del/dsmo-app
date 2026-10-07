@@ -196,7 +196,7 @@ export function AdminSidebar({
           <div style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 900, color: "var(--cam-surface)", letterSpacing: "0.06em", lineHeight: 1.1 }}>
             NEFOP
           </div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
+          <div style={{ fontSize: "var(--cam-font-size-4xs)", fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
             {t("brandSubtitle")}
           </div>
         </div>
@@ -295,7 +295,7 @@ export function AdminSidebar({
                 <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-surface)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {user.displayName}
                 </div>
-                <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "var(--cam-font-size-3xs)", color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {user.roleLabel}
                 </div>
               </div>
