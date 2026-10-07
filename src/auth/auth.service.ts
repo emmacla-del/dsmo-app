@@ -1941,6 +1941,10 @@ export class AuthService {
           department: true,
           matricule: true,
           serviceCode: true,
+          // The post claimed in the organigramme: what an approver checks
+          // before opening an account requested through a group link.
+          poste: true,
+          positionType: true,
           createdAt: true,
           lastLoginAt: true,
           perAgentTarget: true,
