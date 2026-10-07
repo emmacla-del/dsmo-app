@@ -28,10 +28,15 @@ granted campaign endpoints.
 
 ## D3 - Registration approval by DR roles
 DECENTRALIZE. Regional and Divisional roles may approve/reject
-registrations in their territory. Applies consistently to
-/admin/inscriptions, /admin/validation-compte, and the
-approve/reject actions on /admin/utilisateurs. Uses existing
-territory enforcement.
+COMPANY registrations in their territory (/admin/inscriptions,
+/admin/validation-compte). Uses existing territory enforcement.
+
+AMENDED 2026-10-07 - staff accounts excluded. Regional and Divisional
+roles neither initiate staff account creation nor approve it, not even
+inside their own territory. Staff accounts are created by invitation
+(SUPER_ADMIN / ADMIN_ONEFOP) and approved by the national administration
+only: SUPER_ADMIN any account, ADMIN_ONEFOP the staff roles it manages.
+Enforced by assertCanApproveRegistration (src/auth/staff-scope.ts).
 
 ## D4 - Admin-created establishments
 SKIP. Companies self-register. No admin "create establishment"
