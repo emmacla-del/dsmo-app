@@ -7,6 +7,12 @@
 //
 // Deliberately has no "fallback rows" prop. A panel either shows authoritative
 // data or shows the absence of it.
+//
+// Appearance comes entirely from the shared classes — .cam-admin-empty for the
+// neutral states, .cam-admin-notice--error / --warn for the two that report a
+// failure. It carried its own inline slate palette until Step 0 of the UI
+// tidy: a component that every admin page uses to say "something is wrong"
+// cannot also be the component that breaks the colour rule.
 
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -17,13 +23,14 @@ import {
   type DataState as State,
 } from "@/lib/admin-data-state";
 
-const TONES: Record<Exclude<State, "ready">, { bg: string; border: string; color: string; icon: string }> = {
-  loading: { bg: "#f8fafc", border: "#e2e8f0", color: "#64748b", icon: "" },
-  empty: { bg: "#f8fafc", border: "#e2e8f0", color: "#475569", icon: "" },
-  unavailable: { bg: "#f8fafc", border: "#e2e8f0", color: "#64748b", icon: "" },
-  error: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", icon: "!" },
-  forbidden: { bg: "#fffbeb", border: "#fde68a", color: "#92400e", icon: "" },
-  notFound: { bg: "#f8fafc", border: "#e2e8f0", color: "#475569", icon: "" },
+// Which of the six states reads as a failure, and in which notice tone.
+// `error` is the server or network failing; `forbidden` is the server
+// answering correctly that this account may not see the record, which is a
+// warning about scope, not a fault. The remaining four are neutral — there is
+// simply nothing to show — so they render as .cam-admin-empty with no box.
+const NOTICE_TONE: Partial<Record<Exclude<State, "ready">, "error" | "warn">> = {
+  error: "error",
+  forbidden: "warn",
 };
 
 export interface DataStateProps {
@@ -41,7 +48,12 @@ export interface DataStateProps {
   error?: unknown;
   /** Retry handler, rendered only for the `error` state. */
   onRetry?: () => void;
-  /** Compact variant for small cards. */
+  /**
+   * Compact variant for small cards. Applies to the neutral states, which are
+   * otherwise centred in a generous block. The error and forbidden states
+   * ignore it: .cam-admin-notice is already at this density, and a notice
+   * carrying a server message is always left-aligned.
+   */
   dense?: boolean;
 }
 
@@ -50,56 +62,42 @@ export function DataState({ state, resource, title, hint, error, onRetry, dense 
   const locale = asUiLocale(useLocale());
   if (state === "ready") return null;
 
-  const tone = TONES[state];
+  const tone = NOTICE_TONE[state];
   const headline = title ?? dataStateMessage(state, resource, locale) ?? "";
   const detail = state === "error" ? errorDetail(error) : null;
+
+  // Neutral: nothing to report but the absence itself. No box, no fill — a
+  // bordered grey panel around "aucun dossier" reads as an error.
+  if (!tone) {
+    return (
+      <div
+        role="status"
+        className={`cam-admin-empty${dense ? " cam-admin-empty--dense" : ""}`}
+      >
+        <strong>{headline}</strong>
+        {hint && <div className="cam-admin-state-hint">{hint}</div>}
+      </div>
+    );
+  }
 
   return (
     <div
       role={state === "error" ? "alert" : "status"}
-      style={{
-        background: tone.bg,
-        border: `1px solid ${tone.border}`,
-        borderRadius: 8,
-        padding: dense ? "12px 14px" : "28px 24px",
-        textAlign: dense ? "left" : "center",
-        color: tone.color,
-        fontSize: 13,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: dense ? "flex-start" : "center",
-        gap: 6,
-      }}
+      className={`cam-admin-notice cam-admin-notice--${tone}`}
     >
-      <div style={{ fontWeight: 600, fontSize: dense ? 13 : 14 }}>
-        {tone.icon ? `${tone.icon} ` : ""}
-        {headline}
+      <div className="cam-admin-state-stack">
+        <strong>
+          {state === "error" ? "! " : ""}
+          {headline}
+        </strong>
+        {hint && <div className="cam-admin-state-hint">{hint}</div>}
+        {detail && <div className="cam-admin-state-detail">{detail}</div>}
+        {state === "error" && onRetry && (
+          <button type="button" onClick={onRetry} className="cam-admin-state-retry">
+            {tCommon("retry")}
+          </button>
+        )}
       </div>
-      {hint && <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 520 }}>{hint}</div>}
-      {detail && (
-        <div style={{ fontSize: 12, opacity: 0.9, maxWidth: 520, fontFamily: "ui-monospace, monospace" }}>
-          {detail}
-        </div>
-      )}
-      {state === "error" && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          style={{
-            marginTop: 4,
-            padding: "6px 14px",
-            borderRadius: 6,
-            border: `1px solid ${tone.border}`,
-            background: "#ffffff",
-            color: tone.color,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          {tCommon("retry")}
-        </button>
-      )}
     </div>
   );
 }
@@ -120,7 +118,7 @@ export function DataStateRow({
   if (state === "ready") return null;
   return (
     <tr>
-      <td colSpan={colSpan} style={{ padding: 16 }}>
+      <td colSpan={colSpan} className="cam-admin-state-cell">
         <DataState state={state} resource={resource} title={title} hint={hint} error={error} onRetry={onRetry} />
       </td>
     </tr>

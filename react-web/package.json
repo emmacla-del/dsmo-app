@@ -9,6 +9,7 @@
     "lint": "eslint",
     "check:tables": "node scripts/table-typography/check-table-typography.mjs",
     "check:admin-integrity": "node scripts/check-admin-data-integrity.mjs",
+    "check:ui-grammar": "node scripts/check-admin-ui-grammar.mjs",
     "test": "node scripts/run-unit-tests.mjs",
     "todo:report": "node scripts/todo-report.mjs"
   },

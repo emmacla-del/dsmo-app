@@ -229,7 +229,7 @@ export default function QuestionnairesPage() {
                         alignItems: "center",
                         padding: "0.75rem",
                         borderRadius: "6px",
-                        background: "var(--cam-surface-card)",
+                        background: "var(--cam-surface)",
                         border: "1px solid var(--cam-border)",
                       }}
                     >

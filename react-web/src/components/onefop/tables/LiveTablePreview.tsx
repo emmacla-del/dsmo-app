@@ -257,12 +257,12 @@ export function LiveTablePreview({
                             : undefined
                         }
                         className={`px-2 py-1.5 text-center text-xs tabular-nums border-r border-[var(--cam-border)] transition-colors ${
-                          canEdit ? "cursor-pointer hover:bg-[var(--cam-highlight-bg)]" : ""
+                          canEdit ? "cursor-pointer hover:bg-[var(--cam-warning-bg)]" : ""
                         } ${
                           isUnanswered
                             ? "bg-[var(--cam-warning-bg)] text-[var(--cam-warning)] font-bold ring-1 ring-inset ring-[var(--cam-warning-border)]"
                             : isCellActive
-                            ? "bg-[var(--cam-highlight-bg)] text-[var(--cam-text)] font-bold ring-2 ring-[var(--cam-green)] ring-inset"
+                            ? "bg-[var(--cam-warning-bg)] text-[var(--cam-text)] font-bold ring-2 ring-[var(--cam-green)] ring-inset"
                             : isComputed
                             ? "bg-[var(--cam-success-bg)] text-[var(--cam-green)] font-bold"
                             : val != null && val > 0
