@@ -1,7 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   ActorSummaryService,
+  STALE_AFTER_DAYS,
   coverageFor,
+  daysSince,
+  latest,
   median,
   parseNudgeBody,
   parsePeriod,
@@ -28,7 +31,9 @@ const admin = {
   department: null,
 };
 
-function makeService(overrides: { users?: any[]; backlog?: any[]; fieldRows?: any[]; decisions?: any[]; lastDecision?: any } = {}) {
+function makeService(
+  overrides: { users?: any[]; backlog?: any[]; fieldRows?: any[]; decisions?: any[]; lastDecision?: any; lastActions?: any[] } = {},
+) {
   const prisma = {
     user: {
       findMany: jest.fn(async (args: any) => {
@@ -39,7 +44,7 @@ function makeService(overrides: { users?: any[]; backlog?: any[]; fieldRows?: an
       }),
     },
     auditLog: {
-      groupBy: jest.fn(async () => []),
+      groupBy: jest.fn(async () => overrides.lastActions ?? []),
       findMany: jest.fn(async () => overrides.decisions ?? []),
       findFirst: jest.fn(async () => overrides.lastDecision ?? null),
     },
@@ -83,6 +88,18 @@ describe('median', () => {
     expect(median([])).toBeNull();
     expect(median([3, 1, 2])).toBe(2);
     expect(median([1, 2, 3, 4])).toBe(2.5);
+  });
+});
+
+describe('latest / daysSince', () => {
+  it('picks the latest timestamp and ignores missing ones', () => {
+    expect(latest([])).toBeNull();
+    expect(latest([null, new Date(NOW.getTime() - DAY), NOW, undefined])).toEqual(NOW);
+  });
+
+  it('counts whole days, never less than one', () => {
+    expect(daysSince(new Date(NOW.getTime() - 12 * DAY - 1000), NOW)).toBe(12);
+    expect(daysSince(new Date(NOW.getTime() - 60 * 1000), NOW)).toBe(1);
   });
 });
 
@@ -167,6 +184,30 @@ describe('ActorSummaryService.getActorSummary', () => {
     const result = await service.getActorSummary({ id: 's1', role: 'SUPER_ADMIN' }, {}, NOW);
     expect(result.actors.map((a) => a.userId)).toEqual(['a1', 'a2']);
     expect(result.actors[0].processing).toMatchObject({ backlog: 2, stale: 1 });
+  });
+
+  it('reports the last decision separately from the last action, and the stale threshold', async () => {
+    const decided = new Date(NOW.getTime() - 9 * DAY);
+    const browsed = new Date(NOW.getTime() - 1 * DAY);
+    const { service, prisma } = makeService({
+      lastActions: [
+        { userId: 'a1', action: 'COMPANY_REGISTRATION_APPROVED', _max: { timestamp: decided } },
+        { userId: 'a1', action: 'SEND_NOTIFICATION', _max: { timestamp: browsed } },
+      ],
+    });
+    const result = await service.getActorSummary({ id: 's1', role: 'SUPER_ADMIN' }, {}, NOW);
+    expect(prisma.auditLog.groupBy.mock.calls[0][0].by).toEqual(['userId', 'action']);
+    expect(result.staleAfterDays).toBe(STALE_AFTER_DAYS);
+    expect(result.actors[0].lastActionAt).toBe(browsed.toISOString());
+    expect(result.actors[0].lastDecisionAt).toBe(decided.toISOString());
+  });
+
+  it('leaves lastDecisionAt null for an admin who never decided', async () => {
+    const { service } = makeService({
+      lastActions: [{ userId: 'a1', action: 'SEND_NOTIFICATION', _max: { timestamp: NOW } }],
+    });
+    const result = await service.getActorSummary({ id: 's1', role: 'SUPER_ADMIN' }, {}, NOW);
+    expect(result.actors[0].lastDecisionAt).toBeNull();
   });
 
   it('rejects an unknown role filter', async () => {
