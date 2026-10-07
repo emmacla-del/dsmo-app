@@ -332,9 +332,12 @@ export class AuthController {
     return this.authService.getPendingMinefopUsers();
   }
 
-  // D3: REGIONAL_ADMIN / DIVISIONAL_ADMIN may review registrations in their
-  // territory (assertCanApproveRegistration). Added alongside
-  // USER_ADMIN_ROLES, which also guards list / suspend / delete / re-role.
+  // D3: REGIONAL_ADMIN / DIVISIONAL_ADMIN may review COMPANY registrations
+  // in their territory (assertTerritorialAuthority in the company path).
+  // They may not approve or reject STAFF accounts: the staff path,
+  // assertCanApproveRegistration, refuses them (decision of 2026-10-07).
+  // Added alongside USER_ADMIN_ROLES, which also guards list / suspend /
+  // delete / re-role.
   // The former 'ADMIN_ONEFOP' entry is dropped: it now maps to ADMIN_ONEFOP,
   // which USER_ADMIN_ROLES already covers.
   @Patch('approve-user/:id')
