@@ -15,7 +15,9 @@ import {
 } from "@/lib/user-directory";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { GroupInvitationLinks } from "@/components/admin/GroupInvitationLinks";
 import { InviteAgentDialog } from "@/components/admin/InviteAgentDialog";
+import { PendingStaffRequests } from "@/components/admin/PendingStaffRequests";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
@@ -372,6 +374,11 @@ export default function OnefopUsersPage() {
           </table>
         </div>
       </section>
+
+      {/* Accounts requested through a group link wait here for approval;
+          the links themselves are managed in the section below. */}
+      <PendingStaffRequests roles={LISTED_STAFF_ROLES} />
+      <GroupInvitationLinks />
 
       <InviteAgentDialog open={inviteOpen} onClose={() => setInviteOpen(false)} actorRole={user?.role} />
 

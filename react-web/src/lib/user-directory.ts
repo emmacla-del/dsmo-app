@@ -23,6 +23,9 @@ export interface DirectoryUser {
   department: string | null;
   matricule: string | null;
   serviceCode: string | null;
+  // The organigramme post's title and type (AuthService.listUsers).
+  poste?: string | null;
+  positionType?: string | null;
   createdAt: string;
   lastLoginAt?: string | null;
   submissionsCount?: number | null;
