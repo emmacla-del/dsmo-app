@@ -70,23 +70,29 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
 }
 
 /**
- * Roles that may approve or reject pending staff registrations inside their
- * own territory (role-decisions D3). Deliberately NOT part of
- * USER_ADMIN_ROLES or manageableRolesFor: these roles get no other user
- * management power (list, suspend, delete, re-role).
+ * Territorial roles that review COMPANY registrations in their own territory
+ * (role-decisions D3): the company-registration list and the approve /
+ * reject / request-complements routes. Deliberately NOT part of
+ * USER_ADMIN_ROLES or manageableRolesFor: these roles get no user
+ * management power at all -- they neither create staff accounts nor
+ * approve them (decision of 2026-10-07; see assertCanApproveRegistration).
  */
 export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
 
 /**
- * Authorization for PATCH /auth/approve-user/:id and /auth/reject-user/:id.
+ * Authorization for approving or rejecting a pending STAFF account
+ * (PATCH /auth/approve-user/:id and /auth/reject-user/:id on a non-company
+ * target; company files go through assertTerritorialAuthority instead).
  *
- * - REGIONAL_ADMIN / DIVISIONAL_ADMIN: the target must be ONEFOP staff AND
- *   inside the actor's region (REGIONAL_ADMIN) or region + department
- *   (DIVISIONAL_ADMIN), checked by assertTerritorialAuthority. A target
- *   with no region/department fails closed.
- * - Every other role: the existing assertCanManageRole rule (SUPER_ADMIN
- *   unrestricted, ADMIN_ONEFOP limited to ONEFOP staff, anyone else
- *   refused).
+ * Staff accounts are opened by the national administration only, the same
+ * rule as every other user-management action: SUPER_ADMIN for any account,
+ * ADMIN_ONEFOP for the staff roles it manages. REGIONAL_ADMIN and
+ * DIVISIONAL_ADMIN are refused even inside their own territory -- they
+ * review company registrations (D3), not staff.
+ *
+ * Until 2026-10-07 the territorial roles could approve staff in their
+ * territory; the user withdrew that: regional admins neither initiate staff
+ * account creation nor approve it.
  */
 export function assertCanApproveRegistration(
   actor: Territory,
@@ -98,12 +104,5 @@ export function assertCanApproveRegistration(
     departmentId?: string | null;
   },
 ): void {
-  if (actor?.role && (TERRITORIAL_APPROVER_ROLES as readonly string[]).includes(actor.role)) {
-    if (!(ONEFOP_STAFF_ROLES as readonly string[]).includes(target.role)) {
-      throw new ForbiddenException("Ce compte ne relève pas de votre périmètre d'administration.");
-    }
-    assertTerritorialAuthority(actor, target);
-    return;
-  }
   assertCanManageRole(actor?.role ?? undefined, target.role);
 }
