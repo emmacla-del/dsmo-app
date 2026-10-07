@@ -42,6 +42,12 @@ class ApiClient {
   /// interceptor below.
   static void Function({required bool fromAuthMe})? onCompanyNotActive;
 
+  /// The language the API should write its error messages in, sent as the
+  /// X-Locale header on every request (read by the backend's
+  /// LocalizedHttpExceptionFilter; French when absent). Kept in step with
+  /// the app language by LocaleNotifier.
+  static String localeCode = 'fr';
+
   // Set on every login regardless of "Rester connecté", so the token is
   // usable for the rest of this app session either way. Only the Hive
   // write in setToken() is conditional — this is what makes an unchecked
@@ -61,6 +67,7 @@ class ApiClient {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+        options.headers['X-Locale'] = localeCode;
         if (kDebugMode &&
             const bool.fromEnvironment('VERBOSE_API', defaultValue: false)) {
           debugPrint('🌐 ${options.method} ${options.uri}');

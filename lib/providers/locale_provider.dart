@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/api_client.dart';
+
 const List<Locale> kSupportedLocales = [Locale('fr'), Locale('en')];
 const String _kPrefsKey = 'app_locale';
 
@@ -11,7 +13,16 @@ const String _kPrefsKey = 'app_locale';
 /// explicit choice, if any, once SharedPreferences resolves.
 class LocaleNotifier extends StateNotifier<Locale> {
   LocaleNotifier() : super(_deviceDefault()) {
+    ApiClient.localeCode = state.languageCode;
     _restore();
+  }
+
+  /// Every change of language also tells the API client, so server error
+  /// messages follow the app language (X-Locale).
+  @override
+  set state(Locale value) {
+    super.state = value;
+    ApiClient.localeCode = value.languageCode;
   }
 
   static Locale _deviceDefault() {
