@@ -3,9 +3,9 @@
 **Status:** normative. The values live in `react-web/src/app/tokens.css`. This file lists every custom property that file defines.
 **Scope:** both registration surfaces and the admin console. The wizard keeps its 600px reading measure. Admin keeps its 1360px console. They read this list.
 
-How those tokens are used on an administrative screen is `docs/standards/admin-ui-grammar.md`.
+How those tokens are used on an administrative screen is `docs/standards/ui-grammar.md`.
 
-The weight, line-height, letter-spacing, field-width, choice-size, and alpha purpose tokens are defined here so both surfaces can read one value. Call sites still write the literals. Pointing a class at a token is a later change.
+The weight, line-height, letter-spacing, field-width, choice-size, and alpha purpose tokens are defined here so both surfaces can read one value. The registration wizard's classes in `react-web/src/app/globals.css` read them.
 
 ## Rules
 
