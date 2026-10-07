@@ -10,6 +10,8 @@ import { checkCoherence } from "@/lib/onefop-coherence";
 import { getActiveQuarter, saveDraftToBackend } from "@/lib/onefop-submission";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
+import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
+import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
 import { companyToInitialData } from "@/lib/onefop-autofill";
 import { parseCompanyEntityType } from "@/lib/register-constants";
@@ -110,7 +112,7 @@ function OnefopDeclarationContent() {
     return "enterprise";
   }, [paramEntity, companyEntityType]);
 
-  const { data: schema, isLoading, isError, error } = useOnefopSchema();
+  const { data: rawSchema, isLoading, isError, error } = useOnefopSchema();
   const [selectedEntity] = useState<string | null>(null);
   const entityType = selectedEntity ?? resolvedInitialEntity;
 
@@ -132,6 +134,14 @@ function OnefopDeclarationContent() {
   // Hoisted so callbacks (handleSaveNow) and the WizardShell both use the
   // same resolved value regardless of which render phase we're in.
   const quarterCode = quarterQuery.data?.code ?? undefined;
+
+  // The questions name the round's period, not the year written into the
+  // AST's wording (lib/campaign-period.ts).
+  const campaignPeriod = useMemo(() => campaignPeriodFrom(quarterQuery.data), [quarterQuery.data]);
+  const schema = useMemo(
+    () => (rawSchema ? withCampaignPeriod(rawSchema, campaignPeriod) : undefined),
+    [rawSchema, campaignPeriod],
+  );
 
   const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed } =
     useOnefopDraft(entityType, quarterQuery.data?.code ?? null, autofillData);
@@ -243,6 +253,7 @@ function OnefopDeclarationContent() {
         <div style={{ width: "100%", margin: 0, padding: 0, minHeight: "100vh" }}>
           {/* Anomalies are shown on the table cells themselves and listed at
               the review step (see components/onefop/coherence). */}
+          <CampaignPeriodContext.Provider value={campaignPeriod}>
           <CoherenceProvider flags={coherenceFlags}>
           <WizardShell
             entity={entity}
@@ -261,6 +272,7 @@ function OnefopDeclarationContent() {
             onCancel={() => router.push("/home")}
           />
           </CoherenceProvider>
+          </CampaignPeriodContext.Provider>
         </div>
       )}
     </main>

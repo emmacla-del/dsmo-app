@@ -248,9 +248,6 @@ export const KPI_ROW_LABELS: LocalizedText[] = [
     en: "Number of beneficiaries trained in various fields",
   },
 ];
-export const KPI_PERIOD_LABELS: LocalizedText[] = [
-  { fr: "Du 1er Janvier 2026 à ce jour", en: "From 1st January 2026 to date" },
-  { fr: "Perspectives au 31/12/2026", en: "Outlook at 31/12/2026" },
-  { fr: "Perspectives au 30/06/2026", en: "Outlook at 30/06/2026" },
-];
+// Column headers: kpiPeriodLabels() in lib/campaign-period.ts, from the
+// active round's period (they used to name 2026).
 export const KPI_PERIODS = ["current", "outlook_dec", "outlook_june"];
