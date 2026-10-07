@@ -101,6 +101,15 @@ const STATUS_LABELS: Record<EtabItem["status"], string> = {
   INCONNU: "Aucun compte lié",
 };
 
+// The derived account state decides the badge class. A company with no linked
+// account is neutral, not folded into "suspendu".
+const STATUS_BADGE: Record<EtabItem["status"], string> = {
+  ACTIF: "cam-badge-success",
+  EN_ATTENTE: "cam-badge-warning",
+  SUSPENDU: "cam-badge-error",
+  INCONNU: "cam-badge-neutral",
+};
+
 export default function EtablissementsPage() {
   const router = useRouter();
   const tRoot = useTranslations();
@@ -122,7 +131,6 @@ export default function EtablissementsPage() {
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Region and status are server-side filters now, so they share the search
   // box's 300ms debounce: one timer, one refetch, and the three controls can
@@ -294,421 +302,204 @@ export default function EtablissementsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Register volume. Authoritative metrics sourced from GET /companies/stats.
+  const volume = [
+    { key: "total", label: t("kpiTotal"), loading: companyStatsQuery.isLoading || statsQuery.isLoading, value: totalEtablissements, hint: t("kpiTotalHint") },
+    { key: "active", label: t("kpiActive"), loading: companyStatsQuery.isLoading, value: companyStats?.active, hint: t("kpiActiveHint") },
+    { key: "pending", label: t("kpiPending"), loading: companyStatsQuery.isLoading, value: companyStats?.pendingValidation, hint: t("kpiPendingHint") },
+    { key: "suspended", label: t("kpiSuspended"), loading: companyStatsQuery.isLoading, value: companyStats?.suspended, hint: t("kpiSuspendedHint") },
+  ];
+
   return (
-    <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
-      {/* Top Header matching Figma */}
+    <div className="cam-admin-page">
+      {/* Page actions sit in the header. The hand-made Inscriptions /
+          Établissements / Annuaire pills are gone: the header's hub tabs
+          carry the Déclarants navigation, and Annuaire moved to
+          Administration. */}
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.declarants") }, { label: tRoot("adminNav.routes.etablissements") }]}
         title={tRoot("adminNav.routes.etablissements")}
         subtitle={t("subtitle")}
-        actions={<AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />}
+        actions={
+          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center", flexWrap: "wrap" }}>
+            <AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={exportCsv}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              {t("exportButton")}
+            </button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              // Admin-assisted registration, inside the console. This used to
+              // open the public /register self-signup, which left the console
+              // and recorded no admin attribution (createdBy).
+              onClick={() => router.push("/admin/inscriptions/nouvelle")}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              {tRoot("adminNav.routes.nouvelleInscription")}
+            </button>
+          </div>
+        }
       />
 
-      {/* Page actions. The hand-made Inscriptions / Établissements / Annuaire
-          pills that sat on the left are gone: the header's hub tabs carry
-          the Déclarants navigation, and Annuaire moved to Administration. */}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <button
-            type="button"
-            onClick={exportCsv}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 16px",
-              background: "#ffffff",
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#374151",
-              cursor: "pointer",
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            {t("exportButton")}
-          </button>
-          <button
-            type="button"
-            // Admin-assisted registration, inside the console. This used to
-            // open the public /register self-signup, which left the console
-            // and recorded no admin attribution (createdBy).
-            onClick={() => router.push("/admin/inscriptions/nouvelle")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 18px",
-              background: "#004d3d",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#ffffff",
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-          >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> {tRoot("adminNav.routes.nouvelleInscription")}
-          </button>
-        </div>
+      <div className="cam-pilot-kpis" style={{ marginBottom: 0 }}>
+        {volume.map((k) => (
+          <div key={k.key} className="cam-pilot-kpi">
+            <span className="cam-pilot-kpi-label">{k.label}</span>
+            <span className="cam-pilot-kpi-value" aria-busy={k.loading || undefined}>
+              {k.loading ? NOT_PROVIDED : count(k.value, locale)}
+            </span>
+            <span className="cam-pilot-kpi-trend">{k.hint}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Register volume. Authoritative metrics sourced from GET /companies/stats. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiTotal")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading || statsQuery.isLoading ? "…" : count(totalEtablissements, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            {t("kpiTotalHint")}
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiActive")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.active, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            {t("kpiActiveHint")}
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiPending")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.pendingValidation, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            {t("kpiPendingHint")}
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-            {t("kpiSuspended")}
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {companyStatsQuery.isLoading ? "…" : count(companyStats?.suspended, locale)}
-          </div>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
-            {t("kpiSuspendedHint")}
-          </div>
-        </div>
-      </div>
-
-      {/* Filter controls matching Figma */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 18, marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              {t("typeFilterLabel")}
-            </label>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
-            >
-              <option value="ALL">{t("allMasculine")}</option>
-              {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{typeDisplay(value)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              {t("regionFilterLabel")}
-            </label>
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
-            >
-              {CAMEROON_REGIONS.map((r) => <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              {t("statusFilterLabel")}
-            </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
-            >
-              {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              {t("searchLabel")}
-            </label>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </span>
-              <input
-                type="text"
-                placeholder={t("searchPlaceholder")}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, paddingLeft: 32, paddingRight: 10, fontSize: 13, color: "#111827", boxSizing: "border-box" }}
-              />
+      <section className="cam-admin-section">
+        <div className="cam-admin-section-body">
+          <div className="cam-admin-filters">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="etab-type">{t("typeFilterLabel")}</label>
+              <select id="etab-type" className="cam-select" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                <option value="ALL">{t("allMasculine")}</option>
+                {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{typeDisplay(value)}</option>)}
+              </select>
+            </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="etab-region">{t("regionFilterLabel")}</label>
+              <select id="etab-region" className="cam-select" value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}>
+                {CAMEROON_REGIONS.map((r) => <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>)}
+              </select>
+            </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="etab-status">{t("statusFilterLabel")}</label>
+              <select id="etab-status" className="cam-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+                {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
+              </select>
+            </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="etab-search">{t("searchLabel")}</label>
+              <div className="cam-admin-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  id="etab-search"
+                  type="text"
+                  className="cam-input"
+                  placeholder={t("searchPlaceholder")}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Directory Table matching Figma */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("establishmentColumn")}</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("idColumn")}</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("regionCityColumn")}</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("contactColumn")}</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("registrationDateColumn")}</th>
-                {/* "Créé par" removed: the Company model records no creator,
-                    so the column could only ever be filled with a guess. */}
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>{t("accountStatusColumn")}</th>
-                <th scope="col" style={{ padding: "12px 12px", textAlign: "right", fontWeight: 600 }}>{t("actionsColumn")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <DataStateRow
-                colSpan={7}
-                state={tableState}
-                resource={t("registerResource")}
-                error={companiesQuery.error}
-                onRetry={() => companiesQuery.refetch()}
-                title={tableState === "empty" ? t("noEstablishmentTitle") : undefined}
-                hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
-              />
-              {filteredRows.map((item) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: 13, height: 58 }}>
-                  <td style={{ padding: "12px 12px", maxWidth: 260 }}>
-                    <Link
-                      href={`/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`}
-                      style={{ fontWeight: 600, color: "#111827", textDecoration: "none", display: "block" }}
-                    >
+      <div className="cam-table-wrapper">
+        <table className="cam-table">
+          <thead>
+            <tr>
+              <th scope="col">{t("establishmentColumn")}</th>
+              <th scope="col">{t("idColumn")}</th>
+              <th scope="col">{t("regionCityColumn")}</th>
+              <th scope="col">{t("contactColumn")}</th>
+              <th scope="col">{t("registrationDateColumn")}</th>
+              {/* "Créé par" removed: the Company model records no creator,
+                  so the column could only ever be filled with a guess. */}
+              <th scope="col">{t("accountStatusColumn")}</th>
+              <th scope="col" className="text-right">{t("actionsColumn")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <DataStateRow
+              colSpan={7}
+              state={tableState}
+              resource={t("registerResource")}
+              error={companiesQuery.error}
+              onRetry={() => companiesQuery.refetch()}
+              title={tableState === "empty" ? t("noEstablishmentTitle") : undefined}
+              hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
+            />
+            {filteredRows.map((item) => {
+              const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`;
+              return (
+                <tr key={item.id}>
+                  <td style={{ maxWidth: 260 }}>
+                    <Link href={detailHref} className="cam-text-button" style={{ display: "block" }}>
                       {item.name ?? NOT_PROVIDED}
                     </Link>
                     {/* Entity type badge only when the record carries one. */}
                     {item.type && item.typeLabel && (
-                      <div style={{ marginTop: 4 }}>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            background: "rgba(0, 122, 94, 0.08)",
-                            color: "#004d3d",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {typeDisplay(item.type)}
-                        </span>
-                      </div>
+                      <span className="cam-badge cam-badge-neutral">{typeDisplay(item.type)}</span>
                     )}
                   </td>
-                  <td style={{ padding: "12px 12px", fontFamily: "ui-monospace, monospace", color: "#004d3d", fontWeight: 700, whiteSpace: "nowrap" }}>
-                    {item.identifier ?? NOT_PROVIDED}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="cam-admin-code cam-admin-strong">{item.identifier ?? NOT_PROVIDED}</span>
                   </td>
-                  <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {item.regionCity ?? NOT_PROVIDED}
+                  <td style={{ whiteSpace: "nowrap" }}>{item.regionCity ?? NOT_PROVIDED}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{item.responsable ?? NOT_PROVIDED}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="cam-admin-meta">{stamp(item.dateInscription, false, locale)}</span>
                   </td>
-                  <td style={{ padding: "12px 12px", fontWeight: 500, color: "#111827", whiteSpace: "nowrap" }}>
-                    {item.responsable ?? NOT_PROVIDED}
+                  <td>
+                    <span className={`cam-badge ${STATUS_BADGE[item.status]}`}>{t(`status.${item.status}`)}</span>
                   </td>
-                  <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {stamp(item.dateInscription, false, locale)}
-                  </td>
-                  <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
-                    {item.status === "ACTIF" && (
-                      <span style={{ fontSize: 11, background: "#1e6b3a", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        {t("status.ACTIF")}
-                      </span>
-                    )}
-                    {item.status === "EN_ATTENTE" && (
-                      <span style={{ fontSize: 11, background: "#d97706", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        {t("status.EN_ATTENTE")}
-                      </span>
-                    )}
-                    {/* A company with no linked account is reported as such,
-                        not folded into "suspendu". */}
-                    {item.status === "INCONNU" && (
-                      <span style={{ fontSize: 11, background: "#e2e8f0", color: "#475569", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        {t("status.INCONNU")}
-                      </span>
-                    )}
-                    {item.status === "SUSPENDU" && (
-                      <span style={{ fontSize: 11, background: "#b91c1c", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center" }}>
-                        {t("status.SUSPENDU")}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "12px 12px", textAlign: "right", position: "relative" }}>
-                    <button
-                      type="button"
-                      aria-label={t("actionsAriaLabel")}
-                      onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#6b7280",
-                        fontSize: 18,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        padding: "4px 8px",
-                        letterSpacing: 2,
-                      }}
-                    >
-                      ···
-                    </button>
-                    {openMenuId === item.id && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          right: 16,
-                          top: 45,
-                          zIndex: 50,
-                          background: "#ffffff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 8,
-                          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                          padding: "6px 0",
-                          minWidth: 170,
-                          textAlign: "left",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            router.push(`/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`);
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            color: "#111827",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {t("viewDetails")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            router.push(`/admin/etablissement-detail?id=${encodeURIComponent(item.id)}&manage=true`);
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            color: "#111827",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {t("manageUsers")}
-                        </button>
-                      </div>
-                    )}
+                  {/* Two plain links. They replace a "···" popover that had no
+                      menu role, no Escape, no outside-click close and no focus
+                      handling. */}
+                  <td className="text-right">
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", whiteSpace: "nowrap" }}>
+                      <Link href={detailHref} className="cam-text-button">{t("viewDetails")}</Link>
+                      <Link href={`${detailHref}&manage=true`} className="cam-text-button">{t("manageUsers")}</Link>
+                    </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Table pagination footer */}
-        <div style={{ padding: "14px 20px", borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-          <span style={{ color: "#6b7280" }}>
-            {companiesQuery.isLoading
-              ? "…"
-              : localNarrowing
-                ? t("localNarrowing", { shown: filteredRows.length, page: rawRows.length })
-                : filteredTotal === null
-                  ? NOT_PROVIDED
-                  : t("showingRange", { from: rangeFrom, to: rangeTo, total: count(filteredTotal, locale) })}
-          </span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              style={{
-                padding: "6px 14px",
-                background: "#ffffff",
-                border: `1px solid ${page <= 1 ? "#e5e7eb" : "#d1d5db"}`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: page <= 1 ? "#9ca3af" : "#374151",
-                cursor: page <= 1 ? "not-allowed" : "pointer",
-              }}
-            >
-              {t("previousButton")}
+      {/* Pager figures, all from the response GET /companies returned. The
+          current page is text, not a button: it is where the reader already is. */}
+      <div className="cam-pagination">
+        <span className="cam-pagination-info">
+          {companiesQuery.isLoading
+            ? NOT_PROVIDED
+            : localNarrowing
+              ? t("localNarrowing", { shown: count(filteredRows.length, locale), page: count(rawRows.length, locale) })
+              : filteredTotal === null
+                ? NOT_PROVIDED
+                : t("showingRange", { from: count(rangeFrom, locale), to: count(rangeTo, locale), total: count(filteredTotal, locale) })}
+        </span>
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page <= 1}
+        >
+          {t("previousButton")}
+        </button>
+        {pageWindow.map((n) =>
+          n === page ? (
+            <span key={n} className="cam-pagination-info" aria-current="page">{count(n, locale)}</span>
+          ) : (
+            <button key={n} type="button" className="cam-pagination-btn" onClick={() => setPage(n)}>
+              {count(n, locale)}
             </button>
-            {pageWindow.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setPage(n)}
-                aria-current={n === page ? "page" : undefined}
-                style={{
-                  width: 32,
-                  height: 32,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: n === page ? "#004d3d" : "#ffffff",
-                  color: n === page ? "#ffffff" : "#374151",
-                  border: n === page ? "none" : "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontWeight: n === page ? 600 : 500,
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              style={{
-                padding: "6px 14px",
-                background: "#ffffff",
-                border: `1px solid ${page >= totalPages ? "#e5e7eb" : "#d1d5db"}`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: page >= totalPages ? "#9ca3af" : "#374151",
-                cursor: page >= totalPages ? "not-allowed" : "pointer",
-                fontWeight: 500,
-              }}
-            >
-              {t("nextButton")}
-            </button>
-          </div>
-        </div>
-      </section>
+          ),
+        )}
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page >= totalPages}
+        >
+          {t("nextButton")}
+        </button>
+      </div>
     </div>
   );
 }
