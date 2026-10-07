@@ -219,7 +219,7 @@ Turn the ESLint G13 `fontSize` selector on for the wizard glob only once Phase 2
 ### What we achieve
 
 - The wizard can no longer gain a new `fontSize`, a new `rgba()`, or a new hex while Phase 2 is in progress.
-- The ratchet is live **before** the rewiring, which is the lesson from `admin-ui-grammar.md:201–202`: a rule that arrives after the tidy protects nothing during it.
+- The ratchet is live **before** the rewiring, which is the lesson from `ui-grammar.md:263`: a rule that arrives after the tidy protects nothing during it.
 - Both surfaces are now measured against the same rules.
 
 **Effort:** half a day. **Ships alone:** yes, after Phase 0. **Reversible:** the baseline is a visible line in the diff.
