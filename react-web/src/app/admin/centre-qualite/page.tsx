@@ -49,6 +49,16 @@ const QUALITE_TABS: { vue: QualiteVue; labelKey: string }[] = [
   { vue: "regles", labelKey: "tabRules" },
 ];
 
+// A blocking anomaly or rule reads as an error, a non-blocking one as a warning.
+function severityBadge(isBlocking: boolean): string {
+  return isBlocking ? "cam-badge-error" : "cam-badge-warning";
+}
+
+// An open anomaly keeps its severity tone; RESOLVED and WAIVED are handled.
+function anomalyStatusBadge(a: Pick<AnomalyRecord, "status" | "isBlocking">): string {
+  return a.status === "OPEN" ? severityBadge(a.isBlocking) : "cam-badge-success";
+}
+
 // Suspense because useSearchParams() requires it in the app router.
 export default function CentreQualitePage() {
   return (
@@ -196,9 +206,18 @@ function CentreQualiteContent() {
     });
   };
 
+  // The five rates. Each value is the server's own figure, formatted by
+  // percent(); the hint carries the count it is a rate of, where one exists.
+  const qualityKpis = [
+    { key: "completeness", label: t("completeness"), value: quality?.completenessRate, hint: t("completeFiles") },
+    { key: "coherence", label: t("coherence"), value: quality?.coherenceRate, hint: t("noContradiction") },
+    { key: "anomalyRate", label: t("anomalyRate"), value: quality?.anomalyRate, hint: t("blockingCount", { count: count(quality?.blockingAnomaliesCount, locale) }) },
+    { key: "warnings", label: t("warnings"), value: quality?.warningRate, hint: t("alertCount", { count: count(quality?.warningsCount, locale) }) },
+    { key: "eligibility", label: t("eligibility"), value: quality?.statisticalEligibilityRate, hint: t("readyCount", { count: count(quality?.statisticallyReadyCount, locale) }) },
+  ];
 
   return (
-    <div className="cam-admin-page" style={{ padding: "16px 28px 40px", maxWidth: 1440, margin: "0 auto", background: "#f8fafc" }}>
+    <div className="cam-admin-page">
       {/* Shared header. Its tabs are the page's three sections, held in
           ?vue= so a reload or a shared link reopens the same one. They
           replace a self-link pill and a scroll button. A "Contrôle régional"
@@ -216,9 +235,8 @@ function CentreQualiteContent() {
         }))}
       />
 
-      {/* ── Toast Alert ── */}
       {successToast && (
-        <div role="status" className="cam-admin-notice cam-admin-notice--success" style={{ marginBottom: 20 }}>
+        <div role="status" className="cam-admin-notice cam-admin-notice--success">
           <span>{successToast}</span>
           <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setSuccessToast(null)}>×</button>
         </div>
@@ -227,180 +245,64 @@ function CentreQualiteContent() {
       {/* ── Indicateurs: the five rates and the anomaly aggregates ── */}
       {vue === "indicateurs" && (
         <>
-          {/* Quality indicators.
-              No endpoint computes completeness, coherence, anomaly or warning
-              rates over a scope, so no figure is printed. The one rate the system
-              can compute (statistically-ready dossiers / total dossiers) belongs
-              to /admin/pilotage, which owns it, and is linked rather than
-              duplicated here. */}
-          <section
-            aria-labelledby="quality-kpis-title"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              marginBottom: 24,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <h2
-              id="quality-kpis-title"
-              style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 14px" }}
-            >
+          {/* Quality indicators. No frame around the row: the tiles are the
+              cards, and a card does not sit inside another card. */}
+          <section aria-labelledby="quality-kpis-title">
+            <h2 id="quality-kpis-title" className="cam-admin-h2" style={{ marginBottom: "var(--cam-space-3)" }}>
               {t("qualityIndicatorsTitle")}
             </h2>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
-              }}
-            >
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  {t("completeness")}
-                </span>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate, 0, locale)}
+            {/* Five tiles, so the four-column .cam-pilot-kpis grid is widened
+                to auto-fit rather than leaving one orphan on a second row. */}
+            <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: 0 }}>
+              {qualityKpis.map((k) => (
+                <div key={k.key} className="cam-pilot-kpi">
+                  <span className="cam-pilot-kpi-label">{k.label}</span>
+                  <span className="cam-pilot-kpi-value" aria-busy={qualityQuery.isLoading || undefined}>
+                    {qualityQuery.isLoading ? NOT_PROVIDED : percent(k.value, 0, locale)}
+                  </span>
+                  <span className="cam-pilot-kpi-trend">{k.hint}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("completeFiles")}</div>
-              </div>
-
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  {t("coherence")}
-                </span>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate, 0, locale)}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("noContradiction")}</div>
-              </div>
-
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  {t("anomalyRate")}
-                </span>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#b91c1c", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate, 0, locale)}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("blockingCount", { count: count(quality?.blockingAnomaliesCount, locale) })}</div>
-              </div>
-
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  {t("warnings")}
-                </span>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.warningRate, 0, locale)}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("alertCount", { count: count(quality?.warningsCount, locale) })}</div>
-              </div>
-
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                  {t("eligibility")}
-                </span>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                  {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate, 0, locale)}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{t("readyCount", { count: count(quality?.statisticallyReadyCount, locale) })}</div>
-              </div>
+              ))}
             </div>
           </section>
 
           {/* Authoritative aggregates by anomaly type and by region. */}
-          <section
-            aria-labelledby="anomalies-aggregates-title"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <h2
-              id="anomalies-aggregates-title"
-              style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 16px" }}
-            >
-              {t("aggregatesTitle")}
-            </h2>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-              <div>
-                <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
-                  {t("byFamily")}
-                </h3>
-                {qualityQuery.isLoading ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("loadingFamilies")}</p>
-                ) : (quality?.byRuleFamily?.length ?? 0) === 0 ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("noFamily")}</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {quality?.byRuleFamily.map((f) => (
-                      <div key={f.ruleFamily} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
-                        <span style={{ fontWeight: 500, color: "#1e293b" }}>{f.ruleFamily}</span>
-                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(f.count, locale)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
-                  {t("byRegion")}
-                </h3>
-                {qualityQuery.isLoading ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("loadingRegions")}</p>
-                ) : (quality?.byRegion?.length ?? 0) === 0 ? (
-                  <p style={{ fontSize: 13, color: "#64748b" }}>{t("noRegion")}</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {quality?.byRegion.map((r) => (
-                      <div key={r.region} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
-                        <span style={{ fontWeight: 500, color: "#1e293b" }}>{r.region}</span>
-                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(r.count, locale)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <section className="cam-admin-section" aria-labelledby="anomalies-aggregates-title">
+            <div className="cam-admin-section-head">
+              <h2 id="anomalies-aggregates-title" className="cam-admin-h2">{t("aggregatesTitle")}</h2>
+            </div>
+            <div className="cam-admin-section-body" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "var(--cam-space-5)" }}>
+              <AggregateList
+                title={t("byFamily")}
+                loading={qualityQuery.isLoading}
+                loadingLabel={t("loadingFamilies")}
+                emptyLabel={t("noFamily")}
+                rows={(quality?.byRuleFamily ?? []).map((f) => ({ key: f.ruleFamily, label: f.ruleFamily, count: count(f.count, locale) }))}
+              />
+              <AggregateList
+                title={t("byRegion")}
+                loading={qualityQuery.isLoading}
+                loadingLabel={t("loadingRegions")}
+                emptyLabel={t("noRegion")}
+                rows={(quality?.byRegion ?? []).map((r) => ({ key: r.region, label: r.region, count: count(r.count, locale) }))}
+              />
             </div>
           </section>
         </>
       )}
 
-      {/* ── Règles de validation ── */}
+      {/* ── Règles de validation, as served by GET questionnaires/rules. The
+          rule codes that appear in the register come from the stored
+          anomalies themselves. ── */}
       {vue === "regles" && (
-        <>
-          {/* Card D: validation rules.
-              Rule definitions and their enabled state are not persisted
-              anywhere (docs/admin-data-integrity-inventory.md §7.6), so no
-              rule list and no on/off state is shown. The rule codes that do
-              appear in the registry below come from the stored anomalies
-              themselves. */}
-          <section
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-            aria-labelledby="regles-validation-title"
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                {t("rulesTitle")}{rulesQuery.data?.length !== undefined ? ` (${count(rulesQuery.data.length, locale)})` : ""}
-              </h2>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#dcfce7", padding: "2px 8px", borderRadius: 9999 }}>
-                {t("activeBadge")}
-              </span>
-            </div>
-
+        <section className="cam-admin-section" aria-labelledby="regles-validation-title">
+          <div className="cam-admin-section-head">
+            <h2 id="regles-validation-title" className="cam-admin-h2">
+              {t("rulesTitle")}{rulesQuery.data?.length !== undefined ? ` (${count(rulesQuery.data.length, locale)})` : ""}
+            </h2>
+            <span className="cam-badge cam-badge-success">{t("activeBadge")}</span>
+          </div>
+          <div className="cam-admin-section-body">
             {rulesState !== "ready" ? (
               <DataState
                 dense
@@ -412,83 +314,50 @@ function CentreQualiteContent() {
                 hint={rulesState === "empty" ? t("noRuleHint") : undefined}
               />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
                 {rulesQuery.data?.map((rule) => (
-                  <div
-                    key={rule.code}
-                    style={{
-                      border: "1px solid #f1f5f9",
-                      borderRadius: 8,
-                      padding: "12px 14px",
-                      background: "#f8fafc",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <div key={rule.code}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-3)" }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
-                          {rule.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace", marginTop: 2 }}>
-                          {rule.code} • {t("familyLine", { family: rule.family })}
+                        <div className="cam-admin-strong">{rule.name}</div>
+                        <div className="cam-admin-meta">
+                          <span className="cam-admin-code">{rule.code}</span> • {t("familyLine", { family: rule.family })}
                         </div>
                       </div>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          whiteSpace: "nowrap",
-                          background: rule.isBlocking ? "#fee2e2" : "#fef3c7",
-                          color: rule.isBlocking ? "#b91c1c" : "#b45309",
-                        }}
-                      >
+                      <span className={`cam-badge ${severityBadge(rule.isBlocking)}`}>
                         {rule.isBlocking ? t("blockingBadge") : t("warningBadge")}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "#475569", marginTop: 6, lineHeight: 1.4 }}>
-                      {rule.description}
-                    </div>
+                    <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{rule.description}</p>
                   </div>
                 ))}
               </div>
             )}
-          </section>
-        </>
+          </div>
+        </section>
       )}
 
       {/* ── Registre des anomalies. "Détections récentes" — the first five rows
           of this same query, following its filters — sat beside the rules;
           it is folded into the register rather than shown twice. ── */}
       {vue === "registre" && (
-        <>
-          {/* ── Retained Functional Widget: Registre Opérationnel des Contrôles & Anomalies ── */}
-          <section
-            id="registre-anomalies"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-              marginBottom: 32,
-            }}
-            aria-labelledby="anomalies-registry-title"
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
-              <div>
-                <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                  {t("registerTitle")}{totalCount === null ? "" : ` (${count(totalCount, locale)})`}
-                </h2>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-                  {t("registerSubtitle")}
-                </p>
-              </div>
+        <section id="registre-anomalies" className="cam-admin-section" aria-labelledby="anomalies-registry-title">
+          <div className="cam-admin-section-head">
+            <div>
+              <h2 id="anomalies-registry-title" className="cam-admin-h2">
+                {t("registerTitle")}{totalCount === null ? "" : ` (${count(totalCount, locale)})`}
+              </h2>
+              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("registerSubtitle")}</p>
+            </div>
+          </div>
 
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="cam-admin-section-body">
+            <div className="cam-admin-filters">
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="registre-status">{t("statusColumn")}</label>
                 <select
+                  id="registre-status"
                   className="cam-select"
-                  style={{ width: "auto", minWidth: 140, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
                   value={filterStatus}
                   onChange={(e) => setRegisterFilter("status", e.target.value)}
                 >
@@ -497,9 +366,12 @@ function CentreQualiteContent() {
                   <option value="RESOLVED">{t("statusResolved")}</option>
                   <option value="WAIVED">{t("statusWaived")}</option>
                 </select>
+              </div>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="registre-severity">{t("severityColumn")}</label>
                 <select
+                  id="registre-severity"
                   className="cam-select"
-                  style={{ width: "auto", minWidth: 160, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
                   value={filterSeverity}
                   onChange={(e) => setRegisterFilter("severity", e.target.value)}
                 >
@@ -507,149 +379,123 @@ function CentreQualiteContent() {
                   <option value="BLOCKING">{t("blockingOnly")}</option>
                   <option value="WARNING">{t("warningsOnly")}</option>
                 </select>
+              </div>
+              <div>
                 <button
                   type="button"
-                  className="cam-button cam-button-sm cam-button-secondary"
+                  className="cam-button cam-button-secondary"
                   onClick={() => anomaliesQuery.refetch()}
-                  style={{ height: 34, padding: "0 14px", fontSize: 13 }}
                 >
                   {t("refresh")}
                 </button>
               </div>
             </div>
+          </div>
 
-            <div className="cam-table-wrapper" style={{ border: "1px solid #f1f5f9", borderRadius: 8 }}>
-              <table className="cam-table" style={{ width: "100%", margin: 0 }}>
-                <thead style={{ background: "#f8fafc" }}>
-                  <tr>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("declarationColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("ruleColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("descriptionColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("severityColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("detectedColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{t("statusColumn")}</th>
-                    <th style={{ fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>{t("actionColumn")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Loading, error, authorization refusal and "no records" are
-                      reported separately. No branch substitutes sample rows. */}
-                  <DataStateRow
-                    colSpan={7}
-                    state={registryState}
-                    resource={t("registerResource")}
-                    error={anomaliesQuery.error}
-                    onRetry={() => anomaliesQuery.refetch()}
-                    title={registryState === "empty" ? t("noAnomalyTitle") : undefined}
-                    hint={registryState === "empty" ? t("noAnomalyHint") : undefined}
-                  />
-                  {items.map((a) => (
-                    <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ fontSize: 13 }}>
-                        {a.submission ? (
-                          <div>
-                            <Link
-                              href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
-                              style={{ fontWeight: 600, color: "#007a5e", textDecoration: "none" }}
-                            >
-                              {anomalyDossierRef(a)}
-                            </Link>
-                            {/* Establishment name as stored on the submission's
-                                company record, or nothing at all. */}
-                            {anomalyCompanyName(a) && (
-                              <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}>
-                                {anomalyCompanyName(a)}
-                              </div>
-                            )}
-                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                              {a.submission.region ?? NOT_PROVIDED}
-                              {a.submission.department ? ` · ${a.submission.department}` : ""}
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ color: "#94a3b8" }}>{NOT_PROVIDED}</span>
-                        )}
-                      </td>
-                      <td style={{ fontSize: 13 }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                          {a.ruleCode}
-                        </span>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                          {a.ruleFamily}
-                        </div>
-                      </td>
-                      <td style={{ fontSize: 13 }}>
-                        <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                          {t("observed")} <strong>{a.observedValue}</strong> &middot; {t("expected")} <strong>{a.expectedValue}</strong>
-                          {a.deltaValue ? <> &middot; {t("gap")} <strong>{a.deltaValue}</strong></> : null}
-                        </div>
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "3px 8px",
-                            borderRadius: 9999,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: a.isBlocking ? "#fdecea" : "#fef9e7",
-                            color: a.isBlocking ? "#b3202c" : "#b8860b",
-                          }}
-                        >
-                          {a.isBlocking ? t("blocking") : t("warning")}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt, true, locale)}>
-                        {stamp(a.detectedAt, true, locale)}
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "3px 8px",
-                            borderRadius: 9999,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: a.status === "OPEN" ? (a.isBlocking ? "#fdecea" : "#fef9e7") : "#e8f7f3",
-                            color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
-                          }}
-                        >
-                          {t(`anomalyStatus.${a.status}`)}
-                        </span>
-                        {/* Resolution metadata only when the record carries it. */}
-                        {a.resolvedAt && (
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                            {stamp(a.resolvedAt, true, locale)}
-                            {a.resolvedBy
-                              ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
-                              : ""}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {a.status === "OPEN" ? (
-                          <button
-                            type="button"
-                            className="cam-button cam-button-sm cam-button-primary"
-                            onClick={() => handleOpenResolveModal(a)}
-                            style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
+          <div className="cam-table-wrapper">
+            <table className="cam-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("declarationColumn")}</th>
+                  <th scope="col">{t("ruleColumn")}</th>
+                  <th scope="col">{t("descriptionColumn")}</th>
+                  <th scope="col">{t("severityColumn")}</th>
+                  <th scope="col">{t("detectedColumn")}</th>
+                  <th scope="col">{t("statusColumn")}</th>
+                  <th scope="col" className="text-right">{t("actionColumn")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Loading, error, authorization refusal and "no records" are
+                    reported separately. No branch substitutes sample rows. */}
+                <DataStateRow
+                  colSpan={7}
+                  state={registryState}
+                  resource={t("registerResource")}
+                  error={anomaliesQuery.error}
+                  onRetry={() => anomaliesQuery.refetch()}
+                  title={registryState === "empty" ? t("noAnomalyTitle") : undefined}
+                  hint={registryState === "empty" ? t("noAnomalyHint") : undefined}
+                />
+                {items.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      {a.submission ? (
+                        <>
+                          <Link
+                            href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
+                            className="cam-text-button"
                           >
-                            {t("resolve")}
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>{t("handled")}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
+                            {anomalyDossierRef(a)}
+                          </Link>
+                          {/* Establishment name as stored on the submission's
+                              company record, or nothing at all. */}
+                          {anomalyCompanyName(a) && (
+                            <span style={{ display: "block" }}>{anomalyCompanyName(a)}</span>
+                          )}
+                          <span className="cam-admin-meta" style={{ display: "block" }}>
+                            {a.submission.region ?? NOT_PROVIDED}
+                            {a.submission.department ? ` · ${a.submission.department}` : ""}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="cam-admin-muted">{NOT_PROVIDED}</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="cam-admin-code cam-admin-strong">{a.ruleCode}</span>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>{a.ruleFamily}</span>
+                    </td>
+                    <td>
+                      <div style={{ maxWidth: 360, wordBreak: "break-word" }}>{a.description}</div>
+                      <div className="cam-admin-meta">
+                        {t("observed")} <strong>{a.observedValue}</strong> &middot; {t("expected")} <strong>{a.expectedValue}</strong>
+                        {a.deltaValue ? <> &middot; {t("gap")} <strong>{a.deltaValue}</strong></> : null}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`cam-badge ${severityBadge(a.isBlocking)}`}>
+                        {a.isBlocking ? t("blocking") : t("warning")}
+                      </span>
+                    </td>
+                    <td title={stamp(a.detectedAt, true, locale)}>
+                      <span className="cam-admin-meta">{stamp(a.detectedAt, true, locale)}</span>
+                    </td>
+                    <td>
+                      <span className={`cam-badge ${anomalyStatusBadge(a)}`}>
+                        {t(`anomalyStatus.${a.status}`)}
+                      </span>
+                      {/* Resolution metadata only when the record carries it. */}
+                      {a.resolvedAt && (
+                        <span className="cam-admin-meta" style={{ display: "block" }}>
+                          {stamp(a.resolvedAt, true, locale)}
+                          {a.resolvedBy
+                            ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
+                            : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      {/* Secondary: one primary action per view, and a row
+                          action repeated fifty times is not it. */}
+                      {a.status === "OPEN" ? (
+                        <button
+                          type="button"
+                          className="cam-button cam-button-sm cam-button-secondary"
+                          onClick={() => handleOpenResolveModal(a)}
+                        >
+                          {t("resolve")}
+                        </button>
+                      ) : (
+                        <span className="cam-admin-meta">{t("handled")}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {/* ── Modal: Résolution d'Anomalie (Retained Functional Widget) ── */}
@@ -661,7 +507,7 @@ function CentreQualiteContent() {
           title={t("resolveTitle", { code: selectedAnomaly.ruleCode })}
           wide
           footer={
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--cam-space-3)", justifyContent: "flex-end" }}>
               <button
                 type="button"
                 className="cam-button cam-button-secondary"
@@ -675,23 +521,22 @@ function CentreQualiteContent() {
                 className="cam-button cam-button-primary"
                 onClick={handleConfirmResolution}
                 disabled={resolveMutation.isPending}
-                style={{ background: "#007a5e", borderColor: "#007a5e" }}
               >
                 {resolveMutation.isPending ? t("saving") : t("confirmResolution")}
               </button>
             </div>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
             {actionError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
                 <span>{actionError}</span>
               </div>
             )}
 
-            <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{selectedAnomaly.description}</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+            <div>
+              <div className="cam-admin-strong">{selectedAnomaly.description}</div>
+              <div className="cam-admin-meta">
                 {/* A submission with no stored region is reported as such.
                     Printing "National" here would invent a territorial fact on
                     an authorization-sensitive field. */}
@@ -699,12 +544,14 @@ function CentreQualiteContent() {
               </div>
             </div>
 
-            <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-              <legend className="cam-admin-label" style={{ padding: 0, marginBottom: 8, fontWeight: 600, color: "#0f172a" }}>
+            {/* Unboxed radio rows (CLAUDE.md §9): the whole label is the
+                target, and no option is framed as a card. */}
+            <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
+              <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>
                 {t("resolutionMode")}
               </legend>
 
-              <label className="cam-admin-choice" style={{ border: "1px solid #e2e8f0", padding: "10px 14px", borderRadius: 8 }}>
+              <label className="cam-admin-choice">
                 <input
                   type="radio"
                   name="resolution-type"
@@ -713,13 +560,11 @@ function CentreQualiteContent() {
                 />
                 <span>
                   {t("modeCorrection")}
-                  <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    {t("modeCorrectionHint")}
-                  </span>
+                  <span className="cam-admin-choice-hint">{t("modeCorrectionHint")}</span>
                 </span>
               </label>
 
-              <label className="cam-admin-choice" style={{ border: "1px solid #e2e8f0", padding: "10px 14px", borderRadius: 8 }}>
+              <label className="cam-admin-choice">
                 <input
                   type="radio"
                   name="resolution-type"
@@ -728,13 +573,11 @@ function CentreQualiteContent() {
                 />
                 <span>
                   {t("modeInspection")}
-                  <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    {t("modeInspectionHint")}
-                  </span>
+                  <span className="cam-admin-choice-hint">{t("modeInspectionHint")}</span>
                 </span>
               </label>
 
-              <label className={`cam-admin-choice${!canGrantDerogation ? " is-disabled" : ""}`} style={{ border: "1px solid #e2e8f0", padding: "10px 14px", borderRadius: 8 }}>
+              <label className={`cam-admin-choice${!canGrantDerogation ? " is-disabled" : ""}`}>
                 <input
                   type="radio"
                   name="resolution-type"
@@ -744,30 +587,29 @@ function CentreQualiteContent() {
                 />
                 <span>
                   {t("modeDerogation")}
-                  <span className="cam-admin-choice-hint" style={{ fontSize: 12, color: "#64748b" }}>
-                    {t("modeDerogationHint")}
-                  </span>
+                  <span className="cam-admin-choice-hint">{t("modeDerogationHint")}</span>
                 </span>
               </label>
             </fieldset>
 
             <div className="cam-field">
-              <label className="cam-label" htmlFor="resolution-note" style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+              <label className="cam-admin-label" htmlFor="resolution-note">
                 {t("justificationLabel")}
               </label>
+              {/* Was className="cam-textarea", a class defined nowhere, so the
+                  field rendered with browser defaults. */}
               <textarea
                 id="resolution-note"
-                className="cam-textarea"
+                className="cam-admin-textarea"
                 rows={3}
                 placeholder={t("justificationPlaceholder")}
                 value={resolutionNote}
                 onChange={(e) => setResolutionNote(e.target.value)}
-                style={{ fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
               />
             </div>
 
             <div className="cam-field">
-              <label className="cam-label" htmlFor="evidence-url" style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+              <label className="cam-admin-label" htmlFor="evidence-url">
                 {t("evidenceLabel")}
               </label>
               <input
@@ -777,13 +619,47 @@ function CentreQualiteContent() {
                 placeholder={t("evidencePlaceholder")}
                 value={evidenceUrl}
                 onChange={(e) => setEvidenceUrl(e.target.value)}
-                style={{ fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
               />
             </div>
           </div>
         </AdminDialog>
       )}
 
+    </div>
+  );
+}
+
+/** One ranked aggregate: the label on the left, its stored count on the right. */
+function AggregateList({
+  title,
+  loading,
+  loadingLabel,
+  emptyLabel,
+  rows,
+}: {
+  title: string;
+  loading: boolean;
+  loadingLabel: string;
+  emptyLabel: string;
+  rows: { key: string; label: string; count: string }[];
+}) {
+  return (
+    <div>
+      <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>{title}</h3>
+      {loading ? (
+        <p className="cam-admin-meta" style={{ margin: 0 }}>{loadingLabel}</p>
+      ) : rows.length === 0 ? (
+        <p className="cam-admin-meta" style={{ margin: 0 }}>{emptyLabel}</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+          {rows.map((r) => (
+            <div key={r.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
+              <span>{r.label}</span>
+              <span className="cam-admin-strong">{r.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
