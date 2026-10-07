@@ -73,45 +73,16 @@ export function AdminHeaderActions({
   })();
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+    <div className="cam-admin-header-actions">
       {/* Campaign pill */}
       {showCampaignPill && canReadCampaigns && (
         <Link
           href="/admin/campagnes"
           className="cam-admin-campaign-pill"
           title={rawCampaignName ?? t("noActiveCampaign")}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "4px 12px",
-            borderRadius: 9999,
-            border: "var(--cam-border-width) solid var(--cam-border)",
-            background: "var(--cam-surface)",
-            color: "var(--cam-text-muted)",
-            fontSize: "var(--cam-font-size-2xs)",
-            fontWeight: 500,
-            maxWidth: 200,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            flexShrink: 0,
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
         >
-          <span
-            className="cam-admin-campaign-pill-dot"
-            aria-hidden="true"
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: activeCampaign ? "var(--cam-gold)" : "var(--cam-border-strong)",
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className={`cam-admin-campaign-pill-dot${activeCampaign ? " is-active" : ""}`} aria-hidden="true" />
+          <span>
             {campaignLoading ? tCommon("loading") : activeCampaign ? campaignName : t("noActiveCampaign")}
           </span>
         </Link>
@@ -120,21 +91,7 @@ export function AdminHeaderActions({
       {/* Territorial scope, stated. It was a chevroned link to /admin/cibles —
           it looked like a scope selector, and 403'd for AUDITOR. The scope is
           fixed by the account; there is nothing to select. */}
-      <span
-        className="cam-admin-scope"
-        title={t("scopeTitle")}
-        style={{
-          background: "var(--cam-surface)",
-          border: "var(--cam-border-width) solid var(--cam-text)",
-          color: "var(--cam-text)",
-          padding: "4px 12px",
-          borderRadius: 9999,
-          fontSize: "var(--cam-font-size-2xs)",
-          fontWeight: 600,
-          display: "inline-flex",
-          alignItems: "center",
-        }}
-      >
+      <span className="cam-admin-scope" title={t("scopeTitle")}>
         {t("scopeChip", { scope })}
       </span>
 
@@ -146,13 +103,14 @@ export function AdminHeaderActions({
 
       {/* Search element: text input box or compact button */}
       {showSearchInput ? (
-        <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-          <svg style={{ position: "absolute", left: 12, color: "var(--cam-placeholder)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <div className="cam-admin-header-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
             type="text"
+            aria-label={t("searchAriaLabel")}
             placeholder={t("searchPlaceholder")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -160,36 +118,14 @@ export function AdminHeaderActions({
                 router.push(query ? `/admin/dossiers?q=${encodeURIComponent(query)}` : "/admin/dossiers");
               }
             }}
-            style={{
-              padding: "6px 14px 6px 34px",
-              borderRadius: 9999,
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              background: "var(--cam-surface-subtle)",
-              fontSize: "var(--cam-font-size-xs)",
-              color: "var(--cam-text)",
-              outline: "none",
-              width: 170,
-            }}
           />
         </div>
       ) : (
         <Link
           href="/admin/dossiers"
+          className="cam-admin-icon-button"
           aria-label={t("searchAriaLabel")}
           title={t("searchTitle")}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            background: "none",
-            border: "none",
-            color: "var(--cam-text-muted)",
-            cursor: "pointer",
-            textDecoration: "none",
-          }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
@@ -199,27 +135,12 @@ export function AdminHeaderActions({
       )}
 
       {/* Cameroon flag circle */}
-      <span
-        className="cam-admin-flag-circle"
-        role="img"
-        aria-label={t("flagAriaLabel")}
-        title={t("flagTitle")}
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: "50%",
-          overflow: "hidden",
-          display: "flex",
-          position: "relative",
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ flex: 1, background: "var(--cam-flag-green)" }} />
-        <span style={{ flex: 1, background: "var(--cam-flag-red)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: "var(--cam-flag-yellow)", fontSize: "var(--cam-font-size-4xs)", lineHeight: 1, position: "absolute" }}>★</span>
+      <span className="cam-admin-flag-circle" role="img" aria-label={t("flagAriaLabel")} title={t("flagTitle")}>
+        <span className="cam-admin-flag-green" />
+        <span className="cam-admin-flag-red">
+          <span className="cam-admin-flag-star">★</span>
         </span>
-        <span style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
+        <span className="cam-admin-flag-yellow" />
       </span>
     </div>
   );
