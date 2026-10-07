@@ -1080,41 +1080,18 @@ export default function RegisterPage() {
                 prompt focuses the first radio through firstEntityRadioRef. */}
             <fieldset
               id="reg-entity-type"
+              className="entity-type-list"
               aria-invalid={invalidProps("reg-entity-type").message ? true : undefined}
               aria-describedby={
                 invalidProps("reg-entity-type").message ? "reg-entity-type-error" : undefined
               }
-              style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}
             >
-              <legend
-                style={{
-                  position: "absolute",
-                  width: "1px",
-                  height: "1px",
-                  padding: 0,
-                  margin: "-1px",
-                  overflow: "hidden",
-                  clip: "rect(0 0 0 0)",
-                  whiteSpace: "nowrap",
-                  border: 0,
-                }}
-              >
+              <legend className="sr-only">
                 {t("registerPage.entityTypeQuestion")}
               </legend>
 
               {ENTITY_TYPE_OPTIONS.map((option, idx) => (
-                <label
-                  key={option.type}
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: "var(--cam-space-3)",
-                    padding: "var(--cam-space-3) 0",
-                    borderTop: idx === 0 ? "none" : "1px solid var(--cam-border)",
-                    cursor: "pointer",
-                    margin: 0,
-                  }}
-                >
+                <label key={option.type} className="entity-type-option">
                   <input
                     ref={idx === 0 ? firstEntityRadioRef : undefined}
                     type="radio"
@@ -1123,25 +1100,13 @@ export default function RegisterPage() {
                     checked={entityType === option.type}
                     onChange={() => requestEntityType(option.type)}
                     aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
-                    style={{
-                      accentColor: "var(--cam-green)",
-                      width: "17px",
-                      height: "17px",
-                      flex: "0 0 auto",
-                      cursor: "pointer",
-                      alignSelf: "center",
-                    }}
                   />
-                  <span style={{ fontSize: "14px", color: "var(--cam-text)", lineHeight: 1.45 }}>
+                  <span className="entity-type-option-label">
                     {t(option.labelKey)}
                     {option.hintKey && (
                       <span
                         id={`reg-entity-hint-${option.type}`}
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--cam-text-muted)",
-                          marginLeft: "var(--cam-space-2)",
-                        }}
+                        className="entity-type-option-hint"
                       >
                         {t(option.hintKey)}
                       </span>

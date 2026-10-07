@@ -918,6 +918,48 @@ body {
   margin: 0;
 }
 
+/* Step 1. One list, not a card per option. The legend is .sr-only. */
+.cam-auth-page--wizard .entity-type-list {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.cam-auth-page--wizard .entity-type-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-3) 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.cam-auth-page--wizard .entity-type-option + .entity-type-option {
+  border-top: 1px solid var(--cam-border);
+}
+
+.cam-auth-page--wizard .entity-type-option input {
+  accent-color: var(--cam-green);
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
+  flex: 0 0 auto;
+  cursor: pointer;
+  align-self: center;
+}
+
+.cam-auth-page--wizard .entity-type-option-label {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text);
+  line-height: 1.45;
+}
+
+.cam-auth-page--wizard .entity-type-option-hint {
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  margin-left: var(--cam-space-2);
+}
+
 /* ── Field parts (FormRow.tsx) ──
    The required marker is a standalone element rather than " *" appended to the
    label string, so it can carry aria-hidden while aria-required on the control
