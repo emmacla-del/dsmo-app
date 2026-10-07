@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { CoverageTable } from "@/components/admin/CoverageTable";
+import { DataState } from "@/components/admin/DataState";
 import { formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN } from "@/lib/pilotage-targets";
 
 /**
@@ -56,6 +57,7 @@ export function CoveragePanel({ year, onYearChange }: { year: number; onYearChan
 
 function CoverageContent({ year }: { year: number }) {
   const tCommon = useTranslations("common");
+  const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year],
@@ -71,9 +73,20 @@ function CoverageContent({ year }: { year: number }) {
     setExpanded(new Set(query.data.regions.length === 1 ? query.data.regions.map((region) => region.regionId) : mixed));
   }, [query.data]);
 
-  if (query.isLoading) return <p className="cam-admin-lede">{tCommon("loading")}</p>;
+  // Loading and failure render through DataState (G10); the failure keeps
+  // the server's own message and gains a retry.
+  if (query.isLoading) {
+    return <DataState state="loading" resource={tRoot("adminInscriptionsPage.viewCoverage")} title={tCommon("loading")} />;
+  }
   if (query.isError) {
-    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error, locale)}</div>;
+    return (
+      <DataState
+        state="error"
+        resource={tRoot("adminInscriptionsPage.viewCoverage")}
+        title={formatApiError(query.error, locale)}
+        onRetry={() => query.refetch()}
+      />
+    );
   }
   if (!query.data) return null;
 
