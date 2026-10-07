@@ -1,0 +1,824 @@
+<title>CAM-LEAP Auth Flow Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a viewer (controls, scaled device stage, notes) around product mockups.
+   Viewer chrome follows the viewer's theme; the mockups inside the device are the
+   product itself, drawn in CAM-LEAP's light tokens (tokens.css), on purpose. */
+:root {
+  --v-bg: #f4f5f1;
+  --v-surface: #ffffff;
+  --v-fg: #142019;
+  --v-muted: #56645b;
+  --v-line: #d9ded5;
+  --v-accent: #1e6b3a;
+  --v-accent-fg: #ffffff;
+  --v-stage: #e7eae3;
+  --v-chip-login: #e6f0f7;
+  --v-chip-login-fg: #1a5a80;
+  --v-chip-reg: #eaf3ec;
+  --v-chip-reg-fg: #1e6b3a;
+  --v-chip-shared: #fdf1dc;
+  --v-chip-shared-fg: #8a5a0c;
+  --v-chip-all: #efe9f6;
+  --v-chip-all-fg: #5a3d82;
+  --v-font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+  --v-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --v-bg: #111814; --v-surface: #18211b; --v-fg: #e4ebe6; --v-muted: #9aa89f;
+    --v-line: #2c3830; --v-accent: #5fb37f; --v-accent-fg: #0b1f14; --v-stage: #0c120e;
+    --v-chip-login: #16303f; --v-chip-login-fg: #9ccbe8; --v-chip-reg: #17311f; --v-chip-reg-fg: #9fd6b1;
+    --v-chip-shared: #3a2c12; --v-chip-shared-fg: #f0c97a; --v-chip-all: #2a2238; --v-chip-all-fg: #c9b5e8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --v-bg: #111814; --v-surface: #18211b; --v-fg: #e4ebe6; --v-muted: #9aa89f;
+  --v-line: #2c3830; --v-accent: #5fb37f; --v-accent-fg: #0b1f14; --v-stage: #0c120e;
+  --v-chip-login: #16303f; --v-chip-login-fg: #9ccbe8; --v-chip-reg: #17311f; --v-chip-reg-fg: #9fd6b1;
+  --v-chip-shared: #3a2c12; --v-chip-shared-fg: #f0c97a; --v-chip-all: #2a2238; --v-chip-all-fg: #c9b5e8;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--v-bg); color: var(--v-fg); font-family: var(--v-font); font-size: 14px; line-height: 1.5; }
+.page { max-width: 1480px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 48px; display: flex; flex-direction: column; gap: 18px; }
+
+.head { display: flex; flex-direction: column; gap: 4px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--v-muted); }
+.head h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; }
+.head p { margin: 0; color: var(--v-muted); max-width: 72ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; }
+.cgroup { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.clabel { font-size: 11.5px; font-weight: 600; color: var(--v-muted); letter-spacing: .04em; text-transform: uppercase; }
+.seg { display: flex; flex-wrap: wrap; background: var(--v-surface); border: 1px solid var(--v-line); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; color: var(--v-fg); font: inherit; font-weight: 500; padding: 6px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.seg button:hover { background: var(--v-bg); }
+.seg button[aria-pressed="true"] { background: var(--v-accent); color: var(--v-accent-fg); font-weight: 600; }
+.seg button:focus-visible, .notes button:focus-visible { outline: 2px solid #e8a020; outline-offset: 2px; }
+.seg .num { font-variant-numeric: tabular-nums; opacity: .7; margin-right: 4px; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { background: var(--v-stage); border: 1px solid var(--v-line); border-radius: 12px; padding: 16px; min-width: 0; }
+.stage-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--v-muted); margin-bottom: 10px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.fit { margin: 0 auto; }
+.scaler { transform-origin: top left; }
+.device { position: relative; overflow: hidden; background: #fafaf7; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.12); container: vp / inline-size; }
+.device.desk { width: 1280px; height: 720px; border-radius: 6px; }
+.device.mob { width: 390px; height: 844px; border-radius: 30px; box-shadow: 0 0 0 9px #1b2420, 0 18px 40px rgba(0,0,0,.25); }
+
+.notes { background: var(--v-surface); border: 1px solid var(--v-line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.notes h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.notes .thesis { margin: 0; color: var(--v-muted); }
+.notes h3 { margin: 0 0 6px; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--v-muted); }
+.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.chip.login { background: var(--v-chip-login); color: var(--v-chip-login-fg); }
+.chip.reg { background: var(--v-chip-reg); color: var(--v-chip-reg-fg); }
+.chip.shared { background: var(--v-chip-shared); color: var(--v-chip-shared-fg); }
+.chip.all { background: var(--v-chip-all); color: var(--v-chip-all-fg); }
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; border-top: 1px solid var(--v-line); padding-top: 12px; }
+.meta dt { color: var(--v-muted); font-weight: 600; }
+.meta dd { margin: 0; }
+.legend { font-size: 12px; color: var(--v-muted); }
+
+/* ───────────────────────── Product mockups (CAM-LEAP tokens) ───────────────────────── */
+.m {
+  --c-green: #1e6b3a; --c-green-dark: #144a28; --c-gold: #e8a020; --c-gold-dark: #b87c14;
+  --c-flag-g: #0e5c2b; --c-flag-r: #b3202c; --c-flag-y: #f0b429;
+  --c-bg: #fafaf7; --c-surface: #ffffff; --c-subtle: #fbfbf9; --c-text: #0b1f14; --c-muted: #4a5a50;
+  --c-border: #d8ddd3; --c-border-strong: #aab5a3; --c-border-soft: #eef0eb; --c-upcoming: #6b776f;
+  --c-error: #b3261e; --c-error-bg: #fbeceb; --c-error-border: #f2b8b5; --c-ok-bg: #eaf3ec;
+  --c-placeholder: #7d8981; --c-grid: #171a18;
+  --c-wash: rgba(30,107,58,.10); --c-focus: 0 0 0 3px rgba(30,107,58,.15);
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  font-family: "Inter", "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+  font-size: 15px; line-height: 1.5; color: var(--c-text); background: var(--c-bg);
+}
+.m * { box-sizing: border-box; }
+.m p { margin: 0; }
+.m [hidden] { display: none !important; }
+.m .stripe { flex: 0 0 4px; height: 4px; background: linear-gradient(90deg, var(--c-flag-g) 0 33.3%, var(--c-flag-r) 33.3% 66.6%, var(--c-flag-y) 66.6%); }
+.m .idbar { flex: 0 0 auto; background: var(--c-surface); border-bottom: 1px solid var(--c-border); padding: 11px 16px; }
+.m .idbar-in { max-width: 600px; margin: 0 auto; font-size: 13px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m .idbar b { color: var(--c-text); font-weight: 800; letter-spacing: -.01em; margin-right: 6px; }
+.m .body { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px 10px; }
+.m .body.login { padding-top: 40px; }
+.m .foot { flex: 0 0 auto; text-align: center; font-size: 13px; color: var(--c-muted); padding: 0 16px 12px; }
+.m .foot a { color: var(--c-muted); font-weight: 600; text-decoration: none; }
+.m .foot .dot { margin: 0 8px; color: var(--c-border-strong); }
+
+.m .fr { container: form / inline-size; width: 100%; max-width: 600px; max-height: 100%; display: flex; flex-direction: column; border: 1.5px solid var(--c-green); border-radius: 12px; background: var(--c-surface); overflow: hidden; }
+.m .fr-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 20px 22px 18px; }
+.m .fr-pad { padding: 26px 26px 24px; }
+.m .fr-foot { flex: 0 0 auto; border-top: 1px solid var(--c-border); padding: 12px 22px; display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; background: var(--c-surface); }
+.m .fr-foot.split { justify-content: space-between; }
+.m .missing { flex: 0 0 auto; background: var(--c-error-bg); border-top: 1px solid var(--c-error-border); color: var(--c-error); font-size: 13px; font-weight: 600; padding: 8px 22px; }
+
+.m .t { font-size: 20px; font-weight: 700; color: var(--c-green-dark); line-height: 1.25; margin: 0 0 4px; text-wrap: balance; }
+.m .sub { font-size: 13.5px; color: var(--c-muted); line-height: 1.45; margin-bottom: 22px; }
+
+.m .col { display: flex; flex-direction: column; gap: 16px; }
+.m .f label { display: block; font-size: 14px; font-weight: 600; line-height: 1.3; margin: 0 0 6px; }
+.m .req { color: var(--c-error); font-weight: 700; margin-left: 4px; }
+.m .ir { position: relative; }
+.m .ctl { display: block; height: 40px; width: 100%; border: 1.5px solid var(--c-border); border-radius: 8px; padding: 0 12px; font: inherit; font-size: 15px; color: var(--c-text); background: var(--c-surface); outline: none; }
+.m select.ctl { appearance: none; padding-right: 34px; background-image: linear-gradient(45deg, transparent 50%, var(--c-muted) 50%), linear-gradient(135deg, var(--c-muted) 50%, transparent 50%); background-position: calc(100% - 17px) 17px, calc(100% - 12px) 17px; background-size: 5px 5px; background-repeat: no-repeat; }
+.m select.ctl.empty { color: var(--c-placeholder); font-size: 14px; }
+.m .ctl::placeholder { color: var(--c-placeholder); font-size: 14px; }
+.m .ctl:focus { border-color: var(--c-green); box-shadow: var(--c-focus); }
+.m .ctl[aria-invalid="true"] { border-color: var(--c-error); }
+.m .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--c-muted); padding: 4px; display: flex; cursor: pointer; }
+.m .ferr { font-size: 13px; font-weight: 600; color: var(--c-error); margin-top: 4px; }
+.m .hint { font-size: 13px; color: var(--c-muted); margin-top: 4px; line-height: 1.4; }
+.m .f.short > :not(label) { max-width: 220px; }
+.m .f.medium > :not(label) { max-width: 280px; }
+.m .gh { font-size: 12.5px; font-weight: 700; color: var(--c-green-dark); letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--c-border); padding-bottom: 7px; margin-top: 8px; }
+.m .gh.first { margin-top: 0; }
+@container form (min-width: 560px) {
+  .m .col.grid { display: grid; grid-template-columns: fit-content(14rem) minmax(0, 1fr); column-gap: 12px; row-gap: 16px; align-items: start; }
+  .m .col.grid > .f { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: start; }
+  .m .col.grid > .f > label { margin: 0; min-width: 150px; padding-top: calc((40px - 1.3em) / 2); text-align: right; grid-column: 1; }
+  .m .col.grid > .f > :not(label) { grid-column: 2; min-width: 0; }
+  .m .col.grid > .gh { grid-column: 1 / -1; }
+}
+
+.m .btn { height: 44px; border: 0; border-radius: 8px; background: var(--c-green); color: #fff; font: inherit; font-size: 15px; font-weight: 600; padding: 0 22px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.m .btn:hover:not(:disabled) { background: var(--c-green-dark); }
+.m .btn:disabled { opacity: .45; cursor: not-allowed; }
+.m .btn.block { width: 100%; }
+.m .btn.ghost { background: transparent; color: var(--c-green-dark); border: 1.5px solid var(--c-green); }
+.m .btn.ghost:hover { background: var(--c-wash); }
+.m .btn.sm { height: 32px; font-size: 13px; padding: 0 12px; }
+.m .lnk { color: var(--c-green-dark); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.m .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 16px; font-size: 13.5px; }
+.m .stack-r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.m .check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; margin: 0; font-weight: 500; }
+.m .check input, .m .certify input { width: 16px; height: 16px; accent-color: var(--c-green); margin: 0; flex: 0 0 auto; }
+.m .sep { border: 0; border-top: 1px solid var(--c-border); margin: 22px 0 16px; }
+.m .or { display: flex; align-items: center; gap: 12px; color: var(--c-muted); font-size: 13px; margin: 18px 0; }
+.m .or::before, .m .or::after { content: ""; flex: 1; border-top: 1px solid var(--c-border); }
+.m .help { text-align: center; font-size: 13px; color: var(--c-muted); margin-top: 14px; }
+
+/* Horizontal rail (mockup 1) */
+.m .railbox { flex: 0 0 auto; padding: 14px 18px 12px; border-bottom: 1px solid var(--c-border); }
+.m .cap { display: none; font-size: 11.5px; font-weight: 700; color: var(--c-green-dark); letter-spacing: .03em; margin-bottom: 8px; }
+.m .rail { display: flex; justify-content: space-between; }
+.m .rs { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; background: none; border: 0; font: inherit; padding: 0; cursor: pointer; min-width: 0; }
+.m .rs:not(:last-child)::after { content: ""; position: absolute; top: 15px; left: calc(50% + 17px); right: calc(-50% + 17px); height: 2px; background: var(--c-border); }
+.m .rs.done:not(:last-child)::after { background: var(--c-green); }
+.m .rc { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c-border); background: var(--c-surface); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--c-muted); position: relative; z-index: 1; }
+.m .done .rc { background: var(--c-green); border-color: var(--c-green); color: #fff; }
+.m .cur .rc { border-color: var(--c-gold); color: var(--c-gold-dark); box-shadow: 0 0 0 3px rgba(232,160,32,.2); }
+.m .lock .rc { background: var(--c-subtle); color: var(--c-border-strong); }
+.m .rl { font-size: 11.5px; font-weight: 600; color: var(--c-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.m .done .rl { color: var(--c-text); text-decoration: underline; text-underline-offset: 2px; }
+.m .cur .rl { color: var(--c-green); font-weight: 700; }
+.m .lock .rl { color: var(--c-upcoming); }
+
+/* Review tables */
+.m .rh { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px; }
+.m .rh.first { margin-top: 0; }
+.m .rt { font-size: 12.5px; font-weight: 700; color: var(--c-green-dark); letter-spacing: .06em; text-transform: uppercase; }
+.m .edit { border: 1px solid var(--c-border); border-radius: 4px; background: none; color: var(--c-green); font: inherit; font-size: 11.5px; font-weight: 600; padding: 3px 9px; cursor: pointer; }
+.m table.off { width: 100%; border-collapse: collapse; font-size: 13px; }
+.m table.off td { border: 1px solid var(--c-grid); padding: 7px 12px; vertical-align: top; }
+.m table.off td.l { width: 160px; font-weight: 600; color: var(--c-muted); background: var(--c-bg); }
+.m table.off td.v { font-weight: 500; word-break: break-word; }
+@container form (max-width: 559px) {
+  .m table.off, .m table.off tbody, .m table.off tr, .m table.off td { display: block; width: auto; }
+  .m table.off { border-top: 1px solid var(--c-grid); }
+  .m table.off td { border-top: 0; }
+  .m table.off td.l { width: auto; border-bottom: 0; padding-bottom: 0; background: var(--c-surface); font-size: 12px; }
+  .m table.off td.v { padding-top: 2px; }
+}
+.m .honour { border-left: 3px solid var(--c-green); background: var(--c-ok-bg); padding: 10px 14px; font-size: 12px; line-height: 1.5; border-radius: 0 2px 2px 0; }
+.m .certify { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; cursor: pointer; }
+.m .certify input { margin-top: 2px; }
+
+/* Receipt */
+.m .rhead { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
+.m .disc { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: var(--c-wash); color: var(--c-green); display: grid; place-items: center; }
+.m dl.kv { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px 16px; margin: 0 0 24px; font-size: 14px; }
+.m dl.kv dt { color: var(--c-muted); font-weight: 600; }
+.m dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@container form (max-width: 559px) {
+  .m dl.kv { grid-template-columns: 1fr; gap: 2px; }
+  .m dl.kv dt { font-size: 12.5px; margin-top: 10px; }
+  .m dl.kv dt:first-child { margin-top: 0; }
+}
+.m .id { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-weight: 700; color: var(--c-green-dark); background: rgba(30,107,58,.08); padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; }
+.m .idline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.m .pill { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: #fdf3e1; color: #7a4f0a; }
+.m .actions { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+
+/* Split shell (mockup 2) */
+.m .splitwrap { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+.m .panel { position: relative; background: #f3f5f0; border-right: 1px solid var(--c-border); padding: 30px 30px 22px 38px; display: flex; flex-direction: column; gap: 22px; overflow: hidden; }
+.m .panel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, var(--c-flag-g) 0 33.3%, var(--c-flag-r) 33.3% 66.6%, var(--c-flag-y) 66.6%); }
+.m .wm { font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.m .wms { font-size: 13px; color: var(--c-muted); line-height: 1.4; margin-top: 2px; }
+.m .ph { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.m .pp { font-size: 13.5px; color: var(--c-muted); line-height: 1.5; }
+.m .pfoot { margin-top: auto; font-size: 12.5px; color: var(--c-muted); }
+.m .pfoot a { color: var(--c-muted); font-weight: 600; text-decoration: none; }
+.m .formside { min-height: 0; display: flex; justify-content: center; align-items: flex-start; padding: 30px 28px 18px; }
+.m .formside.login { padding-top: 64px; }
+.m .vr { list-style: none; margin: 0; padding: 0; }
+.m .vs { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; width: 100%; padding: 7px 0; background: none; border: 0; font: inherit; text-align: left; cursor: pointer; position: relative; color: inherit; }
+.m .vr li:not(:last-child) .vs::after { content: ""; position: absolute; left: 14px; top: 39px; bottom: -7px; width: 2px; background: var(--c-border); }
+.m .vr li.done:not(:last-child) .vs::after { background: var(--c-green); }
+.m .vn { font-size: 14px; font-weight: 600; }
+.m .vsum { grid-column: 2 / 4; font-size: 12.5px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -3px; }
+.m .vedit { font-size: 12.5px; color: var(--c-green); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.m .vr .cur .vn { color: var(--c-green); font-weight: 700; }
+.m .vr .lock .vn { color: var(--c-upcoming); }
+.m .here { font-size: 11.5px; font-weight: 700; color: var(--c-gold-dark); }
+.m .bigid { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 26px; font-weight: 700; color: var(--c-green-dark); letter-spacing: .05em; }
+.m ol.next { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--c-muted); display: flex; flex-direction: column; gap: 6px; }
+.m ol.next b { color: var(--c-text); font-weight: 600; }
+.m .mbar { display: none; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 16px; background: var(--c-surface); border-bottom: 1px solid var(--c-border); }
+.m .mbar .mcap { font-size: 12px; font-weight: 700; color: var(--c-green-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m .scrim { position: absolute; inset: 0; background: rgba(11,31,20,.45); z-index: 4; }
+.m .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--c-surface); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,.18); padding: 10px 20px 26px; }
+.m .grab { width: 36px; height: 4px; border-radius: 4px; background: var(--c-border); margin: 0 auto 12px; }
+.m .sheet-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; }
+
+/* Dossier (mockup 3) */
+.m .prog { flex: 0 0 auto; padding: 14px 22px 12px; border-bottom: 1px solid var(--c-border); }
+.m .prog-t { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.m .prog-t h1 { margin: 0; font-size: 17px; font-weight: 700; color: var(--c-green-dark); }
+.m .prog-t span { font-size: 13px; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.m .bar { height: 6px; border-radius: 999px; background: var(--c-border-soft); margin-top: 9px; overflow: hidden; }
+.m .bar i { display: block; height: 100%; background: var(--c-green); border-radius: 999px; }
+.m .crow { display: grid; grid-template-columns: 22px 120px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; width: 100%; padding: 11px 0; border: 0; border-bottom: 1px solid var(--c-border-soft); background: none; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.m .crow:hover:not(.lock) .cn { color: var(--c-green-dark); }
+.m .badge { width: 20px; height: 20px; border-radius: 50%; background: var(--c-green); color: #fff; display: grid; place-items: center; }
+.m .lock .badge { background: var(--c-subtle); border: 2px solid var(--c-border); color: var(--c-border-strong); }
+.m .cn { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.m .cs { font-size: 13px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m .ce { font-size: 12.5px; color: var(--c-green); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.m .crow.lock { cursor: default; }
+.m .lock .cn { color: var(--c-upcoming); font-weight: 500; }
+.m .open { border-left: 3px solid var(--c-gold); padding: 16px 0 18px 16px; margin: 6px 0; }
+.m .open h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; color: var(--c-green-dark); }
+.m .stamp { background: var(--c-ok-bg); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.m .stamp .st { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--c-green-dark); font-size: 16px; }
+.m details.more { margin: 10px 0 16px; }
+.m details.more summary { cursor: pointer; color: var(--c-green-dark); font-weight: 600; font-size: 14px; padding: 8px 0; list-style: none; }
+.m details.more summary::-webkit-details-marker { display: none; }
+.m details.more summary::before { content: "▸"; display: inline-block; width: 16px; }
+.m details.more[open] summary::before { content: "▾"; }
+
+.m .monly { display: none; }
+@container vp (max-width: 640px) {
+  .m .donly { display: none !important; }
+  .m .monly { display: block; }
+  .m .monly.flex { display: flex; }
+  .m .body { padding: 12px 12px 8px; }
+  .m .body.login { padding-top: 16px; }
+  .m .fr-scroll { padding: 16px 16px 14px; }
+  .m .fr-pad { padding: 20px 18px; }
+  .m .fr-foot { padding: 10px 16px; }
+  .m .fr-foot .btn { width: 100%; }
+  .m .missing { padding: 8px 16px; }
+  .m .ctl { font-size: 16px; }
+  .m .rl { display: none; }
+  .m .cap { display: block; }
+  .m .railbox { padding: 12px 14px 10px; }
+  .m .splitwrap { grid-template-columns: minmax(0, 1fr); }
+  .m .panel { display: none; }
+  .m .mbar { display: flex; }
+  .m .formside { padding: 12px; }
+  .m .formside.login { padding-top: 16px; }
+  .m .crow { grid-template-columns: 22px minmax(0, 1fr) auto; row-gap: 1px; }
+  .m .crow .cs { grid-column: 2; grid-row: 2; }
+  .m .crow .ce { grid-column: 3; grid-row: 1; }
+  .m .prog { padding: 12px 16px 10px; }
+  .m .actions .btn { width: 100%; }
+  .m .actions { flex-direction: column; align-items: stretch; text-align: center; gap: 12px; }
+  .m .row.stackable { flex-direction: column; align-items: flex-start; }
+  .m .stack-r { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+  <header class="head">
+    <span class="eyebrow">Proposal · not implemented · 7 October 2026</span>
+    <h1>CAM-LEAP auth flow: three directions</h1>
+    <p>Login, the tallest registration step, the review and the success receipt, drawn three ways with CAM-LEAP's own tokens, fields and copy. Inputs, checkboxes, expanders and the phone dossier sheet respond to clicks.</p>
+  </header>
+
+  <div class="controls">
+    <div class="cgroup">
+      <span class="clabel" id="lbl-dir">Direction</span>
+      <div class="seg" role="group" aria-labelledby="lbl-dir" id="seg-dir"></div>
+    </div>
+    <div class="cgroup">
+      <span class="clabel" id="lbl-surf">Screen</span>
+      <div class="seg" role="group" aria-labelledby="lbl-surf" id="seg-surf"></div>
+    </div>
+    <div class="cgroup">
+      <span class="clabel" id="lbl-vp">Viewport</span>
+      <div class="seg" role="group" aria-labelledby="lbl-vp" id="seg-vp"></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <section class="stage" aria-label="Mockup">
+      <div class="stage-meta"><span id="meta-l"></span><span id="meta-r"></span></div>
+      <div class="fit" id="fit"><div class="scaler" id="scaler"><div class="device desk" id="device"></div></div></div>
+    </section>
+    <aside class="notes" id="notes" aria-live="polite"></aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Content: real wizard labels (register-constants / fr.json) ─────────────
+  const STEPS = ["Type d'entité", "Déclarant", "Informations", "Localisation", "Sécurité", "Récapitulatif"];
+  const SUMMARY = [
+    "Entreprise",
+    "Aïcha Mbarga · DRH · a.mbarga@boulangerie-littoral.cm",
+    "SARL Boulangerie du Littoral · NIU M0123456789012",
+    "Littoral · Wouri · Douala 1er · Urbain",
+    "Mot de passe défini",
+  ];
+  const DOSSIER = ["Type", "Déclarant", "Informations", "Localisation", "Sécurité"];
+
+  const GROUPS = [
+    ["Identité juridique", [
+      ["Raison sociale", { req: 1, value: "SARL Boulangerie du Littoral", hint: "Nom légal de l'entreprise" }],
+      ["Statut juridique", { req: 1, sel: 1, value: "Société à responsabilité limitée (SARL)" }],
+      ["Capital social (XAF)", { size: "short", value: "5 000 000", type: "text" }],
+      ["Maison mère", { ph: "Facultatif" }],
+    ]],
+    ["Fiscalité et affiliation", [
+      ["NIU", { req: 1, size: "medium", err: 1 }],
+      ["N° CNPS", { req: 1, size: "medium", err: 1 }],
+    ]],
+    ["Activité économique", [
+      ["Activité principale", { req: 1, value: "Boulangerie et pâtisserie industrielles" }],
+      ["Activité secondaire", { ph: "Facultatif" }],
+      ["Branche d'activité", { ph: "Facultatif", hint: "Ex : Commerce, Industrie, Services" }],
+    ]],
+    ["Siège social et contact", [
+      ["Adresse du siège", { req: 1, value: "Rue Joss, Bonanjo, Douala" }],
+      ["Téléphone", { req: 1, size: "short", type: "tel", value: "233 42 18 07" }],
+      ["Téléphone 2", { size: "short", type: "tel", ph: "Facultatif" }],
+      ["Boîte postale", { size: "short", value: "4512 Douala" }],
+    ]],
+  ];
+
+  const REVIEW = [
+    ["Déclarant", 1, [["Nom", "Aïcha Mbarga"], ["Fonction", "Directrice des ressources humaines"], ["Email", "a.mbarga@boulangerie-littoral.cm"], ["Téléphone", "677 21 45 90"]]],
+    ["Informations", 2, [["Type de structure", "Entreprise"], ["Raison sociale", "SARL Boulangerie du Littoral"], ["Statut juridique", "SARL"], ["Capital social", "5 000 000 XAF"], ["NIU", "M0123456789012"], ["N° CNPS", "J-118-0457-2"], ["Activité principale", "Boulangerie et pâtisserie industrielles"], ["Branche d'activité", "Industrie"], ["Adresse du siège", "Rue Joss, Bonanjo, Douala"], ["Téléphone", "233 42 18 07"], ["Boîte postale", "4512 Douala"]]],
+    ["Localisation", 3, [["Région", "Littoral"], ["Département", "Wouri"], ["Arrondissement", "Douala 1er"], ["Milieu", "Urbain"], ["Secteur d'activité", "Industries agroalimentaires"]]],
+    ["Sécurité", 4, [["Mot de passe", "Défini"], ["Statut", "Prêt à être soumis"]]],
+  ];
+
+  // ── Small builders ──────────────────────────────────────────────────────────
+  const slug = (s) => "m-" + s.normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase();
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const CHECK = (n) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const LOCK = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`;
+  const EYE = `<button class="eye" type="button" aria-label="Afficher le mot de passe"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>`;
+
+  function field(label, o = {}) {
+    const id = slug(label);
+    let ctl;
+    if (o.sel) {
+      ctl = o.value
+        ? `<select class="ctl" id="${id}"><option>${esc(o.value)}</option></select>`
+        : `<select class="ctl empty" id="${id}"><option>${esc(o.ph || "Sélectionner…")}</option></select>`;
+    } else {
+      ctl = `<div class="ir"><input class="ctl" id="${id}" type="${o.type || "text"}" value="${esc(o.value || "")}" placeholder="${esc(o.ph || "")}"${o.err ? ` aria-invalid="true" aria-describedby="${id}-e"` : ""}${o.req ? ' aria-required="true"' : ""}>${o.eye ? EYE : ""}</div>`;
+    }
+    return `<div class="f ${o.size || ""}"><label for="${id}">${esc(label)}${o.req ? '<span class="req" aria-hidden="true">*</span>' : ""}</label>${ctl}${o.err ? `<p class="ferr" id="${id}-e">Champ obligatoire</p>` : ""}${o.hint ? `<p class="hint">${esc(o.hint)}</p>` : ""}</div>`;
+  }
+
+  function step3Fields() {
+    let h = '<div class="col grid">';
+    GROUPS.forEach(([title, fields], gi) => {
+      h += `<div class="gh${gi === 0 ? " first" : ""}">${title}</div>`;
+      fields.forEach(([l, o]) => (h += field(l, o)));
+    });
+    return h + "</div>";
+  }
+
+  function tables(withEdit) {
+    return REVIEW.map(([title, , rows], i) => `
+      <div class="rh${i === 0 ? " first" : ""}"><span class="rt">${i + 1}. ${title}</span>${withEdit ? `<button class="edit" type="button">Modifier</button>` : ""}</div>
+      <table class="off"><tbody>${rows.map(([l, v]) => `<tr><td class="l">${esc(l)}</td><td class="v">${esc(v)}</td></tr>`).join("")}</tbody></table>`).join("");
+  }
+
+  const HONOUR = `<div class="honour"><strong>Déclaration sur l'honneur :</strong> En soumettant ce formulaire, vous certifiez l'exactitude des informations fournies pour l'enregistrement de votre établissement auprès du MINEFOP.</div>`;
+  const CERTIFY = `<label class="certify"><input type="checkbox" data-certify id="m-certify"><span>Je certifie que les informations fournies sont exactes et que je suis habilité à enregistrer cet établissement.</span></label>`;
+  const SUBMIT = (cls = "") => `<button class="btn ${cls}" type="button" data-submit disabled>Soumettre</button>`;
+  const MISSING = `<div class="missing" role="alert">Il reste 2 champs obligatoires : NIU, N° CNPS</div>`;
+  const STRIPE = `<div class="stripe" aria-hidden="true"></div>`;
+  const IDBAR = `<div class="idbar"><div class="idbar-in"><b>CAM-LEAP</b>Système national de déclaration du marché du travail</div></div>`;
+  const FOOT = (first) => `<div class="foot"><a href="#">${first}</a><span class="dot" aria-hidden="true">·</span>Besoin d'aide ? <a href="#">WhatsApp</a></div>`;
+  const shell = (bodyCls, inner, foot) => STRIPE + IDBAR + `<div class="body ${bodyCls}">${inner}</div>` + (foot || "");
+
+  function hrail(current) {
+    const items = STEPS.map((s, i) => {
+      const st = i < current ? "done" : i === current ? "cur" : "lock";
+      const label = st === "done" ? "terminé" : st === "cur" ? "étape en cours" : "verrouillé";
+      return `<button type="button" class="rs ${st}" aria-label="${esc(s)} — ${label}"${st === "cur" ? ' aria-current="step"' : ""}${st === "lock" ? ' aria-disabled="true"' : ""}><span class="rc" aria-hidden="true">${st === "done" ? CHECK(14) : i + 1}</span><span class="rl" aria-hidden="true">${esc(s)}</span></button>`;
+    }).join("");
+    return `<nav class="railbox" aria-label="Étapes de l'inscription"><p class="cap">Étape ${current + 1} sur 6 — ${STEPS[current]}</p><div class="rail">${items}</div></nav>`;
+  }
+
+  function vrail(current) {
+    return `<ol class="vr">${STEPS.map((s, i) => {
+      const st = i < current ? "done" : i === current ? "cur" : "lock";
+      const circle = `<span class="${st}" style="display:flex"><span class="rc">${st === "done" ? CHECK(14) : i + 1}</span></span>`;
+      const right = st === "done" ? `<span class="vedit">Modifier</span>` : st === "cur" ? `<span class="here">◀ ici</span>` : `<span class="here" style="color:var(--c-border-strong)">${LOCK}</span>`;
+      const sum = st === "done" && SUMMARY[i] ? `<span class="vsum">${esc(SUMMARY[i])}</span>` : "";
+      return `<li class="${st}"><button type="button" class="vs ${st}"${st === "cur" ? ' aria-current="step"' : ""}${st === "lock" ? ' aria-disabled="true"' : ""}>${circle}<span class="vn">${esc(s)}</span>${right}${sum}</button></li>`;
+    }).join("")}</ol>`;
+  }
+
+  function crow(i, state, summary) {
+    const name = i < 5 ? DOSSIER[i] : "Envoi";
+    if (state === "lock") {
+      return `<button type="button" class="crow lock" aria-disabled="true"><span class="badge">${LOCK}</span><span class="cn">${name}</span><span class="cs"></span><span></span></button>`;
+    }
+    return `<button type="button" class="crow" aria-expanded="false"><span class="badge">${CHECK(11)}</span><span class="cn">${name}</span><span class="cs">${esc(summary || SUMMARY[i])}</span>${state === "done" ? '<span class="ce">Modifier</span>' : "<span></span>"}</button>`;
+  }
+
+  const loginFields = () =>
+    field("Identifiant", { ph: "nom@entreprise.cm ou EN26000112", value: "a.mbarga@boulangerie-littoral.cm" }) +
+    field("Mot de passe", { type: "password", value: "motdepasse12", eye: 1 });
+
+  const receiptKV = (full) => `<dl class="kv">
+      <dt>Établissement</dt><dd><strong>SARL Boulangerie du Littoral</strong></dd>
+      ${full ? "<dt>Type de structure</dt><dd>Entreprise</dd>" : ""}
+      ${full ? `<dt>Identifiant</dt><dd><span class="idline"><span class="id">EN26000112</span><button class="btn ghost sm" type="button" data-copy="EN26000112">Copier</button></span></dd>` : ""}
+      <dt>Déclarant</dt><dd>Aïcha Mbarga (a.mbarga@boulangerie-littoral.cm)</dd>
+      ${full ? `<dt>Statut</dt><dd><span class="pill">En attente de validation par l'ONEFOP</span></dd>` : ""}
+    </dl>`;
+  const RECEIPT_ACTIONS = `<div class="actions"><button class="btn" type="button">Se connecter</button><a class="lnk" href="#">Télécharger l'attestation</a></div>`;
+
+  // ── Mockup 1: One Shell ────────────────────────────────────────────────────
+  const ONE = {
+    login: () => shell("login", `
+      <div class="fr" style="max-width:600px">
+        <div class="fr-pad">
+          <h1 class="t">Connexion</h1>
+          <p class="sub">Accédez à l'espace déclarant de votre établissement.</p>
+          <form class="col" onsubmit="return false">
+            ${loginFields()}
+            <div class="row stackable">
+              <label class="check"><input type="checkbox" checked> Rester connecté</label>
+              <span class="stack-r"><a class="lnk" href="#">Mot de passe oublié ?</a><a class="lnk" href="#">Identifiant oublié ?</a></span>
+            </div>
+            <button class="btn block" type="submit">Se connecter</button>
+          </form>
+          <hr class="sep">
+          <p style="font-size:14px">Première déclaration ? <a class="lnk" href="#">Créer le compte de votre établissement →</a></p>
+        </div>
+      </div>`, `<div class="foot">Besoin d'aide ? <a href="#">WhatsApp</a></div>`),
+
+    step3: () => shell("", `
+      <div class="fr">
+        ${hrail(2)}
+        <div class="fr-scroll">
+          <h2 class="t">Entreprise</h2>
+          <p class="sub">Renseignez les données administratives et statutaires de votre structure.</p>
+          ${step3Fields()}
+        </div>
+        ${MISSING}
+        <div class="fr-foot"><button class="btn" type="button" aria-disabled="true">Continuer →</button></div>
+      </div>`, FOOT("Retour à la connexion")),
+
+    review: () => shell("", `
+      <div class="fr">
+        ${hrail(5)}
+        <div class="fr-scroll">
+          <h2 class="t">Récapitulatif</h2>
+          <p class="sub">Vérifiez vos informations avant de soumettre.</p>
+          ${tables(true)}
+          ${HONOUR}
+        </div>
+        <div class="fr-foot split">${CERTIFY}${SUBMIT()}</div>
+      </div>`, FOOT("Retour à la connexion")),
+
+    receipt: () => shell("", `
+      <div class="fr">
+        <div class="fr-pad">
+          <div class="rhead"><span class="disc">${CHECK(22)}</span><div><h1 class="t">Demande envoyée</h1><p class="sub" style="margin:0">Accusé de réception de votre demande d'enregistrement. L'ONEFOP va la vérifier.</p></div></div>
+          ${receiptKV(true)}
+          ${RECEIPT_ACTIONS}
+        </div>
+      </div>`, `<div class="foot">Besoin d'aide ? <a href="#">WhatsApp</a></div>`),
+  };
+
+  // ── Mockup 2: Split screen + dossier panel ─────────────────────────────────
+  const PANEL_BRAND = `<div><div class="wm">CAM-LEAP</div><div class="wms">Système national de déclaration du marché du travail</div></div>`;
+  const PANEL_SMALL = `<div><div class="wm" style="font-size:16px">CAM-LEAP · Inscription</div></div>`;
+  const PFOOT = `<div class="pfoot"><a href="#">Retour à la connexion</a> · Besoin d'aide ? <a href="#">WhatsApp</a></div>`;
+  const mbar = (cap, sheet) => `<div class="monly">${STRIPE}</div><div class="mbar"><span class="mcap">${cap}</span>${sheet ? `<button class="btn ghost sm" type="button" data-sheet="open">Mon dossier ▾</button>` : ""}</div>`;
+  const sheet = (current) => `<div class="scrim" data-sheet="close" hidden></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Mon dossier" hidden><div class="grab"></div><div class="sheet-h"><span>Mon dossier</span><button class="lnk" type="button" data-sheet="close">Fermer</button></div>${vrail(current)}</div>`;
+
+  const SPLIT = {
+    login: () => `
+      <div class="monly">${STRIPE + IDBAR}</div>
+      <div class="splitwrap">
+        <aside class="panel">
+          ${PANEL_BRAND}
+          <div><p class="ph">Qui doit déclarer ?</p><p class="pp">Toute entreprise, coopérative, ONG, administration, collectivité territoriale, projet ou centre de formation qui emploie du personnel au Cameroun.</p></div>
+          <div style="border-top:1px solid var(--c-border);padding-top:20px"><p class="ph">Première déclaration ?</p><p class="pp" style="margin-bottom:12px">Créez le compte de votre établissement en six étapes. Comptez dix minutes.</p><button class="btn ghost" type="button">Créer un compte →</button></div>
+          <div class="pfoot">Besoin d'aide ? <a href="#">WhatsApp</a></div>
+        </aside>
+        <div class="formside login">
+          <div class="fr">
+            <div class="fr-pad">
+              <h1 class="t">Connexion</h1>
+              <p class="sub">Accédez à l'espace déclarant de votre établissement.</p>
+              <form class="col" onsubmit="return false">
+                ${loginFields()}
+                <div class="row stackable">
+                  <label class="check"><input type="checkbox" checked> Rester connecté</label>
+                  <span class="stack-r"><a class="lnk" href="#">Mot de passe oublié ?</a><a class="lnk" href="#">Identifiant oublié ?</a></span>
+                </div>
+                <button class="btn block" type="submit">Se connecter</button>
+              </form>
+              <div class="monly"><hr class="sep"><p style="font-size:14px">Première déclaration ? <a class="lnk" href="#">Créer un compte →</a></p></div>
+            </div>
+          </div>
+        </div>
+      </div>`,
+
+    step3: () => `
+      ${mbar("Étape 3 sur 6 — Informations", true)}
+      <div class="splitwrap">
+        <aside class="panel">${PANEL_SMALL}<nav aria-label="Étapes de l'inscription">${vrail(2)}</nav>${PFOOT}</aside>
+        <div class="formside">
+          <div class="fr">
+            <div class="fr-scroll">
+              <h1 class="t">Entreprise</h1>
+              <p class="sub">Renseignez les données administratives et statutaires de votre structure.</p>
+              ${step3Fields()}
+            </div>
+            ${MISSING}
+            <div class="fr-foot"><button class="btn" type="button" aria-disabled="true">Continuer →</button></div>
+          </div>
+        </div>
+      </div>${sheet(2)}`,
+
+    review: () => `
+      ${mbar("Étape 6 sur 6 — Récapitulatif", true)}
+      <div class="splitwrap">
+        <aside class="panel">${PANEL_SMALL}<nav aria-label="Étapes de l'inscription">${vrail(5)}</nav>${PFOOT}</aside>
+        <div class="formside">
+          <div class="fr">
+            <div class="fr-scroll">
+              <h1 class="t">Récapitulatif et envoi</h1>
+              <p class="sub">Votre dossier est complet. Le résumé de chaque étape est à gauche.</p>
+              <div class="col">
+                ${HONOUR}
+                ${CERTIFY}
+                <div>${SUBMIT()}</div>
+              </div>
+              <details class="more"><summary>Voir le détail complet (4 sections)</summary>${tables(true)}</details>
+            </div>
+          </div>
+        </div>
+      </div>${sheet(5)}`,
+
+    receipt: () => `
+      ${mbar("Inscription envoyée", false)}
+      <div class="splitwrap">
+        <aside class="panel">
+          ${PANEL_SMALL}
+          <div><p class="ph" style="color:var(--c-muted);font-weight:600;font-size:13px">Identifiant d'établissement</p><div class="bigid">EN26000112</div><div style="margin-top:10px"><button class="btn ghost sm" type="button" data-copy="EN26000112">Copier l'identifiant</button></div></div>
+          <div><span class="pill">En attente de validation par l'ONEFOP</span></div>
+          <div><p class="ph">Prochaines étapes</p><ol class="next"><li><b>Validation</b> de votre dossier par l'ONEFOP</li><li><b>Email</b> de confirmation à a.mbarga@…</li><li><b>Connexion</b> et première déclaration</li></ol></div>
+          <div class="pfoot">Besoin d'aide ? <a href="#">WhatsApp</a></div>
+        </aside>
+        <div class="formside">
+          <div class="fr">
+            <div class="fr-pad">
+              <div class="rhead"><span class="disc">${CHECK(22)}</span><div><h1 class="t">Demande envoyée</h1><p class="sub" style="margin:0">Accusé de réception de votre demande d'enregistrement.</p></div></div>
+              ${receiptKV(false)}
+              <div class="monly" style="margin-bottom:20px">
+                <dl class="kv" style="margin:0"><dt>Identifiant</dt><dd><span class="idline"><span class="id">EN26000112</span><button class="btn ghost sm" type="button" data-copy="EN26000112">Copier</button></span></dd><dt>Statut</dt><dd><span class="pill">En attente de validation par l'ONEFOP</span></dd></dl>
+                <ol class="next" style="margin-top:14px"><li><b>Validation</b> par l'ONEFOP</li><li><b>Email</b> de confirmation</li><li><b>Connexion</b> et première déclaration</li></ol>
+              </div>
+              ${RECEIPT_ACTIONS}
+            </div>
+          </div>
+        </div>
+      </div>`,
+  };
+
+  // ── Mockup 3: Review-first dossier ─────────────────────────────────────────
+  const prog = (done, title) => `<div class="prog"><div class="prog-t"><h1>${title || "Inscription de votre établissement"}</h1><span>${done} sur 5 sections complètes</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${done}"><i style="width:${done * 20}%"></i></div></div>`;
+
+  const DOSS = {
+    login: () => shell("login", `
+      <div class="fr">
+        <div class="fr-pad">
+          <h1 class="t">Connexion</h1>
+          <p class="sub">Accédez à l'espace déclarant de votre établissement.</p>
+          <form class="col" onsubmit="return false">
+            ${loginFields()}
+            <div class="row stackable">
+              <label class="check"><input type="checkbox" checked> Rester connecté</label>
+              <a class="lnk" href="#">Mot de passe oublié ?</a>
+            </div>
+            <button class="btn block" type="submit">Se connecter</button>
+          </form>
+          <div class="or">ou</div>
+          <button class="btn ghost block" type="button">Première déclaration ? Créer le dossier de votre établissement</button>
+          <p style="text-align:right;margin-top:14px;font-size:13.5px"><a class="lnk" href="#">Identifiant oublié ?</a></p>
+        </div>
+      </div>`, `<div class="foot">Besoin d'aide ? <a href="#">WhatsApp</a></div>`),
+
+    step3: () => shell("", `
+      <div class="fr">
+        ${prog(2)}
+        <div class="fr-scroll">
+          ${crow(0, "done")}${crow(1, "done")}
+          <section class="open" aria-labelledby="m-open-h">
+            <h2 id="m-open-h">Informations · Entreprise</h2>
+            <p class="sub">Renseignez les données administratives et statutaires de votre structure.</p>
+            ${step3Fields()}
+            <div style="margin-top:20px"><button class="btn" type="button" aria-disabled="true">Continuer →</button></div>
+          </section>
+          ${crow(3, "lock")}${crow(4, "lock")}${crow(5, "lock")}
+        </div>
+        ${MISSING}
+      </div>`, FOOT("Retour à la connexion")),
+
+    review: () => shell("", `
+      <div class="fr">
+        ${prog(5)}
+        <div class="fr-scroll">
+          ${[0, 1, 2, 3, 4].map((i) => crow(i, "done")).join("")}
+          <details class="more"><summary>Voir le détail complet</summary>${tables(false)}</details>
+          <div class="col">
+            ${HONOUR}
+            ${CERTIFY}
+            <div style="display:flex;justify-content:flex-end">${SUBMIT()}</div>
+          </div>
+        </div>
+      </div>`, FOOT("Retour à la connexion")),
+
+    receipt: () => shell("", `
+      <div class="fr">
+        <div class="fr-scroll">
+          <div class="stamp">
+            <span class="st"><span class="disc" style="width:30px;height:30px;background:#fff">${CHECK(16)}</span>Demande envoyée · 7 octobre 2026</span>
+            <span class="idline"><span style="font-size:13px;color:var(--c-muted);font-weight:600">Identifiant</span><span class="id">EN26000112</span><button class="btn ghost sm" type="button" data-copy="EN26000112">Copier</button></span>
+            <span><span class="pill">En attente de validation par l'ONEFOP</span></span>
+          </div>
+          ${[0, 1, 2, 3].map((i) => crow(i, "sealed")).join("")}
+          <details class="more"><summary>Voir le détail</summary>${tables(false)}</details>
+          ${RECEIPT_ACTIONS}
+        </div>
+      </div>`, `<div class="foot">Besoin d'aide ? <a href="#">WhatsApp</a></div>`),
+  };
+
+  // ── Notes ───────────────────────────────────────────────────────────────────
+  const DIRS = {
+    one: {
+      label: "One Shell", render: ONE,
+      thesis: "Login, register and the receipt become three states of one page: one stripe and identity bar, one 600px measure, one field style, one green button. The wizard keeps its 6 steps and its rail.",
+      scope: [["shared", "Shared .cam-auth-page"], ["reg", "Register"], ["login", "Login"]],
+      effort: "4–6 days", risk: "Forgot-password, verify-email and reset-password change with the shared rules. The layout test's checks on the continue link need updating. Its 600px frame, 40px field and single-scroller checks still hold.",
+      surf: {
+        login: ["Same identity bar and 600px measure as the wizard, so moving to register is not a visual jump.", "Wizard field style everywhere: 40px controls, grey at rest. Controls are 16px on phones, which ends the iOS zoom.", "« Retrouver mon identifiant » stops being a tab. It becomes a link next to « Mot de passe oublié ».", "Create-account link moved up from the 13px card footer to body size.", "The emblem placeholder and its note are removed."],
+        step3: ["The rail moves inside the frame, so the bar above it is the same on every route.", "Pinned frame footer with a green Continuer, so every step has one primary action (CLAUDE.md §11).", "The missing-fields notice stays pinned above it, and only the frame scrolls (scroll inside the frame to see the NIU and CNPS errors).", "On short steps the frame ends with its content instead of filling the screen."],
+        review: ["The same four official tables, each with « Modifier ».", "Certification and Soumettre stay visible in the footer. Today they sit below about 1,100px of tables.", "Tick the box to enable Soumettre, as today.", "On phones the tables stack into label/value pairs."],
+        receipt: ["Rendered in the same shell and 600px frame, with no second header and no 2px card.", "The title follows the status: « Demande envoyée » while the request is pending.", "The identifier gets a Copier button.", "Se connecter pre-fills the email. The attestation link is shown: the app already receives it but never renders it.", "The duplicate « Retour à la connexion » link is removed."],
+      },
+    },
+    split: {
+      label: "Split + dossier panel", render: SPLIT,
+      thesis: "A left panel stays in place across the journey. On login it says who must declare and holds account creation. In the wizard it is a vertical rail with a summary of each finished step. On the receipt it shows the identifier and the next steps. On phones it collapses to a top bar and a « Mon dossier » sheet.",
+      scope: [["shared", "Shared shell"], ["reg", "Register"], ["login", "Login"]],
+      effort: "8–12 days", risk: "Six steps with summaries must fit at 1366×680 without the panel scrolling. Between about 1000px and 1100px wide it needs a tablet state. Moving certification above the tables needs ONEFOP sign-off.",
+      surf: {
+        login: ["The panel explains who must declare and puts « Créer un compte » next to the form, equal in weight.", "The form column uses the wizard field style.", "On phones the panel is reduced to the identity bar, and the create-account link sits under the button."],
+        step3: ["A vertical rail shows the summary of every finished step. Today these exist only as tooltips (title attributes), which touch and most screen-reader users never see.", "« Modifier » is always visible on finished steps.", "Removing the header row gives the frame about 100px more height at 1280×720.", "On phones: switch the viewport and tap « Mon dossier »."],
+        review: ["Certification and Soumettre come first, because the panel already shows the whole dossier.", "The four official tables are kept, behind « Voir le détail complet ».", "Putting certification before the detail changes the official act. This needs domain review."],
+        receipt: ["The panel holds the identifier in large type, a copy button, the status and the next steps.", "The right column has a single next action, plus the attestation link.", "On phones, the identifier and next steps move inline above the actions."],
+      },
+    },
+    dossier: {
+      label: "Review-first dossier", render: DOSS,
+      thesis: "Registration becomes one accordion page. Finished sections collapse to a one-line summary, and the review step disappears: certification and Soumettre close the page. The receipt is the same dossier, locked and stamped.",
+      scope: [["reg", "Register"], ["login", "Login"], ["shared", "Shared metrics"]],
+      effort: "10–15 days", risk: "This partly reverses an earlier decision. The unused CollapsedSection.tsx and the .section-collapsed CSS are left over from a single-page layout the project replaced. It also removes the official recapitulation screen, which needs ONEFOP sign-off.",
+      surf: {
+        login: ["« Créer le dossier » is a full-width outline button of the same weight as Se connecter. New respondents are the majority during a campaign.", "The same field style and shell as mockup 1."],
+        step3: ["Finished sections collapse to one row; the next sections are visible below as locked rows.", "No change of screen between steps: the open section collapses and the next one opens in place, which removes the swap that currently happens mid-typing.", "There is still one scroll container and one pinned missing-fields notice."],
+        review: ["There is no separate review step: five summary rows, then the honour notice, certification and Soumettre.", "The submit button is above the fold at 1280×720. Today it is about 1,000–1,300px down.", "The full tables stay behind « Voir le détail complet »."],
+        receipt: ["A stamp block shows the date, the identifier with a copy button, and the status.", "The dossier rows are shown locked, with no « Modifier ».", "Se connecter, plus the attestation link."],
+      },
+    },
+  };
+  const SURFS = { login: "Login", step3: "Step 3 · Informations", review: "Review", receipt: "Receipt" };
+  const VPS = { desk: ["Desktop", 1280, 720], mob: ["Phone", 390, 844] };
+
+  // ── State, controls, render ────────────────────────────────────────────────
+  const state = { dir: "one", surf: "login", vp: "desk" };
+  const hash = (location.hash || "").slice(1).split("-");
+  if (DIRS[hash[0]]) state.dir = hash[0];
+  if (SURFS[hash[1]]) state.surf = hash[1];
+  if (VPS[hash[2]]) state.vp = hash[2];
+
+  function seg(el, entries, key) {
+    el.innerHTML = entries.map(([k, label], i) => `<button type="button" data-k="${k}" aria-pressed="${state[key] === k}">${key === "dir" ? `<span class="num">${i + 1}</span>` : ""}${label}</button>`).join("");
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-k]");
+      if (!b) return;
+      state[key] = b.dataset.k;
+      render();
+    });
+  }
+  seg(document.getElementById("seg-dir"), Object.entries(DIRS).map(([k, d]) => [k, d.label]), "dir");
+  seg(document.getElementById("seg-surf"), Object.entries(SURFS), "surf");
+  seg(document.getElementById("seg-vp"), Object.entries(VPS).map(([k, v]) => [k, `${v[0]} ${v[1]}×${v[2]}`]), "vp");
+
+  const device = document.getElementById("device");
+  const scaler = document.getElementById("scaler");
+  const fitEl = document.getElementById("fit");
+  const stage = document.querySelector(".stage");
+
+  function fit() {
+    const [, w, h] = VPS[state.vp];
+    const pad = state.vp === "mob" ? 18 : 0;
+    const avail = stage.clientWidth - 32 - pad;
+    const s = Math.min(1, avail / w);
+    scaler.style.transform = `scale(${s})`;
+    fitEl.style.width = w * s + "px";
+    fitEl.style.height = h * s + "px";
+    fitEl.style.padding = "0";
+    document.getElementById("meta-r").textContent = `${w} × ${h} · shown at ${Math.round(s * 100)}%`;
+  }
+
+  function render() {
+    document.querySelectorAll(".seg button").forEach((b) => {
+      const key = b.parentElement.id.replace("seg-", "");
+      b.setAttribute("aria-pressed", String(state[key] === b.dataset.k));
+    });
+    const d = DIRS[state.dir];
+    device.className = "device " + state.vp;
+    device.innerHTML = `<div class="m">${d.render[state.surf]()}</div>`;
+    document.getElementById("meta-l").textContent = `${d.label} · ${SURFS[state.surf]}`;
+    document.getElementById("notes").innerHTML = `
+      <h2>${d.label}</h2>
+      <p class="thesis">${d.thesis}</p>
+      <div><h3>Touches</h3><div class="chips">${d.scope.map(([c, t]) => `<span class="chip ${c}">${t}</span>`).join("")}</div></div>
+      <div><h3>${SURFS[state.surf]}: what changes</h3><ul>${d.surf[state.surf].map((x) => `<li>${x}</li>`).join("")}</ul></div>
+      <dl class="meta"><dt>Effort</dt><dd>${d.effort}</dd><dt>Risk</dt><dd>${d.risk}</dd></dl>
+      <p class="legend">Kept in all three: tokens, palette, endpoints, the field set, validation rules, and the separate admin-assisted registration.</p>`;
+    try { history.replaceState(null, "", `#${state.dir}-${state.surf}-${state.vp}`); } catch (e) { /* sandboxed */ }
+    fit();
+  }
+
+  // Mockup interactions: certification gate, copy, phone dossier sheet.
+  device.addEventListener("change", (e) => {
+    if (e.target.matches("[data-certify]")) {
+      const btn = device.querySelector("[data-submit]");
+      if (btn) btn.disabled = !e.target.checked;
+    }
+  });
+  device.addEventListener("click", (e) => {
+    const copy = e.target.closest("[data-copy]");
+    if (copy) {
+      const done = () => { const t = copy.textContent; copy.textContent = "Copié ✓"; setTimeout(() => (copy.textContent = t), 1800); };
+      try { navigator.clipboard.writeText(copy.dataset.copy).then(done, done); } catch (err) { done(); }
+      return;
+    }
+    const sh = e.target.closest("[data-sheet]");
+    if (sh) {
+      const open = sh.dataset.sheet === "open";
+      device.querySelectorAll(".sheet, .scrim").forEach((el) => (el.hidden = !open));
+      if (open) device.querySelector(".sheet .lnk")?.focus();
+      return;
+    }
+    if (e.target.closest("a[href='#']")) e.preventDefault();
+  });
+  device.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") device.querySelectorAll(".sheet, .scrim").forEach((el) => (el.hidden = true));
+  });
+
+  if ("ResizeObserver" in window) new ResizeObserver(fit).observe(stage);
+  else window.addEventListener("resize", fit);
+  render();
+})();
+</script>
