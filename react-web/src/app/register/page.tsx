@@ -978,30 +978,18 @@ export default function RegisterPage() {
           <div className="card card--admin">
             <div className="stripe" aria-hidden="true" />
             <div className="card-body">
-              <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 52,
-                    height: 52,
-                    borderRadius: "50%",
-                    background: "rgba(30, 107, 58, 0.1)",
-                    color: "var(--cam-green)",
-                    marginBottom: "12px",
-                  }}
-                >
+              <div className="receipt-hero">
+                <div className="receipt-disc" aria-hidden="true">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h1 className="brand-name" style={{ fontSize: 20, marginBottom: 4 }}>
+                <h1 className="brand-name receipt-title">
                   {t("registerPage.successTitle")}
                 </h1>
                 {/* Every file now has its ID at registration, so the wording follows
                     the account status: only an active account is "registered". */}
-                <p className="brand-sub" style={{ fontSize: 13 }}>
+                <p className="brand-sub receipt-subtitle">
                   {result.status === "ACTIVE"
                     ? "Attestation officielle d'enregistrement au système national CAM-LEAP"
                     : "Accusé de réception de votre demande d'enregistrement au système national CAM-LEAP"}
@@ -1012,7 +1000,7 @@ export default function RegisterPage() {
                 <tbody>
                   <tr>
                     <td className="label-cell">Dénomination / Organisation</td>
-                    <td className="value-cell" style={{ fontWeight: 700 }}>{result.companyName}</td>
+                    <td className="value-cell value-cell--bold">{result.companyName}</td>
                   </tr>
                   {config && (
                     <tr>
@@ -1026,18 +1014,7 @@ export default function RegisterPage() {
                     <tr>
                       <td className="label-cell">Identifiant d&apos;établissement</td>
                       <td className="value-cell">
-                        <span
-                          style={{
-                            fontFamily: "var(--cam-font-mono, monospace)",
-                            fontSize: "14px",
-                            fontWeight: 700,
-                            color: "var(--cam-green-dark)",
-                            background: "rgba(30, 107, 58, 0.08)",
-                            padding: "2px 8px",
-                            borderRadius: "4px",
-                            display: "inline-block",
-                          }}
-                        >
+                        <span className="receipt-id">
                           {result.establishmentId}
                         </span>
                       </td>
@@ -1050,11 +1027,11 @@ export default function RegisterPage() {
                   <tr>
                     <td className="label-cell">Statut de validation / Status</td>
                     {result.status === "ACTIVE" ? (
-                      <td className="value-cell" style={{ color: "var(--cam-green-dark)", fontWeight: 600 }}>
+                      <td className="value-cell value-cell--ready">
                         Enregistré / Compte opérationnel
                       </td>
                     ) : (
-                      <td className="value-cell" style={{ fontWeight: 600 }}>
+                      <td className="value-cell value-cell--strong">
                         En attente de validation par l&apos;ONEFOP / Pending review
                       </td>
                     )}
