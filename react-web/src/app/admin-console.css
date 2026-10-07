@@ -112,6 +112,25 @@
   text-decoration: underline;
 }
 
+/* A text action that removes or refuses something. */
+.cam-text-button.is-danger {
+  color: var(--cam-error);
+}
+
+/* A person's initials in a light table row (the agent roster). */
+.cam-admin-initials {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-green-dark);
+  color: var(--cam-surface);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 700;
+}
+
 .cam-text-button:focus-visible {
   outline: 2px solid var(--cam-focus);
   outline-offset: 2px;
