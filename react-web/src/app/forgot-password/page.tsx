@@ -71,7 +71,6 @@ export default function ForgotPasswordPage() {
         <AuthHeader />
 
         <div className="card">
-          <div className="stripe" aria-hidden="true" />
           <div className="card-body">
             <h1
               className="brand-name"

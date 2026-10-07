@@ -122,7 +122,8 @@ export class ApiError extends Error {
 export const COMPANY_NOT_ACTIVE = "COMPANY_NOT_ACTIVE";
 
 const REGISTRATION_STATUS_PATH = "/home/inscription-en-attente";
-const LOGIN_PATH = "/login";
+// The sign-in form is on the landing page; /login only redirects to it.
+const LOGIN_PATH = "/";
 
 /**
  * ActiveCompanyGuard throws `new ForbiddenException({ code, status })`, which

@@ -1,8 +1,7 @@
 {
   "authShared": {
     "wordmark": "CAM-LEAP",
-    "subtitle": "National Labor Market Declaration System",
-    "emblemPlaceholder": "MINEFOP / ONEFOP emblem — to be added"
+    "subtitle": "National Labor Market Declaration System"
   },
   "common": {
     "cancel": "Cancel",
@@ -2564,5 +2563,16 @@
     "notRecorded": "Not recorded",
     "resubmit": "Resubmit the file",
     "signOut": "Sign out"
+  },
+  "landingPage": {
+    "emblemLabel": "Map of Cameroon in the national colours",
+    "otherLanguageName": "Système national de déclaration du marché du travail",
+    "noticesHeading": "Notices to respondents",
+    "notice1Title": "Welcome to CAM-LEAP",
+    "notice1Body": "The national labor market declaration system. Declare your establishment's workforce online.",
+    "notice2Title": "Two declarations",
+    "notice2Body": "<b>DSMO Declaration</b>: workforce social declaration. <b>ONEFOP Questionnaire</b>: labor market information.",
+    "notice3Title": "Support",
+    "notice3Body": "Need help? Write to us on WhatsApp at <a>+237 6 51 96 59 05</a>."
   }
 }

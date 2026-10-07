@@ -43,7 +43,6 @@ function VerifyEmailContent() {
       <div className="wrap">
         <AuthHeader />
         <div className="card">
-          <div className="stripe" aria-hidden="true" />
           <div className="card-body" style={{ textAlign: "center" }}>
             {loading ? (
               <p style={{ color: "var(--muted)", margin: "16px 0" }}>
