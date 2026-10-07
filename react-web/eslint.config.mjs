@@ -108,11 +108,11 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // Registration wizard. G13 (literal fontSize) is not in this block: ESLint
-  // does not ratchet, and the wizard still has font-size literals. That
-  // selector turns on in Phase 3, after Phase 2 clears them. G7, G12, and
-  // the Tailwind half of G1 measured zero, so they error immediately. The
-  // mock-dataset guard stays on the admin block above.
+  // Registration wizard. G13 (literal fontSize) errors here: Phase 2 cleared
+  // the wizard literals, and ESLint does not ratchet, so a new literal fails
+  // immediately. G7, G12, and the Tailwind half of G1 measured zero in
+  // Phase 1 and stay errors. The mock-dataset guard stays on the admin
+  // block above.
   {
     files: [
       "src/app/register/**/*.{ts,tsx}",
@@ -121,6 +121,23 @@ const eslintConfig = defineConfig([
     rules: {
       "no-restricted-syntax": [
         "error",
+        // G13 — a page sets no font size. Matches any literal `fontSize`,
+        // number or unit string, and allows `var(--cam-font-size-*)`.
+        {
+          selector:
+            "Property[key.name='fontSize'][value.type='Literal'][value.value=/^(?!var\\().+$/]",
+          message:
+            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 4xs 9, 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
+        },
+        // Same rule, numeric form (`fontSize: 13`). It needs its own selector
+        // because esquery's regex attribute matcher only tests string values,
+        // so the entry above silently skipped every numeric literal.
+        {
+          selector:
+            "Property[key.name='fontSize'][value.type='Literal'][value.value=type(number)]",
+          message:
+            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 4xs 9, 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
+        },
         {
           selector:
             "MemberExpression[property.name=/^toLocale(String|DateString|TimeString)$/]",

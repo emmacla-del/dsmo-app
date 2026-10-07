@@ -43,7 +43,7 @@ const rel = (p) => relative(root, p).replace(/\\/g, "/");
 
 // Registration wizard, appended to ADMIN_DIRS below. The two admin entries
 // stay first. datastate-adoption does not scan these: the wizard does not
-// use DataState. Phase 3 exempts .table-official from bare-table here.
+// use DataState. bare-table exempts .table-official on these paths only.
 const WIZARD_DIRS = [
   join(root, "src", "app", "register"),
   join(root, "src", "components", "auth"),
@@ -150,7 +150,7 @@ function findPerLine(files, predicate, { stripComments = false } = {}) {
     }
     if (stripComments) src = stripCssComments(src);
     src.split("\n").forEach((line, i) => {
-      if (predicate(line)) out.push({ file, line: i + 1, text: line.trim().slice(0, 110) });
+      if (predicate(line, file)) out.push({ file, line: i + 1, text: line.trim().slice(0, 110) });
     });
   }
   return out;
@@ -240,10 +240,14 @@ const RULES = [
     title: "<table> with no cam table class",
     fix: "Wrap in .cam-table-wrapper and use .cam-table, or .cam-dash-table / .cam-pilot-table for numeric grids.",
     run: () =>
-      findPerLine(
-        collectAll(ADMIN_DIRS, [".tsx"]),
-        (line) => /<table\b/.test(line) && !/cam-(table|dash-table|pilot-table)/.test(line)
-      ),
+      findPerLine(collectAll(ADMIN_DIRS, [".tsx"]), (line, file) => {
+        if (!/<table\b/.test(line) || /cam-(table|dash-table|pilot-table)/.test(line)) return false;
+        // .table-official is the wizard receipt and review table. Phase 1
+        // confirmed the class is used only under the wizard globs, so an
+        // admin <table> still counts.
+        if (isWizardPath(file) && /\btable-official\b/.test(line)) return false;
+        return true;
+      }),
   },
   {
     key: "spacing-off-scale",
@@ -293,14 +297,14 @@ const RULES = [
       return out;
     },
   },
-  // Wizard only, advisory until Phase 3. ESLint cannot ratchet, so these
-  // live here: a rise warns now and blocks once the severity flips.
+  // Wizard only, and blocking. ESLint cannot ratchet a count. Phase 2
+  // cleared these literals, so a new rgba() or a raw font metric fails.
+  // spacing-off-scale stays advisory. datastate-adoption stays admin-only.
   {
     key: "rgba-literal",
     rule: "alpha",
     title: "rgba() outside tokens.css",
     fix: "Use a color-mix purpose token from tokens.css (--cam-scrim, --cam-green-wash, --cam-focus-shadow).",
-    warn: true,
     run: () =>
       findPerLine(collectAll(WIZARD_DIRS, [".ts", ".tsx"]), (line) =>
         /rgba\s*\(/.test(stripJsComment(line))
@@ -311,7 +315,6 @@ const RULES = [
     rule: "type",
     title: "Raw fontWeight, lineHeight, or letterSpacing in TSX",
     fix: "Use --cam-font-weight-*, --cam-line-height-*, or --cam-tracking-*.",
-    warn: true,
     run: () =>
       findPerLine(collectAll(WIZARD_DIRS, [".ts", ".tsx"]), (line) => {
         const m = stripJsComment(line).match(
