@@ -14,10 +14,14 @@
 | 0 | Shared layer + ratchet | ✅ Landed (416d84da, ab6f995e) | — |
 | 1 | Dossier pair | ✅ Landed (5c01f157, 4fb5139f) | 694\* |
 | 2 | Directory cluster | ✅ Landed (195b59e1, 1f2c6b4e, 4fc133f1, 71f14b52) | 650 |
-| 3 | Tailwind island | ⏳ In progress | — |
+| 3 | Tailwind island + pilotage | ✅ Landed (3f1d1c04, 8a036846, 909fcb81, 10d95ad0, 2cbf5879, a51731b5, e260c236, d786117e, 0e09b555) | 141 |
 | 4 | Residue + respondent + copy | ⏳ Not started | — |
 
 The ratchet baseline (`scripts/ui-grammar-baseline.json`, summed across all rules) went from 1,618 after Step 0 to 274 after Step 2. Every rule for the six files in Steps 1–2 — `dossiers`, `dossiers/[id]`, `centre-qualite`, `utilisateurs`, `etablissement-detail`, `etablissements` — is now at zero; none of them has a baseline entry left.
+
+Step 3 took it from 274 to 133: 33 from the Tailwind island (`diffusion`, `equipe`, `journal-audit`, `parametres`) and 108 from `pilotage`, which the plan grouped with `questionnaires` and is done here instead; `questionnaires` moves to Step 4. The island's real debt was Tailwind utilities, which the ratchet does not count, so its progress measure is ESLint: the G1 Tailwind-palette rule went from 186 violations to 0 across the four pages. Every rule for those five files is at zero, and `bare-table` now has no baseline entries anywhere in the console. Two `setState`-in-render bugs (`diffusion`, `parametres`) and one link lost in `339c4a63` (`pilotage`'s activity feed) were fixed in their own commits ahead of each restyle. `.cam-dash-timeline-dot` gained status-tone modifiers, the step's one shared-CSS change. The `diffusion` scope radio, which does not reach the export filters, was raised separately for review; the restyle leaves that behaviour unchanged.
+
+From Step 3 on, `npx eslint` on each touched file is a per-commit gate alongside `tsc`, `next build`, `npm test`, `check:ui-grammar` and `check:admin-integrity`.
 
 \* 692 from the two dossier commits; the other 2 came from `3b398319` (add-officer form), which landed between Steps 0 and 1.
 
