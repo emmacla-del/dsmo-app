@@ -3,9 +3,15 @@
 // declared inline with its own font sizes, so a change to the step typography
 // happens here (and in the .step-header* rules) rather than in six places.
 //
-// The heading level stays <h2> to match the markup the steps already emitted:
-// AuthHeader renders the CAM-LEAP wordmark above, and changing the document
-// outline is not part of a layout commit.
+// The title is the page's <h1>. The wizard hides the CAM-LEAP wordmark (and
+// renders it as a div, see AuthHeader), so the section's own title is the
+// only heading that names the page. Every revealed section stays mounted, but
+// the ones not on screen are `hidden` and so out of the accessibility tree:
+// one <h1> is exposed at a time.
+//
+// tabIndex -1 makes it a focus target the wizard moves to on every section
+// change (see headingFocusPendingRef in register/page.tsx) without putting it
+// in the Tab order.
 export function StepHeader({
   title,
   subtitle,
@@ -19,9 +25,9 @@ export function StepHeader({
 }) {
   return (
     <div className="step-header">
-      <h2 className="step-header-title" id={titleId}>
+      <h1 className="step-header-title" id={titleId} tabIndex={-1}>
         {title}
-      </h2>
+      </h1>
       {subtitle && <p className="step-header-subtitle">{subtitle}</p>}
     </div>
   );
