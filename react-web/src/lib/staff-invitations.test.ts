@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   canGrantAdminOnefop,
+  groupLinkMessage,
+  groupLinkUrl,
   invitationLevelsFor,
   invitationMessage,
   invitationUrl,
@@ -97,4 +99,20 @@ test("the message names the post, the territory, the expiry and the link", () =>
   assert.match(msg, /2026/);
   assert.ok(msg.endsWith("https://x/inscription-agent?invitation=t"));
   assert.match(invitationMessage(inv, "u", "en"), /^Hello, you are invited/);
+});
+
+test("the group link uses ?lien= on the same page", () => {
+  assert.equal(groupLinkUrl("https://x.cm", "a+b"), "https://x.cm/inscription-agent?lien=a%2Bb");
+});
+
+test("the group message names the group, the territory, the approval step and the expiry", () => {
+  const link = {
+    id: "l", label: "Personnel DREFOP", level: "regional" as const, role: "REGIONAL_ADMIN", region: "Centre", department: null,
+    maxUses: 50, useCount: 0, expiresAt: "2026-10-14T09:00:00.000Z", revokedAt: null, createdAt: "", state: "active" as const,
+  };
+  const msg = groupLinkMessage(link, "https://x/inscription-agent?lien=t", "fr");
+  assert.match(msg, /Personnel DREFOP, Centre\./);
+  assert.match(msg, /un administrateur validera/);
+  assert.match(msg, /2026/);
+  assert.ok(msg.endsWith("https://x/inscription-agent?lien=t"));
 });

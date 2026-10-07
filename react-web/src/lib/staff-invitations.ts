@@ -235,3 +235,114 @@ export function whatsappHref(message: string, phone?: string): string {
   const intl = digits.length === 9 ? `237${digits}` : digits;
   return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`;
 }
+
+// ── Group links (backend: src/auth/staff-invitation-link.service.ts) ─────
+//
+// One link for a group of staff, posted in a WhatsApp group. Each person
+// picks their service and post within the link's scope; the account waits
+// for approval. The token is shown once, at creation: only its hash is
+// stored, so a lost link is replaced, not recovered.
+
+export type GroupLinkState = "active" | "expired" | "revoked" | "full";
+
+export interface GroupLink {
+  id: string;
+  label: string;
+  level: InvitationLevel;
+  role: string | null;
+  region: string | null;
+  department: string | null;
+  maxUses: number;
+  useCount: number;
+  expiresAt: string;
+  revokedAt: string | null;
+  createdAt: string;
+  state: GroupLinkState;
+  createdByName?: string | null;
+}
+
+export const GROUP_LINK_DEFAULT_DAYS = 7;
+export const GROUP_LINK_MAX_DAYS = 30;
+export const GROUP_LINK_DEFAULT_USES = 50;
+export const GROUP_LINK_MAX_USES = 200;
+
+export interface CreateGroupLinkBody {
+  label: string;
+  level: InvitationLevel;
+  region?: string;
+  department?: string;
+  expiresInDays?: number;
+  maxUses?: number;
+}
+
+export function createGroupLink(body: CreateGroupLinkBody) {
+  return apiFetch<GroupLink & { token: string }>("/auth/admin/staff-invitation-links", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listGroupLinks() {
+  return apiFetch<GroupLink[]>("/auth/admin/staff-invitation-links");
+}
+
+export function revokeGroupLink(id: string) {
+  return apiFetch<GroupLink>(`/auth/admin/staff-invitation-links/${encodeURIComponent(id)}/revoke`, { method: "PATCH" });
+}
+
+export interface GroupLinkPreview {
+  label: string;
+  level: InvitationLevel;
+  role: string;
+  region: string | null;
+  department: string | null;
+  expiresAt: string;
+}
+
+export function previewGroupLink(token: string) {
+  return apiFetch<GroupLinkPreview>("/auth/staff-invitation-links/preview", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+export interface GroupSignUpBody {
+  token: string;
+  email: string;
+  serviceCode: string;
+  positionType: string;
+  firstName: string;
+  lastName: string;
+  matricule?: string;
+  password: string;
+}
+
+export function signUpWithGroupLink(body: GroupSignUpBody) {
+  return apiFetch<{ email: string; status: "PENDING_APPROVAL" }>("/auth/staff-invitation-links/sign-up", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** The group link: same page as the one-person link, with ?lien= instead. */
+export function groupLinkUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/$/, "")}${INVITATION_PAGE_PATH}?lien=${encodeURIComponent(token)}`;
+}
+
+/** The message posted in the group. */
+export function groupLinkMessage(link: GroupLink, url: string, locale: UiLocale): string {
+  const expires = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(link.expiresAt));
+  const where = territoryPhrase(link.region, link.department);
+  if (locale === "en") {
+    return (
+      `CAM-LEAP account creation — ${link.label}${where ? `, ${where}` : ""}.` +
+      ` Open this link, choose your service and post and set your password; an administrator will then validate your account.` +
+      ` Valid until ${expires}:\n${url}`
+    );
+  }
+  return (
+    `Création de compte CAM-LEAP — ${link.label}${where ? `, ${where}` : ""}.` +
+    ` Ouvrez ce lien, choisissez votre service et votre poste, puis votre mot de passe ; un administrateur validera ensuite votre compte.` +
+    ` Valable jusqu'au ${expires} :\n${url}`
+  );
+}

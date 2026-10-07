@@ -15,6 +15,7 @@ import {
   territoryPhrase,
 } from "@/lib/staff-invitations";
 import { AuthHeader } from "@/components/auth/AuthHeader";
+import { GroupSignUpForm } from "@/components/auth/GroupSignUpForm";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 
 // The invited agent's page (src/lib/staff-invitations.ts).
@@ -43,12 +44,16 @@ function InscriptionAgentContent() {
   const tRegister = useTranslations("registerPage");
   const tLogin = useTranslations("loginPage");
   const locale = asUiLocale(useLocale());
-  const token = useSearchParams().get("invitation") ?? "";
+  const searchParams = useSearchParams();
+  const token = searchParams.get("invitation") ?? "";
+  // A group link (?lien=) opens the group form instead: the person chooses
+  // their own service and post, and the account waits for approval.
+  const groupToken = searchParams.get("lien") ?? "";
 
   const previewQuery = useQuery({
     queryKey: ["staff-invitation", token],
     queryFn: () => previewStaffInvitation(token),
-    enabled: !!token,
+    enabled: !!token && !groupToken,
     retry: false,
     // The preview is a one-off read of a signed token; refetching on focus
     // would only re-ask the same question.
@@ -105,7 +110,9 @@ function InscriptionAgentContent() {
   const previewStatus = previewQuery.error instanceof ApiError ? previewQuery.error.status : null;
 
   let body: React.ReactNode;
-  if (!token || previewStatus === 410) {
+  if (groupToken) {
+    body = <GroupSignUpForm token={groupToken} />;
+  } else if (!token || previewStatus === 410) {
     body = (
       <>
         <h1 className="brand-name receipt-title">{t("invalidTitle")}</h1>
