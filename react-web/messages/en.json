@@ -2409,7 +2409,8 @@
     "confirmAssignment": "Confirm the assignment",
     "assignedRegion": "Assigned region",
     "noRegionAssigned": "No region assigned",
-    "allRegionDepartments": "All departments in the region"
+    "allRegionDepartments": "All departments in the region",
+    "selectRegion": "Select a region"
   },
   "adminDiffusionPage": {
     "allEmployers": "All employers",
@@ -2436,7 +2437,8 @@
     "spssDownloaded": "SPSS syntax downloaded.",
     "spssFailed": "Unable to download the SPSS syntax: {message}.",
     "forbidden": "Access restricted to national data management and dissemination.",
-    "subtitle": "Manage, filter and export collected data - Campaign 2026",
+    "subtitle": "Manage, filter and export collected data",
+    "subtitleWithCampaign": "Manage, filter and export collected data — {campaign}",
     "closeAriaLabel": "Close",
     "kpiTotal": "Total declarations",
     "kpiTotalHint": "Files recorded, excluding drafts",

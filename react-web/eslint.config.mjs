@@ -69,7 +69,7 @@ const eslintConfig = defineConfig([
           selector:
             "Property[key.name='fontSize'][value.type='Literal'][value.value=/^(?!var\\().+$/]",
           message:
-            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
+            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 4xs 9, 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
         },
         // Same rule, numeric form (`fontSize: 13`). It needs its own selector
         // because esquery's regex attribute matcher only tests string values,
@@ -78,7 +78,7 @@ const eslintConfig = defineConfig([
           selector:
             "Property[key.name='fontSize'][value.type='Literal'][value.value=type(number)]",
           message:
-            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
+            "G13: font size comes from the class, or from a --cam-font-size-* token. Don't put a literal fontSize in a style object (tokens.css has the ladder: 4xs 9, 3xs 11, 2xs 12, xs 13, sm 14, base 15, lg 18, xl 24, 2xl 25, 3xl 32).",
         },
         // G12 — numbers and dates come from lib/admin-data-state.ts, so one
         // locale decision applies everywhere. Clears at Step 4.
