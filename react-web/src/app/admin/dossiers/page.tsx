@@ -18,6 +18,8 @@ import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-direct
 import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName } from "@/lib/onefop-entity-name";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataStateRow } from "@/components/admin/DataState";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import {
@@ -423,65 +425,7 @@ function DossiersContent() {
         breadcrumb={[{ label: tRoot("adminNav.hubs.supervision") }, { label: tRoot("adminNav.routes.dossiers") }]}
         title={tRoot("adminNav.routes.dossiers")}
         subtitle={t("subtitle")}
-        actions={
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* The actor's scope, stated — not a selector. It carried a
-                chevron and a pointer cursor while doing nothing on click. */}
-            <span
-              style={{
-                background: "#ffffff",
-                border: "1px solid #111827",
-                color: "#111827",
-                padding: "4px 12px",
-                borderRadius: 9999,
-                fontSize: 12,
-                fontWeight: 600,
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              {t("scopeChip", { scope: scopeLabel })}
-            </span>
-            <div style={{ position: "relative", width: 220 }}>
-              <input
-                type="text"
-                placeholder={t("searchPlaceholder")}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: 32,
-                  padding: "4px 10px 4px 30px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  background: "#ffffff",
-                }}
-              />
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 10, top: 9 }}>
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </div>
-            <span
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                overflow: "hidden",
-                display: "flex",
-                position: "relative",
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
-                flexShrink: 0,
-              }}
-            >
-              <span style={{ flex: 1, background: "#007a5e" }} />
-              <span style={{ flex: 1, background: "#b3261e", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ color: "#f0b429", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
-              </span>
-              <span style={{ flex: 1, background: "#f0b429" }} />
-            </span>
-          </div>
-        }
+        actions={<AdminHeaderActions />}
       />
 
       {/* ── Status filter: one control, URL-backed (?status=) ── */}
@@ -501,157 +445,109 @@ function DossiersContent() {
       {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
         <p
           key={view.labelKey}
-          style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.45, color: "#6b7280", maxWidth: 820 }}
+          className="cam-admin-notice cam-admin-notice--info"
+          style={{ marginBottom: "var(--cam-space-4)" }}
         >
           {view.noteKey && t(view.noteKey)}
         </p>
       ))}
 
-      {/* ── 4-Column Filter Card. Statut left it: the control above sets it. ── */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              {t("formTypeLabel")}
-            </label>
-            <select
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
-              value={typeFilter}
-              onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}
-            >
-              <option value="">{t("allFormTypes")}</option>
-              {FORM_TYPES.map((type) => (
-                <option key={type} value={type}>{typeLabel(type)}</option>
-              ))}
-            </select>
-          </div>
+      {/* ── Filters. Statut is not here: the control above sets it. ──
+          .cam-admin-filters is auto-fit/minmax, so the row reflows instead of
+          overflowing the way the fixed four-column grid it replaces did. */}
+      <section className="cam-admin-section">
+        <div className="cam-admin-section-body">
+          <div className="cam-admin-filters">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="dossiers-type">{t("formTypeLabel")}</label>
+              <select
+                id="dossiers-type"
+                className="cam-select"
+                value={typeFilter}
+                onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}
+              >
+                <option value="">{t("allFormTypes")}</option>
+                {FORM_TYPES.map((type) => (
+                  <option key={type} value={type}>{typeLabel(type)}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              {t("regionLabel")}
-            </label>
-            <select
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
-              value={regionFilter}
-              onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
-            >
-              <option value="">{t("allRegions")}</option>
-              {territoryRegions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="dossiers-region">{t("regionLabel")}</label>
+              <select
+                id="dossiers-region"
+                className="cam-select"
+                value={regionFilter}
+                onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
+              >
+                <option value="">{t("allRegions")}</option>
+                {territoryRegions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              {t("periodLabel")}
-            </label>
-            <select
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
-              value={periodFilter}
-              onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}
-            >
-              {/* "" is the default (see PERIODS): an option of its own, so the
-                  select shows it. A hard-coded 30-day option stood here
-                  instead — a duplicate of PERIODS' own — so the control read
-                  "Derniers 30 jours" while every period was listed. */}
-              <option value="">{t("allPeriods")}</option>
-              {PERIODS.map((p) => (
-                <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
-              ))}
-            </select>
-          </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="dossiers-period">{t("periodLabel")}</label>
+              <select
+                id="dossiers-period"
+                className="cam-select"
+                value={periodFilter}
+                onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}
+              >
+                {/* "" is the default (see PERIODS): an option of its own, so the
+                    select shows it. A hard-coded 30-day option stood here
+                    instead — a duplicate of PERIODS' own — so the control read
+                    "Derniers 30 jours" while every period was listed. */}
+                <option value="">{t("allPeriods")}</option>
+                {PERIODS.map((p) => (
+                  <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
-              {t("freeSearchLabel")}
-            </label>
-            <div style={{ position: "relative" }}>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="dossiers-search">{t("freeSearchLabel")}</label>
               <input
+                id="dossiers-search"
                 type="search"
+                className="cam-input"
                 placeholder={t("freeSearchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px 7px 32px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  background: "#ffffff",
-                  color: "#111827",
-                }}
               />
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 10, top: 10 }}>
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Action Toolbar matching Figma ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            type="button"
-            onClick={handleOpenBulkModal}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: 6,
-              background: "#007a5e",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 600,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <span>✓</span> {t("endorseSelectionButton")}
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenRejectModal}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: 6,
-              background: "#8b1e1b",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 600,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <span>✕</span> {t("rejectSelectionButton")}
-          </button>
-        </div>
+      {/* ── Action toolbar. One primary action (the visa); reject is the
+          danger variant and export the secondary one. ── */}
+      <div className="cam-admin-selection">
+        <button
+          type="button"
+          className="cam-button cam-button-primary cam-button-sm"
+          onClick={handleOpenBulkModal}
+        >
+          <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
+        </button>
+        <button
+          type="button"
+          className="cam-button cam-button-danger cam-button-sm"
+          onClick={handleOpenRejectModal}
+        >
+          <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
+        </button>
 
         <button
           type="button"
+          className="cam-button cam-button-secondary cam-button-sm"
           onClick={() => handleExport("csv")}
           disabled={exportInProgress}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderRadius: 6,
-            background: "#ffffff",
-            border: "1px solid #d1d5db",
-            color: "#374151",
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: "pointer",
-          }}
+          style={{ marginInlineStart: "auto" }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -660,27 +556,29 @@ function DossiersContent() {
         </button>
       </div>
 
-      {/* ── Table Section matching Figma ── */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+      {/* ── Table. .cam-table-wrapper carries the surface, border, radius
+          and the horizontal scroll this nine-column table needs on a narrow
+          viewport; the inline card it replaces had no scroll at all. ── */}
+      <div className="cam-table-wrapper">
+        <table className="cam-table">
           <thead>
-            <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#ffffff", fontSize: 12, color: "#6b7280" }}>
-              <th style={{ width: 44, padding: "12px 14px", textAlign: "center" }}>
+            <tr>
+              <th scope="col" className="text-center">
                 <input
                   type="checkbox"
+                  className="cam-admin-table-check"
                   checked={allShownSelected}
                   onChange={(e) => toggleSelectAll(e.target.checked)}
-                  style={{ accentColor: "#007a5e", width: 16, height: 16, cursor: "pointer" }}
                 />
               </th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("formIdColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("respondentColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("organisationColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("typeColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("regionColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>{t("endorsementColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600 }}>{t("dataQualityColumn")}</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>{t("eligibilityColumn")}</th>
+              <th scope="col">{t("formIdColumn")}</th>
+              <th scope="col">{t("respondentColumn")}</th>
+              <th scope="col">{t("organisationColumn")}</th>
+              <th scope="col">{t("typeColumn")}</th>
+              <th scope="col">{t("regionColumn")}</th>
+              <th scope="col" className="text-center">{t("endorsementColumn")}</th>
+              <th scope="col">{t("dataQualityColumn")}</th>
+              <th scope="col" className="text-center">{t("eligibilityColumn")}</th>
             </tr>
           </thead>
           <tbody>
@@ -696,17 +594,24 @@ function DossiersContent() {
               hint={tableState === "empty" ? t("noFilesHint") : undefined}
             />
             {dossiers.map((d) => {
+              /**
+               * Visa state, mapped from the stored enum to one badge tone
+               * each. Five states, five tones: CORRECTION_REQUESTED is
+               * `info` rather than a second amber because the dossier is
+               * waiting on the respondent, while PENDING_REVIEW is the one
+               * waiting on the reviewer reading this row.
+               */
               const visaBadge =
-                d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), dot: "#047857", bg: "#ecfdf5", border: "#d1fae5", text: "#047857" } :
-                d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), dot: "#c2410c", bg: "#fff7ed", border: "#ffedd5", text: "#c2410c" } :
-                d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), dot: "#b91c1c", bg: "#fef2f2", border: "#fee2e2", text: "#b91c1c" } :
-                d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" } :
+                d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } :
+                d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } :
+                d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } :
+                d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } :
                 // An item with no stored status is reported as such rather
                 // than defaulted into the pending queue.
-                { label: t("badgeNoStatus"), dot: "#9ca3af", bg: "#f3f4f6", border: "#e5e7eb", text: "#6b7280" };
+                { label: t("badgeNoStatus"), tone: "neutral" };
 
               /**
-               * Data quality, derived from the dossier's own anomaly rows
+               * Data quality, derived from the dossier own anomaly rows
                * (`anomalies`, included by QuestionnairesService.listForAdmin):
                *   blockingCount = OPEN && isBlocking
                *   warningCount  = OPEN && !isBlocking
@@ -718,13 +623,13 @@ function DossiersContent() {
                */
               const quality =
                 d.blockingCount > 0
-                  ? { tone: "blocking" as const, text: t("blockingAnomalies", { count: d.blockingCount }) }
+                  ? { tone: "error" as const, glyph: "▲", text: t("blockingAnomalies", { count: d.blockingCount }) }
                   : d.warningCount > 0
-                    ? { tone: "warning" as const, text: t("warnings", { count: d.warningCount }) }
-                    : { tone: "none" as const, text: t("noAnomaly") };
+                    ? { tone: "warning" as const, glyph: "⚐", text: t("warnings", { count: d.warningCount }) }
+                    : { tone: "neutral" as const, glyph: null, text: t("noAnomaly") };
 
               /**
-               * Statistical eligibility, mirroring the backend's own rule
+               * Statistical eligibility, mirroring the backend own rule
                * (EligibilityEngineService.isStatisticallyEligible): APPROVED
                * **and** zero open blocking anomalies. Any other status is
                * pending; a rejected dossier is excluded. A dossier with no
@@ -743,96 +648,60 @@ function DossiersContent() {
                   : eligibility === "notEligible" ? t("notEligible")
                     : eligibility === "pending" ? t("eligibilityPending")
                       : null;
+              const eligibilityTone =
+                eligibility === "eligible" ? "success"
+                  : eligibility === "pending" ? "warning"
+                    : "neutral";
 
               return (
-                <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
-                  <td style={{ padding: "14px", textAlign: "center" }}>
+                <tr key={d.id}>
+                  <td className="text-center">
                     <input
                       type="checkbox"
+                      className="cam-admin-table-check"
                       checked={selectedIds.has(d.id)}
                       onChange={(e) => toggleSelect(d.id, e.target.checked)}
-                      style={{ accentColor: "#007a5e", width: 16, height: 16, cursor: "pointer" }}
                     />
                   </td>
-                  <td style={{ padding: "14px" }}>
+                  <td>
                     <Link
                       href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
-                      style={{ color: "#111827", fontWeight: 700, textDecoration: "none" }}
+                      className="cam-admin-code cam-admin-strong"
                     >
                       {d.submissionId}
                     </Link>
                   </td>
-                  <td style={{ padding: "14px", fontWeight: 600, color: "#111827" }}>
+                  <td className="cam-admin-strong">
                     {d.respondentName ?? NOT_PROVIDED}
                   </td>
-                  <td style={{ padding: "14px", color: "#374151" }}>
+                  <td>
                     {d.companyName ?? NOT_PROVIDED}
                   </td>
-                  <td style={{ padding: "14px", color: "#374151" }}>
+                  <td>
                     {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}
                   </td>
-                  <td style={{ padding: "14px", color: "#374151" }}>
+                  <td>
                     {/* Territory as stored on the submission. A dossier with
                         no region is reported as such: inferring one would
                         invent an authorization-sensitive fact. */}
                     {d.region ?? NOT_PROVIDED}
                     {d.department && (
-                      <span style={{ display: "block", fontSize: 11, color: "#6b7280" }}>{d.department}</span>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>{d.department}</span>
                     )}
                   </td>
-                  <td style={{ padding: "14px", textAlign: "center" }}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "3px 10px",
-                        borderRadius: 9999,
-                        background: visaBadge.bg,
-                        border: `1px solid ${visaBadge.border}`,
-                        color: visaBadge.text,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: visaBadge.dot }} />
+                  <td className="text-center">
+                    <span className={`cam-badge cam-badge-${visaBadge.tone}`}>
                       {visaBadge.label}
                     </span>
                   </td>
-                  <td style={{ padding: "14px" }}>
-                    <span
-                      style={{
-                        color: quality.tone === "blocking" ? "#b91c1c" : quality.tone === "warning" ? "#b45309" : "#6b7280",
-                        fontWeight: quality.tone === "none" ? 500 : 600,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      {quality.tone === "blocking" && <span>▲</span>}
-                      {quality.tone === "warning" && <span>⚐</span>}
+                  <td>
+                    <span className={`cam-badge cam-badge-${quality.tone}`}>
+                      {quality.glyph && <span aria-hidden="true">{quality.glyph}</span>}
                       {quality.text}
                     </span>
                   </td>
-                  <td style={{ padding: "14px", textAlign: "center" }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "3px 10px",
-                        borderRadius: 9999,
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        background:
-                          eligibility === "eligible" ? "#ecfdf5" :
-                          eligibility === "pending" ? "#fef9e7" :
-                          "#f3f4f6",
-                        color:
-                          eligibility === "eligible" ? "#047857" :
-                          eligibility === "pending" ? "#b45309" :
-                          "#6b7280",
-                      }}
-                    >
+                  <td className="text-center">
+                    <span className={`cam-badge cam-badge-${eligibilityTone}`}>
                       {eligibilityLabel ?? NOT_PROVIDED}
                     </span>
                   </td>
@@ -841,432 +710,216 @@ function DossiersContent() {
             })}
           </tbody>
         </table>
+      </div>
 
-        {/* Pagination driven by the server-reported `total` for the same
-            filtered query. The range reflects the rows actually returned, and
-            the page count is whatever the real total implies. */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderTop: "1px solid #e5e7eb", background: "#ffffff", flexWrap: "wrap", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "#6b7280" }}>
-            {totalCount === null
-              ? NOT_PROVIDED
-              : totalCount === 0
-                ? t("zeroSubmissions")
-                : t("showingRange", {
-                    first: count(firstShown, locale),
-                    last: count(lastShown, locale),
-                    total: count(totalCount, locale),
-                    count: totalCount,
-                  })}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Pagination driven by the server-reported `total` for the same
+          filtered query. The range reflects the rows actually returned, and
+          the page count is whatever the real total implies. */}
+      <div className="cam-pagination">
+        <span className="cam-pagination-info">
+          {totalCount === null
+            ? NOT_PROVIDED
+            : totalCount === 0
+              ? t("zeroSubmissions")
+              : t("showingRange", {
+                  first: count(firstShown, locale),
+                  last: count(lastShown, locale),
+                  total: count(totalCount, locale),
+                  count: totalCount,
+                })}
+        </span>
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          disabled={offset === 0}
+          onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+        >
+          {t("previousButton")}
+        </button>
+        <span className="cam-pagination-info">
+          {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
+        </span>
+        <button
+          type="button"
+          className="cam-pagination-btn"
+          disabled={pageCount === null || currentPage >= pageCount}
+          onClick={() => goToOffset(offset + PAGE_SIZE)}
+        >
+          {t("nextButton")}
+        </button>
+      </div>
+
+      {/* ── Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
+          Escape, inert background and focus return that the fixed-position
+          overlay here declared with aria-modal but never implemented now
+          actually hold. ── */}
+      <AdminDialog
+        open={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        title={t("bulkEndorseTitle")}
+        eyebrow={t("bulkEndorseCount", { count: cleanPendingSelected.length })}
+        footer={
+          <>
             <button
               type="button"
-              disabled={offset === 0}
-              onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: "1px solid #d1d5db",
-                background: "#ffffff",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: offset === 0 ? "not-allowed" : "pointer",
-                opacity: offset === 0 ? 0.4 : 1,
-              }}
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsBulkModalOpen(false)}
             >
-              {t("previousButton")}
+              {tRoot("common.cancel")}
             </button>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
-              {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
-            </span>
             <button
               type="button"
-              disabled={pageCount === null || currentPage >= pageCount}
-              onClick={() => goToOffset(offset + PAGE_SIZE)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: "1px solid #d1d5db",
-                background: "#ffffff",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: pageCount === null || currentPage >= pageCount ? "not-allowed" : "pointer",
-                opacity: pageCount === null || currentPage >= pageCount ? 0.4 : 1,
-              }}
+              className="cam-button cam-button-primary cam-button-sm"
+              onClick={handleConfirmBulkVisa}
+              disabled={!certifiedBulk || bulkMutation.isPending}
             >
-              {t("nextButton")}
+              {bulkMutation.isPending ? t("validating") : t("confirmEndorsement")}
             </button>
+          </>
+        }
+      >
+        <label className="cam-admin-choice">
+          <input
+            type="checkbox"
+            checked={certifiedBulk}
+            onChange={(e) => setCertifiedBulk(e.target.checked)}
+          />
+          <span>{t("bulkEndorseCertify")}</span>
+        </label>
+
+        {/* Signatory is the signed-in actor. The authoritative timestamp is
+            the one the server returns with the operation, so none is
+            predicted before confirmation. */}
+        <div className="cam-admin-section" style={{ marginTop: "var(--cam-space-4)" }}>
+          <div className="cam-admin-section-body">
+            <div className="cam-admin-label">{t("signatoryLabel")}</div>
+            <div className="cam-admin-strong">{signatoryLabel}</div>
           </div>
         </div>
-      </section>
 
-      {/* ── Figma Bulk Visa Confirmation Modal ── */}
-      {isBulkModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.4)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 1000,
-            padding: 16,
-          }}
-        >
+        {/* The real outcome of the operation, as reported by the server. */}
+        {bulkResult && (
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 540,
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-              overflow: "hidden",
-            }}
+            className="cam-admin-notice cam-admin-notice--success"
+            style={{ marginTop: "var(--cam-space-3)" }}
           >
-            <div style={{ padding: "24px 28px 20px" }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
-                {t("bulkEndorseTitle")}
-              </h2>
-              <p style={{ margin: "4px 0 20px", fontSize: 13, color: "#6b7280" }}>
-                {t("bulkEndorseCount", { count: cleanPendingSelected.length })}
-              </p>
+            <div>
+              <strong>
+                {t("bulkEndorseResult", {
+                  endorsed: count(bulkResult.processedCount, locale),
+                  skipped: count(bulkResult.rejectedCount, locale),
+                })}
+              </strong>
+              <div>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
+              {bulkResult.rejectedItems?.length > 0 && (
+                <ul style={{ margin: "var(--cam-space-2) 0 0", paddingLeft: "var(--cam-space-4)" }}>
+                  {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
+                    <li key={item.id}>{item.id} — {item.reason}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
 
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151", marginBottom: 20 }}>
-                <input
-                  type="checkbox"
-                  checked={certifiedBulk}
-                  onChange={(e) => setCertifiedBulk(e.target.checked)}
-                  style={{ marginTop: 2, accentColor: "#007a5e", width: 16, height: 16 }}
-                />
-                <span>
-                  {t("bulkEndorseCertify")}
-                </span>
+        {bulkMutation.isError && (
+          <div
+            role="alert"
+            className="cam-admin-notice cam-admin-notice--error"
+            style={{ marginTop: "var(--cam-space-3)" }}
+          >
+            {t("bulkEndorseFailed", { message: (bulkMutation.error as Error)?.message ?? t("unknownError") })}
+          </div>
+        )}
+
+        <p className="cam-admin-meta" style={{ marginTop: "var(--cam-space-3)", marginBottom: 0 }}>
+          {t("bulkEndorseAudit")}
+        </p>
+      </AdminDialog>
+
+      {/* ── Bulk reject (retained widget) ── */}
+      <AdminDialog
+        open={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        title={t("bulkRejectTitle")}
+        eyebrow={t("territoryLine", { scope: scopeLabel })}
+        footer={
+          <>
+            <button
+              type="button"
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsRejectModalOpen(false)}
+            >
+              {rejectResult ? t("closeButton") : tRoot("common.cancel")}
+            </button>
+            {!rejectResult && rejectableSelected.length > 0 && (
+              <button
+                type="button"
+                className="cam-button cam-button-danger cam-button-sm"
+                onClick={handleConfirmBulkReject}
+                disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? t("rejecting") : t("rejectCountButton", { count: rejectableSelected.length })}
+              </button>
+            )}
+          </>
+        }
+      >
+        {rejectResult ? (
+          <div className="cam-admin-notice cam-admin-notice--error">
+            <div>
+              <strong>{t("bulkRejectResult", { count: count(rejectResult.rejectedCount ?? rejectResult.processedCount, locale) })}</strong>{" "}
+              {t("bulkRejectLogged", { date: stamp(rejectResult.timestamp, true, locale) })}
+            </div>
+          </div>
+        ) : rejectableSelected.length === 0 ? (
+          <p className="cam-admin-empty">{t("noneRejectable")}</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+            <p style={{ margin: 0 }}>
+              {t("bulkRejectIntroBefore")} <strong>{t("bulkRejectIntroCount", { count: rejectableSelected.length })}</strong>{" "}
+              {t("bulkRejectIntroAfter", { count: rejectableSelected.length })}
+            </p>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="bulk-reject-reason">
+                {t("bulkRejectReasonLabel")} <span aria-hidden="true">*</span>
               </label>
-
-              {/* Signatory is the signed-in actor. The authoritative
-                  timestamp is the one the server returns with the operation,
-                  so none is predicted before confirmation. */}
-              <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>{t("signatoryLabel")}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
-                  {signatoryLabel}
-                </div>
-              </div>
-
-              {/* The real outcome of the operation, as reported by the server. */}
-              {bulkResult && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: "14px 16px",
-                    background: "#ecfdf5",
-                    border: "1px solid #a7f3d0",
-                    borderRadius: 6,
-                    color: "#065f46",
-                    fontSize: 13,
-                  }}
-                >
-                  <strong>
-                    {t("bulkEndorseResult", {
-                      endorsed: count(bulkResult.processedCount, locale),
-                      skipped: count(bulkResult.rejectedCount, locale),
-                    })}
-                  </strong>
-                  <div style={{ marginTop: 4 }}>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
-                  {bulkResult.rejectedItems?.length > 0 && (
-                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                      {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
-                        <li key={item.id}>{item.id} — {item.reason}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              {bulkMutation.isError && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: "14px 16px",
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
-                    borderRadius: 6,
-                    color: "#991b1b",
-                    fontSize: 13,
-                  }}
-                >
-                  {t("bulkEndorseFailed", { message: (bulkMutation.error as Error)?.message ?? t("unknownError") })}
-                </div>
-              )}
-
-              <p style={{ margin: "14px 0 0", fontSize: 11, color: "#6b7280" }}>
-                {t("bulkEndorseAudit")}
-              </p>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, padding: "16px 28px", background: "#ffffff", borderTop: "1px solid #f3f4f6" }}>
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(false)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                {tRoot("common.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBulkVisa}
-                disabled={!certifiedBulk || bulkMutation.isPending}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: certifiedBulk ? "#5ba897" : "#a7d1c7",
-                  color: "#ffffff",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: certifiedBulk ? "pointer" : "not-allowed",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-              >
-                {bulkMutation.isPending ? t("validating") : t("confirmEndorsement")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Bulk Reject Modal (Retained Widget) ── */}
-      {isRejectModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-          onClick={() => setIsRejectModalOpen(false)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 540,
-              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
-              overflow: "hidden",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
-                  {t("bulkRejectTitle")}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setIsRejectModalOpen(false)}
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: "50%",
-                    border: "1.5px solid #9ca3af",
-                    background: "transparent",
-                    color: "#6b7280",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
-                  aria-label={t("closeAriaLabel")}
-                >
-                  ✕
-                </button>
-              </div>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                {t("territoryLine", { scope: scopeLabel })}
-              </p>
-            </div>
-
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-              {rejectResult ? (
-                <div
-                  style={{
-                    padding: "14px 16px",
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
-                    borderRadius: 6,
-                    color: "#991b1b",
-                    fontSize: 14,
-                  }}
-                >
-                  <strong>{t("bulkRejectResult", { count: count(rejectResult.rejectedCount ?? rejectResult.processedCount, locale) })}</strong>{" "}
-                  {t("bulkRejectLogged", { date: stamp(rejectResult.timestamp, true, locale) })}
-                </div>
-              ) : rejectableSelected.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
-                  {t("noneRejectable")}
+              <textarea
+                id="bulk-reject-reason"
+                className="cam-admin-textarea"
+                rows={3}
+                required
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder={t("bulkRejectReasonPlaceholder")}
+              />
+              {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
+                <p className="cam-field-error" style={{ margin: "var(--cam-space-1) 0 0" }}>
+                  {t("reasonTooShort", { length: rejectReason.trim().length })}
                 </p>
-              ) : (
-                <>
-                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                    {t("bulkRejectIntroBefore")} <strong>{t("bulkRejectIntroCount", { count: rejectableSelected.length })}</strong>{" "}
-                    {t("bulkRejectIntroAfter", { count: rejectableSelected.length })}
-                  </p>
-
-                  <div>
-                    <label
-                      htmlFor="bulk-reject-reason"
-                      style={{
-                        display: "block",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#374151",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {t("bulkRejectReasonLabel")} <span style={{ color: "#dc2626" }}>*</span>
-                    </label>
-                    <textarea
-                      id="bulk-reject-reason"
-                      rows={3}
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder={t("bulkRejectReasonPlaceholder")}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #d1d5db",
-                        fontSize: 13,
-                        lineHeight: 1.4,
-                        color: "#111827",
-                        resize: "vertical",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
-                      <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
-                        {t("reasonTooShort", { length: rejectReason.trim().length })}
-                      </p>
-                    )}
-                  </div>
-
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      fontSize: 13,
-                      color: "#374151",
-                      cursor: "pointer",
-                      padding: 10,
-                      background: "#fff5f5",
-                      border: "1px solid #fecaca",
-                      borderRadius: 6,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={certifiedReject}
-                      onChange={(e) => setCertifiedReject(e.target.checked)}
-                      style={{ marginTop: 2, cursor: "pointer" }}
-                    />
-                    <span>
-                      <strong>{t("certifyStrong")}</strong> {t("bulkRejectCertifyRest", { count: rejectableSelected.length })}
-                    </span>
-                  </label>
-                  {rejectMutation.isError && (
-                    <div
-                      role="alert"
-                      style={{
-                        padding: 12,
-                        borderRadius: 6,
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        color: "#b91c1c",
-                        fontSize: 13,
-                        marginTop: 12,
-                      }}
-                    >
-                      {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
-                    </div>
-                  )}
-                </>
               )}
             </div>
 
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                background: "#f9fafb",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setIsRejectModalOpen(false)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                {rejectResult ? t("closeButton") : tRoot("common.cancel")}
-              </button>
-              {!rejectResult && rejectableSelected.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleConfirmBulkReject}
-                  disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: certifiedReject && rejectReason.trim().length >= 10 ? "#dc2626" : "#fca5a5",
-                    color: "#ffffff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {rejectMutation.isPending ? t("rejecting") : t("rejectCountButton", { count: rejectableSelected.length })}
-                </button>
-              )}
-            </div>
+            <label className="cam-admin-choice">
+              <input
+                type="checkbox"
+                checked={certifiedReject}
+                onChange={(e) => setCertifiedReject(e.target.checked)}
+              />
+              <span>
+                <strong>{t("certifyStrong")}</strong> {t("bulkRejectCertifyRest", { count: rejectableSelected.length })}
+              </span>
+            </label>
+
+            {rejectMutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+                {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </AdminDialog>
     </div>
   );
 }
