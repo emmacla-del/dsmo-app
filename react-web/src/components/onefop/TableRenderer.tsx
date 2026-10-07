@@ -15,7 +15,6 @@ import {
   INTERNSHIP_ROW_KEYS,
   INTERNSHIP_ROW_LABELS,
   KPI_PERIODS,
-  KPI_PERIOD_LABELS,
   KPI_ROW_KEYS,
   KPI_ROW_LABELS,
   MFT_LABELS,
@@ -57,6 +56,8 @@ import { missingQuizFieldKeys } from "./tables/quizRequired";
 import { TableCompletionIndicator } from "./tables/TableCompletionIndicator";
 import { TABLE_LABEL_COL_PX, TABLE_MAX_WIDTH_PX, tableMinWidthPx } from "./tables/tableLayout";
 import { CoherenceChip, CoherenceTd } from "./coherence/Coherence";
+import { useCampaignPeriod } from "./CampaignPeriodContext";
+import { kpiPeriodLabels } from "@/lib/campaign-period";
 import {
   CornerHeader,
   DataTable,
@@ -581,6 +582,7 @@ type TableConfig = {
 export function TableRenderer({ field, data, onChange }: TableRendererProps) {
   const t = useTranslations();
   const locale = useLocale().startsWith("en") ? "en" : "fr";
+  const campaignPeriod = useCampaignPeriod();
   const table = field.table;
   const label = localized(field.label, locale);
   const cspRows = table?.rowKeys && table.rowKeys.length > 0 ? table.rowKeys : ["cadres", "foremen", "workers"];
@@ -843,7 +845,7 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
           rowLabels: KPI_ROW_LABELS,
           buildMatrix: (rows) => rows.map((r) => KPI_PERIODS.map((p) => `${table.id}_${r}_${p}`)),
           groupLabels: [{ fr: "", en: "" }],
-          subLabels: KPI_PERIOD_LABELS,
+          subLabels: kpiPeriodLabels(campaignPeriod),
           recalc: recalculateNone,
           hasTotalRow: false,
         };
