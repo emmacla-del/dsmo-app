@@ -207,6 +207,17 @@ export function stamp(iso: string | null | undefined, withTime = true, locale: U
 }
 
 /** Short stamp for dense feeds: time of day for today, day+month otherwise. */
+/**
+ * Time of day to the second (HH:mm:ss), for an indicator whose point is
+ * recency, such as "saved at". The neutral marker when there is no time.
+ */
+export function clockTime(value: Date | string | null | undefined, locale: UiLocale = "fr"): string {
+  if (!value) return NOT_PROVIDED;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return NOT_PROVIDED;
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(d);
+}
+
 export function shortStamp(iso: string | null | undefined, locale: UiLocale = "fr"): string {
   if (!iso) return NOT_PROVIDED;
   const d = new Date(iso);
