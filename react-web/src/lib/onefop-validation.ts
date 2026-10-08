@@ -8,7 +8,7 @@
 //  - Table-level validation: non-negative values, required table presence,
 //    and required table cell checks across active rows.
 
-import { bilingual, isFieldVisible, localized, type FormData, type OnefopEntity, type OnefopField, type OnefopSection } from "./onefop-schema";
+import { bilingual, isFieldVisible, isVtSectionWaived, localized, type FormData, type OnefopEntity, type OnefopField, type OnefopSection } from "./onefop-schema";
 import { validateCameroonGeography, type LocationRegion } from "./territory";
 import { isCompanionHiddenByGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 import {
@@ -100,43 +100,6 @@ function fieldLabel(field: OnefopField, locale?: ValidationLocale): string {
   return textIn(field.label, locale) || field.id;
 }
 
-/**
- * Mandatory fields for Vocational Training (VT).
- * Resolves V2 by ensuring training-centre identification, location,
- * and primary section questions are required by client-side validation.
- */
-export const VT_MANDATORY_FIELD_IDS = new Set([
-  // Section 1: Identification & Location
-  "VT1_2",
-  "VT1_4",
-  "VT1_5",
-  "VT1_6",
-  "VT1_8",
-  "VT1_9",
-  "VT1_10",
-  "VT1_11",
-  "VT1_12",
-  "VT1_14",
-  "VT1_15_NAME",
-  "VT1_15_FUNCTION",
-  "VT1_15_TEL1",
-  "VT1_15_EMAIL",
-  "VT1_15_SEX",
-  // Sections 2-9: Primary section questions
-  "VT2_1",
-  "VT3_1",
-  "VT4_1",
-  "VT5_1",
-  "VT6_1",
-  "VT7_1",
-  "VT8_1",
-  "VT9_1",
-]);
-
-export function isFieldMandatory(field: OnefopField): boolean {
-  return field.required || VT_MANDATORY_FIELD_IDS.has(field.id);
-}
-
 /** One field's format/required error, or null if it passes */
 function validateField(
   field: OnefopField,
@@ -144,8 +107,7 @@ function validateField(
   locale?: ValidationLocale,
   territoryTree?: LocationRegion[],
 ): ValidationIssue | null {
-  const isRequired = isFieldMandatory(field);
-  if (!isRequired || OPTIONAL_OVERRIDES.has(field.id)) return null;
+  if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
   if (!isFieldVisible(field, data)) return null;
 
   const raw = data[field.id];
@@ -463,6 +425,7 @@ export function validateEntityData(
   }
 
   for (const section of entity.sections) {
+    if (isVtSectionWaived(section.id, data)) continue;
     issues.push(...validateFields(section.fields, data, locale, territoryTree));
   }
 
@@ -511,5 +474,6 @@ export function validateSectionData(
   locale?: ValidationLocale,
   territoryTree?: LocationRegion[],
 ): ValidationIssue[] {
+  if (isVtSectionWaived(section.id, data)) return [];
   return validateFields(section.fields, data, locale, territoryTree);
 }

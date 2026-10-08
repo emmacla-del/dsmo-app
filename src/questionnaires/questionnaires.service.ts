@@ -23,7 +23,7 @@ import {
   buildNestedDto,
 } from '../common/normalizers/flat-key-normalizer';
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
-import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop-shadow-validator.service';
+import { OnefopShadowValidatorService, isVtSectionWaived } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
@@ -1973,6 +1973,21 @@ export class QuestionnairesService {
     if (entityType === 'cooperative' && entityData?.type === 3 && !entityData?.typeOther) {
       missingFields.push('cooperative.typeOther');
     }
+    // Training centres: every question the questionnaire marks required and
+    // currently shows must be answered — the same rule the web form applies,
+    // read from the same schema, including the waiver of Sections 2–9 for a
+    // non-functional or closed centre. Questions already checked above
+    // (respondent.*, the identification list) are not repeated.
+    const schemaLabels: Record<string, string> = {};
+    if (entityType === 'vocationalTraining') {
+      for (const field of this.shadowValidator.missingRequiredAnswers('vocationalTraining', flat, isVtSectionWaived)) {
+        const [root, prop] = field.path.split('.');
+        if (root === 'respondent') continue;
+        if (root === 'vocationalTraining' && entityRequired.includes(prop)) continue;
+        missingFields.push(field.id);
+        schemaLabels[field.id] = `${field.label.fr} / ${field.label.en}`;
+      }
+    }
     // Only require the response-status fields that actually exist in this
     // entity's compiled schema — see FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY.
     // entityType is already one of the six known values by this point
@@ -1988,7 +2003,7 @@ export class QuestionnairesService {
       }
     }
     if (missingFields.length > 0) {
-      const labels = missingFields.map((f) => REQUIRED_FIELD_LABELS[f] ?? f);
+      const labels = missingFields.map((f) => REQUIRED_FIELD_LABELS[f] ?? schemaLabels[f] ?? f);
       const summary = labels.length <= 3
         ? labels.join(', ')
         : `${labels.slice(0, 3).join(', ')}, +${labels.length - 3}`;

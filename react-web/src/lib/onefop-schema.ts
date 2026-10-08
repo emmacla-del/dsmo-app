@@ -137,32 +137,16 @@ export function tableHasStatusDimension(table: Pick<OnefopTable, "statuses"> | n
 
 /**
  * Evaluates field visibility based on schema rules.
- * Supports eq, contains, and in (dependsValues OR condition).
- * Specifically for VT Q1.13: appears when Q1.12 is "Non-fonctionnelle" OR "Fermée".
+ * Supports eq, contains, and in (dependsValues OR condition). Follows the
+ * schema only: VT1_13 is asked for "Non-fonctionnelle" alone, as printed on
+ * the form. A follow-up whose own parent is hidden cannot stay visible on a
+ * stale answer, because hidden answers are erased as soon as the parent
+ * changes (cleanHiddenDependentFields, applied by useOnefopDraft).
  */
 export function isFieldVisible(field: OnefopField, data: FormData): boolean {
   const visibility = field.visibility;
   if (!visibility) return true;
   const trigger = data[visibility.dependsOn];
-
-  // Q1.13: Raison de non-fonctionnalité appears when Q1.12 is either "Non-fonctionnelle" OR "Fermée"
-  if (field.id === "VT1_13" && visibility.dependsOn === "VT1_12") {
-    const v = typeof trigger === "string" ? trigger.trim() : "";
-    return v.startsWith("Non-fonctionnelle") || v.startsWith("Fermée");
-  }
-
-  // Nested conditional guard: VT1_13_OTHER depends on VT1_13, which is only active if VT1_12 is non-functional or closed
-  if (field.id === "VT1_13_OTHER") {
-    const parentTrigger = data["VT1_12"];
-    const parentActive =
-      typeof parentTrigger === "string" &&
-      (parentTrigger.startsWith("Non-fonctionnelle") || parentTrigger.startsWith("Fermée"));
-    if (!parentActive) return false;
-    return (
-      trigger === visibility.dependsValue ||
-      (typeof trigger === "string" && trigger.startsWith("Autres"))
-    );
-  }
 
   if (visibility.dependsValues && Array.isArray(visibility.dependsValues)) {
     return typeof trigger === "string"
@@ -181,6 +165,17 @@ export function isFieldVisible(field: OnefopField, data: FormData): boolean {
     if (trigger === prefix || trigger.startsWith(prefix)) return true;
   }
   return trigger === visibility.dependsValue;
+}
+
+/**
+ * A training centre declared "Non-fonctionnelle" or "Fermée" in 1.12 answers
+ * Section 1 only: Sections 2–9 describe an operating centre, so none of their
+ * questions are required (the server applies the same rule).
+ */
+export function isVtSectionWaived(sectionId: string, data: FormData): boolean {
+  if (!sectionId.endsWith("_vocationalTraining") || sectionId === "section1_vocationalTraining") return false;
+  const status = data["VT1_12"];
+  return typeof status === "string" && (status.startsWith("Non-fonctionnelle") || status.startsWith("Fermée"));
 }
 
 /**

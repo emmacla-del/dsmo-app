@@ -31,6 +31,10 @@ export function useOnefopDraft(
   initialAutofill?: FormData,
   userId?: string | null,
   establishmentId?: string | null,
+  /** Removes answers whose question is no longer shown (cleanHiddenDependentFields
+   *  for the current entity). Applied after every change, so changing a
+   *  parent answer to "Non" erases its follow-ups right away. */
+  pruneHidden?: (data: FormData) => FormData,
 ) {
   const [data, setData] = useState<FormData>({});
   const [loadedEntityType, setLoadedEntityType] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export function useOnefopDraft(
   const initialAutofillRef = useRef(initialAutofill);
   const userIdRef = useRef(userId);
   const establishmentIdRef = useRef(establishmentId);
+  const pruneHiddenRef = useRef(pruneHidden);
   // P4 / N1: stable formId per entity+quarter session
   const formIdRef = useRef<string>(crypto.randomUUID());
 
@@ -66,6 +71,10 @@ export function useOnefopDraft(
   useEffect(() => {
     establishmentIdRef.current = establishmentId;
   }, [establishmentId]);
+
+  useEffect(() => {
+    pruneHiddenRef.current = pruneHidden;
+  }, [pruneHidden]);
 
   // Load draft once both entityType and quarterCode are known.
   // Reuses persisted formId if available for idempotency (N1 fix).
@@ -158,6 +167,15 @@ export function useOnefopDraft(
   }, [data, quarterCode]);
 
   const onChange = useCallback((fieldId: string | Record<string, unknown>, value?: unknown) => {
+    // Pruning only ever deletes keys, so an unchanged key count means nothing
+    // was hidden — keep the caller's object instead of a fresh copy.
+    const withoutHidden = (next: FormData): FormData => {
+      const prune = pruneHiddenRef.current;
+      if (!prune) return next;
+      const pruned = prune(next);
+      return Object.keys(pruned).length === Object.keys(next).length ? next : pruned;
+    };
+
     if (typeof fieldId === "object" && fieldId !== null) {
       setData((prev) => {
         let changed = false;
@@ -173,7 +191,7 @@ export function useOnefopDraft(
             changed = true;
           }
         }
-        return changed ? next : prev;
+        return changed ? withoutHidden(next) : prev;
       });
       return;
     }
@@ -183,10 +201,10 @@ export function useOnefopDraft(
         if (!(fieldId in prev)) return prev;
         const next = { ...prev };
         delete next[fieldId];
-        return next;
+        return withoutHidden(next);
       }
       if (prev[fieldId] === value) return prev;
-      return { ...prev, [fieldId]: value };
+      return withoutHidden({ ...prev, [fieldId]: value });
     });
   }, []);
 

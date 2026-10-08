@@ -115,7 +115,8 @@ void main() {
       'toggling VT6_5 to include Autres through the dropdown makes VT6_6 '
       'visible immediately, with no further interaction (setCheckboxValues '
       'regression)', (tester) async {
-    final ctrl = await _controller(const {});
+    // VT6_5 is asked only when 6.1.1 says the centre has a guidance service.
+    final ctrl = await _controller(const {'VT6_1': 'Oui/ Yes'});
     addTearDown(ctrl.dispose);
     final vt66 = ctrl.schema!.getField('VT6_6')!;
     expect(ctrl.isFieldVisible(vt66), isFalse);

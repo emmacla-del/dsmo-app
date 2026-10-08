@@ -304,9 +304,10 @@ void main() {
         'VT6_5 (5 options, one of them long enough to wrap) renders with no '
         'RenderFlex overflow — live-reported regression in '
         '_measureCheckboxHeight\'s wrap-width estimate', (tester) async {
+      // VT6_5 is asked only when 6.1.1 says the centre has a guidance service.
       final ctrl = OnefopFormController(
         entityType: EntityType.vocationalTraining,
-        initialData: const {},
+        initialData: const {'VT6_1': 'Oui/ Yes'},
         onSave: (_) async {},
       );
       await ctrl.initialize();
