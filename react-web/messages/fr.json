@@ -1,7 +1,7 @@
 {
   "authShared": {
     "wordmark": "CAM-LEAP",
-    "subtitle": "Système national de déclaration du marché du travail"
+    "subtitle": "Plateforme camerounaise d'analyse de l'emploi et du travail"
   },
   "common": {
     "cancel": "Annuler",
@@ -225,7 +225,7 @@
     "cancelTwoFactorLink": "Annuler et revenir à la connexion",
     "identifierNotFoundError": "Identifiant introuvable. Vérifiez vos informations.",
     "brandTitle": "CAM-LEAP",
-    "subtitle": "Système national de déclaration du marché du travail",
+    "subtitle": "Plateforme camerounaise d'analyse de l'emploi et du travail",
     "tabLogin": "Connexion",
     "tabForgot": "Retrouver mon identifiant",
     "emailLabel": "Identifiant",
@@ -2585,10 +2585,10 @@
   },
   "landingPage": {
     "emblemLabel": "Carte du Cameroun aux couleurs nationales",
-    "otherLanguageName": "National Labor Market Declaration System",
+    "otherLanguageName": "Cameroon Labour and Employment Analytical Platform",
     "noticesHeading": "Avis aux déclarants",
     "notice1Title": "Bienvenue sur CAM-LEAP",
-    "notice1Body": "Le système national de déclaration du marché du travail. Déclarez en ligne la main-d'œuvre de votre établissement.",
+    "notice1Body": "Plateforme camerounaise d'analyse de l'emploi et du travail. Déclarez en ligne la main-d'œuvre de votre établissement.",
     "notice2Title": "Deux déclarations",
     "notice2Body": "<b>Déclaration DSMO</b> : déclaration sociale de la main-d'œuvre. <b>Questionnaire ONEFOP</b> : information sur le marché du travail.",
     "notice3Title": "Assistance",
