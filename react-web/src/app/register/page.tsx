@@ -1249,55 +1249,45 @@ export default function RegisterPage() {
               subtitle={t("registerPage.entityTypeSubtitle")}
             />
 
-            {/* Laid out as the other steps' fields are: the group's name in
-                the label column, the choices stacked in the field column,
-                through the same .form-single-column grid. A radio group has
-                no single control, so FormRow's label names it by id (no
-                htmlFor) and the fieldset is labelled by that.
+            {/* As in the Flutter app (register_steps.dart StepEntityType):
+                the title and subtitle, then the choices -- no field label,
+                which only repeated the title. The fieldset is named by the
+                step title.
 
                 The fieldset also carries the id the missing-fields prompt
                 points at; the prompt focuses the first radio through
                 firstEntityRadioRef. */}
-            <div className="form-single-column">
-              <FormRow
-                label={t("registerPage.entityTypeFieldLabel")}
-                labelId="reg-entity-type-label"
-                required
-              >
-                <fieldset
-                  id="reg-entity-type"
-                  className="entity-type-list"
-                  aria-labelledby="reg-entity-type-label"
-                  aria-required={true}
-                  {...invalidProps("reg-entity-type")}
-                >
-                  {ENTITY_TYPE_OPTIONS.map((option, idx) => (
-                    <label key={option.type} className="entity-type-option">
-                      <input
-                        ref={idx === 0 ? firstEntityRadioRef : undefined}
-                        type="radio"
-                        name="entityType"
-                        value={option.type}
-                        checked={entityType === option.type}
-                        onChange={() => requestEntityType(option.type)}
-                        aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
-                      />
-                      <span className="entity-type-option-label">
-                        {t(option.labelKey)}
-                        {option.hintKey && (
-                          <span
-                            id={`reg-entity-hint-${option.type}`}
-                            className="entity-type-option-hint"
-                          >
-                            {t(option.hintKey)}
-                          </span>
-                        )}
+            <fieldset
+              id="reg-entity-type"
+              className="entity-type-list"
+              aria-labelledby="reg-section-title-entityType"
+              {...invalidProps("reg-entity-type")}
+            >
+              {ENTITY_TYPE_OPTIONS.map((option, idx) => (
+                <label key={option.type} className="entity-type-option">
+                  <input
+                    ref={idx === 0 ? firstEntityRadioRef : undefined}
+                    type="radio"
+                    name="entityType"
+                    value={option.type}
+                    checked={entityType === option.type}
+                    onChange={() => requestEntityType(option.type)}
+                    aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
+                  />
+                  <span className="entity-type-option-label">
+                    {t(option.labelKey)}
+                    {option.hintKey && (
+                      <span
+                        id={`reg-entity-hint-${option.type}`}
+                        className="entity-type-option-hint"
+                      >
+                        {t(option.hintKey)}
                       </span>
-                    </label>
-                  ))}
-                </fieldset>
-              </FormRow>
-            </div>
+                    )}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
           </>
         );
 
@@ -1435,7 +1425,7 @@ export default function RegisterPage() {
             <StepHeader
               titleId="reg-section-title-entityInfo"
               title={localized(config.title, locale)}
-              subtitle={t("registerPage.entityInfoSubtitle")}
+              subtitle={localized(config.identification, locale)}
             />
 
             {/* The grouping and the field order both come from

@@ -110,6 +110,11 @@ export interface EntityField {
 export interface EntityConfig {
   type: EntityType;
   title: LocalizedText;
+  // Section 3's subtitle, as in the Flutter app's per-type
+  // formSectionLabel (minefop_models.dart) minus its "Section 1 —" form
+  // code, which means nothing to a respondent. administration and
+  // projectProgram have no Flutter counterpart and follow the same pattern.
+  identification: LocalizedText;
   fields: EntityField[];
 }
 
@@ -221,6 +226,7 @@ const SIGLE: EntityField = {
 export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   enterprise: {
     type: "enterprise",
+    identification: { fr: "Identification de l'entreprise", en: "Company identification" },
     title: { fr: "Entreprise", en: "Company" },
     fields: [
       { key: "companyName", label: { fr: "Raison sociale", en: "Company name" }, hint: { fr: "Nom légal de l'entreprise", en: "The company's legal name" }, required: true, kind: "text" },
@@ -243,6 +249,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   cooperative: {
     type: "cooperative",
+    identification: { fr: "Identification de la coopérative", en: "Cooperative identification" },
     title: { fr: "Coopérative", en: "Cooperative" },
     fields: [
       { key: "cooperativeName", label: { fr: "Nom de la coopérative", en: "Cooperative name" }, required: true, kind: "text" },
@@ -260,6 +267,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   ctd: {
     type: "ctd",
+    identification: { fr: "Identification de la CTD", en: "RLA identification" },
     title: { fr: "CTD", en: "RLA" },
     fields: [
       { key: "ctdType", label: { fr: "Type de CTD", en: "RLA type" }, required: true, kind: "select", options: CTD_TYPE_OPTIONS },
@@ -275,6 +283,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   ong: {
     type: "ong",
+    identification: { fr: "Identification de l'ONG", en: "NGO identification" },
     title: { fr: "ONG", en: "NGO" },
     fields: [
       { key: "ngoName", label: { fr: "Nom de l'ONG", en: "NGO name" }, required: true, kind: "text" },
@@ -291,6 +300,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   administration: {
     type: "administration",
+    identification: { fr: "Identification de l'administration", en: "Administration identification" },
     title: { fr: "Administration", en: "Administration" },
     fields: [
       // Was "Nom de l'administration" / "Administration name". Both fit, but
@@ -306,6 +316,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   projectProgram: {
     type: "projectProgram",
+    identification: { fr: "Identification du projet ou programme", en: "Project or programme identification" },
     title: { fr: "Projet / Programme", en: "Project / Programme" },
     fields: [
       { key: "projectProgramName", label: { fr: "Nom", en: "Name" }, required: true, kind: "text" },
@@ -324,6 +335,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   vocationalTraining: {
     type: "vocationalTraining",
+    identification: { fr: "Identification du centre de formation", en: "Training centre identification" },
     title: {
       fr: "Centre de formation professionnelle (enquête ONEFOP)",
       en: "Vocational training centre (ONEFOP survey)",
