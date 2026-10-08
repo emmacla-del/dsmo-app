@@ -1777,10 +1777,11 @@ export default function RegisterPage() {
               onEdit={(targetStep) => goToSection(STEPS.indexOf(targetStep))}
             />
 
-            {/* The declaration on honour and its certification are one
-                statement, made once: the checkbox IS the declaration. The
-                submit button it gates is pinned in the frame footer, where
-                every other step keeps its primary action. */}
+            {/* The certification, made once by ticking the box. The submit
+                button it gates is pinned in the frame footer, where every
+                other step keeps its primary action. No "Déclaration sur
+                l'honneur" prefix: this is the inscription, not a
+                declaration. */}
             <label className="certify-row">
               <input
                 id="reg-certify"
@@ -1790,10 +1791,7 @@ export default function RegisterPage() {
                 aria-describedby={certifyFlagged && !certified ? "reg-certify-error" : undefined}
                 onChange={(e) => setCertified(e.target.checked)}
               />
-              <span>
-                <strong>{t("registerPage.honourDeclarationTitle")}</strong>{" "}
-                {t("registerPage.certifyLabel")}
-              </span>
+              <span>{t("registerPage.certifyLabel")}</span>
             </label>
             {certifyFlagged && !certified && (
               <p className="field-error certify-error" id="reg-certify-error">
