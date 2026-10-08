@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
-import { localized } from "@/lib/onefop-schema";
+import { isFieldVisible, localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
 import { getVtSectionShortLabel } from "./vt-wizard-utils";
+import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
 
 interface VtValidationScreenProps {
   entity: OnefopEntity;
@@ -36,6 +37,7 @@ function getSectionStats(section: OnefopSection, data: FormData) {
 
   for (const field of section.fields) {
     if (field.type === "section_header") continue;
+    if (!isFieldVisible(field, data)) continue;
     total++;
     const v = data[field.id];
     if (v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)) {
@@ -82,7 +84,11 @@ export function VtValidationScreen({
 }: VtValidationScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
+  const isFr = locale === "fr";
   const sections = entity.sections;
+
+  const [showZeroedDetails, setShowZeroedDetails] = useState(false);
+  const zeroedTables = useMemo(() => getZeroedTablesList(entity, data), [entity, data]);
 
   const sectionSummaries = useMemo(() => {
     return sections.map((sec, idx) => ({
@@ -147,6 +153,68 @@ export function VtValidationScreen({
           </div>
         </div>
       </div>
+
+      {/* Zeroed Tables Summary Notice (D10 Transparency) */}
+      {zeroedTables.length > 0 && (
+        <div
+          style={{
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "var(--cam-radius-md)",
+            padding: "14px 18px",
+            fontSize: "13.5px",
+            color: "#166534",
+            marginBottom: "var(--cam-space-4)",
+            lineHeight: 1.4,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>
+              ℹ️{" "}
+              <strong>
+                {isFr
+                  ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément au questionnaire préliminaire.`
+                  : `${zeroedTables.length} table(s) certified as null (0) according to preliminary scoping answers.`}
+              </strong>{" "}
+              <span style={{ fontSize: "12px", color: "#15803d" }}>
+                {isFr
+                  ? "(Données brutes archivées pour traçabilité administrative)."
+                  : "(Raw input data remains archived for administrative traceability)."}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowZeroedDetails((prev) => !prev)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#15803d",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              {showZeroedDetails
+                ? isFr
+                  ? "Masquer le détail"
+                  : "Hide details"
+                : isFr
+                  ? "Voir le détail"
+                  : "View details"}
+            </button>
+          </div>
+          {showZeroedDetails && (
+            <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: 12, color: "#14532d" }}>
+              {zeroedTables.map((t) => (
+                <li key={t.code || t.tableId} style={{ marginTop: 3 }}>
+                  <strong>{t.code || t.tableId}</strong>: {isFr ? t.nameFr : t.nameEn}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Validation error banner — blocks submission (W1 fix) */}
       {hasErrors && (
