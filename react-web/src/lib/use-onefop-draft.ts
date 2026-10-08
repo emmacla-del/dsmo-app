@@ -28,6 +28,8 @@ export function useOnefopDraft(
   entityType: string,
   quarterCode: string | null | undefined,
   initialAutofill?: FormData,
+  userId?: string | null,
+  establishmentId?: string | null,
 ) {
   const [data, setData] = useState<FormData>({});
   const [loadedEntityType, setLoadedEntityType] = useState<string | null>(null);
@@ -39,7 +41,9 @@ export function useOnefopDraft(
   const entityTypeRef = useRef(entityType);
   const quarterCodeRef = useRef(quarterCode);
   const initialAutofillRef = useRef(initialAutofill);
-  // P4: stable formId per entity+quarter session — reset on entity/quarter change
+  const userIdRef = useRef(userId);
+  const establishmentIdRef = useRef(establishmentId);
+  // P4 / N1: stable formId per entity+quarter session
   const formIdRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
@@ -54,15 +58,27 @@ export function useOnefopDraft(
     quarterCodeRef.current = quarterCode;
   }, [quarterCode]);
 
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    establishmentIdRef.current = establishmentId;
+  }, [establishmentId]);
+
   // Load draft once both entityType and quarterCode are known.
-  // Resets formId so a new entity+quarter gets a fresh idempotency key.
+  // Reuses persisted formId if available for idempotency (N1 fix).
   useEffect(() => {
     if (!quarterCode) return;
     let cancelled = false;
-    formIdRef.current = crypto.randomUUID();
-    loadDraft(entityType, quarterCode).then((draft) => {
+    loadDraft(entityType, quarterCode, userId, establishmentId).then((draft) => {
       if (cancelled) return;
-      const loaded = draft ?? {};
+      if (draft?.formId) {
+        formIdRef.current = draft.formId;
+      } else {
+        formIdRef.current = crypto.randomUUID();
+      }
+      const loaded = draft?.data ?? {};
       const merged = initialAutofillRef.current
         ? mergeWithAutofill(loaded, initialAutofillRef.current)
         : loaded;
@@ -75,7 +91,7 @@ export function useOnefopDraft(
     return () => {
       cancelled = true;
     };
-  }, [entityType, quarterCode]);
+  }, [entityType, quarterCode, userId, establishmentId]);
 
   const appliedAutofillRef = useRef<FormData | undefined>(undefined);
 
@@ -111,8 +127,10 @@ export function useOnefopDraft(
     const timer = setTimeout(() => {
       const savedFor = entityTypeRef.current;
       const savedForQuarter = quarterCodeRef.current;
+      const savedForUser = userIdRef.current;
+      const savedForEst = establishmentIdRef.current;
       if (!savedForQuarter) return;
-      saveDraft(savedFor, savedForQuarter, data).then(() => {
+      saveDraft(savedFor, savedForQuarter, data, savedForUser, savedForEst, formIdRef.current).then(() => {
         if (entityTypeRef.current === savedFor && quarterCodeRef.current === savedForQuarter) {
           setLastSavedData(data);
           setLastSavedAt(new Date());

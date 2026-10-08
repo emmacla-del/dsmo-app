@@ -92,15 +92,20 @@ export function saveDraftToBackend(
   draftData: FormData,
   entity?: OnefopEntity | null,
 ) {
+  // D7 fix: In drafts, preserve working quiz state (_scopeConfig, _scopeCsp, _scopeAge)
+  // so remote draft recovery preserves respondent interview answers.
+  // Full quiz derivation & stripping only runs on final submission.
+  const prepared = entity ? { ...prepareSubmissionData(entity, draftData) } : { ...draftData };
+  if (draftData._scopeConfig) prepared._scopeConfig = draftData._scopeConfig;
+  if (draftData._scopeCsp) prepared._scopeCsp = draftData._scopeCsp;
+  if (draftData._scopeAge) prepared._scopeAge = draftData._scopeAge;
+
   return apiFetch<SavedDraft>("/onefop/draft", {
     method: "POST",
     body: JSON.stringify({
       quarterCode,
       entityType: BACKEND_ENTITY_TYPE[entityType] ?? entityType,
-      // P3: apply quiz semantics so draft and final-submit payloads share
-      // the same structure — phantom cells from gateway exploration are
-      // cleared, NONE/REPORTED statuses are set, zeros are explicit.
-      draftData: prepareSubmissionData(entity, draftData),
+      draftData: prepared,
     }),
   });
 }
@@ -205,15 +210,27 @@ export function submitDeclaration(
       new Error(`Backend submission does not support entity type "${entityType}".`),
     );
   }
-  // P4: formId must be generated once per wizard session by the caller and
-  // reused on every retry so the backend can enforce idempotency. Falling back
-  // to a fresh UUID here only happens if a caller did not wire up the fix yet.
+  // P4 / N1: formId must be generated once per wizard session by the caller and
+  // reused on every retry so the backend can enforce idempotency.
   const stableFormId = formId ?? crypto.randomUUID();
   return apiFetch<SubmitResult>("/onefop/submit", {
     method: "POST",
     body: JSON.stringify(
       buildSubmitPayload(backendEntityType, quarterCode, data, isDraft, entity, stableFormId),
     ),
+  }).catch((err: any) => {
+    // N1 fix: If the server returns 409 indicating duplicate submission for the same formId/establishment,
+    // this means the submission was already persisted successfully on a previous attempt.
+    const msg = String(err?.message || err || "");
+    const status = err?.status || err?.statusCode;
+    if (status === 409 || msg.includes("déjà été soumis") || msg.includes("already exists")) {
+      return {
+        success: true,
+        submissionId: stableFormId,
+        message: "Formulaire déjà soumis avec succès",
+      };
+    }
+    throw err;
   });
 }
 
