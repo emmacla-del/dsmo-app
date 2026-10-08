@@ -47,8 +47,6 @@ export function FormRow({
   label,
   required = false,
   hint,
-  error,
-  errorId,
   size = "full",
   labelPrefix,
   labelId,
@@ -63,15 +61,14 @@ export function FormRow({
   label: string;
   required?: boolean;
   hint?: string;
-  // "Champ obligatoire", shown only after a trigger has flagged this field --
-  // never while the respondent is still working through the section. The
-  // CONTROL carries aria-invalid and aria-describedby (the caller owns those,
-  // since the control is passed in as children); this renders the text they
-  // point at, in the input column where the eye already is.
-  error?: string;
-  errorId?: string;
-  // Caps the input column's contents -- the control, its hint and its error
-  // all together, so the three stay the same width and keep one right edge.
+  // There is no per-field error slot. A missing required field is reported
+  // once, by the wizard's pinned notice, and only the first such control is
+  // marked aria-invalid (the caller owns that, since the control is passed in
+  // as children) -- one message rather than "Champ obligatoire" under every
+  // row.
+  //
+  // Caps the input column's contents -- the control and its hint together,
+  // so the two stay the same width and keep one right edge.
   size?: FieldSize;
   // Decoration before the label text -- the location step's cascade arrow.
   // Decorative only, so the caller is expected to mark it aria-hidden.
@@ -95,11 +92,6 @@ export function FormRow({
         )}
       </label>
       {children}
-      {error && (
-        <p className="field-error" id={errorId}>
-          {error}
-        </p>
-      )}
       {hint && <p className="field-hint">{hint}</p>}
     </div>
   );

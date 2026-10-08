@@ -312,8 +312,8 @@ async function runViewport(browser, vp) {
       await page.waitForTimeout(300);
     }
     if (phase === "section 3 (tall)") {
-      await page.fill("#reg-first-name", "Emmanuel");
-      await page.fill("#reg-last-name", "Biya");
+      await page.fill("#reg-first-name", "Marie");
+      await page.fill("#reg-last-name", "Ngono");
       await page.selectOption("#reg-function", { index: 1 });
       await page.fill("#reg-email", "layout." + Date.now() + "@example.cm");
       await page.fill("#reg-phone1", "655000000");
@@ -550,8 +550,8 @@ async function runRail(browser) {
   // Fill Declarant.
   await railItem(page, 2).click();
   await page.waitForTimeout(200);
-  await page.fill("#reg-first-name", "Emmanuel");
-  await page.fill("#reg-last-name", "Biya");
+  await page.fill("#reg-first-name", "Marie");
+  await page.fill("#reg-last-name", "Ngono");
   await page.selectOption("#reg-function", { index: 1 });
   await page.fill("#reg-email", "rail." + Date.now() + "@example.cm");
   await page.fill("#reg-phone1", "655000000");
@@ -646,7 +646,7 @@ async function runRail(browser) {
   await page.click(".leave-dialog .btn-primary");
   await page.waitForTimeout(450);
   check(
-    (await page.inputValue("#reg-first-name").catch(() => "")) === "Emmanuel",
+    (await page.inputValue("#reg-first-name").catch(() => "")) === "Marie",
     "Confirm leaves the Declarant untouched"
   );
   const landed = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
@@ -728,8 +728,8 @@ async function openEntitySection(page, type) {
   await page.waitForSelector(".flow-frame-scroll");
   await page.click('input[name="entityType"][value="' + type + '"]');
   await page.waitForTimeout(250);
-  await page.fill("#reg-first-name", "Emmanuel");
-  await page.fill("#reg-last-name", "Biya");
+  await page.fill("#reg-first-name", "Marie");
+  await page.fill("#reg-last-name", "Ngono");
   await page.selectOption("#reg-function", { index: 1 });
   await page.fill("#reg-email", "labels." + Date.now() + "@example.cm");
   await page.fill("#reg-phone1", "655000000");
@@ -916,6 +916,31 @@ async function runRequiredOnly(browser) {
       type + ": continue advances to Localisation",
       landed || ""
     );
+
+    // Once, on the first type: Continuer on an empty Localisation names
+    // only what can be answered now. The department and arrondissement
+    // wait on the region, so they are not named next to it.
+    if (type === ENTITY_TYPES[0]) {
+      await page.click(".flow-continue-link", { force: true });
+      await page.waitForTimeout(300);
+      const loc = await page.evaluate(() => ({
+        notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? "",
+        invalid: [
+          ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
+        ].map((e) => e.id),
+      }));
+      check(
+        /2 champs|2 required/i.test(loc.notice) &&
+          !/D[ée]partement|Division|Arrondissement|Subdivision/i.test(loc.notice),
+        "empty Localisation names the region and the area, not the gated selects",
+        loc.notice
+      );
+      check(
+        loc.invalid.length === 1 && loc.invalid[0] === "reg-region",
+        "and marks the region alone",
+        loc.invalid.join(", ")
+      );
+    }
     void filled;
   }
 
@@ -968,21 +993,23 @@ async function runPrompts(browser) {
   await railItem(page, 5).click({ force: true });
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
+  // One message: the notice names all five, only the first control is
+  // marked, and no field carries a "Champ obligatoire" line of its own.
   check(
-    st.invalid.length === 5 && st.errors === 5,
-    "(d) a locked rail click flags every missing field",
-    st.invalid.join(", ")
+    st.notice !== null && /5 champs|5 required/i.test(st.notice),
+    "(d) a locked rail click names every missing field in one notice",
+    st.notice || ""
+  );
+  check(
+    st.invalid.length === 1 && st.invalid[0] === "reg-first-name" && st.errors === 0,
+    "only the first missing field is marked, and no per-field message",
+    st.invalid.join(", ") + " / " + st.errors + " field errors"
   );
   check(st.focused === "reg-first-name", "it focuses the first one", st.focused || "");
   check(
-    st.describedBy === "reg-first-name-error",
-    "and points the control at its own message",
+    st.describedBy === "reg-missing-notice",
+    "and points that control at the notice",
     st.describedBy || ""
-  );
-  check(
-    st.notice !== null && st.notice.includes(","),
-    "the notice lists them by name",
-    st.notice || ""
   );
   const stillHere = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(
@@ -992,13 +1019,14 @@ async function runPrompts(browser) {
   );
 
   // Errors clear per field as each is fixed.
-  await page.fill("#reg-first-name", "Emmanuel");
+  await page.fill("#reg-first-name", "Marie");
   await page.waitForTimeout(250);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 4 && !st.invalid.includes("reg-first-name"),
-    "fixing one field clears that field's error alone",
-    st.invalid.join(", ")
+    st.notice !== null && /4 champs|4 required/i.test(st.notice) &&
+      st.invalid.length === 1 && st.invalid[0] === "reg-last-name",
+    "fixing one field drops it from the notice and the marker moves on",
+    (st.notice || "") + " / " + st.invalid.join(", ")
   );
 
   // (c) Enter on the section's last field.
@@ -1007,13 +1035,13 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 4,
+    st.notice !== null && /4 champs|4 required/i.test(st.notice) && st.invalid.length === 1,
     "(c) Enter on the last field raises the prompt",
-    st.invalid.join(", ")
+    st.notice || ""
   );
 
   // (a) focus leaving the last field for somewhere outside the section.
-  await page.fill("#reg-last-name", "Biya");
+  await page.fill("#reg-last-name", "Ngono");
   await page.selectOption("#reg-function", { index: 1 });
   await page.waitForTimeout(200);
   await page.focus("#reg-phone2");
@@ -1023,9 +1051,10 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.includes("reg-email") && st.invalid.includes("reg-phone1"),
+    st.notice !== null && /2 champs|2 required/i.test(st.notice) &&
+      st.invalid.length === 1 && st.invalid[0] === "reg-email",
     "(a) leaving the last field for outside the section raises the prompt",
-    st.invalid.join(", ")
+    (st.notice || "") + " / " + st.invalid.join(", ")
   );
 
   // Finishing the section clears everything.

@@ -278,7 +278,6 @@
     "errorSelectSubdivision": "Please select a subdivision.",
     "errorSelectArea": "Please select an area.",
     "errorPasswordMismatch": "Passwords do not match.",
-    "fieldRequiredError": "Required field",
     "missingFieldsNotice": "{count, plural, one {# required field left: {names}} other {# required fields left: {names}}}",
     "lockedStepNotice": "Complete this step to reach the next one.",
     "successTitle": "Registration successful",

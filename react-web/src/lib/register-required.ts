@@ -188,3 +188,26 @@ export function missingRequiredFields(
 ): RequiredFieldRef[] {
   return requiredFieldsFor(step, state, resolvers).filter((f) => !f.filled);
 }
+
+// The missing fields worth NAMING to the respondent: missingRequiredFields
+// minus every cascade field whose parent is itself still unanswered.
+//
+// A department cannot be chosen before a region -- its select is disabled
+// and says "Choisir la région d'abord" -- so reporting it as missing next to
+// the region asks for something the respondent cannot do yet, and turns one
+// gap into three. Naming the region covers it. Completeness is NOT affected:
+// isSectionComplete and missingRequiredFields still count the department, so
+// the section does not open early; only the prompt says less.
+export function missingFieldsToReport(
+  step: RegistrationStepId,
+  state: RegState,
+  resolvers: NameResolvers
+): RequiredFieldRef[] {
+  const missing = missingRequiredFields(step, state, resolvers);
+  if (step !== "location") return missing;
+  return missing.filter(
+    (f) =>
+      !(f.id === "reg-department" && !state.regionId) &&
+      !(f.id === "reg-subdivision" && !state.departmentId)
+  );
+}
