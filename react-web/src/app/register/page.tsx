@@ -204,6 +204,10 @@ export default function RegisterPage() {
     phone2: "",
   });
   const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+  // The availability check could not be made (network, server). Shown as a
+  // neutral note, never as an error: it blocks nothing, and the server
+  // still refuses a duplicate address at submission.
+  const [emailCheckFailed, setEmailCheckFailed] = useState(false);
   const [entityData, setEntityData] = useState<Record<string, string>>({});
   const [regionId, setRegionId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -286,13 +290,17 @@ export default function RegisterPage() {
   useEffect(() => {
     const email = respondent.email.trim();
     const handle = setTimeout(() => {
+      setEmailCheckFailed(false);
       if (!email || !email.includes("@")) {
         setEmailAvailable(null);
         return;
       }
       checkEmailAvailable(email)
         .then((r) => setEmailAvailable(r.available))
-        .catch(() => setEmailAvailable(null));
+        .catch(() => {
+          setEmailAvailable(null);
+          setEmailCheckFailed(true);
+        });
     }, 400);
     return () => clearTimeout(handle);
   }, [respondent.email]);
@@ -400,13 +408,21 @@ export default function RegisterPage() {
       ? undefined
       : t("registerPage.optionalPlaceholder");
     const invalid = invalidProps(id);
+    // A year or an amount is digits only. Not type="number": that adds
+    // spinner arrows, lets the mouse wheel change a value the respondent has
+    // scrolled past, and accepts "e", "-" and "1e3". A text input with a
+    // numeric keypad and the non-digits filtered out keeps what is typed.
+    const digitsOnly = field.kind === "number";
     const controlProps = {
       id,
       "aria-required": field.required ? true : undefined,
       ...invalid.control,
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-        setEntityField(field.key, e.target.value),
+        setEntityField(
+          field.key,
+          digitsOnly ? e.target.value.replace(/\D/g, "") : e.target.value
+        ),
     };
 
     return (
@@ -435,8 +451,12 @@ export default function RegisterPage() {
           ) : (
             <input
               {...controlProps}
-              type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
-              placeholder={optionalPlaceholder}
+              type={field.kind === "tel" ? "tel" : "text"}
+              inputMode={digitsOnly ? "numeric" : undefined}
+              maxLength={field.key === "yearOfCreation" ? 4 : undefined}
+              placeholder={
+                field.placeholder ? localized(field.placeholder, locale) : optionalPlaceholder
+              }
             />
           )}
         </div>
@@ -1365,6 +1385,11 @@ export default function RegisterPage() {
                       ✓ {t("registerPage.emailAvailable")}
                     </span>
                   )}
+                  {emailCheckFailed && (
+                    <span className="field-status is-muted">
+                      {t("registerPage.emailCheckFailed")}
+                    </span>
+                  )}
                 </div>
               </FormRow>
 
@@ -1959,6 +1984,13 @@ export default function RegisterPage() {
               </form>
             </div>
 
+            {/* Reset and restore notices. Announced, because the change they
+                report happened somewhere the respondent may not be looking;
+                pinned under the content so they cover none of it. */}
+            <div className="wizard-snackbar-region" role="status" aria-live="polite">
+              {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
+            </div>
+
             {/* Pinned to the frame, not placed in the scrolling content: it
                 reports fields that may be anywhere in a section taller than
                 the frame, so it has to stay on screen while the respondent
@@ -2103,12 +2135,6 @@ export default function RegisterPage() {
           </div>
         </div>
       )}
-
-      {/* Reset notices. Announced, because the change they report happened
-          somewhere the respondent may not be looking. */}
-      <div className="wizard-snackbar-region" role="status" aria-live="polite">
-        {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
-      </div>
 
       {/* Leave confirmation. Only reachable with data entered, and only for
           navigation that happens inside the app -- a real browser unload

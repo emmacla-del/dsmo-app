@@ -92,6 +92,10 @@ export interface EntityField {
   key: string;
   label: LocalizedText;
   hint?: LocalizedText;
+  // An example of the expected format, shown inside the empty control -- the
+  // same place the Declarant section puts its examples. A hint, by contrast,
+  // is guidance that must stay visible once the field is filled.
+  placeholder?: LocalizedText;
   required: boolean;
   kind: "text" | "tel" | "number" | "select";
   options?: import("./register-options").RegisterOption[];
@@ -149,7 +153,7 @@ import {
 const PHONE: EntityField = {
   key: "phone",
   label: { fr: "Téléphone / WhatsApp", en: "Phone / WhatsApp" },
-  hint: { fr: "Ex : 655000000", en: "E.g. 655000000" },
+  placeholder: { fr: "Ex : 655000000", en: "E.g. 655000000" },
   required: true,
   kind: "tel",
 };
@@ -197,7 +201,7 @@ const HEAD_OFFICE: EntityField = {
 const YEAR_OF_CREATION: EntityField = {
   key: "yearOfCreation",
   label: { fr: "Année de création", en: "Year established" },
-  hint: { fr: "AAAA", en: "YYYY" },
+  placeholder: { fr: "AAAA", en: "YYYY" },
   required: true,
   kind: "number",
 };
@@ -356,7 +360,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
         dependsOn: "nonFunctionalReason",
         dependsValue: "Autres",
       },
-      { key: "yearOfCreation", label: { fr: "Année d'ouverture", en: "Year opened" }, hint: { fr: "AAAA", en: "YYYY" }, required: true, kind: "number" },
+      { key: "yearOfCreation", label: { fr: "Année d'ouverture", en: "Year opened" }, placeholder: { fr: "AAAA", en: "YYYY" }, required: true, kind: "number" },
       { key: "address", label: { fr: "Adresse du CFP", en: "VTC address" }, required: true, kind: "text" },
       PHONE,
       PHONE_2,
