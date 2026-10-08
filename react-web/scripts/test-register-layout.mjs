@@ -223,19 +223,21 @@ const measurePlaceholderVsLabel = () => {
     }
   }
   // Resolve a var() reference against :root so the comparison is in real
-  // colour space.
-  let resolved = declared;
-  const m = declared && declared.match(/var\(\s*(--[\w-]+)/);
-  if (m) {
-    resolved = getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim();
-  }
+  // values -- colour space for the colour, and the token's own value for the
+  // size and weight, which the stylesheet now declares as tokens too.
+  const resolveVar = (value) => {
+    const m = value && value.match(/var\(\s*(--[\w-]+)/);
+    return m
+      ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim()
+      : value;
+  };
   return {
     labelColor: getComputedStyle(label).color,
     declared,
-    resolved,
-    fontSize,
-    fontWeight,
-    opacity,
+    resolved: resolveVar(declared),
+    fontSize: resolveVar(fontSize),
+    fontWeight: resolveVar(fontWeight),
+    opacity: resolveVar(opacity),
   };
 };
 
@@ -880,7 +882,9 @@ async function runRequiredOnly(browser) {
           const opt = [...control.options].find((o) => o.value !== "");
           if (opt) set(control, opt.value);
         } else {
-          set(control, control.type === "number" ? "2020" : "Test");
+          // Year and amount fields are digits-only text inputs (numeric
+          // keypad, non-digits filtered out), so they need a number.
+          set(control, control.inputMode === "numeric" ? "2020" : "Test");
         }
         touched.push(control.id);
       }
