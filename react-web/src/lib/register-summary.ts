@@ -108,9 +108,9 @@ export function summaryRows(
     case "entityInfo": {
       if (!state.entityType) return [];
       const config = ENTITY_CONFIGS[state.entityType];
-      const rows: (SummaryRow | null)[] = [
-        row(t("registerPage.summaryEntityTypeLabel"), localized(config.title, locale)),
-      ];
+      // The type is not repeated here: it is section 1's own answer, with
+      // its own row and its own edit link in the review.
+      const rows: (SummaryRow | null)[] = [];
       for (const field of config.fields) {
         // A field whose gate has closed is not part of the declaration, even
         // if a value is still sitting in state from before the gate shut --

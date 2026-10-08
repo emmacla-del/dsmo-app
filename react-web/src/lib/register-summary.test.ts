@@ -168,9 +168,12 @@ test("an unrecognised stored value falls back to itself rather than vanishing", 
   assert.equal(fn?.value, "Fonction retiree");
 });
 
-test("entityInfo leads with the type and then the answered fields", () => {
+test("entityInfo lists the answered fields without repeating the type", () => {
   const rows = summaryRows("entityInfo", baseState(), t, LOCALE);
-  assert.equal(rows[0].label, "registerPage.summaryEntityTypeLabel");
+  assert.equal(
+    rows.some((r) => r.label === "registerPage.summaryEntityTypeLabel"),
+    false
+  );
   const labels = rows.map((r) => r.label);
   // Field labels are the questionnaire's own {fr, en} strings, resolved
   // against LOCALE -- not catalogue keys.

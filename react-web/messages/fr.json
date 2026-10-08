@@ -377,6 +377,9 @@
     "loadingOptions": "Chargement…",
     "noOptions": "Aucune entrée disponible",
     "loadErrorOptions": "Échec du chargement",
+    "loadErrorHint": "La liste n'a pas pu être chargée.",
+    "retryButton": "Réessayer",
+    "certifyRequiredError": "Cochez cette case pour soumettre votre inscription.",
     "passwordStrengthPrefix": "Robustesse",
     "passwordsMatch": "Les mots de passe correspondent",
     "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
@@ -410,10 +413,7 @@
     "entityChangeConfirm": "Changer",
     "entityChangeSnackbar": "Étape « {step} » réinitialisée.",
     "locationResetSnackbar": "Département et arrondissement réinitialisés",
-    "reviewStatusLabel": "Statut de validation",
-    "reviewStatusReady": "Prêt pour soumission",
-    "honourDeclarationTitle": "Déclaration sur l'honneur :",
-    "honourDeclarationBody": "En soumettant ce formulaire, vous certifiez l'exactitude des informations fournies pour l'enregistrement de votre établissement auprès du MINEFOP."
+    "honourDeclarationTitle": "Déclaration sur l'honneur :"
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",

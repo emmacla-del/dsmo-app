@@ -377,6 +377,9 @@
     "loadingOptions": "Loading…",
     "noOptions": "No entry available",
     "loadErrorOptions": "Loading failed",
+    "loadErrorHint": "The list could not be loaded.",
+    "retryButton": "Retry",
+    "certifyRequiredError": "Tick this box to submit your registration.",
     "passwordStrengthPrefix": "Strength",
     "passwordsMatch": "Passwords match",
     "passwordsDoNotMatch": "Passwords do not match",
@@ -410,10 +413,7 @@
     "entityChangeConfirm": "Change",
     "entityChangeSnackbar": "Step \"{step}\" has been reset.",
     "locationResetSnackbar": "Department and subdivision reset",
-    "reviewStatusLabel": "Validation status",
-    "reviewStatusReady": "Ready for submission",
-    "honourDeclarationTitle": "Sworn declaration:",
-    "honourDeclarationBody": "By submitting this form you certify the accuracy of the information provided for the registration of your establishment with MINEFOP."
+    "honourDeclarationTitle": "Sworn declaration:"
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "The password must be at least 8 characters long.",
