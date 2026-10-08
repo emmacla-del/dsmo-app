@@ -24,7 +24,7 @@ const zillaSlab = localFont({
 
 export const metadata: Metadata = {
   title: "CAM-LEAP",
-  description: "Système national de déclaration du marché du travail",
+  description: "Cameroon Labour and Employment Analytical Platform",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
