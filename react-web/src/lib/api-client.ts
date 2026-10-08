@@ -402,6 +402,15 @@ export function registerCompany(payload: RegisterCompanyPayload) {
   });
 }
 
+// Mirrors ApiClient.getAttestationUrl (Dart). The PDF exists only once the
+// registration has been approved (auth.service.ts issueAttestation); the
+// route is ActiveCompanyGuard-protected and answers 400 when no PDF is
+// stored. The URL is a short-lived signed link, so it is fetched per click
+// rather than cached.
+export function getMyAttestation() {
+  return apiFetch<{ url: string }>("/auth/attestation");
+}
+
 // ── DSMO Company profile ──────────────────────────────────────────────────
 export interface CompanyProfile {
   id: string;
