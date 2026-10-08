@@ -34,6 +34,7 @@ interface SubmissionPanelProps {
   onAttemptSubmit: () => void;
   /** Stable per-session idempotency key from useOnefopDraft (P4 fix). */
   formId?: string;
+  onSubmitted?: () => Promise<void> | void;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -68,6 +69,7 @@ export function SubmissionPanel({
   attemptedSubmit,
   onAttemptSubmit,
   formId,
+  onSubmitted,
 }: SubmissionPanelProps) {
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
@@ -96,6 +98,7 @@ export function SubmissionPanel({
     onSuccess: (result) => {
       // Clear the local IndexedDB draft so stale prior-quarter data is not
       // reloaded when the respondent opens this entity type next quarter.
+      Promise.resolve(onSubmitted?.()).catch(() => {});
       if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
       setLastResult(
         t("submissionPanel.submissionSuccessWithId", { message: result.message, submissionId: result.submissionId }),

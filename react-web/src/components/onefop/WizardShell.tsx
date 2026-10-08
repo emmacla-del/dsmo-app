@@ -15,6 +15,7 @@ import {
   supportsBackendSubmission,
 } from "@/lib/onefop-submission";
 import type { ValidationIssue } from "@/lib/onefop-validation";
+import { clearDraft } from "@/lib/onefop-drafts";
 import { SectionRenderer } from "./SectionRenderer";
 import { VtWizardSectionScreen } from "./VtWizardSectionScreen";
 import { SubmissionPanel } from "./SubmissionPanel";
@@ -231,6 +232,7 @@ export function WizardShell({
       // Clear the local IndexedDB draft so the respondent does not see the
       // submitted data again the next time they open this entity type.
       Promise.resolve(onSubmitted?.()).catch(() => {});
+      if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
       setSubmissionId(result.submissionId || null);
     },

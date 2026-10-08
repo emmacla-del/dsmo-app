@@ -312,51 +312,38 @@ test("Modern jobs form wizard - CTD, ONG, Administration, ProjectProgram identif
   assert.equal(ppData["PP_S1Q15"], "60");
 });
 
-test("mergeWithAutofill: registration data always wins for identification fields (D3 fix)", () => {
-  // Scenario: draft has a stale respondent name from a prior session;
-  // registration was updated with a new name. The fresh registration value
-  // must override the stale draft value so SPSS carries current data.
+test("mergeWithAutofill: form's own answer always wins over registration autofill", () => {
+  // The form's own answer wins over registration: if a respondent entered/edited a field
+  // in the form, that value must never be overwritten by account registration defaults.
   const existingDraft = {
-    S0Q01: "Stale Respondent Name", // stale from prior session
+    S0Q01: "Respondent Name Edited In Form",
     S1Q02: "", // user cleared this
+    S1Q10: "45", // quarterly headcount entered by respondent
+    S1Q06: "Secondaire", // corrected sector
+    VT1_12: "Fonctionnelle",
     // S1Q04_REGION missing
   };
 
   const autofill = {
-    S0Q01: "Account First Last", // fresh from registration
+    S0Q01: "Account First Last", // registration data
     S0Q02: "Directeur",
     S1Q02: "Company Name From Account",
     S1Q04_REGION: "Littoral",
+    S1Q10: "10",
+    S1Q06: "Tertiaire",
+    VT1_12: "Non-fonctionnelle",
   };
 
   const merged = mergeWithAutofill(existingDraft, autofill);
 
-  assert.equal(merged["S0Q01"], "Account First Last"); // registration wins!
-  assert.equal(merged["S0Q02"], "Directeur"); // filled from registration
-  assert.equal(merged["S1Q02"], "Company Name From Account"); // filled (draft was empty)
-  assert.equal(merged["S1Q04_REGION"], "Littoral"); // filled (missing from draft)
-});
-
-test("mergeWithAutofill: D2 fix preserves quarterly statistical inputs (headcount, sector) from draft", () => {
-  const existingDraft = {
-    S1Q10: "45", // quarterly headcount entered by respondent
-    S1Q06: "Secondaire", // corrected sector
-    VT1_12: "Fonctionnelle",
-  };
-
-  const registrationAutofill = {
-    S1Q10: "10", // old registration headcount
-    S1Q06: "Tertiaire", // old default
-    VT1_12: "Non-fonctionnelle",
-    S0Q01: "New Official Name",
-  };
-
-  const merged = mergeWithAutofill(existingDraft, registrationAutofill);
-
-  // Identity field: registration wins
-  assert.equal(merged["S0Q01"], "New Official Name");
-  // Statistical / survey variables: draft wins
+  // Form's own answers win
+  assert.equal(merged["S0Q01"], "Respondent Name Edited In Form");
   assert.equal(merged["S1Q10"], "45");
   assert.equal(merged["S1Q06"], "Secondaire");
   assert.equal(merged["VT1_12"], "Fonctionnelle");
+
+  // Absent/empty fields in form are filled from registration
+  assert.equal(merged["S0Q02"], "Directeur");
+  assert.equal(merged["S1Q02"], "Company Name From Account");
+  assert.equal(merged["S1Q04_REGION"], "Littoral");
 });

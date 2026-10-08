@@ -524,26 +524,18 @@ export const STATISTICAL_AUTOFILL_KEYS = new Set([
 /**
  * Merges a loaded draft with account registration autofill data.
  *
- * Registration data (initialData) wins for identification fields (Section 0
- * respondent contact, establishment name, address, telephone, locality, region).
- * A stale draft value for those fields must not survive a fresh registration update (D3 fix).
- *
- * For statistical / operational survey fields (e.g. quarterly headcount S1Q10, sector S1Q06,
- * VT functional status), autofill operates as fill-if-absent only: existing draft values
- * (including explicitly entered 0 or corrected sector) are fully preserved.
+ * The form's own answer wins over registration: if a field already has a value
+ * in formData (whether identification or statistical, including explicit 0),
+ * that value is strictly preserved. Registration autofill only populates fields
+ * that are absent, null, or empty in formData.
  */
 export function mergeWithAutofill(formData: FormData, initialData: FormData): FormData {
   const result: FormData = { ...formData };
   for (const [key, val] of Object.entries(initialData)) {
     if (val === undefined || val === null || val === "") continue;
 
-    if (STATISTICAL_AUTOFILL_KEYS.has(key)) {
-      // Fill-if-absent only for survey variables
-      if (result[key] === undefined || result[key] === null || result[key] === "") {
-        result[key] = val;
-      }
-    } else {
-      // Identification / statutory registry metadata: registration data wins
+    // The form's own answer wins over registration — autofill only populates absent fields
+    if (result[key] === undefined || result[key] === null || result[key] === "") {
       result[key] = val;
     }
   }

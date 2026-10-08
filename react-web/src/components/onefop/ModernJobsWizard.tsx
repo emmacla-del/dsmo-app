@@ -253,7 +253,8 @@ export function ModernJobsWizard({
       return;
     }
 
-    // If current section has validation issues, mark attemptedContinue and touch all section fields
+    // If current section has validation issues, mark attemptedContinue, touch all section fields,
+    // and BLOCK continuation immediately (V4 fix: Continue must always block on validation errors).
     if (!isScopeStage && !isValidationStage && sectionIssues.length > 0) {
       setAttemptedContinue(true);
       setTouchedFields((prev) => {
@@ -261,20 +262,14 @@ export function ModernJobsWizard({
         currentSectionFieldIds.forEach((id) => next.add(id));
         return next;
       });
+      revealFirstSectionIssue();
+      return;
     }
 
     // Try table-level navigation within active section first
     if (sectionNavRef.current) {
       const handled = sectionNavRef.current.onNext();
       if (handled) return;
-    }
-
-    // Leaving the section is blocked while it still has errors; Continue takes
-    // the respondent to the first one instead. Coherence warnings are not
-    // validation issues, so they stay advisory and never block here.
-    if (!isValidationStage && sectionIssues.length > 0) {
-      revealFirstSectionIssue();
-      return;
     }
 
     if (clampedSectionIndex === 1) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormData } from "./onefop-schema";
 import { clearDraft, loadDraft, saveDraft } from "./onefop-drafts";
 import { mergeWithAutofill } from "./onefop-autofill";
+import { fetchBackendDraft } from "./onefop-submission";
 
 export type DraftStatus = "loading" | "saving" | "saved" | "error";
 
@@ -71,14 +72,23 @@ export function useOnefopDraft(
   useEffect(() => {
     if (!quarterCode) return;
     let cancelled = false;
-    loadDraft(entityType, quarterCode, userId, establishmentId).then((draft) => {
+    loadDraft(entityType, quarterCode, userId, establishmentId).then(async (draft) => {
+      if (cancelled) return;
+      let loaded = draft?.data ?? {};
+      // D7 fix: If local draft has no data, recover from backend drafts (GET /onefop/draft)
+      if (Object.keys(loaded).length === 0) {
+        const serverDraft = await fetchBackendDraft(entityType, quarterCode).catch(() => null);
+        if (!cancelled && serverDraft && Object.keys(serverDraft).length > 0) {
+          loaded = serverDraft;
+          saveDraft(entityType, quarterCode, loaded, userId, establishmentId).catch(() => {});
+        }
+      }
       if (cancelled) return;
       if (draft?.formId) {
         formIdRef.current = draft.formId;
       } else {
         formIdRef.current = crypto.randomUUID();
       }
-      const loaded = draft?.data ?? {};
       const merged = initialAutofillRef.current
         ? mergeWithAutofill(loaded, initialAutofillRef.current)
         : loaded;

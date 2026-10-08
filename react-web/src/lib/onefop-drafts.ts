@@ -113,7 +113,12 @@ export async function clearDraft(
   establishmentId?: string | null,
 ): Promise<void> {
   if (!draftsDb) return;
-  await draftsDb.drafts.delete(draftId(entityType, quarterCode, userId, establishmentId));
+  const scopedKey = draftId(entityType, quarterCode, userId, establishmentId);
+  await draftsDb.drafts.delete(scopedKey);
+  const legacyKey = draftId(entityType, quarterCode);
+  if (legacyKey !== scopedKey) {
+    await draftsDb.drafts.delete(legacyKey);
+  }
 }
 
 /** Purges all local drafts (used on user logout for shared computer safety). */
