@@ -324,7 +324,7 @@
     "entityTypeCooperative": "Coopérative",
     "entityTypeOng": "Organisation Non Gouvernementale (ONG)",
     "entityTypeVocationalTraining": "Centre de formation professionnelle (CFP)",
-    "entityTypeQuestion": "Quel type de structure déclarez-vous ?",
+    "entityTypeSubtitle": "Sélectionnez le type d'entité que vous représentez.",
     "entityTypeFieldLabel": "Type de structure",
     "entityOptionEnterprise": "Entreprise",
     "entityOptionCooperative": "Coopérative",

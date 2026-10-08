@@ -1245,7 +1245,8 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityType"
-              title={t("registerPage.entityTypeQuestion")}
+              title={t("registerPage.stepEntityType")}
+              subtitle={t("registerPage.entityTypeSubtitle")}
             />
 
             {/* Laid out as the other steps' fields are: the group's name in
