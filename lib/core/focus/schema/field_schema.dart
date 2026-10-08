@@ -80,14 +80,19 @@ class FieldSchema {
   /// content (e.g. the campaign-period wording and KPI headers — see
   /// OnefopFormController._applyCampaignPeriodLabels) without re-listing
   /// every other constructor argument at the call site.
-  FieldSchema copyWith({LocalizedText? label, Map<String, dynamic>? tableSpec}) => FieldSchema(
+  FieldSchema copyWith({
+    LocalizedText? label,
+    Map<String, dynamic>? tableSpec,
+    List<LocalizedOption>? optionsI18n,
+  }) =>
+      FieldSchema(
         id: id,
         path: path,
         type: type,
         next: next,
         prev: prev,
         label: label ?? this.label,
-        optionsI18n: optionsI18n,
+        optionsI18n: optionsI18n ?? this.optionsI18n,
         required: required,
         hint: hint,
         paperCode: paperCode,

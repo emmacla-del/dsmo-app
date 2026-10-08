@@ -29,12 +29,14 @@ void main() {
     expect(err, isNull);
   });
 
-  test('NOT_APPLICABLE is distinct from zero', () {
+  test('a NOT_APPLICABLE left in an old draft counts as unanswered', () {
+    // No longer an answer anyone can give (the server refuses it): the
+    // respondent has to choose the table's status again.
     final err = FieldValidator.validate(_table(), {
       TableResponseStatus.fieldId('S22Q01'):
           TableResponseStatus.notApplicable,
     });
-    expect(err, isNull);
+    expect(err?.code, ValidationErrorCode.tableResponseRequired);
   });
 
   test('REPORTED with no cells is incomplete', () {

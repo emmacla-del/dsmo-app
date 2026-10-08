@@ -19,6 +19,7 @@ import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
+import '../../core/focus/utils/vt_quiz.dart';
 import '../../core/focus/renderers/activities_table.dart'
     show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
 import '../../core/focus/renderers/vt_routing.dart' show isVtTableTemplate;
@@ -352,6 +353,7 @@ class OnefopFormController extends ChangeNotifier {
       // directly, without a loading-skeleton flash first.
       final s = OnefopFormLoader.loadForEntity(entityTypeForSchema(entityType));
       _applyCampaignPeriodLabels(s);
+      _retireNotApplicableOption(s);
       _schema = s;
       _engine = NavigationEngine(s);
       _fm = UnifiedFocusManagerV2(_engine!);
@@ -420,6 +422,24 @@ class OnefopFormController extends ChangeNotifier {
                 kKpiPeriodLabelsKey: kpiPeriodLabels(campaignPeriodStart, campaignPeriodEnd),
               }
             : null,
+      );
+    }
+  }
+
+  // "Non applicable" is no longer an answer: the server refuses it in a
+  // final submission. The questionnaire keeps the option (older records keep
+  // their export label), so it is dropped from every table-status question
+  // here, when the form loads.
+  void _retireNotApplicableOption(FormSchemaV2 s) {
+    for (var i = 0; i < s.fields.length; i++) {
+      final field = s.fields[i];
+      final options = field.optionsI18n;
+      if (!TableResponseStatus.isFieldId(field.id) || options == null) continue;
+      if (!options.any((o) => o.value == TableResponseStatus.notApplicable)) continue;
+      s.fields[i] = field.copyWith(
+        optionsI18n: options
+            .where((o) => o.value != TableResponseStatus.notApplicable)
+            .toList(),
       );
     }
   }
@@ -1544,8 +1564,6 @@ class OnefopFormController extends ChangeNotifier {
         for (final id in TableCellEngine.cellIds(f)) {
           if (status == TableResponseStatus.none) {
             _data[id] = 0;
-          } else if (status == TableResponseStatus.notApplicable) {
-            _data.remove(id);
           } else if (_uGrid.containsKey(id)) {
             _data[id] = _uGrid[id];
           } else {
@@ -1564,7 +1582,12 @@ class OnefopFormController extends ChangeNotifier {
       if (e.value.text.isNotEmpty) _data[e.key] = e.value.text;
     }
 
-    return applyBackendMappers(Map.from(_data));
+    final mapped = applyBackendMappers(Map.from(_data));
+    // Training centres: table statuses, zeros and the quiz, exactly as the
+    // web form submits them (vt_quiz.dart).
+    return entityType == EntityType.vocationalTraining
+        ? applyVtSubmissionSemantics(_schema?.fields ?? const [], mapped)
+        : mapped;
   }
 
   Map<String, dynamic> applyBackendMappers(Map<String, dynamic> d) {

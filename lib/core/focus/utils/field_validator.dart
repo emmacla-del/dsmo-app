@@ -26,6 +26,7 @@ import '../schema/field_schema.dart';
 import '../schema/section_schema.dart';
 import '../schema/form_schema_v2.dart';
 import 'table_response_status.dart';
+import 'vt_quiz.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Field IDs whose number values represent a calendar year.
@@ -110,6 +111,18 @@ class FieldValidator {
     Set<String>? touched,
   }) {
     if (!_isVisible(f, data)) return null;
+    // Training-centre tables: the preliminary quiz decides which apply
+    // (vt_quiz.dart), not a per-table status question.
+    if (f.type == 'table' || f.type == 'repeating_table') {
+      final vtDef = vtTableDefForField(f);
+      if (vtDef != null) {
+        if (touched != null && !touched.contains(f.id)) return null;
+        if (vtTableStatus(f.id, data) != kVtReported) return null;
+        return missingVtTableCells(f.id, vtDef, data).isEmpty
+            ? null
+            : const ValidationError(ValidationErrorCode.tableFiguresRequired);
+      }
+    }
     if (f.type == 'table') {
       if (touched != null &&
           !touched.contains(f.id) &&
@@ -182,6 +195,8 @@ class FieldValidator {
     Map<String, dynamic> data, {
     Set<String> hybridIds = const {},
   }) {
+    if (isVtSectionWaived(sec.id, data)) return true;
+    if (_vtQuizMissingIn(sec.id, data)) return false;
     for (final id in sec.fieldIds) {
       final f = schema.getField(id);
       if (f == null) continue;
@@ -190,6 +205,14 @@ class FieldValidator {
     }
     return true;
   }
+
+  /// An unfinished training-centre quiz holds back Section 4, the first
+  /// section with tables it decides (and with them, the final submission).
+  /// A closed or non-functional centre has no quiz.
+  static bool _vtQuizMissingIn(String sectionId, Map<String, dynamic> data) =>
+      sectionId == 'section4_vocationalTraining' &&
+      !isVtCentreClosed(data) &&
+      !isVtQuizComplete(readVtQuiz(data));
 
   // ── Missing field labels (for sidebar count) ──────────────
   static List<String> missingLabels(
@@ -200,6 +223,10 @@ class FieldValidator {
     Set<String> hybridIds = const {},
   }) {
     final out = <String>[];
+    if (isVtSectionWaived(sec.id, data)) return out;
+    if (_vtQuizMissingIn(sec.id, data)) {
+      out.add(locale.languageCode == 'en' ? 'Preliminary questionnaire' : 'Questionnaire préliminaire');
+    }
     for (final id in sec.fieldIds) {
       final f = schema.getField(id);
       if (f == null) continue;
