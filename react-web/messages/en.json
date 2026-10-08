@@ -324,7 +324,7 @@
     "entityTypeCooperative": "Cooperative",
     "entityTypeOng": "Non-Governmental Organization (NGO)",
     "entityTypeVocationalTraining": "Vocational Training Center (CFP / VTC)",
-    "entityTypeQuestion": "What type of organization are you declaring?",
+    "entityTypeSubtitle": "Select the type of entity you represent.",
     "entityTypeFieldLabel": "Type of organisation",
     "entityOptionEnterprise": "Enterprise",
     "entityOptionCooperative": "Cooperative",
