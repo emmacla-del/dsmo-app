@@ -53,6 +53,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/i18n/l10n_ext.dart';
+import 'vt_scope_quiz.dart';
 import '../../../core/i18n/localized_text.dart';
 import '../../../core/focus/renderers/vt_table_defs.dart'
     show vtTableDefFor, vt713CommsInformedTableDef;
@@ -90,6 +91,15 @@ bool _vtWizardSectionHasTable(List<FieldSchema> fields) =>
 /// grid — see this file's header comment for why that fallback is
 /// deliberate, not a gap.
 Widget _vtWizardTableField(OnefopFormController ctrl, FieldSchema f,
+        Widget Function(FieldSchema) buildField, bool tableauMode) =>
+    // The preliminary quiz decides whether the table applies.
+    VtTableQuizGate(
+      ctrl: ctrl,
+      field: f,
+      child: _vtWizardTableBody(ctrl, f, buildField, tableauMode),
+    );
+
+Widget _vtWizardTableBody(OnefopFormController ctrl, FieldSchema f,
     Widget Function(FieldSchema) buildField, bool tableauMode) {
   final spec = f.tableSpec;
   final template = spec?['template'] as String?;

@@ -16,6 +16,7 @@ import '../../core/focus/renderers/table_renderer.dart';
 import '../../core/focus/renderers/activities_table.dart';
 import '../../core/focus/renderers/vt_fixed_row_grid.dart';
 import '../../core/focus/renderers/vt_row_editor.dart';
+import 'wizard/vt_scope_quiz.dart';
 import '../../core/focus/renderers/vt_table_defs.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
@@ -669,10 +670,11 @@ class VtTableFieldWidget extends StatelessWidget {
     // tap-row/bottom-sheet pattern; phone keeps VtRowEditor unchanged for
     // these same 7 tables (and every width keeps it for the genuinely
     // open-ended ones — 4.3-4.6, 8.8 — vtUsesFixedRowGrid is false there).
-    if (vtUsesFixedRowGrid(def) && MediaQuery.of(context).size.width >= 768) {
-      return VtFixedRowGrid(ctrl: ctrl, def: def);
-    }
-    return VtRowEditor(ctrl: ctrl, def: def);
+    final table = vtUsesFixedRowGrid(def) && MediaQuery.of(context).size.width >= 768
+        ? VtFixedRowGrid(ctrl: ctrl, def: def)
+        : VtRowEditor(ctrl: ctrl, def: def);
+    // The preliminary quiz decides whether the table applies.
+    return VtTableQuizGate(ctrl: ctrl, field: field, child: table);
   }
 }
 

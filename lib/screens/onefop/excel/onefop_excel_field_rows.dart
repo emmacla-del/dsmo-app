@@ -49,6 +49,7 @@ import '../../../core/focus/renderers/grid_layout_engine.dart';
 import '../../../core/focus/renderers/grid_theme.dart';
 import '../../../core/focus/renderers/vt_routing.dart';
 import '../../../core/focus/renderers/vt_spreadsheet_table.dart';
+import '../wizard/vt_scope_quiz.dart';
 import '../../../core/focus/renderers/vt_table_defs.dart';
 import '../onefop_form_constants.dart';
 import '../onefop_form_controller.dart';
@@ -635,7 +636,11 @@ class ExcelSectionBody extends StatelessWidget {
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: GridTheme.tableTargetWidth),
-              child: VtSpreadsheetTable(ctrl: ctrl, def: def),
+              child: VtTableQuizGate(
+                ctrl: ctrl,
+                field: fields.first,
+                child: VtSpreadsheetTable(ctrl: ctrl, def: def),
+              ),
             ),
           );
         }

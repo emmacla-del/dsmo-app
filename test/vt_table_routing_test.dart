@@ -140,6 +140,11 @@ void main() {
         (tester) async {
       final ctrl = await _controller(EntityType.vocationalTraining);
       addTearDown(ctrl.dispose);
+      // 4.3 appears once the preliminary quiz answered its question "Oui"
+      // (core/focus/utils/vt_quiz.dart); before that it shows a notice.
+      ctrl.setRawValue('_scopeConfig', {
+        'vocationalTraining': {'unemployedQualified': true},
+      });
 
       await _pumpUnitFor(tester, ctrl, 'section4_vocationalTraining', 'VT4_3');
 
@@ -147,6 +152,7 @@ void main() {
       expect(find.byType(VtRowEditor), findsWidgets);
       expect(find.text('4.3'), findsOneWidget);
       expect(find.text('non-vt:VT4_3'), findsNothing);
+      await tester.pump(const Duration(seconds: 4)); // let the autosave timer run
     });
 
     testWidgets(
