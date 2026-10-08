@@ -212,6 +212,32 @@ export function ModernJobsWizard({
     }
   };
 
+  // Brings the first error of the current section into view: switches the
+  // table deck to the table that owns it, then scrolls to and focuses it.
+  const revealFirstSectionIssue = () => {
+    const first = sectionIssues[0];
+    if (!first) return;
+    const issueId = first.fieldId.toLowerCase();
+    const owner = currentSectionFields.find(
+      (f) =>
+        f.id.toLowerCase() === issueId ||
+        (f.paperCode && f.paperCode.toLowerCase() === issueId) ||
+        issueId.startsWith(f.id.toLowerCase() + "_") ||
+        (f.paperCode && issueId.startsWith(f.paperCode.toLowerCase() + "_")),
+    );
+    if (owner && (owner.table || owner.type === "table")) setActiveTableId(owner.id);
+    requestAnimationFrame(() => {
+      const el =
+        document.getElementById(first.fieldId) ||
+        document.querySelector(`[name="${first.fieldId}"]`) ||
+        (owner ? document.getElementById(owner.id) || document.getElementById(`guided-table-${owner.id}`) : null);
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus({ preventScroll: true });
+      }
+    });
+  };
+
   const handleNext = () => {
     if (isScopeStage) {
       if (interviewNavRef.current) {
@@ -241,6 +267,14 @@ export function ModernJobsWizard({
     if (sectionNavRef.current) {
       const handled = sectionNavRef.current.onNext();
       if (handled) return;
+    }
+
+    // Leaving the section is blocked while it still has errors; Continue takes
+    // the respondent to the first one instead. Coherence warnings are not
+    // validation issues, so they stay advisory and never block here.
+    if (!isValidationStage && sectionIssues.length > 0) {
+      revealFirstSectionIssue();
+      return;
     }
 
     if (clampedSectionIndex === 1) {
