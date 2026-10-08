@@ -333,6 +333,46 @@ body {
   display: inline-block;
 }
 
+/* The establishment ID on its own, above the receipt table: the one value
+   the respondent must keep. Centred and large, with its copy button and the
+   "keep this ID" note directly under it. No box of its own -- the green
+   wash on the ID itself is the emphasis. */
+.cam-auth-page .receipt-id-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cam-space-2);
+  margin-bottom: var(--cam-space-5);
+  text-align: center;
+}
+
+.cam-auth-page .receipt-id-label {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text-muted);
+  letter-spacing: var(--cam-tracking-label);
+  text-transform: uppercase;
+}
+
+.cam-auth-page .receipt-id--hero {
+  font-size: var(--cam-font-size-xl);
+  padding: var(--cam-space-1) var(--cam-space-3);
+  user-select: all;
+  word-break: break-all;
+}
+
+.cam-auth-page .receipt-copy {
+  padding: var(--cam-space-1) var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-auth-page .receipt-note {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* --- Card: the transaction surface --- */
 .cam-auth-page .card {
   background: var(--cam-surface);

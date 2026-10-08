@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { clearToken, getCachedUser, getMe } from "@/lib/api-client";
+import { ApiError, clearToken, getCachedUser, getMe, getMyAttestation } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
@@ -54,6 +54,40 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     enabled: authState === "authed" && !awaitingApproval,
   });
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
+  const [attestationLoading, setAttestationLoading] = useState(false);
+  const [attestationError, setAttestationError] = useState<string | null>(null);
+  // Mirrors home_screen.dart's "Mon attestation d'inscription" menu entry.
+  // The backend guards the route with ActiveCompanyGuard, so the button is
+  // only offered to an active company.
+  const canDownloadAttestation = user?.role === "COMPANY" && user.status === "ACTIVE";
+
+  async function openAttestation() {
+    setAttestationError(null);
+    setAttestationLoading(true);
+    // Opened before the request, inside the click, so the browser treats it
+    // as user-initiated: a window.open() after an await is popup-blocked.
+    const tab = window.open("", "_blank");
+    try {
+      const { url } = await getMyAttestation();
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = url;
+      } else {
+        window.location.assign(url);
+      }
+    } catch (e) {
+      tab?.close();
+      // 400 is the backend's "no attestation stored for this account" --
+      // a pending approval, or a PDF that failed to generate.
+      setAttestationError(
+        e instanceof ApiError && e.status === 400
+          ? t("homeLayout.attestationUnavailable")
+          : t("homeLayout.attestationOpenError"),
+      );
+    } finally {
+      setAttestationLoading(false);
+    }
+  }
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -184,6 +218,41 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "var(--cam-space-3)" }}>
             <LocaleSwitcher />
           </div>
+          {canDownloadAttestation && (
+            <>
+              <button
+                type="button"
+                onClick={openAttestation}
+                disabled={attestationLoading}
+                style={{
+                  width: "100%",
+                  background: "none",
+                  border: "var(--cam-border-width) solid var(--cam-border-strong)",
+                  borderRadius: "var(--cam-radius-sm)",
+                  padding: "var(--cam-space-2) var(--cam-space-3)",
+                  fontSize: "var(--cam-font-size-sm)",
+                  color: "var(--cam-green-dark)",
+                  fontWeight: 600,
+                  cursor: attestationLoading ? "progress" : "pointer",
+                  marginBottom: "var(--cam-space-2)",
+                }}
+              >
+                {attestationLoading ? t("homeLayout.attestationLoading") : t("homeLayout.attestationButton")}
+              </button>
+              {attestationError && (
+                <p
+                  role="alert"
+                  style={{
+                    color: "var(--cam-error)",
+                    fontSize: "var(--cam-font-size-2xs)",
+                    margin: "0 0 var(--cam-space-2)",
+                  }}
+                >
+                  {attestationError}
+                </p>
+              )}
+            </>
+          )}
           <button
             type="button"
             onClick={() => {

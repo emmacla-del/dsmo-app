@@ -213,7 +213,15 @@ export default function RegisterPage() {
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; status?: string | null } | null>(null);
+  const [result, setResult] = useState<{
+    establishmentId?: string | null;
+    companyName: string;
+    status?: string | null;
+    // Client time at the moment the server accepted the file -- the
+    // response carries no timestamp, and Flutter's receipt does the same.
+    registeredAt: Date;
+  } | null>(null);
+  const [idCopied, setIdCopied] = useState(false);
   // The receipt's title, focused when the receipt replaces the wizard: the
   // submit button that had focus is gone, and nothing else would tell a
   // screen-reader user the registration went through.
@@ -572,7 +580,7 @@ export default function RegisterPage() {
 
   async function submit() {
     if (!entityType || !config) {
-      setSubmitError("Type d'entité non sélectionné. Veuillez reprendre l'enregistrement.");
+      setSubmitError(t("registerPage.errorEntityTypeMissing"));
       return;
     }
     setSubmitting(true);
@@ -591,7 +599,7 @@ export default function RegisterPage() {
       const sName = resolvedSubdivisionName || "";
 
       if (!rName || !dName || !sName) {
-        setSubmitError("Région, département et arrondissement sont requis pour l'enregistrement officiel.");
+        setSubmitError(t("registerPage.errorLocationNamesMissing"));
         setSubmitting(false);
         return;
       }
@@ -651,6 +659,7 @@ export default function RegisterPage() {
         establishmentId: response.company.establishmentId,
         companyName: response.company.name ?? companyName,
         status: response.user.status,
+        registeredAt: new Date(),
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1038,6 +1047,21 @@ export default function RegisterPage() {
 
   // Render receipt screen on success
   if (result) {
+    const isActive = result.status === "ACTIVE";
+    const establishmentId = result.establishmentId;
+    const copyEstablishmentId = async () => {
+      if (!establishmentId) return;
+      try {
+        await navigator.clipboard.writeText(establishmentId);
+        setIdCopied(true);
+      } catch {
+        // Clipboard is unavailable over plain HTTP and in some locked-down
+        // browsers. The ID stays on screen and selectable, so this is a
+        // missing convenience, not a failure worth an alert.
+        setIdCopied(false);
+      }
+    };
+
     return (
       <main className="cam-auth-page">
         <div className="wrap-wide">
@@ -1050,22 +1074,47 @@ export default function RegisterPage() {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h1 className="brand-name receipt-title" ref={receiptTitleRef} tabIndex={-1}>
-                  {t("registerPage.successTitle")}
-                </h1>
                 {/* Every file now has its ID at registration, so the wording follows
                     the account status: only an active account is "registered". */}
+                <h1 className="brand-name receipt-title" ref={receiptTitleRef} tabIndex={-1}>
+                  {isActive ? t("registerPage.successTitle") : t("registerPage.pendingTitle")}
+                </h1>
                 <p className="brand-sub receipt-subtitle">
-                  {result.status === "ACTIVE"
-                    ? "Attestation officielle d'enregistrement au système national CAM-LEAP"
-                    : "Accusé de réception de votre demande d'enregistrement au système national CAM-LEAP"}
+                  {isActive
+                    ? t("registerPage.receiptSubtitleActive")
+                    : t("registerPage.receiptSubtitlePending")}
                 </p>
               </div>
+
+              {/* The ID is the one thing on this screen the respondent has to
+                  keep, so it stands on its own above the table, large and
+                  copyable, as on the Flutter receipt. */}
+              {establishmentId && (
+                <div className="receipt-id-block">
+                  <span className="receipt-id-label" id="receipt-id-label">
+                    {t("registerPage.receiptEstablishmentIdLabel")}
+                  </span>
+                  <span className="receipt-id receipt-id--hero" aria-labelledby="receipt-id-label">
+                    {establishmentId}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-secondary receipt-copy"
+                    onClick={copyEstablishmentId}
+                  >
+                    {idCopied ? `✓ ${t("registerPage.receiptIdCopied")}` : t("registerPage.receiptCopyId")}
+                  </button>
+                  <span className="sr-only" aria-live="polite">
+                    {idCopied ? t("registerPage.receiptIdCopied") : ""}
+                  </span>
+                  <p className="receipt-note">{t("registerPage.receiptKeepIdNote")}</p>
+                </div>
+              )}
 
               <table className="table-official">
                 <tbody>
                   <tr>
-                    <td className="label-cell">Dénomination / Organisation</td>
+                    <td className="label-cell">{t("registerPage.receiptCompanyLabel")}</td>
                     <td className="value-cell value-cell--bold">{result.companyName}</td>
                   </tr>
                   {config && (
@@ -1076,45 +1125,53 @@ export default function RegisterPage() {
                       <td className="value-cell">{localized(config.title, locale)}</td>
                     </tr>
                   )}
-                  {result.establishmentId && (
-                    <tr>
-                      <td className="label-cell">Identifiant d&apos;établissement</td>
-                      <td className="value-cell">
-                        <span className="receipt-id">
-                          {result.establishmentId}
-                        </span>
-                      </td>
-                    </tr>
-                  )}
                   <tr>
-                    <td className="label-cell">Déclarant habilité / Respondent</td>
+                    <td className="label-cell">{t("registerPage.receiptRespondentLabel")}</td>
                     <td className="value-cell">{respondent.firstName} {respondent.lastName} ({respondent.email})</td>
                   </tr>
                   <tr>
-                    <td className="label-cell">Statut de validation / Status</td>
-                    {result.status === "ACTIVE" ? (
+                    <td className="label-cell">{t("registerPage.receiptDateLabel")}</td>
+                    <td className="value-cell">
+                      {new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
+                        result.registeredAt
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="label-cell">{t("registerPage.receiptStatusLabel")}</td>
+                    {isActive ? (
                       <td className="value-cell value-cell--ready">
-                        Enregistré / Compte opérationnel
+                        {t("registerPage.receiptStatusActive")}
                       </td>
                     ) : (
                       <td className="value-cell value-cell--strong">
-                        En attente de validation par l&apos;ONEFOP / Pending review
+                        {t("registerPage.receiptStatusPending")}
                       </td>
                     )}
                   </tr>
                 </tbody>
               </table>
 
+              {/* What happens next. A pending file waits for a reviewer, and
+                  its attestation PDF is only produced on approval; an active
+                  one can fetch its attestation from the home space. */}
+              <p className="receipt-note">
+                {isActive
+                  ? t("registerPage.receiptActiveAttestationNote")
+                  : t("registerPage.receiptPendingNote")}
+              </p>
+
               {/* The one way on. The registration response's token is not
                   kept, so the respondent signs in -- with the email they
-                  just registered already in the identifier field. */}
+                  just registered already in the identifier field. A pending
+                  account is sent on to its status page by the home layout. */}
               <div style={{ marginTop: "24px" }}>
                 <Link
                   href="/login"
                   className="btn-primary"
                   onClick={() => saveLoginIdentifier(respondent.email.trim())}
                 >
-                  {t("registerPage.signInLink")}
+                  {isActive ? t("registerPage.signInLink") : t("registerPage.receiptFollowButton")}
                 </Link>
               </div>
             </div>
