@@ -556,6 +556,56 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     } as any)).resolves.toMatchObject({ success: true });
   });
 
+  // D9: The server must reject final submissions when no round is open or when quarter doesn't match
+  it('D9: rejects final submission when no ONEFOP round is open', async () => {
+    const prisma = buildMockPrisma();
+    prisma.submissionRound.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.submitQuestionnaire({
+      formId: 'round-closed-test',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: {
+        ...respondentFlat,
+        VT1_2: 'Centre Complet',
+        VT1_4: 'Centre',
+        VT1_5: 'Mfoundi',
+        VT1_6: 'Yaoundé I',
+        VT1_8: 'Nlongkak',
+        VT1_9: 'Urbain/ Urban',
+      },
+    } as any)).rejects.toThrow(BadRequestException);
+  });
+
+  it('D9: rejects final submission when requested quarter is not open', async () => {
+    const prisma = buildMockPrisma();
+    // findFirst returns round for 2026-T3 when queried without quarter, but null when queried for 2024-T1
+    prisma.submissionRound.findFirst = jest.fn().mockImplementation(({ where }: any) => {
+      if (where?.quarterCode === '2024-T1') return Promise.resolve(null);
+      return Promise.resolve({ id: 'round-1', quarterCode: '2026-T3', status: 'OPEN', deadline: new Date(Date.now() + 86400000) });
+    });
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.submitQuestionnaire({
+      formId: 'round-quarter-mismatch',
+      userId: 'user-1',
+      quarterCode: '2024-T1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: {
+        ...respondentFlat,
+        VT1_2: 'Centre Complet',
+        VT1_4: 'Centre',
+        VT1_5: 'Mfoundi',
+        VT1_6: 'Yaoundé I',
+        VT1_8: 'Nlongkak',
+        VT1_9: 'Urbain/ Urban',
+      },
+    } as any)).rejects.toThrow(BadRequestException);
+  });
+
   // Test C — §4.12 remains absent from persisted output, under any input shape.
   it('Test C: no relation/row/field is created specifically for 4.12', async () => {
     const prisma = buildMockPrisma();

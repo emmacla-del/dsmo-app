@@ -71,6 +71,30 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Une entreprise avec ce numéro contribuable existe déjà', en: 'A company with this taxpayer number already exists' },
   { fr: 'Type d\'entité inconnu.', en: 'Unknown entity type.' },
   { fr: 'Type d\'entité inconnu : {0}', en: 'Unknown entity type: {0}' },
+  {
+    fr: 'Type d\'entité non autorisé : votre compte est enregistré en tant que {0}, vous ne pouvez pas soumettre pour {1}.',
+    en: 'Entity type not allowed: your account is registered as {0}, you cannot submit for {1}.',
+    also: [
+      'Type d\'entité non autorisé : votre compte est enregistré en tant que {0}, vous ne pouvez pas soumettre pour {1}. / ' +
+      'Entity type not allowed: your account is registered as {0}, you cannot submit for {1}.',
+    ],
+  },
+  {
+    fr: 'La période {0} n\'est pas ouverte aux soumissions (période active : {1}).',
+    en: 'Period {0} is not open for submissions (active period: {1}).',
+    also: [
+      'La période {0} n\'est pas ouverte aux soumissions (période active : {1}). / ' +
+      'Period {0} is not open for submissions (active period: {1}).',
+    ],
+  },
+  {
+    fr: 'Aucune campagne de soumission ONEFOP n\'est actuellement ouverte pour cette période.',
+    en: 'No ONEFOP submission round is currently open for this period.',
+    also: [
+      'Aucune campagne de soumission ONEFOP n\'est actuellement ouverte pour cette période. / ' +
+      'No ONEFOP submission round is currently open for this period.',
+    ],
+  },
   { fr: 'Email ou numéro contribuable déjà utilisé', en: 'Email or taxpayer number already in use' },
   { fr: 'Le type d\'entité est obligatoire pour générer l\'identifiant d\'établissement.', en: 'The entity type is required to generate the establishment identifier.' },
   { fr: 'L\'arrondissement est obligatoire pour générer l\'identifiant d\'établissement.', en: 'The subdivision is required to generate the establishment identifier.' },

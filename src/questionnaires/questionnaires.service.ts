@@ -420,22 +420,39 @@ export class QuestionnairesService {
    * campaign" UI — could still silently accept submissions until the cron
    * next happens to run.
    */
-  private async assertOnefopRoundOpen(): Promise<void> {
+  private async assertOnefopRoundOpen(quarterCode?: string): Promise<any> {
     const round = await this.prisma.submissionRound.findFirst({
       where: {
         module: 'ONEFOP',
         status: { in: ['OPEN', 'EXTENDED'] },
         deadline: { gte: new Date() },
+        ...(quarterCode ? { quarterCode } : {}),
       },
       orderBy: { openedAt: 'desc' },
     });
     if (!round) {
-      // Testing bypass: allow submission even if the application period is not open
-      console.warn(
-        '⚠️ [TESTING MODE] Submission accepted while no ONEFOP submission round is currently open/within deadline.',
+      if (quarterCode) {
+        const anyRound = await this.prisma.submissionRound.findFirst({
+          where: {
+            module: 'ONEFOP',
+            status: { in: ['OPEN', 'EXTENDED'] },
+            deadline: { gte: new Date() },
+          },
+          orderBy: { openedAt: 'desc' },
+        });
+        if (anyRound && anyRound.quarterCode !== quarterCode) {
+          throw new BadRequestException(
+            `La période ${quarterCode} n'est pas ouverte aux soumissions (période active : ${anyRound.quarterCode}). / ` +
+            `Period ${quarterCode} is not open for submissions (active period: ${anyRound.quarterCode}).`,
+          );
+        }
+      }
+      throw new BadRequestException(
+        'Aucune campagne de soumission ONEFOP n\'est actuellement ouverte pour cette période. / ' +
+        'No ONEFOP submission round is currently open for this period.',
       );
-      return;
     }
+    return round;
   }
 
   // Picks the submitting entity's region/department/subdivision/sector out
@@ -513,8 +530,9 @@ export class QuestionnairesService {
 
     // Drafts are just in-progress personal scratch data — only the final
     // submission needs an admin-opened campaign window.
+    let openRound: any = null;
     if (!isDraft) {
-      await this.assertOnefopRoundOpen();
+      openRound = await this.assertOnefopRoundOpen(dto.quarterCode);
     }
 
     // dto.companyId / dto.establishmentId are client-supplied and must
@@ -589,7 +607,8 @@ export class QuestionnairesService {
       const companyNormType = normalizeEntityType(submittingCompany.entityType);
       if (companyNormType !== normalizedEntityType) {
         throw new BadRequestException(
-          `Type d'entité non autorisé : votre compte est enregistré en tant que ${companyNormType}, vous ne pouvez pas soumettre pour ${normalizedEntityType}.`,
+          `Type d'entité non autorisé : votre compte est enregistré en tant que ${companyNormType}, vous ne pouvez pas soumettre pour ${normalizedEntityType}. / ` +
+          `Entity type not allowed: your account is registered as ${companyNormType}, you cannot submit for ${normalizedEntityType}.`,
         );
       }
     }
@@ -1295,7 +1314,7 @@ export class QuestionnairesService {
     // surveyYear is the reporting period's own year (parsed from the
     // quarter, e.g. "2025-T1" → 2025), not the machine's current date,
     // which would drift wrong for anything filed after its period ends.
-    const resolvedQuarterCode = dto.quarterCode ?? this.getCurrentQuarter();
+    const resolvedQuarterCode = openRound?.quarterCode ?? dto.quarterCode ?? this.getCurrentQuarter();
 
     // Campaign resolution and effective deadline calculation:
     // SubmissionRound(quarterCode, module ONEFOP) -> campaignId;

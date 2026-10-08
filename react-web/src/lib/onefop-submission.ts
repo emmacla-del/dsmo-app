@@ -111,6 +111,36 @@ export function saveDraftToBackend(
 }
 
 /**
+ * Loads a remote draft saved on the backend (GET /onefop/draft).
+ * Allows a respondent to recover their work-in-progress draft
+ * across devices, browsers, or after clearing local storage (D7 fix).
+ */
+export async function fetchBackendDraft(
+  entityType: string,
+  quarterCode: string,
+): Promise<FormData | null> {
+  try {
+    const drafts = await apiFetch<Array<{
+      quarterCode: string;
+      entityType: string;
+      draftData: FormData;
+      lastSavedAt?: string;
+    }>>("/onefop/draft");
+    if (!Array.isArray(drafts)) return null;
+    const targetType = (BACKEND_ENTITY_TYPE[entityType] ?? entityType).toUpperCase();
+    const match = drafts.find(
+      (d) =>
+        d.quarterCode === quarterCode &&
+        (d.entityType?.toUpperCase() === targetType ||
+          d.entityType?.toLowerCase() === entityType.toLowerCase()),
+    );
+    return match?.draftData ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * POST /onefop/preview (questionnaires.controller.ts) — a JWT-protected but
  * otherwise non-mutating endpoint: it runs the same normalizeFlatKeys() +
  * per-entity pdf-data-mapper.service.ts mapping the real submission path
