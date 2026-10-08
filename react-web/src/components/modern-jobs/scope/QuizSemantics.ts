@@ -34,6 +34,7 @@ import {
 import type { FixedMatrixDefinition, StatisticalRowDefinition } from "@/components/onefop/tables/StatisticalTableDefinition";
 import { DEFAULT_SCOPE, type PrimaryQuestionId, type ScopeState } from "./ScopeTypes";
 import { EVENT_TABLE_MAPPING, isTableReported } from "./ScopeDataManagement";
+import { isVtCentreClosed, vtStatusKey, vtTableStatus } from "@/lib/vt-quiz";
 
 /** Entities whose tables are not governed by this quiz mapping. */
 export const QUIZ_SEMANTICS_EXCLUDED_ENTITIES = new Set(["projectProgram", "vocationalTraining"]);
@@ -329,27 +330,38 @@ export function applyProjectProgramQuizSemantics(entity: OnefopEntity, data: For
 // ── Vocational Training semantics ─────────────────────────────────────────────
 
 /**
- * Vocational Training centres always report their training activity — there is
- * no "did you train anyone?" quiz gate.  Every VT table defined in the schema
- * is therefore REPORTED, and the quiz meta-keys are stripped from the payload
- * exactly as they are for governed entities.
+ * Training centres: each table's status comes from the training-centre quiz
+ * (vt-quiz.ts — Oui → REPORTED, Non → NONE; 4.6 from 2.1.14; every other
+ * table REPORTED). A NONE table of fixed rows is recorded as zeros; a NONE
+ * row-by-row table (specialties, staff list) as no rows at all — its status
+ * is what records "nothing to report". A table whose quiz question is still
+ * unanswered gets no status (validation blocks the submission). A centre
+ * declared non-functional or closed answers Section 1 only: no statuses.
+ * The quiz meta-keys are stripped from the payload as for other entities.
  */
 export function applyVocationalTrainingSemantics(entity: OnefopEntity, data: FormData): FormData {
-  const out: FormData = { ...data };
-  const index = buildEntityTableIndex(entity);
-  const seen = new Set<OnefopField>();
+  const out: FormData = withoutQuizScope({ ...data });
+  if (isVtCentreClosed(data)) return out;
 
-  for (const field of index.values()) {
-    if (seen.has(field)) continue;
-    seen.add(field);
-
-    const statusKey = resolveTableStatusFieldId(field, data);
-    out[statusKey] = "REPORTED";
+  for (const section of entity.sections) {
+    for (const field of section.fields) {
+      const vt = field.table?.vt;
+      const matrix = field.table?.matrix;
+      if (!vt || !matrix) continue;
+      const status = vtTableStatus(field.id, data);
+      if (!status) continue;
+      out[vtStatusKey(field.id)] = status;
+      if (status !== "NONE") continue;
+      const rowByRow = vt.progressiveRows || vt.isRoster;
+      for (const rowIds of matrix) {
+        rowIds.forEach((cellId, c) => {
+          const kind = vt.cells[c]?.kind;
+          if (!rowByRow && (kind === "number" || kind === "computed")) out[cellId] = 0;
+          else delete out[cellId];
+        });
+      }
+    }
   }
-
-  delete out._scopeConfig;
-  delete out._scopeCsp;
-  delete out._scopeAge;
   return out;
 }
 

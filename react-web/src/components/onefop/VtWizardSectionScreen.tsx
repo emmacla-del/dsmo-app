@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, fieldDisplayLabel, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
@@ -40,6 +40,8 @@ import {
   vtWizardRowColumnsFor,
 } from "./vt-wizard-section-utils";
 import type { ValidationIssue } from "@/lib/onefop-validation";
+import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
+import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
 import { StatusChip, type FormStatus } from "./form/StatusChip";
@@ -666,9 +668,56 @@ function VtWizardTableField({
   data: FormData;
   onChange: (fieldId: string, value: unknown) => void;
 }) {
+  const { openQuiz } = useContext(VtQuizContext);
+  const isEn = useLocale().startsWith("en");
   const table = field.table;
   const vt = table?.vt;
   if (!table || !vt) return null;
+
+  // Whether the table applies comes from the preliminary quiz (vt-quiz.ts).
+  // A closed or non-functional centre has no quiz: its tables stay optional.
+  if (!isVtCentreClosed(data)) {
+    const status = vtTableStatus(field.id, data);
+    const question = vtQuizQuestionForTable(field.id);
+    const code = vt.paperCode ?? field.paperCode ?? field.id;
+    const noteStyle = { margin: "4px 0 16px", fontSize: 13, color: "var(--cam-text-muted)", lineHeight: 1.5 } as const;
+    const linkStyle = {
+      marginLeft: 8, background: "none", border: "none", padding: 0, color: "var(--cam-green)",
+      fontSize: 13, fontWeight: 600, textDecoration: "underline", cursor: "pointer",
+    } as const;
+    if (status === "NONE") {
+      return (
+        <p style={noteStyle}>
+          {field.id === "VT4_6"
+            ? isEn
+              ? `Table ${code} concerns initial training only, which question 2.1.14 does not list.`
+              : `Le tableau ${code} ne concerne que la formation initiale, que la question 2.1.14 ne mentionne pas.`
+            : isEn
+              ? `Table ${code}: nothing to report (answer "No" in the preliminary questionnaire).`
+              : `Tableau ${code} : aucun cas à signaler (réponse « Non » au questionnaire préliminaire).`}
+          {question && openQuiz && (
+            <button type="button" onClick={openQuiz} style={linkStyle}>
+              {isEn ? "Change" : "Modifier"}
+            </button>
+          )}
+        </p>
+      );
+    }
+    if (status === undefined) {
+      return (
+        <p style={noteStyle}>
+          {isEn
+            ? `Table ${code} depends on a question of the preliminary questionnaire, which is not answered yet.`
+            : `Le tableau ${code} dépend d'une question du questionnaire préliminaire, pas encore répondue.`}
+          {openQuiz && (
+            <button type="button" onClick={openQuiz} style={linkStyle}>
+              {isEn ? "Open the preliminary questionnaire" : "Ouvrir le questionnaire préliminaire"}
+            </button>
+          )}
+        </p>
+      );
+    }
+  }
 
   const changeCell = (cellId: string, value: unknown) => {
     onChange(cellId, value);

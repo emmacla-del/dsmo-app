@@ -21,6 +21,7 @@ import {
   isEnteredValue,
 } from "@/components/onefop/tables/quizRequired";
 import { incompleteQuizQuestions, readQuizScope, withQuizDerivedStatuses } from "@/components/modern-jobs/scope/QuizSemantics";
+import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vtTableStatus } from "./vt-quiz";
 import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
 
 export interface ValidationIssue {
@@ -237,6 +238,48 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
   const prefix = field.table?.id ?? field.id;
   const label = fieldLabel(field, locale);
 
+  // Training-centre tables: the preliminary quiz (vt-quiz.ts) decides which
+  // apply. Only a REPORTED one is checked — its number cells must not be
+  // negative and missingVtTableCells lists what is left to fill. A table
+  // whose quiz question is unanswered is not flagged here: the unanswered
+  // quiz is reported once, by validateEntityData.
+  const vt = field.table?.vt;
+  if (vt && field.table?.matrix) {
+    if (vtTableStatus(field.id, data) !== "REPORTED") return issues;
+    field.table.matrix.forEach((rowIds) =>
+      rowIds.forEach((cellId, c) => {
+        if (vt.cells[c]?.kind !== "number" || !isEnteredValue(data[cellId])) return;
+        const num = Number(data[cellId]);
+        if (Number.isNaN(num) || num < 0) {
+          issues.push({
+            fieldId: cellId,
+            message: labelled(label, "La valeur doit être un nombre ≥ 0", "Value must be a number ≥ 0", locale),
+          });
+        }
+      }),
+    );
+    const missing = missingVtTableCells(field, data);
+    if (missing.length === 1 && missing[0] === field.id) {
+      issues.push({
+        fieldId: field.id,
+        message: labelled(
+          label,
+          "Ajoutez au moins une ligne (réponse « Oui » au questionnaire préliminaire)",
+          "Add at least one row (you answered Yes in the preliminary questionnaire)",
+          locale,
+        ),
+      });
+    } else if (missing.length > 0) {
+      issues.push({
+        fieldId: field.id,
+        message: locale === "en"
+          ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 where nothing occurred.`
+          : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+      });
+    }
+    return issues;
+  }
+
   // A table the quiz answered "Non" (NONE) is inactive and not a required
   // validation target. "NOT_APPLICABLE" is no longer an answer: one left in an
   // old draft counts as no status at all.
@@ -290,36 +333,6 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
             ? `${label}: Table is reported but contains ${missingKeys.length} missing required cell(s). Every cell must contain an explicit value. Enter 0 if there were no occurrences.`
             : `${label} : Le tableau est déclaré renseigné mais comporte ${missingKeys.length} cellule(s) ou option(s) obligatoire(s) non renseignée(s). Chaque cellule doit contenir une valeur explicite. Saisissez 0 s'il n'y a eu aucune occurrence.`,
         });
-      }
-      return issues;
-    }
-
-    // VT specific required cell checks
-    const vt = field.table?.vt;
-    if (vt && field.table?.matrix) {
-      const isRoster = Boolean(vt.isRoster);
-      for (let r = 0; r < field.table.matrix.length; r++) {
-        const rowIds = field.table.matrix[r];
-        const rowHasData = rowIds.some((cid) => isEnteredValue(data[cid]));
-        // In a REPORTED table, all fixed matrix rows are active. In rosters, only rows with data are active.
-        const rowIsActive = !isRoster || rowHasData;
-        if (rowIsActive) {
-          for (let c = 0; c < vt.cells.length; c++) {
-            const cellDef = vt.cells[c];
-            if (cellDef.required || !isRoster) {
-              const cid = rowIds[c];
-              const val = data[cid];
-              if (!isEnteredValue(val)) {
-                issues.push({
-                  fieldId: cid,
-                  message: locale === "en"
-                    ? `${label} [Row ${r + 1}]: "${textIn(cellDef.label, locale)}" is required. Enter 0 if no occurrences.`
-                    : `${label} [Ligne ${r + 1}] : La cellule « ${textIn(cellDef.label, locale)} » est obligatoire. Saisissez 0 si aucune occurrence.`,
-                });
-              }
-            }
-          }
-        }
       }
       return issues;
     }
@@ -411,6 +424,18 @@ export function validateEntityData(
   // table ungated and potentially full of phantom zeros from earlier
   // navigation. The regular quiz path (validateQuiz → incompleteQuizQuestions)
   // does not cover PP because PP is in QUIZ_SEMANTICS_EXCLUDED_ENTITIES.
+  if (entity.entityType === "vocationalTraining" && !isVtCentreClosed(data) && !isVtQuizComplete(readVtQuiz(data))) {
+    issues.push({
+      fieldId: QUIZ_ISSUE_FIELD_ID,
+      message: msg(
+        "Questionnaire préliminaire — à compléter avant la soumission finale : il détermine les tableaux à renseigner.",
+        "Preliminary questionnaire — must be completed before final submission: it decides which tables to fill.",
+        locale,
+        " / ",
+      ),
+    });
+  }
+
   if (entity.entityType === "projectProgram") {
     const scopeRaw = (data._scopeConfig as Record<string, unknown> | undefined);
     const ppCfg = scopeRaw && (scopeRaw.projectProgram as { completedAt?: string } | undefined);

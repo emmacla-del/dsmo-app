@@ -22,6 +22,8 @@ import { SubmissionPanel } from "./SubmissionPanel";
 import { ValidationSummary } from "./ValidationSummary";
 import { VtWizardSidebar } from "./VtWizardSidebar";
 import { VtValidationScreen } from "./VtValidationScreen";
+import { VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
+import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
 import { isVtSectionComplete, type VtWizardSectionOutlineModel } from "./vt-wizard-utils";
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader } from "./ModernJobsHeader";
@@ -136,6 +138,8 @@ export function WizardShell({
   const [sectionIndex, setSectionIndex] = useState(0);
   const [unitIndex, setUnitIndex] = useState(0);
   const [isValidationStage, setIsValidationStage] = useState(false);
+  // Training centres: the preliminary quiz stage, between Sections 1 and 2.
+  const [isVtQuizStage, setIsVtQuizStage] = useState(false);
   const [attemptedAdvance, setAttemptedAdvance] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<string | null>(null);
   // The reference the server returned, passed to the receipt as is rather
@@ -349,13 +353,29 @@ export function WizardShell({
     setSectionIndex(nextIndex);
     setUnitIndex(0);
     setIsValidationStage(false);
+    setIsVtQuizStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
     setVtSectionOutline(null);
   }
 
+  // The training-centre quiz decides which tables apply. A centre declared
+  // non-functional or closed in 1.12 answers Section 1 only and has no quiz.
+  const vtQuizApplies = isVt && !isVtCentreClosed(data);
+  const vtQuizComplete = isVtQuizComplete(readVtQuiz(data));
+
+  function openVtQuiz() {
+    setIsVtQuizStage(true);
+    setIsValidationStage(false);
+    setAttemptedAdvance(false);
+    setTaskListOpen(false);
+    setVtSectionOutline(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
   function goToValidation() {
     setIsValidationStage(true);
+    setIsVtQuizStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
     setVtSectionOutline(null);
@@ -393,6 +413,12 @@ export function WizardShell({
       return;
     }
 
+    // Section 1 → the preliminary quiz → Section 2.
+    if (vtQuizApplies && clampedSectionIndex === 0) {
+      openVtQuiz();
+      return;
+    }
+
     if (clampedSectionIndex < sections.length - 1) {
       setSectionIndex((index) => index + 1);
       setUnitIndex(0);
@@ -410,6 +436,12 @@ export function WizardShell({
 
     if (!isVt && clampedUnitIndex > 0) {
       setUnitIndex((index) => index - 1);
+      return;
+    }
+
+    // Section 2 → back to the preliminary quiz.
+    if (vtQuizApplies && clampedSectionIndex === 1) {
+      openVtQuiz();
       return;
     }
 
@@ -445,7 +477,8 @@ export function WizardShell({
           onSelectSection={goToSection}
           isValidationStage={false}
           onGoToValidation={goToValidation}
-          outline={vtSectionOutline}
+          outline={isVtQuizStage ? null : vtSectionOutline}
+          quiz={vtQuizApplies ? { isCurrent: isVtQuizStage, isComplete: vtQuizComplete, onOpen: openVtQuiz } : undefined}
         />
       );
     }
@@ -824,6 +857,7 @@ export function WizardShell({
                   isSubmitting={submitMutation.isPending}
                   canSubmit={canSubmit}
                   quarterStatusMessage={quarterStatusMessage}
+                  quiz={vtQuizApplies ? { isComplete: vtQuizComplete, onOpen: openVtQuiz } : undefined}
                 />
               </>
             )}
@@ -885,6 +919,7 @@ export function WizardShell({
       >
         {renderTaskRail()}
 
+        <VtQuizContext.Provider value={{ openQuiz: vtQuizApplies ? openVtQuiz : undefined }}>
         <main
           style={{
             flex: 1,
@@ -1026,6 +1061,15 @@ export function WizardShell({
                     issues={showErrors ? sectionIssues : []}
                   />
                 </div>
+              ) : isVt && isVtQuizStage ? (
+                <VtScopeQuiz
+                  entity={entity}
+                  data={data}
+                  onChange={onChange}
+                  onComplete={() => goToSection(1)}
+                  onBack={() => goToSection(0)}
+                  locale={formLocale}
+                />
               ) : isVt ? (
                 <VtWizardSectionScreen
                   section={currentSection}
@@ -1052,6 +1096,8 @@ export function WizardShell({
             </div>
           </div>
 
+          {!isVtQuizStage && (
+          <>
           {/* Fixed bottom navigation bar pinned to the bottom of the shell.
               Matches Flutter vt_wizard_shell.dart:426-520. */}
           <div
@@ -1166,7 +1212,10 @@ export function WizardShell({
               </div>
             </div>
           </div>
+          </>
+          )}
         </main>
+        </VtQuizContext.Provider>
       </div>
 
       {saveToast && (

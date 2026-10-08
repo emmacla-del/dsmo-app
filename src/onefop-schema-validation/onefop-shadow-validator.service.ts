@@ -129,6 +129,59 @@ export class OnefopShadowValidatorService {
   }
 
   /**
+   * Training-centre tables left incomplete in a final submission. Every table
+   * must carry the status the web form derives from the preliminary quiz
+   * (REPORTED or NONE, in `<tableId>_RESPONSE_STATUS`); a REPORTED one must be
+   * filled by the same rule as the web form's missingVtTableCells (react-web
+   * src/lib/vt-quiz.ts): fixed-row tables every count, row-by-row tables at
+   * least one complete row — a specialty its name and counts ("homologué"
+   * only when the curriculum exists), a staff row its name, first name and
+   * sex. Computed totals are never required. Returns, per table, the status
+   * key when the status is missing or the table id when cells are missing.
+   * A non-functional or closed centre (1.12) has no tables to check.
+   */
+  incompleteVtTables(flat: Record<string, unknown>): { id: string; table: SchemaField }[] {
+    if (isVtSectionWaived('section2_vocationalTraining', flat)) return [];
+    const out: { id: string; table: SchemaField }[] = [];
+    const entered = (v: unknown) => !isEmpty(v);
+    const isTrue = (v: unknown) => v === true || v === 'true' || v === 'Oui/ Yes' || v === '1';
+    for (const section of this.schemaLoader.getEntitySchema('vocationalTraining').sections) {
+      for (const field of section.fields) {
+        const vt = field.table?.vt;
+        const matrix = field.table?.matrix;
+        if (!vt || !matrix) continue;
+        const statusKey = `${field.id}_RESPONSE_STATUS`;
+        const status = flat[statusKey];
+        if (status !== 'REPORTED' && status !== 'NONE') {
+          out.push({ id: statusKey, table: field });
+          continue;
+        }
+        if (status === 'NONE') continue;
+        const rowByRow = vt.progressiveRows || vt.isRoster;
+        let startedRows = 0;
+        let missing = false;
+        for (const rowIds of matrix) {
+          const started = rowIds.some((id, c) => vt.cells[c]?.kind !== 'computed' && entered(flat[id]));
+          if (rowByRow && !started) continue;
+          startedRows++;
+          rowIds.forEach((cellId, c) => {
+            const cell = vt.cells[c];
+            if (!cell || cell.kind === 'computed') return;
+            if (vt.isRoster && !['lastName', 'firstName', 'sex'].includes(cell.key)) return;
+            if (cell.dependsOnKey) {
+              const parentIndex = vt.cells.findIndex((p) => p.key === cell.dependsOnKey);
+              if (parentIndex >= 0 && !isTrue(flat[rowIds[parentIndex]])) return;
+            }
+            if (!entered(flat[cellId])) missing = true;
+          });
+        }
+        if (missing || (rowByRow && startedRows === 0)) out.push({ id: field.id, table: field });
+      }
+    }
+    return out;
+  }
+
+  /**
    * Shadow-mode entry point for questionnaires.service.ts: validates and
    * logs, but can never throw or affect the caller — a defect in this new
    * validator must not become a defect in real submissions.

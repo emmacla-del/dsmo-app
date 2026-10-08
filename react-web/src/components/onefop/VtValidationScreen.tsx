@@ -27,6 +27,8 @@ interface VtValidationScreenProps {
   canSubmit?: boolean;
   /** The backend's reason for the closure, shown under the banner title. */
   quarterStatusMessage?: string;
+  /** The preliminary quiz, when it applies (absent for a closed centre). */
+  quiz?: { isComplete: boolean; onOpen: () => void };
 }
 
 type SectionState = "notStarted" | "inProgress" | "done";
@@ -81,6 +83,7 @@ export function VtValidationScreen({
   isSubmitting = false,
   canSubmit = true,
   quarterStatusMessage,
+  quiz,
 }: VtValidationScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -103,7 +106,9 @@ export function VtValidationScreen({
   // no validation gate). Block final submission when any section still has
   // outstanding validation errors — this includes never-visited sections
   // whose required fields are all absent.
-  const hasErrors = sectionSummaries.some((s) => s.stats.issuesCount > 0);
+  // The preliminary quiz decides which tables apply: submission waits for it.
+  const quizIncomplete = !!quiz && !quiz.isComplete;
+  const hasErrors = quizIncomplete || sectionSummaries.some((s) => s.stats.issuesCount > 0);
 
   return (
     <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-7)" }}>
@@ -226,6 +231,32 @@ export function VtValidationScreen({
           }}
         >
           {t("vtValidationScreen.errorsBlockingSubmit")}
+        </div>
+      )}
+
+      {quizIncomplete && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: "var(--cam-space-4)",
+            padding: "var(--cam-space-3)",
+            background: "var(--cam-error-bg)",
+            border: "1px solid var(--cam-error-border)",
+            borderRadius: "var(--cam-radius-sm)",
+            color: "var(--cam-error)",
+            fontSize: "var(--cam-font-size-sm)",
+          }}
+        >
+          {isFr
+            ? "Le questionnaire préliminaire n'est pas terminé : il détermine les tableaux à renseigner."
+            : "The preliminary questionnaire is not finished: it decides which tables to fill."}
+          <button
+            type="button"
+            onClick={quiz!.onOpen}
+            style={{ marginLeft: 8, background: "none", border: "none", padding: 0, color: "inherit", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}
+          >
+            {isFr ? "Ouvrir le questionnaire préliminaire" : "Open the preliminary questionnaire"}
+          </button>
         </div>
       )}
 

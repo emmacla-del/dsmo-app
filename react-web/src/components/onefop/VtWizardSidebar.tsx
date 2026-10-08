@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
 import { localized, computeSubsectionLayout } from "@/lib/onefop-schema";
@@ -19,6 +20,8 @@ interface VtWizardSidebarProps {
   isValidationStage?: boolean;
   onGoToValidation?: () => void;
   outline?: VtWizardSectionOutlineModel | null;
+  /** The preliminary quiz, listed right after Section 1 (absent for a closed centre). */
+  quiz?: { isCurrent: boolean; isComplete: boolean; onOpen: () => void };
 }
 
 /**
@@ -39,6 +42,7 @@ export function VtWizardSidebar({
   isValidationStage = false,
   onGoToValidation,
   outline,
+  quiz,
 }: VtWizardSidebarProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -140,12 +144,13 @@ export function VtWizardSidebar({
       {/* ── 9 Numbered Sections ── */}
       <nav style={{ flex: 1, overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: 4 }}>
         {sections.map((sec, idx) => {
-          const isCurrent = !isValidationStage && idx === currentSectionIndex;
+          const isCurrent = !isValidationStage && !quiz?.isCurrent && idx === currentSectionIndex;
           const isDone = isSectionComplete(sec);
           const title = getVtSectionShortLabel(sec.id, locale) ?? localized(sec.title, locale.startsWith("en") ? "en" : "fr");
 
           return (
-            <div key={sec.id}>
+            <Fragment key={sec.id}>
+            <div>
               <button
                 type="button"
                 onClick={() => onSelectSection(idx)}
@@ -243,6 +248,51 @@ export function VtWizardSidebar({
                 </div>
               ) : null}
             </div>
+            {idx === 0 && quiz && (
+              <button
+                type="button"
+                onClick={quiz.onOpen}
+                aria-current={quiz.isCurrent ? "step" : undefined}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: quiz.isCurrent ? "1px solid #bbf7d0" : "1px solid transparent",
+                  background: quiz.isCurrent ? "#f0fdf4" : "transparent",
+                  color: quiz.isCurrent ? "#0e4d29" : "#475569",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    boxSizing: "border-box",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    background: quiz.isCurrent ? "#0e4d29" : quiz.isComplete ? "#16a34a" : "#f1f5f9",
+                    border: !quiz.isCurrent && !quiz.isComplete ? "1px solid #cbd5e1" : "none",
+                    color: quiz.isCurrent || quiz.isComplete ? "#ffffff" : "#64748b",
+                  }}
+                >
+                  {quiz.isComplete ? "✓" : "?"}
+                </span>
+                <span style={{ flex: 1, fontSize: 12.5, fontWeight: quiz.isCurrent ? 700 : 500, lineHeight: 1.35 }}>
+                  {locale === "en" ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
+                </span>
+              </button>
+            )}
+            </Fragment>
           );
         })}
 

@@ -7,6 +7,8 @@
 // changes, update these types to match the generator's actual output —
 // never patch the JSON by hand.
 
+import { isVtCentreClosed } from "./vt-quiz";
+
 export interface LocalizedText {
   fr: string;
   en: string;
@@ -174,8 +176,7 @@ export function isFieldVisible(field: OnefopField, data: FormData): boolean {
  */
 export function isVtSectionWaived(sectionId: string, data: FormData): boolean {
   if (!sectionId.endsWith("_vocationalTraining") || sectionId === "section1_vocationalTraining") return false;
-  const status = data["VT1_12"];
-  return typeof status === "string" && (status.startsWith("Non-fonctionnelle") || status.startsWith("Fermée"));
+  return isVtCentreClosed(data);
 }
 
 /**
