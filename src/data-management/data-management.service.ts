@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from '../questionnaires/eligibility-engine.service';
 import {
+    DATASET_SCHEMA_VERSION,
     CanonicalSchemaAdapterService,
     AnalyticalPartition,
     AnalyticalVariableDefinition,
@@ -22,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-export const DATASET_SCHEMA_VERSION = 2;
+export { DATASET_SCHEMA_VERSION };
 
 // ── Pivot configs for the ONEFOP export ─────────────────────────────────────
 // These 10 breakdown tables have a small, fixed set of categories (CSP ×
