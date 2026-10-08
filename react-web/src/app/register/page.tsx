@@ -44,6 +44,7 @@ import { asUiLocale, localized } from "@/lib/register-i18n";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
+  missingFieldsToReport,
   missingRequiredFields,
   type NameResolvers,
 } from "@/lib/register-required";
@@ -92,6 +93,10 @@ const SNACKBAR_MS = 6000;
 // what tells the wizard the respondent is done with the section. Section 3's
 // own last field is data-driven (see lastEntityFieldKey).
 const LAST_RESPONDENT_FIELD: keyof RespondentState = "phone2";
+
+// The pinned "Il reste n champs obligatoires" notice, which the first missing
+// control points at with aria-describedby.
+const MISSING_NOTICE_ID = "reg-missing-notice";
 
 interface RespondentState {
   firstName: string;
@@ -416,7 +421,7 @@ export default function RegisterPage() {
     const controlProps = {
       id,
       "aria-required": field.required ? true : undefined,
-      ...invalid.control,
+      ...invalid,
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setEntityField(
@@ -432,8 +437,6 @@ export default function RegisterPage() {
         label={localized(field.label, locale)}
         required={field.required}
         hint={field.hint ? localized(field.hint, locale) : undefined}
-        error={invalid.message}
-        errorId={`${id}-error`}
         size={entityFieldSize(field)}
       >
         <div className="input-row">
@@ -892,14 +895,19 @@ export default function RegisterPage() {
   const currentLastFieldId = lastFieldId(currentStep, entityType, entityData);
 
   // Re-derived every render from the values, never stored: a flagged field
-  // stops showing its error the moment it is filled, with nothing to clear.
+  // drops out of the notice the moment it is filled, with nothing to clear.
+  // missingNow is everything still blocking the section (Continuer's state);
+  // shownErrors is what the notice names -- see missingFieldsToReport for
+  // why a cascade field waiting on its parent is not named.
   const missingNow = missingRequiredFields(currentStep, regState, nameResolvers);
-  const shownErrors = missingNow.filter((f) => flaggedIds.includes(f.id));
+  const shownErrors = missingFieldsToReport(currentStep, regState, nameResolvers).filter((f) =>
+    flaggedIds.includes(f.id)
+  );
 
   // The four triggers in item 11 all call this. Returns true when it actually
   // stopped something, so a caller can use it as a guard.
   function promptMissing(): boolean {
-    const missing = missingRequiredFields(currentStep, regState, nameResolvers);
+    const missing = missingFieldsToReport(currentStep, regState, nameResolvers);
     if (missing.length === 0) return false;
     setFlaggedIds(missing.map((f) => f.id));
     requestAnimationFrame(() => {
@@ -933,16 +941,14 @@ export default function RegisterPage() {
     if (flaggedIds.length > 0) setFlaggedIds([]);
   }
 
-  // Marks a control invalid and points it at its own message. Returns the
-  // message too, so the FormRow and the control cannot disagree about whether
-  // there is one.
+  // One message, not one per field. The pinned notice names every missing
+  // field; only the FIRST of them is marked invalid -- the red border on the
+  // control that also has focus, which says "start here" -- and it points at
+  // that notice. Marking every field red and repeating "Champ obligatoire"
+  // under each turned a section with three gaps into a red page.
   function invalidProps(id: string) {
-    const invalid = shownErrors.some((f) => f.id === id);
-    if (!invalid) return { control: {}, message: undefined as string | undefined };
-    return {
-      control: { "aria-invalid": true, "aria-describedby": `${id}-error` },
-      message: t("registerPage.fieldRequiredError"),
-    };
+    if (shownErrors[0]?.id !== id) return {};
+    return { "aria-invalid": true, "aria-describedby": MISSING_NOTICE_ID } as const;
   }
 
   // ── Continue ───────────────────────────────────────────────────────────
@@ -1248,10 +1254,7 @@ export default function RegisterPage() {
             <fieldset
               id="reg-entity-type"
               className="entity-type-list"
-              aria-invalid={invalidProps("reg-entity-type").message ? true : undefined}
-              aria-describedby={
-                invalidProps("reg-entity-type").message ? "reg-entity-type-error" : undefined
-              }
+              {...invalidProps("reg-entity-type")}
             >
               <legend className="sr-only">
                 {t("registerPage.entityTypeQuestion")}
@@ -1281,12 +1284,6 @@ export default function RegisterPage() {
                   </span>
                 </label>
               ))}
-
-              {invalidProps("reg-entity-type").message && (
-                <p className="field-error" id="reg-entity-type-error">
-                  {invalidProps("reg-entity-type").message}
-                </p>
-              )}
             </fieldset>
           </>
         );
@@ -1301,7 +1298,7 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required error={invalidProps("reg-first-name").message} errorId="reg-first-name-error">
+              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
                 <div className="input-row">
                   {/* type="text" is not a default to be left implicit: the
                       wizard's control rule selects input[type="text"], so an
@@ -1313,7 +1310,7 @@ export default function RegisterPage() {
                     id="reg-first-name"
                     type="text"
                     aria-required={true}
-                    {...invalidProps("reg-first-name").control}
+                    {...invalidProps("reg-first-name")}
                     value={respondent.firstName}
                     onChange={(e) => setRespondentField("firstName", e.target.value)}
                     placeholder={t("registerPage.firstNamePlaceholder")}
@@ -1321,13 +1318,13 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required error={invalidProps("reg-last-name").message} errorId="reg-last-name-error">
+              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
                 <div className="input-row">
                   <input
                     id="reg-last-name"
                     type="text"
                     aria-required={true}
-                    {...invalidProps("reg-last-name").control}
+                    {...invalidProps("reg-last-name")}
                     value={respondent.lastName}
                     onChange={(e) => setRespondentField("lastName", e.target.value)}
                     placeholder={t("registerPage.lastNamePlaceholder")}
@@ -1335,12 +1332,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required error={invalidProps("reg-function").message} errorId="reg-function-error">
+              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
                 <div className="input-row">
                   <select
                     id="reg-function"
                     aria-required={true}
-                    {...invalidProps("reg-function").control}
+                    {...invalidProps("reg-function")}
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
@@ -1359,15 +1356,12 @@ export default function RegisterPage() {
                 label={t("registerPage.professionalEmailLabel")}
                 required
                 hint={t("registerPage.emailRoleHint")}
-             
-                error={invalidProps("reg-email").message}
-                errorId="reg-email-error"
               >
                 <div className="input-row">
                   <input
                     id="reg-email"
                     aria-required={true}
-                    {...invalidProps("reg-email").control}
+                    {...invalidProps("reg-email")}
                     type="email"
                     value={respondent.email}
                     onChange={(e) => setRespondentField("email", e.target.value)}
@@ -1393,12 +1387,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required size="short" error={invalidProps("reg-phone1").message} errorId="reg-phone1-error">
+              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required size="short">
                 <div className="input-row">
                   <input
                     id="reg-phone1"
                     aria-required={true}
-                    {...invalidProps("reg-phone1").control}
+                    {...invalidProps("reg-phone1")}
                     type="tel"
                     value={respondent.phone1}
                     onChange={(e) => setRespondentField("phone1", e.target.value)}
@@ -1468,12 +1462,12 @@ export default function RegisterPage() {
             <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required error={invalidProps("reg-region").message} errorId="reg-region-error">
+              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
                 <div className="input-row">
                   <select
                     id="reg-region"
                     aria-required={true}
-                    {...invalidProps("reg-region").control}
+                    {...invalidProps("reg-region")}
                     value={regionId}
                     onChange={(e) => {
                       const id = e.target.value;
@@ -1510,15 +1504,12 @@ export default function RegisterPage() {
                 labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
                 gated={!regionId}
                 required
-             
-                error={invalidProps("reg-department").message}
-                errorId="reg-department-error"
               >
                 <div className="input-row">
                   <select
                     id="reg-department"
                     aria-required={true}
-                    {...invalidProps("reg-department").control}
+                    {...invalidProps("reg-department")}
                     value={departmentId}
                     disabled={!regionId}
                     onChange={(e) => {
@@ -1556,14 +1547,12 @@ export default function RegisterPage() {
                 // server has none for; the row says so instead of looking
                 // like an empty dropdown the respondent failed to use.
                 hint={subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined}
-                error={invalidProps("reg-subdivision").message}
-                errorId="reg-subdivision-error"
               >
                 <div className="input-row">
                   <select
                     id="reg-subdivision"
                     aria-required={true}
-                    {...invalidProps("reg-subdivision").control}
+                    {...invalidProps("reg-subdivision")}
                     value={subdivisionId}
                     disabled={!departmentId || subdivisionsStatus === "empty"}
                     onChange={(e) => {
@@ -1589,12 +1578,12 @@ export default function RegisterPage() {
                 {loadRetry(subdivisionsQuery)}
               </FormRow>
 
-              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required error={invalidProps("reg-area").message} errorId="reg-area-error">
+              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
                 <div className="input-row">
                   <select
                     id="reg-area"
                     aria-required={true}
-                    {...invalidProps("reg-area").control}
+                    {...invalidProps("reg-area")}
                     value={area}
                     onChange={(e) => {
                       armFromField(false);
@@ -1663,12 +1652,12 @@ export default function RegisterPage() {
             )}
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required error={invalidProps("reg-password").message} errorId="reg-password-error">
+              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
                 <div className="input-row">
                   <input
                     id="reg-password"
                     aria-required={true}
-                    {...invalidProps("reg-password").control}
+                    {...invalidProps("reg-password")}
                     type={obscurePassword ? "password" : "text"}
                     value={password}
                     onChange={(e) => {
@@ -1730,15 +1719,12 @@ export default function RegisterPage() {
                 htmlFor="reg-confirm-password"
                 label={t("registerPage.confirmPasswordLabel")}
                 required
-             
-                error={invalidProps("reg-confirm-password").message}
-                errorId="reg-confirm-password-error"
               >
                 <div className="input-row">
                   <input
                     id="reg-confirm-password"
                     aria-required={true}
-                    {...invalidProps("reg-confirm-password").control}
+                    {...invalidProps("reg-confirm-password")}
                     type={obscureConfirm ? "password" : "text"}
                     value={confirmPassword}
                     onChange={(e) => {
@@ -1997,7 +1983,7 @@ export default function RegisterPage() {
                 scrolls to them. Outside .flow-frame-scroll, so it adds no
                 scroller. */}
             {shownErrors.length > 0 && (
-              <div className="flow-missing-notice" role="alert">
+              <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
                 {t("registerPage.missingFieldsNotice", {
                   count: shownErrors.length,
                   names: shownErrors.map((f) => f.name).join(", "),

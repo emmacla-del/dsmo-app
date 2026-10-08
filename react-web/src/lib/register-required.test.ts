@@ -6,6 +6,7 @@ import { isSectionComplete, type RegState } from "@/lib/register-completeness";
 import { lastEntityFieldKey } from "@/lib/register-entity-sections";
 import {
   lastFieldId,
+  missingFieldsToReport,
   missingRequiredFields,
   requiredFieldsFor,
   type NameResolvers,
@@ -196,6 +197,39 @@ test("a department with no arrondissements does not require one", () => {
   const ids = missingRequiredFields("location", empty, resolvers).map((f) => f.id);
   assert.ok(!ids.includes("reg-subdivision"));
   assert.deepEqual(ids, ["reg-area"]);
+});
+
+test("a cascade field is not reported while its parent is unanswered", () => {
+  const ids = (state: RegState) =>
+    missingFieldsToReport("location", state, resolvers).map((f) => f.id);
+  // Nothing chosen: name the region and the area, not the two selects that
+  // cannot be used yet.
+  assert.deepEqual(ids(emptyState()), ["reg-region", "reg-area"]);
+  // Region chosen: the department is now actionable; the arrondissement not.
+  assert.deepEqual(ids(emptyState({ regionId: "r1" })), ["reg-department", "reg-area"]);
+  // Department chosen: the arrondissement is next.
+  assert.deepEqual(
+    ids(emptyState({ regionId: "r1", departmentId: "d1" })),
+    ["reg-subdivision", "reg-area"]
+  );
+});
+
+test("reporting less never lets an incomplete location section pass", () => {
+  const state = emptyState();
+  assert.ok(missingFieldsToReport("location", state, resolvers).length > 0);
+  assert.equal(isSectionComplete("location", state), false);
+  // The full list still counts the gated fields.
+  assert.equal(missingRequiredFields("location", state, resolvers).length, 4);
+});
+
+test("other sections report exactly what is missing", () => {
+  const state = emptyState();
+  for (const step of ["entityType", "respondent", "security"] as const) {
+    assert.deepEqual(
+      missingFieldsToReport(step, state, resolvers),
+      missingRequiredFields(step, state, resolvers)
+    );
+  }
 });
 
 // ── Names and order ──────────────────────────────────────────────────────
