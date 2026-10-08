@@ -193,17 +193,19 @@ export class AuthController {
 
   // ── Staff invitations (see staff-invitation.service.ts) ──
   // An administrator invites an agent by link instead of creating the
-  // account with a temporary password: SUPER_ADMIN invites central
-  // administrators and territorial staff, ADMIN_ONEFOP territorial staff.
+  // account with a temporary password. The agent is placed in the MINEFOP
+  // organigramme (serviceCode + positionType); the role is the service's.
+  // SUPER_ADMIN invites into any service, ADMIN_ONEFOP into the
+  // deconcentrated (territorial) services only.
   @Post('admin/staff-invitations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
   async createStaffInvitation(@Request() req: any, @Body() body: {
     email?: string;
-    role?: string;
+    serviceCode?: string;
+    positionType?: string;
     region?: string;
     department?: string;
-    positionType?: string;
   }) {
     return this.staffInvitations.create(body, { id: req.user.id, role: req.user.role });
   }
@@ -223,7 +225,6 @@ export class AuthController {
     firstName?: string;
     lastName?: string;
     matricule?: string;
-    poste?: string;
     password?: string;
   }) {
     return this.staffInvitations.accept(body);

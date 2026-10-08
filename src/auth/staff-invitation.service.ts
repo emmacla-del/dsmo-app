@@ -2,8 +2,10 @@
 //
 // Staff invitation links: the way ONEFOP personnel get an account.
 //
-// An administrator fills in who the agent is (email, role, territory and,
-// for a delegate, the position), the server signs that into a token, and the
+// An administrator fills in who the agent is -- their email, their place in
+// the seeded MINEFOP organigramme (a MinefopService and one of its
+// ServicePositions) and, for a delegation, the territory -- the server
+// signs that into a token, and the
 // administrator sends the resulting link -- typically over WhatsApp. The
 // agent opens it, adds their name and chooses their own password, and the
 // account is created ACTIVE. Nothing is stored until then, so there is no
@@ -23,10 +25,16 @@
 //    re-checks that the inviter is still active and still allowed to grant
 //    the role, so suspending the inviter kills their outstanding links.
 //
+// The platform role is not chosen: it is the service's roleMapping, so a
+// post in the Delegation Regionale (DREFOP) is a REGIONAL_ADMIN, one in the
+// Delegation Departementale (DDEFOP) a DIVISIONAL_ADMIN, and one in a
+// central or attached service an ADMIN_ONEFOP.
+//
 // Who may invite whom follows staff-scope.ts and adds nothing to it:
 // SUPER_ADMIN invites anyone in INVITABLE_ROLES; ADMIN_ONEFOP invites the
 // territorial roles only (manageableRolesFor), so it can never mint its own
-// rank.
+// rank -- in organigramme terms, it can invite into the deconcentrated
+// services only.
 import {
   BadRequestException,
   ConflictException,
@@ -52,38 +60,11 @@ export const STAFF_INVITATION_PURPOSE = 'staff_invitation';
 export const INVITABLE_ROLES = ['ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
-// Delegate positions belong to one territorial level each.
-const DELEGATE_POSITION_ROLE: Record<string, InvitableRole> = {
-  DELEGUE_REGIONAL: 'REGIONAL_ADMIN',
-  DELEGUE_DEPARTEMENTAL: 'DIVISIONAL_ADMIN',
-};
-
-// PositionType values (schema.prisma) an invitation may carry. The field is
-// a free String on User, so this list is the only thing keeping it to real
-// positions.
-const POSITION_TYPES = new Set([
-  'MINISTRE',
-  'SECRETAIRE_GENERAL',
-  'DIRECTEUR',
-  'SOUS_DIRECTEUR',
-  'CHEF_DIVISION',
-  'CHEF_SERVICE',
-  'CHEF_BUREAU',
-  'CHEF_CELLULE',
-  'CHARGE_ETUDES_ASSISTANT',
-  'INSPECTEUR_GENERAL_SERVICES',
-  'INSPECTEUR_SERVICES',
-  'INSPECTEUR_GENERAL_FORMATIONS',
-  'INSPECTEUR_FORMATIONS',
-  'ATTACHE_PEDAGOGIQUE',
-  'CONSEILLER_TECHNIQUE',
-  'CHEF_SECRETARIAT_PARTICULIER',
-  'DELEGUE_REGIONAL',
-  'DELEGUE_DEPARTEMENTAL',
-  'INSPECTEUR_REGIONAL_FORMATIONS',
-  'CONSEILLER_REGIONAL_FORMATIONS',
-  'STAFF',
-]);
+// Any service may take an agent who holds none of its head posts: "Cadre".
+// The organigramme seed lists head posts only (delegue, chef de service,
+// chef de bureau...), so without this an ordinary agent could not be placed.
+export const GENERIC_POSITION_TYPE = 'STAFF';
+const GENERIC_POSITION_TITLE = 'Cadre';
 
 const CENTRAL_TTL_SECONDS = 24 * 60 * 60;
 const TERRITORIAL_TTL_SECONDS = 72 * 60 * 60;
@@ -102,7 +83,10 @@ export interface StaffInvitationPayload {
   role: InvitableRole;
   region: string | null;
   department: string | null;
-  positionType: string | null;
+  serviceCode: string;
+  positionType: string;
+  // The post's title from the organigramme, stored as User.poste.
+  positionTitle: string;
   invitedBy: string;
   iat?: number;
   exp?: number;
@@ -110,10 +94,10 @@ export interface StaffInvitationPayload {
 
 export interface CreateStaffInvitationInput {
   email?: string;
-  role?: string;
+  serviceCode?: string;
+  positionType?: string;
   region?: string;
   department?: string;
-  positionType?: string;
 }
 
 export interface AcceptStaffInvitationInput {
@@ -121,7 +105,6 @@ export interface AcceptStaffInvitationInput {
   firstName?: string;
   lastName?: string;
   matricule?: string;
-  poste?: string;
   password?: string;
 }
 
@@ -152,11 +135,35 @@ export class StaffInvitationService {
 
   /** An administrator creates an invitation and gets back the token to send. */
   async create(input: CreateStaffInvitationInput, actor: { id: string; role: string }) {
-    const role = trimmed(input.role);
+    const serviceCode = trimmed(input.serviceCode);
+    const service = serviceCode
+      ? await this.prisma.minefopService.findUnique({ where: { code: serviceCode } })
+      : null;
+    if (!service || !service.isActive) {
+      throw new BadRequestException("Service inconnu dans l'organigramme.");
+    }
+    const role = service.roleMapping as string;
     if (!(INVITABLE_ROLES as readonly string[]).includes(role)) {
-      throw new BadRequestException('Rôle invalide pour une invitation.');
+      throw new BadRequestException("Ce service ne peut pas recevoir d'invitation.");
     }
     assertCanInvite(actor.role, role);
+
+    const positionType = trimmed(input.positionType);
+    let positionTitle: string;
+    if (positionType === GENERIC_POSITION_TYPE) {
+      positionTitle = GENERIC_POSITION_TITLE;
+    } else {
+      const position = positionType
+        ? await this.prisma.servicePosition.findFirst({
+            where: { serviceCode, positionType, isActive: true },
+            orderBy: { orderIndex: 'asc' },
+          })
+        : null;
+      if (!position) {
+        throw new BadRequestException("Ce poste n'existe pas dans ce service.");
+      }
+      positionTitle = position.title;
+    }
 
     const email = normalizeEmail(trimmed(input.email));
     if (!EMAIL_PATTERN.test(email)) {
@@ -165,21 +172,6 @@ export class StaffInvitationService {
     const existing = await this.prisma.user.findFirst({ where: emailMatch(email) });
     if (existing) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
-    }
-
-    const positionType = trimmed(input.positionType) || null;
-    if (positionType !== null) {
-      if (!POSITION_TYPES.has(positionType)) {
-        throw new BadRequestException('Poste inconnu.');
-      }
-      const delegateRole = DELEGATE_POSITION_ROLE[positionType];
-      if (delegateRole && delegateRole !== role) {
-        throw new BadRequestException(
-          positionType === 'DELEGUE_REGIONAL'
-            ? 'Un délégué régional a le rôle administrateur régional.'
-            : 'Un délégué départemental a le rôle administrateur départemental.',
-        );
-      }
     }
 
     // Region names for REGIONAL_ADMIN, region + department for
@@ -198,7 +190,9 @@ export class StaffInvitationService {
       role: role as InvitableRole,
       region: territory.region,
       department: territory.department,
+      serviceCode,
       positionType,
+      positionTitle,
       invitedBy: actor.id,
     };
     const token = this.jwtService.sign(payload, { expiresIn: ttl });
@@ -212,7 +206,7 @@ export class StaffInvitationService {
           resourceType: 'User',
           // No account exists yet; the invitation is identified by its email.
           resourceId: email,
-          details: { email, role, ...territory, positionType, expiresAt },
+          details: { email, role, ...territory, serviceCode, positionType, positionTitle, expiresAt },
         },
       })
       .catch((error: any) => this.logger.error(`Audit log failed: ${error?.message ?? error}`));
@@ -224,7 +218,10 @@ export class StaffInvitationService {
       role,
       region: territory.region,
       department: territory.department,
+      serviceCode,
+      serviceName: service.name,
       positionType,
+      positionTitle,
     };
   }
 
@@ -236,12 +233,16 @@ export class StaffInvitationService {
   async preview(token: string | undefined) {
     const payload = this.verify(token);
     await this.assertEmailFree(payload.email);
+    const service = await this.prisma.minefopService.findUnique({ where: { code: payload.serviceCode } });
     return {
       email: payload.email,
       role: payload.role,
       region: payload.region,
       department: payload.department,
+      serviceCode: payload.serviceCode,
+      serviceName: service?.name ?? null,
       positionType: payload.positionType,
+      positionTitle: payload.positionTitle,
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     };
   }
@@ -290,9 +291,10 @@ export class StaffInvitationService {
           role: payload.role as any,
           region: payload.region,
           department: payload.department,
+          serviceCode: payload.serviceCode,
           positionType: payload.positionType,
+          poste: payload.positionTitle,
           matricule: trimmed(input.matricule) || null,
-          poste: trimmed(input.poste) || null,
           status: 'ACTIVE',
           isActive: true,
           // The agent chose this password themselves; nothing to change.
@@ -320,6 +322,7 @@ export class StaffInvitationService {
             role: payload.role,
             region: payload.region,
             department: payload.department,
+            serviceCode: payload.serviceCode,
             positionType: payload.positionType,
             invitedBy: payload.invitedBy,
             registrationMethod: 'INVITATION',
@@ -345,6 +348,8 @@ export class StaffInvitationService {
       payload?.purpose !== STAFF_INVITATION_PURPOSE ||
       typeof payload.email !== 'string' ||
       typeof payload.invitedBy !== 'string' ||
+      typeof payload.serviceCode !== 'string' ||
+      typeof payload.positionType !== 'string' ||
       !(INVITABLE_ROLES as readonly string[]).includes(payload.role)
     ) {
       throw new GoneException(INVALID_INVITATION);
