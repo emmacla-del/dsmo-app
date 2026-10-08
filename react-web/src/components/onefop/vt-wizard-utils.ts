@@ -1,5 +1,5 @@
 import type { FormData, OnefopField, OnefopSection, VtTableMeta } from "@/lib/onefop-schema";
-import { isFieldVisible } from "@/lib/onefop-schema";
+import { isFieldVisible, isVtSectionWaived } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
@@ -61,10 +61,9 @@ export interface VtWizardSectionStats {
   total: number;
 }
 
-/// Same "filled/total visible non-table fields" count as Flutter's
-/// vtWizardSectionStats (vt_wizard_progress.dart) — counts fields that are
-/// currently visible and not a table/repeating_table field, against how
-/// many of those currently hold a non-empty value. Table fields store
+/// "Filled/total" over the questions a respondent must answer: visible,
+/// required, not a table/repeating_table field. Optional questions (second
+/// phone, website…) never hold a section back. Table fields store
 /// their answers under per-cell keys rather than a single field value, so
 /// they're excluded here and are instead reflected only by the real
 /// validator (validateSectionData) — this is a supplementary "how much is
@@ -76,6 +75,7 @@ export function vtWizardGroupStats(fields: OnefopField[], data: FormData): VtWiz
   for (const f of fields) {
     if (!isFieldVisible(f, data)) continue;
     if (f.type === "table" || f.type === "repeating_table") continue;
+    if (!f.required) continue;
     total++;
     const v = data[f.id];
     const isEmpty =
@@ -119,8 +119,12 @@ export function vtWizardBlockSummary(
 ): VtWizardSectionOutlineItem {
   const rawStats = vtWizardGroupStats(fields, data);
   const total = rawStats.total === 0 ? 1 : rawStats.total;
+  // A block of optional questions only is never "left to fill".
+  const hasTable = fields.some((f) => f.type === "table" || f.type === "repeating_table");
   const filled =
-    rawStats.total === 0 ? (fields.every((f) => cellFilled(data[f.id])) ? 1 : 0) : rawStats.filled;
+    rawStats.total === 0
+      ? !hasTable || fields.every((f) => cellFilled(data[f.id])) ? 1 : 0
+      : rawStats.filled;
   const errors = fields.filter((f) => isFieldVisible(f, data) && issueFieldIds.has(f.id)).length;
   const complete = total > 0 && filled === total && errors === 0;
   const status: VtWizardSectionOutlineStatus =
@@ -128,12 +132,12 @@ export function vtWizardBlockSummary(
   return { label, filled, total, errors, status };
 }
 
-/// Single source of truth for "is this VT section complete", matching
-/// Flutter's vt_wizard_shell.dart _isComplete exactly: the real validator
-/// must pass AND every visible non-table field must be filled (not just
-/// the required ones) — a section with only its required fields answered
-/// is "in progress", not "complete".
+/// Single source of truth for "is this VT section complete": the validator
+/// passes (it covers tables too) and every required visible question is
+/// answered. Optional questions left blank do not hold a section back. A
+/// section a closed or non-functional centre does not answer is complete.
 export function isVtSectionComplete(section: OnefopSection, data: FormData): boolean {
+  if (isVtSectionWaived(section.id, data)) return true;
   if (validateSectionData(section, data).length > 0) return false;
   const stats = vtWizardSectionStats(section, data);
   return stats.total === 0 || stats.filled === stats.total;

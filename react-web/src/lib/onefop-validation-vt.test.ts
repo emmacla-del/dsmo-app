@@ -94,3 +94,20 @@ test("switching a parent back to Non erases its follow-ups, down the chain", () 
   const cleaned = cleanHiddenDependentFields(vt, data);
   for (const id of ["VT3_3", "VT3_4", "VT6_5", "VT6_6"]) assert.equal(cleaned[id], undefined, id);
 });
+
+test("section progress: optional questions left blank do not keep a section from being complete", async () => {
+  const { isVtSectionComplete } = await import("@/components/onefop/vt-wizard-utils");
+  const data = completeDeclaration();
+  for (const id of ["VT1_3", "VT1_15_TEL2", "VT1_16_TEL2", "VT2_11", "VT2_11_CITY", "VT2_12", "VT2_13", "VT9_3"]) delete data[id];
+  for (const section of vt.sections) assert.equal(isVtSectionComplete(section, data), true, section.id);
+  delete data.VT2_19;
+  assert.equal(isVtSectionComplete(vt.sections.find((s) => s.id === "section2_vocationalTraining")!, data), false);
+});
+
+test("section progress: a closed centre's Sections 2–9 count as complete", async () => {
+  const { isVtSectionComplete } = await import("@/components/onefop/vt-wizard-utils");
+  const data: FormData = { VT1_12: "Fermée/ Closed" };
+  for (const section of vt.sections.filter((s) => s.id !== "section1_vocationalTraining")) {
+    assert.equal(isVtSectionComplete(section, data), true, section.id);
+  }
+});
