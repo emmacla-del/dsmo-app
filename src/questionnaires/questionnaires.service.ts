@@ -584,6 +584,16 @@ export class QuestionnairesService {
     // Normalize entityType to uppercase
     const normalizedEntityType = normalizeEntityType(dto.entityType);
 
+    // Verify submitting company's registered entityType matches requested entityType
+    if (submittingCompany.entityType) {
+      const companyNormType = normalizeEntityType(submittingCompany.entityType);
+      if (companyNormType !== normalizedEntityType) {
+        throw new BadRequestException(
+          `Type d'entité non autorisé : votre compte est enregistré en tant que ${companyNormType}, vous ne pouvez pas soumettre pour ${normalizedEntityType}.`,
+        );
+      }
+    }
+
     // Verbose per-submission dumps (several JSON.stringify calls over full
     // nested payloads) are dev-only: Node writes console.log synchronously
     // when stdout is piped rather than a TTY, which is exactly how Render

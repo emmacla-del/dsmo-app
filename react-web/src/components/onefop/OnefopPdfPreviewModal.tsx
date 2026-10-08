@@ -17,6 +17,9 @@ interface OnefopPdfPreviewModalProps {
   locale: "fr" | "en";
   onSubmitFinal?: () => Promise<void> | void;
   isSubmitting?: boolean;
+  canSubmit?: boolean;
+  hasErrors?: boolean;
+  validationErrorCount?: number;
   submissionResult?: string | null;
   /** The submission reference the server returned, for the receipt. */
   submissionId?: string | null;
@@ -34,6 +37,9 @@ export function OnefopPdfPreviewModal({
   locale,
   onSubmitFinal,
   isSubmitting = false,
+  canSubmit = true,
+  hasErrors = false,
+  validationErrorCount = 0,
   submissionResult,
   submissionId,
   submissionError,
@@ -509,30 +515,44 @@ export function OnefopPdfPreviewModal({
             {onSubmitFinal && !submissionResult && (
               <button
                 type="button"
-                onClick={() => onSubmitFinal()}
-                disabled={loading || isSubmitting}
+                onClick={() => {
+                  if (!canSubmit || hasErrors) return;
+                  onSubmitFinal();
+                }}
+                disabled={loading || isSubmitting || !canSubmit || hasErrors}
                 style={{
-                  background: "var(--cam-green)",
+                  background: !canSubmit || hasErrors ? "var(--cam-border-strong)" : "var(--cam-green)",
                   border: "none",
                   color: "#ffffff",
                   borderRadius: "6px",
                   padding: "10px 28px",
                   fontSize: 14,
                   fontWeight: 700,
-                  cursor: loading || isSubmitting ? "wait" : "pointer",
-                  opacity: loading || isSubmitting ? 0.7 : 1,
+                  cursor: loading || isSubmitting ? "wait" : (!canSubmit || hasErrors ? "not-allowed" : "pointer"),
+                  opacity: loading || isSubmitting || !canSubmit || hasErrors ? 0.65 : 1,
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 10,
-                  boxShadow: "0 2px 6px rgba(30, 107, 58, 0.28)",
+                  boxShadow: !canSubmit || hasErrors ? "none" : "0 2px 6px rgba(30, 107, 58, 0.28)",
                   transition: "background 0.15s ease",
                 }}
+                title={
+                  !canSubmit
+                    ? (isFr ? "La période de soumission est clôturée" : "Submission period is closed")
+                    : hasErrors
+                    ? (isFr ? `${validationErrorCount} erreur(s) à corriger avant la soumission` : `${validationErrorCount} error(s) must be resolved before submission`)
+                    : undefined
+                }
               >
-                <span>{isSubmitting ? "⏳" : "🚀"}</span>
+                <span>{isSubmitting ? "⏳" : (!canSubmit || hasErrors ? "🔒" : "🚀")}</span>
                 <span>
                   {isSubmitting
                     ? (isFr ? "Soumission en cours..." : "Submitting...")
-                    : (isFr ? "Confirmer et soumettre" : "Confirm & Submit")}
+                    : (!canSubmit
+                      ? (isFr ? "Période clôturée" : "Period Closed")
+                      : hasErrors
+                      ? (isFr ? `Corriger les erreurs (${validationErrorCount})` : `Resolve Errors (${validationErrorCount})`)
+                      : (isFr ? "Confirmer et soumettre" : "Confirm & Submit"))}
                 </span>
               </button>
             )}
