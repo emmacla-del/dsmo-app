@@ -6,6 +6,7 @@ import {
   CANONICAL_ENTITY_PRIORITY,
 } from './canonical-schema-adapter.service';
 import { DataManagementService } from './data-management.service';
+import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
 import { PassThrough } from 'stream';
 
 function fakeRes() {
@@ -62,11 +63,12 @@ describe('CanonicalSchemaAdapterService', () => {
   });
 
   describe('2. Schema Completeness', () => {
-    it('represents all 12 system variables at the start (indices 1 to 12)', () => {
+    it('represents all 13 system variables at the start (indices 1 to 13)', () => {
       const all = adapter.getAllVariables();
-      const systemVars = all.slice(0, 12);
+      const systemVars = all.slice(0, 13);
 
       expect(systemVars.map((v) => v.variableName)).toEqual([
+        'schemaVersion',
         'submissionId',
         'status',
         'surveyYear',
@@ -643,6 +645,7 @@ describe('CanonicalSchemaAdapterService', () => {
       for (const [entityName, entity] of Object.entries(root.entities)) {
         for (const sec of entity.sections) {
           for (const f of sec.fields) {
+            if (CANONICAL_PII_EXCLUSIONS.has(f.id)) continue;
             if (f.table && f.table.matrix) {
               for (const row of f.table.matrix) {
                 for (const cellId of row) {

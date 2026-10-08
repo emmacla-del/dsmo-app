@@ -33,6 +33,7 @@ import {
   DEMAND_SCHEMA_ENTITIES,
   TVET_SCHEMA_ENTITIES,
 } from './canonical-schema-adapter.service';
+import { CANONICAL_PII_EXCLUSION_DEFINITIONS } from './canonical-exclusions';
 
 // ── Export classification ─────────────────────────────────────────────────────
 
@@ -156,17 +157,7 @@ const LONG_FORMAT_FIELD_MAP: Record<string, { sheetKey: string; description: str
   },
 };
 
-const INTENTIONALLY_EXCLUDED_FIELDS: Record<
-  string,
-  { reason: string; policy: string; affectedData: string }
-> = {
-  VT8_8: {
-    reason: 'PII — Individual trainer roster contains named persons (last name, first name, birth date, qualifications)',
-    policy: 'Design specification §9: Trainer roster is excluded from the default anonymous statistical export. ' +
-            'Any roster export must be separate, explicitly labelled, and subject to data-protection review.',
-    affectedData: 's8q8_row1_lastName … s8q8_row14_professionalDiploma (7 cells × 14 rows = 98 PII cell IDs)',
-  },
-};
+const INTENTIONALLY_EXCLUDED_FIELDS = CANONICAL_PII_EXCLUSION_DEFINITIONS;
 
 // Templates whose matrix grids represent fixed (non-repeating) structures:
 const FIXED_MATRIX_TEMPLATES = new Set([

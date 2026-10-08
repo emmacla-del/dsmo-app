@@ -11,6 +11,7 @@ import type {
 } from '../onefop-schema-validation/onefop-schema.types';
 import { OnefopEntityType } from '../types/prisma.types';
 import { hasRealNiu } from './niu';
+import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
 
 export type MeasurementLevel = 'NOMINAL' | 'ORDINAL' | 'SCALE' | 'DATE';
 export type SpssDataType = 'NUMERIC' | 'A';
@@ -223,6 +224,13 @@ export class CanonicalSchemaAdapterService {
 
     const sp = v.sourcePath;
 
+    // 0. System constants / metadata
+    if (sp === 'system.schemaVersion' || sp === 'submission.schemaVersion') {
+      return submission.schemaVersion !== undefined
+        ? submission.schemaVersion
+        : (Object.keys(submission).length === 0 ? undefined : 2);
+    }
+
     // 1. Direct system variable paths
     if (sp.startsWith('submission.')) {
       const prop = sp.slice('submission.'.length);
@@ -279,7 +287,11 @@ export class CanonicalSchemaAdapterService {
 
       // Check flat rawData first if populated
       if (submission.rawData && submission.rawData[cellId] !== undefined) {
-        return submission.rawData[cellId];
+        const rawVal = submission.rawData[cellId];
+        if (v.spssDataType === 'NUMERIC' && typeof rawVal === 'boolean') {
+          return rawVal ? 1 : 0;
+        }
+        return rawVal;
       }
 
       // Check child table relation in Prisma
@@ -369,7 +381,11 @@ export class CanonicalSchemaAdapterService {
       if (v.valueLabels && Object.keys(v.valueLabels).length > 0) {
         const lines: string[] = [`VALUE LABELS ${v.variableName}`];
         for (const [code, label] of Object.entries(v.valueLabels)) {
-          lines.push(`  '${this.spssQuote(code)}' "${this.spssQuote(label)}"`);
+          if (v.spssDataType === 'NUMERIC') {
+            lines.push(`  ${code} "${this.spssQuote(label)}"`);
+          } else {
+            lines.push(`  '${this.spssQuote(code)}' "${this.spssQuote(label)}"`);
+          }
         }
         lines.push('  .');
         valueLabelsParts.push(lines.join('\n'));
@@ -478,6 +494,9 @@ export class CanonicalSchemaAdapterService {
         if (!sec) continue;
 
         for (const field of sec.fields) {
+          if (CANONICAL_PII_EXCLUSIONS.has(field.id)) {
+            continue;
+          }
           if (field.table?.matrix && field.table.matrix.length > 0) {
             const tableVars = this.expandMatrixTable(field, sec, usedNames, orderIndex, visitedCellIds, root);
             allVars.push(...tableVars);
@@ -523,6 +542,18 @@ export class CanonicalSchemaAdapterService {
 
   private buildSystemVariables(usedNames: Set<string>, startOrder: number): AnalyticalVariableDefinition[] {
     const sys: Array<Omit<AnalyticalVariableDefinition, 'orderIndex' | 'variableName'> & { rawName: string }> = [
+      {
+        rawName: 'schemaVersion',
+        paperCode: 'SYS_00',
+        labelFr: 'Version du schéma du jeu de données',
+        labelEn: 'Dataset schema version',
+        sectionId: 'system',
+        entityApplicability: ['ALL'],
+        spssDataType: 'NUMERIC',
+        spssWidth: 4,
+        measurementLevel: 'SCALE',
+        sourcePath: 'system.schemaVersion',
+      },
       {
         rawName: 'submissionId',
         paperCode: 'SYS_01',
@@ -785,6 +816,11 @@ export class CanonicalSchemaAdapterService {
         let cellLabelFr = `${field.label.fr} [${cellId}]`;
         let cellLabelEn = `${field.label.en} [${cellId}]`;
 
+        let spssDataType: SpssDataType = 'NUMERIC';
+        let spssWidth = 10;
+        let measurementLevel: MeasurementLevel = 'SCALE';
+        let valueLabels: Record<string, string> | undefined = undefined;
+
         // If rich VT metadata is available, build exact bilingual row/column labels
         if (table.vt && table.vt.rows && table.vt.cells) {
           const vtRow = table.vt.rows[r];
@@ -798,6 +834,27 @@ export class CanonicalSchemaAdapterService {
             const titleEn = table.vt.title?.en ?? field.label.en;
             cellLabelFr = `${titleFr} — ${rowLabelFr} — ${cellLabelTextFr}`;
             cellLabelEn = `${titleEn} — ${rowLabelEn} — ${cellLabelTextEn}`;
+
+            if (vtCell.kind === 'text') {
+              spssDataType = 'A';
+              spssWidth = 120;
+              measurementLevel = 'NOMINAL';
+            } else if (vtCell.kind === 'boolean') {
+              spssDataType = 'NUMERIC';
+              spssWidth = 1;
+              measurementLevel = 'NOMINAL';
+              valueLabels = { '0': 'Non / No', '1': 'Oui / Yes' };
+            } else if (vtCell.kind === 'radioCode') {
+              spssDataType = 'A';
+              spssWidth = 20;
+              measurementLevel = 'NOMINAL';
+              if (vtCell.options && vtCell.options.length > 0) {
+                valueLabels = {};
+                for (const opt of vtCell.options) {
+                  valueLabels[opt.value] = opt.label?.fr ?? opt.value;
+                }
+              }
+            }
           }
         }
 
@@ -808,9 +865,10 @@ export class CanonicalSchemaAdapterService {
           labelEn: cellLabelEn.slice(0, 256),
           sectionId: sec.id,
           entityApplicability: applicability,
-          spssDataType: 'NUMERIC',
-          spssWidth: 10,
-          measurementLevel: 'SCALE',
+          spssDataType,
+          spssWidth,
+          measurementLevel,
+          valueLabels,
           sourcePath: `matrix.${field.id}.${cellId}`,
           orderIndex: order++,
         });
@@ -841,6 +899,11 @@ export class CanonicalSchemaAdapterService {
           let cellLabelFr = `${field.label.fr} [${cellId}]`;
           let cellLabelEn = `${field.label.en} [${cellId}]`;
 
+          let spssDataType: SpssDataType = 'NUMERIC';
+          let spssWidth = 10;
+          let measurementLevel: MeasurementLevel = 'SCALE';
+          let valueLabels: Record<string, string> | undefined = undefined;
+
           // If rich VT metadata is available, build exact bilingual row/column labels
           if (table.vt && table.vt.rows && table.vt.cells) {
             const vtRow = table.vt.rows[r];
@@ -854,9 +917,29 @@ export class CanonicalSchemaAdapterService {
               const titleEn = table.vt.title?.en ?? field.label.en;
               cellLabelFr = `${titleFr} — ${rowLabelFr} — ${cellLabelTextFr}`;
               cellLabelEn = `${titleEn} — ${rowLabelEn} — ${cellLabelTextEn}`;
+
+              if (vtCell.kind === 'text') {
+                spssDataType = 'A';
+                spssWidth = 120;
+                measurementLevel = 'NOMINAL';
+              } else if (vtCell.kind === 'boolean') {
+                spssDataType = 'NUMERIC';
+                spssWidth = 1;
+                measurementLevel = 'NOMINAL';
+                valueLabels = { '0': 'Non / No', '1': 'Oui / Yes' };
+              } else if (vtCell.kind === 'radioCode') {
+                spssDataType = 'A';
+                spssWidth = 20;
+                measurementLevel = 'NOMINAL';
+                if (vtCell.options && vtCell.options.length > 0) {
+                  valueLabels = {};
+                  for (const opt of vtCell.options) {
+                    valueLabels[opt.value] = opt.label?.fr ?? opt.value;
+                  }
+                }
+              }
             }
           }
-
 
           vars.push({
             variableName: varName,
@@ -865,9 +948,10 @@ export class CanonicalSchemaAdapterService {
             labelEn: cellLabelEn.slice(0, 256),
             sectionId: sec.id,
             entityApplicability: applicability,
-            spssDataType: 'NUMERIC',
-            spssWidth: 10,
-            measurementLevel: 'SCALE',
+            spssDataType,
+            spssWidth,
+            measurementLevel,
+            valueLabels,
             sourcePath: `matrix.${field.id}.${cellId}`,
             orderIndex: order++,
           });
