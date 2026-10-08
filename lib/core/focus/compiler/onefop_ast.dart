@@ -4245,40 +4245,6 @@ const section2VocationalTrainingQuestions = <FormQuestionAst>[
     options: _vtYesNoOptions,
     path: "vocationalTraining.hasCanteen",
   ),
-  // Added for the MINEFOP Collect wizard redesign (Figma screen 06,
-  // "Nombre total de cabines" / "Cabines réservées aux filles") — no
-  // paper-form code, so appended after the last real §2.2 item rather
-  // than interrupting the existing 2.2.1-2.2.20 sequence. dependsOn
-  // VT2_37 matches the existing latrine-detail fields (VT2_38-40), which
-  // only make sense once "functional/adapted latrines" is confirmed Oui.
-  FormQuestionAst(
-    id: "VT2_54",
-    paperCode: "2.2.21",
-    label: LocalizedText(
-      fr: "Nombre total de cabines",
-      en: "Total number of latrine cabins",
-    ),
-    sectionId: "section2_vocationalTraining",
-    order: 54,
-    type: AstFieldType.number,
-    dependsOn: "VT2_37",
-    dependsValue: "Oui/ Yes",
-    path: "vocationalTraining.latrineCabinTotalCount",
-  ),
-  FormQuestionAst(
-    id: "VT2_55",
-    paperCode: "2.2.22",
-    label: LocalizedText(
-      fr: "Cabines réservées aux filles",
-      en: "Cabins reserved for girls",
-    ),
-    sectionId: "section2_vocationalTraining",
-    order: 55,
-    type: AstFieldType.number,
-    dependsOn: "VT2_37",
-    dependsValue: "Oui/ Yes",
-    path: "vocationalTraining.latrineCabinGirlsCount",
-  ),
 ];
 
 // ============================================================
@@ -5706,60 +5672,6 @@ const section6VocationalTrainingQuestions = <FormQuestionAst>[
       "fields": ["specialtyText", "male", "female", "total"],
     },
   ),
-  // Added for the MINEFOP Collect wizard redesign (Figma screen 10,
-  // "Suivi de l'Insertion des Diplômés" — formal/informal/job-seeking
-  // breakdown of last year's graduates, shown with a % bar). No paper
-  // code; appended after 6.3 as its own small subsection rather than
-  // folded into 6.3's specialty table, since it's a different shape
-  // (aggregate totals, not per-specialty rows).
-  FormQuestionAst(
-    id: "VT6_14",
-    paperCode: "6.4",
-    subsection: LocalizedText(
-      fr: "6.4 Suivi de l'insertion des diplômés (année antérieure)",
-      en: "6.4 Follow-up on graduate placement (previous year)",
-    ),
-    label: LocalizedText(
-      fr: "Effectif inséré dans l'emploi formel",
-      en: "Number placed in the formal sector",
-    ),
-    sectionId: "section6_vocationalTraining",
-    order: 14,
-    type: AstFieldType.number,
-    path: "vocationalTraining.insertedFormalSectorCount",
-  ),
-  FormQuestionAst(
-    id: "VT6_15",
-    paperCode: "6.4",
-    subsection: LocalizedText(
-      fr: "6.4 Suivi de l'insertion des diplômés (année antérieure)",
-      en: "6.4 Follow-up on graduate placement (previous year)",
-    ),
-    label: LocalizedText(
-      fr: "Effectif inséré dans l'emploi informel / auto-emploi",
-      en: "Number placed in the informal sector / self-employed",
-    ),
-    sectionId: "section6_vocationalTraining",
-    order: 15,
-    type: AstFieldType.number,
-    path: "vocationalTraining.insertedInformalSectorCount",
-  ),
-  FormQuestionAst(
-    id: "VT6_16",
-    paperCode: "6.4",
-    subsection: LocalizedText(
-      fr: "6.4 Suivi de l'insertion des diplômés (année antérieure)",
-      en: "6.4 Follow-up on graduate placement (previous year)",
-    ),
-    label: LocalizedText(
-      fr: "Effectif en recherche d'emploi",
-      en: "Number still seeking employment",
-    ),
-    sectionId: "section6_vocationalTraining",
-    order: 16,
-    type: AstFieldType.number,
-    path: "vocationalTraining.seekingEmploymentCount",
-  ),
 ];
 
 // ============================================================
@@ -6461,45 +6373,6 @@ const section8VocationalTrainingQuestions = <FormQuestionAst>[
     order: 10,
     type: AstFieldType.number,
     path: "vocationalTraining.permanentFemale",
-  ),
-  // Added for the MINEFOP Collect wizard redesign (Figma screen 11,
-  // Permanent/Vacataire/Contractuel 3-way split) — placed and numbered
-  // directly inside the existing 8.5 group (order 11/12, VT8_6/7/8 bumped
-  // to 13/14/15) rather than appended after 8.8: groupFields() groups
-  // consecutive same-subsection fields, so a non-adjacent "8.5" pair would
-  // render as a second, disconnected 8.5 block instead of joining the
-  // first.
-  FormQuestionAst(
-    id: "VT8_5_CONTRACT_M",
-    paperCode: "8.5",
-    subsection: LocalizedText(
-      fr: "8.5 Formateurs par statut professionnel",
-      en: "8.5 Trainers by professional status",
-    ),
-    label: LocalizedText(
-      fr: "Formateurs Contractuels — hommes",
-      en: "Contractual trainers — male",
-    ),
-    sectionId: "section8_vocationalTraining",
-    order: 11,
-    type: AstFieldType.number,
-    path: "vocationalTraining.contractualMale",
-  ),
-  FormQuestionAst(
-    id: "VT8_5_CONTRACT_F",
-    paperCode: "8.5",
-    subsection: LocalizedText(
-      fr: "8.5 Formateurs par statut professionnel",
-      en: "8.5 Trainers by professional status",
-    ),
-    label: LocalizedText(
-      fr: "Formateurs Contractuels — femmes",
-      en: "Contractual trainers — female",
-    ),
-    sectionId: "section8_vocationalTraining",
-    order: 12,
-    type: AstFieldType.number,
-    path: "vocationalTraining.contractualFemale",
   ),
   // 8.6 — trainers with disability by category (OnefopVtTrainerDisability).
   FormQuestionAst(

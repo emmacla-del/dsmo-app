@@ -985,8 +985,6 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsArray() @IsString({ each: true }) latrineTypes?: string[];
   @IsOptional() @IsBoolean() latrinesSeparateByGender?: boolean;
   @IsOptional() @IsBoolean() latrinesSeparateFromStaff?: boolean;
-  @IsOptional() @IsInt() latrineCabinTotalCount?: number;
-  @IsOptional() @IsInt() latrineCabinGirlsCount?: number;
   @IsOptional() @IsBoolean() hasPlayground?: boolean;
   @IsOptional() @IsArray() @IsString({ each: true }) playgroundTypes?: string[];
   @IsOptional() @IsBoolean() hasIctTools?: boolean;
@@ -1052,9 +1050,6 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsBoolean() hasInsertionSupportUnit?: boolean;
   @IsOptional() @IsBoolean() hasTraineeDatabaseTool?: boolean;
   @IsOptional() @IsBoolean() hasJobSearchSupportTool?: boolean;
-  @IsOptional() @IsInt() insertedFormalSectorCount?: number;
-  @IsOptional() @IsInt() insertedInformalSectorCount?: number;
-  @IsOptional() @IsInt() seekingEmploymentCount?: number;
 
   // §7 — cross-cutting themes
   @IsOptional() @IsBoolean() hasHivAidsRules?: boolean;
@@ -1087,8 +1082,6 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsInt() vacataireNonProfFemale?: number;
   @IsOptional() @IsInt() permanentMale?: number;
   @IsOptional() @IsInt() permanentFemale?: number;
-  @IsOptional() @IsInt() contractualMale?: number;
-  @IsOptional() @IsInt() contractualFemale?: number;
 
   // §9 — difficulties and perspectives
   @IsOptional() @IsBoolean() facesDifficulties?: boolean;

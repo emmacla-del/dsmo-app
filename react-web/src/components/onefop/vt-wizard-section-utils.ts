@@ -167,8 +167,6 @@ const SECTION_2_FINE_GROUPS: Record<string, string | null> = {
   VT2_51: "Programmes & Politiques de Protection",
   VT2_52: "Programmes & Politiques de Protection",
   VT2_53: "Programmes & Politiques de Protection",
-  VT2_54: "Latrines",
-  VT2_55: "Latrines",
 };
 
 const SECTION_3_FINE_GROUPS: Record<string, string | null> = {
