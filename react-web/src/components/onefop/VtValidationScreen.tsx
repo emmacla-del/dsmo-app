@@ -175,12 +175,7 @@ export function VtValidationScreen({
                 {isFr
                   ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément au questionnaire préliminaire.`
                   : `${zeroedTables.length} table(s) certified as null (0) according to preliminary scoping answers.`}
-              </strong>{" "}
-              <span style={{ fontSize: "12px", color: "#15803d" }}>
-                {isFr
-                  ? "(Données brutes archivées pour traçabilité administrative)."
-                  : "(Raw input data remains archived for administrative traceability)."}
-              </span>
+              </strong>
             </span>
             <button
               type="button"

@@ -14,7 +14,6 @@ import {
   submitDeclaration,
   supportsBackendSubmission,
 } from "@/lib/onefop-submission";
-import { clearDraft } from "@/lib/onefop-drafts";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { SectionRenderer } from "./SectionRenderer";
 import { VtWizardSectionScreen } from "./VtWizardSectionScreen";
@@ -53,6 +52,9 @@ interface WizardShellProps {
   quarterCode?: string;
   /** Stable per-session idempotency key from useOnefopDraft (P4 fix). */
   formId?: string;
+  /** Deletes the local draft after a successful submission (useOnefopDraft's
+   *  clearLocalDraft, which knows the user/establishment-scoped key). */
+  onSubmitted?: () => Promise<void> | void;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -123,6 +125,7 @@ export function WizardShell({
   establishmentName,
   quarterCode,
   formId,
+  onSubmitted,
 }: WizardShellProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -225,9 +228,9 @@ export function WizardShell({
       return submitDeclaration(entityType, effectiveQuarter, data, false, entity, formId);
     },
     onSuccess: (result) => {
-      // Clear the local IndexedDB draft so the respondent does not see stale
-      // prior-quarter data the next time they open this entity type.
-      if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
+      // Clear the local IndexedDB draft so the respondent does not see the
+      // submitted data again the next time they open this entity type.
+      Promise.resolve(onSubmitted?.()).catch(() => {});
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
       setSubmissionId(result.submissionId || null);
     },

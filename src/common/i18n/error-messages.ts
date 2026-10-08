@@ -301,6 +301,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Soumission introuvable', en: 'Submission not found' },
   { fr: 'Type d\'entité invalide', en: 'Invalid entity type' },
   { fr: 'Type d\'entité non pris en charge : {0}', en: 'Unsupported entity type: {0}' },
+  {
+    fr: 'Type d\'entité non autorisé : votre compte est enregistré en tant que {0}, vous ne pouvez pas soumettre pour {1}.',
+    en: 'Entity type not allowed: your account is registered as {0}, you cannot submit for {1}.',
+  },
   { fr: 'Questionnaire d\'identifiant {0} introuvable', en: 'Questionnaire with id {0} not found' },
   { fr: 'La période de collecte n\'est pas ouverte aux soumissions.', en: 'The collection period is not open for submissions.' },
   { fr: 'La période de collecte « {0} » est close depuis le {1}.', en: 'The collection period "{0}" closed on {1}.' },
