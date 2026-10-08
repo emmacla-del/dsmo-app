@@ -77,12 +77,12 @@ const AUTO_APPROVE_ENTITY_TYPES = ['ADMINISTRATION'] as const;
  * and jean@x.cm cannot become two accounts. Accounts created before that keep
  * their typed case; the lookups below therefore stay case-insensitive.
  */
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
 /** Case-insensitive match on User.email, for lookups by a typed address. */
-function emailMatch(email: string) {
+export function emailMatch(email: string) {
   return { email: { equals: email.trim(), mode: 'insensitive' as const } };
 }
 

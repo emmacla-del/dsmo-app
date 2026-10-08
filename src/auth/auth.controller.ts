@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { StaffInvitationService } from './staff-invitation.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -33,7 +34,10 @@ const UNDER_REVIEW_STATUSES = [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMEN
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(
+    private authService: AuthService,
+    private staffInvitations: StaffInvitationService,
+  ) { }
 
   // ── Health check — wakes Render server on app startup ──
   @Get('health')
@@ -185,6 +189,44 @@ export class AuthController {
     positionType?: string;
   }) {
     return this.authService.adminCreateMinefopUser(body, req.user.role, req.user.id);
+  }
+
+  // ── Staff invitations (see staff-invitation.service.ts) ──
+  // An administrator invites an agent by link instead of creating the
+  // account with a temporary password: SUPER_ADMIN invites central
+  // administrators and territorial staff, ADMIN_ONEFOP territorial staff.
+  @Post('admin/staff-invitations')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  async createStaffInvitation(@Request() req: any, @Body() body: {
+    email?: string;
+    role?: string;
+    region?: string;
+    department?: string;
+    positionType?: string;
+  }) {
+    return this.staffInvitations.create(body, { id: req.user.id, role: req.user.role });
+  }
+
+  // Public: the invited agent is not signed in. POST rather than GET so the
+  // token travels in the body, not in a URL that ends up in access logs.
+  @Throttle(RECOVERY_THROTTLE)
+  @Post('staff-invitations/preview')
+  async previewStaffInvitation(@Body() body: { token?: string }) {
+    return this.staffInvitations.preview(body?.token);
+  }
+
+  @Throttle(RECOVERY_THROTTLE)
+  @Post('staff-invitations/accept')
+  async acceptStaffInvitation(@Body() body: {
+    token?: string;
+    firstName?: string;
+    lastName?: string;
+    matricule?: string;
+    poste?: string;
+    password?: string;
+  }) {
+    return this.staffInvitations.accept(body);
   }
 
   // Admin-assisted declarant registration — Phase 2 of
