@@ -29,12 +29,40 @@ function completeAnswers(): FormData {
   return out;
 }
 
-test("every required training-centre question answered: no validation issue", () => {
-  assert.deepEqual(validateEntityData(vt, completeAnswers(), "fr"), []);
+/** The quiz answered "Non" throughout, and every table that still applies filled with zeros / one row. */
+function completeDeclaration(): FormData {
+  const data: FormData = {
+    ...completeAnswers(),
+    _scopeConfig: {
+      vocationalTraining: {
+        unemployedQualified: false, informalSector: false, vulnerable: false, scholarships: false,
+        formerStudents: false, trainersWithDisability: false, completedAt: "2026-10-08",
+      },
+    },
+  };
+  for (const f of vt.sections.flatMap((s) => s.fields)) {
+    const meta = f.table?.vt;
+    if (!meta || !f.table?.matrix) continue;
+    const rows = meta.progressiveRows || meta.isRoster ? f.table.matrix.slice(0, 1) : f.table.matrix;
+    for (const rowIds of rows) {
+      rowIds.forEach((id, c) => {
+        const kind = meta.cells[c].kind;
+        if (kind === "number") data[id] = "0";
+        else if (kind === "text") data[id] = "Texte";
+        else if (kind === "boolean") data[id] = false;
+        else if (kind === "radioCode") data[id] = meta.cells[c].options?.[0]?.value ?? "1";
+      });
+    }
+  }
+  return data;
+}
+
+test("a complete training-centre declaration (questions, quiz, tables): no validation issue", () => {
+  assert.deepEqual(validateEntityData(vt, completeDeclaration(), "fr"), []);
 });
 
 test("an unanswered required question is an issue, an empty tick list included", () => {
-  const data = completeAnswers();
+  const data = completeDeclaration();
   delete data.VT2_19;
   data.VT2_18 = [];
   const ids = validateEntityData(vt, data, "fr").map((i) => i.fieldId);

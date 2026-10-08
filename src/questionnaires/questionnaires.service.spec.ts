@@ -8,10 +8,10 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 /**
- * A valid answer to every required training-centre question, read from the
- * generated schema so it follows the questionnaire: a final VT submission
- * must answer them all. Parents take their first option ("Oui"), so their
- * follow-ups are shown and answered too.
+ * A complete final training-centre submission, read from the generated
+ * schema so it follows the questionnaire: every required question answered
+ * (parents take their first option, "Oui", so follow-ups are answered too)
+ * and every table carrying its status and, when reported, its cells.
  */
 function completeVtAnswers(): Record<string, unknown> {
   const schema = JSON.parse(readFileSync(join(process.cwd(), 'assets', 'schemas', 'onefop.schema.json'), 'utf8'));
@@ -26,6 +26,33 @@ function completeVtAnswers(): Record<string, unknown> {
       else if (f.type === 'tel') out[f.id] = '677000000';
       else if (f.type === 'email') out[f.id] = 'centre@test.cm';
       else out[f.id] = first ?? 'Réponse';
+    }
+  }
+  // Tables, as the web form submits them after a preliminary quiz answered
+  // "Non" throughout: quiz-governed tables NONE (fixed rows zeros, row-by-row
+  // tables no rows), 4.6 NONE (2.1.14's first option is FI only when ticked —
+  // here it is, so REPORTED), every other table REPORTED and filled.
+  const quizTables = new Set(['VT4_3', 'VT4_4', 'VT4_9', 'VT4_11', 'VT4_10', 'VT6_13', 'VT8_6']);
+  for (const section of schema.entities.vocationalTraining.sections) {
+    for (const f of section.fields) {
+      const vt = f.table?.vt;
+      if (!vt || !f.table.matrix) continue;
+      const rowByRow = vt.progressiveRows || vt.isRoster;
+      if (quizTables.has(f.id)) {
+        out[`${f.id}_RESPONSE_STATUS`] = 'NONE';
+        if (!rowByRow) for (const rowIds of f.table.matrix) for (const id of rowIds) out[id] = 0;
+        continue;
+      }
+      out[`${f.id}_RESPONSE_STATUS`] = 'REPORTED';
+      for (const rowIds of rowByRow ? f.table.matrix.slice(0, 1) : f.table.matrix) {
+        rowIds.forEach((id: string, c: number) => {
+          const kind = vt.cells[c].kind;
+          if (kind === 'number') out[id] = '0';
+          else if (kind === 'text') out[id] = 'Texte';
+          else if (kind === 'boolean') out[id] = false;
+          else if (kind === 'radioCode') out[id] = vt.cells[c].options?.[0]?.value ?? '1';
+        });
+      }
     }
   }
   return out;
@@ -596,6 +623,21 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     } as any).catch((e) => e);
     expect(error).toBeInstanceOf(BadRequestException);
     expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT2_19', 'VT2_18']));
+  });
+
+  it('rejects a final VT submission whose table has no quiz status, or a reported table left empty', async () => {
+    const prisma = buildMockPrisma();
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+    const data: Record<string, unknown> = { ...completeVtAnswers(), ...respondentFlat };
+    delete data.VT4_9_RESPONSE_STATUS; // quiz never answered for 4.9
+    data.VT4_3_RESPONSE_STATUS = 'REPORTED'; // quiz said Oui for 4.3, but no row was entered
+
+    const error = await service.submitQuestionnaire({
+      formId: 'vt-form-final-tables', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false, data,
+    } as any).catch((e) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT4_9_RESPONSE_STATUS', 'VT4_3']));
   });
 
   it('a closed centre only answers Section 1: Sections 2–9 are not required', async () => {

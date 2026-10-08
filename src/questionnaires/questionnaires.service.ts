@@ -1992,6 +1992,12 @@ export class QuestionnairesService {
         missingFields.push(field.id);
         schemaLabels[field.id] = `${field.label.fr} / ${field.label.en}`;
       }
+      // Tables: the status the preliminary quiz decided, and the cells of
+      // every reported table (same rule as the web form).
+      for (const { id, table } of this.shadowValidator.incompleteVtTables(flat)) {
+        missingFields.push(id);
+        schemaLabels[id] = `${table.label.fr} / ${table.label.en}`;
+      }
     }
     // Only require the response-status fields that actually exist in this
     // entity's compiled schema — see FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY.

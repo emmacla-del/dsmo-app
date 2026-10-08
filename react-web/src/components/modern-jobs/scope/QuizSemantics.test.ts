@@ -268,21 +268,7 @@ test("12. the exact submit payload carries statuses and numeric zeros; drafts sh
 });
 
 // ── Deferred entities ──────────────────────────────────────────────────────
-test("Vocational Training: all tables REPORTED, scope meta-keys stripped", () => {
-  const e = entity("vocationalTraining");
-  const data = withScope(ALL_NO);
-  const out = prepareSubmissionData(e, data);
-  // Scope meta-key must be stripped even though VT has no quiz.
-  assert.equal(out._scopeConfig, undefined, "scope config stripped for VT");
-  // No quiz issues with empty data.
-  assert.deepEqual(quizIssues(e, {}), []);
-  // Every table the VT schema defines must carry REPORTED status.
-  for (const [code, field] of buildEntityTableIndex(e)) {
-    if (code !== field.id.toUpperCase()) continue;
-    const statusKey = resolveTableStatusFieldId(field, data);
-    assert.equal(out[statusKey], "REPORTED", `VT ${code} should be REPORTED`);
-  }
-});
+// Training-centre quiz semantics: src/lib/vt-quiz.test.ts.
 
 test("PP without a completed quiz config — scope stripped, other keys preserved, validation will block submit", () => {
   const e = entity("projectProgram");
