@@ -22,6 +22,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+export const DATASET_SCHEMA_VERSION = 2;
+
 // ── Pivot configs for the ONEFOP export ─────────────────────────────────────
 // These 10 breakdown tables have a small, fixed set of categories (CSP ×
 // gender × age-band, etc.), so each distinct combination becomes its own
@@ -732,15 +734,18 @@ export class DataManagementService {
     /// (Pass A, see the comment above ENUM_PIVOT_MODELS), never the
     /// submissions' own data. Call this first, then stream the CSV via
     /// streamApprovedOnefopSubmissionsCsv with the same filters.
-    async buildSpssManifest(filters: OnefopExportFilters, territory?: Territory): Promise<{ sps: string }> {
+    async buildSpssManifest(filters: OnefopExportFilters, territory?: Territory): Promise<{ sps: string; schemaVersion: number }> {
         const where = this.buildSpssWhere(filters, territory);
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
-            return { sps: this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv') };
+            return {
+                sps: this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv'),
+                schemaVersion: DATASET_SCHEMA_VERSION,
+            };
         }
         const columns = await this.buildFlatColumns(where);
-        return { sps: this.buildSpssSyntax(columns, 'onefop_submissions.csv') };
+        return { sps: this.buildSpssSyntax(columns, 'onefop_submissions.csv'), schemaVersion: DATASET_SCHEMA_VERSION };
     }
 
     /// The data half — writes the CSV straight to the HTTP response as it's
@@ -763,6 +768,7 @@ export class DataManagementService {
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.csv"');
+            res.setHeader('X-Dataset-Schema-Version', String(DATASET_SCHEMA_VERSION));
             res.write('﻿' + variables.map((v) => this.csvEscape(v.labelFr)).join(',') + '\r\n');
 
             const BATCH_SIZE = 250;
@@ -805,6 +811,7 @@ export class DataManagementService {
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.csv"');
+        res.setHeader('X-Dataset-Schema-Version', String(DATASET_SCHEMA_VERSION));
         // Leading BOM so SPSS/Excel autodetect UTF-8 and render accented
         // French headers ("Année d'enquête", etc.) correctly on Windows —
         // matches the non-streaming export this replaced.
@@ -894,7 +901,7 @@ export class DataManagementService {
                 const adapter = this.canonicalAdapter;
                 const variables = adapter.getVariablesForPartition(partition);
                 writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), {
-                    fileLabel: 'CAM-LEAP / ONEFOP - Registre Analytique Canonique',
+                    fileLabel: `CAM-LEAP / ONEFOP - Registre Analytique Canonique (v${DATASET_SCHEMA_VERSION})`,
                 });
                 rowsOf = (batch) => batch.map((s) => variables.map((v) => adapter.extractValue(v, s)));
             } else {
@@ -932,6 +939,7 @@ export class DataManagementService {
 
             res.setHeader('Content-Type', 'application/x-spss-sav');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.sav"');
+            res.setHeader('X-Dataset-Schema-Version', String(DATASET_SCHEMA_VERSION));
             res.setHeader('Content-Length', String(fs.statSync(tmpSav).size));
             const fileStream = fs.createReadStream(tmpSav);
             fileStream.pipe(res);

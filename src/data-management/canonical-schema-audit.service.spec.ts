@@ -802,9 +802,45 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
 
     it('matrix numeric cells are SCALE', () => {
       const vars = adapter.getAllVariables();
-      const matrixVars = vars.filter((v) => v.sourcePath.startsWith('matrix.'));
-      const nonScale = matrixVars.filter((v) => v.measurementLevel !== 'SCALE');
+      const matrixNumericVars = vars.filter(
+        (v) => v.sourcePath.startsWith('matrix.') && v.spssDataType === 'NUMERIC' && !v.valueLabels,
+      );
+      const nonScale = matrixNumericVars.filter((v) => v.measurementLevel !== 'SCALE');
       expect(nonScale.length).toBe(0);
+    });
+
+    it('matrix non-numeric text and boolean cells are NOMINAL', () => {
+      const vars = adapter.getAllVariables();
+      const specialty = vars.find((v) => v.variableName === 's5q2_row1_specialtyText');
+      expect(specialty).toBeDefined();
+      expect(specialty!.spssDataType).toBe('A');
+      expect(specialty!.measurementLevel).toBe('NOMINAL');
+
+      const hasCurric = vars.find((v) => v.variableName === 's5q2_row1_hasCurriculum');
+      expect(hasCurric).toBeDefined();
+      expect(hasCurric!.spssDataType).toBe('NUMERIC');
+      expect(hasCurric!.measurementLevel).toBe('NOMINAL');
+      expect(hasCurric!.valueLabels).toBeDefined();
+      expect(hasCurric!.valueLabels!['0']).toContain('Non');
+      expect(hasCurric!.valueLabels!['1']).toContain('Oui');
+    });
+
+    it('excludes VT8_8 trainer roster PII variables from TVET and ALL exports', () => {
+      const allVars = adapter.getAllVariables();
+      const tvetVars = adapter.getTvetVariables();
+      const piiAll = allVars.filter((v) => v.sourcePath.includes('VT8_8') || v.variableName.startsWith('s8q8_'));
+      const piiTvet = tvetVars.filter((v) => v.sourcePath.includes('VT8_8') || v.variableName.startsWith('s8q8_'));
+      expect(piiAll.length).toBe(0);
+      expect(piiTvet.length).toBe(0);
+    });
+
+    it('system variables include schemaVersion with default value 2', () => {
+      const allVars = adapter.getAllVariables();
+      const schemaVer = allVars.find((v) => v.variableName === 'schemaVersion');
+      expect(schemaVer).toBeDefined();
+      expect(schemaVer!.paperCode).toBe('SYS_00');
+      expect(adapter.extractValue(schemaVer!, { submissionId: 'test-123' })).toBe(2);
+      expect(adapter.extractValue(schemaVer!, { schemaVersion: 1 })).toBe(1);
     });
 
     it('no text/string field is classified as SCALE', () => {
