@@ -502,13 +502,13 @@ async function runRail(browser) {
   );
   check(
     rail[1].ariaCurrent === "step",
-    "Declarant becomes the current step",
+    "Respondent becomes the current step",
     "aria-current=" + rail[1].ariaCurrent
   );
   const shown = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(
     shown === "reg-section-title-respondent",
-    "the frame now shows the Declarant section",
+    "the frame now shows the Respondent section",
     shown || ""
   );
   check(
@@ -547,7 +547,7 @@ async function runRail(browser) {
     rail[1].cls + " / " + rail[1].circleBorderStyle
   );
 
-  // Fill Declarant.
+  // Fill Respondent.
   await railItem(page, 2).click();
   await page.waitForTimeout(200);
   await page.fill("#reg-first-name", "Marie");
@@ -561,7 +561,7 @@ async function runRail(browser) {
   check(!rail[5].hasCheck, "Recapitulatif still shows no check");
   check(
     rail[1].cls === "is-currentComplete",
-    "Declarant reads as answered but is not pushed away (phone 2 is optional)",
+    "Respondent reads as answered but is not pushed away (phone 2 is optional)",
     rail[1].cls
   );
   check(
@@ -647,7 +647,7 @@ async function runRail(browser) {
   await page.waitForTimeout(450);
   check(
     (await page.inputValue("#reg-first-name").catch(() => "")) === "Marie",
-    "Confirm leaves the Declarant untouched"
+    "Confirm leaves the Respondent untouched"
   );
   const landed = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(landed === "reg-section-title-entityInfo", "Confirm lands on Informations", landed || "");
@@ -862,7 +862,7 @@ async function runRequiredOnly(browser) {
   for (const type of ENTITY_TYPES) {
     const moved = await openEntitySection(page, type);
     if (!moved) {
-      check(false, type + ": Declarant did not advance on required fields alone");
+      check(false, type + ": Respondent did not advance on required fields alone");
       continue;
     }
     // Fill section 3's required, visible fields and nothing else.
