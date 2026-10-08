@@ -1078,6 +1078,7 @@ export class QuestionnairesService {
             hasAccessRamps: v.hasAccessRamps ?? null,
             hasDirectorOffice: v.hasDirectorOffice ?? null,
             poBox: v.poBox ?? null,
+            poBoxCity: v.poBoxCity ?? null,
             email: v.email ?? null,
             website: v.website ?? null,
             isAccredited: v.isAccredited ?? null,
@@ -1176,6 +1177,7 @@ export class QuestionnairesService {
             hivRulesCoverStigmaOther: v.hivRulesCoverStigmaOther ?? null,
             hivRulesCoverHarassment: v.hivRulesCoverHarassment ?? null,
             hasDisciplinaryProcedures: v.hasDisciplinaryProcedures ?? null,
+            stakeholdersInformed: v.stakeholdersInformed ?? null,
             pupilsCommsChannels: v.pupilsCommsChannels ?? [],
             teachingStaffCommsChannels: v.teachingStaffCommsChannels ?? [],
             nonTeachingStaffCommsChannels: v.nonTeachingStaffCommsChannels ?? [],
@@ -1190,6 +1192,7 @@ export class QuestionnairesService {
             hivTransmissionEdInSyllabus: v.hivTransmissionEdInSyllabus ?? null,
             hivTransmissionEdExtracurricular: v.hivTransmissionEdExtracurricular ?? null,
             trainersDeliveredSexEd: v.trainersDeliveredSexEd ?? null,
+            trainersSexEdDomains: v.trainersSexEdDomains ?? [],
             trainersPassedOnToStudents: v.trainersPassedOnToStudents ?? null,
             heldParentOrientationSessions: v.heldParentOrientationSessions ?? null,
 

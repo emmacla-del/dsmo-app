@@ -705,6 +705,7 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hasAccessRamps', n['VT2_9']);
     setBool(r, 'hasDirectorOffice', n['VT2_10']);
     setIfPresent(r, 'poBox', n['VT2_11']);
+    setIfPresent(r, 'poBoxCity', n['VT2_11_CITY']);
     setIfPresent(r, 'email', n['VT2_12']);
     setIfPresent(r, 'website', n['VT2_13']);
     setBool(r, 'isAccredited', n['VT2_14']);
@@ -812,6 +813,7 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hivRulesCoverStigmaOther', n['VT7_4']);
     setBool(r, 'hivRulesCoverHarassment', n['VT7_5']);
     setBool(r, 'hasDisciplinaryProcedures', n['VT7_6']);
+    setBool(r, 'stakeholdersInformed', n['VT7_6_INFORMED']);
     // 7.1.3 — five string[] fields, always [] when absent, never null,
     // no channel enum (design note Decision 2, frozen).
     setStrArray(r, 'pupilsCommsChannels', n['VT7_7']);
@@ -828,6 +830,7 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hivTransmissionEdInSyllabus', n['VT7_18']);
     setBool(r, 'hivTransmissionEdExtracurricular', n['VT7_19']);
     setBool(r, 'trainersDeliveredSexEd', n['VT7_20']);
+    setStrArray(r, 'trainersSexEdDomains', n['VT7_20_DOMAINS']);
     setBool(r, 'trainersPassedOnToStudents', n['VT7_21']);
     setBool(r, 'heldParentOrientationSessions', n['VT7_22']);
 

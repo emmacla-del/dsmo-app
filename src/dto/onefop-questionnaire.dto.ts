@@ -956,6 +956,7 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsBoolean() hasAccessRamps?: boolean;
   @IsOptional() @IsBoolean() hasDirectorOffice?: boolean;
   @IsOptional() @IsString() @ToString() poBox?: string;
+  @IsOptional() @IsString() @ToString() poBoxCity?: string;
   @IsOptional() @IsString() @ToString() email?: string;
   @IsOptional() @IsString() @ToString() website?: string;
   @IsOptional() @IsBoolean() isAccredited?: boolean;
@@ -1058,6 +1059,7 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsBoolean() hivRulesCoverStigmaOther?: boolean;
   @IsOptional() @IsBoolean() hivRulesCoverHarassment?: boolean;
   @IsOptional() @IsBoolean() hasDisciplinaryProcedures?: boolean;
+  @IsOptional() @IsBoolean() stakeholdersInformed?: boolean;
   @IsOptional() @IsArray() @IsString({ each: true }) pupilsCommsChannels?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) teachingStaffCommsChannels?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) nonTeachingStaffCommsChannels?: string[];
@@ -1072,6 +1074,7 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsBoolean() hivTransmissionEdInSyllabus?: boolean;
   @IsOptional() @IsBoolean() hivTransmissionEdExtracurricular?: boolean;
   @IsOptional() @IsBoolean() trainersDeliveredSexEd?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) trainersSexEdDomains?: string[];
   @IsOptional() @IsBoolean() trainersPassedOnToStudents?: boolean;
   @IsOptional() @IsBoolean() heldParentOrientationSessions?: boolean;
 

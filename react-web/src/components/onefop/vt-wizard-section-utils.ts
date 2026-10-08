@@ -125,6 +125,7 @@ const SECTION_2_FINE_GROUPS: Record<string, string | null> = {
   VT2_9: "Accessibilité & Adressage postal",
   VT2_10: "Accessibilité & Adressage postal",
   VT2_11: "Accessibilité & Adressage postal",
+  VT2_11_CITY: "Accessibilité & Adressage postal",
   VT2_12: "Accessibilité & Adressage postal",
   VT2_13: "Accessibilité & Adressage postal",
   VT2_14: "Agrément de fonctionnement (Accreditation)",
@@ -196,12 +197,14 @@ const SECTION_3_FINE_GROUPS: Record<string, string | null> = {
 const SECTION_7_FINE_GROUPS: Record<string, string | null> = {
   VT7_1: "VBG & Discipline", VT7_2: "VBG & Discipline", VT7_3: "VBG & Discipline",
   VT7_4: "VBG & Discipline", VT7_5: "VBG & Discipline", VT7_6: "VBG & Discipline",
+  VT7_6_INFORMED: "VBG & Discipline",
   VT7_7: "VBG & Discipline", VT7_8: "VBG & Discipline", VT7_9: "VBG & Discipline",
   VT7_10: "VBG & Discipline", VT7_11: "VBG & Discipline",
   VT7_13: "Éducation Sexuelle & Orientation", VT7_14: "Éducation Sexuelle & Orientation",
   VT7_15: "Éducation Sexuelle & Orientation", VT7_16: "Éducation Sexuelle & Orientation",
   VT7_17: "Éducation Sexuelle & Orientation", VT7_18: "Éducation Sexuelle & Orientation",
   VT7_19: "Éducation Sexuelle & Orientation", VT7_20: "Éducation Sexuelle & Orientation",
+  VT7_20_DOMAINS: "Éducation Sexuelle & Orientation",
   VT7_21: "Éducation Sexuelle & Orientation", VT7_22: "Éducation Sexuelle & Orientation",
 };
 

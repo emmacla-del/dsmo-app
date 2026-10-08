@@ -51,6 +51,32 @@ describe('flat-key-normalizer — Vocational Training', () => {
     expect(detail['collaboratesWithCiopCosup']).toBe(false);
   });
 
+  // Items printed on the ASFOP 2025-2026 form that were added to the
+  // questionnaire: 2.1.10 Ville, the 7.1.3 Oui/Non and the 7.6 domains.
+  it('maps the 2.1.10 city, the 7.1.3 Oui/Non and the 7.6 domains to the Detail', () => {
+    const raw = {
+      VT2_11: '1234',
+      VT2_11_CITY: 'Bafoussam',
+      VT7_1: 'Oui/ Yes',
+      VT7_6_INFORMED: 'Oui/ Yes',
+      VT7_20: 'Oui/ Yes',
+      VT7_20_DOMAINS: ['Scolaire/ School', 'Professionnel/ Professional'],
+    };
+    const detail = buildNestedDto(normalizeFlatKeys(raw, 'vocationalTraining'), 'vocationalTraining')[
+      'vocationalTraining'
+    ] as Record<string, unknown>;
+    expect(detail['poBox']).toBe('1234');
+    expect(detail['poBoxCity']).toBe('Bafoussam');
+    expect(detail['stakeholdersInformed']).toBe(true);
+    expect(detail['trainersSexEdDomains']).toEqual(['Scolaire/ School', 'Professionnel/ Professional']);
+
+    const empty = buildNestedDto(normalizeFlatKeys({}, 'vocationalTraining'), 'vocationalTraining')[
+      'vocationalTraining'
+    ] as Record<string, unknown>;
+    expect(empty['stakeholdersInformed']).toBeUndefined();
+    expect(empty['trainersSexEdDomains']).toEqual([]);
+  });
+
   // §7.1.3 — missing/unselected ticks produce [], never null/omitted.
   it('defaults all five §7.1.3 comms-channel fields to [] when nothing was sent, no channel enum', () => {
     const nested = buildNestedDto(normalizeFlatKeys({}, 'vocationalTraining'), 'vocationalTraining');

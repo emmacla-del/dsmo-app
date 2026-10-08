@@ -3573,6 +3573,17 @@ const section2VocationalTrainingQuestions = <FormQuestionAst>[
     type: AstFieldType.text,
     path: "vocationalTraining.poBox",
   ),
+  // ASFOP 2025-2026 form p.4, 2.1.10: "Boîte postale … Ville : ……" — the
+  // town the PO box belongs to, printed on the same line.
+  FormQuestionAst(
+    id: "VT2_11_CITY",
+    paperCode: "2.1.10",
+    label: LocalizedText(fr: "Ville", en: "City"),
+    sectionId: "section2_vocationalTraining",
+    order: 11,
+    type: AstFieldType.text,
+    path: "vocationalTraining.poBoxCity",
+  ),
   FormQuestionAst(
     id: "VT2_12",
     paperCode: "2.1.11",
@@ -5839,6 +5850,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     options: _vtYesNoOptions,
     path: "vocationalTraining.hasDisciplinaryProcedures",
   ),
+  // ASFOP 2025-2026 form p.14, 7.1.3: the stakeholder grid is preceded by
+  // its own printed "Oui / Non" — were stakeholders informed of the
+  // directives at all? Its "Si oui" refers to the directives of 7.1, so it
+  // is asked only when VT7_1 = Oui; the channel grid (VT7_7-11) only when
+  // this question is Oui.
+  FormQuestionAst(
+    id: "VT7_6_INFORMED",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Des parties prenantes de votre établissement ont-elles été "
+          "informées de ces mesures au cours de l'année scolaire ?",
+      en: "Were stakeholders of your school informed of these measures "
+          "during the school year?",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 6,
+    type: AstFieldType.radio,
+    options: _vtYesNoOptions,
+    dependsOn: "VT7_1",
+    dependsValue: "Oui/ Yes",
+    path: "vocationalTraining.stakeholdersInformed",
+  ),
   // 7.1.3 — Decision 2 (closed): 5 stakeholder rows. PDF (p.14) intro:
   // "Si oui, Veuillez indiquer, parmi les parties prenantes de votre
   // établissement ci-dessous, celles qui ont été informées des mesures et
@@ -5862,6 +5895,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 7,
     type: AstFieldType.checkbox,
+    dependsOn: "VT7_6_INFORMED",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.pupilsCommsChannels",
   ),
   FormQuestionAst(
@@ -5874,6 +5909,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 8,
     type: AstFieldType.checkbox,
+    dependsOn: "VT7_6_INFORMED",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.teachingStaffCommsChannels",
   ),
   FormQuestionAst(
@@ -5886,6 +5923,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 9,
     type: AstFieldType.checkbox,
+    dependsOn: "VT7_6_INFORMED",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.nonTeachingStaffCommsChannels",
   ),
   FormQuestionAst(
@@ -5898,6 +5937,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 10,
     type: AstFieldType.checkbox,
+    dependsOn: "VT7_6_INFORMED",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.parentsCommsChannels",
   ),
   FormQuestionAst(
@@ -5910,6 +5951,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 11,
     type: AstFieldType.checkbox,
+    dependsOn: "VT7_6_INFORMED",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.schoolCouncilCommsChannels",
   ),
   FormQuestionAst(
@@ -6104,6 +6147,31 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     type: AstFieldType.radio,
     options: _vtYesNoOptions,
     path: "vocationalTraining.trainersDeliveredSexEd",
+  ),
+  // ASFOP 2025-2026 form p.16, 7.6: "Si oui, relatif au domaine :
+  // Scolaire / Social / Profesionnel" — tick boxes, so several domains may
+  // apply.
+  FormQuestionAst(
+    id: "VT7_20_DOMAINS",
+    paperCode: "7.6",
+    label: LocalizedText(
+      fr: "Si oui, relatif au domaine :",
+      en: "If yes, in relation to:",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 20,
+    type: AstFieldType.checkbox,
+    options: [
+      LocalizedOption(
+          "Scolaire/ School", LocalizedText(fr: "Scolaire", en: "School")),
+      LocalizedOption(
+          "Social/ Social", LocalizedText(fr: "Social", en: "Social")),
+      LocalizedOption("Professionnel/ Professional",
+          LocalizedText(fr: "Professionnel", en: "Professional")),
+    ],
+    dependsOn: "VT7_20",
+    dependsValue: "Oui/ Yes",
+    path: "vocationalTraining.trainersSexEdDomains",
   ),
   FormQuestionAst(
     id: "VT7_21",
