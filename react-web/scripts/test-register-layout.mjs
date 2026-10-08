@@ -169,7 +169,7 @@ const measureControls = () => {
 // label box, because a two-line bilingual label must still align on line one.
 const measureLabelAlignment = () => {
   const rows = [];
-  for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+  for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
     const label = field.querySelector(":scope > label");
     const control = field.querySelector("input, select");
     if (!label || !control) continue;
@@ -678,7 +678,7 @@ const ENTITY_TYPES = [
 // prevent -- and which no screenshot would tell you about.
 const measureLabels = () => {
   const out = [];
-  for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+  for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
     const label = field.querySelector(":scope > label");
     if (!label) continue;
     const r = label.getBoundingClientRect();
@@ -702,7 +702,7 @@ const measureLabels = () => {
 
 const measureInputWidths = () => {
   const out = [];
-  for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+  for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
     const control = field.querySelector("input, select");
     if (!control) continue;
     const r = control.getBoundingClientRect();
@@ -868,7 +868,7 @@ async function runRequiredOnly(browser) {
     // Fill section 3's required, visible fields and nothing else.
     const filled = await page.evaluate(() => {
       const touched = [];
-      for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+      for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
         const control = field.querySelector("input, select");
         if (!control) continue;
         if (control.getAttribute("aria-required") !== "true") continue;
@@ -893,7 +893,7 @@ async function runRequiredOnly(browser) {
     await page.waitForTimeout(500);
 
     const untouchedOptional = await page.evaluate(() =>
-      [...document.querySelectorAll(".flow-frame-scroll .field")]
+      [...document.querySelectorAll(".wizard-section:not([hidden]) .field")]
         .map((f) => f.querySelector("input, select"))
         .filter((c) => c && c.getAttribute("aria-required") !== "true")
         .map((c) => ({ id: c.id, value: c.value }))

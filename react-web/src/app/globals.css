@@ -1040,7 +1040,9 @@ body {
   margin: 0;
 }
 
-/* Step 1. One list, not a card per option. The legend is .sr-only. */
+/* Step 1. One field row like every other step's: the group's name in the
+   label column, the choices stacked in the field column. No card per option
+   and no rule between them -- the other steps' fields have neither. */
 .cam-auth-page--wizard .entity-type-list {
   border: none;
   margin: 0;
@@ -1048,17 +1050,18 @@ body {
   min-width: 0;
 }
 
+/* Each option is one control-height row, with its first line centred where
+   an input's text sits -- the same calc the side label uses, so the label
+   "Type de structure" lines up with the first choice. */
 .cam-auth-page--wizard .entity-type-option {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: var(--cam-space-3);
-  padding: var(--cam-space-3) 0;
   margin: 0;
+  padding: calc((var(--cam-field-height) - (var(--cam-line-height-copy) * 1em)) / 2) 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-regular);
   cursor: pointer;
-}
-
-.cam-auth-page--wizard .entity-type-option + .entity-type-option {
-  border-top: 1px solid var(--cam-border);
 }
 
 .cam-auth-page--wizard .entity-type-option input {
@@ -1066,20 +1069,21 @@ body {
   width: var(--cam-choice-size);
   height: var(--cam-choice-size);
   flex: 0 0 auto;
+  margin: calc((var(--cam-line-height-copy) * 1em - var(--cam-choice-size)) / 2) 0 0;
   cursor: pointer;
-  align-self: center;
 }
 
 .cam-auth-page--wizard .entity-type-option-label {
-  font-size: var(--cam-font-size-sm);
   color: var(--cam-text);
   line-height: var(--cam-line-height-copy);
 }
 
+/* Under the option's name, not beside it: two lines of one choice rather
+   than a second, smaller label competing on the same line. */
 .cam-auth-page--wizard .entity-type-option-hint {
+  display: block;
   font-size: var(--cam-font-size-2xs);
   color: var(--cam-text-muted);
-  margin-left: var(--cam-space-2);
 }
 
 /* ── Field parts (FormRow.tsx) ──
@@ -1228,8 +1232,9 @@ body {
    even though the 600px frame had not changed width at all.
 
    Scoped to .cam-form-flow's descendants rather than .form-single-column:
-   it reaches every field in sections 2-5 and naturally excludes section 1's
-   radio list (a <fieldset> of <label> rows, no .field). */
+   it reaches every field in sections 1-5, section 1's radio group included
+   (one .field whose input column is the <fieldset>; its option <label>s are
+   not direct children of .field, so the side-label rule leaves them alone). */
 @container cam-form (min-width: 560px) {
 
   /* The COLUMN owns the tracks, and each .field is a subgrid of it.
