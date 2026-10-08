@@ -153,6 +153,9 @@ export default function RegisterPage() {
   const [reached, setReached] = useState(0);
   const [current, setCurrent] = useState(0);
   const [certified, setCertified] = useState(false);
+  // Set when Soumettre is pressed with the box unticked. The error it shows
+  // is re-derived from `certified`, so ticking the box clears it.
+  const [certifyFlagged, setCertifyFlagged] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   // Item 6: the rail only becomes a navigation once something on it is
   // clickable, so the line explaining that appears when the first circle
@@ -350,6 +353,25 @@ export default function RegisterPage() {
     return optional
       ? t("registerPage.optionalPlaceholder")
       : t("registerPage.selectPlaceholder");
+  }
+
+  // A list that failed to load is a dead end unless the respondent can ask
+  // for it again: the select alone only says "Échec du chargement". Shown
+  // under the select, and only once the failed request has settled.
+  function loadRetry(query: { isError: boolean; isFetching: boolean; refetch: () => unknown }) {
+    if (!query.isError || query.isFetching) return null;
+    return (
+      <p className="field-hint" role="alert">
+        {t("registerPage.loadErrorHint")}{" "}
+        <button
+          type="button"
+          className="load-retry-button"
+          onClick={() => void query.refetch()}
+        >
+          {t("registerPage.retryButton")}
+        </button>
+      </p>
+    );
   }
 
   // Which codes are long enough to need the middle width. Named by key
@@ -1454,6 +1476,7 @@ export default function RegisterPage() {
                     ))}
                   </select>
                 </div>
+                {loadRetry(regionsQuery)}
               </FormRow>
 
               <FormRow
@@ -1495,6 +1518,7 @@ export default function RegisterPage() {
                     ))}
                   </select>
                 </div>
+                {loadRetry(departmentsQuery)}
               </FormRow>
 
               <FormRow
@@ -1537,6 +1561,7 @@ export default function RegisterPage() {
                     ))}
                   </select>
                 </div>
+                {loadRetry(subdivisionsQuery)}
               </FormRow>
 
               <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required error={invalidProps("reg-area").message} errorId="reg-area-error">
@@ -1586,6 +1611,7 @@ export default function RegisterPage() {
                     ))}
                   </select>
                 </div>
+                {loadRetry(sectorsQuery)}
               </FormRow>
             </div>
           </>
@@ -1738,29 +1764,29 @@ export default function RegisterPage() {
               onEdit={(targetStep) => goToSection(STEPS.indexOf(targetStep))}
             />
 
-            {/* The flow's single primary action, gated on an explicit
-                certification rather than on having scrolled this far. */}
+            {/* The declaration on honour and its certification are one
+                statement, made once: the checkbox IS the declaration. The
+                submit button it gates is pinned in the frame footer, where
+                every other step keeps its primary action. */}
             <label className="certify-row">
               <input
+                id="reg-certify"
                 type="checkbox"
                 checked={certified}
+                aria-invalid={certifyFlagged && !certified ? true : undefined}
+                aria-describedby={certifyFlagged && !certified ? "reg-certify-error" : undefined}
                 onChange={(e) => setCertified(e.target.checked)}
               />
-              <span>{t("registerPage.certifyLabel")}</span>
+              <span>
+                <strong>{t("registerPage.honourDeclarationTitle")}</strong>{" "}
+                {t("registerPage.certifyLabel")}
+              </span>
             </label>
-
-            <div className="submit-row">
-              <button
-                type="button"
-                className="btn-primary btn-primary--inline btn-primary--submit"
-                onClick={handleSubmitPress}
-                disabled={!certified || submitting}
-              >
-                {submitting
-                  ? t("registerPage.submittingLabel")
-                  : t("registerPage.submitButton")}
-              </button>
-            </div>
+            {certifyFlagged && !certified && (
+              <p className="field-error certify-error" id="reg-certify-error">
+                {t("registerPage.certifyRequiredError")}
+              </p>
+            )}
           </>
         );
     }
@@ -1971,7 +1997,7 @@ export default function RegisterPage() {
                   data-flow-back
                   onClick={() => goToSection(current - 1)}
                 >
-                  <span aria-hidden="true">← </span>
+                  <span aria-hidden="true">←</span>
                   {t("registerPage.backButton")}
                 </button>
               )}
@@ -1994,7 +2020,35 @@ export default function RegisterPage() {
                   }}
                 >
                   {t("registerPage.continueButton")}
-                  <span aria-hidden="true"> →</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
+              {/* Soumettre: the review's primary action, in the same place
+                  as Continuer on every other step. aria-disabled rather
+                  than disabled until the box is ticked, for the same reason
+                  as Continuer: the click is how the respondent learns what
+                  is still missing. Truly disabled only while in flight. */}
+              {current === LAST_INDEX && (
+                <button
+                  type="button"
+                  className="btn-primary btn-primary--inline btn-primary--submit"
+                  aria-disabled={!certified || undefined}
+                  aria-busy={submitting || undefined}
+                  disabled={submitting}
+                  onClick={() => {
+                    if (!certified) {
+                      setCertifyFlagged(true);
+                      const box = document.getElementById("reg-certify");
+                      box?.focus();
+                      box?.scrollIntoView({ block: "nearest" });
+                      return;
+                    }
+                    handleSubmitPress();
+                  }}
+                >
+                  {submitting
+                    ? t("registerPage.submittingLabel")
+                    : t("registerPage.submitButton")}
                 </button>
               )}
             </div>

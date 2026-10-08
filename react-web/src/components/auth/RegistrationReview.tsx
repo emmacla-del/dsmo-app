@@ -14,11 +14,16 @@ import { summaryRows, type SummaryState } from "@/lib/register-summary";
 // its own hardcoded row list, so adding a field meant remembering to add it
 // here too -- and the collapsed line had no shared source at all. One source
 // means the review card and the collapsed line cannot disagree.
+//
+// The security section is not listed: the password is never shown, and the
+// sign-in identity it establishes is the email already printed under
+// Déclarant. The type gets its own block so it has its own edit link back to
+// step 1 rather than sending the respondent to step 3.
 const SUMMARISED_STEPS: RegistrationStepId[] = [
+  "entityType",
   "respondent",
   "entityInfo",
   "location",
-  "security",
 ];
 
 export function RegistrationReview({
@@ -35,10 +40,14 @@ export function RegistrationReview({
   const locale = asUiLocale(useLocale());
   const labelKeyFor = (step: RegistrationStepId) =>
     REGISTRATION_STEPS.find((s) => s.id === step)?.labelKey ?? step;
+  // Numbered as the step list and the rail number them, so "3. Informations"
+  // here is step 3 there.
+  const stepNumber = (step: RegistrationStepId) =>
+    REGISTRATION_STEPS.findIndex((s) => s.id === step) + 1;
 
   return (
     <div style={{ marginTop: "12px" }}>
-      {SUMMARISED_STEPS.map((step, index) => {
+      {SUMMARISED_STEPS.map((step) => {
         const rows = summaryRows(step, state, (key) => t(key), locale);
         if (rows.length === 0) return null;
         const sectionTitle = t(`registerPage.${labelKeyFor(step)}`);
@@ -47,7 +56,7 @@ export function RegistrationReview({
           <Fragment key={step}>
             <div className="review-header-row">
               <span className="review-section-title">
-                {index + 1}. {sectionTitle}
+                {stepNumber(step)}. {sectionTitle}
               </span>
               <button
                 type="button"
@@ -70,27 +79,11 @@ export function RegistrationReview({
                     <td className="value-cell">{row.value}</td>
                   </tr>
                 ))}
-                {/* Not an answer, so it is not a summary row: it is this
-                    card's own statement about where the declaration stands. */}
-                {step === "security" && (
-                  <tr>
-                    <td className="label-cell">{t("registerPage.reviewStatusLabel")}</td>
-                    <td className="value-cell value-cell--ready">
-                      {t("registerPage.reviewStatusReady")}
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </Fragment>
         );
       })}
-
-      {/* Official administrative declaration notice */}
-      <div className="review-honour-notice">
-        <strong>{t("registerPage.honourDeclarationTitle")}</strong>{" "}
-        {t("registerPage.honourDeclarationBody")}
-      </div>
     </div>
   );
 }
