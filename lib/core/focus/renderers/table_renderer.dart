@@ -1,6 +1,8 @@
 // lib/core/focus/renderers/table_renderer.dart
 
 import 'package:flutter/material.dart';
+import '../../i18n/localized_text.dart';
+import '../campaign_period.dart';
 import '../schema/field_schema.dart';
 import '../unified_focus_manager_v2.dart';
 import 'age_band_switch_table.dart';
@@ -409,6 +411,7 @@ class TableRenderer {
       locale: locale,
       rows: rows,
       statusless: rawStatuses is List && rawStatuses.isEmpty,
+      kpiPeriodLabels: (spec[kKpiPeriodLabelsKey] as List?)?.cast<LocalizedText>(),
     );
   }
 

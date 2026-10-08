@@ -8,8 +8,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/focus/campaign_period.dart';
 import '../../core/focus/onefop_form_loader.dart';
-import '../../core/i18n/localized_text.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/form_schema_v2.dart';
@@ -388,99 +388,40 @@ class OnefopFormController extends ChangeNotifier {
     }
   }
 
-  // Every question whose wording refers to the questionnaire's active
-  // data-collection period rather than a fixed date — S21Q01
-  // ("...du [X] au [Y]?") plus every sibling question sharing the same
-  // "...du premier Janvier 2025 à ce jour?" / "...du 1er Janvier 2025 à ce
-  // jour?" / "...from the 1st of January 2025 to the present day?"
-  // boilerplate (S22Q01-05, S23Q01-02, S3Q01, S3Q03, S4Q01). One resolver,
-  // reused by every question below — not a per-question mechanism.
+  // Every question whose wording refers to the questionnaire's
+  // data-collection period carries a placeholder date phrase in the AST
+  // (« du 1er Janvier 2026 à ce jour », « from 1st January 2026 to date », …);
+  // each is replaced by the active round's period, by pattern
+  // (core/focus/campaign_period.dart) rather than a list of question ids, so
+  // every period-based question is covered — including the project-programme
+  // PP_S4Q01-06 and the « to date » English variant an id/phrase list missed.
+  // The project-programme KPI table's column headers (S3 outcomes) get the
+  // same period through their tableSpec (TableSpecBuilder._buildKpiPeriod).
   // campaignPeriodStart/End come from the same SubmissionRound
   // (/onefop/active-quarter) that already gates entry to this screen (see
   // home_screen.dart's _openOnefopFormForCompany/_navigateToBlankForm), so
-  // there is no second campaign-period source to keep in sync.
-  static const List<String> kPeriodBasedQuestionIds = [
-    'S21Q01',
-    'S21Q02', // Administration S21Q02–S21Q04 (renumbered 2026-09-28)
-    'S21Q03',
-    'S21Q04',
-    'S22Q01',
-    'S22Q02',
-    'S22Q03',
-    'S22Q04',
-    'S22Q05_ENTERPRISE',
-    'S22Q05_OTHER',
-    'S23Q01',
-    'S23Q02',
-    'S3Q01',
-    'S3Q03',
-    'S4Q01',
-  ];
-
-  // The compile-time placeholder date-phrases these questions carry in the
-  // AST (see onefop_ast.dart) — swapped in place for the resolved campaign
-  // period. Two French variants exist for the same "1st of January" date;
-  // both are replaced. Missing here would mean a period-based question was
-  // added to the AST without being wired into kPeriodBasedQuestionIds, not
-  // that it's exempt from dynamic dates.
-  static const List<String> _kFrPeriodPhrases = [
-    "du premier Janvier 2025 à ce jour",
-    "du 1er Janvier 2025 à ce jour",
-    "du premier Janvier 2026 à ce jour",
-    "du 1er Janvier 2026 à ce jour",
-  ];
-  static const List<String> _kEnPeriodPhrases = [
-    "from the 1st of January 2025 to the present day",
-    "from the 1st of January 2026 to the present day",
-  ];
-
+  // there is no second campaign-period source to keep in sync. With no
+  // period the wording reads « non définie » / « not set » (the app's
+  // periodUndefined convention), never a made-up date.
   void _applyCampaignPeriodLabels(FormSchemaV2 s) {
-    final periodFr = _periodPhraseFr(campaignPeriodStart, campaignPeriodEnd);
-    final periodEn = _periodPhraseEn(campaignPeriodStart, campaignPeriodEnd);
-    for (final id in kPeriodBasedQuestionIds) {
-      final idx = s.fields.indexWhere((f) => f.id == id);
-      // -1 is expected for the S22Q05 entity-type variant that doesn't
-      // apply to this schema's entityType (e.g. S22Q05_ENTERPRISE is
-      // filtered out for a cooperative/CTD/ONG schema).
-      if (idx == -1) continue;
-      final label = s.fields[idx].label;
-      if (label == null) continue;
-      var fr = label.fr;
-      for (final phrase in _kFrPeriodPhrases) {
-        fr = fr.replaceAll(phrase, periodFr);
-      }
-      var en = label.en;
-      for (final phrase in _kEnPeriodPhrases) {
-        en = en.replaceAll(phrase, periodEn);
-      }
-      s.fields[idx] =
-          s.fields[idx].copyWith(label: LocalizedText(fr: fr, en: en));
+    for (var i = 0; i < s.fields.length; i++) {
+      final field = s.fields[i];
+      final label = field.label == null
+          ? null
+          : withCampaignPeriod(field.label!, campaignPeriodStart, campaignPeriodEnd);
+      final spec = field.tableSpec;
+      final isKpi = (spec?['template'] as String?)?.trim() == 'kpi_period_table';
+      if (identical(label, field.label) && !isKpi) continue;
+      s.fields[i] = field.copyWith(
+        label: label,
+        tableSpec: isKpi
+            ? {
+                ...spec!,
+                kKpiPeriodLabelsKey: kpiPeriodLabels(campaignPeriodStart, campaignPeriodEnd),
+              }
+            : null,
+      );
     }
-  }
-
-  static String _fmtCampaignDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  // Matches the fallback wording used elsewhere for an unset campaign date
-  // (see app_fr.arb/app_en.arb's periodUndefined) — reached only if this
-  // controller is ever constructed with no campaign period in context.
-  // Both real entry points (home_screen.dart's _openOnefopFormForCompany
-  // and _navigateToBlankForm) fetch and gate on the active campaign before
-  // constructing this controller, so in normal use this is unreachable —
-  // it exists so a future/offline caller fails visibly with the app's own
-  // "period undefined" convention rather than a fabricated date.
-  static const _undefined = LocalizedText(fr: 'non définie', en: 'not set');
-
-  static String _periodPhraseFr(DateTime? start, DateTime? end) {
-    final startText = start == null ? _undefined.fr : _fmtCampaignDate(start);
-    final endText = end == null ? _undefined.fr : _fmtCampaignDate(end);
-    return 'du $startText au $endText';
-  }
-
-  static String _periodPhraseEn(DateTime? start, DateTime? end) {
-    final startText = start == null ? _undefined.en : _fmtCampaignDate(start);
-    final endText = end == null ? _undefined.en : _fmtCampaignDate(end);
-    return 'from $startText to $endText';
   }
 
   // ═══════════════════════════════════════════════════════════

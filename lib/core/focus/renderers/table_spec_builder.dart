@@ -3,6 +3,7 @@
 import 'package:flutter/widgets.dart' show Locale;
 
 import '../../i18n/localized_text.dart';
+import '../campaign_period.dart';
 import 'grid_render_spec.dart';
 import 'grid_theme.dart';
 
@@ -18,6 +19,7 @@ class TableSpecBuilder {
     required Locale locale,
     List<String>? rows,
     bool statusless = false,
+    List<LocalizedText>? kpiPeriodLabels,
   }) {
     if (statusless) {
       // Administration S21Q03 (catégorie × sexe) / S21Q04 (nature × sexe).
@@ -75,7 +77,7 @@ class TableSpecBuilder {
         return _buildTraining(prefix, locale);
 
       case 'kpi_period_table':
-        return _buildKpiPeriod(prefix, locale);
+        return _buildKpiPeriod(prefix, locale, kpiPeriodLabels);
 
       default:
         return GridRenderSpec(
@@ -872,7 +874,8 @@ class TableSpecBuilder {
   // existing precedent is _buildInternship's shape (rowLabels + matrix,
   // no switchers, no categoryGridGroups).
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildKpiPeriod(String prefix, Locale locale) {
+  static GridRenderSpec _buildKpiPeriod(
+      String prefix, Locale locale, List<LocalizedText>? periodLabels) {
     const dataRows = ['employed', 'self_employed', 'jobs_created', 'trained'];
     const rowLabelsI18n = [
       LocalizedText(
@@ -893,20 +896,10 @@ class TableSpecBuilder {
       ),
     ];
     const periods = ['current', 'outlook_dec', 'outlook_june'];
-    const periodLabelsI18n = [
-      LocalizedText(
-        fr: 'Du 1er Janvier 2026 à ce jour',
-        en: 'From 1st January 2026 to date',
-      ),
-      LocalizedText(
-        fr: 'Perspectives au 31/12/2026',
-        en: 'Outlook at 31/12/2026',
-      ),
-      LocalizedText(
-        fr: 'Perspectives au 30/06/2026',
-        en: 'Outlook at 30/06/2026',
-      ),
-    ];
+    // The active round's period (core/focus/campaign_period.dart); they
+    // used to name 2026. A caller without a period gets the "not set"
+    // wording rather than a date.
+    final periodLabelsI18n = periodLabels ?? kpiPeriodLabels(null, null);
     final matrix = [
       for (final r in dataRows)
         [for (final p in periods) '${prefix}_${r}_$p'],
