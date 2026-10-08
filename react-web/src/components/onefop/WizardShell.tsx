@@ -691,6 +691,9 @@ export function WizardShell({
           locale={formLocale}
           onSubmitFinal={() => submitMutation.mutate()}
           isSubmitting={submitMutation.isPending}
+          canSubmit={canSubmit}
+          hasErrors={validationIssues.length > 0}
+          validationErrorCount={validationIssues.length}
           submissionResult={submissionResult}
           submissionId={submissionId}
           submissionError={submissionError}
@@ -821,7 +824,7 @@ export function WizardShell({
             )}
 
             <OnefopPdfPreviewModal
-          entity={entity}
+              entity={entity}
               isOpen={previewModalOpen}
               onClose={() => setPreviewModalOpen(false)}
               entityType={entityType}
@@ -830,6 +833,9 @@ export function WizardShell({
               locale={formLocale}
               onSubmitFinal={() => submitMutation.mutate()}
               isSubmitting={submitMutation.isPending}
+              canSubmit={canSubmit}
+              hasErrors={validationIssues.length > 0}
+              validationErrorCount={validationIssues.length}
               submissionResult={submissionResult}
               submissionId={submissionId}
               submissionError={submissionError}
@@ -1212,7 +1218,7 @@ export function WizardShell({
         )}
 
       <OnefopPdfPreviewModal
-          entity={entity}
+        entity={entity}
         isOpen={previewModalOpen}
         onClose={() => setPreviewModalOpen(false)}
         entityType={entityType}
@@ -1221,6 +1227,9 @@ export function WizardShell({
         locale={formLocale}
         onSubmitFinal={() => submitMutation.mutate()}
         isSubmitting={submitMutation.isPending}
+        canSubmit={canSubmit}
+        hasErrors={validationIssues.length > 0}
+        validationErrorCount={validationIssues.length}
         submissionResult={submissionResult}
         submissionId={submissionId}
         submissionError={submissionError}
