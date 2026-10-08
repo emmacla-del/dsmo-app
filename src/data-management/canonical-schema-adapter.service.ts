@@ -96,6 +96,14 @@ const ORDINAL_WHITELIST_KEYWORDS = [
   'tranche d_age',
 ];
 
+/**
+ * Version of the analytical dataset's shape (variables and their order).
+ * Bump it whenever variables are added, removed, renamed or reordered, so a
+ * script built on an earlier file can tell. 3: training-centre table status
+ * variables (<table>_RESPONSE_STATUS) added before each table's cells.
+ */
+export const DATASET_SCHEMA_VERSION = 3;
+
 @Injectable()
 export class CanonicalSchemaAdapterService {
   private readonly logger = new Logger(CanonicalSchemaAdapterService.name);
@@ -228,7 +236,7 @@ export class CanonicalSchemaAdapterService {
     if (sp === 'system.schemaVersion' || sp === 'submission.schemaVersion') {
       return submission.schemaVersion !== undefined
         ? submission.schemaVersion
-        : (Object.keys(submission).length === 0 ? undefined : 2);
+        : (Object.keys(submission).length === 0 ? undefined : DATASET_SCHEMA_VERSION);
     }
 
     // 1. Direct system variable paths
@@ -498,6 +506,12 @@ export class CanonicalSchemaAdapterService {
             continue;
           }
           if (field.table?.matrix && field.table.matrix.length > 0) {
+            // Training-centre tables: the status the preliminary quiz decided
+            // (REPORTED / NONE), stored as <table>_RESPONSE_STATUS. Without it a
+            // zero from a quiz "Non" looks the same as a typed zero.
+            if (field.table.vt && !CANONICAL_PII_EXCLUSIONS.has(field.id)) {
+              allVars.push(this.createVtTableStatusVariable(field, sec, usedNames, orderIndex++, root));
+            }
             const tableVars = this.expandMatrixTable(field, sec, usedNames, orderIndex, visitedCellIds, root);
             allVars.push(...tableVars);
             orderIndex += tableVars.length;
@@ -746,6 +760,35 @@ export class CanonicalSchemaAdapterService {
       sourcePath: s.sourcePath,
       orderIndex: order++,
     }));
+  }
+
+  private createVtTableStatusVariable(
+    field: SchemaField,
+    sec: SchemaSection,
+    usedNames: Set<string>,
+    orderIndex: number,
+    root: OnefopSchemaRoot,
+  ): AnalyticalVariableDefinition {
+    const statusId = `${field.id}_RESPONSE_STATUS`;
+    const titleFr = field.table?.vt?.title?.fr ?? field.label.fr;
+    const titleEn = field.table?.vt?.title?.en ?? field.label.en;
+    return {
+      variableName: this.generateSpssVariableName(statusId, usedNames),
+      paperCode: field.paperCode ?? field.id,
+      labelFr: `${titleFr} — statut`.slice(0, 256),
+      labelEn: `${titleEn} — status`.slice(0, 256),
+      sectionId: sec.id,
+      entityApplicability: this.findFieldApplicability(field.id, root),
+      spssDataType: 'A',
+      spssWidth: 20,
+      measurementLevel: 'NOMINAL',
+      valueLabels: {
+        REPORTED: 'Chiffres déclarés',
+        NONE: 'Aucun cas à signaler (réponse « Non » au questionnaire préliminaire)',
+      },
+      sourcePath: `vtStatus.${statusId}`,
+      orderIndex,
+    };
   }
 
   private createScalarVariable(

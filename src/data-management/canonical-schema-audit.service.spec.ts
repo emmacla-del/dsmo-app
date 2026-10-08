@@ -29,7 +29,7 @@
 //   §29 Bug-class regression (A through L)
 
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
-import { CanonicalSchemaAdapterService, DEMAND_SCHEMA_ENTITIES, TVET_SCHEMA_ENTITIES } from './canonical-schema-adapter.service';
+import { CanonicalSchemaAdapterService, DATASET_SCHEMA_VERSION, DEMAND_SCHEMA_ENTITIES, TVET_SCHEMA_ENTITIES } from './canonical-schema-adapter.service';
 import { CanonicalSchemaAuditService } from './canonical-schema-audit.service';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -834,13 +834,25 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
       expect(piiTvet.length).toBe(0);
     });
 
-    it('system variables include schemaVersion with default value 2', () => {
+    it('system variables include schemaVersion, defaulting to the current dataset version', () => {
       const allVars = adapter.getAllVariables();
       const schemaVer = allVars.find((v) => v.variableName === 'schemaVersion');
       expect(schemaVer).toBeDefined();
       expect(schemaVer!.paperCode).toBe('SYS_00');
-      expect(adapter.extractValue(schemaVer!, { submissionId: 'test-123' })).toBe(2);
+      expect(DATASET_SCHEMA_VERSION).toBe(3);
+      expect(adapter.extractValue(schemaVer!, { submissionId: 'test-123' })).toBe(DATASET_SCHEMA_VERSION);
       expect(adapter.extractValue(schemaVer!, { schemaVersion: 1 })).toBe(1);
+    });
+
+    it('each training-centre table (except the staff list) has a status variable just before its cells', () => {
+      const tvet = adapter.getTvetVariables();
+      const idx = tvet.findIndex((v) => v.variableName === 'VT4_3_RESPONSE_STATUS');
+      expect(idx).toBeGreaterThan(-1);
+      expect(tvet[idx + 1].sourcePath).toBe('matrix.VT4_3.s4q3_row1_specialtyText');
+      expect(tvet[idx].valueLabels).toEqual(expect.objectContaining({ REPORTED: expect.any(String), NONE: expect.any(String) }));
+      expect(adapter.extractValue(tvet[idx], { rawData: { VT4_3_RESPONSE_STATUS: 'NONE' } })).toBe('NONE');
+      expect(tvet.some((v) => v.variableName === 'VT8_8_RESPONSE_STATUS')).toBe(false);
+      expect(adapter.getDemandVariables().some((v) => v.variableName.startsWith('VT'))).toBe(false);
     });
 
     it('no text/string field is classified as SCALE', () => {
