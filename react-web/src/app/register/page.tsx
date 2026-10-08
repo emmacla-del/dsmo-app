@@ -1248,43 +1248,55 @@ export default function RegisterPage() {
               title={t("registerPage.entityTypeQuestion")}
             />
 
-            {/* The id the missing-fields prompt points at. A radio group has
-                no single control to flag, so the group carries the id and the
-                prompt focuses the first radio through firstEntityRadioRef. */}
-            <fieldset
-              id="reg-entity-type"
-              className="entity-type-list"
-              {...invalidProps("reg-entity-type")}
-            >
-              <legend className="sr-only">
-                {t("registerPage.entityTypeQuestion")}
-              </legend>
+            {/* Laid out as the other steps' fields are: the group's name in
+                the label column, the choices stacked in the field column,
+                through the same .form-single-column grid. A radio group has
+                no single control, so FormRow's label names it by id (no
+                htmlFor) and the fieldset is labelled by that.
 
-              {ENTITY_TYPE_OPTIONS.map((option, idx) => (
-                <label key={option.type} className="entity-type-option">
-                  <input
-                    ref={idx === 0 ? firstEntityRadioRef : undefined}
-                    type="radio"
-                    name="entityType"
-                    value={option.type}
-                    checked={entityType === option.type}
-                    onChange={() => requestEntityType(option.type)}
-                    aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
-                  />
-                  <span className="entity-type-option-label">
-                    {t(option.labelKey)}
-                    {option.hintKey && (
-                      <span
-                        id={`reg-entity-hint-${option.type}`}
-                        className="entity-type-option-hint"
-                      >
-                        {t(option.hintKey)}
+                The fieldset also carries the id the missing-fields prompt
+                points at; the prompt focuses the first radio through
+                firstEntityRadioRef. */}
+            <div className="form-single-column">
+              <FormRow
+                label={t("registerPage.entityTypeFieldLabel")}
+                labelId="reg-entity-type-label"
+                required
+              >
+                <fieldset
+                  id="reg-entity-type"
+                  className="entity-type-list"
+                  aria-labelledby="reg-entity-type-label"
+                  aria-required={true}
+                  {...invalidProps("reg-entity-type")}
+                >
+                  {ENTITY_TYPE_OPTIONS.map((option, idx) => (
+                    <label key={option.type} className="entity-type-option">
+                      <input
+                        ref={idx === 0 ? firstEntityRadioRef : undefined}
+                        type="radio"
+                        name="entityType"
+                        value={option.type}
+                        checked={entityType === option.type}
+                        onChange={() => requestEntityType(option.type)}
+                        aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
+                      />
+                      <span className="entity-type-option-label">
+                        {t(option.labelKey)}
+                        {option.hintKey && (
+                          <span
+                            id={`reg-entity-hint-${option.type}`}
+                            className="entity-type-option-hint"
+                          >
+                            {t(option.hintKey)}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </label>
-              ))}
-            </fieldset>
+                    </label>
+                  ))}
+                </fieldset>
+              </FormRow>
+            </div>
           </>
         );
 
@@ -1355,7 +1367,6 @@ export default function RegisterPage() {
                 htmlFor="reg-email"
                 label={t("registerPage.professionalEmailLabel")}
                 required
-                hint={t("registerPage.emailRoleHint")}
               >
                 <div className="input-row">
                   <input
