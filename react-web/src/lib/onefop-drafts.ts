@@ -9,9 +9,12 @@ import Dexie, { type Table } from "dexie";
 import type { FormData } from "./onefop-schema";
 
 export interface DraftRecord {
-  id: string;          // `${entityType}::${quarterCode}`
+  id: string;          // `${userId || "anon"}::${establishmentId || "default"}::${entityType}::${quarterCode}`
   entityType: string;
   quarterCode: string;
+  userId?: string;
+  establishmentId?: string;
+  formId?: string;
   data: FormData;
   updatedAt: number;
 }
@@ -28,6 +31,8 @@ class OnefopDraftsDb extends Dexie {
     this.version(2).stores({ drafts: null });
     // v3: recreate with the compound id key (entityType::quarterCode).
     this.version(3).stores({ drafts: "id, entityType, quarterCode" });
+    // v4: multi-tenant composite key with userId & establishmentId indexing (D8 fix).
+    this.version(4).stores({ drafts: "id, entityType, quarterCode, userId, establishmentId" });
   }
 }
 
@@ -37,32 +42,82 @@ class OnefopDraftsDb extends Dexie {
 export const draftsDb: OnefopDraftsDb | null =
   typeof window !== "undefined" ? new OnefopDraftsDb() : null;
 
-function draftId(entityType: string, quarterCode: string): string {
-  return `${entityType}::${quarterCode}`;
+export function draftId(
+  entityType: string,
+  quarterCode: string,
+  userId?: string | null,
+  establishmentId?: string | null,
+): string {
+  const u = userId?.trim() || "anon";
+  const e = establishmentId?.trim() || "default";
+  return `${u}::${e}::${entityType}::${quarterCode}`;
 }
 
-export async function loadDraft(entityType: string, quarterCode: string): Promise<FormData | null> {
+export async function loadDraft(
+  entityType: string,
+  quarterCode: string,
+  userId?: string | null,
+  establishmentId?: string | null,
+): Promise<{ data: FormData; formId?: string } | null> {
   if (!draftsDb) return null;
-  const record = await draftsDb.drafts.get(draftId(entityType, quarterCode));
-  return record?.data ?? null;
+  // Try tenant-scoped key first (v4)
+  const id = draftId(entityType, quarterCode, userId, establishmentId);
+  let record = await draftsDb.drafts.get(id);
+
+  // Migration fallback: if not found, check legacy v3 key (`${entityType}::${quarterCode}`)
+  if (!record) {
+    const legacyId = `${entityType}::${quarterCode}`;
+    const legacyRecord = await draftsDb.drafts.get(legacyId);
+    if (legacyRecord) {
+      record = legacyRecord;
+      // Re-save under tenant key and delete legacy record
+      await draftsDb.drafts.put({
+        ...legacyRecord,
+        id,
+        userId: userId || undefined,
+        establishmentId: establishmentId || undefined,
+      });
+      await draftsDb.drafts.delete(legacyId);
+    }
+  }
+
+  if (!record) return null;
+  return { data: record.data, formId: record.formId };
 }
 
 export async function saveDraft(
   entityType: string,
   quarterCode: string,
   data: FormData,
+  userId?: string | null,
+  establishmentId?: string | null,
+  formId?: string,
 ): Promise<void> {
   if (!draftsDb) return;
   await draftsDb.drafts.put({
-    id: draftId(entityType, quarterCode),
+    id: draftId(entityType, quarterCode, userId, establishmentId),
     entityType,
     quarterCode,
+    userId: userId || undefined,
+    establishmentId: establishmentId || undefined,
+    formId,
     data,
     updatedAt: Date.now(),
   });
 }
 
-export async function clearDraft(entityType: string, quarterCode: string): Promise<void> {
+export async function clearDraft(
+  entityType: string,
+  quarterCode: string,
+  userId?: string | null,
+  establishmentId?: string | null,
+): Promise<void> {
   if (!draftsDb) return;
-  await draftsDb.drafts.delete(draftId(entityType, quarterCode));
+  await draftsDb.drafts.delete(draftId(entityType, quarterCode, userId, establishmentId));
+}
+
+/** Purges all local drafts (used on user logout for shared computer safety). */
+export async function purgeAllDrafts(): Promise<void> {
+  if (!draftsDb) return;
+  await draftsDb.drafts.clear();
 }

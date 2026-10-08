@@ -135,6 +135,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout() {
     logoutRequest();
+    // D8 fix: Purge local drafts upon logout so user B on a shared computer
+    // cannot see or submit user A's figures
+    import("./onefop-drafts").then((m) => m.purgeAllDrafts().catch(() => {})).catch(() => {});
     set({ status: "unauthenticated", user: null, twoFactorChallengeToken: null });
   },
 

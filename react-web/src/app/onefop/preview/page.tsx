@@ -144,7 +144,13 @@ function OnefopDeclarationContent() {
   );
 
   const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed } =
-    useOnefopDraft(entityType, quarterQuery.data?.code ?? null, autofillData);
+    useOnefopDraft(
+      entityType,
+      quarterQuery.data?.code ?? null,
+      autofillData,
+      meQuery.data?.id,
+      companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : null,
+    );
 
   const entity = schema?.entities[entityType];
   const coherenceFlags = useMemo(
