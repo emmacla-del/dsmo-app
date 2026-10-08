@@ -143,7 +143,7 @@ function OnefopDeclarationContent() {
     [rawSchema, campaignPeriod],
   );
 
-  const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed } =
+  const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed, clearLocalDraft } =
     useOnefopDraft(
       entityType,
       quarterQuery.data?.code ?? null,
@@ -275,6 +275,7 @@ function OnefopDeclarationContent() {
             quarterCode={quarterCode}
             formId={formId}
             onSaveNow={handleSaveNow}
+            onSubmitted={clearLocalDraft}
             onCancel={() => router.push("/home")}
           />
           </CoherenceProvider>

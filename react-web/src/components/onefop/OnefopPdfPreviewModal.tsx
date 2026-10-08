@@ -326,12 +326,7 @@ export function OnefopPdfPreviewModal({
                   {isFr
                     ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément à vos réponses au questionnaire préliminaire.`
                     : `${zeroedTables.length} table(s) certified as null (0) according to your preliminary questionnaire responses.`}
-                </strong>{" "}
-                <span style={{ color: "#15803d", fontSize: 12 }}>
-                  {isFr
-                    ? "(Les données brutes saisies restent archivées pour traçabilité)."
-                    : "(All raw input data remains archived for auditability)."}
-                </span>
+                </strong>
               </span>
               <button
                 type="button"

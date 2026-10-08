@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormData } from "./onefop-schema";
-import { loadDraft, saveDraft } from "./onefop-drafts";
+import { clearDraft, loadDraft, saveDraft } from "./onefop-drafts";
 import { mergeWithAutofill } from "./onefop-autofill";
 
 export type DraftStatus = "loading" | "saving" | "saved" | "error";
@@ -180,6 +180,14 @@ export function useOnefopDraft(
     });
   }, []);
 
+  // Deletes this session's local draft under the same user/establishment-scoped
+  // key the autosave writes to — callers must not rebuild the key themselves.
+  const clearLocalDraft = useCallback(async () => {
+    const savedForQuarter = quarterCodeRef.current;
+    if (!savedForQuarter) return;
+    await clearDraft(entityTypeRef.current, savedForQuarter, userIdRef.current, establishmentIdRef.current);
+  }, []);
+
   const status: DraftStatus =
     !quarterCode || loadedEntityType !== entityType || loadedQuarterCode !== quarterCode
       ? "loading"
@@ -189,5 +197,5 @@ export function useOnefopDraft(
       ? "saving"
       : "saved";
 
-  return { data, onChange, status, formId: formIdRef.current, lastSavedAt, saveFailed: idbSaveFailed };
+  return { data, onChange, status, formId: formIdRef.current, lastSavedAt, saveFailed: idbSaveFailed, clearLocalDraft };
 }

@@ -219,20 +219,11 @@ export function submitDeclaration(
     body: JSON.stringify(
       buildSubmitPayload(backendEntityType, quarterCode, data, isDraft, entity, stableFormId),
     ),
-  }).catch((err: any) => {
-    // N1 fix: If the server returns 409 indicating duplicate submission for the same formId/establishment,
-    // this means the submission was already persisted successfully on a previous attempt.
-    const msg = String(err?.message || err || "");
-    const status = err?.status || err?.statusCode;
-    if (status === 409 || msg.includes("déjà été soumis") || msg.includes("already exists")) {
-      return {
-        success: true,
-        submissionId: stableFormId,
-        message: "Formulaire déjà soumis avec succès",
-      };
-    }
-    throw err;
   });
+  // A retry of the same formId is answered by the server with its original
+  // success (questionnaires.service.ts idempotency check). A 409 therefore
+  // always means a *different* declaration already exists for the quarter,
+  // and must reach the respondent as the error it is — never as a success.
 }
 
 // Raw shape of a single class-validator error, as questionnaires.service.ts
