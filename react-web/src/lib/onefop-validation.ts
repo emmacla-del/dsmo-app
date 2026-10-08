@@ -20,7 +20,7 @@ import {
   missingQuizFieldKeys,
   isEnteredValue,
 } from "@/components/onefop/tables/quizRequired";
-import { incompleteQuizQuestions, readQuizScope } from "@/components/modern-jobs/scope/QuizSemantics";
+import { incompleteQuizQuestions, readQuizScope, withQuizDerivedStatuses } from "@/components/modern-jobs/scope/QuizSemantics";
 import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
 
 export interface ValidationIssue {
@@ -237,10 +237,11 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
   const prefix = field.table?.id ?? field.id;
   const label = fieldLabel(field, locale);
 
-  // If table is gated by a response status and respondent declared NONE or NOT_APPLICABLE,
-  // the table is inactive and not an active required validation target.
+  // A table the quiz answered "Non" (NONE) is inactive and not a required
+  // validation target. "NOT_APPLICABLE" is no longer an answer: one left in an
+  // old draft counts as no status at all.
   const cleanId = field.id.replace(/_ENTERPRISE|_OTHER/i, "");
-  const responseStatus =
+  const rawStatus =
     data[`${field.id}_RESPONSE_STATUS`] ??
     data[`${field.id.toUpperCase()}_RESPONSE_STATUS`] ??
     data[`${field.id.toLowerCase()}_RESPONSE_STATUS`] ??
@@ -248,8 +249,9 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
     (field.paperCode ? data[`${field.paperCode.toUpperCase()}_RESPONSE_STATUS`] : undefined) ??
     data[`${cleanId}_RESPONSE_STATUS`] ??
     data[`${cleanId.toUpperCase()}_RESPONSE_STATUS`];
+  const responseStatus = rawStatus === "NOT_APPLICABLE" ? undefined : rawStatus;
 
-  if (responseStatus === "NONE" || responseStatus === "NOT_APPLICABLE") {
+  if (responseStatus === "NONE") {
     return issues;
   }
 
@@ -424,9 +426,12 @@ export function validateEntityData(
     }
   }
 
+  // Tables are checked as the submission will treat them: status from the
+  // quiz wherever the form holds none (or a leftover "NOT_APPLICABLE").
+  const tableView = withQuizDerivedStatuses(entity, data);
   for (const section of entity.sections) {
     if (isVtSectionWaived(section.id, data)) continue;
-    issues.push(...validateFields(section.fields, data, locale, territoryTree));
+    issues.push(...validateFields(section.fields, tableView, locale, territoryTree));
   }
 
   // V1: S3Q02 reason rows 2 and 3 — text field required when any count in

@@ -1369,11 +1369,17 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
     });
 
-    // 7. status = NOT_APPLICABLE, all cells blank -> valid (passes)
-    it('Test 7: status = NOT_APPLICABLE with all cells blank passes validation without error', () => {
+    // 7. status = NOT_APPLICABLE is no longer an answer -> refused like a missing status
+    it('Test 7: status = NOT_APPLICABLE is refused and named as a missing status', () => {
       const flat = createFlatBase('NOT_APPLICABLE');
-      // All cells are blank
-      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+      let error: any;
+      try {
+        callEnforce(entData, flat, 'enterprise');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.getResponse().missingFields).toContain('S21Q01_RESPONSE_STATUS');
     });
 
     // 8. 0 is accepted as valid, not treated as missing
@@ -1575,11 +1581,17 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         expect(() => callEnforce(ppData, flat, 'projectProgram')).toThrow(BadRequestException);
       });
 
-      it('Project/Program S4Q04-S4Q06 marked NONE or NOT_APPLICABLE pass with all cells blank', () => {
+      it('Project/Program S4Q04-S4Q06 marked NONE pass with all cells blank', () => {
         const flatNone = createPpFlatBase('S4Q04_RESPONSE_STATUS', 'NONE');
-        flatNone['S4Q05_RESPONSE_STATUS'] = 'NOT_APPLICABLE';
+        flatNone['S4Q05_RESPONSE_STATUS'] = 'NONE';
         flatNone['S4Q06_RESPONSE_STATUS'] = 'NONE';
         expect(() => callEnforce(ppData, flatNone, 'projectProgram')).not.toThrow();
+      });
+
+      it('Project/Program: a NOT_APPLICABLE status is refused', () => {
+        const flat = createPpFlatBase('S4Q04_RESPONSE_STATUS', 'NONE');
+        flat['S4Q05_RESPONSE_STATUS'] = 'NOT_APPLICABLE';
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).toThrow(BadRequestException);
       });
     });
 

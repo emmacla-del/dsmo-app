@@ -162,9 +162,9 @@ export function FieldRenderer({
   const hasError = !!errorMessage;
   const errorId = hasError ? `${field.id}-error` : undefined;
 
-  // Tables that have a `_RESPONSE_STATUS` gateway ask a yes/no question
-  // first; the grid only appears after "Oui". Project/Program tables and
-  // other ungated matrices render directly.
+  // Tables governed by the preliminary quiz appear only after its "Oui"
+  // (ConditionalTable). Project/Program tables and other ungated matrices
+  // render directly.
   if (field.type === "table" || field.type === "repeating_table") {
     const gated = tableHasGateway(field);
     const table = (
@@ -190,6 +190,7 @@ export function FieldRenderer({
         onChange={onChange}
         locale={locale}
         errorMessage={errorMessage}
+        onOpenScope={onOpenScope}
       >
         {table}
       </ConditionalTable>

@@ -328,7 +328,12 @@ const FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY: Record<string, readonly string[]> =
   vocationalTraining: [],
 };
 
-const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE', 'NOT_APPLICABLE']);
+// Table statuses a final submission may carry. Both come from the preliminary
+// quiz: REPORTED (Oui) or NONE (Non — the cells are zeros). NOT_APPLICABLE is
+// no longer an answer anyone can give, so a final submission carrying it is
+// treated like a missing status. It is still read when skipping rows of older
+// stored submissions.
+const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE']);
 
 // ============================================================
 // NORMALIZATION HELPER - Converts any entity type to uppercase

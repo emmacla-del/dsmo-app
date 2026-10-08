@@ -1,4 +1,3 @@
-export * from "./conditional/GatewayQuestion";
 export * from "./conditional/ConditionalTable";
 export * from "./conditional/ConditionalField";
 export * from "./conditional/ConditionalSection";
