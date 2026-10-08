@@ -130,4 +130,24 @@ describe('flat-key-normalizer — Projects & Programs', () => {
     const nested = buildNestedDto(normalized, 'administration');
     expect((nested['administration'] as any).hasProject).toBe(1);
   });
+
+  it('D1 fix: preserves 0 and "0" for headcount, vacancies, and count fields in buildNestedDto', () => {
+    // Enterprise S1Q10 / S1Q11
+    const entNormalized = normalizeFlatKeys({ permanentWorkers: '0', vacancies: 0 }, 'enterprise');
+    const entNested = buildNestedDto(entNormalized, 'enterprise');
+    expect((entNested['enterprise'] as any).permanentWorkers).toBe(0);
+    expect((entNested['enterprise'] as any).vacancies).toBe(0);
+
+    // Cooperative COOP_S1Q11 / COOP_S1Q12
+    const coopNormalized = normalizeFlatKeys({ permanentWorkers: 0, vacancies: '0' }, 'cooperative');
+    const coopNested = buildNestedDto(coopNormalized, 'cooperative');
+    expect((coopNested['cooperative'] as any).permanentWorkers).toBe(0);
+    expect((coopNested['cooperative'] as any).vacancies).toBe(0);
+
+    // CTD CTD_S1Q09 / CTD_S1Q10
+    const ctdNormalized = normalizeFlatKeys({ permanentWorkers: '0', vacancies: '0' }, 'ctd');
+    const ctdNested = buildNestedDto(ctdNormalized, 'ctd');
+    expect((ctdNested['ctd'] as any).permanentWorkers).toBe(0);
+    expect((ctdNested['ctd'] as any).vacancies).toBe(0);
+  });
 });
