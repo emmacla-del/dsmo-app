@@ -1662,14 +1662,14 @@ function setIfPresent(out: Record<string, unknown>, key: string, value: unknown)
     set(out, key, value);
 }
 
-/** Converts value to number via optional mapper, writes only if result !== 0. */
+/** Converts value to number via optional mapper, writes when result is a valid number. */
 function setNum(
     out: Record<string, unknown>,
     key: string,
     value: unknown,
     mapper?: (s: string) => number,
 ): void {
-    if (value === undefined || value === null) return;
+    if (value === undefined || value === null || value === '') return;
     let n: number;
     if (typeof value === 'number') {
         n = value;
@@ -1679,7 +1679,7 @@ function setNum(
         n = parseInt(String(value), 10);
         if (isNaN(n)) return;
     }
-    if (n !== 0) out[key] = n;
+    out[key] = n;
 }
 
 /** Coerces any value to a non-negative integer, defaulting to 0. */
