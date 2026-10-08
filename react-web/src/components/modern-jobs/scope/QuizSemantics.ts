@@ -11,7 +11,8 @@
 //         cells for CSP / age / type categories the quiz de-selected = 0
 //   question unanswered
 //       → nothing is derived; final submission is blocked instead
-//   NOT_APPLICABLE already recorded → kept, never zero-filled
+//   NOT_APPLICABLE left in an old draft → overridden: it is no longer an
+//       answer anyone can give, and the server refuses it
 //   table absent from the entity's schema → untouched
 //
 // An empty table is never evidence of NONE. The derived zeros exist only in
@@ -343,9 +344,7 @@ export function applyVocationalTrainingSemantics(entity: OnefopEntity, data: For
     seen.add(field);
 
     const statusKey = resolveTableStatusFieldId(field, data);
-    if (out[statusKey] !== "NOT_APPLICABLE") {
-      out[statusKey] = "REPORTED";
-    }
+    out[statusKey] = "REPORTED";
   }
 
   delete out._scopeConfig;
@@ -355,6 +354,35 @@ export function applyVocationalTrainingSemantics(entity: OnefopEntity, data: For
 }
 
 // ── Generic quiz semantics (all governed entities) ────────────────────────────
+
+/**
+ * The working form data with each quiz-governed table's status taken from the
+ * quiz answers wherever the stored status is missing or a leftover
+ * "NOT_APPLICABLE" — statuses only, no zero-filling. Lets validation check
+ * a table exactly as the submission will treat it, even when the quiz was
+ * answered before its statuses were written into the form.
+ */
+export function withQuizDerivedStatuses(entity: OnefopEntity, data: FormData): FormData {
+  if (!isQuizGovernedEntity(entity)) return data;
+  const scope = readQuizScope(data);
+  if (!scope) return data;
+  const index = buildEntityTableIndex(entity);
+  const hasTable = (code: string) => index.has(code.toUpperCase());
+  let out: FormData | null = null;
+  for (const field of new Set(index.values())) {
+    const codes = [field.id.toUpperCase(), (field.paperCode ?? "").toUpperCase()].filter(Boolean);
+    const tableCode = codes.find((c) => quizQuestionForTable(c) !== null);
+    if (!tableCode) continue;
+    const statusKey = resolveTableStatusFieldId(field, data);
+    const stored = data[statusKey];
+    if (stored === "REPORTED" || stored === "NONE") continue;
+    const status = deriveQuizTableStatus(tableCode, scope, hasTable);
+    if (!status) continue;
+    out = out ?? { ...data };
+    out[statusKey] = status;
+  }
+  return out ?? data;
+}
 
 /**
  * Applies the quiz's meaning to a copy of the form data for submission.
@@ -387,8 +415,6 @@ export function applyQuizDerivedTableSemantics(entity: OnefopEntity, data: FormD
     if (!tableCode) continue; // not governed by the quiz — no manufactured status
 
     const statusKey = resolveTableStatusFieldId(field, data);
-    if (data[statusKey] === "NOT_APPLICABLE") continue;
-
     const status = deriveQuizTableStatus(tableCode, scope, hasTable);
     if (!status) continue; // unanswered — final validation blocks the submission
 
@@ -417,9 +443,7 @@ export function applyQuizDerivedTableSemantics(entity: OnefopEntity, data: FormD
     const censusField = index.get("S21Q01");
     if (censusField) {
       const censusStatusKey = resolveTableStatusFieldId(censusField, data);
-      if (out[censusStatusKey] !== "NOT_APPLICABLE") {
-        out[censusStatusKey] = "REPORTED";
-      }
+      out[censusStatusKey] = "REPORTED";
     }
   }
 
@@ -460,9 +484,6 @@ export function getZeroedTablesList(entity: OnefopEntity, data: FormData): Zeroe
 
     const qId = quizQuestionForTable(code);
     if (!qId) continue;
-
-    const statusKey = resolveTableStatusFieldId(field, data);
-    if (data[statusKey] === "NOT_APPLICABLE") continue;
 
     const status = deriveQuizTableStatus(code, scope, hasTable);
     if (status === "NONE") {

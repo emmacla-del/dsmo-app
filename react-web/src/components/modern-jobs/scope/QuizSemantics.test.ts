@@ -143,14 +143,21 @@ test("4. quiz Yes + empty table stays REPORTED and incomplete — never NONE", (
   assert.ok(tableIssues.length > 0, "empty REPORTED table must block final submission");
 });
 
-// ── Test 5 (explicit NOT_APPLICABLE) ───────────────────────────────────────
-test("5. an explicit NOT_APPLICABLE is kept and never zero-filled", () => {
+// ── Test 5 (NOT_APPLICABLE is no longer an answer) ─────────────────────────
+test("5. a NOT_APPLICABLE left in an old draft is overridden by the quiz", () => {
   const e = entity("enterprise");
   const out = prepareSubmissionData(e, withScope(ALL_NO, { S22Q01_RESPONSE_STATUS: "NOT_APPLICABLE" }));
-  assert.equal(out.S22Q01_RESPONSE_STATUS, "NOT_APPLICABLE");
-  assert.equal(out.s22q01_cadres_male_15_24, undefined);
-  // Other tables still follow the quiz.
+  assert.equal(out.S22Q01_RESPONSE_STATUS, "NONE");
+  assert.equal(out.s22q01_cadres_male_15_24, 0);
   assert.equal(out.S22Q02_RESPONSE_STATUS, "NONE");
+});
+
+test("5b. a NOT_APPLICABLE left in an old draft does not exempt a table from validation", () => {
+  const e = entity("enterprise");
+  const s22 = e.sections.flatMap((s) => s.fields).find((f) => f.id === "S22Q01")!;
+  const data = withScope(RECRUIT_YES, { S22Q01_RESPONSE_STATUS: "NOT_APPLICABLE" });
+  const issues = validateEntityData(e, data, "fr").filter((i) => i.fieldId === s22.id);
+  assert.ok(issues.length > 0, "an empty S22Q01 must still be reported missing");
 });
 
 // ── Test 6 (structural absence) ────────────────────────────────────────────

@@ -224,7 +224,6 @@ export function EventFactInterview({
           const statusKey = resolveTableStatusFieldId(field, data);
           if (written.has(statusKey)) continue;
           written.add(statusKey);
-          if (data[statusKey] === "NOT_APPLICABLE") continue;
           onChange(statusKey, status);
         }
       }

@@ -38,8 +38,7 @@ function isTableField(f: OnefopField): boolean {
 function isTableNoneOrNa(f: OnefopField, data: FormData): boolean {
   if (!isTableField(f)) return false;
   const statusFieldId = resolveTableStatusFieldId(f, data);
-  const st = data[statusFieldId];
-  return st === "NONE" || st === "NOT_APPLICABLE";
+  return data[statusFieldId] === "NONE";
 }
 
 export function getSectionStatus(

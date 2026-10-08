@@ -98,7 +98,7 @@ function getFieldSpan(field: OnefopField): 1 | 2 | 3 | "full" {
  * Modernized SectionRenderer for the Modern Jobs Wizard (all non-VT entities).
  * Renders subsections inside structured FormSectionCard containers and arranges
  * questions in responsive CSS FormGrids (1-col mobile, 2-col tablet, 3-col desktop),
- * binds cascading administrative geography, and wraps statistical tables with GatewayQuestions.
+ * binds cascading administrative geography, and shows statistical tables as the preliminary quiz decides (ConditionalTable).
  */
 export function SectionRenderer({
   section,
@@ -225,8 +225,7 @@ export function SectionRenderer({
   const isTableFieldHiddenByScope = (field: OnefopField) => {
     if (field.type === "table" || field.type === "repeating_table" || !!field.table) {
       const statusFieldId = resolveTableStatusFieldId(field, data);
-      const status = data[statusFieldId];
-      return status === "NONE" || status === "NOT_APPLICABLE";
+      return data[statusFieldId] === "NONE";
     }
     return false;
   };
@@ -645,6 +644,7 @@ export function SectionRenderer({
                   entryMode={sectionEntryMode}
                   onEntryModeChange={setSectionEntryMode}
                   showTableModeToggle={false}
+                  onOpenScope={onOpenScope}
                 />
               </FormCol>
             );
