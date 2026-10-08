@@ -9,7 +9,9 @@ import {
   buildEntityTableIndex,
   incompleteQuizQuestions,
   tableNumericCellKeys,
+  getZeroedTablesList,
 } from "./QuizSemantics";
+import { cleanHiddenDependentFields } from "@/lib/onefop-schema";
 import { resolveTableStatusFieldId } from "../conditional/gateway-catalog";
 import { DEFAULT_SCOPE, type ScopeState } from "./ScopeTypes";
 
@@ -427,3 +429,74 @@ test("Administration: recruitment Yes with disability No → S21Q02 REPORTED, S2
   // A disability follow-up left unanswered blocks submission.
   assert.deepEqual(incompleteQuizQuestions(e, withScope({ ...scope, disability: null })), ["recruitment"]);
 });
+
+// ── D10: Certified Zero Transparency & D5: Visibility Invalidation ───────────
+test("D10: getZeroedTablesList lists all tables certified to zero via scoping quiz", () => {
+  const e = entity("enterprise");
+  // With ALL_NO, all optional tables in Enterprise should be certified to zero (NONE)
+  const zeroed = getZeroedTablesList(e, withScope(ALL_NO));
+  assert.ok(zeroed.length > 0, "Expected zeroed tables for ALL_NO scope");
+  // Every listed table must have tableId and title
+  for (const item of zeroed) {
+    assert.ok(item.tableId, "item must have tableId");
+    assert.ok(item.title, "item must have title");
+  }
+  const tableIds = zeroed.map((z) => z.code);
+  assert.ok(tableIds.includes("S22Q01"), "S22Q01 should be zeroed when recruit=false");
+  assert.ok(tableIds.includes("S3Q01"), "S3Q01 should be zeroed when departures=false");
+
+  // When all answers are Yes, recruitment tables should not be zeroed
+  const zeroedYes = getZeroedTablesList(e, withScope(RECRUIT_YES));
+  assert.equal(zeroedYes.some((z) => z.code === "S22Q01"), false, "S22Q01 should not be zeroed when recruit=true");
+
+  // VT without quiz has 0 zeroed tables via quiz
+  const vt = entity("vocationalTraining");
+  assert.deepEqual(getZeroedTablesList(vt, {}), []);
+});
+
+test("D5: cleanHiddenDependentFields removes values and matrix cells of conditionally hidden fields", () => {
+  const vt = entity("vocationalTraining");
+  // VT2_2 has visibility rule dependent on VT2_1 === "Oui/ Yes"
+  // VT3_2 depends on VT3_1 === "Oui/ Yes", and VT3_4 depends on VT3_3 which depends on VT3_1
+  const rawWithHidden: FormData = {
+    VT2_1: "Non/ No",
+    VT2_2: "Some residual data",
+    VT3_1: "Non/ No",
+    VT3_2: "Child data",
+    VT3_3: "Grandchild data",
+    VT3_4: "Great-grandchild data",
+    VT1_01: "CFP Yaounde",
+  };
+
+  const cleaned = cleanHiddenDependentFields(vt, rawWithHidden);
+  assert.equal(cleaned.VT2_1, "Non/ No");
+  assert.equal(cleaned.VT1_01, "CFP Yaounde");
+  assert.equal(cleaned.VT2_2, undefined, "VT2_2 must be pruned when VT2_1 is 'Non/ No'");
+  assert.equal(cleaned.VT3_2, undefined, "VT3_2 must be pruned when VT3_1 is 'Non/ No'");
+  assert.equal(cleaned.VT3_3, undefined, "VT3_3 must be pruned when VT3_1 is 'Non/ No'");
+  assert.equal(cleaned.VT3_4, undefined, "VT3_4 cascading dependency must be pruned");
+
+  // When VT2_1 is "Oui/ Yes" (or "Oui"), VT2_2 should be preserved
+  const rawWithVisible: FormData = {
+    VT2_1: "Oui/ Yes",
+    VT2_2: "Valid preserved data",
+    VT1_01: "CFP Yaounde",
+  };
+  const kept = cleanHiddenDependentFields(vt, rawWithVisible);
+  assert.equal(kept.VT2_2, "Valid preserved data", "VT2_2 must be preserved when VT2_1 is 'Oui/ Yes'");
+});
+
+test("D5: prepareSubmissionData prunes conditionally hidden fields from submission payload", () => {
+  const vt = entity("vocationalTraining");
+  const rawData: FormData = {
+    VT2_1: "Non/ No",
+    VT2_2: "Phantom data left behind",
+    VT1_01: "CFP Yaounde",
+  };
+
+  const submitted = prepareSubmissionData(vt, rawData);
+  assert.equal(submitted.VT2_1, "Non/ No");
+  assert.equal(submitted.VT1_01, "CFP Yaounde");
+  assert.equal(submitted.VT2_2, undefined, "prepareSubmissionData must prune hidden fields");
+});
+

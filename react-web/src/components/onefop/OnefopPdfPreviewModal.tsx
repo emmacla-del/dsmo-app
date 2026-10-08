@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
 import type { OnefopEntity } from "@/lib/onefop-schema";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
+import { getZeroedTablesList, type ZeroedTableInfo } from "@/components/modern-jobs/scope/QuizSemantics";
 
 interface OnefopPdfPreviewModalProps {
   /** Entity schema, so the preview shows the same quiz-derived data as the submission. */
@@ -53,6 +54,12 @@ export function OnefopPdfPreviewModal({
   const activeBlobRef = useRef<string | null>(null);
 
   const isFr = activeLocale === "fr";
+
+  const zeroedTables = useMemo(() => {
+    if (!entity) return [];
+    return getZeroedTablesList(entity, data as any);
+  }, [entity, data]);
+  const [showZeroedDetails, setShowZeroedDetails] = useState(false);
 
   // Keep activeLocale synced with prop when modal opens
   useEffect(() => {
@@ -298,6 +305,66 @@ export function OnefopPdfPreviewModal({
             </span>
           </p>
         </div>
+        {zeroedTables.length > 0 && (
+          <div
+            style={{
+              padding: "10px 20px",
+              background: "#f0fdf4",
+              borderBottom: "1px solid #bbf7d0",
+              fontSize: 13,
+              color: "#166534",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>
+                ℹ️{" "}
+                <strong>
+                  {isFr
+                    ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément à vos réponses au questionnaire préliminaire.`
+                    : `${zeroedTables.length} table(s) certified as null (0) according to your preliminary questionnaire responses.`}
+                </strong>{" "}
+                <span style={{ color: "#15803d", fontSize: 12 }}>
+                  {isFr
+                    ? "(Les données brutes saisies restent archivées pour traçabilité)."
+                    : "(All raw input data remains archived for auditability)."}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowZeroedDetails((prev) => !prev)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#166534",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                {showZeroedDetails
+                  ? isFr ? "Masquer le détail" : "Hide details"
+                  : isFr ? "Voir le détail" : "Show details"}
+              </button>
+            </div>
+            {showZeroedDetails && (
+              <div style={{ background: "#ffffff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #dcfce7", marginTop: 4 }}>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
+                  {zeroedTables.map((t: ZeroedTableInfo) => (
+                    <li key={t.code} style={{ marginBottom: 2 }}>
+                      <strong>{t.code}</strong> — {isFr ? t.nameFr : t.nameEn} (<em>{isFr ? "Certifié néant" : "Certified none"}</em>)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── PDF PREVIEW VIEWER AREA ── */}
         <div

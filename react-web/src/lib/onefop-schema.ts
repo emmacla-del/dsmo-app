@@ -175,7 +175,52 @@ export function isFieldVisible(field: OnefopField, data: FormData): boolean {
   if (visibility.dependsOperator === "contains") {
     return Array.isArray(trigger) && trigger.includes(visibility.dependsValue);
   }
+  if (typeof trigger === "string" && typeof visibility.dependsValue === "string") {
+    if (trigger === visibility.dependsValue) return true;
+    const prefix = visibility.dependsValue.split("/")[0].trim();
+    if (trigger === prefix || trigger.startsWith(prefix)) return true;
+  }
   return trigger === visibility.dependsValue;
+}
+
+/**
+ * Recursively removes values for fields that are conditionally hidden
+ * based on current parent answers (D5 fix).
+ * Prevents stale phantom values from surviving visibility toggles
+ * and leaking into submission totals.
+ */
+export function cleanHiddenDependentFields(
+  entity: OnefopEntity,
+  data: FormData,
+): FormData {
+  const cleaned: FormData = { ...data };
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 10) {
+    changed = false;
+    iterations++;
+    for (const sec of entity.sections) {
+      for (const field of sec.fields) {
+        if (!isFieldVisible(field, cleaned)) {
+          if (field.id in cleaned && cleaned[field.id] !== undefined) {
+            delete cleaned[field.id];
+            changed = true;
+          }
+          if (field.table?.matrix) {
+            for (const row of field.table.matrix) {
+              for (const cellId of row) {
+                if (cellId in cleaned && cleaned[cellId] !== undefined) {
+                  delete cleaned[cellId];
+                  changed = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return cleaned;
 }
 
 export function localized(text: LocalizedText | null, locale: "fr" | "en" = "fr"): string {

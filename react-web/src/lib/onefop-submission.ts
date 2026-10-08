@@ -4,7 +4,7 @@
 // onefop.controller.ts (draft) and src/questionnaires/
 // questionnaires.controller.ts (submit), both read directly this session.
 import { API_BASE_URL, ApiError, apiFetch, getToken, localeHeader } from "./api-client";
-import type { FormData, OnefopEntity } from "./onefop-schema";
+import { cleanHiddenDependentFields, type FormData, type OnefopEntity } from "./onefop-schema";
 import { applyQuizDerivedTableSemantics } from "@/components/modern-jobs/scope/QuizSemantics";
 
 export interface ActiveQuarter {
@@ -137,7 +137,8 @@ export function saveDraftToBackend(
  */
 export function prepareSubmissionData(entity: OnefopEntity | null | undefined, data: FormData): FormData {
   if (!entity) return { ...data };
-  return applyQuizDerivedTableSemantics(entity, data);
+  const cleaned = cleanHiddenDependentFields(entity, data);
+  return applyQuizDerivedTableSemantics(entity, cleaned);
 }
 
 /** The exact JSON body POSTed to /onefop/submit. */

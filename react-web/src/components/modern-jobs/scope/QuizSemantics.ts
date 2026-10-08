@@ -428,3 +428,57 @@ export function applyQuizDerivedTableSemantics(entity: OnefopEntity, data: FormD
   delete out._scopeAge;
   return out;
 }
+
+export interface ZeroedTableInfo {
+  code: string;
+  tableId?: string;
+  nameFr: string;
+  nameEn: string;
+  title?: { fr: string; en: string };
+  reason: "QUIZ_DECLARED_NONE" | "CATEGORY_DESELECTED";
+}
+
+/**
+ * Lists the statistical tables that the Preliminary Quiz
+ * marked as NONE (certified zeros for statistical reporting).
+ * Used by review screens and pre-submission modals for respondent transparency (D10).
+ */
+export function getZeroedTablesList(entity: OnefopEntity, data: FormData): ZeroedTableInfo[] {
+  if (!isQuizGovernedEntity(entity)) return [];
+  const scope = readQuizScope(data);
+  if (!scope) return [];
+
+  const index = buildEntityTableIndex(entity);
+  const hasTable = (code: string) => index.has(code.toUpperCase());
+  const seen = new Set<string>();
+  const list: ZeroedTableInfo[] = [];
+
+  for (const field of index.values()) {
+    const code = (field.paperCode || field.id).toUpperCase();
+    if (seen.has(code)) continue;
+    seen.add(code);
+
+    const qId = quizQuestionForTable(code);
+    if (!qId) continue;
+
+    const statusKey = resolveTableStatusFieldId(field, data);
+    if (data[statusKey] === "NOT_APPLICABLE") continue;
+
+    const status = deriveQuizTableStatus(code, scope, hasTable);
+    if (status === "NONE") {
+      const fr = field.label?.fr || code;
+      const en = field.label?.en || code;
+      list.push({
+        code,
+        tableId: code,
+        nameFr: fr,
+        nameEn: en,
+        title: { fr, en },
+        reason: "QUIZ_DECLARED_NONE",
+      });
+    }
+  }
+
+  return list;
+}
+
