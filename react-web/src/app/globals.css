@@ -771,21 +771,34 @@ body {
   margin: 0 auto;
 }
 
-/* The CAM-LEAP wordmark is hidden on this route: it is a second title on a
-   page whose real title is the section in the frame, and on a 680px laptop
-   it was costing the form a line it could not spare. The subtitle stays and
-   carries the identity on its own, on one line. */
-.cam-auth-page--wizard .brand-name {
-  display: none;
+/* The CAM-LEAP wordmark is not a title on this route -- the page's real
+   title is the section in the frame, and on a 680px laptop a wordmark line
+   was costing the form a line it could not spare. It shares the subtitle's
+   one line instead, so the platform is still named on a phone, where the
+   dossier panel that carries it on a wide screen is not shown. */
+.cam-auth-page--wizard .masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--cam-space-2);
+  min-width: 0;
+  margin: 0 0 var(--cam-space-3);
 }
 
-.cam-auth-page--wizard .masthead {
-  margin: 0 0 var(--cam-space-3);
+.cam-auth-page--wizard .brand-name {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-green-dark);
+  letter-spacing: normal;
 }
 
 /* One line, whatever the width: the subtitle is an identifier, not prose,
    and a second line here is a line the frame does not get. */
 .cam-auth-page--wizard .brand-sub {
+  min-width: 0;
+  margin: 0;
   font-size: var(--cam-font-size-xs);
   white-space: nowrap;
   overflow: hidden;
@@ -1360,6 +1373,11 @@ body {
   color: var(--cam-error);
 }
 
+.field-status.is-muted {
+  color: var(--cam-text-muted);
+  font-weight: var(--cam-font-weight-regular);
+}
+
 /* The once-per-step cascade note on the location section. */
 .cam-auth-page--wizard .cascade-note {
   font-size: var(--cam-field-hint-size);
@@ -1737,30 +1755,24 @@ body {
 }
 
 /* ── Reset notices ──
-   Pinned to the shell rather than the scrolling body: these report a change
-   made somewhere the respondent may have scrolled away from, so the notice
-   has to be visible wherever they are. */
+   A strip pinned to the frame, between the scrolling content and the
+   footer -- the same slot the missing-fields notice uses. It used to be a
+   floating toast fixed to the viewport, which on a phone sat on top of
+   Continuer and the footer links for its six seconds. Here it covers
+   nothing: the scroll area gives up its height while the notice is shown,
+   and it is still on screen wherever the respondent has scrolled to. */
 .cam-auth-page--wizard .wizard-snackbar-region {
-  position: fixed;
-  left: 50%;
-  bottom: var(--cam-space-5);
-  transform: translateX(-50%);
-  z-index: var(--cam-z-toast);
-  display: flex;
-  justify-content: center;
-  padding: 0 var(--cam-space-4);
-  pointer-events: none;
+  flex: 0 0 auto;
 }
 
 .cam-auth-page--wizard .wizard-snackbar {
-  background: var(--cam-text);
-  color: var(--cam-surface);
-  font-size: var(--cam-font-size-sm);
+  background: var(--cam-success-bg);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-ui);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  border-radius: var(--cam-radius-md);
-  box-shadow: var(--cam-card-shadow);
-  max-width: var(--cam-container-form);
+  padding: var(--cam-space-2) var(--cam-space-4);
 }
 
 /* ── Certification ──
@@ -2164,8 +2176,10 @@ body {
     display: none;
   }
 
+  /* Centred, like the rail of circles directly under it. */
   .cam-auth-page .progress-caption {
     display: block;
+    text-align: center;
   }
 }
 
