@@ -76,11 +76,11 @@ class FieldSchema {
     return trigger == dependsValue;
   }
 
-  /// Used to patch a compiled field's label with runtime content (e.g.
-  /// S21Q01's campaign-period wording — see
+  /// Used to patch a compiled field's label or tableSpec with runtime
+  /// content (e.g. the campaign-period wording and KPI headers — see
   /// OnefopFormController._applyCampaignPeriodLabels) without re-listing
   /// every other constructor argument at the call site.
-  FieldSchema copyWith({LocalizedText? label}) => FieldSchema(
+  FieldSchema copyWith({LocalizedText? label, Map<String, dynamic>? tableSpec}) => FieldSchema(
         id: id,
         path: path,
         type: type,
@@ -91,7 +91,7 @@ class FieldSchema {
         required: required,
         hint: hint,
         paperCode: paperCode,
-        tableSpec: tableSpec,
+        tableSpec: tableSpec ?? this.tableSpec,
         dependsOn: dependsOn,
         dependsValue: dependsValue,
         dependsOperator: dependsOperator,
