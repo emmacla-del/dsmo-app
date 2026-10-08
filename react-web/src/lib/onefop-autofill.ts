@@ -500,24 +500,50 @@ export function companyToInitialData(
 }
 
 /**
+ * Fields considered statistical or survey variables in Section 1 that respondents
+ * may update quarterly (e.g. employee count, sector, functional attributes).
+ * For these keys, draft data always takes precedence if already present.
+ */
+export const STATISTICAL_AUTOFILL_KEYS = new Set([
+  // Enterprise
+  "S1Q06", "S1Q07", "S1Q08", "S1Q10", "S1Q12",
+  // Cooperative
+  "COOP_S1Q07", "COOP_S1Q08", "COOP_S1Q10", "COOP_S1Q10_OTHER", "COOP_S1Q11",
+  // CTD
+  "CTD_S1Q07", "CTD_S1Q08", "CTD_S1Q09",
+  // ONG
+  "ONG_S1Q07", "ONG_S1Q08", "ONG_S1Q09", "ONG_S1Q10",
+  // Administration
+  "ADMIN_S1Q06", "ADMIN_S1Q07", "ADMIN_S1Q08",
+  // Project/Program
+  "PP_S1Q08", "PP_S1Q09", "PP_S1Q10", "PP_S1Q15",
+  // Vocational Training
+  "VT1_10", "VT1_11", "VT1_12", "VT1_13", "VT1_13_OTHER",
+]);
+
+/**
  * Merges a loaded draft with account registration autofill data.
  *
- * Registration data (initialData) always wins for any key it provides — it
- * represents the authoritative, live state of the company's identification
- * fields (name, address, phone, region, legal status). A stale draft value
- * for those fields must not survive a fresh registration update (D3 fix:
- * previously the draft took precedence, letting old phone/location values
- * ride through to SPSS).
+ * Registration data (initialData) wins for identification fields (Section 0
+ * respondent contact, establishment name, address, telephone, locality, region).
+ * A stale draft value for those fields must not survive a fresh registration update (D3 fix).
  *
- * Statistical fields (recruitment tables, workforce counts, etc.) are never
- * in initialData, so this inversion only affects identification sections and
- * the respondent contact block — the respondent's statistical work in the
- * draft is entirely preserved.
+ * For statistical / operational survey fields (e.g. quarterly headcount S1Q10, sector S1Q06,
+ * VT functional status), autofill operates as fill-if-absent only: existing draft values
+ * (including explicitly entered 0 or corrected sector) are fully preserved.
  */
 export function mergeWithAutofill(formData: FormData, initialData: FormData): FormData {
   const result: FormData = { ...formData };
   for (const [key, val] of Object.entries(initialData)) {
-    if (val !== undefined && val !== null && val !== "") {
+    if (val === undefined || val === null || val === "") continue;
+
+    if (STATISTICAL_AUTOFILL_KEYS.has(key)) {
+      // Fill-if-absent only for survey variables
+      if (result[key] === undefined || result[key] === null || result[key] === "") {
+        result[key] = val;
+      }
+    } else {
+      // Identification / statutory registry metadata: registration data wins
       result[key] = val;
     }
   }

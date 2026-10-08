@@ -336,3 +336,27 @@ test("mergeWithAutofill: registration data always wins for identification fields
   assert.equal(merged["S1Q02"], "Company Name From Account"); // filled (draft was empty)
   assert.equal(merged["S1Q04_REGION"], "Littoral"); // filled (missing from draft)
 });
+
+test("mergeWithAutofill: D2 fix preserves quarterly statistical inputs (headcount, sector) from draft", () => {
+  const existingDraft = {
+    S1Q10: "45", // quarterly headcount entered by respondent
+    S1Q06: "Secondaire", // corrected sector
+    VT1_12: "Fonctionnelle",
+  };
+
+  const registrationAutofill = {
+    S1Q10: "10", // old registration headcount
+    S1Q06: "Tertiaire", // old default
+    VT1_12: "Non-fonctionnelle",
+    S0Q01: "New Official Name",
+  };
+
+  const merged = mergeWithAutofill(existingDraft, registrationAutofill);
+
+  // Identity field: registration wins
+  assert.equal(merged["S0Q01"], "New Official Name");
+  // Statistical / survey variables: draft wins
+  assert.equal(merged["S1Q10"], "45");
+  assert.equal(merged["S1Q06"], "Secondaire");
+  assert.equal(merged["VT1_12"], "Fonctionnelle");
+});
