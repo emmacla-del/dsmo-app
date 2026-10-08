@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FormData, OnefopEntity, OnefopSchema } from "@/lib/onefop-schema";
-import { validateEntityData } from "@/lib/onefop-validation";
+import { validateEntityData, validateSectionData } from "@/lib/onefop-validation";
 import { buildSubmitPayload, prepareSubmissionData } from "@/lib/onefop-submission";
 import {
   buildEntityTableIndex,
   incompleteQuizQuestions,
   tableNumericCellKeys,
   getZeroedTablesList,
+  deriveQuizTableStatus,
 } from "./QuizSemantics";
 import { cleanHiddenDependentFields } from "@/lib/onefop-schema";
 import { resolveTableStatusFieldId } from "../conditional/gateway-catalog";
@@ -500,3 +501,25 @@ test("D5: prepareSubmissionData prunes conditionally hidden fields from submissi
   assert.equal(submitted.VT2_2, undefined, "prepareSubmissionData must prune hidden fields");
 });
 
+
+test("Continue gate: once the quiz has written its statuses, tables answered No raise no section issue", () => {
+  for (const name of ["enterprise", "cooperative", "ctd", "ong"]) {
+    const e = entity(name);
+    const index = buildEntityTableIndex(e);
+    const hasTable = (code: string) => index.has(code.toUpperCase());
+    // What ScopeConfigurationWizard.commitScopeToFormData writes into the working form state.
+    const data: FormData = withScope(ALL_NO);
+    for (const field of new Set(index.values())) {
+      const code = (field.paperCode || field.id).toUpperCase();
+      const status = deriveQuizTableStatus(code, ALL_NO, hasTable);
+      if (status) data[resolveTableStatusFieldId(field, data)] = status;
+    }
+    for (const section of e.sections.filter((s) => s.id !== "section0" && !s.id.startsWith("section1_"))) {
+      assert.deepEqual(
+        validateSectionData(section, data).map((i) => i.fieldId),
+        [],
+        `${name} ${section.id} must not block Continue when every quiz answer is No`,
+      );
+    }
+  }
+});
