@@ -730,11 +730,11 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
           // 8.3 Trainer age: 8 M, 4 F (matches 8.2)
           s8q3_age_25_39_male: '8',
           s8q3_age_25_39_female: '4',
-          // 8.5 Trainer status: 8 M (5 perm + 3 contract), 4 F (2 perm + 2 contract) (matches 8.2)
+          // 8.5 Trainer status: 8 M (5 perm + 3 part-time), 4 F (2 perm + 2 part-time) (matches 8.2)
           VT8_5_PERM_M: '5',
-          VT8_5_CONTRACT_M: '3',
+          VT8_5_VP_M: '3',
           VT8_5_PERM_F: '2',
-          VT8_5_CONTRACT_F: '2',
+          VT8_5_VP_F: '2',
         },
       } as any);
 
@@ -785,7 +785,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
 
           // Rule 9 mismatch: 8.2 has 7 M, 8.5 has 8 M
           VT8_5_PERM_M: '4',
-          VT8_5_CONTRACT_M: '4',
+          VT8_5_VP_M: '4',
         },
       } as any);
 

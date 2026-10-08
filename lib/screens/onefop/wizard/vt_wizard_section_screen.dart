@@ -808,24 +808,6 @@ bool _isVtWizardShortPairableField(FieldSchema f) =>
 /// thematic mini-cards. Matching that exactly would mean adding new,
 /// finer subsection labels to onefop_ast.dart for those fields — a real,
 /// bounded content change, just not done in this pass.
-/// §6.4 "Suivi de l'insertion des diplômés" (VT6_14/15/16 — the MINEFOP
-/// Collect wizard-redesign gap addition) is the one field group Figma
-/// gives its own bespoke visual (node 11:2168-2195 on the Suivi Post-
-/// Formation screen): three color-coded stat cards (green/yellow/red)
-/// plus a live stacked percentage bar, instead of the generic paired
-/// number-stepper rows every other field group uses. Matched by exact
-/// field-id set — narrow and deliberate, same precedent as
-/// vt_wizard_fields.dart's own _kVtStatusColorFieldId check — since
-/// there's no generic signal ("3 number fields in a group") that would
-/// safely distinguish this from any other 3-field number group.
-const _kVtInsertionStatsFieldIds = {'VT6_14', 'VT6_15', 'VT6_16'};
-
-bool _isVtInsertionStatsGroup(FieldGroup group) =>
-    group.fields.length == _kVtInsertionStatsFieldIds.length &&
-    group.fields
-        .map((f) => f.id)
-        .toSet()
-        .containsAll(_kVtInsertionStatsFieldIds);
 
 /// Identification's three fine-groups (see _kVtSection1FineGroups) are the
 /// only ones this function recognizes by identity to swap in Figma's own
@@ -900,14 +882,6 @@ Widget _vtWizardCardForGroup(
     heading = headingTrailing == null
         ? textWidget
         : Row(children: [Expanded(child: textWidget), headingTrailing]);
-  }
-  if (_isVtInsertionStatsGroup(group)) {
-    final content = <Widget>[
-      if (heading != null) ...[heading, const SizedBox(height: 16)],
-      VtWizardInsertionStatsCard(ctrl: ctrl, fields: group.fields),
-    ];
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch, children: content);
   }
   final content = <Widget>[];
   if (heading != null) {
@@ -1026,8 +1000,6 @@ const _kVtSection2FineGroups = <String, LocalizedText?>{
   'VT2_37': _kVtSection2Latrines, 'VT2_38': _kVtSection2Latrines,
   'VT2_39': _kVtSection2Latrines,
   'VT2_40': _kVtSection2Latrines, // 2.2.12 Latrines
-  'VT2_54': _kVtSection2Latrines,
-  'VT2_55': _kVtSection2Latrines, // cabin counts — same 2.2.12 topic
   'VT2_41': _kVtSection2Jeux, 'VT2_42': _kVtSection2Jeux,
   'VT2_43': _kVtSection2Ict,
   'VT2_44': _kVtSection2Ict,
@@ -1687,175 +1659,6 @@ class _VtWizardCategoryTabs extends StatelessWidget {
 /// three tinted mini-cards, each a role label over a dashed "Zone de
 /// signature / Stamp area" placeholder. Display-only (see
 /// _kVtSignaturesSectionId's doc comment above).
-/// §6.4's three color-coded stat boxes + live stacked percentage bar
-/// (Figma node 11:2168-2195) — see _isVtInsertionStatsGroup's doc
-/// comment for why this is its own widget instead of the generic
-/// paired-row layout. Each stat box's big number is a real, editable
-/// input over the same shared ctrl.ctrl[field.id] controller every
-/// other wizard number field uses — Figma's mockup shows a static
-/// number, but these are genuine data-entry fields (VT6_14/15/16), not
-/// read-only computed values, so the design's own "no visible input
-/// chrome" look would otherwise hide that they're answerable.
-class VtWizardInsertionStatsCard extends StatelessWidget {
-  final OnefopFormController ctrl;
-  final List<FieldSchema> fields;
-  const VtWizardInsertionStatsCard(
-      {super.key, required this.ctrl, required this.fields});
-
-  static const _colors = [
-    (bg: Color(0xFFE6F2ED), border: kAccent, text: kAccent),
-    (bg: Color(0xFFFFFCEB), border: Color(0xFFFCD116), text: kVtWizardInk),
-    (bg: Color(0xFFFFF5F5), border: Color(0xFFCE1126), text: Color(0xFFCE1126)),
-  ];
-
-  int _valueOf(FieldSchema f) {
-    final v = ctrl.data[f.id];
-    if (v == null) return 0;
-    if (v is int) return v;
-    return int.tryParse(v.toString()) ?? 0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final locale = context.loc;
-    return ValueListenableBuilder<int>(
-      valueListenable: ctrl.version,
-      builder: (context, _, __) {
-        final values = [for (final f in fields) _valueOf(f)];
-        final total = values.fold(0, (a, b) => a + b);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < fields.length; i++) ...[
-                  if (i != 0) const SizedBox(width: 16),
-                  Expanded(
-                      child: _VtWizardInsertionStatBox(
-                          ctrl: ctrl, field: fields[i], colors: _colors[i])),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              const LocalizedText(
-                      fr: "Visualisation du taux d'insertion",
-                      en: 'Insertion rate visualization')
-                  .of(locale),
-              style: const TextStyle(
-                  fontFamily: kVtWizardFontFamily,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: kVtWizardInk),
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 16,
-                child: total == 0
-                    ? Container(color: kVtWizardBackground)
-                    : Row(
-                        children: [
-                          for (var i = 0; i < values.length; i++)
-                            if (values[i] > 0)
-                              Expanded(
-                                flex: values[i],
-                                child: Container(color: _colors[i].border),
-                              ),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                for (var i = 0; i < fields.length; i++)
-                  Text(
-                    '${fields[i].label?.of(locale) ?? fields[i].id} '
-                    '(${total == 0 ? 0 : (values[i] * 100 / total).round()}%)',
-                    style: kVtWizardCaption,
-                  ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _VtWizardInsertionStatBox extends StatelessWidget {
-  final OnefopFormController ctrl;
-  final FieldSchema field;
-  final ({Color bg, Color border, Color text}) colors;
-  const _VtWizardInsertionStatBox(
-      {required this.ctrl, required this.field, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final locale = context.loc;
-    final c = ctrl.ctrl[field.id]!;
-    final fn = ctrl.fm.getNode(field.id);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.bg,
-        border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            (field.label?.of(locale) ?? field.id).toUpperCase(),
-            style: TextStyle(
-                fontFamily: kVtWizardFontFamily,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-                color: colors.text),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: c,
-                  focusNode: fn,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: TextStyle(
-                      fontFamily: kVtWizardFontFamily,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                      color: colors.text),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onTapOutside: (_) => ctrl.onBlur(field.id),
-                  onSubmitted: (_) => ctrl.onBlur(field.id),
-                ),
-              ),
-              Text(
-                const LocalizedText(fr: 'Diplômés', en: 'Graduates').of(locale),
-                style: kVtWizardBody.copyWith(color: kVtWizardInkSoft),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class VtWizardSignaturesCard extends StatelessWidget {
   const VtWizardSignaturesCard({super.key});
 

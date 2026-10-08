@@ -112,16 +112,15 @@ void main() {
   });
 
   testWidgets(
-      'Section 6: splits into 6.1, 6.2, 6.3, and 6.4 units, each with its '
-      'own distinct subsection label — 6.3 (VT6_13) has a real, distinct '
-      'printed title of its own, not a continuation of 6.2; 6.4 '
-      '(VT6_14-16) is the MINEFOP Collect wizard redesign gap addition '
-      '(graduate insertion status breakdown, no paper code)', (tester) async {
+      'Section 6: splits into 6.1, 6.2 and 6.3 units, each with its own '
+      'distinct subsection label — 6.3 (VT6_13) has a real, distinct '
+      'printed title of its own, not a continuation of 6.2; the official '
+      'form has no 6.4', (tester) async {
     final ctrl = await _controller();
     addTearDown(ctrl.dispose);
     final units = _unitsFor(ctrl, 'section6_vocationalTraining');
 
-    expect(units.length, 4);
+    expect(units.length, 3);
     expect(
       units[0].subsectionLabel,
       '6.1 Orientation professionnelle dans les centres de formation '
@@ -140,11 +139,6 @@ void main() {
     expect(units[1].fieldIds, ['VT6_7', 'VT6_10', 'VT6_11', 'VT6_12']);
     expect(units[2].fieldIds, ['VT6_13']);
     expect(units[2].subsectionLabel, '6.3 Sortants insérés par spécialité');
-    expect(units[3].fieldIds, ['VT6_14', 'VT6_15', 'VT6_16']);
-    expect(
-      units[3].subsectionLabel,
-      "6.4 Suivi de l'insertion des diplômés (année antérieure)",
-    );
   });
 
   testWidgets(
@@ -230,8 +224,6 @@ void main() {
       'VT8_5_VNP_F',
       'VT8_5_PERM_M',
       'VT8_5_PERM_F',
-      'VT8_5_CONTRACT_M',
-      'VT8_5_CONTRACT_F',
     ]);
     expect(vt85.shortLabel, '8.5');
     expect(units.map((u) => u.subsectionLabel).toSet().length, 8);

@@ -1107,8 +1107,6 @@ export class QuestionnairesService {
             latrineTypes: v.latrineTypes ?? [],
             latrinesSeparateByGender: v.latrinesSeparateByGender ?? null,
             latrinesSeparateFromStaff: v.latrinesSeparateFromStaff ?? null,
-            latrineCabinTotalCount: v.latrineCabinTotalCount ?? null,
-            latrineCabinGirlsCount: v.latrineCabinGirlsCount ?? null,
             hasPlayground: v.hasPlayground ?? null,
             playgroundTypes: v.playgroundTypes ?? [],
             hasIctTools: v.hasIctTools ?? null,
@@ -1171,9 +1169,6 @@ export class QuestionnairesService {
             hasInsertionSupportUnit: v.hasInsertionSupportUnit ?? null,
             hasTraineeDatabaseTool: v.hasTraineeDatabaseTool ?? null,
             hasJobSearchSupportTool: v.hasJobSearchSupportTool ?? null,
-            insertedFormalSectorCount: v.insertedFormalSectorCount ?? null,
-            insertedInformalSectorCount: v.insertedInformalSectorCount ?? null,
-            seekingEmploymentCount: v.seekingEmploymentCount ?? null,
 
             hasHivAidsRules: v.hasHivAidsRules ?? null,
             hivRulesCoverSafety: v.hivRulesCoverSafety ?? null,
@@ -1204,8 +1199,6 @@ export class QuestionnairesService {
             vacataireNonProfFemale: v.vacataireNonProfFemale ?? null,
             permanentMale: v.permanentMale ?? null,
             permanentFemale: v.permanentFemale ?? null,
-            contractualMale: v.contractualMale ?? null,
-            contractualFemale: v.contractualFemale ?? null,
 
             facesDifficulties: v.facesDifficulties ?? null,
             difficultyTypes: v.difficultyTypes ?? [],
@@ -1935,8 +1928,8 @@ export class QuestionnairesService {
 
     // Rule 9: 8.2 total = 8.5 total (male, female)
     const t85 = {
-      male: n('VT8_5_VP_M') + n('VT8_5_VNP_M') + n('VT8_5_PERM_M') + n('VT8_5_CONTRACT_M'),
-      female: n('VT8_5_VP_F') + n('VT8_5_VNP_F') + n('VT8_5_PERM_F') + n('VT8_5_CONTRACT_F'),
+      male: n('VT8_5_VP_M') + n('VT8_5_VNP_M') + n('VT8_5_PERM_M'),
+      female: n('VT8_5_VP_F') + n('VT8_5_VNP_F') + n('VT8_5_PERM_F'),
     };
     (['male', 'female'] as const).forEach((gender) => {
       const gLabel = gender === 'male' ? 'hommes' : 'femmes';

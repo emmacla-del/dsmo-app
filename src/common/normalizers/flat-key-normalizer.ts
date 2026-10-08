@@ -734,8 +734,6 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setStrArray(r, 'latrineTypes', n['VT2_38']);
     setBool(r, 'latrinesSeparateByGender', n['VT2_39']);
     setBool(r, 'latrinesSeparateFromStaff', n['VT2_40']);
-    setNum(r, 'latrineCabinTotalCount', n['VT2_54']);
-    setNum(r, 'latrineCabinGirlsCount', n['VT2_55']);
     setBool(r, 'hasPlayground', n['VT2_41']);
     setStrArray(r, 'playgroundTypes', n['VT2_42']);
     setBool(r, 'hasIctTools', n['VT2_43']);
@@ -804,9 +802,6 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hasJobSearchSupportTool', n['VT6_12']);
     // No 6.1.2 code exists for §7.3 or §4.12 — see below; VT6_13 (§6.3)
     // is a specialty-row table, handled by buildVtSpecialtyRows, not here.
-    setNum(r, 'insertedFormalSectorCount', n['VT6_14']);
-    setNum(r, 'insertedInformalSectorCount', n['VT6_15']);
-    setNum(r, 'seekingEmploymentCount', n['VT6_16']);
 
     // §7 — cross-cutting themes. No §7.3 key exists anywhere in this
     // function (design note Decision 4, frozen) — the printed instrument's
@@ -844,8 +839,6 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setNum(r, 'vacataireNonProfFemale', n['VT8_5_VNP_F']);
     setNum(r, 'permanentMale', n['VT8_5_PERM_M']);
     setNum(r, 'permanentFemale', n['VT8_5_PERM_F']);
-    setNum(r, 'contractualMale', n['VT8_5_CONTRACT_M']);
-    setNum(r, 'contractualFemale', n['VT8_5_CONTRACT_F']);
 
     // §9 — difficulties and perspectives. No §4.12 key exists anywhere in
     // this function (design note Decision 1, frozen) — leftover number
