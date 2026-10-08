@@ -974,6 +974,7 @@ const _kVtSection2FineGroups = <String, LocalizedText?>{
   'VT2_9': _kVtSection2Accessibilite,
   'VT2_10': _kVtSection2Accessibilite,
   'VT2_11': _kVtSection2Accessibilite,
+  'VT2_11_CITY': _kVtSection2Accessibilite,
   'VT2_12': _kVtSection2Accessibilite,
   'VT2_13': _kVtSection2Accessibilite,
   'VT2_14': _kVtSection2Agrement,
@@ -1437,6 +1438,7 @@ final _kVtSection7FineGroups = <String, LocalizedText?>{
     'VT7_4',
     'VT7_5',
     'VT7_6',
+    'VT7_6_INFORMED',
     'VT7_7',
     'VT7_8',
     'VT7_9',
@@ -1454,6 +1456,7 @@ final _kVtSection7FineGroups = <String, LocalizedText?>{
     'VT7_18',
     'VT7_19',
     'VT7_20',
+    'VT7_20_DOMAINS',
     'VT7_21',
     'VT7_22'
   ])

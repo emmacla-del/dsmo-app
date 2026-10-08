@@ -1394,8 +1394,9 @@
             </tr>
             <tr>
                 <td class="field-num">7.1.3</td>
-                <td class="field-label">Parties prenantes informées</td>
+                <td class="field-label">Parties prenantes informées ?</td>
                 <td colspan="2">
+                    {{yesno transversal.partiesPrenantesInformeesReponse}}
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -1452,7 +1453,12 @@
             <tr>
                 <td class="field-num">7.5</td>
                 <td class="field-label">Formateurs formés et ayant dispensé cette éducation ?</td>
-                <td colspan="2">{{yesno transversal.formateursFormesEtDispensent}}</td>
+                <td colspan="2">
+                    {{yesno transversal.formateursFormesEtDispensent}}
+                    {{#if transversal.domainesEducationFormateurs}}
+                    — Domaine : {{transversal.domainesEducationFormateurs}}
+                    {{/if}}
+                </td>
             </tr>
             <tr>
                 <td class="field-num">7.6</td>
