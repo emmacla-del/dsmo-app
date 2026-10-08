@@ -2,7 +2,7 @@
 // and its use by the validator and the submission payload. Mirrors
 // react-web/src/lib/vt-quiz.test.ts: both apps must submit the same thing,
 // because the server checks either by the same rule.
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dsmo_app/core/focus/schema/field_schema.dart';
@@ -11,6 +11,8 @@ import 'package:dsmo_app/core/focus/utils/table_response_status.dart';
 import 'package:dsmo_app/core/focus/utils/vt_quiz.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_constants.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_controller.dart';
+import 'package:dsmo_app/screens/onefop/wizard/vt_scope_quiz.dart';
+import 'package:dsmo_app/l10n/generated/app_localizations.dart';
 
 Future<OnefopFormController> _controller(EntityType type,
     [Map<String, dynamic> data = const {}]) async {
@@ -158,5 +160,77 @@ void main() {
           reason: f.id);
     }
     expect(TableResponseStatus.isClosed(TableResponseStatus.notApplicable), isFalse);
+  });
+
+  _widgetTests();
+}
+
+Future<void> _pump(WidgetTester tester, Widget child) async {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(MaterialApp(
+    locale: const Locale('fr'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: SingleChildScrollView(child: child)),
+  ));
+  await tester.pump();
+}
+
+void _widgetTests() {
+  testWidgets('quiz screen: all Non, typed figures erased, answers saved', (tester) async {
+    final ctrl = await _controller(EntityType.vocationalTraining, {
+      's4q3_row1_specialtyText': 'Couture',
+      's4q3_row1_fiMale': '3',
+    });
+    addTearDown(ctrl.dispose);
+    var completed = false;
+    await _pump(tester, VtScopeQuizView(ctrl: ctrl, onComplete: () => completed = true));
+
+    final validate = find.text('Valider et continuer →');
+    expect(tester.widget<FilledButton>(find.ancestor(of: validate, matching: find.byType(FilledButton))).onPressed,
+        isNull, reason: 'not before every question is answered');
+
+    // 6 questions are asked (6.3's follow-up only after "Oui" to 4.10).
+    expect(find.text('Non'), findsNWidgets(6));
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.text('Non').at(i));
+      await tester.pump();
+    }
+    expect(find.textContaining('seront effacés'), findsOneWidget);
+
+    await tester.tap(validate);
+    await tester.pump();
+    expect(completed, isTrue);
+    expect(ctrl.data.containsKey('s4q3_row1_specialtyText'), isFalse);
+    expect(isVtQuizComplete(readVtQuiz(ctrl.data)), isTrue);
+    expect(vtTableStatus('VT4_3', ctrl.data), kVtNone);
+    await tester.pump(const Duration(seconds: 4)); // let the autosave timer run
+  });
+
+  testWidgets('table gate: waiting on the quiz, answered Non, answered Oui', (tester) async {
+    final ctrl = await _controller(EntityType.vocationalTraining);
+    addTearDown(ctrl.dispose);
+    final f = ctrl.schema!.getField('VT4_3')!;
+    const table = Text('LE TABLEAU');
+
+    await _pump(tester, VtTableQuizGate(ctrl: ctrl, field: f, child: table));
+    expect(find.text('LE TABLEAU'), findsNothing);
+    expect(find.text('Ouvrir le questionnaire préliminaire'), findsOneWidget);
+
+    ctrl.setRawValue('_scopeConfig', {'vocationalTraining': {..._allNo}});
+    await _pump(tester, VtTableQuizGate(ctrl: ctrl, field: f, child: table));
+    expect(find.textContaining('aucun cas à signaler'), findsOneWidget);
+    expect(find.text('Modifier'), findsOneWidget);
+
+    ctrl.setRawValue('_scopeConfig', {'vocationalTraining': {..._allNo, 'unemployedQualified': true}});
+    await _pump(tester, VtTableQuizGate(ctrl: ctrl, field: f, child: table));
+    expect(find.text('LE TABLEAU'), findsOneWidget);
+
+    // A table outside the quiz always shows.
+    await _pump(tester, VtTableQuizGate(ctrl: ctrl, field: ctrl.schema!.getField('VT4_1')!, child: table));
+    expect(find.text('LE TABLEAU'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4)); // let the autosave timer run
   });
 }

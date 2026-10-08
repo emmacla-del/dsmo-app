@@ -35,14 +35,16 @@ import '../../../core/focus/schema/field_schema.dart';
 import '../../../core/focus/schema/section_schema.dart';
 import '../../../providers/onefop_mode_provider.dart';
 import '../onefop_form_constants.dart';
+import '../../../core/focus/utils/vt_quiz.dart';
 import '../onefop_form_controller.dart';
 import '../onefop_form_widgets.dart' show OnefopShellTitleBar;
 import 'vt_wizard_constants.dart';
 import 'vt_wizard_progress.dart';
 import 'vt_wizard_section_screen.dart';
+import 'vt_scope_quiz.dart';
 import 'vt_wizard_validation_screen.dart';
 
-enum _VtWizardStage { section, validation }
+enum _VtWizardStage { section, quiz, validation }
 
 class VtWizardShell extends StatefulWidget {
   final OnefopFormController ctrl;
@@ -198,12 +200,25 @@ class _VtWizardShellState extends State<VtWizardShell> {
     }
   }
 
+  // Section 1 → the preliminary quiz → Section 2, unless 1.12 says the
+  // centre is non-functional or closed (Section 1 only, no quiz).
+  bool get _quizApplies => !isVtCentreClosed(widget.ctrl.data);
+
+  void _openQuiz() => setState(() {
+        _stage = _VtWizardStage.quiz;
+        _sectionOutline = null;
+      });
+
   void _nextSection() {
     final isLastVtSection = _sectionIndex >= _vtSections.length - 1;
     if (!widget.ctrl.validatePage(widget.ctrl.currentPage)) {
       widget.ctrl.flagBlockedPage(widget.ctrl.currentPage);
       widget.ctrl.touchAllRequired();
       _scrollToFirstError();
+      return;
+    }
+    if (_sectionIndex == 0 && _quizApplies) {
+      _openQuiz();
       return;
     }
     if (isLastVtSection) {
@@ -215,6 +230,10 @@ class _VtWizardShellState extends State<VtWizardShell> {
   }
 
   void _prevSection() {
+    if (_sectionIndex == 1 && _quizApplies) {
+      _openQuiz();
+      return;
+    }
     if (_sectionIndex > 0) {
       widget.ctrl.prev();
     } else {
@@ -295,6 +314,15 @@ class _VtWizardShellState extends State<VtWizardShell> {
             if (!mounted) return;
             setState(() => _sectionOutline = outline);
           },
+        );
+        break;
+      case _VtWizardStage.quiz:
+        content = VtScopeQuizView(
+          ctrl: widget.ctrl,
+          onComplete: () => _goToSection(1),
+          onBack: () => _goToSection(0),
+          backLabelFr: '← Retour à la Section 1',
+          backLabelEn: '← Back to Section 1',
         );
         break;
       case _VtWizardStage.validation:
