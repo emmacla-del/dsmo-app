@@ -4,6 +4,32 @@ import { EligibilityEngineService } from './eligibility-engine.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CspCategory } from '../types/prisma.types';
 import { AnomalySeverity, AnomalyStatus, OnefopStatus } from '@prisma/client';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+/**
+ * A valid answer to every required training-centre question, read from the
+ * generated schema so it follows the questionnaire: a final VT submission
+ * must answer them all. Parents take their first option ("Oui"), so their
+ * follow-ups are shown and answered too.
+ */
+function completeVtAnswers(): Record<string, unknown> {
+  const schema = JSON.parse(readFileSync(join(process.cwd(), 'assets', 'schemas', 'onefop.schema.json'), 'utf8'));
+  const out: Record<string, unknown> = {};
+  for (const section of schema.entities.vocationalTraining.sections) {
+    for (const f of section.fields) {
+      if (!f.required || f.table) continue;
+      const first: string | undefined = f.options?.[0]?.value;
+      if (f.id === 'VT1_14') out[f.id] = '2010';
+      else if (f.type === 'number') out[f.id] = '0';
+      else if (f.type === 'checkbox') out[f.id] = first ? [first] : ['Réponse'];
+      else if (f.type === 'tel') out[f.id] = '677000000';
+      else if (f.type === 'email') out[f.id] = 'centre@test.cm';
+      else out[f.id] = first ?? 'Réponse';
+    }
+  }
+  return out;
+}
 
 // Phase 2 P0 fix regression coverage.
 //
@@ -527,7 +553,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
   // Task 4 (VT-8): a VT final submit that DOES carry the derived required
   // list (name + region/department/subdivision/locality/area) must succeed
   // — proves the new gate isn't simply rejecting every VT final submit.
-  it('a non-draft VT submission with name + region/department/subdivision/locality/area succeeds', async () => {
+  it('a non-draft VT submission answering every required question succeeds', async () => {
     const prisma = buildMockPrisma();
     // Finding #3's own duplicate-submission guard (unrelated to this fix —
     // see questionnaires.service.ts's "Finding #3" comment) also runs for
@@ -545,6 +571,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       entityType: 'VOCATIONAL_TRAINING',
       isDraft: false,
       data: {
+        ...completeVtAnswers(),
         ...respondentFlat,
         VT1_2: 'Centre Complet',
         VT1_4: 'Centre',
@@ -553,6 +580,33 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         VT1_8: 'Nlongkak',
         VT1_9: 'Urbain/ Urban',
       },
+    } as any)).resolves.toMatchObject({ success: true });
+  });
+
+  it('rejects a final VT submission that leaves a required question unanswered, naming it', async () => {
+    const prisma = buildMockPrisma();
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+    const data: Record<string, unknown> = { ...completeVtAnswers(), ...respondentFlat };
+    delete data.VT2_19; // 2.1.15 total number of learners
+    data.VT2_18 = []; // 2.1.14 training types: an empty tick list is unanswered
+
+    const error = await service.submitQuestionnaire({
+      formId: 'vt-form-final-missing', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false, data,
+    } as any).catch((e) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT2_19', 'VT2_18']));
+  });
+
+  it('a closed centre only answers Section 1: Sections 2–9 are not required', async () => {
+    const prisma = buildMockPrisma();
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+    const section1 = Object.fromEntries(Object.entries(completeVtAnswers()).filter(([k]) => k.startsWith('VT1_')));
+
+    await expect(service.submitQuestionnaire({
+      formId: 'vt-form-final-closed', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false,
+      data: { ...section1, ...respondentFlat, VT1_12: 'Fermée/ Closed' },
     } as any)).resolves.toMatchObject({ success: true });
   });
 
@@ -673,6 +727,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
 
   describe('VT §10 Coherence Rules', () => {
     const baseVtFinal = {
+      ...completeVtAnswers(),
       ...respondentFlat,
       VT1_2: 'Centre National de Formation',
       VT1_4: 'CENTRE',
@@ -1661,9 +1716,9 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     };
   }
 
-  // Smallest final payload that passes enforceFinalRequiredFields (same
-  // shape as the VT-8 "succeeds" test above).
+  // A final payload that answers every required training-centre question.
   const finalVtData = {
+    ...completeVtAnswers(),
     VT1_15_NAME: 'Jean Dupont',
     VT1_15_FUNCTION: 'Directeur',
     VT1_15_TEL1: '699999999',

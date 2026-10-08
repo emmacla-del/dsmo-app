@@ -10,6 +10,7 @@ import { checkCoherence } from "@/lib/onefop-coherence";
 import { getActiveQuarter, saveDraftToBackend } from "@/lib/onefop-submission";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
+import { cleanHiddenDependentFields, type FormData } from "@/lib/onefop-schema";
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
@@ -143,6 +144,14 @@ function OnefopDeclarationContent() {
     [rawSchema, campaignPeriod],
   );
 
+  const entity = schema?.entities[entityType];
+
+  // Changing a parent answer to "Non" erases its follow-up answers.
+  const pruneHidden = useCallback(
+    (data: FormData) => (entity ? cleanHiddenDependentFields(entity, data) : data),
+    [entity],
+  );
+
   const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed, clearLocalDraft } =
     useOnefopDraft(
       entityType,
@@ -150,9 +159,8 @@ function OnefopDeclarationContent() {
       autofillData,
       meQuery.data?.id,
       companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : null,
+      pruneHidden,
     );
-
-  const entity = schema?.entities[entityType];
   const coherenceFlags = useMemo(
     () => checkCoherence(formData, entityType),
     [formData, entityType],

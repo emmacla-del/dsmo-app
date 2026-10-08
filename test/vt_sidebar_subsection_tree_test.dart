@@ -94,6 +94,16 @@ void main() {
       await _pumpSidebar(tester, ctrl, EntityType.vocationalTraining);
 
       expect(find.text('5.2 Référentiel de formation'), findsNothing);
+      // The section list is built lazily; bring section 5's row into view
+      // before looking for it (rows are taller now that sections show their
+      // required-answer state, so it can start below the test viewport).
+      await tester.scrollUntilVisible(
+        find.text('Guides et infrastructures'),
+        120,
+        scrollable: find
+            .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+            .first,
+      );
       // Section 5's own row ("Guides et infrastructures", from
       // kSidebarMeta) — find its chevron specifically, not just any
       // collapsed section's, so this really proves section5 opened. Two

@@ -126,10 +126,10 @@ void main() {
       '6.1 Orientation professionnelle dans les centres de formation '
           'professionnelle',
     );
-    // VT6_2/VT6_4/VT6_6 are conditionally visible (dependsOn VT6_1/3/5) —
-    // hidden on a fresh, empty-data controller like this one, so only the
-    // 3 unconditional fields in this subsection are candidates at all.
-    expect(units[0].fieldIds, ['VT6_1', 'VT6_3', 'VT6_5']);
+    // VT6_2/VT6_5 (dependsOn VT6_1), VT6_4 (VT6_3) and VT6_6 (VT6_5) are
+    // conditionally visible — hidden on a fresh, empty-data controller like
+    // this one, so only the 2 unconditional fields are candidates at all.
+    expect(units[0].fieldIds, ['VT6_1', 'VT6_3']);
     expect(
       units[1].subsectionLabel,
       '6.2 Informations sur le suivi post-formation des sortants des '

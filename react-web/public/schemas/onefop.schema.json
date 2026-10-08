@@ -12955,7 +12955,7 @@
               "paperCode": "1.2",
               "path": "vocationalTraining.name",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nom du CFP",
                 "en": "Name of VTC"
@@ -12987,7 +12987,7 @@
               "paperCode": "1.4",
               "path": "vocationalTraining.region",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Région",
                 "en": "Region"
@@ -13003,7 +13003,7 @@
               "paperCode": "1.5",
               "path": "vocationalTraining.department",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Département",
                 "en": "Division"
@@ -13019,7 +13019,7 @@
               "paperCode": "1.6",
               "path": "vocationalTraining.subdivision",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Arrondissement",
                 "en": "Sub-Division"
@@ -13035,7 +13035,7 @@
               "paperCode": "1.7",
               "path": "vocationalTraining.commune",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Commune",
                 "en": "Municipality"
@@ -13051,7 +13051,7 @@
               "paperCode": "1.8",
               "path": "vocationalTraining.locality",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Village-Quartier",
                 "en": "Village-Quarter"
@@ -13067,7 +13067,7 @@
               "paperCode": "1.9",
               "path": "vocationalTraining.area",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Milieu d'implantation",
                 "en": "Location"
@@ -13098,7 +13098,7 @@
               "paperCode": "1.10",
               "path": "vocationalTraining.educationSystem",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Statut de l'établissement",
                 "en": "Type of education provision (Public / Lay private / Private denominational)"
@@ -13136,7 +13136,7 @@
               "paperCode": "1.11",
               "path": "vocationalTraining.cfpType",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Type de CFP",
                 "en": "Type of VTC"
@@ -13202,7 +13202,7 @@
               "paperCode": "1.12",
               "path": "vocationalTraining.functionalStatus",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Situation du Centre de formation",
                 "en": "Operating status of the training centre"
@@ -13240,7 +13240,7 @@
               "paperCode": "1.13",
               "path": "vocationalTraining.nonFunctionalReason",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si « Non-fonctionnelle », préciser la raison",
                 "en": "If Non-functional, state the reason"
@@ -13296,7 +13296,7 @@
               "paperCode": "1.13",
               "path": "vocationalTraining.nonFunctionalReasonOther",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Précisez",
                 "en": "Specify"
@@ -13316,7 +13316,7 @@
               "paperCode": "1.14",
               "path": "vocationalTraining.yearOfEstablishment",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Année d'ouverture",
                 "en": "Year of establishment"
@@ -13332,7 +13332,7 @@
               "paperCode": "1.15",
               "path": "respondent.name",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Noms et prénoms",
                 "en": "Name and surname"
@@ -13351,7 +13351,7 @@
               "paperCode": "1.15",
               "path": "respondent.function",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Qualité du répondant",
                 "en": "Quality of the respondent"
@@ -13370,7 +13370,7 @@
               "paperCode": "1.15",
               "path": "respondent.phone1",
               "type": "tel",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "WhatsApp",
                 "en": "WhatsApp"
@@ -13408,7 +13408,7 @@
               "paperCode": "1.15",
               "path": "respondent.email",
               "type": "email",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "E-mail",
                 "en": "Email address"
@@ -13427,7 +13427,7 @@
               "paperCode": "1.15",
               "path": "vocationalTraining.respondentSex",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Sexe",
                 "en": "Sex"
@@ -13458,7 +13458,7 @@
               "paperCode": "1.16",
               "path": "vocationalTraining.promoterName",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Noms et prénoms",
                 "en": "Name and surname"
@@ -13474,7 +13474,7 @@
               "paperCode": "1.16",
               "path": "vocationalTraining.promoterSex",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Sexe",
                 "en": "Sex"
@@ -13505,7 +13505,7 @@
               "paperCode": "1.16",
               "path": "vocationalTraining.promoterPhone1",
               "type": "tel",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "WhatsApp",
                 "en": "WhatsApp"
@@ -13537,7 +13537,7 @@
               "paperCode": "1.16",
               "path": "vocationalTraining.promoterEmail",
               "type": "email",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "E-mail",
                 "en": "Email address"
@@ -13587,7 +13587,7 @@
               "paperCode": "2.1.1",
               "path": "vocationalTraining.hasStateAgreement",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre structure dispose-t-elle d'une convention avec l'Etat ?",
                 "en": "Has your training institution signed an agreement with the Government?"
@@ -13618,7 +13618,7 @@
               "paperCode": "2.1.2",
               "path": "vocationalTraining.agreementTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le(s) type(s) de convention",
                 "en": "If yes, specify the type(s) of agreement"
@@ -13667,7 +13667,7 @@
               "paperCode": "2.1.3",
               "path": "vocationalTraining.siteCount",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nombre de sites occupés par votre structure",
                 "en": "Number of sites occupied by your institution"
@@ -13683,7 +13683,7 @@
               "paperCode": "2.1.4",
               "path": "vocationalTraining.sharesInfrastructure",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre de formation professionnelle utilise-t-il des infrastructures en commun avec un autre établissement ?",
                 "en": "Does your school share infrastructure with another school?"
@@ -13714,7 +13714,7 @@
               "paperCode": "2.1.5",
               "path": "vocationalTraining.sharedWithSchoolName",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, indiquez le nom de l'établissement partagé",
                 "en": "If yes, name of the school it shares premises with"
@@ -13734,7 +13734,7 @@
               "paperCode": "2.1.6",
               "path": "vocationalTraining.hasSpecialNeedsTrainers",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Avez-vous des formateurs ayant reçu une formation pour accueillir les enfants à besoins éducatifs spéciaux ?",
                 "en": "Do you have trainers trained to receive learners with special educational needs?"
@@ -13765,7 +13765,7 @@
               "paperCode": "2.1.7",
               "path": "vocationalTraining.specialNeedsTrainerTotal",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez l'effectif de ces formateurs (Total)",
                 "en": "If yes, state the number of specialized teachers (Total)"
@@ -13785,7 +13785,7 @@
               "paperCode": "2.1.7",
               "path": "vocationalTraining.specialNeedsTrainerFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -13805,7 +13805,7 @@
               "paperCode": "2.1.8",
               "path": "vocationalTraining.hasAccessRamps",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il de rampes d'accès pour accueillir les enfants à motricité reduite ?",
                 "en": "Does the centre have access ramps for persons with reduced mobility?"
@@ -13836,7 +13836,7 @@
               "paperCode": "2.1.9",
               "path": "vocationalTraining.hasDirectorOffice",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un bureau pour le directeur dans votre centre ?",
                 "en": "Is there an office for the director in your training center?"
@@ -13931,7 +13931,7 @@
               "paperCode": "2.1.13",
               "path": "vocationalTraining.isAccredited",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Êtes-vous agréé?",
                 "en": "Does your institution have an authorization?"
@@ -13962,7 +13962,7 @@
               "paperCode": "2.1.13",
               "path": "vocationalTraining.lastAccreditationYear",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, année du dernier agrément",
                 "en": "If yes, year of last authorization"
@@ -13982,7 +13982,7 @@
               "paperCode": "2.1.13",
               "path": "vocationalTraining.accreditationOrderNumber",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Arrêté n°",
                 "en": "Order N°"
@@ -14002,7 +14002,7 @@
               "paperCode": "2.1.13",
               "path": "vocationalTraining.accreditationOrderDate",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Date de l'arrêté d'accréditation",
                 "en": "Accreditation order date"
@@ -14022,7 +14022,7 @@
               "paperCode": "2.1.14",
               "path": "vocationalTraining.trainingTypesOffered",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Quels types de formation votre centre dispense-t-il ?",
                 "en": "What types of training does your center offer?"
@@ -14053,7 +14053,7 @@
               "paperCode": "2.1.15",
               "path": "vocationalTraining.totalTraineesDeclared",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nombre total d'apprenants dans votre centre",
                 "en": "Total number of trainees in your center"
@@ -14069,7 +14069,7 @@
               "paperCode": "2.1.15",
               "path": "vocationalTraining.totalTrainersDeclared",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nombre total de formateurs dans votre centre",
                 "en": "Total number of trainers in your center"
@@ -14085,7 +14085,7 @@
               "paperCode": "2.1.16",
               "path": "vocationalTraining.traineesFromLowerSecondary",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nombre total d'apprenants venant du premier cycle du secondaire",
                 "en": "Total number of trainees from lower secondary"
@@ -14101,7 +14101,7 @@
               "paperCode": "2.1.16",
               "path": "vocationalTraining.traineesFromUpperSecondary",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Nombre total d'apprenants venant du second cycle du secondaire",
                 "en": "Total number of trainees from upper secondary"
@@ -14117,7 +14117,7 @@
               "paperCode": "2.2.1",
               "path": "vocationalTraining.hasEnergySource",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il d'une source d'énergie ?",
                 "en": "Is there a source of energy in the training center?"
@@ -14148,7 +14148,7 @@
               "paperCode": "2.2.1",
               "path": "vocationalTraining.isEnergySourceFunctional",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, cette source d'énergie est-elle fonctionnelle ?",
                 "en": "If yes, is this energy source functional?"
@@ -14183,7 +14183,7 @@
               "paperCode": "2.2.1",
               "path": "vocationalTraining.energySourceTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez la source d'énergie",
                 "en": "If yes, specify the source of energy"
@@ -14225,7 +14225,7 @@
               "paperCode": "2.2.2",
               "path": "vocationalTraining.hasWaterSource",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il d'une source d'approvisionnement en eau ?",
                 "en": "Does the centre have a water supply?"
@@ -14256,7 +14256,7 @@
               "paperCode": "2.2.2",
               "path": "vocationalTraining.waterSourceTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le type d'approvisionnement",
                 "en": "If yes, specify the type of supply"
@@ -14312,7 +14312,7 @@
               "paperCode": "2.2.3",
               "path": "vocationalTraining.hasHandwashingDevice",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre a-t-il un dispositif fonctionnel de lavage des mains ?",
                 "en": "Does the school have a functional handwashing device?"
@@ -14343,7 +14343,7 @@
               "paperCode": "2.2.4",
               "path": "vocationalTraining.hasReceivedHealthCampaign",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre a-t-il reçu une campagne de santé ?",
                 "en": "Has the centre received a health campaign?"
@@ -14374,7 +14374,7 @@
               "paperCode": "2.2.5",
               "path": "vocationalTraining.hasFirstAidBox",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Y a-t-il une boîte à pharmacie dans Le centre avec des produits de premiers soins ?",
                 "en": "Is there a first aid cupboard or box with drugs for emergency?"
@@ -14405,7 +14405,7 @@
               "paperCode": "2.2.6",
               "path": "vocationalTraining.hasDispensary",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre dispose-t-il d'une infirmerie ?",
                 "en": "Does your school have a dispensary?"
@@ -14436,7 +14436,7 @@
               "paperCode": "2.2.7",
               "path": "vocationalTraining.hasFunctionalLibrary",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il d'une bibliothèque fonctionnelle ?",
                 "en": "Is there a fonctional library?"
@@ -14467,7 +14467,7 @@
               "paperCode": "2.2.8",
               "path": "vocationalTraining.fenceStatus",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre de formation est-il limité par une clôture ?",
                 "en": "Is the training centre enclosed by a fence?"
@@ -14505,7 +14505,7 @@
               "paperCode": "2.2.9",
               "path": "vocationalTraining.hasSchoolCouncil",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un conseil d'établissement fonctionnel ?",
                 "en": "Is there a functioning school council?"
@@ -14536,7 +14536,7 @@
               "paperCode": "2.2.10",
               "path": "vocationalTraining.hasLevelCouncil",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un conseil de niveau au sein de votre etablissement ?",
                 "en": "Is there a level council in your institution?"
@@ -14567,7 +14567,7 @@
               "paperCode": "2.2.11",
               "path": "vocationalTraining.hasDisciplinaryCouncil",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un conseil de discipline au sein de votre etablissement ?",
                 "en": "Is there a discipline council in your institution?"
@@ -14598,7 +14598,7 @@
               "paperCode": "2.2.12",
               "path": "vocationalTraining.hasFunctionalLatrines",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre de formation a-t-il des latrines fonctionnelles et adaptées ?",
                 "en": "Does the school have functional latrines?"
@@ -14629,7 +14629,7 @@
               "paperCode": "2.2.12",
               "path": "vocationalTraining.latrineTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le type de latrines",
                 "en": "If yes, specify the type of latrine"
@@ -14671,7 +14671,7 @@
               "paperCode": "2.2.12",
               "path": "vocationalTraining.latrinesSeparateByGender",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, les latrines des filles sont-elles dans un bloc différent de celui des garçons ?",
                 "en": "If yes, are the latrines of the girls in a different block and distant from that of the boys?"
@@ -14706,7 +14706,7 @@
               "paperCode": "2.2.12",
               "path": "vocationalTraining.latrinesSeparateFromStaff",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, les latrines des élèves sont-elles séparées de celles des formateurs ?",
                 "en": "If yes, do teachers have separate toilets from students?"
@@ -14741,7 +14741,7 @@
               "paperCode": "2.2.13",
               "path": "vocationalTraining.hasPlayground",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre de formation dispose-t-il d'aires de jeux ?",
                 "en": "Does the training centre have play areas?"
@@ -14772,7 +14772,7 @@
               "paperCode": "2.2.13",
               "path": "vocationalTraining.playgroundTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, sélectionnez le(s) type(s) d'infrastructure de jeux",
                 "en": "If yes, select the type(s) of play area"
@@ -14828,7 +14828,7 @@
               "paperCode": "2.2.14",
               "path": "vocationalTraining.hasIctTools",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre de formation dispose-t-il d'outils informatiques (ordinateurs ou tablettes)?",
                 "en": "Does your school possess ICT tools (computers, tablets)?"
@@ -14859,7 +14859,7 @@
               "paperCode": "2.2.14",
               "path": "vocationalTraining.ictToolsForTrainersCount",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le nombre d'outils informatiques (ordinateurs ou tablettes) mis à la disposition des formateurs",
                 "en": "If yes, indicate the number of ICT tools (computers, tablets) available to trainers"
@@ -14879,10 +14879,10 @@
               "paperCode": "2.2.14",
               "path": "vocationalTraining.ictToolsInternetCount",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
-                "fr": "Votre centre de formation a-t-il un accès à internet ?",
-                "en": "Does your training centre have internet access?"
+                "fr": "Si oui, précisez le nombre d'outils informatiques (ordinateurs ou tablettes) connectés à internet",
+                "en": "If yes, indicate the number of ICT tools (computers, tablets) connected to the internet"
               },
               "hint": null,
               "instruction": null,
@@ -14899,7 +14899,7 @@
               "paperCode": "2.2.15",
               "path": "vocationalTraining.trainersIctTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre centre ont-ils reçu une formation sur les TIC ?",
                 "en": "Have your teachers undergone a training on ICTs?"
@@ -14930,7 +14930,7 @@
               "paperCode": "2.2.15",
               "path": "vocationalTraining.trainersIctTrainedTotal",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le nombre de formateurs formés (Total)",
                 "en": "If yes, specify the number of teachers trained (Total)"
@@ -14950,7 +14950,7 @@
               "paperCode": "2.2.15",
               "path": "vocationalTraining.trainersIctTrainedFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -14970,7 +14970,7 @@
               "paperCode": "2.2.16",
               "path": "vocationalTraining.trainersViolenceTraining",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs ont-ils reçu une session de formation sur la lutte contre les violences en milieu scolaire ?",
                 "en": "Did your teachers undergo a training on violence in the school milieu?"
@@ -15001,7 +15001,7 @@
               "paperCode": "2.2.17",
               "path": "vocationalTraining.trainersPssTraining",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre centre ont-ils reçu des sessions de formation PSS (Appui psychosocial) pour le soutien aux apprenants vulnérables ?",
                 "en": "Have teachers at your school received PSS (Psychosocial Support) training sessions to support vulnerable students?"
@@ -15032,7 +15032,7 @@
               "paperCode": "2.2.18",
               "path": "vocationalTraining.hasBoarding",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre dispose-t-il d'un internat ?",
                 "en": "Does your centre have a boarding facility?"
@@ -15063,7 +15063,7 @@
               "paperCode": "2.2.19",
               "path": "vocationalTraining.hasGbvMechanism",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre dispose-t-il d'un dispositif de lutte contre les Violences Basées sur le genre (VBG) ?",
                 "en": "Does your centre have a mechanism to address gender-based violence (GBV)?"
@@ -15094,7 +15094,7 @@
               "paperCode": "2.2.20",
               "path": "vocationalTraining.hasCanteen",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre dispose-t-il d'une cantine scolaire ?",
                 "en": "Does your centre have a school canteen?"
@@ -15140,7 +15140,7 @@
               "paperCode": "3.1",
               "path": "vocationalTraining.facedCrisis",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre a-t-il fait face à une situation de crise au cours de l'année ?",
                 "en": "Has the center faced a crisis situation during the year?"
@@ -15171,7 +15171,7 @@
               "paperCode": "3.1",
               "path": "vocationalTraining.crisisTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Quels sont les types de crise ?",
                 "en": "What types of crisis?"
@@ -15262,7 +15262,7 @@
               "paperCode": "3.1",
               "path": "vocationalTraining.crisisClosedCenter",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, cette crise a-t-elle entrainé la fermeture provisoire de votre centre ?",
                 "en": "If yes, did this crisis lead to the temporary closure of your center?"
@@ -15297,7 +15297,7 @@
               "paperCode": "3.1",
               "path": "vocationalTraining.closureDurationWeeks",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, indiquez le temps de fermeture (en semaines)",
                 "en": "If yes, indicate the length of the closure (in weeks)"
@@ -15317,7 +15317,7 @@
               "paperCode": "3.2",
               "path": "vocationalTraining.siteRelocated",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le site de l'établissement est-il déplacé suite à la survenue de cette crise?",
                 "en": "Has the site of school been moved following the occurrence of this crisis?"
@@ -15352,7 +15352,7 @@
               "paperCode": "3.2",
               "path": "vocationalTraining.relocationLocality",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez la localité de déplacement (ou le nom de l'établissement qui l'abrite)",
                 "en": "If yes, specify the relocation locality (or the name of the school which houses it)"
@@ -15372,7 +15372,7 @@
               "paperCode": "3.3",
               "path": "vocationalTraining.traineesReassigned",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les apprenants ont-ils été réaffectés dans d'autres établissements ?",
                 "en": "Have learners been reassigned to other schools?"
@@ -15407,7 +15407,7 @@
               "paperCode": "3.3",
               "path": "vocationalTraining.reassignedTo",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez lesquels",
                 "en": "If yes, specify which ones"
@@ -15427,7 +15427,7 @@
               "paperCode": "3.4",
               "path": "vocationalTraining.hasEarlyWarningSystem",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il un dispositif d'alerte précoce d'urgence ?",
                 "en": "Does the centre have an emergency early-warning system?"
@@ -15458,7 +15458,7 @@
               "paperCode": "3.4",
               "path": "vocationalTraining.earlyWarningDescription",
               "type": "textarea",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, donnez le nom ou une description de ce dispositif",
                 "en": "If yes, give the name or a description of this device"
@@ -15478,7 +15478,7 @@
               "paperCode": "3.4",
               "path": "vocationalTraining.earlyWarningFunctional",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, ce dispositif est-il toujours à jour et fonctionnel ?",
                 "en": "If yes, is this device still up to date and functional?"
@@ -15513,7 +15513,7 @@
               "paperCode": "3.5",
               "path": "vocationalTraining.trainersInnovativePedagogyTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre centre sont-ils formés aux approches pédagogiques innovantes ?",
                 "en": "Are the trainers at your center trained in innovative teaching approaches?"
@@ -15544,7 +15544,7 @@
               "paperCode": "3.5",
               "path": "vocationalTraining.trainersInnovativePedagogyMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, dont hommes",
                 "en": "If yes, of which male"
@@ -15564,7 +15564,7 @@
               "paperCode": "3.5",
               "path": "vocationalTraining.trainersInnovativePedagogyFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -15584,7 +15584,7 @@
               "paperCode": "3.6",
               "path": "vocationalTraining.trainersCrisisPedagogyTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre centre sont-ils formés aux Approches pédagogiques adaptées aux crises (classe multi-niveaux, etc) ?",
                 "en": "Are the teachers in your school trained on Educational approaches adapted to crises (Multi-level class, etc)?"
@@ -15615,7 +15615,7 @@
               "paperCode": "3.6",
               "path": "vocationalTraining.trainersCrisisPedagogyMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, dont hommes",
                 "en": "If yes, of which male"
@@ -15635,7 +15635,7 @@
               "paperCode": "3.6",
               "path": "vocationalTraining.trainersCrisisPedagogyFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -15655,7 +15655,7 @@
               "paperCode": "3.7",
               "path": "vocationalTraining.trainersDrrmTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre établissement sont-ils formés sur la réduction et gestion des risques de catastrophe",
                 "en": "Are the teachers in your school trained in Disaster risk reduction and management (DRRM)"
@@ -15686,7 +15686,7 @@
               "paperCode": "3.7",
               "path": "vocationalTraining.trainersDrrmMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, dont hommes",
                 "en": "If yes, of which male"
@@ -15706,7 +15706,7 @@
               "paperCode": "3.7",
               "path": "vocationalTraining.trainersDrrmFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -15726,7 +15726,7 @@
               "paperCode": "3.8",
               "path": "vocationalTraining.trainersEvacuationDrillTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre établissement sont-ils formés sur la réalisation des simulations et exercices pratiques d'évacuation, mise à l'abri avec les enfants, etc",
                 "en": "Are the teachers in your school trained on Carrying out simulations and practical evacuation exercises, sheltering with children, etc"
@@ -15757,7 +15757,7 @@
               "paperCode": "3.8",
               "path": "vocationalTraining.trainersEvacuationDrillMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, dont hommes",
                 "en": "If yes, of which male"
@@ -15777,7 +15777,7 @@
               "paperCode": "3.8",
               "path": "vocationalTraining.trainersEvacuationDrillFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -15797,7 +15797,7 @@
               "paperCode": "3.9",
               "path": "vocationalTraining.trainersOtherEmergencyTrained",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre établissement sont-ils formés sur d'autres aspect d'éducation en situation d'urgence",
                 "en": "Are the teachers in your school trained on other aspects of education in emergencies"
@@ -15828,7 +15828,7 @@
               "paperCode": "3.9",
               "path": "vocationalTraining.trainersOtherEmergencyMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, dont hommes",
                 "en": "If yes, of which male"
@@ -15848,7 +15848,7 @@
               "paperCode": "3.9",
               "path": "vocationalTraining.trainersOtherEmergencyFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "dont femmes",
                 "en": "of which female"
@@ -15868,7 +15868,7 @@
               "paperCode": "3.10",
               "path": "vocationalTraining.hasStudentRecordsSecurity",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Sécurisation des dossiers des apprenants?",
                 "en": "Securing trainee records?"
@@ -15899,7 +15899,7 @@
               "paperCode": "3.10",
               "path": "vocationalTraining.hasTextbookSecurity",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Sécurisation des manuels scolaires ?",
                 "en": "Securing textbooks?"
@@ -15930,7 +15930,7 @@
               "paperCode": "3.11",
               "path": "vocationalTraining.hasContingencyPlan",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le Centre dispose-t-il d'un plan de préparation ou de contingence ?",
                 "en": "Does the centre have a preparedness or contingency plan?"
@@ -15961,7 +15961,7 @@
               "paperCode": "3.12",
               "path": "vocationalTraining.traineesTrainedOnProtection",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les apprenants de votre Centre ont-ils été formés aux mesures de protection en cas d'attaque ?",
                 "en": "Have the learners at your Center been trained in protective measures in the event of an attack?"
@@ -19303,7 +19303,7 @@
               "paperCode": "5.1.1",
               "path": "vocationalTraining.hasTraineeStudyGuides",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Des manuels d'apprentissage pour apprenant ?",
                 "en": "Study guides or didactic materials for trainees?"
@@ -19334,7 +19334,7 @@
               "paperCode": "5.1.1",
               "path": "vocationalTraining.traineeStudyGuideCount",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le nombre de manuels d'apprentissage pour apprenants",
                 "en": "If yes, specify the number of study guides for trainees"
@@ -19354,7 +19354,7 @@
               "paperCode": "5.1.2",
               "path": "vocationalTraining.hasTrainerStudyGuides",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Des manuels d'apprentissage pour formateurs ?",
                 "en": "Study guides or didactic materials for trainers"
@@ -19385,7 +19385,7 @@
               "paperCode": "5.1.2",
               "path": "vocationalTraining.trainerStudyGuideCount",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, précisez le nombre de manuels d'apprentissage pour formateurs",
                 "en": "If yes, specify the number of study guides for trainers"
@@ -20103,7 +20103,7 @@
               "paperCode": "6.1.1",
               "path": "vocationalTraining.hasCareerGuidanceService",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un service d'orientation professionnelle dans votre centre ?",
                 "en": "Is there a career counseling service in your center?"
@@ -20134,7 +20134,7 @@
               "paperCode": "6.1.1",
               "path": "vocationalTraining.careerGuidanceTimings",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, comment prenez-vous en compte l'orientation professionnelle dans votre dispositif de formation professionnelle ?",
                 "en": "If yes, how do you consider career guidance in your vocational training system?"
@@ -20176,7 +20176,7 @@
               "paperCode": "6.1.2",
               "path": "vocationalTraining.traineesChooseWithSupport",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les apprenants choisissent-ils les filières de formation avec l'accompagnement de ce service ?",
                 "en": "Do learners choose training paths with the support of this service?"
@@ -20207,7 +20207,7 @@
               "paperCode": "6.1.2",
               "path": "vocationalTraining.collaboratesWithCiopCosup",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Sinon, collaborez-vous avec les structures publiques d'orientation existante à l'exemple du CIOP ?",
                 "en": "If not, do you collaborate with existing public guidance structures such as CIOP?"
@@ -20242,7 +20242,7 @@
               "paperCode": "6.1.3",
               "path": "vocationalTraining.guidanceSupportTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Quel accompagnement le service d'orientation assure aux apprenants ?",
                 "en": "What support does the guidance department provide to learners?"
@@ -20286,7 +20286,11 @@
                   }
                 }
               ],
-              "visibility": null,
+              "visibility": {
+                "dependsOn": "VT6_1",
+                "dependsValue": "Oui/ Yes",
+                "dependsOperator": "eq"
+              },
               "table": null
             },
             {
@@ -20294,7 +20298,7 @@
               "paperCode": "6.1.3",
               "path": "vocationalTraining.guidanceSupportOther",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Autre, précisez",
                 "en": "Other, specify"
@@ -20314,7 +20318,7 @@
               "paperCode": "6.2.1",
               "path": "vocationalTraining.hasPostTrainingFollowUp",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Effectuez-vous le suivi post-formation des apprenants de votre établissement?",
                 "en": "Is there any post-training follow-up?"
@@ -20345,7 +20349,7 @@
               "paperCode": "6.2.1",
               "path": "vocationalTraining.followUpMechanisms",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, par quels mécanismes ?",
                 "en": "If yes, how is that done?"
@@ -20394,7 +20398,7 @@
               "paperCode": "6.2.1",
               "path": "vocationalTraining.followUpMechanismOther",
               "type": "text",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Autre, précisez",
                 "en": "Other, specify"
@@ -20414,7 +20418,7 @@
               "paperCode": "6.2.2",
               "path": "vocationalTraining.hasInsertionSupportUnit",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il une cellule d'appui à l'insertion des sortants dans votre centre ?",
                 "en": "Is there a graduate placement / integration support unit in your centre?"
@@ -20445,7 +20449,7 @@
               "paperCode": "6.2.3",
               "path": "vocationalTraining.hasTraineeDatabaseTool",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il un outil de gestion de la base de données des apprenants et sortants dans votre centre ?",
                 "en": "Is there a database management tool for trainees and graduates in your centre?"
@@ -20476,7 +20480,7 @@
               "paperCode": "6.2.4",
               "path": "vocationalTraining.hasJobSearchSupportTool",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il dans votre centre un outil d'accompagnement des sortants dans la recherche d'emploi, la création des Groupement d'Intérêt Économique (GIE), l'élaboration des plans d'affaires ?",
                 "en": "Is there any mechanism for accompanying outgoing trainees in job searching, creation of Economic Interest Groups (EIG), development of business plans?"
@@ -20768,7 +20772,7 @@
               "paperCode": "7.1",
               "path": "vocationalTraining.hasHivAidsRules",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre établissement a t'il intégré dans son règlement intérieur des directives en lien avec le VIH et le SIDA ?",
                 "en": "Has your school incorporated rules related to HIV/AIDS in its internal regulations?"
@@ -20799,7 +20803,7 @@
               "paperCode": "7.1.1",
               "path": "vocationalTraining.hivRulesCoverSafety",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le règlement couvre-t-il la sécurité physique au sein de l'établissement ?",
                 "en": "Does the regulation cover physical safety within the school?"
@@ -20834,7 +20838,7 @@
               "paperCode": "7.1.1",
               "path": "vocationalTraining.hivRulesCoverStigmaHiv",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le règlement couvre-t-il la stigmatisation et la discrimination à l'égard du personnel et des élèves vivant avec le VIH ou affectés par le VIH ?",
                 "en": "Does the regulation cover stigma and discrimination against staff and pupils living with or affected by HIV?"
@@ -20869,7 +20873,7 @@
               "paperCode": "7.1.1",
               "path": "vocationalTraining.hivRulesCoverStigmaOther",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le règlement couvre-t-il la stigmatisation et la discrimination à l'égard du personnel et des élèves porteurs du VIH ou à risque, fondées sur la race, l'origine ethnique, la religion ou d'autres motifs ?",
                 "en": "Does the regulation cover stigma and discrimination based on race, ethnic origin, religion or other grounds, against HIV-positive or at-risk staff and pupils?"
@@ -20904,7 +20908,7 @@
               "paperCode": "7.1.1",
               "path": "vocationalTraining.hivRulesCoverHarassment",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Le règlement couvre-t-il le harcèlement et les abus sexuels ?",
                 "en": "Does the regulation cover sexual harassment and abuse?"
@@ -20939,7 +20943,7 @@
               "paperCode": "7.1.2",
               "path": "vocationalTraining.hasDisciplinaryProcedures",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Existe-t-il des procédures disciplinaires en cas de violation de ces aspects ?",
                 "en": "Are there disciplinary procedures in case these provisions are breached?"
@@ -20970,7 +20974,7 @@
               "paperCode": "7.1.3",
               "path": "vocationalTraining.stakeholdersInformed",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Des parties prenantes de votre établissement ont-elles été informées de ces mesures au cours de l'année scolaire ?",
                 "en": "Were stakeholders of your school informed of these measures during the school year?"
@@ -21105,7 +21109,7 @@
               "paperCode": "7.2",
               "path": "vocationalTraining.addressesIstIssues",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Prenez-vous en compte les questions liées aux IST ?",
                 "en": "Do you address issues related to STIs?"
@@ -21136,7 +21140,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.traineesReceivedFullSexEd",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les apprenants de votre établissement ont-ils reçu une éducation sexuelle et sur le VIH complète axée sur les compétences pour la vie courante?",
                 "en": "Have the trainees at your school received full sexual and HIV education focused on life skills?"
@@ -21167,7 +21171,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.genericLifeSkillsInSyllabus",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'enseignement des compétences génériques pour la vie courante est-il inscrit au programme officiel ?",
                 "en": "Is teaching of everyday generic life skills part of the official syllabus?"
@@ -21202,7 +21206,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.genericLifeSkillsExtracurricular",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'enseignement des compétences génériques pour la vie courante est-il proposé en activité parascolaire ?",
                 "en": "Is teaching of everyday generic life skills offered as an extracurricular activity?"
@@ -21237,7 +21241,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.reproHealthEdInSyllabus",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'éducation à la santé reproductive et sexuelle est-elle inscrite au programme officiel ?",
                 "en": "Is reproductive and sexual health education part of the official syllabus?"
@@ -21272,7 +21276,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.reproHealthEdExtracurricular",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'éducation à la santé reproductive et sexuelle est-elle proposée en activité parascolaire ?",
                 "en": "Is reproductive and sexual health education offered as an extracurricular activity?"
@@ -21307,7 +21311,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.hivTransmissionEdInSyllabus",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'enseignement sur la transmission et la prévention du VIH est-il inscrit au programme officiel ?",
                 "en": "Is teaching on HIV transmission and prevention part of the official syllabus?"
@@ -21342,7 +21346,7 @@
               "paperCode": "7.4",
               "path": "vocationalTraining.hivTransmissionEdExtracurricular",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "L'enseignement sur la transmission et la prévention du VIH est-il proposé en activité parascolaire ?",
                 "en": "Is teaching on HIV transmission and prevention offered as an extracurricular activity?"
@@ -21377,7 +21381,7 @@
               "paperCode": "7.5",
               "path": "vocationalTraining.trainersDeliveredSexEd",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Les formateurs de votre établissement ont-ils reçu et dispensé une éducation sexuelle et sur le VIH complète axée sur les compétences pour la vie courante ?",
                 "en": "Have the trainers at your school received and delivered full sexual and HIV education focused on life skills?"
@@ -21408,7 +21412,7 @@
               "paperCode": "7.6",
               "path": "vocationalTraining.trainersSexEdDomains",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, relatif au domaine :",
                 "en": "If yes, in relation to:"
@@ -21450,7 +21454,7 @@
               "paperCode": "7.6",
               "path": "vocationalTraining.trainersPassedOnToStudents",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, ces enseignants ont-ils dispensé les enseignements reçus aux élèves ?",
                 "en": "If yes, did these teachers deliver the training they received to the pupils?"
@@ -21485,7 +21489,7 @@
               "paperCode": "7.7",
               "path": "vocationalTraining.heldParentOrientationSessions",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Votre centre a-t-il organisé une ou plusieurs sessions d'orientation destinées aux parents ou tuteurs d'apprenants au sujet de l'éducation sexuelle et sur le VIH axée sur les compétences pour la vie courante dispensée par l'école ?",
                 "en": "Has your center organized one or more orientation sessions for parents or guardians of trainees on the life-skills-based sexuality and HIV education provided by the school?"
@@ -22460,7 +22464,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.vacataireProfMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs vacataires professionnels — hommes",
                 "en": "Part-time vocational trainers — male"
@@ -22476,7 +22480,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.vacataireProfFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs vacataires professionnels — femmes",
                 "en": "Part-time vocational trainers — female"
@@ -22492,7 +22496,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.vacataireNonProfMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs vacataires non professionnels — hommes",
                 "en": "Part-time non vocational trainers — male"
@@ -22508,7 +22512,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.vacataireNonProfFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs vacataires non professionnels — femmes",
                 "en": "Part-time non vocational trainers — female"
@@ -22524,7 +22528,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.permanentMale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs Permanents — hommes",
                 "en": "Permanent trainers — male"
@@ -22540,7 +22544,7 @@
               "paperCode": "8.5",
               "path": "vocationalTraining.permanentFemale",
               "type": "number",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Formateurs Permanents — femmes",
                 "en": "Permanent trainers — female"
@@ -23511,7 +23515,7 @@
               "paperCode": "9.1",
               "path": "vocationalTraining.facesDifficulties",
               "type": "radio",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Rencontrez-vous des difficultés dans le processus de formation de vos apprenants ?",
                 "en": "Do you face any difficulty in providing training to learners?"
@@ -23542,7 +23546,7 @@
               "paperCode": "9.1",
               "path": "vocationalTraining.difficultyTypes",
               "type": "checkbox",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Si oui, lesquelles ? (Cochez svp)",
                 "en": "If yes, which of them? (Tick boxes, please)"
@@ -23625,7 +23629,7 @@
               "paperCode": "9.2",
               "path": "vocationalTraining.perspectives",
               "type": "textarea",
-              "required": false,
+              "required": true,
               "label": {
                 "fr": "Citer les 5 principales perspectives",
                 "en": "List the 5 main outlooks"

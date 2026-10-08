@@ -23,6 +23,16 @@ function isEmpty(raw: unknown): boolean {
   return raw === undefined || raw === null || raw === '';
 }
 
+/**
+ * A training centre declared "Non-fonctionnelle" or "Fermée" in 1.12 answers
+ * Section 1 only — the same rule as react-web's isVtSectionWaived.
+ */
+export function isVtSectionWaived(sectionId: string, flat: Record<string, unknown>): boolean {
+  if (!sectionId.endsWith('_vocationalTraining') || sectionId === 'section1_vocationalTraining') return false;
+  const status = flat['VT1_12'];
+  return typeof status === 'string' && (status.startsWith('Non-fonctionnelle') || status.startsWith('Fermée'));
+}
+
 @Injectable()
 export class OnefopShadowValidatorService {
   private readonly logger = new Logger(OnefopShadowValidatorService.name);
@@ -92,6 +102,30 @@ export class OnefopShadowValidatorService {
     }
 
     return { entityType, fieldsChecked: fields.size, discrepancies };
+  }
+
+  /**
+   * Required, currently shown, non-table questions left unanswered (an empty
+   * tick-box list counts as unanswered), skipping sections the caller waives.
+   * Unlike validate(), this is meant to block a final submission.
+   */
+  missingRequiredAnswers(
+    entityType: SchemaEntityType,
+    flat: Record<string, unknown>,
+    isSectionWaived: (sectionId: string, flat: Record<string, unknown>) => boolean = () => false,
+  ): SchemaField[] {
+    const missing: SchemaField[] = [];
+    for (const section of this.schemaLoader.getEntitySchema(entityType).sections) {
+      if (isSectionWaived(section.id, flat)) continue;
+      for (const field of section.fields) {
+        if (!field.required || field.table) continue;
+        if (field.type === 'table' || field.type === 'repeating_table') continue;
+        if (!this.isVisible(field, flat)) continue;
+        const raw = flat[field.id];
+        if (isEmpty(raw) || (Array.isArray(raw) && raw.length === 0)) missing.push(field);
+      }
+    }
+    return missing;
   }
 
   /**
