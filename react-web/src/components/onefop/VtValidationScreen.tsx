@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
-import { isFieldVisible, localized } from "@/lib/onefop-schema";
+import { isVtSectionWaived, localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
-import { getVtSectionShortLabel } from "./vt-wizard-utils";
+import { getVtSectionShortLabel, vtWizardSectionStats } from "./vt-wizard-utils";
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
 
 interface VtValidationScreenProps {
@@ -33,26 +33,19 @@ interface VtValidationScreenProps {
 
 type SectionState = "notStarted" | "inProgress" | "done";
 
+// Same counting as the sidebar (vt-wizard-utils): required, visible,
+// non-table questions; tables are covered by the validator. A section a
+// closed or non-functional centre does not answer counts as done.
 function getSectionStats(section: OnefopSection, data: FormData) {
-  let filled = 0;
-  let total = 0;
-
-  for (const field of section.fields) {
-    if (field.type === "section_header") continue;
-    if (!isFieldVisible(field, data)) continue;
-    total++;
-    const v = data[field.id];
-    if (v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)) {
-      filled++;
-    }
-  }
-
+  const { filled, total } = vtWizardSectionStats(section, data);
   const issues = validateSectionData(section, data);
   const isValid = issues.length === 0;
 
   let state: SectionState = "notStarted";
-  if (filled > 0) {
-    state = isValid && filled === total ? "done" : "inProgress";
+  if (isVtSectionWaived(section.id, data) || (isValid && filled === total && total > 0)) {
+    state = "done";
+  } else if (filled > 0) {
+    state = "inProgress";
   }
 
   return {
