@@ -3,9 +3,10 @@
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { getCachedUser, getMe } from "@/lib/api-client";
+import { getCachedUser } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { navItemsForRole, resolveEffectiveRole } from "@/lib/role-navigation";
+import { meQueryOptions } from "@/lib/shared-queries";
 
 /**
  * Honest "not yet migrated" placeholder for every home_screen.dart
@@ -20,8 +21,7 @@ export default function HomePlaceholderPage({ params }: { params: Promise<{ slug
   const t = useTranslations();
   const authUser = useAuthStore((s) => s.user);
   const meQuery = useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: getMe,
+    ...meQueryOptions,
     initialData: authUser ?? getCachedUser() ?? undefined,
   });
   const user = meQuery.data ?? authUser ?? getCachedUser();

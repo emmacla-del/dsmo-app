@@ -9,7 +9,6 @@ import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import {
   fetchDeclarationPreviewPdf,
   formatSubmissionError,
-  getActiveQuarter,
   saveDraftToBackend,
   submitDeclaration,
   supportsBackendSubmission,
@@ -17,6 +16,7 @@ import {
 import { clearDraft } from "@/lib/onefop-drafts";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { ValidationSummary } from "./ValidationSummary";
+import { activeQuarterQueryOptions } from "@/lib/shared-queries";
 
 interface SubmissionPanelProps {
   entityType: string;
@@ -74,7 +74,7 @@ export function SubmissionPanel({
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
   const [lastResult, setLastResult] = useState<string | null>(null);
-  const quarterQuery = useQuery({ queryKey: ["onefop", "active-quarter"], queryFn: getActiveQuarter });
+  const quarterQuery = useQuery(activeQuarterQueryOptions);
 
   // Null until the backend confirms the active period — never fall back to a
   // hardcoded quarter string, because a wrong value would attribute drafts
