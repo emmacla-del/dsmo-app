@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from '../questionnaires/eligibility-engine.service';
 import {
     DATASET_SCHEMA_VERSION,
+    SPSS_USER_MISSING_CODES,
     CanonicalSchemaAdapterService,
     AnalyticalPartition,
     AnalyticalVariableDefinition,
@@ -793,7 +794,7 @@ export class DataManagementService {
                     let chunk = '';
                     for (const s of batch) {
                         this.attachReferencePeriod(s, referencePeriods);
-                        chunk += variables.map((v) => this.csvEscape(this.canonicalAdapter!.extractValue(v, s))).join(',') + '\r\n';
+                        chunk += variables.map((v) => this.csvEscape(this.canonicalAdapter!.exportValue(v, s))).join(',') + '\r\n';
                     }
 
                     if (!res.write(chunk)) {
@@ -883,7 +884,7 @@ export class DataManagementService {
     }
 
     /// Generates and streams a native IBM SPSS .sav dataset (variable and
-    /// value labels, formats, measurement levels, -99 user-missing) — written
+    /// value labels, formats, measurement levels, -98/-99 user-missing) — written
     /// in-process by SavWriter, no Python/pyreadstat dependency. The file is
     /// built in a temp directory first so a failure still produces a clean
     /// HTTP error (and the header gets the exact case count) instead of a
@@ -912,7 +913,7 @@ export class DataManagementService {
                 const referencePeriods = await this.loadReferencePeriods();
                 rowsOf = (batch) => batch.map((s) => {
                     this.attachReferencePeriod(s, referencePeriods);
-                    return variables.map((v) => adapter.extractValue(v, s));
+                    return variables.map((v) => adapter.exportValue(v, s));
                 });
             } else {
                 const columns = await this.buildFlatColumns(where);
@@ -1011,7 +1012,8 @@ export class DataManagementService {
             type: numeric ? 'numeric' : 'string',
             width: numeric ? Math.max(v.spssWidth || 0, minWidth) : v.spssWidth || 254,
             valueLabels: v.valueLabels,
-            missingValues: numeric ? [-99] : undefined,
+            // E1 (dataset v5): -98 non applicable, -99 non renseigné.
+            missingValues: numeric ? [...SPSS_USER_MISSING_CODES] : undefined,
             measure,
         };
     }
