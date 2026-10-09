@@ -29,10 +29,7 @@ import {
   VT_SIGNATURES_SECTION_ID,
   VT_ACCENT,
   VT_CARD_BORDER,
-  VT_INK,
   VT_INK_SOFT,
-  VT_INK_FAINT,
-  VT_FAMILY,
   vtWizardTabLabel,
   vtWizardTranslateGroupTitle,
   vtWizardGetFineGroups,
@@ -41,7 +38,9 @@ import {
   vtWizardSection1EnseignementGroup,
   isVtSingleColumnSection,
   vtWizardRowColumnsFor,
+  VT_713_FOLDED_IDS,
 } from "./vt-wizard-section-utils";
+import { Vt713ChannelGrid } from "./Vt713ChannelGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { fieldOwnsIssue } from "@/lib/wizard-navigation";
@@ -189,264 +188,6 @@ function _vtWizardConditionalContainer(children: ReactNode, isRevealed: boolean)
   );
 }
 
-const VT_COMMS_MODALITIES = [
-  {
-    key: "meeting",
-    shortFr: "Réunion / Atelier",
-    shortEn: "Meeting / Workshop",
-    detailFr: "Rassemblement, assemblée générale, animation pédagogique, conseil de classes…",
-    detailEn: "Meeting with children, class council, pedagogic supervision, PTA assembly…",
-  },
-  {
-    key: "written",
-    shortFr: "Par Écrit",
-    shortEn: "By correspondence",
-    detailFr: "Affiches, communiqué, note de service…",
-    detailEn: "Notice, communique, service note…",
-  },
-  {
-    key: "other",
-    shortFr: "Autre mode",
-    shortEn: "Other means",
-    detailFr: "E-learning, Twitter, WhatsApp…",
-    detailEn: "E-learning, twitter, WhatsApp…",
-  },
-] as const;
-
-/** The ticked communication channels of one stakeholder group. The wizard
- *  only ever stores a list; anything else (e.g. a yes/no answer from the old
- *  format of this question) reads as nothing ticked, never as a guessed
- *  channel — whether stakeholders were informed is its own question (7.1.3). */
-function parseSelectedChannels(raw: unknown): string[] {
-  return Array.isArray(raw) ? raw.map(String) : [];
-}
-
-function VtWizardStakeholderInformedCard({
-  data,
-  onChange,
-}: {
-  field?: OnefopField;
-  data: FormData;
-  onChange: (fieldId: string, value: unknown) => void;
-}) {
-  const locale = useLocale();
-  const isEn = locale.startsWith("en");
-
-  const stakeholders: { id: string; labelFr: string; labelEn: string }[] = [
-    { id: "VT7_7", labelFr: "Élèves", labelEn: "Pupils" },
-    { id: "VT7_8", labelFr: "Personnel Enseignant", labelEn: "Teaching staff" },
-    { id: "VT7_9", labelFr: "Personnel Non Enseignant", labelEn: "Non-teaching staff" },
-    { id: "VT7_10", labelFr: "Parents / Tuteurs", labelEn: "Parents / Guardians" },
-    { id: "VT7_11", labelFr: "Conseil d'établissement", labelEn: "School council" },
-  ];
-
-  const titleText = isEn
-    ? "7.1.3 If yes, kindly tick the categories below that received information on the directives by precising the communication channel"
-    : "7.1.3 Si oui, Veuillez indiquer, parmi les parties prenantes de votre établissement ci-dessous, celles qui ont été informées des mesures et préciser le mode de communication utilisé pour chaque catégorie au cours de l'année scolaire";
-
-  const subHeaderStakeholder = isEn
-    ? "Groups / Categories of stakeholders"
-    : "Groupes / Catégories de parties prenantes";
-  const subHeaderMeans = isEn
-    ? "Means of communication (Please tick the appropriate box)"
-    : "Modes de communication (cocher les cases correspondantes)";
-
-  const handleToggleChannel = (roleId: string, channelKey: string) => {
-    const current = parseSelectedChannels(data[roleId]);
-    const next = current.includes(channelKey)
-      ? current.filter((k) => k !== channelKey)
-      : [...current, channelKey];
-    onChange(roleId, next);
-  };
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        background: "#ffffff",
-        border: "1px solid var(--vt-card-border, #e2e8f0)",
-        borderRadius: "var(--cam-radius-md, 8px)",
-        padding: "16px 18px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-      }}
-    >
-      <div>
-        <p
-          style={{
-            fontFamily: VT_FAMILY,
-            fontWeight: 700,
-            fontSize: 13.5,
-            color: VT_INK,
-            margin: 0,
-            lineHeight: 1.5,
-          }}
-        >
-          {titleText}
-        </p>
-        <p
-          style={{
-            fontFamily: VT_FAMILY,
-            fontSize: "var(--cam-font-size-2xs)",
-            color: VT_INK_FAINT,
-            margin: "4px 0 0 0",
-            fontStyle: "italic",
-          }}
-        >
-          {subHeaderMeans}
-        </p>
-      </div>
-
-      {/* Desktop / Tablet Matrix Table */}
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 12.5,
-            fontFamily: VT_FAMILY,
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                backgroundColor: "var(--cam-bg-subtle)",
-                borderBottom: "2px solid var(--cam-border)",
-              }}
-            >
-              <th
-                style={{
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  fontWeight: 700,
-                  fontSize: "var(--cam-font-size-3xs)",
-                  color: VT_INK_FAINT,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  width: "38%",
-                }}
-              >
-                {subHeaderStakeholder}
-              </th>
-              {VT_COMMS_MODALITIES.map((mod) => (
-                <th
-                  key={mod.key}
-                  style={{
-                    textAlign: "center",
-                    padding: "8px 10px",
-                    fontWeight: 700,
-                    fontSize: 11,
-                    color: VT_INK,
-                    letterSpacing: "0.02em",
-                    width: "20.6%",
-                    verticalAlign: "top",
-                  }}
-                  title={isEn ? mod.detailEn : mod.detailFr}
-                >
-                  <div>{isEn ? mod.shortEn : mod.shortFr}</div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 400,
-                      color: VT_INK_FAINT,
-                      marginTop: 2,
-                      lineHeight: 1.25,
-                      textTransform: "none",
-                    }}
-                  >
-                    {isEn ? mod.detailEn : mod.detailFr}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {stakeholders.map((role, idx) => {
-              const selected = parseSelectedChannels(data[role.id]);
-              return (
-                <tr
-                  key={role.id}
-                  style={{
-                    borderBottom: idx < stakeholders.length - 1 ? "1px solid var(--cam-border)" : "none",
-                    backgroundColor: idx % 2 === 1 ? "rgba(248, 250, 252, 0.5)" : "#ffffff",
-                    transition: "background-color 0.15s ease",
-                  }}
-                >
-                  <td style={{ padding: "12px", fontWeight: 600, color: VT_INK }}>
-                    {isEn ? role.labelEn : role.labelFr}
-                  </td>
-                  {VT_COMMS_MODALITIES.map((mod) => {
-                    const isChecked = selected.includes(mod.key);
-                    const checkboxId = `${role.id}_${mod.key}`;
-                    return (
-                      <td
-                        key={mod.key}
-                        style={{
-                          textAlign: "center",
-                          padding: "10px",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        <label
-                          htmlFor={checkboxId}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 28,
-                            height: 28,
-                            borderRadius: "var(--cam-radius-sm, 4px)",
-                            border: `1.5px solid ${isChecked ? VT_ACCENT : "#cbd5e1"}`,
-                            backgroundColor: isChecked ? VT_ACCENT : "#ffffff",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            userSelect: "none",
-                          }}
-                          aria-label={`${isEn ? role.labelEn : role.labelFr} — ${isEn ? mod.shortEn : mod.shortFr}`}
-                        >
-                          <input
-                            id={checkboxId}
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleChannel(role.id, mod.key)}
-                            style={{
-                              position: "absolute",
-                              opacity: 0,
-                              width: 0,
-                              height: 0,
-                              margin: 0,
-                              pointerEvents: "none",
-                            }}
-                          />
-                          {isChecked && (
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="#ffffff"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </label>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 function VtWizardFieldRows({
   fields,
@@ -471,29 +212,40 @@ function VtWizardFieldRows({
 
   const isVt713Section = sectionId === "section7_vocationalTraining";
 
-  const fieldById = new Map(fields.map((f) => [f.id, f]));
   const visibleFields = fields.filter((f) => isFieldVisible(f, data));
+
+  // 7.1.3: the five stakeholder rows that follow "parties prenantes
+  // informées ?" render as one channel grid, each row's « précisez » under
+  // it (Vt713ChannelGrid). Null for any other parent. VT7_6_INFORMED is
+  // itself a follow-up of VT7_1, so this is used at both levels below.
+  const channelGridFor = (parent: OnefopField, followUps: OnefopField[]): ReactNode | null => {
+    if (!isVt713Section || parent.id !== "VT7_6_INFORMED") return null;
+    const stakeholders = followUps.filter((d) => VT_713_FOLDED_IDS.has(d.id) && isFieldVisible(d, data));
+    if (stakeholders.length === 0) return null;
+    const otherFields = new Map<string, OnefopField>();
+    for (const g of stakeholders) {
+      const other = visibleFields.find((sub) => sub.visibility?.dependsOn === g.id);
+      if (other) {
+        otherFields.set(g.id, other);
+        consumed.add(other.id);
+      }
+    }
+    return (
+      <Vt713ChannelGrid
+        stakeholders={stakeholders}
+        otherFields={otherFields}
+        data={data}
+        onChange={onChange}
+        issueByFieldId={issueByFieldId}
+        sectionId={sectionId}
+        compact={compact}
+      />
+    );
+  };
 
   for (let i = 0; i < visibleFields.length; i++) {
     const f = visibleFields[i];
     if (consumed.has(f.id)) continue;
-
-    if (isVt713Section && f.id === "VT7_7") {
-      const foldedFields = ["VT7_7", "VT7_8", "VT7_9", "VT7_10", "VT7_11"].map((id) => fieldById.get(id)).filter(Boolean) as OnefopField[];
-      if (foldedFields.length > 0) {
-        rows.push(
-          <VtWizardStakeholderInformedCard
-            key="VT7_1-11-stakeholder"
-            field={foldedFields[0]}
-            data={data}
-            onChange={onChange}
-          />,
-        );
-        foldedFields.forEach((fld) => consumed.add(fld.id));
-        i += foldedFields.length - 1;
-      }
-      continue;
-    }
 
     const next = visibleFields[i + 1];
     if (
@@ -540,6 +292,17 @@ function VtWizardFieldRows({
       consumed.add(f.id);
       dependents.forEach((d) => consumed.add(d.id));
 
+      const grid = channelGridFor(f, dependents);
+      if (grid) {
+        rows.push(
+          <div key={`dep-${f.id}`} style={{ marginTop: 12 }}>
+            {_vtWizardConditionalContainer(grid, true)}
+          </div>,
+        );
+        i += 1;
+        continue;
+      }
+
       const depRows = dependents
         .filter((d) => isFieldVisible(d, data))
         .map((d) => {
@@ -559,7 +322,7 @@ function VtWizardFieldRows({
               {subDeps.length > 0 && (
                 <div style={{ marginLeft: 16 }}>
                   {_vtWizardConditionalContainer(
-                    subDeps
+                    channelGridFor(d, subDeps) ?? subDeps
                       .filter((sd) => isFieldVisible(sd, data))
                       .map((sd) => (
                         <VtWizardField
