@@ -801,6 +801,46 @@ describe('E8 (dataset v6): free-text width', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
     for (const name of ['VT3_10', 'VT9_3', 'VT9_4']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 6.');
+    expect(sps).toContain('Version du schéma du jeu de données : 7.');
+  });
+});
+
+describe('7.1.3 communication channels (dataset v7)', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+  const CODES = ['01', '02', '03', '04', '05', '06', '07', '08', '96'];
+  const STAKEHOLDERS = ['VT7_7', 'VT7_8', 'VT7_9', 'VT7_10', 'VT7_11'];
+  const byName = (name: string) => adapter.getTvetVariables().find((v) => v.variableName === name)!;
+  const vt = (rawData: Record<string, unknown>) => ({ formType: 'VOCATIONAL_TRAINING', rawData });
+
+  it('every stakeholder gets one 0/1 variable per channel, right after its own variable', () => {
+    const names = adapter.getTvetVariables().map((v) => v.variableName);
+    for (const s of STAKEHOLDERS) {
+      const at = names.indexOf(s);
+      expect(names.slice(at + 1, at + 1 + CODES.length)).toEqual(CODES.map((c) => `${s}_${c}`));
+      const d = byName(`${s}_06`);
+      expect(d).toMatchObject({ spssDataType: 'NUMERIC', valueLabels: { '0': 'Non', '1': 'Oui' } });
+      expect(d.labelFr).toContain('WhatsApp');
+    }
+  });
+
+  it('the stakeholder variable carries the channel labels, and its "précisez" is exported', () => {
+    expect(byName('VT7_7').valueLabels).toMatchObject({ '01': 'Lettre / correspondance officielle', '96': 'Autre (préciser)' });
+    expect(adapter.extractValue(byName('VT7_7_OTHER'), vt({ VT7_7_OTHER: 'Radio communautaire' }))).toBe('Radio communautaire');
+  });
+
+  it('1 = ticked, 0 = answered without it, blank = never answered (not read as "No")', () => {
+    const answered = vt({ VT7_7: ['06', '96'], VT7_8: [] });
+    expect(adapter.exportValue(byName('VT7_7_06'), answered)).toBe(1);
+    expect(adapter.exportValue(byName('VT7_7_96'), answered)).toBe(1);
+    expect(adapter.exportValue(byName('VT7_7_01'), answered)).toBe(0);
+    expect(adapter.exportValue(byName('VT7_8_03'), answered)).toBe(0);
+    expect(adapter.exportValue(byName('VT7_9_03'), answered)).toBeUndefined();
+    // A comma-joined legacy value reads the same way.
+    expect(adapter.exportValue(byName('VT7_10_05'), vt({ VT7_10: '01, 05' }))).toBe(1);
+  });
+
+  it('for another establishment type the dummies are -98 (not applicable)', () => {
+    const v = adapter.getAllVariables().find((x) => x.variableName === 'VT7_7_06')!;
+    expect(adapter.exportValue(v, { formType: 'ENTREPRISE', rawData: {} })).toBe(-98);
   });
 });

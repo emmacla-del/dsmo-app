@@ -88,6 +88,26 @@ describe('flat-key-normalizer — Vocational Training', () => {
     expect(detail['schoolCouncilCommsChannels']).toEqual([]);
   });
 
+  // §7.1.3 coded channels (2026-10-09): the codes are kept as sent, and each
+  // row's "précisez" (its 96 "Autre") lands in its own detail field.
+  it('keeps the §7.1.3 channel codes and maps each row précisez text', () => {
+    const raw = {
+      VT7_7: ['06', '96'],
+      VT7_7_OTHER: 'Radio communautaire',
+      VT7_10: ['01'],
+      VT7_11: ['96'],
+      VT7_11_OTHER: 'Procès-verbal',
+    };
+    const detail = buildNestedDto(normalizeFlatKeys(raw, 'vocationalTraining'), 'vocationalTraining')[
+      'vocationalTraining'
+    ] as Record<string, unknown>;
+    expect(detail['pupilsCommsChannels']).toEqual(['06', '96']);
+    expect(detail['pupilsCommsChannelsOther']).toBe('Radio communautaire');
+    expect(detail['parentsCommsChannels']).toEqual(['01']);
+    expect(detail['parentsCommsChannelsOther']).toBeUndefined();
+    expect(detail['schoolCouncilCommsChannelsOther']).toBe('Procès-verbal');
+  });
+
   // B. One diploma grid — 4.1 (trainee academic diplomas).
   it('normalizes a 4.1 diploma cell into a correct OnefopVtDiplomaData row', () => {
     const raw = { s4q1_licence_male: '7' };
