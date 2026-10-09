@@ -1065,6 +1065,11 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsArray() @IsString({ each: true }) nonTeachingStaffCommsChannels?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) parentsCommsChannels?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) schoolCouncilCommsChannels?: string[];
+  @IsOptional() @IsString() @ToString() pupilsCommsChannelsOther?: string;
+  @IsOptional() @IsString() @ToString() teachingStaffCommsChannelsOther?: string;
+  @IsOptional() @IsString() @ToString() nonTeachingStaffCommsChannelsOther?: string;
+  @IsOptional() @IsString() @ToString() parentsCommsChannelsOther?: string;
+  @IsOptional() @IsString() @ToString() schoolCouncilCommsChannelsOther?: string;
   @IsOptional() @IsBoolean() addressesIstIssues?: boolean;
   @IsOptional() @IsBoolean() traineesReceivedFullSexEd?: boolean;
   @IsOptional() @IsBoolean() genericLifeSkillsInSyllabus?: boolean;

@@ -814,13 +814,18 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hivRulesCoverHarassment', n['VT7_5']);
     setBool(r, 'hasDisciplinaryProcedures', n['VT7_6']);
     setBool(r, 'stakeholdersInformed', n['VT7_6_INFORMED']);
-    // 7.1.3 — five string[] fields, always [] when absent, never null,
-    // no channel enum (design note Decision 2, frozen).
+    // 7.1.3 — five string[] fields of channel codes, always [] when absent,
+    // never null; each row's "précisez" text for its 96 "Autre".
     setStrArray(r, 'pupilsCommsChannels', n['VT7_7']);
     setStrArray(r, 'teachingStaffCommsChannels', n['VT7_8']);
     setStrArray(r, 'nonTeachingStaffCommsChannels', n['VT7_9']);
     setStrArray(r, 'parentsCommsChannels', n['VT7_10']);
     setStrArray(r, 'schoolCouncilCommsChannels', n['VT7_11']);
+    setIfPresent(r, 'pupilsCommsChannelsOther', n['VT7_7_OTHER']);
+    setIfPresent(r, 'teachingStaffCommsChannelsOther', n['VT7_8_OTHER']);
+    setIfPresent(r, 'nonTeachingStaffCommsChannelsOther', n['VT7_9_OTHER']);
+    setIfPresent(r, 'parentsCommsChannelsOther', n['VT7_10_OTHER']);
+    setIfPresent(r, 'schoolCouncilCommsChannelsOther', n['VT7_11_OTHER']);
     setBool(r, 'addressesIstIssues', n['VT7_12']);
     setBool(r, 'traineesReceivedFullSexEd', n['VT7_13']);
     setBool(r, 'genericLifeSkillsInSyllabus', n['VT7_14']);

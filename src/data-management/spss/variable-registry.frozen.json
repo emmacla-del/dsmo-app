@@ -10691,6 +10691,321 @@
     "vocationalTraining.schoolCouncilCommsChannelsOther": {
       "variableName": "VT7_11_OTHER",
       "valueLabels": null
+    },
+    "multi.VT7_7.01": {
+      "variableName": "VT7_7_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.02": {
+      "variableName": "VT7_7_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.03": {
+      "variableName": "VT7_7_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.04": {
+      "variableName": "VT7_7_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.05": {
+      "variableName": "VT7_7_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.06": {
+      "variableName": "VT7_7_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.07": {
+      "variableName": "VT7_7_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.08": {
+      "variableName": "VT7_7_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_7.96": {
+      "variableName": "VT7_7_96",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.01": {
+      "variableName": "VT7_8_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.02": {
+      "variableName": "VT7_8_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.03": {
+      "variableName": "VT7_8_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.04": {
+      "variableName": "VT7_8_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.05": {
+      "variableName": "VT7_8_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.06": {
+      "variableName": "VT7_8_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.07": {
+      "variableName": "VT7_8_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.08": {
+      "variableName": "VT7_8_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_8.96": {
+      "variableName": "VT7_8_96",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.01": {
+      "variableName": "VT7_9_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.02": {
+      "variableName": "VT7_9_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.03": {
+      "variableName": "VT7_9_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.04": {
+      "variableName": "VT7_9_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.05": {
+      "variableName": "VT7_9_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.06": {
+      "variableName": "VT7_9_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.07": {
+      "variableName": "VT7_9_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.08": {
+      "variableName": "VT7_9_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_9.96": {
+      "variableName": "VT7_9_96",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.01": {
+      "variableName": "VT7_10_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.02": {
+      "variableName": "VT7_10_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.03": {
+      "variableName": "VT7_10_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.04": {
+      "variableName": "VT7_10_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.05": {
+      "variableName": "VT7_10_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.06": {
+      "variableName": "VT7_10_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.07": {
+      "variableName": "VT7_10_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.08": {
+      "variableName": "VT7_10_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_10.96": {
+      "variableName": "VT7_10_96",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.01": {
+      "variableName": "VT7_11_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.02": {
+      "variableName": "VT7_11_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.03": {
+      "variableName": "VT7_11_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.04": {
+      "variableName": "VT7_11_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.05": {
+      "variableName": "VT7_11_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.06": {
+      "variableName": "VT7_11_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.07": {
+      "variableName": "VT7_11_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.08": {
+      "variableName": "VT7_11_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_11.96": {
+      "variableName": "VT7_11_96",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
     }
   }
 }

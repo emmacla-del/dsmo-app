@@ -1252,13 +1252,19 @@ model OnefopVocationalTrainingDetail {
   hasDisciplinaryProcedures  Boolean?   // 7.1.2
   stakeholdersInformed       Boolean?   // 7.1.3 Oui/Non, before the channel grid
   // 7.1.3 — five stakeholder rows, blank channel headers on the printed
-  // form. One String[] per stakeholder; values populated only once
-  // MINEFOP supplies a written channel list (VT-2). No VtCommsChannel enum.
+  // form. One String[] of channel codes per stakeholder ("01".."08", "96";
+  // _vt713ChannelOptions in onefop_ast.dart, provisional 2026-10-09), and
+  // the row's "précisez" text when 96 "Autre" is ticked.
   pupilsCommsChannels             String[] @default([])
   teachingStaffCommsChannels      String[] @default([])
   nonTeachingStaffCommsChannels   String[] @default([])
   parentsCommsChannels            String[] @default([])
   schoolCouncilCommsChannels      String[] @default([])
+  pupilsCommsChannelsOther           String?
+  teachingStaffCommsChannelsOther    String?
+  nonTeachingStaffCommsChannelsOther String?
+  parentsCommsChannelsOther          String?
+  schoolCouncilCommsChannelsOther    String?
   addressesIstIssues         Boolean?   // 7.2
   traineesReceivedFullSexEd  Boolean?   // 7.4
   genericLifeSkillsInSyllabus        Boolean?

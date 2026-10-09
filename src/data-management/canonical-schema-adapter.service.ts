@@ -130,8 +130,23 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    its width. A value still longer than its width is counted and reported
  *    (X-Export-Truncated-Values header + server log) instead of dropped
  *    silently. Variable names, order and value labels unchanged.
+ * 7: 7.1.3 communication channels coded (01..08, 96 « Autre »): VT7_7..VT7_11
+ *    carry value labels, each stakeholder gains its « précisez » text
+ *    (VT7_7_OTHER..VT7_11_OTHER), and each stakeholder x channel gets a 0/1
+ *    variable right after the stakeholder's own (VT7_7_01..VT7_11_96; see
+ *    MULTI_RESPONSE_DUMMY_FIELDS). Existing names and order unchanged.
  */
-export const DATASET_SCHEMA_VERSION = 6;
+export const DATASET_SCHEMA_VERSION = 7;
+
+/**
+ * Multiple-choice questions also exported as one 0/1 variable per option,
+ * named <field>_<option value> and placed right after the question's own
+ * variable (which keeps the comma-joined list). 1 = ticked, 0 = shown and
+ * not ticked, blank = never shown or unanswered (an unanswered question is
+ * never read as "No"). Starts with 7.1.3 (dataset v7); add a field here to
+ * give it dummies — its option values must be stable codes.
+ */
+export const MULTI_RESPONSE_DUMMY_FIELDS = new Set<string>(['VT7_7', 'VT7_8', 'VT7_9', 'VT7_10', 'VT7_11']);
 
 /**
  * Storage width, in UTF-8 bytes, of a free-text (`textarea`) variable (E8,
@@ -402,6 +417,20 @@ export class CanonicalSchemaAdapterService {
       const field = parts[3]; // desc, male, female, total
 
       return this.extractIndexedValueFromRelations(template, slot, field, submission);
+    }
+
+    // 5b. Multiple-choice dummies (dataset v7): 1 if the option is ticked,
+    // 0 if the question was answered without it, blank if it never was.
+    if (sp.startsWith('multi.')) {
+      const [, fieldId, code] = sp.split('.');
+      const raw = submission.rawData?.[fieldId];
+      const ticked = Array.isArray(raw)
+        ? raw.map((x) => String(x).trim())
+        : typeof raw === 'string' && raw.trim() !== ''
+          ? raw.split(',').map((x) => x.trim())
+          : null;
+      if (!ticked) return undefined;
+      return ticked.includes(code) ? 1 : 0;
     }
 
     // 6. General fallback: rawData by variable ID / sourcePath with nested dot-traversal
@@ -692,6 +721,11 @@ export class CanonicalSchemaAdapterService {
             } else if (field.type !== 'repeating_table') {
               const scalarVar = this.createScalarVariable(field, sec, applicability, usedNames, orderIndex++);
               allVars.push(scalarVar);
+              if (MULTI_RESPONSE_DUMMY_FIELDS.has(field.id) && field.options?.length) {
+                const dummies = this.createMultiResponseDummies(field, sec, applicability, usedNames, orderIndex);
+                allVars.push(...dummies);
+                orderIndex += dummies.length;
+              }
             }
           }
         }
@@ -993,6 +1027,33 @@ export class CanonicalSchemaAdapterService {
       sourcePath: `vtStatus.${statusId}`,
       orderIndex,
     };
+  }
+
+  /** One 0/1 variable per option of a MULTI_RESPONSE_DUMMY_FIELDS question. */
+  private createMultiResponseDummies(
+    field: SchemaField,
+    sec: SchemaSection,
+    applicability: string[],
+    usedNames: Set<string>,
+    startOrder: number,
+  ): AnalyticalVariableDefinition[] {
+    return (field.options ?? []).map((opt, i) => {
+      const sourcePath = `multi.${field.id}.${opt.value}`;
+      return {
+        variableName: this.assignVariableName(`${field.id}_${opt.value}`, sourcePath, usedNames),
+        paperCode: field.paperCode ?? field.id,
+        labelFr: `${field.label.fr} — ${opt.label.fr}`,
+        labelEn: `${field.label.en} — ${opt.label.en}`,
+        sectionId: sec.id,
+        entityApplicability: applicability,
+        spssDataType: 'NUMERIC' as SpssDataType,
+        spssWidth: 1,
+        measurementLevel: 'NOMINAL' as MeasurementLevel,
+        valueLabels: { '0': 'Non', '1': 'Oui' },
+        sourcePath,
+        orderIndex: startOrder + i,
+      };
+    });
   }
 
   private createScalarVariable(
