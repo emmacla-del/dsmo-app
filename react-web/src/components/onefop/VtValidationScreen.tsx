@@ -173,12 +173,12 @@ export function VtValidationScreen({
       {zeroedTables.length > 0 && (
         <div
           style={{
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
+            background: "var(--cam-success-surface)",
+            border: "1px solid var(--cam-success-border-soft)",
             borderRadius: "var(--cam-radius-md)",
             padding: "14px 18px",
             fontSize: "13.5px",
-            color: "#166534",
+            color: "var(--cam-success-text-strong)",
             marginBottom: "var(--cam-space-4)",
             lineHeight: 1.4,
           }}
@@ -198,7 +198,7 @@ export function VtValidationScreen({
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#15803d",
+                color: "var(--cam-success-link)",
                 fontWeight: 600,
                 fontSize: "var(--cam-font-size-2xs)",
                 cursor: "pointer",
@@ -215,7 +215,7 @@ export function VtValidationScreen({
             </button>
           </div>
           {showZeroedDetails && (
-            <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: 12, color: "#14532d" }}>
+            <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: 12, color: "var(--cam-success-text-deep)" }}>
               {zeroedTables.map((t) => (
                 <li key={t.code || t.tableId} style={{ marginTop: 3 }}>
                   <strong>{t.code || t.tableId}</strong>: {isFr ? t.nameFr : t.nameEn}
@@ -369,7 +369,7 @@ export function VtValidationScreen({
                 borderRadius: "var(--cam-radius-md)",
                 padding: "14px 16px",
                 cursor: "pointer",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                boxShadow: "var(--cam-shadow-row)",
                 transition: "all 0.15s ease",
               }}
               onMouseEnter={(e) => {
@@ -378,7 +378,7 @@ export function VtValidationScreen({
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = borderColor;
-                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+                e.currentTarget.style.boxShadow = "var(--cam-shadow-row)";
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: "10px" }}>
@@ -420,13 +420,13 @@ export function VtValidationScreen({
                       stats.state === "done"
                         ? "var(--cam-success-bg)"
                         : stats.state === "inProgress"
-                        ? "#FFFCEB"
+                        ? "var(--cam-notice-surface)"
                         : "var(--cam-bg)",
                     color:
                       stats.state === "done"
                         ? "var(--cam-green)"
                         : stats.state === "inProgress"
-                        ? "#7a6200"
+                        ? "var(--cam-notice-text)"
                         : "var(--cam-text-muted)",
                   }}
                 >
@@ -614,7 +614,7 @@ export function VtValidationScreen({
               cursor: isSubmitting || hasErrors || !canSubmit ? "not-allowed" : "pointer",
               border: "none",
               background: "var(--cam-green)",
-              color: "#fff",
+              color: "var(--cam-surface)",
               fontFamily: "var(--cam-font-sans)",
               opacity: isSubmitting || hasErrors || !canSubmit ? 0.55 : 1,
             }}
