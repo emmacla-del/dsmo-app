@@ -60,6 +60,11 @@ export function OnefopLegalAcknowledgment({
   onCancel,
 }: OnefopLegalAcknowledgmentProps) {
   const t = useTranslations();
+  // Training centres answer the annual vocational-training census (ASFOP),
+  // not the modern-economy jobs survey the other entities answer.
+  const isVocationalTraining = ["vocationaltraining", "vocational_training", "vt"].includes(
+    _entityType.toLowerCase(),
+  );
   const [flowState, setFlowState] = useState<"loading" | "card" | "exiting">("loading");
   const [isAcknowledged, setIsAcknowledged] = useState(false);
 
@@ -206,7 +211,7 @@ export function OnefopLegalAcknowledgment({
               margin: "var(--cam-space-4) 0 var(--cam-space-5)",
             }}
           >
-            {t("onefopLegalAcknowledgment.formTitle")}
+            {t(isVocationalTraining ? "onefopLegalAcknowledgment.formTitleVt" : "onefopLegalAcknowledgment.formTitle")}
           </p>
 
           <div
