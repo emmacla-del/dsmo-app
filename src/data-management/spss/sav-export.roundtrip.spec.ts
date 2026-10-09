@@ -11,7 +11,7 @@ import { PassThrough } from 'stream';
 import { OnefopSchemaLoaderService } from '../../onefop-schema-validation/onefop-schema-loader.service';
 import { CanonicalSchemaAdapterService, type AnalyticalVariableDefinition } from '../canonical-schema-adapter.service';
 import { DataManagementService } from '../data-management.service';
-import { toSavNumber, toSavString, truncateUtf8 } from './sav-writer';
+import { SAV_NCASES_OFFSET, SavWriter, toSavNumber, toSavString, truncateUtf8, type SavVariable } from './sav-writer';
 
 const PY_READER = `
 import json, math, sys, pyreadstat
@@ -28,6 +28,7 @@ print(json.dumps({
   "valueLabels": {k: {str(kk): vv for kk, vv in v.items()} for k, v in meta.variable_value_labels.items()},
   "missing": {k: v for k, v in meta.missing_ranges.items()},
   "encoding": meta.file_encoding,
+  "displayWidths": meta.variable_display_width,
   "rows": [[clean(v) for v in row] for row in df.itertuples(index=False, name=None)],
 }, ensure_ascii=False))
 `;
@@ -51,6 +52,13 @@ const STRING_SAMPLES: unknown[] = [
   null,
 ];
 
+/** ~1500 bytes of accented French free text (1,000+ characters). */
+const LONG_FRENCH = (
+  'Perspectives : élargir l’offre de formation à l’Extrême-Nord et au Sud-Ouest ; ' +
+  'créer des filières « métiers verts » (énergie solaire, maraîchage) ; ' +
+  'renforcer l’apprentissage en entreprise ; équiper les ateliers ; former les formateurs. '
+).repeat(6).slice(0, 1000) + 'é'.repeat(250) + ' — fin.';
+
 function setPath(obj: any, keys: string[], value: unknown) {
   let cur = obj;
   for (const k of keys.slice(0, -1)) cur = cur[k] ??= {};
@@ -58,6 +66,8 @@ function setPath(obj: any, keys: string[], value: unknown) {
 }
 
 function sampleFor(v: AnalyticalVariableDefinition, row: number, col: number): unknown {
+  // Free-text (textarea, A2000) variables: a long accented answer on most rows.
+  if (v.spssDataType !== 'NUMERIC' && v.spssWidth > 255 && row % 4 !== 3) return LONG_FRENCH;
   if (v.spssDataType === 'NUMERIC') {
     const numericKeys = Object.keys(v.valueLabels ?? {}).filter((k) => toSavNumber(k) !== null);
     if (numericKeys.length > 0 && (row + col) % 3 !== 0) return Number(numericKeys[(row + col) % numericKeys.length]);
@@ -111,7 +121,18 @@ function fakeResponse() {
   return { res, done };
 }
 
-const describeIfPy = pyreadstatAvailable() ? describe : describe.skip;
+// Set SAV_ROUNDTRIP_REQUIRED=1 (e.g. in CI with pyreadstat) to fail instead of skipping.
+const PY_AVAILABLE = pyreadstatAvailable();
+if (!PY_AVAILABLE && process.env.SAV_ROUNDTRIP_REQUIRED === '1') {
+  throw new Error('SAV_ROUNDTRIP_REQUIRED=1 but python/pyreadstat is not available');
+}
+const describeIfPy = PY_AVAILABLE ? describe : describe.skip;
+
+function readSav(dir: string, file: string) {
+  const script = path.join(dir, 'read.py');
+  fs.writeFileSync(script, PY_READER);
+  return JSON.parse(execFileSync('python', [script, file], { maxBuffer: 512 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).toString('utf8'));
+}
 
 describeIfPy('native .sav export — pyreadstat round trip', () => {
   const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
@@ -129,18 +150,16 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
     expect(res.headers['Content-Type']).toBe('application/x-spss-sav');
 
     const file = path.join(tmp, `${partition}.sav`);
-    const script = path.join(tmp, 'read.py');
     fs.writeFileSync(file, bytes);
-    fs.writeFileSync(script, PY_READER);
-    const out = JSON.parse(execFileSync('python', [script, file], { maxBuffer: 512 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).toString('utf8'));
-    return { variables, submissions, out };
+    const out = readSav(tmp, file);
+    return { variables, submissions, out, headers: res.headers };
   }
 
   it.each([
     ['DEMAND', 'ENTREPRISE', 260],
     ['TVET', 'VOCATIONAL_TRAINING', 12],
   ] as const)('%s: dictionary and every cell survive the round trip', async (partition, formType, rows) => {
-    const { variables, submissions, out } = await roundTrip(partition, formType, rows);
+    const { variables, submissions, out, headers } = await roundTrip(partition, formType, rows);
 
     expect(out.n).toBe(rows);
     expect(out.encoding).toBe('UTF-8');
@@ -165,6 +184,32 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
       }
     });
 
+    // E8 (v6): free-text variables are A2000 and their long answers survive whole.
+    const wide = variables.filter((v) => v.spssDataType !== 'NUMERIC' && v.spssWidth > 255);
+    if (partition === 'TVET') {
+      expect(wide.map((v) => v.variableName).sort()).toEqual(['VT3_10', 'VT9_3', 'VT9_4']);
+    } else {
+      expect(wide).toEqual([]);
+    }
+    for (const v of wide) {
+      expect(v.spssWidth).toBe(2000);
+      const carried = submissions.filter((s) => toSavString(adapter.exportValue(v, s)) === LONG_FRENCH).length;
+      expect(carried).toBeGreaterThan(0);
+      const col = variables.indexOf(v);
+      expect(out.rows.filter((r: unknown[]) => r[col] === LONG_FRENCH).length).toBe(carried);
+    }
+
+    // Values still wider than their declared width are counted and reported.
+    const over = new Map<string, number>();
+    submissions.forEach((s) => variables.forEach((v) => {
+      if (v.spssDataType === 'NUMERIC') return;
+      if (Buffer.byteLength(toSavString(adapter.exportValue(v, s)), 'utf8') > (v.spssWidth || 254)) {
+        over.set(v.variableName, (over.get(v.variableName) ?? 0) + 1);
+      }
+    }));
+    expect(Number(headers['X-Export-Truncated-Values'])).toBe([...over.values()].reduce((a, b) => a + b, 0));
+    for (const v of wide) expect(over.has(v.variableName)).toBe(false);
+
     // Guard against a vacuous pass: most cells must actually carry a value.
     const filled = submissions.reduce(
       (n, s) => n + variables.filter((v) => toSavString(adapter.extractValue(v, s)) !== '').length,
@@ -185,4 +230,66 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
       });
     });
   }, 180000);
+});
+
+describeIfPy('SavWriter very long strings — pyreadstat round trip', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sav-vls-'));
+  afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  const vars: SavVariable[] = [
+    { name: 'id', label: 'Identifiant', type: 'numeric', width: 8, missingValues: [-98, -99] },
+    { name: 'VT9_4', label: 'Citer les 5 principales perspectives', type: 'string', width: 2000 },
+    { name: 'court', label: 'Raison sociale', type: 'string', width: 20, valueLabels: { REPORTED: 'Chiffres déclarés' } },
+    { name: 'VT9_3', label: 'Autre (à préciser)', type: 'string', width: 600 },
+    { name: 'montant', label: 'Montant', type: 'numeric', width: 14, decimals: 0 },
+    { name: 'VT3_10', label: 'Description du dispositif', type: 'string', width: 2000, valueLabels: { AUCUN: 'Aucun dispositif', NSP: 'Ne sait pas' } },
+  ];
+  const rows: unknown[][] = [
+    [1, LONG_FRENCH, 'REPORTED', 'é'.repeat(290), 1234567, 'AUCUN'],
+    [2, '', 'abc', '', null, LONG_FRENCH + LONG_FRENCH], // the last is > 2000 bytes: cut + counted
+    [-98, 'x', '', 'Ligne 1\nLigne 2 ; « guillemets »', 0, ''],
+    [3, 'é'.repeat(1000), 'Extrême', 'z'.repeat(600), 42.5, 'NSP'],
+  ];
+
+  function write() {
+    const w = new SavWriter(vars, { fileLabel: 'VLS test' });
+    const parts = [w.header(), ...rows.map((r) => w.encodeCase(r)), w.finish()];
+    const bytes = Buffer.concat(parts);
+    bytes.writeInt32LE(w.casesWritten, SAV_NCASES_OFFSET);
+    const file = path.join(tmp, 'vls.sav');
+    fs.writeFileSync(file, bytes);
+    return { w, out: readSav(tmp, file) };
+  }
+
+  it('a 1500-byte accented French answer and other very long strings survive intact', () => {
+    expect(Buffer.byteLength(LONG_FRENCH, 'utf8')).toBeGreaterThanOrEqual(1500);
+    expect(Buffer.byteLength(LONG_FRENCH, 'utf8')).toBeLessThanOrEqual(2000);
+    const { w, out } = write();
+
+    expect(out.n).toBe(rows.length);
+    expect(out.encoding).toBe('UTF-8');
+    expect(out.names).toEqual(vars.map((v) => v.name));
+    expect(out.labels).toEqual(vars.map((v) => v.label));
+    expect(out.formats).toEqual({ id: 'F8.0', VT9_4: 'A2000', court: 'A20', VT9_3: 'A600', montant: 'F14.0', VT3_10: 'A2000' });
+    expect(out.missing.id).toEqual([{ lo: -98, hi: -98 }, { lo: -99, hi: -99 }]);
+
+    rows.forEach((row, r) => {
+      vars.forEach((v, c) => {
+        const expected = v.type === 'numeric'
+          ? toSavNumber(row[c])
+          : truncateUtf8(toSavString(row[c]), v.width).toString('utf8').trimEnd();
+        expect([r, v.name, out.rows[r][c]]).toEqual([r, v.name, expected]);
+      });
+    });
+    expect(out.rows[0][1]).toBe(LONG_FRENCH);
+    expect(out.rows[3][1]).toBe('é'.repeat(1000));
+    expect(out.rows[3][3]).toBe('z'.repeat(600));
+    expect(Object.fromEntries(w.truncatedValues)).toEqual({ VT3_10: 1 });
+  });
+
+  it('keeps value labels on short and very long string variables', () => {
+    const { out } = write();
+    expect(out.valueLabels.court).toEqual({ REPORTED: 'Chiffres déclarés' });
+    expect(out.valueLabels.VT3_10).toEqual({ AUCUN: 'Aucun dispositif', NSP: 'Ne sait pas' });
+  });
 });

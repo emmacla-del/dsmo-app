@@ -4,6 +4,7 @@ import {
   DEMAND_SCHEMA_ENTITIES,
   TVET_SCHEMA_ENTITIES,
   CANONICAL_ENTITY_PRIORITY,
+  SPSS_TEXTAREA_WIDTH,
 } from './canonical-schema-adapter.service';
 import { DataManagementService } from './data-management.service';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
@@ -773,5 +774,33 @@ describe('CanonicalSchemaAdapterService', () => {
         rawData: { s4q03_training_1_domain: 'Logistique' },
       })).toBe('Logistique');
     });
+  });
+});
+
+describe('E8 (dataset v6): free-text width', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+
+  it('declares every textarea field A2000 (by schema field type) and leaves other strings as they were', () => {
+    const loader = new OnefopSchemaLoaderService();
+    const textareaIds = new Set<string>();
+    for (const entity of Object.values(loader.getRoot().entities)) {
+      for (const sec of entity.sections) for (const f of sec.fields) if (f.type === 'textarea') textareaIds.add(f.id);
+    }
+    expect(textareaIds.size).toBeGreaterThan(0);
+
+    const all = adapter.getAllVariables();
+    const wide = all.filter((v) => v.spssDataType !== 'NUMERIC' && v.spssWidth > 254);
+    expect(wide.map((v) => v.variableName).sort()).toEqual([...textareaIds].sort());
+    expect(new Set(wide.map((v) => v.spssWidth))).toEqual(new Set([SPSS_TEXTAREA_WIDTH]));
+    expect(SPSS_TEXTAREA_WIDTH).toBe(2000);
+    // No other string variable is wider than before.
+    expect(all.filter((v) => v.spssDataType !== 'NUMERIC' && !textareaIds.has(v.variableName)).every((v) => v.spssWidth <= 254)).toBe(true);
+  });
+
+  it('the .sps GET DATA reads free text as A2000 so SPSS does not cut it', () => {
+    const tvet = adapter.getTvetVariables();
+    const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
+    for (const name of ['VT3_10', 'VT9_3', 'VT9_4']) expect(sps).toContain(`\n  ${name} A2000\n`);
+    expect(sps).toContain('Version du schéma du jeu de données : 6.');
   });
 });

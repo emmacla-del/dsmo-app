@@ -123,8 +123,28 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    (system-missing). String variables are unchanged (blank). Numeric .sps
  *    read formats are at least F3.0 so « -98 » is read whole. Variable names
  *    and value labels unchanged.
+ * 6: (E8) free text no longer cut at 254 bytes. Scalar variables whose
+ *    questionnaire field is a `textarea` are declared A2000
+ *    (SPSS_TEXTAREA_WIDTH) instead of A254 in the .sav (written as an SPSS
+ *    "very long string") and in the .sps GET DATA. Every other string keeps
+ *    its width. A value still longer than its width is counted and reported
+ *    (X-Export-Truncated-Values header + server log) instead of dropped
+ *    silently. Variable names, order and value labels unchanged.
  */
-export const DATASET_SCHEMA_VERSION = 5;
+export const DATASET_SCHEMA_VERSION = 6;
+
+/**
+ * Storage width, in UTF-8 bytes, of a free-text (`textarea`) variable (E8,
+ * dataset v6). Respondents are not capped; this is the export's room.
+ * 2000 bytes ≈ 1,900 characters of ordinary French prose (accented letters
+ * take 2 bytes) and never fewer than 1,000 — several paragraphs, well beyond
+ * the 254 that cut answers before. It also stays under Stata's 2045-byte
+ * fixed `str` limit, so a .sav → .dta conversion keeps a plain string, and
+ * keeps the per-case cost modest (three such variables, TVET only).
+ */
+export const SPSS_TEXTAREA_WIDTH = 2000;
+/** Default storage width of any other scalar string variable. */
+export const SPSS_DEFAULT_STRING_WIDTH = 254;
 
 /**
  * SPSS user-missing codes (E1, dataset v5). Declared on every NUMERIC
@@ -984,7 +1004,10 @@ export class CanonicalSchemaAdapterService {
   ): AnalyticalVariableDefinition {
     const measurementLevel = this.determineMeasurementLevel(field);
     const spssDataType: SpssDataType = measurementLevel === 'SCALE' ? 'NUMERIC' : 'A';
-    const spssWidth = spssDataType === 'NUMERIC' ? 10 : 254;
+    // Free text (textarea) gets the wide A2000 (E8, v6); field type, not a list.
+    const spssWidth = spssDataType === 'NUMERIC'
+      ? 10
+      : field.type === 'textarea' ? SPSS_TEXTAREA_WIDTH : SPSS_DEFAULT_STRING_WIDTH;
 
     const valueLabels = this.extractValueLabels(field.options);
 
