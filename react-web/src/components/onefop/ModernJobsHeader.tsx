@@ -49,8 +49,12 @@ export function ModernJobsHeader({
       case "ctd":
         return t("entity.ctd");
       case "project":
+      case "projectprogram":
+      case "project_program":
         return t("entity.project");
       case "vt":
+      case "vocationaltraining":
+      case "vocational_training":
         return t("entity.vt");
       default:
         return entityType.toUpperCase();

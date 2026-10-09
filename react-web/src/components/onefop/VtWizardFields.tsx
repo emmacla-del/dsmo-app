@@ -6,7 +6,7 @@ import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { questionCodeText } from "@/lib/question-code";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
-import { VT_NO_STEPPER_IDS, VT_SEGMENTED_RADIO_IDS } from "./vt-wizard-utils";
+import { VT_ADMIN_ONLY_IDS, VT_NO_STEPPER_IDS, VT_SEGMENTED_RADIO_IDS } from "./vt-wizard-utils";
 import { VT_FIELD_TOOLTIPS } from "./vt-field-tooltips";
 import {
   findCameroonDepartment,
@@ -925,6 +925,11 @@ export function VtWizardField({
     );
   }
 
+  // 1.1 Code de la Structure is an administrative code ("A ne pas remplir"
+  // on the paper form): shown, pre-filled with the establishment ID, but
+  // never editable by the respondent.
+  const adminOnly = VT_ADMIN_ONLY_IDS.has(field.id);
+
   return (
     <div style={{ marginBottom: 4 }}>
       <label htmlFor={field.id} style={labelStyle}>
@@ -938,14 +943,16 @@ export function VtWizardField({
         type={field.type === "email" ? "email" : "text"}
         placeholder={field.type === "email" ? "exemple@domaine.cm" : undefined}
         value={(value as string) ?? ""}
-        onChange={(e) => onChange(field.id, e.target.value)}
+        readOnly={adminOnly}
+        aria-readonly={adminOnly || undefined}
+        onChange={adminOnly ? undefined : (e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
         style={{
           width: "100%",
           height: "var(--cam-form-field-height)",
           backgroundColor: "#ffffff",
-          border: `1px solid ${hasError ? "var(--cam-error)" : "#1B4332"}`,
+          border: `1px solid ${hasError ? "var(--cam-error)" : adminOnly ? "var(--cam-border)" : "#1B4332"}`,
           borderRadius: "var(--cam-radius-sm, 6px)",
           padding: "0 var(--cam-space-3)",
           fontFamily: "var(--cam-font-sans)",

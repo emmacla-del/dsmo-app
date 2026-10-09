@@ -4,6 +4,9 @@ import { validateSectionData } from "@/lib/onefop-validation";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
 export const VT_SEGMENTED_RADIO_IDS = new Set(["VT1_15_SEX", "VT1_16_SEX"]);
+/** Administrative fields the respondent sees but never edits (1.1 Code de la
+ *  Structure, "A ne pas remplir" on the paper form). */
+export const VT_ADMIN_ONLY_IDS = new Set(["VT1_1"]);
 export const VT_COMPACT_TOGGLE_SECTION_IDS = new Set([
   "section6_vocationalTraining",
   "section7_vocationalTraining",
