@@ -19,6 +19,8 @@ import { RadioGroup, type RadioOption } from "./form/Radio";
 import { CheckboxGroup, type CheckboxOption } from "./form/Checkbox";
 import { NumberStepper } from "./form/NumberStepper";
 import { Microcopy } from "./form/Microcopy";
+import { OptionalSuffix } from "./ui/OptionalSuffix";
+import { isOptionalField } from "@/lib/onefop-validation";
 
 /** next-intl's useLocale() returns a plain string ("fr"/"en"/"fr-FR"...);
  * localized() wants the narrow union. */
@@ -368,6 +370,7 @@ export function VtWizardSegmentedToggle({
   compact = false,
   describedBy,
   invalid = false,
+  required = false,
 }: {
   field: OnefopField;
   value: unknown;
@@ -375,6 +378,7 @@ export function VtWizardSegmentedToggle({
   compact?: boolean;
   describedBy?: string;
   invalid?: boolean;
+  required?: boolean;
 }) {
   const locale = vtLocale(useLocale());
   const opts = field.options ?? [];
@@ -386,6 +390,7 @@ export function VtWizardSegmentedToggle({
       aria-label={localized(field.label, locale)}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
+      aria-required={required || undefined}
       style={{
         display: "flex",
         padding: 2,
@@ -431,6 +436,7 @@ export function VtWizardNumberStepper({
   compactBox = false,
   describedBy,
   invalid = false,
+  required = false,
 }: {
   field: OnefopField;
   value: unknown;
@@ -438,6 +444,7 @@ export function VtWizardNumberStepper({
   compactBox?: boolean;
   describedBy?: string;
   invalid?: boolean;
+  required?: boolean;
 }) {
   return (
     <NumberStepper
@@ -448,6 +455,7 @@ export function VtWizardNumberStepper({
       showButtons={compactBox ? false : !VT_NO_STEPPER_IDS.has(field.id)}
       describedBy={describedBy}
       invalid={invalid}
+      required={required}
     />
   );
 }
@@ -467,7 +475,7 @@ export function VtWizardInlineCountBox({
       <span style={{ fontFamily: "var(--vt-font)", fontWeight: 600, fontSize: 13, color: "var(--vt-ink-soft, #4e5451)" }}>
         {t("vtWizard.number", { default: "Nombre :" })}
       </span>
-      <VtWizardNumberStepper field={field} value={value} onChange={onChange} compactBox />
+      <VtWizardNumberStepper field={field} value={value} onChange={onChange} compactBox required={!isOptionalField(field)} />
     </div>
   );
 }
@@ -479,6 +487,7 @@ export function VtWizardRadioGroup({
   inlineExtra,
   describedBy,
   invalid = false,
+  required = false,
 }: {
   field: OnefopField;
   value: unknown;
@@ -486,6 +495,7 @@ export function VtWizardRadioGroup({
   inlineExtra?: ReactNode;
   describedBy?: string;
   invalid?: boolean;
+  required?: boolean;
 }) {
   const locale = vtLocale(useLocale());
   const opts = field.options ?? [];
@@ -514,6 +524,7 @@ export function VtWizardRadioGroup({
         layout={horizontal ? "horizontal" : "vertical"}
         describedBy={describedBy}
         invalid={invalid}
+        required={required}
       />
       {inlineExtra && <div style={{ marginTop: 10 }}>{inlineExtra}</div>}
     </div>
@@ -605,26 +616,25 @@ export function VtWizardField({
   // Associates the error message with the control (or its radio/checkbox
   // group) so screen readers announce it on focus, not only once on render.
   const errorId = hasError ? vtFieldErrorId(field.id) : undefined;
+  // Required-ness is said once per section (RequiredQuestionsNote) and on
+  // the control itself; only optional questions carry a visible mark.
+  const required = !isOptionalField(field);
   const a11yProps = {
     "aria-describedby": errorId,
     "aria-invalid": hasError || undefined,
+    "aria-required": required || undefined,
   };
-
-  const requiredBadge = field.required ? (
-    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--vt-red, #ce1126)" }}>
-      {t("vtWizard.requiredSuffix", { default: " (obligatoire)" })}
-    </span>
-  ) : null;
+  const optionalSuffix = <OptionalSuffix field={field} />;
 
   if (usePills && field.options) {
     return (
       <div style={{ marginBottom: 4 }}>
         <div style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={errorId} invalid={hasError} />
+        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={errorId} invalid={hasError} required={required} />
         {inlineExtra ? <div style={{ marginTop: 10 }}>{inlineExtra}</div> : null}
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
@@ -637,10 +647,10 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <div style={questionLabelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={errorId} invalid={hasError} />
+        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={errorId} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
@@ -652,7 +662,7 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <div style={questionLabelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
         <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} />
@@ -667,10 +677,10 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} />
+        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
@@ -682,7 +692,7 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         <input
@@ -722,7 +732,7 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         <div
@@ -783,7 +793,7 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         <textarea
@@ -821,7 +831,7 @@ export function VtWizardField({
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
-          {requiredBadge}
+          {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         <div style={{ position: "relative" }}>
@@ -934,7 +944,7 @@ export function VtWizardField({
     <div style={{ marginBottom: 4 }}>
       <label htmlFor={field.id} style={labelStyle}>
         {labelNode}
-        {requiredBadge}
+        {optionalSuffix}
         {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
       </label>
       <input

@@ -29,6 +29,7 @@ export function RadioGroup({
   layout = "vertical",
   describedBy,
   invalid = false,
+  required = false,
 }: {
   fieldId: string;
   options: RadioOption[];
@@ -39,6 +40,8 @@ export function RadioGroup({
   /** id(s) of the element(s) describing the group, e.g. its error message. */
   describedBy?: string;
   invalid?: boolean;
+  /** Sets aria-required on the radiogroup. */
+  required?: boolean;
 }) {
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -102,6 +105,7 @@ export function RadioGroup({
       aria-label={ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
+      aria-required={required || undefined}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
       style={{

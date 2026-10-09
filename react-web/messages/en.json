@@ -605,7 +605,6 @@
   },
   "fieldRenderer": {
     "selectAllApply": "Select all that apply",
-    "requiredMarker": "*",
     "example": "e.g. {example}",
     "placeholderName": "e.g. John Doe",
     "placeholderJobTitle": "e.g. HR Director",
@@ -642,9 +641,6 @@
       "projectProgram": "Project/Program",
       "fallback": "ONEFOP"
     }
-  },
-  "activitiesTableRenderer": {
-    "requiredMarker": "*"
   },
   "simpleModeSidebar": {
     "ariaLabel": "Declaration sections",
@@ -764,9 +760,9 @@
     "statusInProgress": "In progress",
     "statusNeedsAttention": "{count, plural, one {# answer to fix} other {# answers to fix}}",
     "statusNotStarted": "Not started",
-    "blockChipNeedsAttention": "Needs attention",
-    "blockChipComplete": "{filled}/{total} complete",
-    "blockChipPartial": "{filled}/{total} filled",
+    "blockRemaining": "{count, plural, one {# question left} other {# questions left}}",
+    "blockComplete": "✓ Complete",
+    "blockToFix": "{count} to fix",
     "insertionRateVisualization": "Insertion rate visualization",
     "cancel": "Cancel",
     "previous": "Previous",
@@ -790,7 +786,6 @@
     "number": "Number:",
     "selectAllThatApply": "Select all that apply",
     "selectAnOption": "Select an option",
-    "requiredSuffix": " (required)",
     "signaturesApprovals": "Signatures & Approvals",
     "signatureArea": "Stamp area",
     "graduates": "Graduates",
@@ -1203,7 +1198,9 @@
     "moreInfo": "More information",
     "selectAllThatApply": "Select all that apply",
     "decrease": "Decrease",
-    "increase": "Increase"
+    "increase": "Increase",
+    "optionalSuffix": "(optional)",
+    "requiredQuestionsNote": "All questions are required unless marked \"optional\"."
   },
   "adminNav": {
     "hubs": {

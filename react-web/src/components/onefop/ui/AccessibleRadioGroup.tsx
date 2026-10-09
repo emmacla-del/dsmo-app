@@ -18,6 +18,8 @@ export interface AccessibleRadioGroupProps {
   orientation?: "horizontal" | "vertical";
   className?: string;
   disabled?: boolean;
+  /** Sets aria-required on the radiogroup. */
+  required?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export function AccessibleRadioGroup({
   orientation = "vertical",
   className = "",
   disabled = false,
+  required = false,
 }: AccessibleRadioGroupProps) {
   const groupRef = useRef<HTMLDivElement>(null);
   const selectedValue = String(value ?? "");
@@ -79,6 +82,7 @@ export function AccessibleRadioGroup({
       ref={groupRef}
       role="radiogroup"
       aria-label={label}
+      aria-required={required || undefined}
       onKeyDown={handleKeyDown}
       className={`w-full ${className}`}
     >

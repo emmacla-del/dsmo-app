@@ -9,6 +9,7 @@ import { FieldControl } from "./FieldControl";
 import { CoherenceFieldNote } from "./coherence/Coherence";
 import { InfoTooltip } from "./ui/InfoTooltip";
 import { CodedLabel } from "./ui/QuestionCode";
+import { OptionalSuffix } from "./ui/OptionalSuffix";
 import { getModernJobsTooltip } from "./modern-jobs-tooltips";
 import { ConditionalTable } from "@/components/modern-jobs/conditional/ConditionalTable";
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
@@ -137,7 +138,7 @@ export function FieldRenderer({
     S0Q01: { fr: "Nom et prénom(s) du répondant", en: "Respondent's full name" },
     S0Q02: { fr: "Fonction / Titre dans l'établissement", en: "Function / Title in the establishment" },
     S0Q03_TEL1: { fr: "Numéro de téléphone principal", en: "Primary phone number" },
-    S0Q03_TEL2: { fr: "Numéro de téléphone secondaire (facultatif)", en: "Secondary phone number (optional)" },
+    S0Q03_TEL2: { fr: "Numéro de téléphone secondaire", en: "Secondary phone number" },
     S0Q03_EMAIL: { fr: "Adresse email professionnelle", en: "Professional email address" },
   };
 
@@ -209,7 +210,7 @@ export function FieldRenderer({
       <fieldset style={{ ...wrapperStyle, border: "none", padding: 0, margin: 0 }}>
         <legend style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span><CodedLabel code={coded.code} text={coded.text} /></span>
-          {field.required && <span aria-hidden="true" style={{ color: "var(--cam-error)" }}> {t("fieldRenderer.requiredMarker")}</span>}
+          <OptionalSuffix field={field} />
           {tooltip && <InfoTooltip content={tooltipText ?? tooltip.fr} ariaLabel={label} />}
         </legend>
         <FieldControl field={field} value={value} onChange={onChange} hasError={hasError} locale={locale} />
@@ -232,7 +233,7 @@ export function FieldRenderer({
       <fieldset style={{ ...wrapperStyle, border: "none", padding: 0, margin: 0 }}>
         <legend style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span><CodedLabel code={coded.code} text={coded.text} /></span>
-          {field.required && <span aria-hidden="true" style={{ color: "var(--cam-error)" }}> {t("fieldRenderer.requiredMarker")}</span>}
+          <OptionalSuffix field={field} />
           {tooltip && <InfoTooltip content={tooltipText ?? tooltip.fr} ariaLabel={label} />}
         </legend>
         <p style={selectAllHintStyle}>{t("fieldRenderer.selectAllApply")}</p>
@@ -282,11 +283,7 @@ export function FieldRenderer({
           }}
         >
           <span><CodedLabel code={coded.code} text={coded.text} /></span>
-          {field.required && (
-            <span aria-hidden="true" style={{ color: "#dc2626", marginLeft: 3 }}>
-              *
-            </span>
-          )}
+          <OptionalSuffix field={field} />
           {tooltip && (
             <span style={{ display: "inline-flex", verticalAlign: "middle", marginLeft: 6 }}>
               <InfoTooltip content={tooltipText ?? tooltip.fr} ariaLabel={label} />

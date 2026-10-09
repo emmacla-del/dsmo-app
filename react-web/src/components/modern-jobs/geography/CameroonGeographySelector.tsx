@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useId } from "react";
 import { useTranslations } from "next-intl";
+import { OptionalSuffix } from "@/components/onefop/ui/OptionalSuffix";
 import type { FormData } from "@/lib/onefop-schema";
 import type { Department, Region, Subdivision } from "@/lib/user-types";
 import {
@@ -280,7 +281,7 @@ export function CameroonGeographySelector({
             }}
           >
             {t("region")}
-            {required && <span style={{ color: "#dc2626", marginLeft: 3 }}>*</span>}
+            <OptionalSuffix field={{ id: regionFieldId, required }} />
           </label>
           <select
             id={`${baseId}-region`}
@@ -346,7 +347,7 @@ export function CameroonGeographySelector({
               }}
             >
               {t("department")}
-              {required && <span style={{ color: "#dc2626", marginLeft: 3 }}>*</span>}
+              <OptionalSuffix field={{ id: regionFieldId, required }} />
             </label>
             <select
               id={`${baseId}-department`}
@@ -413,7 +414,7 @@ export function CameroonGeographySelector({
               }}
             >
               {t("subdivision")}
-              {required && <span style={{ color: "#dc2626", marginLeft: 3 }}>*</span>}
+              <OptionalSuffix field={{ id: regionFieldId, required }} />
             </label>
             <select
               id={`${baseId}-subdivision`}
@@ -472,7 +473,7 @@ export function CameroonGeographySelector({
             }}
           >
             {t("locality")}
-            {required && <span style={{ color: "#dc2626", marginLeft: 3 }}>*</span>}
+            <OptionalSuffix field={{ id: regionFieldId, required }} />
           </label>
           <input
             id={`${baseId}-locality`}

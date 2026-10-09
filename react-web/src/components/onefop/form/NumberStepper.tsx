@@ -23,6 +23,7 @@ export function NumberStepper({
   hasError = false,
   describedBy,
   invalid = false,
+  required = false,
 }: {
   id: string;
   value: unknown;
@@ -46,6 +47,8 @@ export function NumberStepper({
   /** Sets aria-invalid without changing the border (for callers that show
    * the error elsewhere). */
   invalid?: boolean;
+  /** Sets aria-required on the input. */
+  required?: boolean;
 }) {
   const shouldShowButtons = showButtons ?? !compact;
   const n = parseInt(String(value ?? ""), 10);
@@ -102,6 +105,7 @@ export function NumberStepper({
           disabled={disabled}
           aria-describedby={describedBy}
           aria-invalid={hasError || invalid || undefined}
+          aria-required={required || undefined}
           value={(value as string) ?? ""}
           onChange={(e) => handleTyped(e.target.value)}
           style={{

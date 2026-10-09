@@ -74,7 +74,6 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
     <div style={{ marginBottom: "var(--cam-form-gap)" }}>
       <p style={labelStyle}>
         <CodedLabel code={field.paperCode} text={label} />
-        {field.required && ` ${t("activitiesTableRenderer.requiredMarker")}`}
       </p>
       <div style={{ overflowX: "auto" }}>
         <DataTable style={{ borderCollapse: "collapse", width: "100%" }}>

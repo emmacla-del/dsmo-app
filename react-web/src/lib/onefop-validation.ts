@@ -48,6 +48,16 @@ export const OPTIONAL_OVERRIDES = new Set([
   "S3Q02_REASON_3_TEXT",
 ]);
 
+/**
+ * True when a respondent may leave the question blank: the schema does not
+ * mark it required, or OPTIONAL_OVERRIDES does. The same rule the validator
+ * applies to an empty answer (validateField), shared with the wizards'
+ * "(facultatif)" label suffix and their "questions left" counts.
+ */
+export function isOptionalField(field: Pick<OnefopField, "id" | "required">): boolean {
+  return !field.required || OPTIONAL_OVERRIDES.has(field.id);
+}
+
 // kYearFieldIds in field_validator.dart, plus the training-centre year of
 // establishment (VT1_14) and year of last authorization (VT2_15), whose ids
 // carry no "year" for isYearField to find.
