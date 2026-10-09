@@ -276,4 +276,27 @@ describe('PDF Flow end-to-end data and template test', () => {
     expect(html).toContain('Directeur VT');
     expect(html).toContain('Promoteur Pierre');
   });
+
+  it('7.1.3 prints each channel by its label, and "Autre" with the row’s précisez', () => {
+    const mapped = mapVocationalTrainingData(
+      {
+        VT7_6_INFORMED: 'Oui/ Yes',
+        VT7_7: ['06', '96'],
+        VT7_7_OTHER: 'Radio communautaire',
+        VT7_10: ['01', '05'],
+        VT7_11: ['96'],
+        VT7_9: 'Réunion pédagogique', // typed before the channels were coded
+      },
+      'QUARTERLY_2026_T4_001',
+    ) as any;
+    const rows = mapped.transversal.partiesPrenantesInformees;
+    expect(rows[0]).toMatchObject({ informee: true, modeCommunication: 'WhatsApp, Autre : Radio communautaire' });
+    expect(rows[1]).toMatchObject({ informee: false, modeCommunication: '' });
+    expect(rows[2].modeCommunication).toBe('Réunion pédagogique');
+    expect(rows[3].modeCommunication).toBe('Lettre / correspondance officielle, Appel téléphonique / SMS');
+    expect(rows[4].modeCommunication).toBe('Autre');
+
+    const en = mapVocationalTrainingData({ VT7_7: ['07', '96'], VT7_7_OTHER: 'Radio' }, 'QUARTERLY_2026_T4_001', 'en') as any;
+    expect(en.transversal.partiesPrenantesInformees[0].modeCommunication).toBe('Email, Other: Radio');
+  });
 });
