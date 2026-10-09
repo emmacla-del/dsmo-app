@@ -4,7 +4,9 @@ import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, fieldDisplayLabel, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
-import { VtWizardField, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { VtGeographyLockContext, VtWizardField, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
+import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
 import {
   VtWizardFixedRowMultiNumberEntry,
   VtWizardProgressiveGuidedTableEntry,
@@ -1133,6 +1135,15 @@ export function VtWizardSectionScreen({
   const visibleFields = section.fields.filter((f) => isFieldVisible(f, data));
   const visibleFieldsReordered = visibleFields;
 
+  // VT1_4/5/6 are read-only when the server will store the company record's
+  // region/department/subdivision instead (see onefop-geography-lock.ts).
+  const vtGeo = SECTION1_GEOGRAPHY_FIELDS.vocationalTraining;
+  const lockedGeography = useCompanyGeographyLock(
+    section.fields.some((f) => f.id === vtGeo.region) ? vtGeo : null,
+    data,
+    onChange,
+  );
+
   const normalizedLocale = locale.startsWith("en") ? "en" : "fr";
   const groups = useMemo(
     () => vtWizardGroupFields(sectionId, visibleFieldsReordered, section.subsections, normalizedLocale),
@@ -1225,6 +1236,7 @@ export function VtWizardSectionScreen({
   const isSignaturesSection = sectionId === VT_SIGNATURES_SECTION_ID;
 
   return (
+    <VtGeographyLockContext.Provider value={lockedGeography}>
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
       <div
         style={{
@@ -1425,5 +1437,6 @@ export function VtWizardSectionScreen({
         </div>
       )}
     </div>
+    </VtGeographyLockContext.Provider>
   );
 }

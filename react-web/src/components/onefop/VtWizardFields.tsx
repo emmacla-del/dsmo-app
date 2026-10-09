@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -55,6 +55,13 @@ const errorStyle: CSSProperties = {
   alignItems: "center",
   gap: 6,
 };
+
+/**
+ * Locked VT1_4/5/6 values (field id -> company value) when the server will
+ * store the company record's geography, or null when they stay editable.
+ * Provided by VtWizardSectionScreen.
+ */
+export const VtGeographyLockContext = createContext<Record<string, string> | null>(null);
 
 /** Stable id of a VT field's error message, referenced by the control's
  * aria-describedby (same `${id}-error` convention as FieldRenderer). */
@@ -581,6 +588,7 @@ export function VtWizardField({
 }) {
   const locale = useLocale();
   const t = useTranslations();
+  const lockedValue = useContext(VtGeographyLockContext)?.[field.id];
   const labelText = localized(field.label, vtLocale(locale));
   // Plain text (aria) + badge node (display) — every question shows its code.
   const label = questionCodeText(field.paperCode, labelText);
@@ -865,6 +873,54 @@ export function VtWizardField({
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
+      </div>
+    );
+  }
+
+  if (lockedValue !== undefined) {
+    // Region/department/subdivision come from the company record; shown
+    // read-only but kept in the tab order so they are read out. The one
+    // explanatory line sits under the last of the three (VT1_6).
+    const noteId = "vt-geography-locked-note";
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <label htmlFor={field.id} style={labelStyle}>
+          {labelNode}
+        </label>
+        <input
+          id={field.id}
+          type="text"
+          value={field.id === "VT1_4" ? regionDisplayName(lockedValue, locale) : lockedValue}
+          readOnly
+          aria-readonly="true"
+          aria-describedby={noteId}
+          style={{
+            width: "100%",
+            height: "var(--cam-form-field-height)",
+            backgroundColor: "var(--cam-surface)",
+            border: "1px solid var(--cam-border)",
+            borderRadius: "var(--cam-radius-sm, 6px)",
+            padding: "0 var(--cam-space-3)",
+            fontFamily: "var(--cam-font-sans)",
+            fontSize: "var(--cam-font-size-base)",
+            fontWeight: 500,
+            color: "var(--cam-text)",
+            boxSizing: "border-box",
+          }}
+        />
+        {field.id === "VT1_6" ? (
+          <p
+            id={noteId}
+            style={{
+              fontSize: "var(--cam-microcopy-size)",
+              color: "var(--cam-microcopy-color)",
+              margin: "var(--cam-microcopy-margin-top) 0 0",
+              lineHeight: 1.4,
+            }}
+          >
+            {t("modernJobs.geography.lockedNote")}
+          </p>
+        ) : null}
       </div>
     );
   }

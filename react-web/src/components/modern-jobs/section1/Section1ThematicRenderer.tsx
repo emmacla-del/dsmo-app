@@ -11,6 +11,7 @@ import type { FormStatus } from "@/components/onefop/form/StatusChip";
 import { FieldRenderer } from "@/components/onefop/FieldRenderer";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 import { ConditionalField } from "@/components/modern-jobs/conditional/ConditionalField";
+import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 
 export interface Section1ThematicRendererProps {
   section: OnefopSection;
@@ -247,6 +248,22 @@ export function Section1ThematicRenderer({
     attemptedContinue
   );
 
+  // The server stores the company record's region/department/subdivision
+  // when it has all three, so those controls are read-only then.
+  const sectionRegionId = section.fields.find((f) => f.id.endsWith("_REGION"))?.id;
+  const sectionGeoPrefix = sectionRegionId?.replace(/_REGION$/, "");
+  const lockedGeography = useCompanyGeographyLock(
+    sectionGeoPrefix
+      ? {
+          region: `${sectionGeoPrefix}_REGION`,
+          department: `${sectionGeoPrefix}_DEPT`,
+          subdivision: `${sectionGeoPrefix}_SUBDIV`,
+        }
+      : null,
+    data,
+    onChange,
+  );
+
   const shouldShowError = (fieldId: string) => {
     return (touchedFields?.has(fieldId) || attemptedContinue) && issueByFieldId.has(fieldId);
   };
@@ -414,6 +431,7 @@ export function Section1ThematicRenderer({
                           locale={locale}
                           required={regionField.required}
                           errors={geoErrors}
+                          readOnlyHierarchy={lockedGeography !== null}
                         />
                       </div>
                     )}
