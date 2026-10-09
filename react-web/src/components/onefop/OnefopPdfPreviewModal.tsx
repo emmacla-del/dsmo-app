@@ -156,7 +156,7 @@ export function OnefopPdfPreviewModal({
           maxWidth: "1280px",
           height: "94vh",
           maxHeight: "960px",
-          background: "#ffffff",
+          background: "var(--cam-surface)",
           borderRadius: "12px",
           boxShadow: "0 24px 60px rgba(0, 0, 0, 0.28)",
           display: "flex",
@@ -193,7 +193,7 @@ export function OnefopPdfPreviewModal({
               >
                 {isFr ? "Vérification officielle avant soumission" : "Official Review before Final Submission"}
               </h2>
-              <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {establishmentName ? `${establishmentName} • ` : ""}
                 {quarterCode || (isFr ? "Période active" : "Active period")}
               </div>
@@ -218,9 +218,9 @@ export function OnefopPdfPreviewModal({
                 style={{
                   border: "none",
                   background: activeLocale === "fr" ? "var(--cam-green)" : "transparent",
-                  color: activeLocale === "fr" ? "#ffffff" : "var(--cam-text)",
+                  color: activeLocale === "fr" ? "var(--cam-surface)" : "var(--cam-text)",
                   fontWeight: activeLocale === "fr" ? 700 : 500,
-                  fontSize: 12,
+                  fontSize: "var(--cam-font-size-2xs)",
                   padding: "4px 10px",
                   borderRadius: "4px",
                   cursor: "pointer",
@@ -235,9 +235,9 @@ export function OnefopPdfPreviewModal({
                 style={{
                   border: "none",
                   background: activeLocale === "en" ? "var(--cam-green)" : "transparent",
-                  color: activeLocale === "en" ? "#ffffff" : "var(--cam-text)",
+                  color: activeLocale === "en" ? "var(--cam-surface)" : "var(--cam-text)",
                   fontWeight: activeLocale === "en" ? 700 : 500,
-                  fontSize: 12,
+                  fontSize: "var(--cam-font-size-2xs)",
                   padding: "4px 10px",
                   borderRadius: "4px",
                   cursor: "pointer",
@@ -391,7 +391,7 @@ export function OnefopPdfPreviewModal({
                 style={{
                   width: 36,
                   height: 36,
-                  border: "3px solid #d8ddd3",
+                  border: "3px solid var(--cam-border)",
                   borderTopColor: "var(--cam-green)",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
@@ -414,7 +414,7 @@ export function OnefopPdfPreviewModal({
           {loadError && !loading && (
             <div
               style={{
-                background: "#ffffff",
+                background: "var(--cam-surface)",
                 padding: "24px 32px",
                 borderRadius: "8px",
                 boxShadow: "0 8px 24px rgba(0,0,0,0.15)",

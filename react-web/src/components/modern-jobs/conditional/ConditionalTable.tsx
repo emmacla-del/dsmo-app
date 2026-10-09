@@ -72,7 +72,7 @@ export function ConditionalTable({
         background: "var(--cam-error-bg)",
         border: "1px solid var(--cam-error-border)",
         color: "var(--cam-error)",
-        fontSize: 13,
+        fontSize: "var(--cam-font-size-xs)",
         fontWeight: 600,
       }}
     >
@@ -84,7 +84,7 @@ export function ConditionalTable({
     return (
       <div style={frameStyle}>
         {followUp && (
-          <p style={{ fontSize: 14, fontWeight: 600, color: "var(--cam-text)", margin: "0 0 12px", lineHeight: 1.4 }}>
+          <p style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", margin: "0 0 12px", lineHeight: 1.4 }}>
             {followUp}
           </p>
         )}
@@ -98,7 +98,7 @@ export function ConditionalTable({
   return (
     <div style={frameStyle}>
       {question && (
-        <p style={{ fontSize: 14, fontWeight: 600, color: "var(--cam-text)", margin: "0 0 8px", lineHeight: 1.4 }}>
+        <p style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", margin: "0 0 8px", lineHeight: 1.4 }}>
           {question}
         </p>
       )}
