@@ -49,8 +49,9 @@ export const OPTIONAL_OVERRIDES = new Set([
 ]);
 
 // kYearFieldIds in field_validator.dart, plus the training-centre year of
-// establishment (VT1_14), whose id carries no "year" for isYearField to find.
-const YEAR_FIELD_IDS = new Set(["COOP_S1Q03", "CTD_S1Q03", "ONG_S1Q03", "VT1_14"]);
+// establishment (VT1_14) and year of last authorization (VT2_15), whose ids
+// carry no "year" for isYearField to find.
+const YEAR_FIELD_IDS = new Set(["COOP_S1Q03", "CTD_S1Q03", "ONG_S1Q03", "VT1_14", "VT2_15"]);
 
 /**
  * Scalar `number` fields that are counts (people, posts, sites, projects,
@@ -124,13 +125,13 @@ function isValidEmail(v: string): boolean {
   return EMAIL_RE.test(v);
 }
 
+/** The one wording of the whole-number error, for fields, cells and inputs. */
+const WHOLE_NUMBER_FR = "Saisissez un nombre entier";
+const WHOLE_NUMBER_EN = "Enter a whole number";
+
 /** Shown when a count input is refused (decimal, sign, letters). */
 export function wholeNumberMessage(locale?: ValidationLocale): string {
-  return msg(
-    "Saisissez un nombre entier, sans virgule, signe ni lettre (ex. 12)",
-    "Enter a whole number, without decimals, signs or letters (e.g. 12)",
-    locale,
-  );
+  return msg(`${WHOLE_NUMBER_FR} (ex. 12)`, `${WHOLE_NUMBER_EN} (e.g. 12)`, locale);
 }
 
 function fieldIssue(field: OnefopField, message: string): ValidationIssue {
@@ -225,7 +226,7 @@ function validateField(
       return fieldIssue(field, labelled(fieldLabel(field, locale), "La valeur doit être ≥ 0", "Value must be ≥ 0", locale));
     }
     if (COUNT_FIELD_IDS.has(field.id) && !isWholeCount(v.replace(/\s/g, ""))) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer un nombre entier", "Please enter a whole number", locale));
+      return fieldIssue(field, labelled(fieldLabel(field, locale), WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale));
     }
   }
 
@@ -328,7 +329,7 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
           // a count of rooms / furniture / places: a whole number.
           issues.push({
             fieldId: cellId,
-            message: labelled(label, "La valeur doit être un nombre entier", "Value must be a whole number", locale),
+            message: labelled(label, WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale),
           });
         }
       }),

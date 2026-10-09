@@ -138,35 +138,32 @@ export function tableHasStatusDimension(table: Pick<OnefopTable, "statuses"> | n
 }
 
 /**
- * Evaluates field visibility based on schema rules.
- * Supports eq, contains, and in (dependsValues OR condition). Follows the
- * schema only: VT1_13 is asked for "Non-fonctionnelle" alone, as printed on
- * the form. A follow-up whose own parent is hidden cannot stay visible on a
- * stale answer, because hidden answers are erased as soon as the parent
- * changes (cleanHiddenDependentFields, applied by useOnefopDraft).
+ * Evaluates field visibility based on schema rules, with the server's
+ * semantics (onefop-shadow-validator.service.ts isVisible):
+ * - eq: the parent's answer is exactly dependsValue (no prefix matching);
+ * - contains: the parent's selections include dependsValue;
+ * - dependsValues ("in", unused by the current schema): exact membership.
+ * Follows the schema only: VT1_13 is asked for "Non-fonctionnelle" alone, as
+ * printed on the form. A follow-up whose own parent is hidden cannot stay
+ * visible on a stale answer, because hidden answers are erased as soon as
+ * the parent changes (cleanHiddenDependentFields, applied by useOnefopDraft).
  */
 export function isFieldVisible(field: OnefopField, data: FormData): boolean {
   const visibility = field.visibility;
   if (!visibility) return true;
   const trigger = data[visibility.dependsOn];
 
-  if (visibility.dependsValues && Array.isArray(visibility.dependsValues)) {
-    return typeof trigger === "string"
-      ? visibility.dependsValues.some(
-          (dv) => trigger === dv || trigger.startsWith(dv.split("/")[0].trim()),
-        )
-      : visibility.dependsValues.includes(trigger as string);
+  if (Array.isArray(visibility.dependsValues)) {
+    return typeof trigger === "string" && visibility.dependsValues.includes(trigger);
   }
 
   if (visibility.dependsOperator === "contains") {
+    // A string parent is not treated like the server's String.includes yet:
+    // that would change outcomes for a scalar answer to a multi-choice
+    // question (see visibility parity test).
     return Array.isArray(trigger) && trigger.includes(visibility.dependsValue);
   }
-  if (typeof trigger === "string" && typeof visibility.dependsValue === "string") {
-    if (trigger === visibility.dependsValue) return true;
-    const prefix = visibility.dependsValue.split("/")[0].trim();
-    if (trigger === prefix || trigger.startsWith(prefix)) return true;
-  }
-  return trigger === visibility.dependsValue;
+  return typeof trigger === "string" && trigger === visibility.dependsValue;
 }
 
 /**
