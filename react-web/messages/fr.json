@@ -2544,7 +2544,14 @@
     "dateColumn": "Date & Heure",
     "userColumn": "Utilisateur",
     "formatColumn": "Format",
-    "scopeColumn": "Périmètre"
+    "scopeColumn": "Périmètre",
+    "questionnaireLabel": "Questionnaire",
+    "questionnaire": {
+      "DEMAND": "Employeurs (entreprises, coopératives, CTD, ONG, administrations, projets)",
+      "TVET": "Centres de formation professionnelle"
+    },
+    "statusHint": "Les dossiers ayant une anomalie bloquante ouverte sont toujours exclus de l'export.",
+    "scopeQuestionnaire": "Questionnaire : {value}"
   },
   "homeNav": {
     "role": {
