@@ -67,6 +67,9 @@ function getSectionStats(section: OnefopSection, data: FormData) {
  * - 9-section status card grid (SECTION N, label, badge, filled/total progress)
  * - Navigation: Return to Section 9 or proceed to PDF review & final submission
  */
+const SUBMIT_BLOCKED_ERRORS_ID = "vt-submit-blocked-errors";
+const SUBMIT_BLOCKED_PERIOD_ID = "vt-submit-blocked-period";
+
 export function VtValidationScreen({
   entity,
   data,
@@ -105,6 +108,13 @@ export function VtValidationScreen({
   // The preliminary quiz decides which tables apply: submission waits for it.
   const quizIncomplete = !!quiz && !quiz.isComplete;
   const hasErrors = quizIncomplete || sectionSummaries.some((s) => s.stats.issuesCount > 0);
+  // Why Submit cannot proceed, if it cannot: errors first, then a closed
+  // period (the one condition the respondent cannot fix by editing).
+  const submitBlockedReasonId = hasErrors
+    ? SUBMIT_BLOCKED_ERRORS_ID
+    : !canSubmit
+      ? SUBMIT_BLOCKED_PERIOD_ID
+      : null;
 
   return (
     <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-7)" }}>
@@ -219,6 +229,8 @@ export function VtValidationScreen({
       {/* Validation error banner — blocks submission (W1 fix) */}
       {hasErrors && (
         <div
+          id={SUBMIT_BLOCKED_ERRORS_ID}
+          tabIndex={-1}
           style={{
             background: "rgba(192, 57, 43, 0.06)",
             border: "1px solid rgba(192, 57, 43, 0.35)",
@@ -266,6 +278,8 @@ export function VtValidationScreen({
           one condition the respondent cannot resolve by editing the form. */}
       {!canSubmit && (
         <div
+          id={SUBMIT_BLOCKED_PERIOD_ID}
+          tabIndex={-1}
           style={{
             background: "rgba(230, 81, 0, 0.08)",
             border: "1px solid rgba(230, 81, 0, 0.3)",
@@ -575,8 +589,22 @@ export function VtValidationScreen({
         {onSubmitFinal && (
           <button
             type="button"
-            onClick={onSubmitFinal}
-            disabled={isSubmitting || hasErrors || !canSubmit}
+            // Blocked, not disabled: a disabled button cannot be focused, so a
+            // keyboard or screen-reader user could not learn why it does not
+            // work. It stays reachable, is described by the reason, and
+            // pressing it moves focus to that reason.
+            onClick={() => {
+              if (submitBlockedReasonId) {
+                const reason = document.getElementById(submitBlockedReasonId);
+                reason?.scrollIntoView({ block: "center" });
+                reason?.focus({ preventScroll: true });
+                return;
+              }
+              onSubmitFinal();
+            }}
+            disabled={isSubmitting}
+            aria-disabled={submitBlockedReasonId ? true : undefined}
+            aria-describedby={submitBlockedReasonId ?? undefined}
             style={{
               height: "var(--cam-form-field-height)",
               padding: "0 48px",
