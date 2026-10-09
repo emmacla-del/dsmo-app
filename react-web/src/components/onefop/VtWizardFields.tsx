@@ -616,11 +616,14 @@ export function VtWizardField({
   // Associates the error message with the control (or its radio/checkbox
   // group) so screen readers announce it on focus, not only once on render.
   const errorId = hasError ? vtFieldErrorId(field.id) : undefined;
+  const hintId = hint ? `${field.id}-hint` : undefined;
+  // The error and the hint both describe the control, error first.
+  const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
   // Required-ness is said once per section (RequiredQuestionsNote) and on
   // the control itself; only optional questions carry a visible mark.
   const required = !isOptionalField(field);
   const a11yProps = {
-    "aria-describedby": errorId,
+    "aria-describedby": describedBy,
     "aria-invalid": hasError || undefined,
     "aria-required": required || undefined,
   };
@@ -634,10 +637,10 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={errorId} invalid={hasError} required={required} />
+        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={describedBy} invalid={hasError} required={required} />
         {inlineExtra ? <div style={{ marginTop: 10 }}>{inlineExtra}</div> : null}
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -650,9 +653,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={errorId} invalid={hasError} required={required} />
+        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -665,9 +668,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} />
+        <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -680,9 +683,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} required={required} />
+        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -722,7 +725,7 @@ export function VtWizardField({
           }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -783,7 +786,7 @@ export function VtWizardField({
           />
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -821,7 +824,7 @@ export function VtWizardField({
           }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -882,7 +885,7 @@ export function VtWizardField({
           </span>
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy>{hint}</Microcopy> : null}
+        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -975,7 +978,7 @@ export function VtWizardField({
       />
       <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
       <VtWizardFieldError id={errorId} message={errorMessage} />
-      {hint ? <Microcopy>{hint}</Microcopy> : null}
+      {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
     </div>
   );
 }

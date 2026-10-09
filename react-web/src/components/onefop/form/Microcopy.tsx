@@ -13,12 +13,16 @@ import type { ReactNode } from "react";
 export function Microcopy({
   children,
   variant = "hint",
+  id,
 }: {
   children: ReactNode;
   variant?: "hint" | "instruction";
+  /** Lets a control reference this text with aria-describedby. */
+  id?: string;
 }) {
   return (
     <p
+      id={id}
       style={{
         fontSize: "var(--cam-microcopy-size)",
         color: "var(--cam-microcopy-color)",
