@@ -3396,6 +3396,26 @@ const _vtYesNoOptions = [
   LocalizedOption("Non/ No", LocalizedText(fr: "Non", en: "No")),
 ];
 
+// 7.1.3 communication channels, one list shared by the five stakeholder
+// rows (VT7_7..VT7_11). Product decision 2026-10-09, PROVISIONAL until
+// MINEFOP confirms a written list (the printed columns are untitled).
+// The stored value is the code: SPSS carries "01".."08", "96" with these
+// labels (variable-registry), and the export gives one 0/1 variable per
+// stakeholder x channel. "96" opens that row's "précisez" field
+// (VT7_7_OTHER..VT7_11_OTHER). Codes are append-only: never reuse or
+// renumber one; add a new code for a new channel.
+const _vt713ChannelOptions = [
+  LocalizedOption("01", LocalizedText(fr: "Lettre / correspondance officielle", en: "Official letter / correspondence")),
+  LocalizedOption("02", LocalizedText(fr: "Note de service / circulaire administrative", en: "Internal memo / administrative circular")),
+  LocalizedOption("03", LocalizedText(fr: "Réunion / séance d'information", en: "Meeting / information session")),
+  LocalizedOption("04", LocalizedText(fr: "Communication verbale / bouche-à-oreille", en: "Verbal communication / word of mouth")),
+  LocalizedOption("05", LocalizedText(fr: "Appel téléphonique / SMS", en: "Telephone call / SMS")),
+  LocalizedOption("06", LocalizedText.same("WhatsApp")),
+  LocalizedOption("07", LocalizedText(fr: "Courrier électronique (e-mail)", en: "Email")),
+  LocalizedOption("08", LocalizedText(fr: "Affichage au tableau d'affichage", en: "Notice board / posted notice")),
+  LocalizedOption("96", LocalizedText(fr: "Autre (préciser)", en: "Other (specify)")),
+];
+
 // ============================================================
 // SECTION 2 - VOCATIONAL TRAINING (VT-2) — general information
 //
@@ -6010,9 +6030,8 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   // in vt_table_defs.dart for where this is actually surfaced. The
   // printed table's column header is "Modes de communication (cocher les
   // cases correspondantes)" / "Means of communication (Please tick the
-  // appropriate box)" over untitled columns — kept as printed rather than
-  // inventing channel names; the option list below is deferred for the
-  // same reason, pending a written list from MINEFOP.
+  // appropriate box)" over untitled columns. Channel list: _vt713ChannelOptions
+  // (provisional, 2026-10-09), each row with its own "précisez" for 96.
   FormQuestionAst(
     id: "VT7_7",
     paperCode: "7.1.3",
@@ -6023,9 +6042,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 7,
     type: AstFieldType.checkbox,
+    options: _vt713ChannelOptions,
     dependsOn: "VT7_6_INFORMED",
     dependsValue: "Oui/ Yes",
     path: "vocationalTraining.pupilsCommsChannels",
+  ),
+  FormQuestionAst(
+    id: "VT7_7_OTHER",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Autre canal, précisez — Élèves",
+      en: "Other channel, specify — Pupils",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 7,
+    type: AstFieldType.text,
+    requiredField: true,
+    // Shown once "96 Autre" is ticked in VT7_7 (which itself needs
+    // VT7_6_INFORMED = Oui), like 6.2.1's VT6_9.
+    dependsOn: "VT7_7",
+    dependsValue: "96",
+    dependsOperator: "contains",
+    path: "vocationalTraining.pupilsCommsChannelsOther",
   ),
   FormQuestionAst(
     id: "VT7_8",
@@ -6037,9 +6075,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 8,
     type: AstFieldType.checkbox,
+    options: _vt713ChannelOptions,
     dependsOn: "VT7_6_INFORMED",
     dependsValue: "Oui/ Yes",
     path: "vocationalTraining.teachingStaffCommsChannels",
+  ),
+  FormQuestionAst(
+    id: "VT7_8_OTHER",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Autre canal, précisez — Personnel Enseignant",
+      en: "Other channel, specify — Teaching Staff",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 8,
+    type: AstFieldType.text,
+    requiredField: true,
+    // Shown once "96 Autre" is ticked in VT7_8 (which itself needs
+    // VT7_6_INFORMED = Oui), like 6.2.1's VT6_9.
+    dependsOn: "VT7_8",
+    dependsValue: "96",
+    dependsOperator: "contains",
+    path: "vocationalTraining.teachingStaffCommsChannelsOther",
   ),
   FormQuestionAst(
     id: "VT7_9",
@@ -6051,9 +6108,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 9,
     type: AstFieldType.checkbox,
+    options: _vt713ChannelOptions,
     dependsOn: "VT7_6_INFORMED",
     dependsValue: "Oui/ Yes",
     path: "vocationalTraining.nonTeachingStaffCommsChannels",
+  ),
+  FormQuestionAst(
+    id: "VT7_9_OTHER",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Autre canal, précisez — Personnel Non Enseignant",
+      en: "Other channel, specify — Non-Teaching Staff",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 9,
+    type: AstFieldType.text,
+    requiredField: true,
+    // Shown once "96 Autre" is ticked in VT7_9 (which itself needs
+    // VT7_6_INFORMED = Oui), like 6.2.1's VT6_9.
+    dependsOn: "VT7_9",
+    dependsValue: "96",
+    dependsOperator: "contains",
+    path: "vocationalTraining.nonTeachingStaffCommsChannelsOther",
   ),
   FormQuestionAst(
     id: "VT7_10",
@@ -6065,9 +6141,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 10,
     type: AstFieldType.checkbox,
+    options: _vt713ChannelOptions,
     dependsOn: "VT7_6_INFORMED",
     dependsValue: "Oui/ Yes",
     path: "vocationalTraining.parentsCommsChannels",
+  ),
+  FormQuestionAst(
+    id: "VT7_10_OTHER",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Autre canal, précisez — Parents/Tuteurs",
+      en: "Other channel, specify — Parents/Guardians",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 10,
+    type: AstFieldType.text,
+    requiredField: true,
+    // Shown once "96 Autre" is ticked in VT7_10 (which itself needs
+    // VT7_6_INFORMED = Oui), like 6.2.1's VT6_9.
+    dependsOn: "VT7_10",
+    dependsValue: "96",
+    dependsOperator: "contains",
+    path: "vocationalTraining.parentsCommsChannelsOther",
   ),
   FormQuestionAst(
     id: "VT7_11",
@@ -6079,9 +6174,28 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section7_vocationalTraining",
     order: 11,
     type: AstFieldType.checkbox,
+    options: _vt713ChannelOptions,
     dependsOn: "VT7_6_INFORMED",
     dependsValue: "Oui/ Yes",
     path: "vocationalTraining.schoolCouncilCommsChannels",
+  ),
+  FormQuestionAst(
+    id: "VT7_11_OTHER",
+    paperCode: "7.1.3",
+    label: LocalizedText(
+      fr: "Autre canal, précisez — Conseil d'établissement",
+      en: "Other channel, specify — School Council",
+    ),
+    sectionId: "section7_vocationalTraining",
+    order: 11,
+    type: AstFieldType.text,
+    requiredField: true,
+    // Shown once "96 Autre" is ticked in VT7_11 (which itself needs
+    // VT7_6_INFORMED = Oui), like 6.2.1's VT6_9.
+    dependsOn: "VT7_11",
+    dependsValue: "96",
+    dependsOperator: "contains",
+    path: "vocationalTraining.schoolCouncilCommsChannelsOther",
   ),
   FormQuestionAst(
     id: "VT7_12",
