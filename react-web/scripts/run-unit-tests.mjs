@@ -1,9 +1,13 @@
 // Unit-test runner for react-web with no test-framework dependency: Node
 // (>= 23.6) runs the *.test.ts files directly with native TypeScript type
 // stripping and its built-in test runner; scripts/test-resolve.mjs supplies
-// the "@/..." alias and extensionless imports. Pure-logic tests only (no DOM).
+// the "@/..." alias and extensionless imports.
 //
-//   npm test                 all src/**/*.test.ts
+// *.test.ts files are pure-logic tests (no DOM). *.test.tsx files are
+// component tests: test-resolve.mjs compiles their JSX with esbuild, and each
+// one imports src/test/render.tsx, which sets up jsdom for that file only.
+//
+//   npm test                 all src/**/*.test.ts and src/**/*.test.tsx
 //   npm test -- QuizSemantics only files whose path contains the filter
 import { spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
@@ -19,7 +23,7 @@ function findTests(dir) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
     if (statSync(full).isDirectory()) out.push(...findTests(full));
-    else if (name.endsWith(".test.ts")) out.push(full);
+    else if (name.endsWith(".test.ts") || name.endsWith(".test.tsx")) out.push(full);
   }
   return out;
 }
@@ -28,7 +32,7 @@ const tests = findTests(srcDir)
   .filter((f) => !filter || f.includes(filter))
   .map((f) => relative(root, f));
 if (tests.length === 0) {
-  console.error("No *.test.ts files found.");
+  console.error("No *.test.ts / *.test.tsx files found.");
   process.exit(1);
 }
 
