@@ -2133,7 +2133,12 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             collaborationCIOP: vtBool(f, 'VT6_4'),
             accompagnements: vtArr(f, 'VT6_5'),
             accompagnementAutrePrecision: str(f, 'VT6_6'),
-            suiviPostFormation: { effectue: vtBool(f, 'VT6_7'), mecanismes: vtArr(f, 'VT6_8') },
+            // 6.2.1 "Autre, précisez" (VT6_9), printed like 6.1.3's VT6_6.
+            suiviPostFormation: {
+                effectue: vtBool(f, 'VT6_7'),
+                mecanismes: vtArr(f, 'VT6_8'),
+                mecanismeAutrePrecision: str(f, 'VT6_9'),
+            },
             celluleInsertion: vtBool(f, 'VT6_10'),
             outilGestionBDD: vtBool(f, 'VT6_11'),
             outilAccompagnementEmploi: vtBool(f, 'VT6_12'),
