@@ -212,15 +212,12 @@ const VT_COMMS_MODALITIES = [
   },
 ] as const;
 
+/** The ticked communication channels of one stakeholder group. The wizard
+ *  only ever stores a list; anything else (e.g. a yes/no answer from the old
+ *  format of this question) reads as nothing ticked, never as a guessed
+ *  channel — whether stakeholders were informed is its own question (7.1.3). */
 function parseSelectedChannels(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw.map(String);
-  if (typeof raw === "string" && raw.trim() !== "") {
-    if (raw === "Non/ No" || raw === "false" || raw === "2") return [];
-    if (raw.includes(",")) return raw.split(",").map((s) => s.trim()).filter(Boolean);
-    if (raw === "Oui/ Yes" || raw === "true" || raw === "1") return ["meeting"];
-    return [raw.trim()];
-  }
-  return [];
+  return Array.isArray(raw) ? raw.map(String) : [];
 }
 
 function VtWizardStakeholderInformedCard({
