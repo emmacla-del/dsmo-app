@@ -1,6 +1,6 @@
 // src/questionnaires/questionnaires.service.ts
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger, Optional } from '@nestjs/common';
-import { AnomalySeverity, AnomalyStatus } from '@prisma/client';
+import { AnomalyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -28,6 +28,7 @@ import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-sc
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
+import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import { computeDoualaEndOfDay } from './douala-deadline';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
@@ -1558,20 +1559,8 @@ export class QuestionnairesService {
         });
 
         await this.prisma.onefopAnomaly.createMany({
-          data: coherenceFlags.map((flag) => {
-            const isBlocking = flag.code.includes('BLOCKING') || flag.code.includes('MISMATCH');
-            return {
-              submissionId: result.id,
-              ruleCode: flag.code,
-              ruleFamily: flag.code.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
-              severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
-              isBlocking,
-              status: AnomalyStatus.OPEN,
-              description: flag.message,
-              observedValue: 'Incohérence détectée',
-              expectedValue: 'Égalité requise',
-            };
-          }),
+          // Advisory warnings, never blocking (coherence-anomaly.ts).
+          data: coherenceFlags.map((flag) => coherenceFlagToAnomaly(result.id, flag)),
         });
       } catch (anomalyErr: any) {
         this.logger.error(
