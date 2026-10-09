@@ -30,11 +30,13 @@ test("its follow-up is then visible and survives hidden-answer cleaning", () => 
   assert.equal(cleanHiddenDependentFields(vt, normalized).VT6_6, "Formation en ligne");
 });
 
-test("lists, unknown strings and checkbox fields without options are left untouched", () => {
+test("lists and strings that are not an option are left untouched", () => {
+  // (No checkbox field is left without options since 7.1.3 got its channel
+  // codes; a stray value on one is simply not an option.)
   const data = {
     VT6_5: ["Autres/ Others"],
     VT6_8: "not an option",
-    VT7_7: "Oui/ Yes", // no option list: its own legacy reader interprets it
+    VT7_7: "Oui/ Yes",
   };
   const out = normalizeMultiChoiceValues(vt, data);
   assert.equal(out, data, "nothing to repair returns the same object");

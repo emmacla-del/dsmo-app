@@ -9731,23 +9731,73 @@
     },
     "vocationalTraining.pupilsCommsChannels": {
       "variableName": "VT7_7",
-      "valueLabels": null
+      "valueLabels": {
+        "96": "Autre (préciser)",
+        "01": "Lettre / correspondance officielle",
+        "02": "Note de service / circulaire administrative",
+        "03": "Réunion / séance d'information",
+        "04": "Communication verbale / bouche-à-oreille",
+        "05": "Appel téléphonique / SMS",
+        "06": "WhatsApp",
+        "07": "Courrier électronique (e-mail)",
+        "08": "Affichage au tableau d'affichage"
+      }
     },
     "vocationalTraining.teachingStaffCommsChannels": {
       "variableName": "VT7_8",
-      "valueLabels": null
+      "valueLabels": {
+        "96": "Autre (préciser)",
+        "01": "Lettre / correspondance officielle",
+        "02": "Note de service / circulaire administrative",
+        "03": "Réunion / séance d'information",
+        "04": "Communication verbale / bouche-à-oreille",
+        "05": "Appel téléphonique / SMS",
+        "06": "WhatsApp",
+        "07": "Courrier électronique (e-mail)",
+        "08": "Affichage au tableau d'affichage"
+      }
     },
     "vocationalTraining.nonTeachingStaffCommsChannels": {
       "variableName": "VT7_9",
-      "valueLabels": null
+      "valueLabels": {
+        "96": "Autre (préciser)",
+        "01": "Lettre / correspondance officielle",
+        "02": "Note de service / circulaire administrative",
+        "03": "Réunion / séance d'information",
+        "04": "Communication verbale / bouche-à-oreille",
+        "05": "Appel téléphonique / SMS",
+        "06": "WhatsApp",
+        "07": "Courrier électronique (e-mail)",
+        "08": "Affichage au tableau d'affichage"
+      }
     },
     "vocationalTraining.parentsCommsChannels": {
       "variableName": "VT7_10",
-      "valueLabels": null
+      "valueLabels": {
+        "96": "Autre (préciser)",
+        "01": "Lettre / correspondance officielle",
+        "02": "Note de service / circulaire administrative",
+        "03": "Réunion / séance d'information",
+        "04": "Communication verbale / bouche-à-oreille",
+        "05": "Appel téléphonique / SMS",
+        "06": "WhatsApp",
+        "07": "Courrier électronique (e-mail)",
+        "08": "Affichage au tableau d'affichage"
+      }
     },
     "vocationalTraining.schoolCouncilCommsChannels": {
       "variableName": "VT7_11",
-      "valueLabels": null
+      "valueLabels": {
+        "96": "Autre (préciser)",
+        "01": "Lettre / correspondance officielle",
+        "02": "Note de service / circulaire administrative",
+        "03": "Réunion / séance d'information",
+        "04": "Communication verbale / bouche-à-oreille",
+        "05": "Appel téléphonique / SMS",
+        "06": "WhatsApp",
+        "07": "Courrier électronique (e-mail)",
+        "08": "Affichage au tableau d'affichage"
+      }
     },
     "vocationalTraining.addressesIstIssues": {
       "variableName": "VT7_12",
@@ -10620,6 +10670,26 @@
     },
     "period.end": {
       "variableName": "periodEnd",
+      "valueLabels": null
+    },
+    "vocationalTraining.pupilsCommsChannelsOther": {
+      "variableName": "VT7_7_OTHER",
+      "valueLabels": null
+    },
+    "vocationalTraining.teachingStaffCommsChannelsOther": {
+      "variableName": "VT7_8_OTHER",
+      "valueLabels": null
+    },
+    "vocationalTraining.nonTeachingStaffCommsChannelsOther": {
+      "variableName": "VT7_9_OTHER",
+      "valueLabels": null
+    },
+    "vocationalTraining.parentsCommsChannelsOther": {
+      "variableName": "VT7_10_OTHER",
+      "valueLabels": null
+    },
+    "vocationalTraining.schoolCouncilCommsChannelsOther": {
+      "variableName": "VT7_11_OTHER",
       "valueLabels": null
     }
   }
