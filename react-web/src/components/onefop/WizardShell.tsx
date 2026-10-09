@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
@@ -689,19 +689,70 @@ export function WizardShell({
             }}
           >
             {sections.map((section, index) => {
-              const current = index === clampedSectionIndex;
-              const done = isSectionComplete(section);
-              const lockReason = vtLockReason({ kind: "section", index });
-              const label = `${index + 1}. ${localized(section.title, locale.startsWith("en") ? "en" : "fr")}`;
+              // The schema titles already start with "SECTION n.", so no number prefix.
+              const label = localized(section.title, locale.startsWith("en") ? "en" : "fr");
+              const sectionItem = renderCompactRailItem({
+                key: section.id,
+                label,
+                current: !isVtQuizStage && index === clampedSectionIndex,
+                done: isSectionComplete(section),
+                lockReason: vtLockReason({ kind: "section", index }),
+                onOpen: () => goToSection(index),
+                badge: index + 1,
+              });
+              // The preliminary quiz sits between Section 1 and Section 2,
+              // as in the full sidebar.
+              if (index !== 0 || !vtQuizApplies) return sectionItem;
+              return (
+                <Fragment key={section.id}>
+                  {sectionItem}
+                  {renderCompactRailItem({
+                    key: "vt-quiz",
+                    label: t("wizardShell.quizAnnouncement"),
+                    current: isVtQuizStage,
+                    done: vtQuizComplete,
+                    lockReason: vtLockReason({ kind: "quiz" }),
+                    onOpen: selectVtQuiz,
+                    badge: "?",
+                  })}
+                </Fragment>
+              );
+            })}
+          </div>
+        </aside>
+      );
+    }
 
+    return null;
+  }
+
+  /** One item of the compact (68px) rail: a section or the preliminary quiz. */
+  function renderCompactRailItem({
+    key,
+    label,
+    current,
+    done,
+    lockReason,
+    onOpen,
+    badge,
+  }: {
+    key: string;
+    label: string;
+    current: boolean;
+    done: boolean;
+    lockReason: string | null;
+    onOpen: () => void;
+    badge: ReactNode;
+  }) {
               return (
                 <button
-                  key={section.id}
+                  key={key}
                   type="button"
                   aria-label={lockReason ? `${label} — ${lockReason}` : label}
+                  aria-current={current ? "step" : undefined}
                   aria-disabled={lockReason ? true : undefined}
                   title={lockReason ? `${label} — ${lockReason}` : label}
-                  onClick={lockReason ? undefined : () => goToSection(index)}
+                  onClick={lockReason ? undefined : onOpen}
                   style={{
                     display: "grid",
                     placeItems: "center",
@@ -726,16 +777,92 @@ export function WizardShell({
                     opacity: lockReason ? 0.5 : undefined,
                   }}
                 >
-                  {done && !current ? "✓" : index + 1}
+                  {done && !current ? "✓" : badge}
                 </button>
               );
-            })}
-          </div>
-        </aside>
-      );
-    }
+  }
 
-    return null;
+  /** One entry of the mobile section drawer: a section or the preliminary quiz. */
+  function renderDrawerItem({
+    key,
+    title,
+    current,
+    done,
+    lockReason,
+    onOpen,
+    badge,
+  }: {
+    key: string;
+    title: string;
+    current: boolean;
+    done: boolean;
+    lockReason: string | null;
+    onOpen: () => void;
+    badge: ReactNode;
+  }) {
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-current={current ? "step" : undefined}
+                    aria-disabled={lockReason ? true : undefined}
+                    title={lockReason ?? undefined}
+                    onClick={lockReason ? undefined : onOpen}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      textAlign: "left",
+                      padding: 12,
+                      marginBottom: 6,
+                      borderRadius: "var(--cam-radius-md)",
+                      border: current
+                        ? "1px solid var(--vt-accent, #1e6b3a)"
+                        : "1px solid transparent",
+                      background: current
+                        ? "var(--vt-accent-soft, #eaf3ec)"
+                        : "transparent",
+                      color: current
+                        ? "var(--vt-accent, #1e6b3a)"
+                        : lockReason
+                          ? "var(--cam-rail-upcoming)"
+                          : "var(--vt-ink, #1c1f1d)",
+                      fontWeight: current ? 700 : 500,
+                      cursor: lockReason ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 24,
+                        height: 24,
+                        boxSizing: "border-box",
+                        flex: "0 0 24px",
+                        display: "grid",
+                        placeItems: "center",
+                        borderRadius: "var(--cam-radius-sm)",
+                        // Same current-vs-done distinction as the full
+                        // sidebar: current stays solid, done drops to a soft
+                        // outline fill instead of sharing the solid color.
+                        background: current
+                          ? "var(--vt-accent, #1e6b3a)"
+                          : done
+                            ? "var(--vt-accent-soft, #eaf3ec)"
+                            : "var(--cam-bg)",
+                        border: done && !current ? "1px solid var(--vt-accent, #1e6b3a)" : "1px solid transparent",
+                        color: current ? "#fff" : done ? "var(--vt-accent, #1e6b3a)" : "var(--vt-ink-soft, #4e5451)",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {done ? "✓" : badge}
+                    </span>
+                    <span>
+                      {title}
+                      {lockReason && <span className="sr-only"> — {lockReason}</span>}
+                    </span>
+                  </button>
+                );
   }
 
   function renderMobileTaskList() {
@@ -819,71 +946,31 @@ export function WizardShell({
               </div>
 
               {sections.map((section, index) => {
-                const current = index === clampedSectionIndex;
-                const done = isSectionComplete(section);
-                const lockReason = vtLockReason({ kind: "section", index });
-
+                const sectionItem = renderDrawerItem({
+                  key: section.id,
+                  title: localized(section.title, locale.startsWith("en") ? "en" : "fr"),
+                  current: !isVtQuizStage && index === clampedSectionIndex,
+                  done: isSectionComplete(section),
+                  lockReason: vtLockReason({ kind: "section", index }),
+                  onOpen: () => goToSection(index),
+                  badge: index + 1,
+                });
+                // The preliminary quiz sits between Section 1 and Section 2,
+                // as in the full sidebar.
+                if (index !== 0 || !vtQuizApplies) return sectionItem;
                 return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    aria-disabled={lockReason ? true : undefined}
-                    title={lockReason ?? undefined}
-                    onClick={lockReason ? undefined : () => goToSection(index)}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      textAlign: "left",
-                      padding: 12,
-                      marginBottom: 6,
-                      borderRadius: "var(--cam-radius-md)",
-                      border: current
-                        ? "1px solid var(--vt-accent, #1e6b3a)"
-                        : "1px solid transparent",
-                      background: current
-                        ? "var(--vt-accent-soft, #eaf3ec)"
-                        : "transparent",
-                      color: current
-                        ? "var(--vt-accent, #1e6b3a)"
-                        : lockReason
-                          ? "var(--cam-rail-upcoming)"
-                          : "var(--vt-ink, #1c1f1d)",
-                      fontWeight: current ? 700 : 500,
-                      cursor: lockReason ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 24,
-                        height: 24,
-                        boxSizing: "border-box",
-                        flex: "0 0 24px",
-                        display: "grid",
-                        placeItems: "center",
-                        borderRadius: "var(--cam-radius-sm)",
-                        // Same current-vs-done distinction as the full
-                        // sidebar: current stays solid, done drops to a soft
-                        // outline fill instead of sharing the solid color.
-                        background: current
-                          ? "var(--vt-accent, #1e6b3a)"
-                          : done
-                            ? "var(--vt-accent-soft, #eaf3ec)"
-                            : "var(--cam-bg)",
-                        border: done && !current ? "1px solid var(--vt-accent, #1e6b3a)" : "1px solid transparent",
-                        color: current ? "#fff" : done ? "var(--vt-accent, #1e6b3a)" : "var(--vt-ink-soft, #4e5451)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {done ? "✓" : index + 1}
-                    </span>
-                    <span>
-                      {localized(section.title, locale.startsWith("en") ? "en" : "fr")}
-                      {lockReason && <span className="sr-only"> — {lockReason}</span>}
-                    </span>
-                  </button>
+                  <Fragment key={section.id}>
+                    {sectionItem}
+                    {renderDrawerItem({
+                      key: "vt-quiz",
+                      title: t("wizardShell.quizAnnouncement"),
+                      current: isVtQuizStage,
+                      done: vtQuizComplete,
+                      lockReason: vtLockReason({ kind: "quiz" }),
+                      onOpen: selectVtQuiz,
+                      badge: "?",
+                    })}
+                  </Fragment>
                 );
               })}
             </div>
