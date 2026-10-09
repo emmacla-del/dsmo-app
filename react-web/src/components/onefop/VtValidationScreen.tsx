@@ -8,6 +8,9 @@ import { validateSectionData } from "@/lib/onefop-validation";
 import { getVtSectionShortLabel, vtWizardSectionStats } from "./vt-wizard-utils";
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
 
+/** The Validation heading, focused by WizardShell when this stage opens. */
+export const VT_VALIDATION_HEADING_ID = "vt-validation-heading";
+
 interface VtValidationScreenProps {
   entity: OnefopEntity;
   data: FormData;
@@ -116,12 +119,16 @@ export function VtValidationScreen({
         }}
       >
         <h2
+          // Focus target of WizardShell when Validation opens (useStepFocus).
+          id={VT_VALIDATION_HEADING_ID}
+          tabIndex={-1}
           style={{
             fontSize: "20px",
             fontWeight: 800,
             color: "var(--cam-text)",
             margin: 0,
             letterSpacing: "-0.01em",
+            outline: "none",
           }}
         >
           {t("vtValidationScreen.thankYouTitle")}

@@ -729,7 +729,11 @@ export function EventFactInterview({
       {/* Title and Subtitle */}
       <div style={{ marginBottom: 12 }}>
         <h1
+          // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
+          id="mj-scope-heading"
+          tabIndex={-1}
           style={{
+            outline: "none",
             fontSize: "clamp(20px, 2.5vw, 24px)",
             fontWeight: 700,
             color: "var(--cam-text)",

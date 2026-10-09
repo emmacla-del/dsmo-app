@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef, VtCellOption, VtRowDef, VtTableMeta } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -165,12 +165,17 @@ const GuidedNumberBox = memo(function GuidedNumberBox({
   errorText?: string;
   onCommit?: () => void;
 }) {
+  const inputId = useId();
+  const errorId = `${inputId}-error`;
   return (
     <div style={numberBoxContainerStyle}>
-      <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 11, color: inkSoft }}>
+      <label htmlFor={inputId} style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 11, color: inkSoft }}>
         {label}
       </label>
       <input
+        id={inputId}
+        aria-invalid={errorText != null || undefined}
+        aria-describedby={errorText ? errorId : undefined}
         type={numeric ? "number" : "text"}
         min={numeric ? 0 : undefined}
         value={value}
@@ -184,7 +189,7 @@ const GuidedNumberBox = memo(function GuidedNumberBox({
         inputMode={numeric ? "numeric" : "text"}
       />
       {errorText && (
-        <p style={{ fontSize: 11, color: "var(--cam-error)", fontFamily: "var(--cam-font-sans)", margin: 0 }}>
+        <p id={errorId} style={{ fontSize: 11, color: "var(--cam-error)", fontFamily: "var(--cam-font-sans)", margin: 0 }}>
           {errorText}
         </p>
       )}

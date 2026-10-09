@@ -17,18 +17,22 @@ import {
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { clearDraft } from "@/lib/onefop-drafts";
 import { SectionRenderer } from "./SectionRenderer";
-import { VtWizardSectionScreen } from "./VtWizardSectionScreen";
+import { VtWizardSectionScreen, vtSectionHeadingId, type VtSectionRevealHandle } from "./VtWizardSectionScreen";
 import { SubmissionPanel } from "./SubmissionPanel";
 import { ValidationSummary } from "./ValidationSummary";
 import { VtWizardSidebar } from "./VtWizardSidebar";
-import { VtValidationScreen } from "./VtValidationScreen";
-import { VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
+import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
+import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
 import { isVtSectionComplete, type VtWizardSectionOutlineModel } from "./vt-wizard-utils";
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader } from "./ModernJobsHeader";
 import { OnefopPdfPreviewModal } from "./OnefopPdfPreviewModal";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
+import { findIssueOwner, wizardStepAnnouncement } from "@/lib/wizard-navigation";
+import { revealIssueElement, useOnStepChange, useStepFocus } from "@/lib/use-step-focus";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
+import { resetScroll } from "@/lib/reset-scroll";
 
 interface WizardShellProps {
   entity: OnefopEntity;
@@ -320,6 +324,66 @@ export function WizardShell({
 
   const showErrors = attemptedAdvance || attemptedSubmit;
 
+  // ── A1: focus, scroll and announcement on every VT step change ──────────
+  // (non-VT entities render ModernJobsWizard, which does its own.)
+  const vtStepKey = !isVt
+    ? ""
+    : isValidationStage
+      ? "validation"
+      : isVtQuizStage
+        ? "quiz"
+        : `section:${currentSection?.id ?? clampedSectionIndex}`;
+  const vtHeadingId = !isVt
+    ? null
+    : isValidationStage
+      ? VT_VALIDATION_HEADING_ID
+      : isVtQuizStage
+        ? VT_QUIZ_HEADING_ID
+        : currentSection
+          ? vtSectionHeadingId(currentSection.id)
+          : null;
+  const requestStepFocus = useStepFocus(vtStepKey, vtHeadingId);
+  // The section content scrolls inside its own pane (overflowY: auto), so a
+  // window reset alone would leave a new section opened half-way down.
+  const contentPaneRef = useRef<HTMLDivElement | null>(null);
+  useOnStepChange(vtStepKey, () => {
+    contentPaneRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    resetScroll(0);
+  });
+  const vtStepAnnouncement = !isVt || submissionResult
+    ? ""
+    : wizardStepAnnouncement(
+        isValidationStage
+          ? { kind: "label", label: t("vtWizardSidebar.validationLink") }
+          : isVtQuizStage
+            ? { kind: "label", label: t("wizardShell.quizAnnouncement") }
+            : currentSection
+              ? {
+                  kind: "section",
+                  index: clampedSectionIndex,
+                  total: sections.length,
+                  title: localized(currentSection.title, formLocale) || currentSection.id,
+                }
+              : { kind: "none" },
+        (values) => t("wizardShell.stepAnnouncement", values),
+      );
+  // Rendered first in both the section tree and the Validation tree below,
+  // so React keeps the same node across the isValidationStage early return
+  // (a live region that mounts together with its text announces nothing).
+  const stepLiveRegion = (
+    <p className="sr-only" aria-live="polite" aria-atomic="true">
+      {vtStepAnnouncement}
+    </p>
+  );
+
+  // Lets handleNext switch a tabbed section to the tab holding an issue.
+  const vtRevealRef = useRef<VtSectionRevealHandle | null>(null);
+
+  // Mobile task list: Escape, focus in on open, Tab contained, focus back to
+  // the opener on close.
+  const taskListSheetRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(taskListOpen, taskListSheetRef, () => setTaskListOpen(false));
+
   if (!currentSection) return null;
 
   const showFullRail = viewportWidth !== null && viewportWidth >= 1280;
@@ -357,6 +421,7 @@ export function WizardShell({
     setAttemptedAdvance(false);
     setTaskListOpen(false);
     setVtSectionOutline(null);
+    requestStepFocus();
   }
 
   // The training-centre quiz decides which tables apply. A centre declared
@@ -370,6 +435,7 @@ export function WizardShell({
     setAttemptedAdvance(false);
     setTaskListOpen(false);
     setVtSectionOutline(null);
+    requestStepFocus();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "instant" });
   }
 
@@ -379,6 +445,7 @@ export function WizardShell({
     setAttemptedAdvance(false);
     setTaskListOpen(false);
     setVtSectionOutline(null);
+    requestStepFocus();
   }
 
   function handleNext() {
@@ -387,20 +454,17 @@ export function WizardShell({
     // internal pagination to VtWizardSectionScreen.
     if (sectionIssues.length > 0) {
       setAttemptedAdvance(true);
-      // Auto-scroll to first invalid field (Gap #9, matching Flutter _scrollToFirstError)
+      // Auto-scroll to first invalid field (Gap #9, matching Flutter _scrollToFirstError).
+      // A2: a cell or table-level issue has no element of its own id, and a
+      // tabbed section only mounts its active tab — so show the owning tab
+      // first, then (once rendered) walk the lookup chain down to the
+      // owning table's wrapper.
       const firstIssue = sectionIssues[0];
       if (firstIssue?.fieldId) {
+        const owner = findIssueOwner(currentSection?.fields ?? [], firstIssue.fieldId);
+        vtRevealRef.current?.showIssue(firstIssue.fieldId);
         requestAnimationFrame(() => {
-          const el =
-            document.getElementById(firstIssue.fieldId) ||
-            document.getElementById(`field-${firstIssue.fieldId}`) ||
-            document.querySelector(`[name="${firstIssue.fieldId}"]`);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-            if ("focus" in el && typeof (el as HTMLElement).focus === "function") {
-              (el as HTMLElement).focus();
-            }
-          }
+          revealIssueElement(firstIssue.fieldId, owner?.id);
         });
       }
       return;
@@ -423,6 +487,7 @@ export function WizardShell({
       setSectionIndex((index) => index + 1);
       setUnitIndex(0);
       setVtSectionOutline(null);
+      requestStepFocus();
       return;
     }
 
@@ -449,6 +514,7 @@ export function WizardShell({
       setSectionIndex((index) => index - 1);
       setUnitIndex(0);
       setVtSectionOutline(null);
+      requestStepFocus();
       return;
     }
 
@@ -607,6 +673,8 @@ export function WizardShell({
             }}
           >
             <div
+              ref={taskListSheetRef}
+              tabIndex={-1}
               onClick={(event) => event.stopPropagation()}
               style={{
                 width: "100%",
@@ -616,6 +684,7 @@ export function WizardShell({
                 borderRadius: "18px 18px 0 0",
                 padding: "20px",
                 boxShadow: "0 -8px 30px rgba(0,0,0,.14)",
+                outline: "none",
               }}
             >
               <div
@@ -627,6 +696,20 @@ export function WizardShell({
                   margin: "0 auto 18px",
                 }}
               />
+
+              {/* Same title row + close button as ModernJobsWizard's drawer. */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t("wizardShell.sectionsListLabel")}</h3>
+                <button
+                  type="button"
+                  onClick={() => setTaskListOpen(false)}
+                  className="cam-hoverable"
+                  aria-label={t("modernJobs.wizard.close")}
+                  style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}
+                >
+                  ✕
+                </button>
+              </div>
 
               {sections.map((section, index) => {
                 const current = index === clampedSectionIndex;
@@ -758,6 +841,7 @@ export function WizardShell({
           background: "var(--cam-bg)",
         }}
       >
+        {stepLiveRegion}
         <ModernJobsHeader
           entityType={entity.entityType}
           establishmentName={effectiveEstablishment}
@@ -896,6 +980,7 @@ export function WizardShell({
         background: "var(--cam-bg)",
       }}
     >
+      {stepLiveRegion}
       {isVt && (
         <ModernJobsHeader
           entityType={entity.entityType}
@@ -930,6 +1015,7 @@ export function WizardShell({
           }}
         >
           <div
+            ref={contentPaneRef}
             style={{
               flex: 1,
               minWidth: 0,
@@ -1072,6 +1158,10 @@ export function WizardShell({
                 />
               ) : isVt ? (
                 <VtWizardSectionScreen
+                  // Fresh instance per section: the active tab and outlined
+                  // block of one section must not carry over to the next.
+                  key={currentSection.id}
+                  revealRef={vtRevealRef}
                   section={currentSection}
                   data={data}
                   onChange={onChange}

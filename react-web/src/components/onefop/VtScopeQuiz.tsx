@@ -12,6 +12,9 @@ import {
   type VtQuizQuestionId,
 } from "@/lib/vt-quiz";
 
+/** The quiz heading, focused by WizardShell when the quiz opens. */
+export const VT_QUIZ_HEADING_ID = "vt-quiz-heading";
+
 /** Lets a training-centre table send the respondent to the preliminary quiz. */
 export const VtQuizContext = createContext<{ openQuiz?: () => void }>({});
 
@@ -83,6 +86,18 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     onComplete();
   };
 
+  // Each Oui/Non pair is one radio group: a single Tab stop (the chosen
+  // answer, or Oui while unanswered), arrow keys move to and choose the other.
+  const handleGroupKeyDown = (id: VtQuizQuestionId) => (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    const current = (event.target as HTMLElement).closest<HTMLElement>("[data-choice]")?.dataset.choice;
+    if (!current) return;
+    event.preventDefault();
+    const next = current === "yes" ? "no" : "yes";
+    answer(id, next === "yes");
+    event.currentTarget.querySelector<HTMLElement>(`[data-choice="${next}"]`)?.focus();
+  };
+
   const choiceStyle = (selected: boolean): React.CSSProperties => ({
     minWidth: 72,
     minHeight: "var(--cam-form-field-height, 40px)",
@@ -102,7 +117,11 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
         <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--cam-green)" }}>
           {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
         </p>
-        <h1 style={{ margin: "0 0 8px", fontSize: "clamp(20px, 3vw, 24px)", fontWeight: 800, color: "var(--cam-text)", lineHeight: 1.25 }}>
+        <h1
+          id={VT_QUIZ_HEADING_ID}
+          tabIndex={-1}
+          style={{ margin: "0 0 8px", fontSize: "clamp(20px, 3vw, 24px)", fontWeight: 800, color: "var(--cam-text)", lineHeight: 1.25, outline: "none" }}
+        >
           {isEn ? "Which tables apply to your centre?" : "Quels tableaux concernent votre centre ?"}
         </h1>
         <p style={{ margin: 0, fontSize: 14, color: "var(--cam-text-muted)", lineHeight: 1.5, maxWidth: 720 }}>
@@ -129,7 +148,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
                 borderBottom: "1px solid var(--cam-border)",
               }}
             >
-              <div role="radiogroup" aria-labelledby={`${groupId}-label`} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
+              <div role="radiogroup" aria-labelledby={`${groupId}-label`} onKeyDown={handleGroupKeyDown(q.id)} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
                 <div style={{ flex: "1 1 320px" }}>
                   <div id={`${groupId}-label`} style={{ fontSize: 15, fontWeight: 600, color: "var(--cam-text)", lineHeight: 1.4 }}>
                     {label}
@@ -143,10 +162,10 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button type="button" role="radio" aria-checked={value === true} onClick={() => answer(q.id, true)} style={choiceStyle(value === true)}>
+                  <button type="button" role="radio" data-choice="yes" aria-checked={value === true} tabIndex={value === false ? -1 : 0} onClick={() => answer(q.id, true)} style={choiceStyle(value === true)}>
                     {isEn ? "Yes" : "Oui"}
                   </button>
-                  <button type="button" role="radio" aria-checked={value === false} onClick={() => answer(q.id, false)} style={choiceStyle(value === false)}>
+                  <button type="button" role="radio" data-choice="no" aria-checked={value === false} tabIndex={value === false ? 0 : -1} onClick={() => answer(q.id, false)} style={choiceStyle(value === false)}>
                     {isEn ? "No" : "Non"}
                   </button>
                 </div>
