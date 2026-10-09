@@ -6,6 +6,7 @@ import type { FormData, OnefopField, VtCellDef } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { recalculateVtRow, type CellValues } from "@/lib/onefop-formulas";
+import { tableCellLabel } from "@/lib/table-cell-label";
 import {
   Cell,
   CornerHeader,
@@ -119,6 +120,7 @@ function VtCellInput({
   cellDef,
   value,
   onChange,
+  ariaLabel,
 }: {
   cellId: string;
   rIdx: number;
@@ -127,6 +129,8 @@ function VtCellInput({
   cellDef: VtCellDef;
   value: unknown;
   onChange: (raw: string) => void;
+  /** Readable "Row - Column" name; never expose the technical cell id. */
+  ariaLabel: string;
 }) {
   const t = useTranslations();
   const locale = useLocale().startsWith("en") ? "en" : "fr";
@@ -134,7 +138,7 @@ function VtCellInput({
     return (
       <SelectInput
         id={cellId}
-        aria-label={cellId}
+        aria-label={ariaLabel}
         style={{ ...cellInputStyle, width: "auto", minWidth: 90 }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
@@ -155,7 +159,7 @@ function VtCellInput({
     return (
       <SelectInput
         id={cellId}
-        aria-label={cellId}
+        aria-label={ariaLabel}
         style={{ ...cellInputStyle, width: "auto", minWidth: 80 }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
@@ -174,7 +178,7 @@ function VtCellInput({
       <TextInput
         id={cellId}
         type="text"
-        aria-label={cellId}
+        aria-label={ariaLabel}
         style={{ ...cellInputStyle, width: 140, padding: "0 6px" }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
@@ -189,7 +193,7 @@ function VtCellInput({
       id={cellId}
       type="number"
       min={0}
-      aria-label={cellId}
+      aria-label={ariaLabel}
       computed={computed}
       style={{
         ...cellInputStyle,
@@ -346,6 +350,10 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
                   .join(" ");
                 if (composed) rowLabelStr = composed;
               }
+              // Accessible row name: same as the visible label, except that
+              // an unlabelled row says "Row N" instead of its technical id.
+              const ariaRowLabel =
+                rowLabelStr === rowDef?.id ? t("vtTableRenderer.defaultRowLabel", { number: rIdx + 1 }) : rowLabelStr;
               return (
                 <tr key={rIdx}>
                   <RowHeader
@@ -381,6 +389,7 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
                         cellDef={vt.cells[cIdx]}
                         value={data[cellId]}
                         onChange={(raw) => handleCellChange(rIdx, cellId, raw, vt.cells[cIdx].kind)}
+                        ariaLabel={tableCellLabel([ariaRowLabel, localized(vt.cells[cIdx].label, locale)], cellId)}
                       />
                     </Cell>
                   ))}

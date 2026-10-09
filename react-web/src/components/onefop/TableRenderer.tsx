@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized, tableHasStatusDimension, type LocalizedText } from "@/lib/onefop-schema";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
+import { tableCellLabel } from "@/lib/table-cell-label";
 import {
   AGE_BAND_LABELS,
   DEPARTURE_TYPE_LABELS,
@@ -206,6 +207,7 @@ function CellInput({
   onCellChange,
   tableFieldId,
   missingKeys,
+  ariaLabel,
 }: {
   cellId: string;
   rIdx: number;
@@ -215,6 +217,8 @@ function CellInput({
   onCellChange: (cellId: string, rawValue: string) => void;
   tableFieldId?: string;
   missingKeys?: Set<string>;
+  /** Readable "Row - Group - Column" name; never expose the technical cell id. */
+  ariaLabel: string;
 }) {
   // Computed (read-only) cells get the same pale-green "confirmed value"
   // treatment as LiveTablePreview's computed cells, instead of a plain
@@ -241,7 +245,7 @@ function CellInput({
         data-field-key={cellId}
         type="number"
         min={0}
-        aria-label={cellId}
+        aria-label={ariaLabel}
         aria-required={!computed ? "true" : undefined}
         computed={computed}
         style={{
@@ -367,6 +371,12 @@ function GenericGrid({
           {matrix.map((row, rIdx) => {
             const isTotal = hasTotalRow && rIdx === matrix.length - 1;
             const textFieldId = !isTotal ? rowText?.fieldIds[rIdx] : undefined;
+            const ariaRowLabel =
+              textFieldId && rowText
+                ? `${localized(rowText.header, locale)} ${rIdx + 1}`
+                : rowLabels[rIdx]
+                  ? localized(rowLabels[rIdx], locale)
+                  : undefined;
             // Total row uses the same pale-green "confirmed total" treatment
             // as LiveTablePreview's grand-total row (var(--cam-success-bg) /
             // var(--cam-success-border)), instead of a plain grey band — the
@@ -418,19 +428,32 @@ function GenericGrid({
                     localized(rowLabels[rIdx], locale)
                   )}
                 </RowHeader>
-                {row.map((cellId, cIdx) => (
-                  <CellInput
-                    key={cellId}
-                    cellId={cellId}
-                    rIdx={rIdx}
-                    cIdx={cIdx}
-                    matrix={matrix}
-                    data={data}
-                    onCellChange={onCellChange}
-                    tableFieldId={tableFieldId}
-                    missingKeys={missingKeys}
-                  />
-                ))}
+                {row.map((cellId, cIdx) => {
+                  // Leaf columns run group-major: subLabels repeat per group.
+                  const group = groupLabels.length > 1 ? groupLabels[Math.floor(cIdx / subLabels.length)] : undefined;
+                  const sub = subLabels[cIdx % subLabels.length];
+                  return (
+                    <CellInput
+                      key={cellId}
+                      cellId={cellId}
+                      rIdx={rIdx}
+                      cIdx={cIdx}
+                      matrix={matrix}
+                      data={data}
+                      onCellChange={onCellChange}
+                      tableFieldId={tableFieldId}
+                      missingKeys={missingKeys}
+                      ariaLabel={tableCellLabel(
+                        [
+                          ariaRowLabel,
+                          group ? localized(group, locale) : undefined,
+                          sub ? localized(sub, locale) : undefined,
+                        ],
+                        cellId,
+                      )}
+                    />
+                  );
+                })}
               </tr>
             );
           })}
@@ -547,19 +570,34 @@ function ContractGroupedGrid({
                 >
                   {localized(label, locale)}
                 </RowHeader>
-                {row.map((cellId, cIdx) => (
-                  <CellInput
-                    key={cellId}
-                    cellId={cellId}
-                    rIdx={rIdx}
-                    cIdx={cIdx}
-                    matrix={matrix}
-                    data={data}
-                    onCellChange={onCellChange}
-                    tableFieldId={tableFieldId}
-                    missingKeys={missingKeys}
-                  />
-                ))}
+                {row.map((cellId, cIdx) => {
+                  // Leaf columns run gender-major: the active age bands repeat per gender.
+                  const ageCount = activeAgeIndices.length;
+                  const gender = ageCount > 0 ? GENDER_LABELS[Math.floor(cIdx / ageCount)] : undefined;
+                  const age = ageCount > 0 ? AGE_BAND_LABELS[activeAgeIndices[cIdx % ageCount]] : undefined;
+                  return (
+                    <CellInput
+                      key={cellId}
+                      cellId={cellId}
+                      rIdx={rIdx}
+                      cIdx={cIdx}
+                      matrix={matrix}
+                      data={data}
+                      onCellChange={onCellChange}
+                      tableFieldId={tableFieldId}
+                      missingKeys={missingKeys}
+                      ariaLabel={tableCellLabel(
+                        [
+                          localized(contractLabel, locale),
+                          localized(label, locale),
+                          gender ? localized(gender, locale) : undefined,
+                          age ? localized(age, locale) : undefined,
+                        ],
+                        cellId,
+                      )}
+                    />
+                  );
+                })}
               </tr>
             );
           })}

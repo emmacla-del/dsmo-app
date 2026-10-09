@@ -56,10 +56,16 @@ const errorStyle: CSSProperties = {
   gap: 6,
 };
 
-export function VtWizardFieldError({ message }: { message?: string }) {
+/** Stable id of a VT field's error message, referenced by the control's
+ * aria-describedby (same `${id}-error` convention as FieldRenderer). */
+export function vtFieldErrorId(fieldId: string): string {
+  return `${fieldId}-error`;
+}
+
+export function VtWizardFieldError({ message, id }: { message?: string; id?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" style={errorStyle}>
+    <p id={id} role="alert" style={errorStyle}>
       <span>⚠️</span>
       <span>{message}</span>
     </p>
@@ -353,11 +359,15 @@ export function VtWizardSegmentedToggle({
   value,
   onChange,
   compact = false,
+  describedBy,
+  invalid = false,
 }: {
   field: OnefopField;
   value: unknown;
   onChange: (fieldId: string, value: unknown) => void;
   compact?: boolean;
+  describedBy?: string;
+  invalid?: boolean;
 }) {
   const locale = vtLocale(useLocale());
   const opts = field.options ?? [];
@@ -367,6 +377,8 @@ export function VtWizardSegmentedToggle({
       tabIndex={-1}
       role="radiogroup"
       aria-label={localized(field.label, locale)}
+      aria-describedby={describedBy}
+      aria-invalid={invalid || undefined}
       style={{
         display: "flex",
         padding: 2,
@@ -410,11 +422,15 @@ export function VtWizardNumberStepper({
   value,
   onChange,
   compactBox = false,
+  describedBy,
+  invalid = false,
 }: {
   field: OnefopField;
   value: unknown;
   onChange: (fieldId: string, value: unknown) => void;
   compactBox?: boolean;
+  describedBy?: string;
+  invalid?: boolean;
 }) {
   return (
     <NumberStepper
@@ -423,6 +439,8 @@ export function VtWizardNumberStepper({
       onChange={onChange}
       compact={compactBox}
       showButtons={compactBox ? false : !VT_NO_STEPPER_IDS.has(field.id)}
+      describedBy={describedBy}
+      invalid={invalid}
     />
   );
 }
@@ -452,11 +470,15 @@ export function VtWizardRadioGroup({
   value,
   onChange,
   inlineExtra,
+  describedBy,
+  invalid = false,
 }: {
   field: OnefopField;
   value: unknown;
   onChange: (fieldId: string, value: unknown) => void;
   inlineExtra?: ReactNode;
+  describedBy?: string;
+  invalid?: boolean;
 }) {
   const locale = vtLocale(useLocale());
   const opts = field.options ?? [];
@@ -483,6 +505,8 @@ export function VtWizardRadioGroup({
         onChange={onChange}
         ariaLabel={localized(field.label, locale)}
         layout={horizontal ? "horizontal" : "vertical"}
+        describedBy={describedBy}
+        invalid={invalid}
       />
       {inlineExtra && <div style={{ marginTop: 10 }}>{inlineExtra}</div>}
     </div>
@@ -493,10 +517,14 @@ export function VtWizardCheckboxGroup({
   field,
   value,
   onChange,
+  describedBy,
+  invalid = false,
 }: {
   field: OnefopField;
   value: unknown;
   onChange: (fieldId: string, value: unknown) => void;
+  describedBy?: string;
+  invalid?: boolean;
 }) {
   const t = useTranslations();
   const locale = vtLocale(useLocale());
@@ -520,6 +548,8 @@ export function VtWizardCheckboxGroup({
         onChange={onChange}
         ariaLabel={localized(field.label, locale)}
         columns={opts.length > 4 ? 2 : 1}
+        describedBy={describedBy}
+        invalid={invalid}
       />
     </div>
   );
@@ -564,6 +594,13 @@ export function VtWizardField({
   const isTel = field.type === "tel";
   const hasError = !!errorMessage;
   const tooltip = vtFieldTooltip(field.id, locale);
+  // Associates the error message with the control (or its radio/checkbox
+  // group) so screen readers announce it on focus, not only once on render.
+  const errorId = hasError ? vtFieldErrorId(field.id) : undefined;
+  const a11yProps = {
+    "aria-describedby": errorId,
+    "aria-invalid": hasError || undefined,
+  };
 
   const requiredBadge = field.required ? (
     <span style={{ fontSize: 13, fontWeight: 700, color: "var(--vt-red, #ce1126)" }}>
@@ -579,9 +616,9 @@ export function VtWizardField({
           {requiredBadge}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} />
+        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={errorId} invalid={hasError} />
         {inlineExtra ? <div style={{ marginTop: 10 }}>{inlineExtra}</div> : null}
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -595,8 +632,8 @@ export function VtWizardField({
           {requiredBadge}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} />
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={errorId} invalid={hasError} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -610,8 +647,8 @@ export function VtWizardField({
           {requiredBadge}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} />
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -625,8 +662,8 @@ export function VtWizardField({
           {requiredBadge}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        <VtWizardNumberStepper field={field} value={value} onChange={onChange} />
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={errorId} invalid={hasError} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -642,6 +679,7 @@ export function VtWizardField({
         </label>
         <input
           id={field.id}
+          {...a11yProps}
           type="number"
           maxLength={4}
           placeholder={locale.startsWith("en") ? "YYYY" : "AAAA"}
@@ -665,7 +703,7 @@ export function VtWizardField({
             boxSizing: "border-box",
           }}
         />
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -706,6 +744,7 @@ export function VtWizardField({
           <div style={{ width: 1, height: 20, backgroundColor: "var(--cam-border)", margin: "0 10px" }} />
           <input
             id={field.id}
+            {...a11yProps}
             type="tel"
             maxLength={9}
             placeholder="6XX XX XX XX"
@@ -725,7 +764,7 @@ export function VtWizardField({
             }}
           />
         </div>
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -741,6 +780,7 @@ export function VtWizardField({
         </label>
         <textarea
           id={field.id}
+          {...a11yProps}
           rows={4}
           value={(value as string) ?? ""}
           onChange={(e) => onChange(field.id, e.target.value)}
@@ -762,7 +802,7 @@ export function VtWizardField({
             boxSizing: "border-box",
           }}
         />
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -779,6 +819,7 @@ export function VtWizardField({
         <div style={{ position: "relative" }}>
           <select
             id={field.id}
+            {...a11yProps}
             value={(value as string) ?? ""}
             onChange={(e) => onChange(field.id, e.target.value)}
             onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -822,7 +863,7 @@ export function VtWizardField({
             ▼
           </span>
         </div>
-        <VtWizardFieldError message={errorMessage} />
+        <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy>{hint}</Microcopy> : null}
       </div>
     );
@@ -837,6 +878,7 @@ export function VtWizardField({
       </label>
       <input
         id={field.id}
+        {...a11yProps}
         type={field.type === "email" ? "email" : "text"}
         placeholder={field.type === "email" ? "exemple@domaine.cm" : undefined}
         value={(value as string) ?? ""}
@@ -859,7 +901,7 @@ export function VtWizardField({
         }}
       />
       <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
-      <VtWizardFieldError message={errorMessage} />
+      <VtWizardFieldError id={errorId} message={errorMessage} />
       {hint ? <Microcopy>{hint}</Microcopy> : null}
     </div>
   );

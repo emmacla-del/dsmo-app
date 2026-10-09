@@ -5,6 +5,7 @@ import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { ACTIVITIES_ROW_CAPACITY, ACTIVITIES_TABLE_FIELDS } from "@/lib/onefop-activities";
+import { tableCellLabel } from "@/lib/table-cell-label";
 import {
   Cell,
   CornerHeader,
@@ -96,11 +97,15 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                 {ACTIVITIES_TABLE_FIELDS.map((f) => {
                   const cellId = `${prefix}_row${n}_${f.key}`;
                   const value = (data[cellId] as string) ?? "";
+                  const cellLabel = tableCellLabel(
+                    [t("vtTableRenderer.defaultRowLabel", { number: n }), localized(f.label, locale)],
+                    cellId,
+                  );
                   return (
                     <Cell key={f.key} style={tdStyle}>
                       {f.options ? (
                         <SelectInput
-                          aria-label={cellId}
+                          aria-label={cellLabel}
                           style={controlStyle}
                           value={value}
                           onChange={(e) => onChange(cellId, e.target.value)}
@@ -118,7 +123,7 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                         <TextInput
                           short={f.key !== "description"}
                           type={f.key === "duration" ? "number" : "text"}
-                          aria-label={cellId}
+                          aria-label={cellLabel}
                           placeholder={localized(f.hint, locale)}
                           style={{ ...controlStyle, minWidth: f.key === "description" ? 200 : 100 }}
                           value={value}

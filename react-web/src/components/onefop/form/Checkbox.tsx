@@ -23,12 +23,14 @@ export function Checkbox({
   onChange,
   label,
   disabled = false,
+  invalid = false,
 }: {
   id: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: ReactNode;
   disabled?: boolean;
+  invalid?: boolean;
 }) {
   return (
     <label
@@ -50,6 +52,7 @@ export function Checkbox({
         type="checkbox"
         checked={checked}
         disabled={disabled}
+        aria-invalid={invalid || undefined}
         onChange={(e) => onChange(e.target.checked)}
         style={{
           position: "absolute",
@@ -109,6 +112,8 @@ export function CheckboxGroup({
   onChange,
   ariaLabel,
   columns = 1,
+  describedBy,
+  invalid = false,
 }: {
   fieldId: string;
   options: CheckboxOption[];
@@ -116,6 +121,11 @@ export function CheckboxGroup({
   onChange: (fieldId: string, value: string[] | undefined) => void;
   ariaLabel?: string;
   columns?: 1 | 2;
+  /** id(s) of the element(s) describing the group, e.g. its error message. */
+  describedBy?: string;
+  /** Marks every checkbox invalid (role="group" itself does not support
+   * aria-invalid). */
+  invalid?: boolean;
 }) {
   const toggle = (optValue: string, next: boolean) => {
     const updated = next
@@ -129,6 +139,7 @@ export function CheckboxGroup({
       id={fieldId}
       role="group"
       aria-label={ariaLabel ?? fieldId}
+      aria-describedby={describedBy}
       tabIndex={-1}
       style={{
         display: "grid",
@@ -144,6 +155,7 @@ export function CheckboxGroup({
           disabled={opt.disabled}
           onChange={(next) => toggle(opt.value, next)}
           label={opt.label}
+          invalid={invalid}
         />
       ))}
     </div>
