@@ -213,7 +213,7 @@ export function CameroonGeographySelector({
       }}
     >
       {readOnlyHierarchy ? (
-        <div style={{ paddingTop: 4, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ paddingTop: "var(--cam-space-1)", display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
           {(
             [
               ["region", regionFieldId, locale === "en" ? REGION_NAME_EN[storedRegion] ?? storedRegion : storedRegion],
@@ -246,7 +246,7 @@ export function CameroonGeographySelector({
                   width: "100%",
                   height: 42,
                   padding: "0 12px",
-                  fontSize: 14,
+                  fontSize: "var(--cam-font-size-sm)",
                   fontFamily: "inherit",
                   borderRadius: 6,
                   border: "1px solid var(--cam-border)",
@@ -257,7 +257,7 @@ export function CameroonGeographySelector({
               />
             </div>
           ))}
-          <p id={`${baseId}-locked-note`} style={{ margin: 0, fontSize: 13, color: "var(--cam-text-muted)" }}>
+          <p id={`${baseId}-locked-note`} style={{ margin: 0, fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)" }}>
             {t("lockedNote")}
           </p>
         </div>

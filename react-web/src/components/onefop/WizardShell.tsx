@@ -803,14 +803,14 @@ export function WizardShell({
               />
 
               {/* Same title row + close button as ModernJobsWizard's drawer. */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t("wizardShell.sectionsListLabel")}</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--cam-space-3)" }}>
+                <h3 style={{ margin: 0, fontSize: "var(--cam-font-size-base)", fontWeight: 700 }}>{t("wizardShell.sectionsListLabel")}</h3>
                 <button
                   type="button"
                   onClick={() => setTaskListOpen(false)}
                   className="cam-hoverable"
                   aria-label={t("modernJobs.wizard.close")}
-                  style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}
+                  style={{ background: "none", border: "none", fontSize: "var(--cam-font-size-lg)", cursor: "pointer" }}
                 >
                   ✕
                 </button>
