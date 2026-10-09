@@ -59,6 +59,7 @@ import {
 } from "@/lib/register-draft";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
 import { saveLoginIdentifier } from "@/lib/login-handoff";
+import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
 import {
   PASSWORD_RULE_IDS,
   passwordRuleChecks,
@@ -499,6 +500,16 @@ export default function RegisterPage() {
     if (emailAvailable === false) {
       return { index: respondentIndex, message: t("registerPage.errorEmailInUse"), focusId: "reg-email" };
     }
+    // A phone that is given must be a Cameroonian number the declaration
+    // wizards will accept (cameroon-phone.ts) — optional ones included.
+    for (const [focusId, value] of [
+      ["reg-phone1", respondent.phone1],
+      ["reg-phone2", respondent.phone2],
+    ] as const) {
+      if (value.trim() && !isValidCameroonPhone(value)) {
+        return { index: respondentIndex, message: t("registerPage.errorPhoneFormat"), focusId };
+      }
+    }
 
     if (config) {
       for (const field of config.fields) {
@@ -506,6 +517,16 @@ export default function RegisterPage() {
           return {
             index: STEPS.indexOf("entityInfo"),
             message: t("registerPage.errorRequiredFields"),
+            focusId: `reg-entity-${field.key}`,
+          };
+        }
+      }
+      for (const field of config.fields) {
+        const value = entityData[field.key]?.trim();
+        if (field.kind === "tel" && isFieldVisible(field) && value && !isValidCameroonPhone(value)) {
+          return {
+            index: STEPS.indexOf("entityInfo"),
+            message: t("registerPage.errorPhoneFormat"),
             focusId: `reg-entity-${field.key}`,
           };
         }
@@ -681,8 +702,8 @@ export default function RegisterPage() {
         registrationNumber: visibleData.registrationNumber,
         branch: visibleData.branch,
         poBox: visibleData.poBox,
-        phone: visibleData.phone,
-        phone2: visibleData.phone2,
+        phone: visibleData.phone ? normalizeCameroonPhone(visibleData.phone) : visibleData.phone,
+        phone2: visibleData.phone2 ? normalizeCameroonPhone(visibleData.phone2) : visibleData.phone2,
         sigle: visibleData.sigle,
         cfpType: visibleData.cfpType,
         educationSystem: visibleData.educationSystem,
@@ -691,12 +712,12 @@ export default function RegisterPage() {
         nonFunctionalReasonOther: visibleData.nonFunctionalReasonOther,
         promoterName: visibleData.promoterName,
         promoterSex: visibleData.promoterSex,
-        promoterPhone1: visibleData.promoterPhone1,
-        promoterPhone2: visibleData.promoterPhone2,
+        promoterPhone1: visibleData.promoterPhone1 ? normalizeCameroonPhone(visibleData.promoterPhone1) : visibleData.promoterPhone1,
+        promoterPhone2: visibleData.promoterPhone2 ? normalizeCameroonPhone(visibleData.promoterPhone2) : visibleData.promoterPhone2,
         sectorId: sectorId || undefined,
         respondentFunction: respondent.function,
-        respondentPhone: respondent.phone1,
-        respondentPhone2: respondent.phone2 || undefined,
+        respondentPhone: normalizeCameroonPhone(respondent.phone1),
+        respondentPhone2: respondent.phone2 ? normalizeCameroonPhone(respondent.phone2) : undefined,
       };
 
       const response = await registerCompany(payload);
