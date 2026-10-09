@@ -470,8 +470,9 @@ export function WizardShell({
   const isSectionComplete = (section: OnefopEntity["sections"][number]) =>
     isVt ? isVtSectionComplete(section, data) : validateSectionData(section, data).length === 0;
 
-  /** Shows a section — the wizard's own transitions (quiz Continue / Back,
-   *  Back from Validation), which follow their own rules. */
+  /** Shows a section — the wizard's own quiz Continue / Back transitions,
+   *  which follow their own rules (Back from Validation goes through
+   *  goToSection, so it stops at the first incomplete step). */
   function showSection(index: number) {
     const nextIndex = Math.min(
       Math.max(index, 0),
@@ -1047,7 +1048,7 @@ export function WizardShell({
                   entity={entity}
                   data={data}
                   onOpenSection={goToSection}
-                  onBack={() => showSection(sections.length - 1)}
+                  onBack={() => goToSection(sections.length - 1)}
                   onPreviewPdf={() => setPreviewModalOpen(true)}
                   isGeneratingPdf={pdfMutation.isPending}
                   onSaveDraft={onSaveNow ? () => onSaveNow() : undefined}

@@ -298,12 +298,9 @@ export function ModernJobsWizard({
 
   const handlePrev = () => {
     if (isValidationStage) {
-      setIsValidationStage(false);
-      setSectionIndex(sections.length - 1);
-      setActiveTableId(undefined);
-      setTableNavState(null);
-      requestStepFocus();
-      resetScroll(0);
+      // Back from review goes to the last section through the N2 gate, so it
+      // lands on the first incomplete step instead of skipping past it.
+      handleSelectSection(sections.length - 1);
       return;
     }
     if (isScopeStage) {
