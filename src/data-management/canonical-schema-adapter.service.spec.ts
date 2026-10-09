@@ -428,7 +428,7 @@ describe('CanonicalSchemaAdapterService', () => {
 
       // Contains MISSING VALUES declaration
       expect(sps).toContain('MISSING VALUES');
-      expect(sps).toContain('(-99)');
+      expect(sps).toContain('(-98, -99)');
 
       // Contains VALUE LABELS
       expect(sps).toContain('VALUE LABELS');

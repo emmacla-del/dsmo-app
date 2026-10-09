@@ -151,7 +151,7 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
       expect(out.labels[col]).toBe(truncateUtf8(v.labelFr || v.labelEn || name, 255).toString('utf8'));
       if (v.spssDataType === 'NUMERIC') {
         expect(out.formats[name]).toMatch(/^F\d+\.0$/);
-        expect(out.missing[name]).toEqual([{ lo: -99, hi: -99 }]);
+        expect(out.missing[name]).toEqual([{ lo: -98, hi: -98 }, { lo: -99, hi: -99 }]);
       } else {
         expect(out.formats[name]).toBe(`A${v.spssWidth || 254}`);
         expect(out.measures[name]).toBe('nominal');
@@ -174,7 +174,7 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
 
     submissions.forEach((s, r) => {
       variables.forEach((v, col) => {
-        const raw = adapter.extractValue(v, s);
+        const raw = adapter.exportValue(v, s);
         const got = out.rows[r][col];
         if (v.spssDataType === 'NUMERIC') {
           expect([r, v.variableName, got]).toEqual([r, v.variableName, toSavNumber(raw)]);

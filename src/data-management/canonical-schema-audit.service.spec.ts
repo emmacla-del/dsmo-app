@@ -839,7 +839,7 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
       const schemaVer = allVars.find((v) => v.variableName === 'schemaVersion');
       expect(schemaVer).toBeDefined();
       expect(schemaVer!.paperCode).toBe('SYS_00');
-      expect(DATASET_SCHEMA_VERSION).toBe(4);
+      expect(DATASET_SCHEMA_VERSION).toBe(5);
       expect(adapter.extractValue(schemaVer!, { submissionId: 'test-123' })).toBe(DATASET_SCHEMA_VERSION);
       expect(adapter.extractValue(schemaVer!, { schemaVersion: 1 })).toBe(1);
     });

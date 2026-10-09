@@ -113,8 +113,28 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    variables periodStart / periodEnd (after quarterCode) carry each
  *    record's reference period. Variable names frozen by the E4 registry
  *    (spss/variable-registry.frozen.json).
+ * 5: (E1) user-missing codes. A NUMERIC variable that does not apply to the
+ *    record's establishment type (formType outside its entityApplicability)
+ *    and holds no value is exported as -98 « Non applicable (type
+ *    d'établissement) » instead of blank, in the CSV and the .sav; -98 and
+ *    -99 « Non renseigné » are both declared user-missing (MISSING VALUES in
+ *    the .sps, missing-value records in the .sav). -99 is reserved — nothing
+ *    writes it yet; an applicable but unanswered cell is still blank
+ *    (system-missing). String variables are unchanged (blank). Numeric .sps
+ *    read formats are at least F3.0 so « -98 » is read whole. Variable names
+ *    and value labels unchanged.
  */
-export const DATASET_SCHEMA_VERSION = 4;
+export const DATASET_SCHEMA_VERSION = 5;
+
+/**
+ * SPSS user-missing codes (E1, dataset v5). Declared on every NUMERIC
+ * variable; never value-labelled per variable (the frozen registry holds the
+ * questionnaire's own categories only) — documented in the .sps header.
+ */
+export const SPSS_MISSING_NOT_APPLICABLE = -98;
+/** Reserved: « Non renseigné » / not answered. Declared, not yet written. */
+export const SPSS_MISSING_NOT_ANSWERED = -99;
+export const SPSS_USER_MISSING_CODES: number[] = [SPSS_MISSING_NOT_APPLICABLE, SPSS_MISSING_NOT_ANSWERED];
 
 @Injectable()
 export class CanonicalSchemaAdapterService {
@@ -378,6 +398,38 @@ export class CanonicalSchemaAdapterService {
   }
 
   /**
+   * True when `v` is, by questionnaire design, not asked of this record's
+   * establishment type: its entityApplicability names entity types and the
+   * record's formType is not one of them. 'ALL' variables, and records whose
+   * formType is missing or unknown, are never "not applicable" (we cannot
+   * tell, so they keep the plain blank).
+   */
+  public isNotApplicableToRecord(v: AnalyticalVariableDefinition, submission: any): boolean {
+    if (v.entityApplicability.includes('ALL')) return false;
+    const formType = submission?.formType;
+    if (typeof formType !== 'string' || !formType) return false;
+    const entity = PRISMA_TO_SCHEMA_ENTITY[formType];
+    if (!entity) return false;
+    return !v.entityApplicability.includes(entity);
+  }
+
+  /**
+   * The value written to the CSV / .sav cell (E1, dataset v5): extractValue,
+   * except that an empty NUMERIC cell of a variable not applicable to the
+   * record's establishment type becomes -98 (user-missing). A value actually
+   * recorded is never replaced, applicable cells are untouched (an
+   * unanswered one stays blank = system-missing) and string variables stay
+   * blank.
+   */
+  public exportValue(v: AnalyticalVariableDefinition, submission: any): unknown {
+    const value = this.extractValue(v, submission);
+    if (v.spssDataType !== 'NUMERIC') return value;
+    const empty = value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+    if (empty && this.isNotApplicableToRecord(v, submission)) return SPSS_MISSING_NOT_APPLICABLE;
+    return value;
+  }
+
+  /**
    * The record's reference period as ISO dates (YYYY-MM-DD), or null.
    *
    * 1. The SubmissionRound whose quarterCode equals the submission's
@@ -434,23 +486,28 @@ export class CanonicalSchemaAdapterService {
    */
   public buildSpssSyntax(variables: AnalyticalVariableDefinition[], csvFilename: string): string {
     const varNames = variables.map((v) => v.variableName);
-    const formats = variables.map((v) => (v.spssDataType === 'NUMERIC' ? `F${v.spssWidth}.0` : `A${v.spssWidth}`));
+    // Numeric read formats are at least F3.0 so a user-missing code (-98 /
+    // -99) is read whole even for a 1-digit Oui/Non variable (E1, v5).
+    const formats = variables.map((v) =>
+      v.spssDataType === 'NUMERIC' ? `F${Math.max(v.spssWidth, 3)}.0` : `A${v.spssWidth}`,
+    );
 
     const variableLines = varNames.map((name, i) => `  ${name} ${formats[i]}`).join('\n');
     const labelLines = variables
       .map((v) => `  ${v.variableName} '${this.spssQuote(v.labelFr)}'`)
       .join('\n');
 
-    // Missing values declaration for numeric variables (-99 convention)
+    // User-missing codes on every numeric variable (E1, dataset v5).
     const numericVarNames = variables
       .filter((v) => v.spssDataType === 'NUMERIC')
       .map((v) => v.variableName);
+    const missingCodes = SPSS_USER_MISSING_CODES.join(', ');
 
     const missingValuesBlock = numericVarNames.length > 0
       ? [
-          '* Declaration des valeurs manquantes (-99 = Non renseigne / Non applicable).',
+          `* Valeurs manquantes : ${SPSS_MISSING_NOT_APPLICABLE} = Non applicable (type d'etablissement), ${SPSS_MISSING_NOT_ANSWERED} = Non renseigne.`,
           'MISSING VALUES',
-          ...this.chunkList(numericVarNames, 8).map((chunk) => `  ${chunk.join(' ')} (-99)`),
+          ...this.chunkList(numericVarNames, 8).map((chunk) => `  ${chunk.join(' ')} (${missingCodes})`),
           '  .',
           'EXECUTE.',
           '',
@@ -488,6 +545,16 @@ export class CanonicalSchemaAdapterService {
       '* Généré par DSMO — Registre Analytique Canonique ONEFOP.',
       `* Placez ce fichier dans le même dossier que "${csvFilename}", puis exécutez-le`,
       '* entièrement (Exécuter > Tout) dans SPSS pour charger les données étiquetées.',
+      `* Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`,
+      '*',
+      '* Codes de valeurs manquantes (variables numériques, déclarés MISSING VALUES).',
+      `*   ${SPSS_MISSING_NOT_APPLICABLE} = Non applicable (type d'établissement) : la question n'est pas posée`,
+      "*         à ce type d'établissement (voir la variable formType).",
+      `*   ${SPSS_MISSING_NOT_ANSWERED} = Non renseigné (réservé, pas encore produit).`,
+      '*   vide = valeur manquante système : question applicable mais sans réponse.',
+      "*   Les variables texte restent vides lorsqu'elles ne sont pas applicables.",
+      '* Hors SPSS (lecture directe du CSV), traitez -98 et -99 comme manquants',
+      "* (R : na = c('', '-98', '-99') ; pandas : na_values=[-98, -99]).",
       '',
       'GET DATA',
       '  /TYPE=TXT',
