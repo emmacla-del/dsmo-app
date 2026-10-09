@@ -829,7 +829,7 @@
       "loadingRegions": "Loading regions…",
       "region": "Region",
       "dependsHint": "Each field depends on the previous one",
-      "lockedNote": "To change this, update your profile.",
+      "lockedNote": "This information comes from your registration record. If it is wrong, report it to your MINEFOP departmental delegation.",
       "ariaLabel": "Administrative location"
     },
     "eventProgress": {
