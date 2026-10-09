@@ -9,7 +9,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AnomalyResolutionType,
-  AnomalySeverity,
   AnomalyStatus,
   OnefopStatus,
   UserRole,
@@ -22,6 +21,7 @@ import {
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
+import { coherenceFlagToAnomaly } from './coherence-anomaly';
 
 @Injectable()
 export class EligibilityEngineService {
@@ -56,20 +56,7 @@ export class EligibilityEngineService {
       try {
         const flags = (submission as any).flags as Array<{ code: string; message: string }>;
         await this.prisma.onefopAnomaly.createMany({
-          data: flags.map((flag) => {
-            const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
-            return {
-              submissionId: submission.id,
-              ruleCode: flag.code || 'COHERENCE_MISMATCH',
-              ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
-              severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
-              isBlocking: isBlocking ?? true,
-              status: AnomalyStatus.OPEN,
-              description: flag.message || 'Incohérence statistique détectée',
-              observedValue: 'Incohérence détectée',
-              expectedValue: 'Égalité requise',
-            };
-          }),
+          data: flags.map((flag) => coherenceFlagToAnomaly(submission.id, flag)),
         });
         submission.anomalies = await this.prisma.onefopAnomaly.findMany({
           where: { submissionId: submission.id },
@@ -847,20 +834,7 @@ export class EligibilityEngineService {
           if (Array.isArray(sub.flags) && sub.flags.length > 0) {
             const flags = sub.flags as Array<{ code: string; message: string }>;
             await this.prisma.onefopAnomaly.createMany({
-              data: flags.map((flag) => {
-                const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
-                return {
-                  submissionId: sub.id,
-                  ruleCode: flag.code || 'COHERENCE_MISMATCH',
-                  ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
-                  severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
-                  isBlocking: isBlocking ?? true,
-                  status: AnomalyStatus.OPEN,
-                  description: flag.message || 'Incohérence statistique détectée',
-                  observedValue: 'Incohérence détectée',
-                  expectedValue: 'Égalité requise',
-                };
-              }),
+              data: flags.map((flag) => coherenceFlagToAnomaly(sub.id, flag)),
             });
             created += flags.length;
           }
@@ -929,14 +903,16 @@ export class EligibilityEngineService {
    * Authoritative catalog of statistical and administrative validation rules
    * enforced by the ONEFOP eligibility and validation engines.
    */
+  // Coherence rules are advisory (coherence-anomaly.ts, CLAUDE.md §7): their
+  // anomalies are warnings and never block approval or export.
   getValidationRules() {
     return [
       {
         code: 'COHERENCE_TOTAL',
         name: 'Cohérence des Effectifs Totaux',
         family: 'COHERENCE',
-        severity: 'CRITICAL',
-        isBlocking: true,
+        severity: 'WARNING',
+        isBlocking: false,
         description: 'Vérifie que la somme des effectifs déclarés (hommes + femmes) égale l’effectif total de l’établissement.',
         enabled: true,
       },
@@ -944,8 +920,8 @@ export class EligibilityEngineService {
         code: 'COHERENCE_CSP',
         name: 'Cohérence Catégories Socio-Professionnelles (CSP)',
         family: 'COHERENCE',
-        severity: 'CRITICAL',
-        isBlocking: true,
+        severity: 'WARNING',
+        isBlocking: false,
         description: 'Vérifie la cohérence arithmétique entre la distribution par CSP et l’effectif global déclaré.',
         enabled: true,
       },
@@ -962,8 +938,8 @@ export class EligibilityEngineService {
         code: 'VT_COHERENCE_LEARNERS',
         name: 'Flux Apprenants et Formateurs TVET',
         family: 'VT_COHERENCE',
-        severity: 'CRITICAL',
-        isBlocking: true,
+        severity: 'WARNING',
+        isBlocking: false,
         description: 'Contrôle la cohérence des effectifs d’apprenants inscrits, admis et certifiés par spécialité.',
         enabled: true,
       },
