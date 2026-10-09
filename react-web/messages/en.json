@@ -271,6 +271,7 @@
   "registerPage": {
     "errorEntityTypeRequired": "Choose your organization type.",
     "errorRequiredFields": "Please complete all required fields.",
+    "errorPhoneFormat": "Invalid phone number: 9 digits starting with 2 or 6 (e.g. 677123456).",
     "errorEmailInUse": "This email address is already in use.",
     "errorRegionAreaRequired": "Please select a region and an area.",
     "errorSelectRegion": "Please select a region.",
