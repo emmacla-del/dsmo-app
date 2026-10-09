@@ -96,3 +96,18 @@ test("with nothing blocking, Submit is not aria-disabled, has no blocking descri
   await user.click(submit);
   assert.equal(submittedCount(), 1);
 });
+
+test("a valid section made only of tables counts as complete, not as never started", () => {
+  // Section 4 has no question outside its tables: here, 4.4 answered Non in the quiz.
+  const section4 = vt.sections.find((s) => s.id === "section4_vocationalTraining")!;
+  const tablesOnly: OnefopEntity = {
+    ...vt,
+    sections: [{ ...section4, fields: [schemaField("vocationalTraining", "VT4_4")], subsections: [] }],
+  };
+  renderScreen({
+    entity: tablesOnly,
+    data: { _scopeConfig: { vocationalTraining: { informalSector: false } } },
+  });
+  assert.equal(screen.queryByText(fr.vtValidationScreen.incompleteWarning), null);
+  assert.ok(screen.getByText(fr.vtValidationScreen.badgeCompleted));
+});
