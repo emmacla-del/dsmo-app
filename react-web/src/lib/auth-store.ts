@@ -67,9 +67,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     try {
       const user = await getMe();
+      // Signed out (or someone else signed in) while /auth/me was in flight:
+      // this answer belongs to a session that no longer exists (F10).
+      if (getToken() !== token) return;
       cacheUser(user);
       set({ status: "authenticated", user });
     } catch (e) {
+      if (getToken() !== token) return;
       // ApiError means the request reached the server and it rejected the
       // token (e.g. 401) — that's a real logout. A non-ApiError here is a
       // network-level failure (fetch never got a response), which doesn't
@@ -142,8 +146,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   async refreshUser() {
+    const token = getToken();
     try {
       const user = await getMe();
+      // A late answer must not re-cache the profile of a signed-out session.
+      if (!token || getToken() !== token) return;
       cacheUser(user);
       set({ user });
     } catch {

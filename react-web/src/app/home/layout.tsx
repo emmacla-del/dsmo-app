@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ApiError, clearToken, getCachedUser, getMyAttestation } from "@/lib/api-client";
+import { ApiError, getCachedUser, getMyAttestation } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
@@ -35,6 +35,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const authState = useRequireAuth();
   const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const meQuery = useQuery({
     ...meQueryOptions,
     enabled: authState === "authed",
@@ -274,7 +275,12 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => {
-              clearToken();
+              // The store's logout, as the admin layout uses: it also clears
+              // the cached profile, purges local drafts (D8) and marks the
+              // session signed out. Removing only the token left the store
+              // "authenticated", so the landing page sent the user back to
+              // /home, which bounced them out again (F10).
+              logout();
               router.replace("/");
             }}
             style={{
