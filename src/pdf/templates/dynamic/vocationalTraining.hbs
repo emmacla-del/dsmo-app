@@ -1316,6 +1316,8 @@
                     {{#if orientation.suiviPostFormation.effectue}}
                     <br>{{#each mecanismeSuiviOptions}}{{checkbox (includes ../orientation.suiviPostFormation.mecanismes
                     value)}} {{label}} &nbsp;{{/each}}
+                    {{#if orientation.suiviPostFormation.mecanismeAutrePrecision}}<br>Autres :
+                    {{orientation.suiviPostFormation.mecanismeAutrePrecision}}{{/if}}
                     {{/if}}
                 </td>
             </tr>
