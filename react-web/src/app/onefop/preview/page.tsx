@@ -4,10 +4,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalSto
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { getCachedUser, getMe, getMyCompany, getToken } from "@/lib/api-client";
+import { getCachedUser, getToken } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { checkCoherence } from "@/lib/onefop-coherence";
-import { getActiveQuarter, saveDraftToBackend } from "@/lib/onefop-submission";
+import { saveDraftToBackend } from "@/lib/onefop-submission";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { hasRealNiu } from "@/lib/companies-directory";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
@@ -21,6 +21,7 @@ import { parseCompanyEntityType } from "@/lib/register-constants";
 import { CoherenceProvider } from "@/components/onefop/coherence/Coherence";
 import { WizardShell } from "@/components/onefop/WizardShell";
 import { OnefopLegalAcknowledgment } from "@/components/onefop/OnefopLegalAcknowledgment";
+import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions } from "@/lib/shared-queries";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────
 
@@ -82,15 +83,13 @@ function OnefopDeclarationContent() {
   const authState = useRequireAuth();
   const authUser = useAuthStore((s) => s.user);
   const meQuery = useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: getMe,
+    ...meQueryOptions,
     enabled: authState === "authed",
     initialData: authUser ?? getCachedUser() ?? undefined,
   });
 
   const companyQuery = useQuery({
-    queryKey: ["company", "me"],
-    queryFn: getMyCompany,
+    ...myCompanyQueryOptions,
     enabled: authState === "authed",
   });
 
@@ -134,7 +133,7 @@ function OnefopDeclarationContent() {
   // Quarter resolves before the draft loads — useOnefopDraft defers its
   // IndexedDB load until quarterCode is non-null so a Q1 draft is never
   // attributed to Q2 (D1 fix).
-  const quarterQuery = useQuery({ queryKey: ["onefop", "active-quarter"], queryFn: getActiveQuarter });
+  const quarterQuery = useQuery(activeQuarterQueryOptions);
 
   // Hoisted so callbacks (handleSaveNow) and the WizardShell both use the
   // same resolved value regardless of which render phase we're in.

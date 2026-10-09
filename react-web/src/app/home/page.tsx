@@ -4,15 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { getCachedUser, getMe } from "@/lib/api-client";
+import { getCachedUser } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
+import { meQueryOptions } from "@/lib/shared-queries";
 
 export default function HomeLandingPage() {
   const t = useTranslations();
   const authUser = useAuthStore((s) => s.user);
-  const meQuery = useQuery({ queryKey: ["auth", "me"], queryFn: getMe, initialData: authUser ?? getCachedUser() ?? undefined });
+  const meQuery = useQuery({ ...meQueryOptions, initialData: authUser ?? getCachedUser() ?? undefined });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const user = meQuery.data ?? authUser ?? getCachedUser();
   if (!user) {

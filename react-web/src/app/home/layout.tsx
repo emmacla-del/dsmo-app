@@ -5,13 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ApiError, clearToken, getCachedUser, getMe, getMyAttestation } from "@/lib/api-client";
+import { ApiError, clearToken, getCachedUser, getMyAttestation } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
-import { getActiveQuarter } from "@/lib/onefop-submission";
+import { activeQuarterQueryOptions, meQueryOptions } from "@/lib/shared-queries";
 
 /**
  * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
@@ -34,8 +34,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   const authState = useRequireAuth();
   const authUser = useAuthStore((s) => s.user);
   const meQuery = useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: getMe,
+    ...meQueryOptions,
     enabled: authState === "authed",
     initialData: authUser ?? getCachedUser() ?? undefined,
   });
@@ -49,8 +48,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   // redirecting to — a loop. Disabled rather than exempted server-side: a
   // company that cannot declare yet has no active quarter to speak of.
   const quarterQuery = useQuery({
-    queryKey: ["onefop", "active-quarter"],
-    queryFn: getActiveQuarter,
+    ...activeQuarterQueryOptions,
     enabled: authState === "authed" && !awaitingApproval,
   });
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);

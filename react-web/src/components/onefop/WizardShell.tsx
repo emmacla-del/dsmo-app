@@ -10,7 +10,6 @@ import { buildSectionUnits, isUnitVisible, FormUnit } from "@/lib/onefop-units";
 import {
   fetchDeclarationPreviewPdf,
   formatSubmissionError,
-  getActiveQuarter,
   submitDeclaration,
   supportsBackendSubmission,
 } from "@/lib/onefop-submission";
@@ -41,6 +40,7 @@ import {
   type WizardStep,
 } from "@/lib/wizard-rail-gate";
 import { clearWizardSession, readWizardPosition, writeWizardPosition } from "@/lib/wizard-position";
+import { activeQuarterQueryOptions } from "@/lib/shared-queries";
 
 interface WizardShellProps {
   entity: OnefopEntity;
@@ -174,8 +174,7 @@ export function WizardShell({
   const entityType = entity.entityType;
 
   const quarterQuery = useQuery({
-    queryKey: ["onefop", "active-quarter"],
-    queryFn: getActiveQuarter,
+    ...activeQuarterQueryOptions,
   });
 
   // Null until the backend confirms the active period — never substitute a

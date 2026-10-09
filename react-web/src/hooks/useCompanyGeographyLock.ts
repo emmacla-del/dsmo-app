@@ -2,20 +2,20 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getMyCompany } from "@/lib/api-client";
 import type { FormData } from "@/lib/onefop-schema";
 import {
   geographyCorrections,
   lockedGeographyValues,
   type GeographyFieldIds,
 } from "@/lib/onefop-geography-lock";
+import { myCompanyQueryOptions } from "@/lib/shared-queries";
 
 /**
  * The respondent's own company record (same query key as the ONEFOP preview
  * page, so it is served from cache). Only COMPANY accounts reach the wizard.
  */
 export function useMyCompanyGeography() {
-  return useQuery({ queryKey: ["company", "me"], queryFn: getMyCompany }).data;
+  return useQuery(myCompanyQueryOptions).data;
 }
 
 /**
