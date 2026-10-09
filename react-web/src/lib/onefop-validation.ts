@@ -48,8 +48,61 @@ export const OPTIONAL_OVERRIDES = new Set([
   "S3Q02_REASON_3_TEXT",
 ]);
 
-// kYearFieldIds in field_validator.dart.
-const YEAR_FIELD_IDS = new Set(["COOP_S1Q03", "CTD_S1Q03", "ONG_S1Q03"]);
+// kYearFieldIds in field_validator.dart, plus the training-centre year of
+// establishment (VT1_14), whose id carries no "year" for isYearField to find.
+const YEAR_FIELD_IDS = new Set(["COOP_S1Q03", "CTD_S1Q03", "ONG_S1Q03", "VT1_14"]);
+
+/**
+ * Scalar `number` fields that are counts (people, posts, sites, projects,
+ * manuals, devices) and so must hold a whole number. Listed explicitly from
+ * public/schemas/onefop.schema.json rather than guessed from the type: a
+ * number field that is not certainly a count (VT3_4, a closure length in
+ * weeks) is left out and keeps the plain numeric check. Years have their own
+ * check (isYearField).
+ */
+export const COUNT_FIELD_IDS = new Set([
+  // Permanent workers / vacancies (enterprise, cooperative, CTD, NGO, project)
+  "S1Q10", "S1Q11",
+  "COOP_S1Q11", "COOP_S1Q12",
+  "CTD_S1Q09", "CTD_S1Q10",
+  "ONG_S1Q10", "ONG_S1Q11",
+  "PP_S1Q15", "PP_S1Q16",
+  // Administration: number of projects / supervised structures
+  "ADMIN_S1Q10", "ADMIN_S1Q12",
+  // Training centre: sites, trainers, trainees, devices, manuals
+  "VT2_3", "VT2_7", "VT2_8",
+  "VT2_19", "VT2_20", "VT2_21", "VT2_22",
+  "VT2_44", "VT2_45", "VT2_47", "VT2_48",
+  "VT3_13", "VT3_14", "VT3_16", "VT3_17", "VT3_19", "VT3_20",
+  "VT3_22", "VT3_23", "VT3_25", "VT3_26",
+  "VT5_2", "VT5_4",
+  "VT8_5_VP_M", "VT8_5_VP_F", "VT8_5_VNP_M", "VT8_5_VNP_F", "VT8_5_PERM_M", "VT8_5_PERM_F",
+]);
+
+const WHOLE_COUNT_RE = /^\d+$/;
+
+/** True for a whole, non-negative number written with digits only ("0", "12"). */
+export function isWholeCount(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  return WHOLE_COUNT_RE.test(String(value).trim());
+}
+
+/**
+ * Reading of what a respondent typed into a count input. Nothing is ever
+ * rewritten into a different number: "2.5", "12abc" or "-3" are `invalid`
+ * (the caller refuses them and says why), never 25, 12 or 3.
+ */
+export type CountInput =
+  | { kind: "empty" }
+  | { kind: "count"; text: string; value: number }
+  | { kind: "invalid" };
+
+export function parseCountInput(raw: string): CountInput {
+  const text = raw.trim();
+  if (text === "") return { kind: "empty" };
+  if (!WHOLE_COUNT_RE.test(text)) return { kind: "invalid" };
+  return { kind: "count", text, value: parseInt(text, 10) };
+}
 
 function isEmpty(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
@@ -69,6 +122,15 @@ function isValidPhone(v: string): boolean {
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 function isValidEmail(v: string): boolean {
   return EMAIL_RE.test(v);
+}
+
+/** Shown when a count input is refused (decimal, sign, letters). */
+export function wholeNumberMessage(locale?: ValidationLocale): string {
+  return msg(
+    "Saisissez un nombre entier, sans virgule, signe ni lettre (ex. 12)",
+    "Enter a whole number, without decimals, signs or letters (e.g. 12)",
+    locale,
+  );
 }
 
 function fieldIssue(field: OnefopField, message: string): ValidationIssue {
@@ -108,13 +170,16 @@ function validateField(
   locale?: ValidationLocale,
   territoryTree?: LocationRegion[],
 ): ValidationIssue | null {
-  if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
   if (!isFieldVisible(field, data)) return null;
 
   const raw = data[field.id];
   const v = raw === undefined || raw === null ? "" : String(raw).trim();
 
+  // Required-ness only decides whether an EMPTY answer is an error. Any value
+  // that is given — on an optional field too (Téléphone 2, VT2_12 e-mail) —
+  // must pass the same format checks below.
   if (isEmpty(v)) {
+    if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
     return fieldIssue(field, labelled(fieldLabel(field, locale), "Champ obligatoire", "Required field", locale));
   }
 
@@ -158,6 +223,9 @@ function validateField(
     }
     if (num < 0) {
       return fieldIssue(field, labelled(fieldLabel(field, locale), "La valeur doit être ≥ 0", "Value must be ≥ 0", locale));
+    }
+    if (COUNT_FIELD_IDS.has(field.id) && !isWholeCount(v.replace(/\s/g, ""))) {
+      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer un nombre entier", "Please enter a whole number", locale));
     }
   }
 
@@ -254,6 +322,13 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
           issues.push({
             fieldId: cellId,
             message: labelled(label, "La valeur doit être un nombre ≥ 0", "Value must be a number ≥ 0", locale),
+          });
+        } else if (!isWholeCount(data[cellId])) {
+          // Every number cell of the training-centre tables is a headcount or
+          // a count of rooms / furniture / places: a whole number.
+          issues.push({
+            fieldId: cellId,
+            message: labelled(label, "La valeur doit être un nombre entier", "Value must be a whole number", locale),
           });
         }
       }),
