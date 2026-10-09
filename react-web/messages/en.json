@@ -620,6 +620,7 @@
     "welcomeGreeting": "Welcome, {name}",
     "instructionText": "As {function}, please complete the questionnaire below for your establishment.",
     "formTitle": "COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY",
+    "formTitleVt": "ANNUAL CENSUS OF VOCATIONAL TRAINING",
     "questionnaireBadge": "- Questionnaire {entityLabel} -",
     "closeButtonTitle": "Close",
     "confidentialNoticeTitle": "Confidential Notice",

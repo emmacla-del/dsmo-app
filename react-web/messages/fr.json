@@ -620,6 +620,7 @@
     "welcomeGreeting": "Bienvenue, {name}",
     "instructionText": "En tant que {function}, veuillez remplir le questionnaire ci-dessous pour votre établissement.",
     "formTitle": "COLLECTE DE DONNÉES SUR LES EMPLOIS CRÉÉS PAR L'ÉCONOMIE MODERNE",
+    "formTitleVt": "RECENSEMENT ANNUEL DE LA FORMATION PROFESSIONNELLE",
     "questionnaireBadge": "- Questionnaire {entityLabel} -",
     "closeButtonTitle": "Fermer",
     "confidentialNoticeTitle": "Avis de confidentialité",
