@@ -19,7 +19,7 @@ function completeAnswers(): FormData {
   for (const f of vt.sections.flatMap((s) => s.fields)) {
     if (!f.required || f.table) continue;
     const first = f.options?.[0]?.value;
-    if (f.id === "VT1_14") out[f.id] = "2010";
+    if (f.id === "VT1_14" || f.id === "VT2_15") out[f.id] = "2010";
     else if (f.type === "number") out[f.id] = "0";
     else if (f.type === "checkbox") out[f.id] = first ? [first] : ["Réponse"];
     else if (f.type === "tel") out[f.id] = "677000000";

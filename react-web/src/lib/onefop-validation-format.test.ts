@@ -70,9 +70,14 @@ test("parseCountInput accepts whole numbers and empty", () => {
 });
 
 test("wholeNumberMessage is bilingual by default and localised on request", () => {
-  assert.match(wholeNumberMessage(), /nombre entier.*\/ .*whole number/);
-  assert.match(wholeNumberMessage("en"), /^Enter a whole number/);
-  assert.match(wholeNumberMessage("fr"), /^Saisissez un nombre entier/);
+  assert.equal(wholeNumberMessage(), "Saisissez un nombre entier (ex. 12)/ Enter a whole number (e.g. 12)");
+  assert.equal(wholeNumberMessage("en"), "Enter a whole number (e.g. 12)");
+  assert.equal(wholeNumberMessage("fr"), "Saisissez un nombre entier (ex. 12)");
+});
+
+test("fields, table cells and inputs share one whole-number wording", () => {
+  assert.match(issuesFor("enterprise", "S1Q10", "2.5")[0], /: Enter a whole number$/);
+  assert.ok(wholeNumberMessage("en").startsWith("Enter a whole number"));
 });
 
 test("isWholeCount", () => {
@@ -123,6 +128,11 @@ test("VT1_14 (year of establishment) gets the year check", () => {
   assert.match(issuesFor("vocationalTraining", "VT1_14", "1850")[0], /Year must be ≥ 1900/);
   assert.match(issuesFor("vocationalTraining", "VT1_14", String(new Date().getFullYear() + 1))[0], /Year must be ≤/);
   assert.match(issuesFor("vocationalTraining", "VT1_14", "20.5")[0], /valid year/);
+});
+
+test("VT2_15 (year of last authorization) gets the year check", () => {
+  assert.deepEqual(issuesFor("vocationalTraining", "VT2_15", "2018"), []);
+  assert.match(issuesFor("vocationalTraining", "VT2_15", "18")[0], /Year must be ≥ 1900/);
 });
 
 // ── Format checks on optional fields ──
@@ -180,7 +190,7 @@ test("a training-centre table cell holding a decimal is reported, a whole number
 
   const wholeIssues = (value: string) =>
     validateEntityData(vt, { ...data, [cellId]: value }, "en")
-      .filter((i) => i.fieldId === cellId && /whole number/.test(i.message));
+      .filter((i) => i.fieldId === cellId && /: Enter a whole number$/.test(i.message));
   assert.equal(wholeIssues("2.5").length, 1);
   assert.equal(wholeIssues("3").length, 0);
 });
