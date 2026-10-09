@@ -15,6 +15,7 @@ import { cleanHiddenDependentFields, normalizeMultiChoiceValues, type FormData }
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
+import { useIsClient } from "@/lib/use-is-client";
 import { hasAnyLegalAck, readLegalAck, writeLegalAck } from "@/lib/wizard-position";
 import { companyToInitialData } from "@/lib/onefop-autofill";
 import { parseCompanyEntityType } from "@/lib/register-constants";
@@ -53,12 +54,9 @@ function useRequireAuth(): AuthState {
 // ── Main page with Suspense wrapper ───────────────────────────────────────
 
 export default function OnefopDeclarationPage() {
-  const [mounted, setMounted] = useState(false);
+  // Client-only gate, hydration-safe (false on the server and while hydrating).
+  const mounted = useIsClient();
   const t = useTranslations();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return (

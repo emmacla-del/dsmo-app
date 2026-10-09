@@ -3,7 +3,7 @@
 import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
-import { localized, fieldDisplayLabel, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
+import { localized, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
 import { VtGeographyLockContext, VtWizardField, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
 import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
@@ -229,7 +229,6 @@ function VtWizardStakeholderInformedCard({
   data: FormData;
   onChange: (fieldId: string, value: unknown) => void;
 }) {
-  const t = useTranslations();
   const locale = useLocale();
   const isEn = locale.startsWith("en");
 
@@ -1228,7 +1227,12 @@ export function VtWizardSectionScreen({
       : null;
 
   const onOutlineChangeRef = useRef(onOutlineChange);
-  onOutlineChangeRef.current = onOutlineChange;
+  // Latest-callback ref, written in an effect rather than during render.
+  // Declared before the reporting effect below so it runs first in the same
+  // commit and that effect always calls the current callback.
+  useEffect(() => {
+    onOutlineChangeRef.current = onOutlineChange;
+  });
   const outlineSignature = sectionOutline
     ? `${sectionOutline.activeIndex}:${sectionOutline.items
         .map((it) => `${it.label}/${it.filled}/${it.total}/${it.errors}/${it.status}`)

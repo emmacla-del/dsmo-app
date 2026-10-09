@@ -56,8 +56,11 @@ export function useOnefopDraft(
   const establishmentIdRef = useRef(establishmentId);
   const pruneHiddenRef = useRef(pruneHidden);
   const normalizeLoadedRef = useRef(normalizeLoaded);
-  // P4 / N1: stable formId per entity+quarter session
-  const formIdRef = useRef<string>(crypto.randomUUID());
+  // P4 / N1: stable formId per entity+quarter session. The state copy is what
+  // the hook returns (refs must not be read during render); the ref keeps the
+  // value readable from the debounced autosave timer.
+  const [formId, setFormId] = useState<string>(() => crypto.randomUUID());
+  const formIdRef = useRef<string>(formId);
 
   useEffect(() => {
     initialAutofillRef.current = initialAutofill;
@@ -105,11 +108,9 @@ export function useOnefopDraft(
       }
       if (cancelled) return;
       if (normalizeLoadedRef.current) loaded = normalizeLoadedRef.current(loaded);
-      if (draft?.formId) {
-        formIdRef.current = draft.formId;
-      } else {
-        formIdRef.current = crypto.randomUUID();
-      }
+      const nextFormId = draft?.formId ? draft.formId : crypto.randomUUID();
+      formIdRef.current = nextFormId;
+      setFormId(nextFormId);
       const merged = initialAutofillRef.current
         ? mergeWithAutofill(loaded, initialAutofillRef.current)
         : loaded;
@@ -245,7 +246,7 @@ export function useOnefopDraft(
     data,
     onChange,
     status,
-    formId: formIdRef.current,
+    formId,
     lastSavedAt,
     saveFailed: idbSaveFailed,
     clearLocalDraft,
