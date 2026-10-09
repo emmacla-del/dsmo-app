@@ -45,9 +45,13 @@ export function AccessibleNumberInput({
   const strVal = value == null ? "" : String(value);
   const numVal = parseInt(strVal, 10);
   const currentNum = Number.isFinite(numVal) ? numVal : 0;
+  // A typed value that is not a whole number ("2.5") is left exactly as typed:
+  // the −/+ buttons are disabled rather than flooring it to 2 and stepping,
+  // and field validation reports it.
+  const stepBlocked = strVal.trim() !== "" && !/^-?\d+$/.test(strVal.trim());
 
   const handleStep = (delta: number) => {
-    if (disabled) return;
+    if (disabled || stepBlocked) return;
     let next = currentNum + delta;
     if (min !== undefined && next < min) next = min;
     if (max !== undefined && next > max) next = max;
@@ -60,16 +64,9 @@ export function AccessibleNumberInput({
       onChange("");
       return;
     }
-    const parsed = parseInt(raw, 10);
-    if (!Number.isNaN(parsed)) {
-      if (min !== undefined && parsed < min) {
-        onChange(String(min));
-      } else if (max !== undefined && parsed > max) {
-        onChange(String(max));
-      } else {
-        onChange(raw);
-      }
-    }
+    // Passed through as typed — never clamped to min/max or truncated, so a
+    // typed "-3" is not silently stored as 0; validation flags it instead.
+    onChange(raw);
   };
 
   return (
@@ -100,7 +97,7 @@ export function AccessibleNumberInput({
             <button
               type="button"
               aria-label={t("decrease")}
-              disabled={disabled || (min !== undefined && currentNum <= min)}
+              disabled={disabled || stepBlocked || (min !== undefined && currentNum <= min)}
               onClick={() => handleStep(-stepDelta)}
               className="w-7 h-7 flex items-center justify-center rounded-[2px] border border-[#d8ddd3] bg-[#fafaf7] hover:bg-[#eaf3ec] active:bg-[#d8ddd3] text-[#0b1f14] font-bold text-sm transition-colors duration-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
@@ -109,7 +106,7 @@ export function AccessibleNumberInput({
             <button
               type="button"
               aria-label={t("increase")}
-              disabled={disabled || (max !== undefined && currentNum >= max)}
+              disabled={disabled || stepBlocked || (max !== undefined && currentNum >= max)}
               onClick={() => handleStep(stepDelta)}
               className="w-7 h-7 flex items-center justify-center rounded-[2px] border border-[#1a5c3a] bg-[#1a5c3a] hover:bg-[#144a28] active:bg-[#0b1f14] text-white font-bold text-sm transition-colors duration-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >

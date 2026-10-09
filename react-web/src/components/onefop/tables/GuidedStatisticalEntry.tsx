@@ -8,6 +8,7 @@ import type {
 } from "./StatisticalTableDefinition";
 import { resolveGuidedScope, type GuidedQuestionItem } from "./resolveGuidedScope";
 import { useGuidedReviewGate } from "./GuidedReviewGate";
+import { parseCountInput, wholeNumberMessage } from "@/lib/onefop-validation";
 
 export interface GuidedStatisticalEntryProps {
   definition: FixedMatrixDefinition;
@@ -95,6 +96,9 @@ export function GuidedStatisticalEntry({
   const [isReviewStage, setIsReviewStage] = useState<boolean>(allAnswered);
   const [currentIdx, setCurrentIdx] = useState<number>(() => firstUnansweredIndex());
   const [error, setError] = useState<string | null>(null);
+  // Input whose last keystroke/paste was refused because it was not a whole
+  // number ("2.5", "12abc", "-3"): marked invalid next to the error message.
+  const [rejectedInput, setRejectedInput] = useState<string | null>(null);
 
   // Per-question typed total inputs (cache string values while typing)
   const [targetTotalInputs, setTargetTotalInputs] = useState<Record<string, string>>({});
@@ -113,6 +117,7 @@ export function GuidedStatisticalEntry({
     setIsReviewStage(allAnswered);
     setCurrentIdx(firstUnansweredIndex());
     setError(null);
+    setRejectedInput(null);
     setTargetTotalInputs({});
     setSplitDrafts({});
   }
@@ -145,7 +150,17 @@ export function GuidedStatisticalEntry({
   // Primary total. For a gender split, a known primary-gender value is kept and
   // the other gender re-deduced when the total changes.
   const handleTargetTotalChange = (qq: GuidedQuestionItem, valStr: string) => {
-    const clean = valStr.replace(/\D/g, "");
+    // Only whole non-negative numbers are taken. Anything else is refused as
+    // typed (the field keeps its previous value) and the respondent is told
+    // why — never rewritten into another number ("2.5" is not 25).
+    const input = parseCountInput(valStr);
+    if (input.kind === "invalid") {
+      setRejectedInput("total");
+      setError(wholeNumberMessage(locale));
+      return;
+    }
+    const clean = input.kind === "empty" ? "" : input.text;
+    setRejectedInput(null);
     setTargetTotalInputs((prev) => ({ ...prev, [qq.id]: clean }));
     setError(null);
 
@@ -205,7 +220,14 @@ export function GuidedStatisticalEntry({
   const handleGenderSplitChange = (qq: GuidedQuestionItem, primaryGender: Gender, rawVal: string, totalCount: number) => {
     const { maleB, femaleB } = findGenderBreakdowns(qq);
     if (!maleB || !femaleB) return;
-    const clean = rawVal.replace(/\D/g, "");
+    const input = parseCountInput(rawVal);
+    if (input.kind === "invalid") {
+      setRejectedInput("split");
+      setError(wholeNumberMessage(locale));
+      return;
+    }
+    const clean = input.kind === "empty" ? "" : input.text;
+    setRejectedInput(null);
     setSplitDrafts((prev) => ({ ...prev, [qq.id]: clean }));
 
     if (clean === "") {
@@ -237,13 +259,14 @@ export function GuidedStatisticalEntry({
 
   // General sub-breakdown numeric input change for multi-category tables (>2 breakdowns)
   const handleGeneralBreakdownChange = (qq: GuidedQuestionItem, fieldKey: string, rawVal: string) => {
-    let val: number | null = null;
-    if (rawVal !== "") {
-      const parsed = parseInt(rawVal, 10);
-      if (!Number.isNaN(parsed) && parsed >= 0) {
-        val = parsed;
-      }
+    const input = parseCountInput(rawVal);
+    if (input.kind === "invalid") {
+      setRejectedInput(fieldKey);
+      setError(wholeNumberMessage(locale));
+      return;
     }
+    const val: number | null = input.kind === "count" ? input.value : null;
+    setRejectedInput(null);
     setError(null);
 
     const updates: Record<string, unknown> = { [fieldKey]: val };
@@ -278,6 +301,7 @@ export function GuidedStatisticalEntry({
       const updates: Record<string, unknown> = { [emptyB.fieldKey]: curVal + remainder };
       if (qq.totalFieldKey) updates[qq.totalFieldKey] = target;
       setError(null);
+      setRejectedInput(null);
       handleCommitUpdates(updates);
     }
   };
@@ -299,6 +323,7 @@ export function GuidedStatisticalEntry({
       return next;
     });
     setError(null);
+    setRejectedInput(null);
     handleCommitUpdates(updates);
   };
 
@@ -357,6 +382,7 @@ export function GuidedStatisticalEntry({
   const goTo = useCallback((idx: number) => {
     focusAfterStepRef.current = true;
     setError(null);
+    setRejectedInput(null);
     setIsReviewStage(false);
     setCurrentIdx(idx);
   }, []);
@@ -747,11 +773,12 @@ export function GuidedStatisticalEntry({
               disabled={disabled}
               placeholder="–"
               value={displayTotal}
-              aria-invalid={Boolean(error) && displayTotal === ""}
+              aria-invalid={(Boolean(error) && displayTotal === "") || rejectedInput === "total"}
+              aria-describedby={error ? `${baseId}_error` : undefined}
               onChange={(e) => handleTargetTotalChange(q, e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={(e) => e.target.select()}
-              className={`${inputBase} ${inputBorder(Boolean(error) && displayTotal === "")}`}
+              className={`${inputBase} ${inputBorder((Boolean(error) && displayTotal === "") || rejectedInput === "total")}`}
             />
             <span className="text-sm text-[var(--cam-text-muted)]">{t("persons")}</span>
           </div>
@@ -794,11 +821,12 @@ export function GuidedStatisticalEntry({
                 disabled={disabled}
                 placeholder="–"
                 value={splitShown}
-                aria-invalid={Boolean(error)}
+                aria-invalid={Boolean(error) && rejectedInput !== "total"}
+                aria-describedby={error ? `${baseId}_error` : undefined}
                 onChange={(e) => handleGenderSplitChange(q, firstGender, e.target.value, targetNum)}
                 onKeyDown={handleKeyDown}
                 onFocus={(e) => e.target.select()}
-                className={`${inputBase} !w-28 ${inputBorder(Boolean(error) && displayTotal !== "")}`}
+                className={`${inputBase} !w-28 ${inputBorder(Boolean(error) && displayTotal !== "" && rejectedInput !== "total")}`}
               />
               <span className="text-sm text-[var(--cam-text-muted)]">
                 {firstGender === "female" ? t("women") : t("men")}
@@ -878,10 +906,14 @@ export function GuidedStatisticalEntry({
                         disabled={disabled}
                         value={b.value != null ? String(b.value) : ""}
                         placeholder="0"
-                        onChange={(e) => handleGeneralBreakdownChange(q, b.fieldKey, e.target.value.replace(/\D/g, ""))}
+                        aria-invalid={rejectedInput === b.fieldKey}
+                        aria-describedby={rejectedInput === b.fieldKey ? `${baseId}_error` : undefined}
+                        onChange={(e) => handleGeneralBreakdownChange(q, b.fieldKey, e.target.value)}
                         onKeyDown={handleKeyDown}
                         onFocus={(e) => e.target.select()}
-                        className="w-20 h-10 px-2.5 text-center font-bold text-lg tabular-nums text-[var(--cam-text)] bg-white border border-[var(--cam-border-strong)] rounded-[4px] outline-none focus:border-[var(--cam-green)]"
+                        className={`w-20 h-10 px-2.5 text-center font-bold text-lg tabular-nums text-[var(--cam-text)] bg-white border rounded-[4px] outline-none focus:border-[var(--cam-green)] ${
+                          rejectedInput === b.fieldKey ? "border-[var(--cam-error)]" : "border-[var(--cam-border-strong)]"
+                        }`}
                       />
                     </div>
                   );
@@ -893,6 +925,7 @@ export function GuidedStatisticalEntry({
 
         {error && (
           <div
+            id={`${baseId}_error`}
             role="alert"
             className="text-[13px] font-semibold px-3.5 py-2.5 rounded-[6px] border bg-[var(--cam-error-bg)] border-[var(--cam-error-border)] text-[var(--cam-error)]"
           >
