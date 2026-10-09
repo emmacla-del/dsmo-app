@@ -12,6 +12,9 @@ import type {
 import { OnefopEntityType } from '../types/prisma.types';
 import { hasRealNiu } from './niu';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
+import { DEFAULT_VARIABLE_REGISTRY, VariableRegistry } from './spss/variable-registry';
+import { disambiguateDuplicateLabels, neutralizeReportingPeriod } from './spss/export-labels';
+import { collectionPeriodFromQuarterCode } from '../campaign/campaign-period.helper';
 
 export type MeasurementLevel = 'NOMINAL' | 'ORDINAL' | 'SCALE' | 'DATE';
 export type SpssDataType = 'NUMERIC' | 'A';
@@ -101,8 +104,17 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  * Bump it whenever variables are added, removed, renamed or reordered, so a
  * script built on an earlier file can tell. 3: training-centre table status
  * variables (<table>_RESPONSE_STATUS) added before each table's cells.
+ * 4: (E10) CSV header row carries variable names instead of French labels;
+ *    duplicated French variable labels made unique with a paper-code /
+ *    entity prefix (« S22Q03 — Statut de réponse »). (E11) the round-specific
+ *    « du 1er Janvier YYYY à ce jour » / « from the 1st of January YYYY to
+ *    the present day » wording in variable labels replaced by « pendant la
+ *    période de référence » / « during the reference period »; new system
+ *    variables periodStart / periodEnd (after quarterCode) carry each
+ *    record's reference period. Variable names frozen by the E4 registry
+ *    (spss/variable-registry.frozen.json).
  */
-export const DATASET_SCHEMA_VERSION = 3;
+export const DATASET_SCHEMA_VERSION = 4;
 
 @Injectable()
 export class CanonicalSchemaAdapterService {
@@ -114,7 +126,33 @@ export class CanonicalSchemaAdapterService {
   private cachedTvetVariables: AnalyticalVariableDefinition[] | null = null;
   private cachedByEntity = new Map<string, AnalyticalVariableDefinition[]>();
 
+  // Frozen variable names (E4) — see spss/variable-registry.ts.
+  private variableRegistry: VariableRegistry = DEFAULT_VARIABLE_REGISTRY;
+
   constructor(private readonly schemaLoader: OnefopSchemaLoaderService) {}
+
+  /**
+   * Swaps the frozen-name registry (tests and the registry script) and drops
+   * every cached variable list so the next call rebuilds with it.
+   */
+  public useVariableRegistry(registry: VariableRegistry): void {
+    this.variableRegistry = registry;
+    this.cachedAllVariables = null;
+    this.cachedDemandVariables = null;
+    this.cachedTvetVariables = null;
+    this.cachedByEntity.clear();
+  }
+
+  /**
+   * The variable's name: its registered (frozen) name when its sourcePath is
+   * in the registry, otherwise a generated one. `usedNames` is pre-seeded
+   * with every registered name, so a generated name never takes one.
+   */
+  private assignVariableName(rawId: string, sourcePath: string, usedNames: Set<string>): string {
+    const registered = this.variableRegistry.nameFor(sourcePath);
+    if (registered) return registered;
+    return this.generateSpssVariableName(rawId, usedNames);
+  }
 
   /**
    * Generates a valid, deterministic, collision-safe SPSS variable name.
@@ -239,6 +277,13 @@ export class CanonicalSchemaAdapterService {
         : (Object.keys(submission).length === 0 ? undefined : DATASET_SCHEMA_VERSION);
     }
 
+    // 0b. Reference period (E11) — see resolveReferencePeriod.
+    if (sp === 'period.start' || sp === 'period.end') {
+      const period = this.resolveReferencePeriod(submission);
+      if (!period) return undefined;
+      return sp === 'period.start' ? period.start : period.end;
+    }
+
     // 1. Direct system variable paths
     if (sp.startsWith('submission.')) {
       const prop = sp.slice('submission.'.length);
@@ -330,6 +375,35 @@ export class CanonicalSchemaAdapterService {
     }
 
     return undefined;
+  }
+
+  /**
+   * The record's reference period as ISO dates (YYYY-MM-DD), or null.
+   *
+   * 1. The SubmissionRound whose quarterCode equals the submission's
+   *    quarterCode (unique column) — the period the respondent was shown.
+   *    The export attaches it as `submission.referencePeriod` (rounds are not
+   *    a Prisma relation of OnefopSubmission). Round bounds are stored as
+   *    calendar dates at midnight server time (UTC on the production host),
+   *    so they are read with UTC components.
+   * 2. No round row: the same calendar rule the PDF uses for a submission
+   *    whose round is gone — collectionPeriodFromQuarterCode(quarterCode)
+   *    (QUARTERLY_YYYY_Tn → that quarter, SEMESTER_YYYY_Sn → that half-year,
+   *    ANNUAL_YYYY_AN → the year, legacy YYYY-Tn → that quarter). Those
+   *    dates are built in local time, so they are read with local components.
+   * 3. Neither (unparseable / missing quarterCode): null → system-missing.
+   */
+  public resolveReferencePeriod(submission: any): { start: string; end: string } | null {
+    const round = submission?.referencePeriod;
+    if (round?.periodStart && round?.periodEnd) {
+      const utc = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+      return { start: utc(round.periodStart), end: utc(round.periodEnd) };
+    }
+    const derived = collectionPeriodFromQuarterCode(submission?.quarterCode);
+    if (!derived) return null;
+    const local = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { start: local(derived.periodStart), end: local(derived.periodEnd) };
   }
 
   /**
@@ -479,7 +553,9 @@ export class CanonicalSchemaAdapterService {
 
   private buildRegistries(): void {
     const root = this.schemaLoader.getRoot();
-    const usedNames = new Set<string>();
+    // Registered names are reserved up front (retired ones too), so a new
+    // sourcePath can never be handed a name that already means something.
+    const usedNames = this.variableRegistry.reservedNamesUpper();
     const allVars: AnalyticalVariableDefinition[] = [];
 
     let orderIndex = 1;
@@ -533,6 +609,20 @@ export class CanonicalSchemaAdapterService {
           }
         }
       }
+    }
+
+    // Export-only label rewrites (spss/export-labels.ts): E11 neutral
+    // reporting-period wording first, then E10 unique French labels, so the
+    // uniqueness pass sees the final wording. Decided on the full list so a
+    // variable carries the same label in every partition file.
+    for (const v of allVars) {
+      v.labelFr = neutralizeReportingPeriod(v.labelFr, 'fr');
+      v.labelEn = neutralizeReportingPeriod(v.labelEn, 'en');
+    }
+    const uniqueLabels = disambiguateDuplicateLabels(allVars);
+    for (const v of allVars) {
+      const l = uniqueLabels.get(v.sourcePath);
+      if (l) v.labelFr = l;
     }
 
     this.cachedAllVariables = allVars;
@@ -625,6 +715,33 @@ export class CanonicalSchemaAdapterService {
         spssWidth: 32,
         measurementLevel: 'NOMINAL',
         sourcePath: 'submission.quarterCode',
+      },
+      // E11 — the record's reference period (see resolveReferencePeriod).
+      // ISO YYYY-MM-DD strings: the .sav/.sps writers have no SPSS date
+      // format yet, same convention as submissionDate.
+      {
+        rawName: 'periodStart',
+        paperCode: 'SYS_13',
+        labelFr: 'Début de la période de référence',
+        labelEn: 'Reference period start',
+        sectionId: 'system',
+        entityApplicability: ['ALL'],
+        spssDataType: 'A',
+        spssWidth: 10,
+        measurementLevel: 'DATE',
+        sourcePath: 'period.start',
+      },
+      {
+        rawName: 'periodEnd',
+        paperCode: 'SYS_14',
+        labelFr: 'Fin de la période de référence',
+        labelEn: 'Reference period end',
+        sectionId: 'system',
+        entityApplicability: ['ALL'],
+        spssDataType: 'A',
+        spssWidth: 10,
+        measurementLevel: 'DATE',
+        sourcePath: 'period.end',
       },
       {
         rawName: 'formType',
@@ -747,7 +864,7 @@ export class CanonicalSchemaAdapterService {
 
     let order = startOrder;
     return sys.map((s) => ({
-      variableName: this.generateSpssVariableName(s.rawName, usedNames),
+      variableName: this.assignVariableName(s.rawName, s.sourcePath, usedNames),
       paperCode: s.paperCode,
       labelFr: s.labelFr,
       labelEn: s.labelEn,
@@ -773,7 +890,7 @@ export class CanonicalSchemaAdapterService {
     const titleFr = field.table?.vt?.title?.fr ?? field.label.fr;
     const titleEn = field.table?.vt?.title?.en ?? field.label.en;
     return {
-      variableName: this.generateSpssVariableName(statusId, usedNames),
+      variableName: this.assignVariableName(statusId, `vtStatus.${statusId}`, usedNames),
       paperCode: field.paperCode ?? field.id,
       labelFr: `${titleFr} — statut`.slice(0, 256),
       labelEn: `${titleEn} — status`.slice(0, 256),
@@ -803,7 +920,6 @@ export class CanonicalSchemaAdapterService {
     const spssWidth = spssDataType === 'NUMERIC' ? 10 : 254;
 
     const valueLabels = this.extractValueLabels(field.options);
-    const variableName = this.generateSpssVariableName(field.id, usedNames);
 
     let sourcePath = field.path;
     if (sec.id === 'section0') {
@@ -816,7 +932,7 @@ export class CanonicalSchemaAdapterService {
       const normalizedEntity = entity === 'entreprise' ? 'enterprise' : entity;
       sourcePath = `detail.${normalizedEntity}.${prop}`;
     }
-
+    const variableName = this.assignVariableName(field.id, sourcePath, usedNames);
 
     return {
       variableName,
@@ -853,7 +969,7 @@ export class CanonicalSchemaAdapterService {
         if (visitedCellIds.has(cellId)) continue;
         visitedCellIds.add(cellId);
 
-        const varName = this.generateSpssVariableName(cellId, usedNames);
+        const varName = this.assignVariableName(cellId, `matrix.${field.id}.${cellId}`, usedNames);
         const applicability = this.findMatrixCellApplicability(field.id, cellId, root);
 
         let cellLabelFr = `${field.label.fr} [${cellId}]`;
@@ -937,7 +1053,7 @@ export class CanonicalSchemaAdapterService {
         const row = table.matrix[r];
         for (let c = 0; c < row.length; c++) {
           const cellId = row[c];
-          const varName = this.generateSpssVariableName(cellId, usedNames);
+          const varName = this.assignVariableName(cellId, `matrix.${field.id}.${cellId}`, usedNames);
 
           let cellLabelFr = `${field.label.fr} [${cellId}]`;
           let cellLabelEn = `${field.label.en} [${cellId}]`;
@@ -1008,7 +1124,7 @@ export class CanonicalSchemaAdapterService {
       for (let slot = 1; slot <= table.rowCapacity; slot++) {
         // Description
         vars.push({
-          variableName: this.generateSpssVariableName(`${field.id}_SLOT${slot}_DESC`, usedNames),
+          variableName: this.assignVariableName(`${field.id}_SLOT${slot}_DESC`, `indexed.${table.template}.${slot}.desc`, usedNames),
           paperCode: field.paperCode ?? field.id,
           labelFr: `${field.label.fr} — N° ${slot} (Description)`,
           labelEn: `${field.label.en} — N° ${slot} (Description)`,
@@ -1022,7 +1138,7 @@ export class CanonicalSchemaAdapterService {
         });
         // Hommes
         vars.push({
-          variableName: this.generateSpssVariableName(`${field.id}_SLOT${slot}_H`, usedNames),
+          variableName: this.assignVariableName(`${field.id}_SLOT${slot}_H`, `indexed.${table.template}.${slot}.male`, usedNames),
           paperCode: field.paperCode ?? field.id,
           labelFr: `${field.label.fr} — N° ${slot} (Hommes)`,
           labelEn: `${field.label.en} — N° ${slot} (Men)`,
@@ -1036,7 +1152,7 @@ export class CanonicalSchemaAdapterService {
         });
         // Femmes
         vars.push({
-          variableName: this.generateSpssVariableName(`${field.id}_SLOT${slot}_F`, usedNames),
+          variableName: this.assignVariableName(`${field.id}_SLOT${slot}_F`, `indexed.${table.template}.${slot}.female`, usedNames),
           paperCode: field.paperCode ?? field.id,
           labelFr: `${field.label.fr} — N° ${slot} (Femmes)`,
           labelEn: `${field.label.en} — N° ${slot} (Women)`,
@@ -1050,7 +1166,7 @@ export class CanonicalSchemaAdapterService {
         });
         // Total
         vars.push({
-          variableName: this.generateSpssVariableName(`${field.id}_SLOT${slot}_TOTAL`, usedNames),
+          variableName: this.assignVariableName(`${field.id}_SLOT${slot}_TOTAL`, `indexed.${table.template}.${slot}.total`, usedNames),
           paperCode: field.paperCode ?? field.id,
           labelFr: `${field.label.fr} — N° ${slot} (Total)`,
           labelEn: `${field.label.en} — N° ${slot} (Total)`,
@@ -1082,7 +1198,11 @@ export class CanonicalSchemaAdapterService {
         const slotStr = String(slot).padStart(2, '0');
         for (const af of ACTIVITY_FIELDS) {
           vars.push({
-            variableName: this.generateSpssVariableName(`PP_S2_ACT_${slotStr}_${af.suffix}`, usedNames),
+            variableName: this.assignVariableName(
+              `PP_S2_ACT_${slotStr}_${af.suffix}`,
+              `indexed.activities_table.${slot}.${af.slot_field}`,
+              usedNames,
+            ),
             paperCode: field.paperCode ?? field.id,
             labelFr: `${field.label.fr} — Prestation ${slot} — ${af.labelFr}`,
             labelEn: `${field.label.en} — Activity ${slot} — ${af.labelEn}`,

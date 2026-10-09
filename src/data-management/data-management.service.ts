@@ -770,7 +770,11 @@ export class DataManagementService {
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.csv"');
             res.setHeader('X-Dataset-Schema-Version', String(DATASET_SCHEMA_VERSION));
-            res.write('﻿' + variables.map((v) => this.csvEscape(v.labelFr)).join(',') + '\r\n');
+            // Header row = SPSS variable names (E10, dataset v4), so the CSV is
+            // usable on its own in R/Stata/Python. The .sps reads it with
+            // FIRSTCASE=2 (skips this row) and positional columns, unchanged.
+            res.write('﻿' + variables.map((v) => this.csvEscape(v.variableName)).join(',') + '\r\n');
+            const referencePeriods = await this.loadReferencePeriods();
 
             const BATCH_SIZE = 250;
             let cursor: string | undefined;
@@ -788,6 +792,7 @@ export class DataManagementService {
 
                     let chunk = '';
                     for (const s of batch) {
+                        this.attachReferencePeriod(s, referencePeriods);
                         chunk += variables.map((v) => this.csvEscape(this.canonicalAdapter!.extractValue(v, s))).join(',') + '\r\n';
                     }
 
@@ -904,7 +909,11 @@ export class DataManagementService {
                 writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), {
                     fileLabel: `CAM-LEAP / ONEFOP - Registre Analytique Canonique (v${DATASET_SCHEMA_VERSION})`,
                 });
-                rowsOf = (batch) => batch.map((s) => variables.map((v) => adapter.extractValue(v, s)));
+                const referencePeriods = await this.loadReferencePeriods();
+                rowsOf = (batch) => batch.map((s) => {
+                    this.attachReferencePeriod(s, referencePeriods);
+                    return variables.map((v) => adapter.extractValue(v, s));
+                });
             } else {
                 const columns = await this.buildFlatColumns(where);
                 const used = new Set<string>();
@@ -964,6 +973,26 @@ export class DataManagementService {
                 console.warn('⚠️ Could not remove temp dir:', cleanupErr);
             }
         }
+    }
+
+    /// quarterCode → the SubmissionRound's period bounds, read once per export
+    /// (the table holds one row per round, so this is small). Feeds the
+    /// periodStart/periodEnd variables — see
+    /// CanonicalSchemaAdapterService.resolveReferencePeriod.
+    private async loadReferencePeriods(): Promise<Map<string, { periodStart: Date; periodEnd: Date }>> {
+        const rounds: Array<{ quarterCode: string; periodStart: Date; periodEnd: Date }> =
+            await this.prisma.submissionRound.findMany({
+                select: { quarterCode: true, periodStart: true, periodEnd: true },
+            });
+        return new Map(rounds.map((r) => [r.quarterCode, { periodStart: r.periodStart, periodEnd: r.periodEnd }]));
+    }
+
+    private attachReferencePeriod(
+        submission: any,
+        periods: Map<string, { periodStart: Date; periodEnd: Date }>,
+    ): void {
+        const period = submission.quarterCode ? periods.get(submission.quarterCode) : undefined;
+        if (period) submission.referencePeriod = period;
     }
 
     /// Canonical variable → SavWriter variable. Numeric display formats keep
@@ -1110,7 +1139,7 @@ export class DataManagementService {
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
             return variables.map((v) => ({
                 key: v.variableName,
-                header: v.labelFr,
+                header: v.variableName,
                 numeric: v.spssDataType === 'NUMERIC',
             }));
         }
