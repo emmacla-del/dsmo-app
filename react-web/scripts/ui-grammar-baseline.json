@@ -53,7 +53,7 @@
       "src/components/onefop/ui/StatisticalTable.tsx": 23,
       "src/components/onefop/VtWizardFields.tsx": 20,
       "src/components/onefop/VtWizardGuidedEntry.tsx": 8,
-      "src/components/onefop/VtWizardSectionScreen.tsx": 13,
+      "src/components/onefop/VtWizardSectionScreen.tsx": 7,
       "src/components/onefop/WizardShell.tsx": 25
     },
     "respondent-font-size-literal": {
@@ -93,7 +93,7 @@
       "src/components/onefop/VtValidationScreen.tsx": 18,
       "src/components/onefop/VtWizardFields.tsx": 12,
       "src/components/onefop/VtWizardGuidedEntry.tsx": 44,
-      "src/components/onefop/VtWizardSectionScreen.tsx": 12,
+      "src/components/onefop/VtWizardSectionScreen.tsx": 8,
       "src/components/onefop/VtWizardSidebar.tsx": 14,
       "src/components/onefop/WizardShell.tsx": 7
     },
@@ -135,7 +135,7 @@
       "src/components/onefop/VtValidationScreen.tsx": 9,
       "src/components/onefop/VtWizardFields.tsx": 7,
       "src/components/onefop/VtWizardGuidedEntry.tsx": 9,
-      "src/components/onefop/VtWizardSectionScreen.tsx": 16,
+      "src/components/onefop/VtWizardSectionScreen.tsx": 12,
       "src/components/onefop/VtWizardSidebar.tsx": 20,
       "src/components/onefop/WizardShell.tsx": 7
     }

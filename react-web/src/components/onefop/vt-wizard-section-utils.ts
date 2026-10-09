@@ -200,6 +200,9 @@ const SECTION_7_FINE_GROUPS: Record<string, string | null> = {
   VT7_6_INFORMED: "VBG & Discipline",
   VT7_7: "VBG & Discipline", VT7_8: "VBG & Discipline", VT7_9: "VBG & Discipline",
   VT7_10: "VBG & Discipline", VT7_11: "VBG & Discipline",
+  // 7.1.3 « précisez » of each row's 96, shown under the channel grid.
+  VT7_7_OTHER: "VBG & Discipline", VT7_8_OTHER: "VBG & Discipline", VT7_9_OTHER: "VBG & Discipline",
+  VT7_10_OTHER: "VBG & Discipline", VT7_11_OTHER: "VBG & Discipline",
   VT7_13: "Éducation Sexuelle & Orientation", VT7_14: "Éducation Sexuelle & Orientation",
   VT7_15: "Éducation Sexuelle & Orientation", VT7_16: "Éducation Sexuelle & Orientation",
   VT7_17: "Éducation Sexuelle & Orientation", VT7_18: "Éducation Sexuelle & Orientation",
