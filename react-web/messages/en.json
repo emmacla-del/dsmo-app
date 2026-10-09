@@ -749,7 +749,9 @@
     "saveFailedToast": "Could not save — please retry",
     "savedJustNowToast": "Saved just now",
     "stepAnnouncement": "{title} ({current} of {total})",
-    "quizAnnouncement": "Preliminary questionnaire"
+    "quizAnnouncement": "Preliminary questionnaire",
+    "railLockedSection": "Complete section {number} first",
+    "railLockedQuiz": "Answer the preliminary questionnaire first"
   },
   "vtWizard": {
     "sectionTitle": "Section {section}",
@@ -827,6 +829,7 @@
       "loadingRegions": "Loading regions…",
       "region": "Region",
       "dependsHint": "Each field depends on the previous one",
+      "lockedNote": "To change this, update your profile.",
       "ariaLabel": "Administrative location"
     },
     "eventProgress": {

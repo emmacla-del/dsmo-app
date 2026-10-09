@@ -749,7 +749,9 @@
     "saveFailedToast": "Échec de l'enregistrement — réessayez",
     "savedJustNowToast": "Enregistré à l'instant",
     "stepAnnouncement": "{title} ({current} sur {total})",
-    "quizAnnouncement": "Questionnaire préliminaire"
+    "quizAnnouncement": "Questionnaire préliminaire",
+    "railLockedSection": "Terminez la section {number} d'abord",
+    "railLockedQuiz": "Répondez d'abord au questionnaire préliminaire"
   },
   "vtWizard": {
     "sectionTitle": "Section {section}",
@@ -827,6 +829,7 @@
       "loadingRegions": "Chargement des régions…",
       "region": "Région",
       "dependsHint": "Chaque champ dépend du précédent",
+      "lockedNote": "Pour modifier, mettez à jour votre profil.",
       "ariaLabel": "Localisation administrative"
     },
     "eventProgress": {

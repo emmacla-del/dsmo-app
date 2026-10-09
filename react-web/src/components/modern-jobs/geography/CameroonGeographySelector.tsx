@@ -30,6 +30,11 @@ export interface CameroonGeographySelectorProps {
   required?: boolean;
   /** Validation errors map (fieldId -> errorMessage) */
   errors?: Record<string, string>;
+  /**
+   * Region, department and subdivision are shown read-only (the server
+   * stores the company record's values). Locality stays editable.
+   */
+  readOnlyHierarchy?: boolean;
 }
 
 export function CameroonGeographySelector({
@@ -43,6 +48,7 @@ export function CameroonGeographySelector({
   disabled = false,
   required = true,
   errors = {},
+  readOnlyHierarchy = false,
 }: CameroonGeographySelectorProps) {
   const t = useTranslations("modernJobs.geography");
   const { data: tree, isLoading: loadingRegions } = useTerritoryStructure();
@@ -206,6 +212,56 @@ export function CameroonGeographySelector({
         flexDirection: "column",
       }}
     >
+      {readOnlyHierarchy ? (
+        <div style={{ paddingTop: 4, display: "flex", flexDirection: "column", gap: 14 }}>
+          {(
+            [
+              ["region", regionFieldId, locale === "en" ? REGION_NAME_EN[storedRegion] ?? storedRegion : storedRegion],
+              ["department", departmentFieldId, storedDept],
+              ["subdivision", subdivisionFieldId, storedSubdiv],
+            ] as const
+          ).map(([level, fieldId, shown]) => (
+            <div key={level}>
+              <label
+                htmlFor={`${baseId}-${level}`}
+                style={{
+                  display: "block",
+                  fontSize: "var(--cam-font-size-base, 0.9375rem)",
+                  fontWeight: 600,
+                  color: "var(--cam-text)",
+                  marginBottom: 4,
+                }}
+              >
+                {t(level)}
+              </label>
+              <input
+                id={`${baseId}-${level}`}
+                name={fieldId}
+                type="text"
+                value={shown}
+                readOnly
+                aria-readonly="true"
+                aria-describedby={`${baseId}-locked-note`}
+                style={{
+                  width: "100%",
+                  height: 42,
+                  padding: "0 12px",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  borderRadius: 6,
+                  border: "1px solid var(--cam-border)",
+                  background: "var(--cam-surface)",
+                  color: "var(--cam-text)",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ))}
+          <p id={`${baseId}-locked-note`} style={{ margin: 0, fontSize: 13, color: "var(--cam-text-muted)" }}>
+            {t("lockedNote")}
+          </p>
+        </div>
+      ) : (
       <div style={{ paddingTop: 4 }}>
         <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 8, fontStyle: "italic" }}>
           {t("dependsHint")}
@@ -400,6 +456,7 @@ export function CameroonGeographySelector({
           </div>
         </div>
       </div>
+      )}
 
       {/* ── 4. Optional Locality (Quartier/Village) ── */}
       {localityFieldId && (
