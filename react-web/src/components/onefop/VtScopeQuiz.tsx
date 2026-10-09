@@ -105,8 +105,8 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     borderRadius: "var(--cam-radius-sm, 6px)",
     border: selected ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
     background: selected ? "var(--cam-green)" : "var(--cam-surface)",
-    color: selected ? "#fff" : "var(--cam-text)",
-    fontSize: 14,
+    color: selected ? "var(--cam-surface)" : "var(--cam-text)",
+    fontSize: "var(--cam-font-size-sm)",
     fontWeight: 700,
     cursor: "pointer",
   });
@@ -114,7 +114,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "clamp(16px, 3vw, 28px) 0 48px" }}>
       <header style={{ marginBottom: 24 }}>
-        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--cam-green)" }}>
+        <p style={{ margin: "0 0 6px", fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--cam-green)" }}>
           {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
         </p>
         <h1
@@ -124,12 +124,12 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
         >
           {isEn ? "Which tables apply to your centre?" : "Quels tableaux concernent votre centre ?"}
         </h1>
-        <p style={{ margin: 0, fontSize: 14, color: "var(--cam-text-muted)", lineHeight: 1.5, maxWidth: 720 }}>
+        <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: 1.5, maxWidth: 720 }}>
           {isEn
             ? "Answer each question for the period. Yes opens the table for you to fill; No records it as nothing to report. The other tables always apply."
             : "Répondez à chaque question pour la période. Oui ouvre le tableau à renseigner ; Non l'enregistre comme « aucun cas à signaler ». Les autres tableaux s'appliquent toujours."}
         </p>
-        <p aria-live="polite" style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, color: "var(--cam-text-muted)" }}>
+        <p aria-live="polite" style={{ margin: "10px 0 0", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
           {isEn ? `${answeredCount} of ${asked.length} answered` : `${answeredCount} sur ${asked.length} répondues`}
         </p>
       </header>
@@ -150,10 +150,10 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
             >
               <div role="radiogroup" aria-labelledby={`${groupId}-label`} onKeyDown={handleGroupKeyDown(q.id)} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
                 <div style={{ flex: "1 1 320px" }}>
-                  <div id={`${groupId}-label`} style={{ fontSize: 15, fontWeight: 600, color: "var(--cam-text)", lineHeight: 1.4 }}>
+                  <div id={`${groupId}-label`} style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 600, color: "var(--cam-text)", lineHeight: 1.4 }}>
                     {label}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--cam-text-muted)" }}>
+                  <div style={{ marginTop: 4, fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)" }}>
                     {value === true
                       ? isEn ? `Table ${q.tableCode} will be open to fill.` : `Le tableau ${q.tableCode} sera à renseigner.`
                       : value === false
@@ -176,7 +176,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
       </ol>
 
       {tablesToErase.length > 0 && (
-        <p role="status" style={{ margin: "16px 0 0", padding: "10px 12px", borderRadius: "var(--cam-radius-sm, 6px)", background: "var(--cam-warning-bg, #fffbeb)", border: "1px solid var(--cam-warning-border, #fde68a)", fontSize: 13, color: "var(--cam-text)", lineHeight: 1.5 }}>
+        <p role="status" style={{ margin: "16px 0 0", padding: "10px 12px", borderRadius: "var(--cam-radius-sm, 6px)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.5 }}>
           {isEn
             ? `The figures already entered in table${tablesToErase.length > 1 ? "s" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} will be erased when you validate.`
             : `Les chiffres déjà saisis dans le${tablesToErase.length > 1 ? "s" : ""} tableau${tablesToErase.length > 1 ? "x" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} seront effacés à la validation.`}
@@ -187,7 +187,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
         <button
           type="button"
           onClick={onBack}
-          style={{ background: "transparent", border: "1px solid var(--cam-border)", borderRadius: "var(--cam-radius-sm, 6px)", padding: "10px 20px", fontSize: 14, fontWeight: 600, color: "var(--cam-text)", cursor: "pointer" }}
+          style={{ background: "transparent", border: "1px solid var(--cam-border)", borderRadius: "var(--cam-radius-sm, 6px)", padding: "10px 20px", fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", cursor: "pointer" }}
         >
           {isEn ? "← Back to Section 1" : "← Retour à la Section 1"}
         </button>
@@ -201,9 +201,9 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
             border: "none",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "11px 26px",
-            fontSize: 14,
+            fontSize: "var(--cam-font-size-sm)",
             fontWeight: 700,
-            color: "#fff",
+            color: "var(--cam-surface)",
             cursor: complete ? "pointer" : "not-allowed",
           }}
         >

@@ -343,7 +343,7 @@ export default function LandingPage() {
                     <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: 6 }}>
                       {t("loginPage.identifierResultLabel")}
                     </div>
-                    <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "1.1875rem", fontWeight: 700, color: "var(--cam-green-dark)", letterSpacing: "0.06em", marginBottom: "var(--cam-space-3)" }}>
+                    <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-green-dark)", letterSpacing: "0.06em", marginBottom: "var(--cam-space-3)" }}>
                       {forgotResult}
                     </div>
                     <div style={{ display: "flex", gap: "var(--cam-space-2)", justifyContent: "center" }}>

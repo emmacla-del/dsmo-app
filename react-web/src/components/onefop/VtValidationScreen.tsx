@@ -150,10 +150,10 @@ export function VtValidationScreen({
       >
         <span style={{ fontSize: "20px", color: "var(--cam-green)", lineHeight: 1 }}>🛡️</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--cam-green)", marginBottom: "4px" }}>
+          <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-green)", marginBottom: "4px" }}>
             {t("vtValidationScreen.confidentialityTitle")}
           </div>
-          <div style={{ fontSize: "13px", color: "var(--cam-text)", lineHeight: 1.5 }}>
+          <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.5 }}>
             {t("vtValidationScreen.confidentialityText")}
           </div>
         </div>
@@ -190,7 +190,7 @@ export function VtValidationScreen({
                 border: "none",
                 color: "#15803d",
                 fontWeight: 600,
-                fontSize: 12,
+                fontSize: "var(--cam-font-size-2xs)",
                 cursor: "pointer",
                 textDecoration: "underline",
               }}
@@ -350,7 +350,7 @@ export function VtValidationScreen({
                 flexDirection: "column",
                 justifyContent: "space-between",
                 textAlign: "left",
-                background: "#ffffff",
+                background: "var(--cam-surface)",
                 border: `1px solid ${borderColor}`,
                 borderRadius: "var(--cam-radius-md)",
                 padding: "14px 16px",
@@ -493,7 +493,7 @@ export function VtValidationScreen({
               fontWeight: 600,
               cursor: "pointer",
               border: "1px solid var(--cam-border)",
-              background: "#ffffff",
+              background: "var(--cam-surface)",
               color: "var(--cam-text)",
               fontFamily: "var(--cam-font-sans)",
             }}
@@ -517,7 +517,7 @@ export function VtValidationScreen({
                   fontWeight: 600,
                   cursor: isGeneratingPdf ? "wait" : "pointer",
                   border: "1px solid var(--cam-border)",
-                  background: "#ffffff",
+                  background: "var(--cam-surface)",
                   color: "var(--cam-text)",
                   fontFamily: "var(--cam-font-sans)",
                   opacity: isGeneratingPdf ? 0.7 : 1,
@@ -541,7 +541,7 @@ export function VtValidationScreen({
                 fontWeight: 600,
                 cursor: "pointer",
                 border: "1px solid var(--cam-border)",
-                background: "#ffffff",
+                background: "var(--cam-surface)",
                 color: "var(--cam-text)",
                 fontFamily: "var(--cam-font-sans)",
               }}
@@ -561,7 +561,7 @@ export function VtValidationScreen({
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "1px solid var(--cam-border)",
-                  background: "#ffffff",
+                  background: "var(--cam-surface)",
                   color: "var(--cam-text)",
                   fontFamily: "var(--cam-font-sans)",
                 }}

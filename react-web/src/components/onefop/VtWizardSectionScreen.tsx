@@ -291,7 +291,7 @@ function VtWizardStakeholderInformedCard({
         <p
           style={{
             fontFamily: VT_FAMILY,
-            fontSize: 12,
+            fontSize: "var(--cam-font-size-2xs)",
             color: VT_INK_FAINT,
             margin: "4px 0 0 0",
             fontStyle: "italic",
@@ -323,7 +323,7 @@ function VtWizardStakeholderInformedCard({
                   textAlign: "left",
                   padding: "10px 12px",
                   fontWeight: 700,
-                  fontSize: 11,
+                  fontSize: "var(--cam-font-size-3xs)",
                   color: VT_INK_FAINT,
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",

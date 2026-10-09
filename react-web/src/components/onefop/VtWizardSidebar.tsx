@@ -90,7 +90,7 @@ export function VtWizardSidebar({
       style={{
         width: 280,
         flexShrink: 0,
-        background: "#ffffff",
+        background: "var(--cam-surface)",
         borderRight: "1px solid #e2e8f0",
         display: "flex",
         flexDirection: "column",
@@ -104,7 +104,7 @@ export function VtWizardSidebar({
       <div style={{ marginBottom: 14 }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: "var(--cam-font-size-3xs)",
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
@@ -127,7 +127,7 @@ export function VtWizardSidebar({
         <div
           style={{
             height: 4,
-            background: "#f1f5f9",
+            background: "var(--cam-surface-2)",
             borderRadius: 2,
             overflow: "hidden",
           }}
@@ -143,7 +143,7 @@ export function VtWizardSidebar({
         </div>
       </div>
 
-      <div style={{ height: 1, backgroundColor: "#f1f5f9", marginBottom: 12 }} />
+      <div style={{ height: 1, backgroundColor: "var(--cam-surface-2)", marginBottom: 12 }} />
 
       {/* ── 9 Numbered Sections ── */}
       <nav style={{ flex: 1, overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -239,7 +239,7 @@ export function VtWizardSidebar({
                         background: "none",
                         border: "none",
                         textAlign: "left",
-                        fontSize: "12px",
+                        fontSize: "var(--cam-font-size-2xs)",
                         color: "#64748b",
                         cursor: "pointer",
                         padding: "3px 0",
@@ -308,7 +308,7 @@ export function VtWizardSidebar({
         })}
 
         {/* ── Validation / Submission Summary Step Link ── */}
-        <div style={{ marginTop: "8px", borderTop: "1px solid #f1f5f9", paddingTop: "8px" }}>
+        <div style={{ marginTop: "8px", borderTop: "1px solid var(--cam-surface-2)", paddingTop: "8px" }}>
           <button
             type="button"
             onClick={onGoToValidation}
@@ -498,7 +498,7 @@ function VtWizardSidebarOutlineRow({
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
         </svg>
       );
-      color = "var(--vt-accent, #1e6b3a)";
+      color = "var(--vt-accent)";
       detail = t("statusComplete");
       break;
     case "inProgress":
@@ -518,7 +518,7 @@ function VtWizardSidebarOutlineRow({
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       );
-      color = "var(--vt-red, #ce1126)";
+      color = "var(--vt-red)";
       detail = t("statusNeedsAttention", { count: item.errors });
       break;
     case "notStarted":
