@@ -249,7 +249,6 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
       <div style={{ marginBottom: "var(--cam-form-gap)" }}>
         <p style={labelStyle}>
           <CodedLabel code={field.paperCode} text={label} />
-          {field.required && " *"}
         </p>
         <div style={placeholderStyle}>
           {t("vtTableRenderer.notYetRendered", { template: table?.template ?? "unknown template", fieldId: field.id })}
@@ -307,7 +306,6 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
     <div style={{ marginBottom: "var(--cam-form-gap)" }}>
       <p style={labelStyle}>
         <CodedLabel code={field.paperCode} text={displayTitle} />
-        {field.required && " *"}
       </p>
 
       <div

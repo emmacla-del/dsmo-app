@@ -1,6 +1,7 @@
 import type { FormData, OnefopField, OnefopSection, VtTableMeta } from "@/lib/onefop-schema";
 import { isFieldVisible, isVtSectionWaived } from "@/lib/onefop-schema";
-import { validateSectionData } from "@/lib/onefop-validation";
+import { isOptionalField, validateSectionData } from "@/lib/onefop-validation";
+import { isVtCentreClosed, missingVtTableCells, vtTableStatus } from "@/lib/vt-quiz";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
 export const VT_SEGMENTED_RADIO_IDS = new Set(["VT1_15_SEX", "VT1_16_SEX"]);
@@ -101,6 +102,8 @@ export interface VtWizardSectionOutlineItem {
   label: string;
   filled: number;
   total: number;
+  /** Required visible questions of the block still unanswered (total - filled). */
+  remaining: number;
   errors: number;
   status: VtWizardSectionOutlineStatus;
 }
@@ -111,28 +114,62 @@ export interface VtWizardSectionOutlineModel {
   onSelect: (index: number) => void;
 }
 
-/// Per-block status, matching Flutter's _vtWizardBlockSummary: a block is
-/// "complete" only when every visible field in it is filled AND error-free
-/// — a partial answer count is "inProgress", never pretended to be done.
+function isAnswered(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+/// The questions of one block a respondent must still answer. A visible
+/// question counts when it is required (isOptionalField: neither the schema
+/// nor OPTIONAL_OVERRIDES lets it be left blank). A training-centre table is
+/// optional in the schema; the preliminary quiz decides it: one it marks
+/// "Non" (or a closed centre's) is not counted, one marked "Oui" counts until
+/// missingVtTableCells has nothing left, and one whose quiz question is still
+/// unanswered counts as not answered. Tables are counted for the block's
+/// progress only: isVtSectionComplete keeps relying on the validator for them.
+export function vtWizardBlockRequiredStats(fields: OnefopField[], data: FormData): VtWizardSectionStats {
+  let filled = 0;
+  let total = 0;
+  for (const f of fields) {
+    if (!isFieldVisible(f, data)) continue;
+    if (f.type === "table" || f.type === "repeating_table") {
+      if (!f.table?.vt || isVtCentreClosed(data)) continue;
+      const status = vtTableStatus(f.id, data);
+      if (status === "NONE") continue;
+      total++;
+      if (status === "REPORTED" && missingVtTableCells(f, data).length === 0) filled++;
+      continue;
+    }
+    if (isOptionalField(f)) continue;
+    total++;
+    if (isAnswered(data[f.id])) filled++;
+  }
+  return { filled, total };
+}
+
+/// Per-block status: a block is "complete" only when no required question
+/// remains AND none of its fields has an error — a partial answer count is
+/// "inProgress", never pretended to be done. Errors win over both. The
+/// sidebar's section outline and the block heading read the same summary.
 export function vtWizardBlockSummary(
   fields: OnefopField[],
   label: string,
   data: FormData,
   issueFieldIds: Set<string>,
 ): VtWizardSectionOutlineItem {
-  const rawStats = vtWizardGroupStats(fields, data);
-  const total = rawStats.total === 0 ? 1 : rawStats.total;
-  // A block of optional questions only is never "left to fill".
-  const hasTable = fields.some((f) => f.type === "table" || f.type === "repeating_table");
-  const filled =
-    rawStats.total === 0
-      ? !hasTable || fields.every((f) => cellFilled(data[f.id])) ? 1 : 0
-      : rawStats.filled;
+  const required = vtWizardBlockRequiredStats(fields, data);
+  // A block with nothing required (optional questions only, or tables the
+  // quiz excluded) is never "left to fill": it counts as 1/1 so the
+  // sidebar's coverage bar still moves past it.
+  const total = required.total === 0 ? 1 : required.total;
+  const filled = required.total === 0 ? 1 : required.filled;
+  const remaining = total - filled;
   const errors = fields.filter((f) => isFieldVisible(f, data) && issueFieldIds.has(f.id)).length;
-  const complete = total > 0 && filled === total && errors === 0;
   const status: VtWizardSectionOutlineStatus =
-    errors > 0 ? "needsAttention" : complete ? "complete" : filled > 0 ? "inProgress" : "notStarted";
-  return { label, filled, total, errors, status };
+    errors > 0 ? "needsAttention" : remaining === 0 ? "complete" : filled > 0 ? "inProgress" : "notStarted";
+  return { label, filled, total, remaining, errors, status };
 }
 
 /// Single source of truth for "is this VT section complete": the validator

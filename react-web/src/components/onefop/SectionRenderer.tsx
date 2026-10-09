@@ -8,6 +8,7 @@ import type { ValidationIssue } from "@/lib/onefop-validation";
 import { FieldRenderer } from "./FieldRenderer";
 import { FormGrid, FormCol } from "./ui/FormGrid";
 import { FormSectionCard } from "./ui/FormSectionCard";
+import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import type { FormStatus } from "./form/StatusChip";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 import { Section1ThematicRenderer } from "@/components/modern-jobs/section1/Section1ThematicRenderer";
@@ -740,6 +741,7 @@ export function SectionRenderer({
                 localized(section.description, locale)
               ) : null}
             </p>
+            {visibleFields.length > 0 && <RequiredQuestionsNote />}
           </div>
 
         </div>

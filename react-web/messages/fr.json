@@ -605,7 +605,6 @@
   },
   "fieldRenderer": {
     "selectAllApply": "Sélectionnez toutes les options applicables",
-    "requiredMarker": "*",
     "example": "ex. {example}",
     "placeholderName": "ex. Jean Dupont",
     "placeholderJobTitle": "ex. Directeur des Ressources Humaines",
@@ -642,9 +641,6 @@
       "projectProgram": "Projet/Programme",
       "fallback": "ONEFOP"
     }
-  },
-  "activitiesTableRenderer": {
-    "requiredMarker": "*"
   },
   "simpleModeSidebar": {
     "ariaLabel": "Sections de déclaration",
@@ -764,9 +760,9 @@
     "statusInProgress": "En cours",
     "statusNeedsAttention": "{count, plural, one {# réponse à corriger} other {# réponses à corriger}}",
     "statusNotStarted": "Pas commencé",
-    "blockChipNeedsAttention": "À corriger",
-    "blockChipComplete": "{filled}/{total} remplis",
-    "blockChipPartial": "{filled}/{total} renseignés",
+    "blockRemaining": "{count, plural, one {# question restante} other {# questions restantes}}",
+    "blockComplete": "✓ Complet",
+    "blockToFix": "{count} à corriger",
     "insertionRateVisualization": "Visualisation du taux d'insertion",
     "cancel": "Annuler",
     "previous": "Étape Précédente",
@@ -790,7 +786,6 @@
     "number": "Nombre :",
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "selectAnOption": "Sélectionner une option",
-    "requiredSuffix": " (obligatoire)",
     "signaturesApprovals": "Signatures & Approbations",
     "signatureArea": "Zone de signature",
     "graduates": "Diplômés",
@@ -1203,7 +1198,9 @@
     "moreInfo": "Informations complémentaires",
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "decrease": "Diminuer",
-    "increase": "Augmenter"
+    "increase": "Augmenter",
+    "optionalSuffix": "(facultatif)",
+    "requiredQuestionsNote": "Toutes les questions sont obligatoires, sauf mention « facultatif »."
   },
   "adminNav": {
     "hubs": {

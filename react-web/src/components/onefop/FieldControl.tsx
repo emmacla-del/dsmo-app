@@ -6,6 +6,7 @@ import { bilingual, localized, type LocalizedText } from "@/lib/onefop-schema";
 import { AccessibleRadioGroup } from "./ui/AccessibleRadioGroup";
 import { AccessibleCheckboxGroup } from "./ui/AccessibleCheckboxGroup";
 import { AccessibleNumberInput } from "./ui/AccessibleNumberInput";
+import { isOptionalField } from "@/lib/onefop-validation";
 
 /**
  * The bare input control for a non-table field — no label, no wrapper, no
@@ -37,6 +38,9 @@ interface FieldControlProps {
 
 export function FieldControl({ field, value, onChange, placeholder, compact = false, hasError = false, onFieldTouch, locale }: FieldControlProps) {
   const t = useTranslations();
+  // Exposed as aria-required only: the wizard's own validation decides what
+  // blocks, so no native `required` (and its browser tooltip) is set.
+  const required = !isOptionalField(field);
   const optionLabel = (text: LocalizedText | null) => (locale ? localized(text, locale) : bilingual(text));
   const textInputStyle: React.CSSProperties = {
     width: "100%",
@@ -82,6 +86,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
             value={value}
             onChange={(val) => onChange(field.id, val)}
             orientation={field.options.length <= 3 ? "horizontal" : "vertical"}
+            required={required}
           />
         </div>
       );
@@ -203,6 +208,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         id={field.id}
         name={field.id}
         aria-invalid={hasError || undefined}
+        aria-required={required || undefined}
         className={`sovereign-select ${hasError ? "has-error" : ""}`}
         style={selectStyle}
         value={(value as string) ?? ""}
@@ -228,6 +234,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         name={field.id}
         placeholder={placeholder}
         aria-invalid={hasError || undefined}
+        aria-required={required || undefined}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
         style={{ ...textInputStyle, height: compact ? 30 : "auto", minHeight: compact ? 30 : 80, padding: "8px 12px" }}
         value={(value as string) ?? ""}
@@ -250,7 +257,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
       name={field.id}
       type={htmlType}
       placeholder={placeholder}
-      required={field.required}
+      aria-required={required || undefined}
       aria-invalid={hasError || undefined}
       className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
       style={textInputStyle}

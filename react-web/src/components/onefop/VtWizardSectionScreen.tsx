@@ -48,7 +48,7 @@ import { fieldOwnsIssue } from "@/lib/wizard-navigation";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
-import { StatusChip, type FormStatus } from "./form/StatusChip";
+import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import {
   buildSection41Definition,
@@ -1029,7 +1029,13 @@ function VtWizardCardForGroup({
   );
 }
 
-function VtWizardBlockStatusChip({
+/**
+ * A block's progress as plain text opposite its heading: what is left to
+ * answer, "✓ Complet" once nothing required remains, or what to fix (errors
+ * win) — from vtWizardBlockSummary in vt-wizard-utils.ts. Read in place by
+ * screen readers; not a live region.
+ */
+function VtWizardBlockProgress({
   summary,
   t,
 }: {
@@ -1038,23 +1044,27 @@ function VtWizardBlockStatusChip({
   t: (key: string, values?: any) => string;
 }): ReactNode {
   if (!summary) return null;
-  const { errors, status, filled, total } = summary;
+  const { errors, status, remaining } = summary;
 
-  // summary.status already encodes the same priority the old inline chip
-  // used (errors win, then complete, then partial) — see
-  // vtWizardBlockSummary in vt-wizard-utils.ts.
-  const formStatus: FormStatus =
-    status === "needsAttention" ? "has-errors" :
-    status === "complete" ? "complete" :
-    status === "inProgress" ? "in-progress" : "not-started";
+  const [text, color] =
+    status === "needsAttention" ? [t("vtWizard.blockToFix", { count: errors }), "var(--cam-error)"] :
+    status === "complete" ? [t("vtWizard.blockComplete"), "var(--cam-green)"] :
+    [t("vtWizard.blockRemaining", { count: remaining }), "var(--cam-text-muted)"];
 
-  const label =
-    formStatus === "has-errors" ? t("vtWizard.blockChipNeedsAttention", { count: errors }) :
-    formStatus === "complete" ? t("vtWizard.blockChipComplete", { filled, total }) :
-    formStatus === "in-progress" ? t("vtWizard.blockChipPartial", { filled, total }) :
-    "";
-
-  return <StatusChip status={formStatus} label={label} />;
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        textAlign: "right",
+        fontFamily: "var(--cam-font-sans)",
+        fontSize: "var(--cam-font-size-xs)",
+        fontWeight: status === "inProgress" || status === "notStarted" ? 400 : 600,
+        color,
+      }}
+    >
+      {text}
+    </span>
+  );
 }
 
 function VtWizardCategoryTabs({
@@ -1254,6 +1264,7 @@ export function VtWizardSectionScreen({
         >
           {sectionTitle}
         </h2>
+        {groups.length > 0 && <RequiredQuestionsNote />}
       </div>
 
       <div style={{ width: "100%" }}>
@@ -1310,7 +1321,7 @@ export function VtWizardSectionScreen({
                         compact={compact}
                         columns={rowColumns}
                         headingTextOverride={groupLabels[groupIndex]}
-                        headingTrailing={<VtWizardBlockStatusChip summary={blockSummaries[groupIndex]} t={t} />}
+                        headingTrailing={<VtWizardBlockProgress summary={blockSummaries[groupIndex]} t={t} />}
                       />
                     </div>
                   );
@@ -1338,7 +1349,7 @@ export function VtWizardSectionScreen({
                   columns={rowColumns}
                   headingTextOverride={group.fields.length > 0 ? groupLabels[i] : undefined}
                   headingTrailing={
-                    group.fields.length > 0 ? <VtWizardBlockStatusChip summary={blockSummaries[i]} t={t} /> : undefined
+                    group.fields.length > 0 ? <VtWizardBlockProgress summary={blockSummaries[i]} t={t} /> : undefined
                   }
                 />
 
