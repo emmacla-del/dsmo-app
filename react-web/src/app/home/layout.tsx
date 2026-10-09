@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions } from "@/lib/shared-queries";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /**
  * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
@@ -52,6 +53,12 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     enabled: authState === "authed" && !awaitingApproval,
   });
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
+  // Below 900px the rail is a drawer (globals.css .cam-home-rail). Escape,
+  // focus trap and focus return come from useDialogFocus; choosing a link
+  // closes it too.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const railRef = useRef<HTMLElement>(null);
+  useDialogFocus(menuOpen, railRef, () => setMenuOpen(false));
   const [attestationLoading, setAttestationLoading] = useState(false);
   const [attestationError, setAttestationError] = useState<string | null>(null);
   // Mirrors home_screen.dart's "Mon attestation d'inscription" menu entry.
@@ -117,16 +124,27 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--cam-bg)", color: "var(--cam-text)", fontFamily: "var(--cam-font-sans)" }}>
+    <div className={`cam-home${menuOpen ? " is-menu-open" : ""}`}>
+      <div className="cam-home-mobilebar">
+        <button
+          type="button"
+          className="cam-home-menu-button"
+          aria-label={t("adminLayout.openMenuAriaLabel")}
+          aria-expanded={menuOpen}
+          aria-controls="cam-home-rail"
+          onClick={() => setMenuOpen(true)}
+        >
+          <span aria-hidden="true">☰</span>
+          <span aria-hidden="true">Menu</span>
+        </button>
+        <span style={{ fontWeight: 800, fontSize: "var(--cam-font-size-sm)" }}>CAM-LEAP · MINEFOP</span>
+      </div>
+      <div className="cam-home-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
       <aside
-        style={{
-          width: 240,
-          flexShrink: 0,
-          borderRight: "var(--cam-border-width) solid var(--cam-border)",
-          background: "var(--cam-surface)",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        id="cam-home-rail"
+        ref={railRef}
+        className="cam-home-rail"
+        {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" } : {})}
       >
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--cam-border)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -166,7 +184,10 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <div style={{ padding: "12px 16px 4px" }}>
             <button
               type="button"
-              onClick={() => setIsNewDeclarationOpen(true)}
+              onClick={() => {
+                setMenuOpen(false);
+                setIsNewDeclarationOpen(true);
+              }}
               className="cam-button cam-button-primary cam-button-block"
               style={{
                 display: "flex",
@@ -191,6 +212,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
               <Link
                 key={item.slug}
                 href={href}
+                onClick={() => setMenuOpen(false)}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -272,7 +294,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: "var(--cam-space-6) var(--cam-space-5)", minWidth: 0 }}>
+      <main className="cam-home-main">
         {meQuery.isLoading && <p>{t("common.loading")}</p>}
         {meQuery.isError && (
           <p role="alert" style={{ color: "var(--cam-error)" }}>

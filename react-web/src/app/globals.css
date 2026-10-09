@@ -2868,3 +2868,95 @@ body {
   color: var(--cam-text-muted);
   border: 1px solid var(--cam-border);
 }
+/* ── Company / respondent home shell (app/home/layout.tsx) ──────────────────
+   Desktop: the 240px rail sits beside the content. Below 900px the rail
+   becomes a drawer (same pattern as the admin console's .cam-admin-rail),
+   opened from a menu button, so the content keeps the full width instead of
+   being squeezed beside a fixed rail. */
+.cam-home {
+  display: flex;
+  min-height: 100vh;
+  background: var(--cam-bg);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+}
+
+.cam-home-rail {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-home-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--cam-space-6) var(--cam-space-5);
+}
+
+.cam-home-mobilebar,
+.cam-home-backdrop {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .cam-home {
+    flex-direction: column;
+  }
+
+  .cam-home-rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(280px, 86vw);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    z-index: var(--cam-z-dialog);
+  }
+
+  .cam-home.is-menu-open .cam-home-rail {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s linear 0s;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .cam-home.is-menu-open .cam-home-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: calc(var(--cam-z-dialog) - 1);
+  }
+
+  .cam-home-mobilebar {
+    display: flex;
+    align-items: center;
+    gap: var(--cam-space-3);
+    padding: var(--cam-space-3) var(--cam-space-4);
+    border-bottom: var(--cam-border-width) solid var(--cam-border);
+    background: var(--cam-surface);
+  }
+
+  .cam-home-menu-button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cam-space-2);
+    min-height: 40px;
+    padding: 0 var(--cam-space-3);
+    border: var(--cam-border-width) solid var(--cam-border-strong);
+    border-radius: var(--cam-radius-sm);
+    background: none;
+    color: var(--cam-text);
+    font: inherit;
+    font-size: var(--cam-font-size-sm);
+    cursor: pointer;
+  }
+
+  .cam-home-main {
+    padding: var(--cam-space-5) var(--cam-space-4);
+  }
+}
