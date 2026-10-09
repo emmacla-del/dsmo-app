@@ -6,6 +6,7 @@ import { fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
 import type { OnefopEntity } from "@/lib/onefop-schema";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
 import { getZeroedTablesList, type ZeroedTableInfo } from "@/components/modern-jobs/scope/QuizSemantics";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 
 interface OnefopPdfPreviewModalProps {
   /** Entity schema, so the preview shows the same quiz-derived data as the submission. */
@@ -119,7 +120,9 @@ export function OnefopPdfPreviewModal({
     if (!blobUrl) return;
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = `declaration-${entityType}-${quarterCode || "T3"}-${activeLocale.toUpperCase()}.pdf`;
+    // The period code names the file; without one the segment is left out
+    // rather than invented (it used to fall back to "T3").
+    a.download = `declaration-${entityType}${quarterCode ? `-${quarterCode}` : ""}-${activeLocale.toUpperCase()}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -195,7 +198,7 @@ export function OnefopPdfPreviewModal({
               </h2>
               <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {establishmentName ? `${establishmentName} • ` : ""}
-                {quarterCode || (isFr ? "Période active" : "Active period")}
+                {referencePeriodLabel(quarterCode, activeLocale) || (isFr ? "Période active" : "Active period")}
               </div>
             </div>
           </div>

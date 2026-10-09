@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   getMyDeclarations,
   getMyOnefopSubmissions,
@@ -16,6 +16,9 @@ import {
   type OnefopSubmission,
 } from "@/lib/api-client";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
+import { asUiLocale } from "@/lib/register-i18n";
+import { ENTITY_TYPE_OPTION_KEYS } from "@/lib/companies-directory";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 
 // ── History entry model (matches _HistoryEntry in Flutter) ────────────────
 
@@ -121,11 +124,15 @@ function mapDsmo(d: DsmoDeclaration, t: Translator): HistoryEntry {
   };
 }
 
-function mapOnefop(s: OnefopSubmission, t: Translator): HistoryEntry {
+function mapOnefop(s: OnefopSubmission, t: Translator, locale: "fr" | "en"): HistoryEntry {
   const group = ONEFOP_GROUP[s.status] ?? "pending";
-  const period = s.quarterCode ?? s.period ?? "—";
+  // Readable period ("4e trimestre 2026") and type ("Centre de formation
+  // professionnelle"), not their codes; an unknown code is shown as is.
+  const periodCode = s.quarterCode ?? s.period;
+  const period = periodCode ? referencePeriodLabel(periodCode, locale) : "—";
+  const entityKey = s.entityType ? ENTITY_TYPE_OPTION_KEYS[s.entityType] : undefined;
   const label = s.entityType
-    ? t("homeDeclarationsPage.onefopLabelWithEntity", { entityType: s.entityType })
+    ? t("homeDeclarationsPage.onefopLabelWithEntity", { entityType: entityKey ? t(entityKey) : s.entityType })
     : t("homeDeclarationsPage.onefopOption");
   return {
     id: s.id,
@@ -147,6 +154,7 @@ function mapOnefop(s: OnefopSubmission, t: Translator): HistoryEntry {
 export default function CompanyDeclarationsPage() {
   const router = useRouter();
   const t = useTranslations();
+  const uiLocale = asUiLocale(useLocale());
 
   // Role guard: this page is only for COMPANY accounts. Admins and other
   // staff roles have no company profile and cannot submit declarations.
@@ -174,7 +182,7 @@ export default function CompanyDeclarationsPage() {
         getMyOnefopSubmissions(),
       ]);
       const dsmo = dsmoRes.status === "fulfilled" ? dsmoRes.value.map((d) => mapDsmo(d, t)) : [];
-      const onefop = onefopRes.status === "fulfilled" ? onefopRes.value.map((s) => mapOnefop(s, t)) : [];
+      const onefop = onefopRes.status === "fulfilled" ? onefopRes.value.map((s) => mapOnefop(s, t, uiLocale)) : [];
       const merged = [...dsmo, ...onefop].sort((a, b) => {
         if (!a.date && !b.date) return 0;
         if (!a.date) return 1;
@@ -197,7 +205,7 @@ export default function CompanyDeclarationsPage() {
     ]).then(([dsmoRes, onefopRes]) => {
       if (!active) return;
       const dsmo = dsmoRes.status === "fulfilled" ? dsmoRes.value.map((d) => mapDsmo(d, t)) : [];
-      const onefop = onefopRes.status === "fulfilled" ? onefopRes.value.map((s) => mapOnefop(s, t)) : [];
+      const onefop = onefopRes.status === "fulfilled" ? onefopRes.value.map((s) => mapOnefop(s, t, uiLocale)) : [];
       const merged = [...dsmo, ...onefop].sort((a, b) => {
         if (!a.date && !b.date) return 0;
         if (!a.date) return 1;

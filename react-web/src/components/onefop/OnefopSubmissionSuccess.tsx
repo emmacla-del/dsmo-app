@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { NOT_PROVIDED, stamp } from "@/lib/admin-data-state";
-import { entityTypeDisplayName, referencePeriodLabel } from "@/lib/onefop-period-label";
+import { entityTypeDisplayName, referencePeriodLabel, referencePeriodPhrases } from "@/lib/onefop-period-label";
 
 export interface OnefopSubmissionSuccessProps {
   /** Raw result message string, often in format "Déclaration enregistrée avec succès (ID: 12345)" */
@@ -58,6 +58,7 @@ export function OnefopSubmissionSuccess({
   // The campaign's own period: a declaration may be quarterly, half-yearly or
   // annual (the training-centre census), so the copy never assumes a quarter.
   const periodLabel = referencePeriodLabel(quarterCode, locale);
+  const periodPhrases = referencePeriodPhrases(quarterCode, locale);
 
   // The reference the server returned. Read from the result message only as a
   // fallback for a caller that does not pass it. Never invented: a reference
@@ -171,8 +172,8 @@ export function OnefopSubmissionSuccess({
 
           <p className="text-sm sm:text-base text-[var(--cam-text-muted)] max-w-xl mx-auto leading-relaxed">
             {isFr
-              ? `Votre déclaration statistique${periodLabel ? ` (${periodLabel})` : ""} a été validée par le système et transmise avec succès aux services du MINEFOP.`
-              : `Your statistical declaration${periodLabel ? ` (${periodLabel})` : ""} has been validated by the system and successfully transmitted to MINEFOP services.`}
+              ? `Votre déclaration statistique${periodPhrases ? ` ${periodPhrases.forPeriod}` : ""} a été validée par le système et transmise avec succès aux services du MINEFOP.`
+              : `Your statistical declaration${periodPhrases ? ` ${periodPhrases.forPeriod}` : ""} has been validated by the system and successfully transmitted to MINEFOP services.`}
           </p>
 
           {/* Reference Badge Card */}
@@ -411,8 +412,8 @@ export function OnefopSubmissionSuccess({
           <div>
             <strong>{isFr ? "Valeur probante légale :" : "Legal Evidentiary Value:"}</strong>{" "}
             {isFr
-              ? `Ce récépissé fait foi auprès de l'Inspection du Travail et des organismes de sécurité sociale (CNPS) attestant du respect de vos obligations légales de déclaration statistique au titre ${periodLabel ? `de la période « ${periodLabel} »` : "de la période de collecte en cours"}, conformément aux dispositions régissant l'ONEFOP.`
-              : `This receipt serves as official proof of compliance for Labor Inspectorate audits and social security bodies (CNPS), attesting to your compliance with statistical declaration requirements for ${periodLabel ? `the period "${periodLabel}"` : "the current collection period"} under ONEFOP regulations.`}
+              ? `Ce récépissé fait foi auprès de l'Inspection du Travail et des organismes de sécurité sociale (CNPS) attestant du respect de vos obligations légales de déclaration statistique ${periodPhrases ? periodPhrases.inRespectOf : "au titre de la période de collecte en cours"}, conformément aux dispositions régissant l'ONEFOP.`
+              : `This receipt serves as official proof of compliance for Labor Inspectorate audits and social security bodies (CNPS), attesting to your compliance with statistical declaration requirements ${periodPhrases ? periodPhrases.inRespectOf : "for the current collection period"} under ONEFOP regulations.`}
           </div>
         </div>
       </div>

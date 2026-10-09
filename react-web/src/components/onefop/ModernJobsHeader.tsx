@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { clockTime } from "@/lib/admin-data-state";
+import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 interface ModernJobsHeaderProps {
@@ -220,7 +221,8 @@ export function ModernJobsHeader({
                 color: "rgba(255, 255, 255, 0.85)",
               }}
             >
-              {t("campaign", { code: quarterCode || "—" })}
+              {/* "Campagne du 4e trimestre 2026"; an unknown code keeps the plain "Campagne <code>". */}
+              {referencePeriodPhrases(quarterCode, asUiLocale(locale))?.campaign ?? t("campaign", { code: quarterCode || "—" })}
             </span>
           </div>
         </div>
