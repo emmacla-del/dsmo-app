@@ -41,8 +41,12 @@ function renderGuided(initial: FormData = {}) {
 
 const totalInput = () => screen.getByRole("textbox", { name: "Nombre total" }) as HTMLInputElement;
 
+/** Every value the entry has stored, merged in commit order. */
+const stored = (commits: Array<Record<string, unknown>>) =>
+  Object.assign({}, ...commits) as Record<string, unknown>;
+
 for (const refused of ["2.5", "-3", "12abc"]) {
-  test(`a total of "${refused}" is refused with the whole-number message and nothing is committed`, async () => {
+  test(`a total of "${refused}" is kept as typed, flagged, and never stored as a number`, async () => {
     const { user, commits } = renderGuided();
     const input = totalInput();
 
@@ -51,10 +55,30 @@ for (const refused of ["2.5", "-3", "12abc"]) {
 
     const alert = screen.getByRole("alert");
     assert.equal(alert.textContent, WHOLE_NUMBER);
-    assert.equal(input.value, "", "the refused text is not kept in the field");
+    assert.equal(input.value, refused, "what was typed stays on screen");
     assert.equal(input.getAttribute("aria-invalid"), "true");
     assert.equal(input.getAttribute("aria-describedby"), alert.id, "the message describes the field");
-    assert.deepEqual(commits, [], "no value reached the form data");
+    assert.ok(
+      Object.values(stored(commits)).every((v) => v === null),
+      `only cleared cells, no number: ${JSON.stringify(stored(commits))}`,
+    );
+  });
+}
+
+// Typed key by key, "2.5" used to become 25: "2" was accepted, "." refused
+// (the field fell back to "2"), then "5" was appended. The typed text now
+// stays as typed and the question holds no answer until it is a count.
+for (const [typed, notThis] of [["2.5", 25], ["-3", 3]] as const) {
+  test(`typing "${typed}" key by key never ends as ${notThis}`, async () => {
+    const { user, commits } = renderGuided();
+    const input = totalInput();
+    await user.type(input, typed);
+
+    assert.equal(input.value, typed);
+    assert.equal(screen.getByRole("alert").textContent, WHOLE_NUMBER);
+    const values = Object.values(stored(commits));
+    assert.ok(!values.includes(notThis), `${notThis} was never stored: ${JSON.stringify(stored(commits))}`);
+    assert.ok(values.every((v) => v === null), "the question holds no answer while the text is not a count");
   });
 }
 
@@ -82,7 +106,7 @@ test("Aucun (0) commits an explicit zero for the total and both sexes, not a bla
   assert.ok(values.every((v) => v === 0), `every committed cell is 0: ${JSON.stringify(commits[0])}`);
 });
 
-test("a number of women that is not a whole number is refused and the men are not deduced from it", async () => {
+test("a number of women that is not a whole number is kept as typed and the men are not deduced from it", async () => {
   const { user, commits } = renderGuided();
   await user.type(totalInput(), "5");
   const women = screen.getByRole("textbox", { name: "Parmi eux, combien de femmes ?" }) as HTMLInputElement;
@@ -90,9 +114,14 @@ test("a number of women that is not a whole number is refused and the men are no
   await user.click(women);
   await user.paste("2.5");
   assert.equal(screen.getByRole("alert").textContent, WHOLE_NUMBER);
-  assert.equal(women.value, "");
-  assert.deepEqual(commits, [], "neither sex nor the total was committed");
+  assert.equal(women.value, "2.5");
+  const afterRefusal = stored(commits);
+  assert.ok(
+    Object.values(afterRefusal).every((v) => v === null),
+    `neither sex is stored from "2.5": ${JSON.stringify(afterRefusal)}`,
+  );
 
+  await user.clear(women);
   await user.type(women, "2");
   const last = commits.at(-1) ?? {};
   const committed = Object.entries(last).sort(([a], [b]) => a.localeCompare(b));
@@ -101,22 +130,4 @@ test("a number of women that is not a whole number is refused and the men are no
     [2, 3, 5],
     `women 2, men deduced 3, total 5: ${JSON.stringify(last)}`,
   );
-});
-
-// Typed key by key (not pasted), "2.5" is "2" (accepted), "." (refused), then
-// "5" appended to the accepted "2": the field ends on 25 and the message is
-// gone. The component's own comment says "2.5" must never become 25.
-// Recorded as a todo, not changed here: fixing it is a source change.
-test("typing 2.5 key by key does not end as the total 25", { todo: "GuidedStatisticalEntry: the refused '.' is dropped and the next digit is appended" }, async () => {
-  const { user } = renderGuided();
-  const input = totalInput();
-  await user.type(input, "2.5");
-  assert.notEqual(input.value, "25");
-});
-
-test("typing -3 key by key does not end as the total 3", { todo: "GuidedStatisticalEntry: the refused '-' is dropped and the next digit is accepted" }, async () => {
-  const { user } = renderGuided();
-  const input = totalInput();
-  await user.type(input, "-3");
-  assert.notEqual(input.value, "3");
 });

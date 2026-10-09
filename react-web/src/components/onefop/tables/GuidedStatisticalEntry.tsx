@@ -105,6 +105,9 @@ export function GuidedStatisticalEntry({
   // Per-question typed split value (kept locally so an over-total entry can be
   // flagged instead of being silently clamped)
   const [splitDrafts, setSplitDrafts] = useState<Record<string, string>>({});
+  // Multi-category cells whose typed text is not a whole number, kept as typed
+  // (by field key) so what is shown is what was typed, never a rewritten value.
+  const [breakdownDrafts, setBreakdownDrafts] = useState<Record<string, string>>({});
   // Which gender the respondent prefers entering first per question (default: women)
   const [preferredFirstGender, setPreferredFirstGender] = useState<Record<string, Gender>>({});
 
@@ -120,6 +123,7 @@ export function GuidedStatisticalEntry({
     setRejectedInput(null);
     setTargetTotalInputs({});
     setSplitDrafts({});
+    setBreakdownDrafts({});
   }
 
   const safeIdx = Math.min(Math.max(0, currentIdx), Math.max(0, questions.length - 1));
@@ -150,13 +154,27 @@ export function GuidedStatisticalEntry({
   // Primary total. For a gender split, a known primary-gender value is kept and
   // the other gender re-deduced when the total changes.
   const handleTargetTotalChange = (qq: GuidedQuestionItem, valStr: string) => {
-    // Only whole non-negative numbers are taken. Anything else is refused as
-    // typed (the field keeps its previous value) and the respondent is told
-    // why — never rewritten into another number ("2.5" is not 25).
+    // Only whole non-negative numbers are answers. Anything else stays on
+    // screen exactly as typed, with the reason, and is never rewritten into
+    // another number: refusing a keystroke instead let the next digit be
+    // appended to the last accepted text ("2" + "5" after a refused "." gave
+    // 25). While the text is not a count, the question holds no answer
+    // (its cells are cleared), so neither 25 nor a stale 2 can be kept.
     const input = parseCountInput(valStr);
     if (input.kind === "invalid") {
       setRejectedInput("total");
       setError(wholeNumberMessage(locale));
+      setTargetTotalInputs((prev) => ({ ...prev, [qq.id]: valStr }));
+      // A multi-category question's cells are typed one by one, not derived
+      // from this total, so they are kept; validateQuestion still blocks.
+      if (qq.breakdowns.length <= 2) {
+        const updates: Record<string, unknown> = {};
+        if (qq.totalFieldKey) updates[qq.totalFieldKey] = null;
+        qq.breakdowns.forEach((b) => {
+          updates[b.fieldKey] = null;
+        });
+        handleCommitUpdates(updates);
+      }
       return;
     }
     const clean = input.kind === "empty" ? "" : input.text;
@@ -222,8 +240,12 @@ export function GuidedStatisticalEntry({
     if (!maleB || !femaleB) return;
     const input = parseCountInput(rawVal);
     if (input.kind === "invalid") {
+      // Kept as typed, with the reason; neither sex is stored (nor deduced)
+      // from it — see handleTargetTotalChange.
       setRejectedInput("split");
       setError(wholeNumberMessage(locale));
+      setSplitDrafts((prev) => ({ ...prev, [qq.id]: rawVal }));
+      handleCommitUpdates({ [femaleB.fieldKey]: null, [maleB.fieldKey]: null });
       return;
     }
     const clean = input.kind === "empty" ? "" : input.text;
@@ -260,14 +282,23 @@ export function GuidedStatisticalEntry({
   // General sub-breakdown numeric input change for multi-category tables (>2 breakdowns)
   const handleGeneralBreakdownChange = (qq: GuidedQuestionItem, fieldKey: string, rawVal: string) => {
     const input = parseCountInput(rawVal);
+    // Kept as typed while it is not a count (see handleTargetTotalChange);
+    // the cell itself is cleared, never set to a rewritten number.
     if (input.kind === "invalid") {
+      setBreakdownDrafts((prev) => ({ ...prev, [fieldKey]: rawVal }));
       setRejectedInput(fieldKey);
       setError(wholeNumberMessage(locale));
-      return;
+    } else {
+      setBreakdownDrafts((prev) => {
+        if (!(fieldKey in prev)) return prev;
+        const next = { ...prev };
+        delete next[fieldKey];
+        return next;
+      });
+      setRejectedInput(null);
+      setError(null);
     }
     const val: number | null = input.kind === "count" ? input.value : null;
-    setRejectedInput(null);
-    setError(null);
 
     const updates: Record<string, unknown> = { [fieldKey]: val };
     let newSum = 0;
@@ -322,6 +353,11 @@ export function GuidedStatisticalEntry({
       delete next[qq.id];
       return next;
     });
+    setBreakdownDrafts((prev) => {
+      const next = { ...prev };
+      qq.breakdowns.forEach((b) => delete next[b.fieldKey]);
+      return next;
+    });
     setError(null);
     setRejectedInput(null);
     handleCommitUpdates(updates);
@@ -333,6 +369,11 @@ export function GuidedStatisticalEntry({
     const totalStr = displayTotalFor(qq);
     if (totalStr === "") {
       return t("enterTotalOrNone");
+    }
+    // Text kept as typed that is not a whole number is not an answer.
+    const typed = [totalStr, splitDrafts[qq.id] ?? "", ...qq.breakdowns.map((b) => breakdownDrafts[b.fieldKey] ?? "")];
+    if (typed.some((v) => parseCountInput(v).kind === "invalid")) {
+      return wholeNumberMessage(locale);
     }
     const target = parseInt(totalStr, 10);
     if (qq.textField && target > 0 && !String(data[qq.textField.fieldKey] ?? "").trim()) {
@@ -633,7 +674,9 @@ export function GuidedStatisticalEntry({
   if (!q) return null;
   const { maleB, femaleB, isGenderSplit } = findGenderBreakdowns(q);
   const displayTotal = displayTotalFor(q);
-  const targetNum = displayTotal !== "" ? parseInt(displayTotal, 10) : null;
+  // Only a whole number is a total; "2.5" kept as typed is not (parseInt would read 2).
+  const totalInput = parseCountInput(displayTotal);
+  const targetNum = totalInput.kind === "count" ? totalInput.value : null;
   const qBreakdowns = q.getCurrentBreakdowns(data);
   const hasMultipleBreakdowns = qBreakdowns.length > 1;
   const hasAnyVal = qBreakdowns.some((b) => hasValue(data[b.fieldKey]));
@@ -644,7 +687,9 @@ export function GuidedStatisticalEntry({
   const splitDraft = splitDrafts[q.id];
   const splitShown = splitDraft !== undefined ? splitDraft : committedPrimary != null ? String(committedPrimary) : "";
   const deduced =
-    targetNum != null && splitShown !== "" && Number(splitShown) <= targetNum ? targetNum - Number(splitShown) : null;
+    targetNum != null && parseCountInput(splitShown).kind === "count" && Number(splitShown) <= targetNum
+      ? targetNum - Number(splitShown)
+      : null;
 
   const isPermanent = q.contractType === "permanent";
   const isTemporary = q.contractType === "temporary";
@@ -904,7 +949,7 @@ export function GuidedStatisticalEntry({
                         inputMode="numeric"
                         autoComplete="off"
                         disabled={disabled}
-                        value={b.value != null ? String(b.value) : ""}
+                        value={breakdownDrafts[b.fieldKey] ?? (b.value != null ? String(b.value) : "")}
                         placeholder="0"
                         aria-invalid={rejectedInput === b.fieldKey}
                         aria-describedby={rejectedInput === b.fieldKey ? `${baseId}_error` : undefined}
