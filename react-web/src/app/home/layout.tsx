@@ -13,6 +13,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions } from "@/lib/shared-queries";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
+import { useIsClient } from "@/lib/use-is-client";
 
 /**
  * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
@@ -93,11 +94,8 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
       setAttestationLoading(false);
     }
   }
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Client-only gate, hydration-safe (false on the server and while hydrating).
+  const mounted = useIsClient();
 
   // A company whose registration is still under review holds a valid
   // session but has no operational screens yet, so it belongs on its status

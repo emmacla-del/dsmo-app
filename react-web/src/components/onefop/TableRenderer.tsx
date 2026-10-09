@@ -698,7 +698,7 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
       case "diploma_gender_age_table": {
         const { activeAgeIndices } = resolveTableScope(field, data);
         const subLabels = activeAgeIndices.map((i) => AGE_BAND_LABELS[i]);
-        const scopedDiplomas = (data?._scopeConfig as Record<string, any>)?.recruit_diploma;
+        const scopedDiplomas = (data?._scopeConfig as Record<string, unknown>)?.recruit_diploma;
         const activeDiplomaKeys = Array.isArray(scopedDiplomas) && scopedDiplomas.length > 0
           ? DIPLOMA_ROW_KEYS.filter((k) => scopedDiplomas.includes(k))
           : DIPLOMA_ROW_KEYS;
@@ -780,7 +780,7 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
         };
       case "departure_table": {
         const { cspRows: filteredCsp } = resolveTableScope(field, data, cspRows);
-        const scopeConfig = data?._scopeConfig as Record<string, any> | undefined;
+        const scopeConfig = data?._scopeConfig as Record<string, unknown> | undefined;
         const reasons = scopeConfig?.departure_reasons as string[] | undefined;
         const reasonMap: Record<string, string> = {
           licenciement: "dismissal",
@@ -824,7 +824,7 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
         };
       }
       case "internship_table": {
-        const scopeConfig = data?._scopeConfig as Record<string, any> | undefined;
+        const scopeConfig = data?._scopeConfig as Record<string, unknown> | undefined;
         const internTypes = scopeConfig?.intern_types as string[] | undefined;
         const internMap: Record<string, string> = {
           vacance: "vacation",
@@ -978,7 +978,7 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
 
   // first_time_workers_table
   const { activeAgeIndices, cspRows: filteredRows } = resolveTableScope(field, data, cspRows);
-  const scopeConfig = data?._scopeConfig as Record<string, any> | undefined;
+  const scopeConfig = data?._scopeConfig as Record<string, unknown> | undefined;
   const scopedTypes = scopeConfig?.primo_workers_types;
   const rawContracts = Array.isArray(scopedTypes) && scopedTypes.length > 0
     ? ["permanent", "temporary"].filter((c) =>

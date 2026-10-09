@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useId } from "react";
+import React, { useMemo, useState, useId } from "react";
 import { useTranslations } from "next-intl";
 import { OptionalSuffix } from "@/components/onefop/ui/OptionalSuffix";
 import type { FormData } from "@/lib/onefop-schema";
@@ -81,15 +81,13 @@ export function CameroonGeographySelector({
   }, [tree]);
 
   // ── 2. Sync / Hydrate Region ID from stored name ────────────────────────
-  useEffect(() => {
-    if (!storedRegion || regions.length === 0) {
-      if (!storedRegion) {
-        setSelectedRegionId("");
-        setSelectedDeptId("");
-      }
-      return;
-    }
-
+  // Adjusted during render rather than in an effect: each update is guarded
+  // by an inequality, so React re-renders at most once more and converges
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
+  if (!storedRegion) {
+    if (selectedRegionId !== "") setSelectedRegionId("");
+    if (selectedDeptId !== "") setSelectedDeptId("");
+  } else if (regions.length > 0) {
     const matched = regions.find(
       (r) =>
         r.id === storedRegion ||
@@ -100,7 +98,7 @@ export function CameroonGeographySelector({
     if (matched && matched.id !== selectedRegionId) {
       setSelectedRegionId(matched.id);
     }
-  }, [storedRegion, regions, selectedRegionId]);
+  }
 
   // ── 3. Departments from selected region ──────────────────────────────────
   const departments: Department[] = useMemo(() => {
@@ -115,14 +113,10 @@ export function CameroonGeographySelector({
   }, [selectedRegionId, tree]);
 
   // ── 4. Sync / Hydrate Department ID from stored name ────────────────────
-  useEffect(() => {
-    if (!storedDept || departments.length === 0) {
-      if (!storedDept) {
-        setSelectedDeptId("");
-      }
-      return;
-    }
-
+  // Adjusted during render, same pattern as step 2.
+  if (!storedDept) {
+    if (selectedDeptId !== "") setSelectedDeptId("");
+  } else if (departments.length > 0) {
     const matched = departments.find(
       (d) =>
         d.id === storedDept ||
@@ -133,7 +127,7 @@ export function CameroonGeographySelector({
     if (matched && matched.id !== selectedDeptId) {
       setSelectedDeptId(matched.id);
     }
-  }, [storedDept, departments, selectedDeptId]);
+  }
 
   // ── 5. Subdivisions from selected department ────────────────────────────
   const subdivisions: Subdivision[] = useMemo(() => {

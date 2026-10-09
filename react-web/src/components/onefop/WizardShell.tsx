@@ -90,14 +90,6 @@ const buttonStyle: React.CSSProperties = {
   color: "var(--cam-text)",
 };
 
-const accentButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  background: "var(--cam-green)",
-  color: "#fff",
-  borderColor: "var(--cam-green)",
-  fontWeight: 600,
-};
-
 function useViewportWidth() {
   const [width, setWidth] = useState<number | null>(null);
 
@@ -288,27 +280,21 @@ export function WizardShell({
       )
       : null;
 
-  const wasSavingRef = useRef(false);
+  // Match Flutter: show feedback when an active save finishes. A failure
+  // remains visible until the next successful save; success fades after 2.2s.
+  // The toast is adjusted during render when `saving` flips, rather than in
+  // an effect (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
+  const [prevSaving, setPrevSaving] = useState(saving);
+  if (saving !== prevSaving) {
+    setPrevSaving(saving);
+    setSaveToast(saving ? null : saveFailed ? "failed" : "saved");
+  }
 
   useEffect(() => {
-    // Match Flutter: show feedback when an active save finishes. A failure
-    // remains visible until the next successful save; success fades after 2.2s.
-    if (saving) {
-      wasSavingRef.current = true;
-      setSaveToast(null);
-      return;
-    }
-
-    if (!wasSavingRef.current) return;
-
-    wasSavingRef.current = false;
-    setSaveToast(saveFailed ? "failed" : "saved");
-
-    if (!saveFailed) {
-      const timer = window.setTimeout(() => setSaveToast(null), 2200);
-      return () => window.clearTimeout(timer);
-    }
-  }, [saving, saveFailed]);
+    if (saveToast !== "saved") return;
+    const timer = window.setTimeout(() => setSaveToast(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [saveToast]);
 
   const sections = entity.sections;
   const clampedSectionIndex = Math.min(
