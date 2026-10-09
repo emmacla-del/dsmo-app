@@ -500,28 +500,6 @@ export function companyToInitialData(
 }
 
 /**
- * Fields considered statistical or survey variables in Section 1 that respondents
- * may update quarterly (e.g. employee count, sector, functional attributes).
- * For these keys, draft data always takes precedence if already present.
- */
-export const STATISTICAL_AUTOFILL_KEYS = new Set([
-  // Enterprise
-  "S1Q06", "S1Q07", "S1Q08", "S1Q10", "S1Q12",
-  // Cooperative
-  "COOP_S1Q07", "COOP_S1Q08", "COOP_S1Q10", "COOP_S1Q10_OTHER", "COOP_S1Q11",
-  // CTD
-  "CTD_S1Q07", "CTD_S1Q08", "CTD_S1Q09",
-  // ONG
-  "ONG_S1Q07", "ONG_S1Q08", "ONG_S1Q09", "ONG_S1Q10",
-  // Administration
-  "ADMIN_S1Q06", "ADMIN_S1Q07", "ADMIN_S1Q08",
-  // Project/Program
-  "PP_S1Q08", "PP_S1Q09", "PP_S1Q10", "PP_S1Q15",
-  // Vocational Training
-  "VT1_10", "VT1_11", "VT1_12", "VT1_13", "VT1_13_OTHER",
-]);
-
-/**
  * Merges a loaded draft with account registration autofill data.
  *
  * The form's own answer wins over registration: if a field already has a value
