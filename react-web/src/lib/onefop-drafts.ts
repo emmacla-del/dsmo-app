@@ -7,6 +7,7 @@
 
 import Dexie, { type Table } from "dexie";
 import type { FormData } from "./onefop-schema";
+import { purgeWizardSessions } from "./wizard-position";
 
 export interface DraftRecord {
   id: string;          // `${userId || "anon"}::${establishmentId || "default"}::${entityType}::${quarterCode}`
@@ -121,8 +122,11 @@ export async function clearDraft(
   }
 }
 
-/** Purges all local drafts (used on user logout for shared computer safety). */
+/** Purges all local drafts (used on user logout for shared computer safety),
+ *  together with the wizard positions and legal acknowledgments kept in
+ *  sessionStorage (wizard-position.ts). */
 export async function purgeAllDrafts(): Promise<void> {
+  purgeWizardSessions();
   if (!draftsDb) return;
   await draftsDb.drafts.clear();
 }

@@ -14,6 +14,7 @@ import { cleanHiddenDependentFields, type FormData } from "@/lib/onefop-schema";
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
+import { hasAnyLegalAck, readLegalAck, writeLegalAck } from "@/lib/wizard-position";
 import { companyToInitialData } from "@/lib/onefop-autofill";
 import { parseCompanyEntityType } from "@/lib/register-constants";
 import { CoherenceProvider } from "@/components/onefop/coherence/Coherence";
@@ -123,8 +124,10 @@ function OnefopDeclarationContent() {
     return companyToInitialData(companyQuery.data, entityType, meQuery.data);
   }, [companyQuery.data, meQuery.data, entityType]);
 
-  // Legal acknowledgment gate (matches Flutter's OnefopLegalAcknowledgmentScreen)
-  const [acknowledged, setAcknowledged] = useState(false);
+  // Legal acknowledgment gate (matches Flutter's OnefopLegalAcknowledgmentScreen).
+  // N3: remembered in sessionStorage for this declaration, for this browser
+  // session only, so a reload does not ask again (see the read below).
+  const [acknowledgedNow, setAcknowledgedNow] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   // Quarter resolves before the draft loads — useOnefopDraft defers its
@@ -152,7 +155,17 @@ function OnefopDeclarationContent() {
     [entity],
   );
 
-  const { data: formData, onChange: handleChange, status: draftStatus, formId, lastSavedAt, saveFailed, clearLocalDraft } =
+  const {
+    data: formData,
+    onChange: handleChange,
+    status: draftStatus,
+    formId,
+    lastSavedAt,
+    saveFailed,
+    clearLocalDraft,
+    draftKey,
+    loadedDraftKey,
+  } =
     useOnefopDraft(
       entityType,
       quarterQuery.data?.code ?? null,
@@ -161,6 +174,21 @@ function OnefopDeclarationContent() {
       companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : null,
       pruneHidden,
     );
+  // The stored acknowledgment of this declaration (same tenant-scoped key as
+  // the draft). While the key is still resolving (quarter / company loading)
+  // and this session holds an acknowledgment, wait instead of flashing the
+  // notice that is about to be skipped.
+  const storedAcknowledgment = useMemo(() => (draftKey ? readLegalAck(draftKey) : false), [draftKey]);
+  const acknowledged = acknowledgedNow || storedAcknowledgment;
+  const resolvingAcknowledgment =
+    !acknowledged && (quarterQuery.isPending || companyQuery.isPending) && hasAnyLegalAck();
+  const handleAcknowledged = useCallback(() => setAcknowledgedNow(true), []);
+  // Written under the current key, and again if the key resolves further
+  // (e.g. the establishment arrives after the click).
+  useEffect(() => {
+    if (acknowledgedNow && draftKey) writeLegalAck(draftKey);
+  }, [acknowledgedNow, draftKey]);
+
   const coherenceFlags = useMemo(
     () => checkCoherence(formData, entityType),
     [formData, entityType],
@@ -200,6 +228,14 @@ function OnefopDeclarationContent() {
     return null;
   }
 
+  if (resolvingAcknowledgment) {
+    return (
+      <div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>
+        {t("common.loading")}
+      </div>
+    );
+  }
+
   // ── Step 1 & 2: Legal Acknowledgment (Image 2 pulsing logo & Image 3 legal notice) ──
   if (!acknowledged) {
     const respondentName =
@@ -224,7 +260,7 @@ function OnefopDeclarationContent() {
         entityType={entityType}
         respondentName={respondentName}
         respondentFunction={respondentFunction}
-        onAcknowledged={() => setAcknowledged(true)}
+        onAcknowledged={handleAcknowledged}
         onCancel={() => router.push("/home")}
       />
     );
@@ -284,6 +320,7 @@ function OnefopDeclarationContent() {
             formId={formId}
             onSaveNow={handleSaveNow}
             onSubmitted={clearLocalDraft}
+            positionKey={loadedDraftKey}
             onCancel={() => router.push("/home")}
           />
           </CoherenceProvider>

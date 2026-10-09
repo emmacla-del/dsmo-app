@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormData } from "./onefop-schema";
-import { clearDraft, loadDraft, saveDraft } from "./onefop-drafts";
+import { clearDraft, draftId, loadDraft, saveDraft } from "./onefop-drafts";
 import { mergeWithAutofill } from "./onefop-autofill";
 import { fetchBackendDraft } from "./onefop-submission";
 
@@ -39,6 +39,9 @@ export function useOnefopDraft(
   const [data, setData] = useState<FormData>({});
   const [loadedEntityType, setLoadedEntityType] = useState<string | null>(null);
   const [loadedQuarterCode, setLoadedQuarterCode] = useState<string | null>(null);
+  // The tenant-scoped key whose draft `data` currently holds (N3: the wizard
+  // restores its stored position only once the matching draft is loaded).
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
   const [lastSavedData, setLastSavedData] = useState<FormData>({});
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [idbSaveFailed, setIdbSaveFailed] = useState(false);
@@ -106,6 +109,7 @@ export function useOnefopDraft(
       setLastSavedData(merged);
       setLoadedEntityType(entityType);
       setLoadedQuarterCode(quarterCode);
+      setLoadedDraftKey(draftId(entityType, quarterCode, userId, establishmentId));
     });
     return () => {
       cancelled = true;
@@ -225,5 +229,19 @@ export function useOnefopDraft(
       ? "saving"
       : "saved";
 
-  return { data, onChange, status, formId: formIdRef.current, lastSavedAt, saveFailed: idbSaveFailed, clearLocalDraft };
+  // Same key the autosave writes under; null until the quarter is known.
+  const draftKey = quarterCode ? draftId(entityType, quarterCode, userId, establishmentId) : null;
+
+  return {
+    data,
+    onChange,
+    status,
+    formId: formIdRef.current,
+    lastSavedAt,
+    saveFailed: idbSaveFailed,
+    clearLocalDraft,
+    draftKey,
+    /** draftKey once its draft has been loaded into `data`, else null. */
+    loadedDraftKey: draftKey !== null && loadedDraftKey === draftKey ? draftKey : null,
+  };
 }

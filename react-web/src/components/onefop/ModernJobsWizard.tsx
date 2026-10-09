@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { localized, type FormData, type OnefopEntity, type OnefopField } from "@/lib/onefop-schema";
-import type { ValidationIssue } from "@/lib/onefop-validation";
+import { QUIZ_ISSUE_FIELD_ID, type ValidationIssue } from "@/lib/onefop-validation";
 import { ModernJobsHeader } from "./ModernJobsHeader";
 import { ModernJobsSidebar, getSectionStatus } from "./ModernJobsSidebar";
 import { ModernJobsNavigation } from "./ModernJobsNavigation";
@@ -24,6 +24,15 @@ import {
 } from "@/lib/wizard-navigation";
 import { revealIssueElement, useStepFocus } from "@/lib/use-step-focus";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
+import {
+  gatedStep,
+  railLock,
+  resolveRestoredPosition,
+  stepOrdinal,
+  type RailGateModel,
+  type WizardStep,
+} from "@/lib/wizard-rail-gate";
+import { readWizardPosition, writeWizardPosition } from "@/lib/wizard-position";
 
 /** Heading ids the wizard moves focus to on each step change. */
 const SCOPE_HEADING_ID = "mj-scope-heading";
@@ -52,6 +61,9 @@ export interface ModernJobsWizardProps {
   quarterStatusMessage?: string;
   establishmentName?: string;
   quarterCode?: string;
+  /** N3: the tenant-scoped draft key once its draft is loaded; the wizard
+   *  position is restored from / kept in sessionStorage under it. */
+  positionKey?: string | null;
 }
 
 /**
@@ -86,7 +98,9 @@ export function ModernJobsWizard({
   quarterStatusMessage,
   establishmentName,
   quarterCode,
+  positionKey = null,
 }: ModernJobsWizardProps) {
+  const tShell = useTranslations("wizardShell");
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
 
   const t = useTranslations("modernJobs.wizard");
@@ -155,19 +169,14 @@ export function ModernJobsWizard({
   // that holds a given cell (see components/onefop/coherence).
   const coherence = useCoherence();
   const registerCoherenceNavigator = coherence?.registerNavigator;
+  // The jump itself is assigned further down (coherenceJumpRef), once the
+  // N2 rail gate is known, so it always applies the latest gate.
+  const coherenceJumpRef = useRef<(tableFieldId: string) => void>(() => {});
   useEffect(() => {
     if (!registerCoherenceNavigator) return;
-    registerCoherenceNavigator((tableFieldId: string) => {
-      const target = tableFieldId.toLowerCase();
-      const idx = sections.findIndex((sec) => sec.fields.some((f) => f.id.toLowerCase() === target));
-      if (idx === -1) return;
-      setIsValidationStage(false);
-      setIsScopeStage(false);
-      setSectionIndex(idx);
-      setActiveTableId(tableFieldId);
-    });
+    registerCoherenceNavigator((tableFieldId: string) => coherenceJumpRef.current(tableFieldId));
     return () => registerCoherenceNavigator(null);
-  }, [registerCoherenceNavigator, sections]);
+  }, [registerCoherenceNavigator]);
 
   const clampedSectionIndex = Math.min(Math.max(0, sectionIndex), sections.length - 1);
   const currentSection = sections[clampedSectionIndex];
@@ -178,6 +187,73 @@ export function ModernJobsWizard({
   const sectionIssues = validationIssues.filter((issue) =>
     currentSectionFields.some((f) => fieldOwnsIssue(f, issue.fieldId))
   );
+
+  // -- N2: section-rail gating ---------------------------------------------
+  // "Complete" is the check Continue applies: no validation issue owned by
+  // the section (as sectionIssues above), and for the preliminary quiz no
+  // issue pointing at it (QUIZ_ISSUE_FIELD_ID).
+  const sectionComplete = useMemo(
+    () =>
+      sections.map(
+        (sec) => !validationIssues.some((issue) => sec.fields.some((f) => fieldOwnsIssue(f, issue.fieldId))),
+      ),
+    [sections, validationIssues],
+  );
+  const gateModel: RailGateModel = {
+    sectionComplete,
+    quizAfterIndex: quizSlot?.previousSectionIndex ?? null,
+    quizComplete: !validationIssues.some((issue) => issue.fieldId === QUIZ_ISSUE_FIELD_ID),
+  };
+  const currentStep: WizardStep | null = isValidationStage
+    ? null
+    : isScopeStage
+      ? { kind: "quiz" }
+      : { kind: "section", index: clampedSectionIndex };
+  /** Why a rail item is locked (its title, and read by AT), or null. */
+  const railLockReason = (target: WizardStep): string | null => {
+    const lock = railLock(gateModel, target, currentStep);
+    if (!lock) return null;
+    // Rail numbering starts at 0 (section0 is "0").
+    return lock.reason === "quiz"
+      ? tShell("railLockedQuiz")
+      : tShell("railLockedSection", { number: lock.sectionIndex });
+  };
+
+  // -- N3: restore the stored position once this declaration's draft is
+  // loaded (adjusting state during render, once per key), then keep it.
+  const [restoredPositionKey, setRestoredPositionKey] = useState<string | null>(null);
+  if (positionKey && restoredPositionKey !== positionKey) {
+    setRestoredPositionKey(positionKey);
+    const stored = readWizardPosition(positionKey);
+    if (stored && sections.length > 0) {
+      const position = resolveRestoredPosition(gateModel, stored);
+      const index =
+        position.kind === "section"
+          ? position.index
+          : position.kind === "quiz"
+            ? (quizSlot?.previousSectionIndex ?? 0)
+            : Math.min(Math.max(stored.sectionIndex, 0), sections.length - 1);
+      const restoredTable =
+        position.kind === "section" &&
+        stored.activeTableId &&
+        sections[index].fields.some((f) => f.id === stored.activeTableId)
+          ? stored.activeTableId
+          : undefined;
+      setIsValidationStage(position.kind === "review");
+      setIsScopeStage(position.kind === "quiz");
+      setSectionIndex(index);
+      setActiveTableId(restoredTable);
+    }
+  }
+  const storedStage = isValidationStage ? "review" : isScopeStage ? "quiz" : "section";
+  useEffect(() => {
+    if (!positionKey || restoredPositionKey !== positionKey || submissionResult) return;
+    writeWizardPosition(positionKey, {
+      stage: storedStage,
+      sectionIndex: clampedSectionIndex,
+      activeTableId: storedStage === "section" ? activeTableId : undefined,
+    });
+  }, [positionKey, restoredPositionKey, submissionResult, storedStage, clampedSectionIndex, activeTableId]);
 
   // A1: focus the new step's heading after every handler-driven transition,
   // and announce the step in the polite live region below.
@@ -387,7 +463,8 @@ export function ModernJobsWizard({
     }
   };
 
-  const handleSelectSection = (index: number) => {
+  /** Opens a section unconditionally - only reached through the N2 gate below. */
+  const openSection = (index: number) => {
     setIsValidationStage(false);
     setIsScopeStage(false);
     setSectionIndex(index);
@@ -399,7 +476,7 @@ export function ModernJobsWizard({
     resetScroll(0);
   };
 
-  const handleSelectScope = () => {
+  const openScope = () => {
     setIsValidationStage(false);
     setIsScopeStage(true);
     setActiveTableId(undefined);
@@ -408,6 +485,41 @@ export function ModernJobsWizard({
     requestStepFocus();
     resetScroll(0);
   };
+
+  const openStep = (step: WizardStep) => (step.kind === "quiz" ? openScope() : openSection(step.index));
+
+  /**
+   * N2: a jump from the rail, the drawer, the review screen or "Corriger".
+   * Earlier steps are always reachable; going forward stops at the first
+   * incomplete step (section or quiz), which is where a locked target lands.
+   */
+  const handleSelectSection = (index: number) => {
+    const clamped = Math.min(Math.max(0, index), sections.length - 1);
+    openStep(gatedStep(gateModel, { kind: "section", index: clamped }, currentStep));
+  };
+
+  const handleSelectScope = () => {
+    openStep(gatedStep(gateModel, { kind: "quiz" }, currentStep));
+  };
+
+  // An anomaly link (tooltip / review list) opens the table's section when
+  // the gate allows it, otherwise the step that locks it.
+  useEffect(() => {
+    coherenceJumpRef.current = (tableFieldId: string) => {
+      const target = tableFieldId.toLowerCase();
+      const idx = sections.findIndex((sec) => sec.fields.some((f) => f.id.toLowerCase() === target));
+      if (idx === -1) return;
+      const step = gatedStep(gateModel, { kind: "section", index: idx }, currentStep);
+      if (step.kind === "section" && step.index === idx) {
+        setIsValidationStage(false);
+        setIsScopeStage(false);
+        setSectionIndex(idx);
+        setActiveTableId(tableFieldId);
+      } else {
+        openStep(step);
+      }
+    };
+  });
 
   const handleGoToValidation = () => {
     setIsValidationStage(true);
@@ -419,22 +531,43 @@ export function ModernJobsWizard({
   // V6: open the section (and table) that owns the first issue. Table-cell
   // issues carry the cell key, so the owner is matched the same way as
   // sectionIssues, then the issue itself is brought into view.
+  // N2: the issue taken is the earliest in section order (the quiz sitting
+  // after its section), so it is never past the first incomplete step and
+  // the rail gate always lets it through.
   const handleCorriger = () => {
-    if (validationIssues.length > 0) {
-      const firstIssue = validationIssues[0];
+    type IssueTarget = { step: WizardStep; issueFieldId?: string; field?: OnefopField };
+    let first: IssueTarget | null = null;
+    for (const issue of validationIssues) {
+      let candidate: IssueTarget;
       // Quiz issues (QUIZ_ISSUE_FIELD_ID) are fixed in the preliminary quiz.
-      if (firstIssue.fieldId === "_scopeConfig") {
-        handleSelectScope();
-        return;
+      if (issue.fieldId === QUIZ_ISSUE_FIELD_ID) {
+        candidate = { step: { kind: "quiz" } };
+      } else {
+        const location = locateIssue(sections, issue.fieldId);
+        if (!location) continue;
+        candidate = {
+          step: { kind: "section", index: location.sectionIndex },
+          issueFieldId: issue.fieldId,
+          field: location.field,
+        };
       }
-      const location = locateIssue(sections, firstIssue.fieldId);
-      if (location) {
-        handleSelectSection(location.sectionIndex);
-        revealIssue(firstIssue.fieldId, location.field);
-        return;
+      if (
+        !first ||
+        stepOrdinal(candidate.step, gateModel.quizAfterIndex) < stepOrdinal(first.step, gateModel.quizAfterIndex)
+      ) {
+        first = candidate;
       }
     }
-    handleSelectSection(0);
+    if (!first) {
+      handleSelectSection(0);
+      return;
+    }
+    if (first.step.kind === "quiz") {
+      handleSelectScope();
+      return;
+    }
+    handleSelectSection(first.step.index);
+    if (first.issueFieldId) revealIssue(first.issueFieldId, first.field);
   };
 
   const handleSubmitClick = () => {
@@ -525,6 +658,8 @@ export function ModernJobsWizard({
             data={data}
             currentSectionIndex={clampedSectionIndex}
             onSelectSection={handleSelectSection}
+            sectionLockReason={(index) => railLockReason({ kind: "section", index })}
+            scopeLockReason={railLockReason({ kind: "quiz" })}
             issues={validationIssues}
             isValidationStage={isValidationStage}
             onGoToValidation={handleGoToValidation}
@@ -635,6 +770,8 @@ export function ModernJobsWizard({
                     data={data}
                     currentSectionIndex={clampedSectionIndex}
                     onSelectSection={handleSelectSection}
+                    sectionLockReason={(index) => railLockReason({ kind: "section", index })}
+                    scopeLockReason={railLockReason({ kind: "quiz" })}
                     issues={validationIssues}
                     isValidationStage={isValidationStage}
                     onGoToValidation={handleGoToValidation}

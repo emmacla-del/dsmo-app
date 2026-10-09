@@ -17,11 +17,14 @@ interface VtWizardSidebarProps {
   data: FormData;
   currentSectionIndex: number;
   onSelectSection: (index: number) => void;
+  /** N2: why a section cannot be opened from the rail yet, or null. A locked
+   *  item stays readable and focusable but does nothing (aria-disabled). */
+  sectionLockReason?: (index: number) => string | null;
   isValidationStage?: boolean;
   onGoToValidation?: () => void;
   outline?: VtWizardSectionOutlineModel | null;
   /** The preliminary quiz, listed right after Section 1 (absent for a closed centre). */
-  quiz?: { isCurrent: boolean; isComplete: boolean; onOpen: () => void };
+  quiz?: { isCurrent: boolean; isComplete: boolean; onOpen: () => void; lockReason?: string | null };
 }
 
 /**
@@ -39,6 +42,7 @@ export function VtWizardSidebar({
   data,
   currentSectionIndex,
   onSelectSection,
+  sectionLockReason,
   isValidationStage = false,
   onGoToValidation,
   outline,
@@ -147,13 +151,16 @@ export function VtWizardSidebar({
           const isCurrent = !isValidationStage && !quiz?.isCurrent && idx === currentSectionIndex;
           const isDone = isSectionComplete(sec);
           const title = getVtSectionShortLabel(sec.id, locale) ?? localized(sec.title, locale.startsWith("en") ? "en" : "fr");
+          const lockReason = sectionLockReason?.(idx) ?? null;
 
           return (
             <Fragment key={sec.id}>
             <div>
               <button
                 type="button"
-                onClick={() => onSelectSection(idx)}
+                aria-disabled={lockReason ? true : undefined}
+                title={lockReason ?? undefined}
+                onClick={lockReason ? undefined : () => onSelectSection(idx)}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -164,7 +171,7 @@ export function VtWizardSidebar({
                   border: isCurrent ? "1px solid #bbf7d0" : "1px solid transparent",
                   background: isCurrent ? "#f0fdf4" : "transparent",
                   color: isCurrent ? "#0e4d29" : isDone ? "#334155" : "#475569",
-                  cursor: "pointer",
+                  cursor: lockReason ? "not-allowed" : "pointer",
                   textAlign: "left",
                   boxShadow: isCurrent ? "0 1px 3px rgba(14, 77, 41, 0.08)" : "none",
                   transition: "all 0.15s ease",
@@ -199,11 +206,12 @@ export function VtWizardSidebar({
                     flex: 1,
                     fontSize: 12.5,
                     fontWeight: isCurrent ? 700 : 500,
-                    color: isCurrent ? "#0e4d29" : isDone ? "#334155" : "#475569",
+                    color: isCurrent ? "#0e4d29" : lockReason ? "var(--cam-rail-upcoming)" : isDone ? "#334155" : "#475569",
                     lineHeight: 1.35,
                   }}
                 >
                   {title}
+                  {lockReason && <span className="sr-only"> — {lockReason}</span>}
                 </span>
               </button>
 
@@ -251,8 +259,10 @@ export function VtWizardSidebar({
             {idx === 0 && quiz && (
               <button
                 type="button"
-                onClick={quiz.onOpen}
+                onClick={quiz.lockReason ? undefined : quiz.onOpen}
                 aria-current={quiz.isCurrent ? "step" : undefined}
+                aria-disabled={quiz.lockReason ? true : undefined}
+                title={quiz.lockReason ?? undefined}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -262,8 +272,8 @@ export function VtWizardSidebar({
                   borderRadius: 6,
                   border: quiz.isCurrent ? "1px solid #bbf7d0" : "1px solid transparent",
                   background: quiz.isCurrent ? "#f0fdf4" : "transparent",
-                  color: quiz.isCurrent ? "#0e4d29" : "#475569",
-                  cursor: "pointer",
+                  color: quiz.isCurrent ? "#0e4d29" : quiz.lockReason ? "var(--cam-rail-upcoming)" : "#475569",
+                  cursor: quiz.lockReason ? "not-allowed" : "pointer",
                   textAlign: "left",
                 }}
               >
@@ -289,6 +299,7 @@ export function VtWizardSidebar({
                 </span>
                 <span style={{ flex: 1, fontSize: 12.5, fontWeight: quiz.isCurrent ? 700 : 500, lineHeight: 1.35 }}>
                   {locale === "en" ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
+                  {quiz.lockReason && <span className="sr-only"> — {quiz.lockReason}</span>}
                 </span>
               </button>
             )}

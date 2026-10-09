@@ -33,6 +33,14 @@ import { findIssueOwner, wizardStepAnnouncement } from "@/lib/wizard-navigation"
 import { revealIssueElement, useOnStepChange, useStepFocus } from "@/lib/use-step-focus";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { resetScroll } from "@/lib/reset-scroll";
+import {
+  gatedStep,
+  railLock,
+  resolveRestoredPosition,
+  type RailGateModel,
+  type WizardStep,
+} from "@/lib/wizard-rail-gate";
+import { clearWizardSession, readWizardPosition, writeWizardPosition } from "@/lib/wizard-position";
 
 interface WizardShellProps {
   entity: OnefopEntity;
@@ -62,6 +70,10 @@ interface WizardShellProps {
   /** Deletes the local draft after a successful submission (useOnefopDraft's
    *  clearLocalDraft, which knows the user/establishment-scoped key). */
   onSubmitted?: () => Promise<void> | void;
+  /** N3: the tenant-scoped draft key, once its draft is loaded. The wizard
+   *  position is restored from / kept in sessionStorage under it; null or
+   *  absent keeps the position in memory only. */
+  positionKey?: string | null;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -133,6 +145,7 @@ export function WizardShell({
   quarterCode,
   formId,
   onSubmitted,
+  positionKey = null,
 }: WizardShellProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -241,6 +254,8 @@ export function WizardShell({
       // submitted data again the next time they open this entity type.
       Promise.resolve(onSubmitted?.()).catch(() => {});
       if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
+      // N3: the stored position and legal acknowledgment go with the draft.
+      if (positionKey) clearWizardSession(positionKey);
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
       setSubmissionId(result.submissionId || null);
     },
@@ -384,6 +399,53 @@ export function WizardShell({
   const taskListSheetRef = useRef<HTMLDivElement | null>(null);
   useDialogFocus(taskListOpen, taskListSheetRef, () => setTaskListOpen(false));
 
+  // The training-centre quiz decides which tables apply. A centre declared
+  // non-functional or closed in 1.12 answers Section 1 only and has no quiz.
+  const vtQuizApplies = isVt && !isVtCentreClosed(data);
+  const vtQuizComplete = isVtQuizComplete(readVtQuiz(data));
+
+  // ── N2: section-rail gating (training centres) ──────────────────────────
+  // "Complete" is the check Continue applies (sectionIssues above:
+  // validateSectionData, which waives Sections 2-9 of a closed centre).
+  const vtSectionComplete = useMemo(
+    () => (isVt ? sections.map((section) => validateSectionData(section, data, formLocale).length === 0) : []),
+    [isVt, sections, data, formLocale],
+  );
+  const vtGateModel: RailGateModel = {
+    sectionComplete: vtSectionComplete,
+    quizAfterIndex: vtQuizApplies ? 0 : null,
+    quizComplete: vtQuizComplete,
+  };
+  const vtCurrentStep: WizardStep | null = isValidationStage
+    ? null
+    : isVtQuizStage
+      ? { kind: "quiz" }
+      : { kind: "section", index: clampedSectionIndex };
+
+  // ── N3: restore the stored position once this declaration's draft is
+  // loaded (adjusting state during render, once per key), then keep it.
+  const [restoredPositionKey, setRestoredPositionKey] = useState<string | null>(null);
+  if (isVt && positionKey && restoredPositionKey !== positionKey) {
+    setRestoredPositionKey(positionKey);
+    const stored = readWizardPosition(positionKey);
+    if (stored && sections.length > 0) {
+      const position = resolveRestoredPosition(vtGateModel, stored);
+      setIsValidationStage(position.kind === "review");
+      setIsVtQuizStage(position.kind === "quiz");
+      setSectionIndex(
+        position.kind === "section"
+          ? position.index
+          : Math.min(Math.max(stored.sectionIndex, 0), sections.length - 1),
+      );
+      setUnitIndex(0);
+    }
+  }
+  const vtStoredStage = isValidationStage ? "review" : isVtQuizStage ? "quiz" : "section";
+  useEffect(() => {
+    if (!isVt || !positionKey || restoredPositionKey !== positionKey || submissionResult) return;
+    writeWizardPosition(positionKey, { stage: vtStoredStage, sectionIndex: clampedSectionIndex });
+  }, [isVt, positionKey, restoredPositionKey, submissionResult, vtStoredStage, clampedSectionIndex]);
+
   if (!currentSection) return null;
 
   const showFullRail = viewportWidth !== null && viewportWidth >= 1280;
@@ -408,7 +470,9 @@ export function WizardShell({
   const isSectionComplete = (section: OnefopEntity["sections"][number]) =>
     isVt ? isVtSectionComplete(section, data) : validateSectionData(section, data).length === 0;
 
-  function goToSection(index: number) {
+  /** Shows a section — the wizard's own transitions (quiz Continue / Back,
+   *  Back from Validation), which follow their own rules. */
+  function showSection(index: number) {
     const nextIndex = Math.min(
       Math.max(index, 0),
       Math.max(0, sections.length - 1),
@@ -424,10 +488,36 @@ export function WizardShell({
     requestStepFocus();
   }
 
-  // The training-centre quiz decides which tables apply. A centre declared
-  // non-functional or closed in 1.12 answers Section 1 only and has no quiz.
-  const vtQuizApplies = isVt && !isVtCentreClosed(data);
-  const vtQuizComplete = isVtQuizComplete(readVtQuiz(data));
+  /**
+   * N2: a jump from the rail, the drawer or the Validation screen. Earlier
+   * steps are always reachable; going forward stops at the first incomplete
+   * step (section or quiz), which is where a locked target lands instead.
+   */
+  function goToSection(index: number) {
+    const target: WizardStep = {
+      kind: "section",
+      index: Math.min(Math.max(index, 0), Math.max(0, sections.length - 1)),
+    };
+    const step = gatedStep(vtGateModel, target, vtCurrentStep);
+    if (step.kind === "quiz") openVtQuiz();
+    else showSection(step.index);
+  }
+
+  /** The quiz from the rail or the Validation screen, gated like a section. */
+  function selectVtQuiz() {
+    const step = gatedStep(vtGateModel, { kind: "quiz" }, vtCurrentStep);
+    if (step.kind === "quiz") openVtQuiz();
+    else showSection(step.index);
+  }
+
+  /** Why a rail item is locked (shown as its title and read by AT), or null. */
+  function vtLockReason(target: WizardStep): string | null {
+    const lock = railLock(vtGateModel, target, vtCurrentStep);
+    if (!lock) return null;
+    return lock.reason === "quiz"
+      ? t("wizardShell.railLockedQuiz")
+      : t("wizardShell.railLockedSection", { number: lock.sectionIndex + 1 });
+  }
 
   function openVtQuiz() {
     setIsVtQuizStage(true);
@@ -541,10 +631,20 @@ export function WizardShell({
           data={data}
           currentSectionIndex={clampedSectionIndex}
           onSelectSection={goToSection}
+          sectionLockReason={(index) => vtLockReason({ kind: "section", index })}
           isValidationStage={false}
           onGoToValidation={goToValidation}
           outline={isVtQuizStage ? null : vtSectionOutline}
-          quiz={vtQuizApplies ? { isCurrent: isVtQuizStage, isComplete: vtQuizComplete, onOpen: openVtQuiz } : undefined}
+          quiz={
+            vtQuizApplies
+              ? {
+                  isCurrent: isVtQuizStage,
+                  isComplete: vtQuizComplete,
+                  onOpen: selectVtQuiz,
+                  lockReason: vtLockReason({ kind: "quiz" }),
+                }
+              : undefined
+          }
         />
       );
     }
@@ -588,14 +688,17 @@ export function WizardShell({
             {sections.map((section, index) => {
               const current = index === clampedSectionIndex;
               const done = isSectionComplete(section);
+              const lockReason = vtLockReason({ kind: "section", index });
+              const label = `${index + 1}. ${localized(section.title, locale.startsWith("en") ? "en" : "fr")}`;
 
               return (
                 <button
                   key={section.id}
                   type="button"
-                  aria-label={`${index + 1}. ${localized(section.title, locale.startsWith("en") ? "en" : "fr")}`}
-                  title={`${index + 1}. ${localized(section.title, locale.startsWith("en") ? "en" : "fr")}`}
-                  onClick={() => goToSection(index)}
+                  aria-label={lockReason ? `${label} — ${lockReason}` : label}
+                  aria-disabled={lockReason ? true : undefined}
+                  title={lockReason ? `${label} — ${lockReason}` : label}
+                  onClick={lockReason ? undefined : () => goToSection(index)}
                   style={{
                     display: "grid",
                     placeItems: "center",
@@ -616,7 +719,8 @@ export function WizardShell({
                         : "rgba(255, 255, 255, 0.08)",
                     color: current ? "var(--cam-green-dark)" : "#ffffff",
                     fontWeight: 800,
-                    cursor: "pointer",
+                    cursor: lockReason ? "not-allowed" : "pointer",
+                    opacity: lockReason ? 0.5 : undefined,
                   }}
                 >
                   {done && !current ? "✓" : index + 1}
@@ -714,12 +818,15 @@ export function WizardShell({
               {sections.map((section, index) => {
                 const current = index === clampedSectionIndex;
                 const done = isSectionComplete(section);
+                const lockReason = vtLockReason({ kind: "section", index });
 
                 return (
                   <button
                     key={section.id}
                     type="button"
-                    onClick={() => goToSection(index)}
+                    aria-disabled={lockReason ? true : undefined}
+                    title={lockReason ?? undefined}
+                    onClick={lockReason ? undefined : () => goToSection(index)}
                     style={{
                       width: "100%",
                       display: "flex",
@@ -737,9 +844,11 @@ export function WizardShell({
                         : "transparent",
                       color: current
                         ? "var(--vt-accent, #1e6b3a)"
-                        : "var(--vt-ink, #1c1f1d)",
+                        : lockReason
+                          ? "var(--cam-rail-upcoming)"
+                          : "var(--vt-ink, #1c1f1d)",
                       fontWeight: current ? 700 : 500,
-                      cursor: "pointer",
+                      cursor: lockReason ? "not-allowed" : "pointer",
                     }}
                   >
                     <span
@@ -767,7 +876,10 @@ export function WizardShell({
                     >
                       {done ? "✓" : index + 1}
                     </span>
-                    <span>{localized(section.title, locale.startsWith("en") ? "en" : "fr")}</span>
+                    <span>
+                      {localized(section.title, locale.startsWith("en") ? "en" : "fr")}
+                      {lockReason && <span className="sr-only"> — {lockReason}</span>}
+                    </span>
                   </button>
                 );
               })}
@@ -801,6 +913,7 @@ export function WizardShell({
           isGeneratingPdf={pdfMutation.isPending}
           establishmentName={effectiveEstablishment}
           quarterCode={effectiveQuarter}
+          positionKey={positionKey}
         />
         <OnefopPdfPreviewModal
           entity={entity}
@@ -868,6 +981,7 @@ export function WizardShell({
               data={data}
               currentSectionIndex={clampedSectionIndex}
               onSelectSection={goToSection}
+              sectionLockReason={(index) => vtLockReason({ kind: "section", index })}
               isValidationStage={true}
               onGoToValidation={goToValidation}
               outline={null}
@@ -933,7 +1047,7 @@ export function WizardShell({
                   entity={entity}
                   data={data}
                   onOpenSection={goToSection}
-                  onBack={() => goToSection(sections.length - 1)}
+                  onBack={() => showSection(sections.length - 1)}
                   onPreviewPdf={() => setPreviewModalOpen(true)}
                   isGeneratingPdf={pdfMutation.isPending}
                   onSaveDraft={onSaveNow ? () => onSaveNow() : undefined}
@@ -941,7 +1055,7 @@ export function WizardShell({
                   isSubmitting={submitMutation.isPending}
                   canSubmit={canSubmit}
                   quarterStatusMessage={quarterStatusMessage}
-                  quiz={vtQuizApplies ? { isComplete: vtQuizComplete, onOpen: openVtQuiz } : undefined}
+                  quiz={vtQuizApplies ? { isComplete: vtQuizComplete, onOpen: selectVtQuiz } : undefined}
                 />
               </>
             )}
@@ -1004,7 +1118,7 @@ export function WizardShell({
       >
         {renderTaskRail()}
 
-        <VtQuizContext.Provider value={{ openQuiz: vtQuizApplies ? openVtQuiz : undefined }}>
+        <VtQuizContext.Provider value={{ openQuiz: vtQuizApplies ? selectVtQuiz : undefined }}>
         <main
           style={{
             flex: 1,
@@ -1152,8 +1266,10 @@ export function WizardShell({
                   entity={entity}
                   data={data}
                   onChange={onChange}
-                  onComplete={() => goToSection(1)}
-                  onBack={() => goToSection(0)}
+                  // The quiz's own Continue / Back: VtScopeQuiz has already
+                  // checked the answers (and they are not in `data` yet).
+                  onComplete={() => showSection(1)}
+                  onBack={() => showSection(0)}
                   locale={formLocale}
                 />
               ) : isVt ? (
