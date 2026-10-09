@@ -14,6 +14,22 @@ import { useViewportSize } from "./useViewportSize";
 import { CoherenceReviewList, useCoherence } from "./coherence/Coherence";
 import { resetScroll } from "@/lib/reset-scroll";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
+import {
+  fieldOwnsIssue,
+  findIssueOwner,
+  isTableField,
+  locateIssue,
+  preliminaryQuizSlot,
+  wizardStepAnnouncement,
+} from "@/lib/wizard-navigation";
+import { revealIssueElement, useStepFocus } from "@/lib/use-step-focus";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
+
+/** Heading ids the wizard moves focus to on each step change. */
+const SCOPE_HEADING_ID = "mj-scope-heading";
+const REVIEW_HEADING_ID = "mj-review-heading";
+const VALIDATION_SUMMARY_ID = "validation-summary-card";
+const VALIDATION_SUMMARY_TITLE_ID = "validation-summary-title";
 
 export interface ModernJobsWizardProps {
   entity: OnefopEntity;
@@ -130,6 +146,10 @@ export function ModernJobsWizard({
   }, []);
 
   const sections = entity.sections;
+  // The preliminary quiz sits right after Section 1 (see preliminaryQuizSlot).
+  const quizSlot = preliminaryQuizSlot(sections);
+  // Sections after the quiz are the statistical-table sections (wide layout).
+  const tableSectionsStart = quizSlot?.nextSectionIndex ?? 2;
 
   // Lets an anomaly tooltip / the review list open the section and table
   // that holds a given cell (see components/onefop/coherence).
@@ -156,14 +176,45 @@ export function ModernJobsWizard({
   const currentSectionFields = currentSection?.fields ?? [];
   const currentSectionFieldIds = new Set(currentSectionFields.map((f) => f.id));
   const sectionIssues = validationIssues.filter((issue) =>
-    currentSectionFields.some(
-      (f) =>
-        f.id === issue.fieldId ||
-        (f.paperCode && f.paperCode === issue.fieldId) ||
-        issue.fieldId.toLowerCase().startsWith(f.id.toLowerCase() + "_") ||
-        (f.paperCode && issue.fieldId.toLowerCase().startsWith(f.paperCode.toLowerCase() + "_"))
-    )
+    currentSectionFields.some((f) => fieldOwnsIssue(f, issue.fieldId))
   );
+
+  // A1: focus the new step's heading after every handler-driven transition,
+  // and announce the step in the polite live region below.
+  const stepKey = submissionResult
+    ? "submitted"
+    : isScopeStage
+      ? "scope"
+      : isValidationStage
+        ? "review"
+        : `section:${currentSection?.id ?? clampedSectionIndex}`;
+  const stepHeadingId = submissionResult
+    ? null
+    : isScopeStage
+      ? SCOPE_HEADING_ID
+      : isValidationStage
+        ? REVIEW_HEADING_ID
+        : currentSection
+          ? `${currentSection.id}-heading`
+          : null;
+  const requestStepFocus = useStepFocus(stepKey, stepHeadingId);
+  const stepAnnouncement = submissionResult
+    ? ""
+    : wizardStepAnnouncement(
+        isScopeStage
+          ? { kind: "label", label: t("stageQuiz") }
+          : isValidationStage
+            ? { kind: "label", label: t("reviewHeading") }
+            : currentSection
+              ? {
+                  kind: "section",
+                  index: clampedSectionIndex,
+                  total: sections.length,
+                  title: (currentSection.title && localized(currentSection.title, locale)) || currentSection.id,
+                }
+              : { kind: "none" },
+        (values) => t("stepAnnouncement", values),
+      );
 
   const interviewNavRef = useRef<{ onPrev: () => boolean; onNext: () => boolean } | null>(null);
   const sectionNavRef = useRef<{ onNext: () => boolean; onPrev: () => boolean } | null>(null);
@@ -175,6 +226,7 @@ export function ModernJobsWizard({
       setSectionIndex(sections.length - 1);
       setActiveTableId(undefined);
       setTableNavState(null);
+      requestStepFocus();
       resetScroll(0);
       return;
     }
@@ -184,9 +236,10 @@ export function ModernJobsWizard({
         if (handled) return;
       }
       setIsScopeStage(false);
-      setSectionIndex(1);
+      setSectionIndex(quizSlot?.previousSectionIndex ?? clampedSectionIndex);
       setActiveTableId(undefined);
       setTableNavState(null);
+      requestStepFocus();
       resetScroll(0);
       return;
     }
@@ -197,10 +250,11 @@ export function ModernJobsWizard({
       if (handled) return;
     }
 
-    if (clampedSectionIndex === 2) {
+    if (quizSlot && clampedSectionIndex === quizSlot.nextSectionIndex) {
       setIsScopeStage(true);
       setActiveTableId(undefined);
       setTableNavState(null);
+      requestStepFocus();
       resetScroll(0);
       return;
     }
@@ -208,34 +262,51 @@ export function ModernJobsWizard({
       setSectionIndex(clampedSectionIndex - 1);
       setActiveTableId(undefined);
       setTableNavState(null);
+      requestStepFocus();
       resetScroll(0);
     }
   };
 
-  // Brings the first error of the current section into view: switches the
-  // table deck to the table that owns it, then scrolls to and focuses it.
+  // Brings an issue into view: switches the table deck to the table that
+  // owns it, then (once that has rendered) scrolls to and focuses it.
+  const revealIssue = (issueFieldId: string, owner: OnefopField | undefined) => {
+    if (owner && isTableField(owner)) setActiveTableId(owner.id);
+    requestAnimationFrame(() => {
+      revealIssueElement(issueFieldId, owner?.id);
+    });
+  };
+
+  // Brings the first error of the current section into view.
   const revealFirstSectionIssue = () => {
     const first = sectionIssues[0];
     if (!first) return;
-    const issueId = first.fieldId.toLowerCase();
-    const owner = currentSectionFields.find(
-      (f) =>
-        f.id.toLowerCase() === issueId ||
-        (f.paperCode && f.paperCode.toLowerCase() === issueId) ||
-        issueId.startsWith(f.id.toLowerCase() + "_") ||
-        (f.paperCode && issueId.startsWith(f.paperCode.toLowerCase() + "_")),
-    );
-    if (owner && (owner.table || owner.type === "table")) setActiveTableId(owner.id);
-    requestAnimationFrame(() => {
-      const el =
-        document.getElementById(first.fieldId) ||
-        document.querySelector(`[name="${first.fieldId}"]`) ||
-        (owner ? document.getElementById(owner.id) || document.getElementById(`guided-table-${owner.id}`) : null);
-      if (el instanceof HTMLElement) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.focus({ preventScroll: true });
-      }
-    });
+    revealIssue(first.fieldId, findIssueOwner(currentSectionFields, first.fieldId));
+  };
+
+  // A2: the review screen's error summary takes focus (after scrolling into
+  // view) when submission is attempted with issues left.
+  const focusValidationSummary = () => {
+    const summaryEl = document.getElementById(VALIDATION_SUMMARY_ID);
+    if (summaryEl) {
+      summaryEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      summaryEl.focus({ preventScroll: true });
+    }
+  };
+
+  // The quiz screens' own Continue / Back (EventFactInterview,
+  // ProjectProgramScopeQuiz).
+  const leaveScopeForward = () => {
+    setIsScopeStage(false);
+    setSectionIndex(quizSlot?.nextSectionIndex ?? clampedSectionIndex);
+    requestStepFocus();
+    resetScroll(0);
+  };
+
+  const leaveScopeBack = () => {
+    setIsScopeStage(false);
+    setSectionIndex(quizSlot?.previousSectionIndex ?? clampedSectionIndex);
+    requestStepFocus();
+    resetScroll(0);
   };
 
   const handleNext = () => {
@@ -245,10 +316,11 @@ export function ModernJobsWizard({
         if (handled) return;
       }
       setIsScopeStage(false);
-      setSectionIndex(2);
+      setSectionIndex(quizSlot?.nextSectionIndex ?? clampedSectionIndex);
       setActiveTableId(undefined);
       setTableNavState(null);
       setAttemptedContinue(false);
+      requestStepFocus();
       resetScroll(0);
       return;
     }
@@ -279,11 +351,12 @@ export function ModernJobsWizard({
       return;
     }
 
-    if (clampedSectionIndex === 1) {
+    if (quizSlot && clampedSectionIndex === quizSlot.previousSectionIndex) {
       setIsScopeStage(true);
       setActiveTableId(undefined);
       setTableNavState(null);
       setAttemptedContinue(false);
+      requestStepFocus();
       resetScroll(0);
       return;
     }
@@ -292,21 +365,20 @@ export function ModernJobsWizard({
       setActiveTableId(undefined);
       setTableNavState(null);
       setAttemptedContinue(false);
+      requestStepFocus();
       resetScroll(0);
     } else if (!isValidationStage) {
       setIsValidationStage(true);
       setActiveTableId(undefined);
       setTableNavState(null);
       setAttemptedContinue(false);
+      requestStepFocus();
       resetScroll(0);
     } else {
       // Already on validation stage: primary button triggers final submission
       if (validationIssues.length > 0) {
         setAttemptedContinue(true);
-        const summaryEl = document.getElementById("validation-summary-card");
-        if (summaryEl) {
-          summaryEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
+        focusValidationSummary();
         return;
       }
       if (onSubmitFinal) {
@@ -323,6 +395,7 @@ export function ModernJobsWizard({
     setTableNavState(null);
     setAttemptedContinue(false);
     setMobileMenuOpen(false);
+    requestStepFocus();
     resetScroll(0);
   };
 
@@ -332,9 +405,20 @@ export function ModernJobsWizard({
     setActiveTableId(undefined);
     setTableNavState(null);
     setMobileMenuOpen(false);
+    requestStepFocus();
     resetScroll(0);
   };
 
+  const handleGoToValidation = () => {
+    setIsValidationStage(true);
+    setIsScopeStage(false);
+    setMobileMenuOpen(false);
+    requestStepFocus();
+  };
+
+  // V6: open the section (and table) that owns the first issue. Table-cell
+  // issues carry the cell key, so the owner is matched the same way as
+  // sectionIssues, then the issue itself is brought into view.
   const handleCorriger = () => {
     if (validationIssues.length > 0) {
       const firstIssue = validationIssues[0];
@@ -343,11 +427,10 @@ export function ModernJobsWizard({
         handleSelectScope();
         return;
       }
-      const secIdx = sections.findIndex((sec) =>
-        sec.fields.some((f) => f.id === firstIssue.fieldId)
-      );
-      if (secIdx !== -1) {
-        handleSelectSection(secIdx);
+      const location = locateIssue(sections, firstIssue.fieldId);
+      if (location) {
+        handleSelectSection(location.sectionIndex);
+        revealIssue(firstIssue.fieldId, location.field);
         return;
       }
     }
@@ -358,10 +441,7 @@ export function ModernJobsWizard({
     if (isSubmitting) return;
     if (validationIssues.length > 0) {
       setAttemptedContinue(true);
-      const summaryEl = document.getElementById("validation-summary-card");
-      if (summaryEl) {
-        summaryEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      focusValidationSummary();
       return;
     }
     if (onSubmitFinal) {
@@ -394,6 +474,11 @@ export function ModernJobsWizard({
       /* storage unavailable — the choice still applies for this session */
     }
   }, []);
+
+  // Mobile sections drawer: Escape closes it, focus moves in on open, Tab
+  // stays inside, and focus returns to the opener on close.
+  const drawerSheetRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(!isDesktop && mobileMenuOpen, drawerSheetRef, closeMobileMenu);
 
   // Publish the sticky header's height as --mj-header-h so the sidebar and
   // the table tab strips can pin just below it while tables scroll.
@@ -442,10 +527,7 @@ export function ModernJobsWizard({
             onSelectSection={handleSelectSection}
             issues={validationIssues}
             isValidationStage={isValidationStage}
-            onGoToValidation={() => {
-              setIsValidationStage(true);
-              setIsScopeStage(false);
-            }}
+            onGoToValidation={handleGoToValidation}
             isScopeStage={isScopeStage}
             onSelectScope={handleSelectScope}
             activeTableId={activeTableId}
@@ -468,7 +550,7 @@ export function ModernJobsWizard({
             style={{
               width: "100%",
               maxWidth:
-                !isScopeStage && clampedSectionIndex >= 2 && !isValidationStage
+                !isScopeStage && clampedSectionIndex >= tableSectionsStart && !isValidationStage
                   ? "min(1360px, 100%)"
                   : "var(--vt-content-max, 940px)",
               margin: "0 auto",
@@ -521,6 +603,8 @@ export function ModernJobsWizard({
                 }}
               >
                 <div
+                  ref={drawerSheetRef}
+                  tabIndex={-1}
                   onClick={(e) => e.stopPropagation()}
                   className={mobileMenuClosing ? "cam-drawer-sheet-out" : "cam-drawer-sheet-in"}
                   style={{
@@ -531,6 +615,7 @@ export function ModernJobsWizard({
                     borderTopRightRadius: 16,
                     padding: 16,
                     overflowY: "auto",
+                    outline: "none",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
@@ -552,11 +637,7 @@ export function ModernJobsWizard({
                     onSelectSection={handleSelectSection}
                     issues={validationIssues}
                     isValidationStage={isValidationStage}
-                    onGoToValidation={() => {
-                      setIsValidationStage(true);
-                      setIsScopeStage(false);
-                      setMobileMenuOpen(false);
-                    }}
+                    onGoToValidation={handleGoToValidation}
                     isScopeStage={isScopeStage}
                     onSelectScope={handleSelectScope}
                     activeTableId={activeTableId}
@@ -687,16 +768,8 @@ export function ModernJobsWizard({
                   entity={entity}
                   data={data}
                   onChange={onChange}
-                  onComplete={() => {
-                    setIsScopeStage(false);
-                    setSectionIndex(2);
-                    resetScroll(0);
-                  }}
-                  onBack={() => {
-                    setIsScopeStage(false);
-                    setSectionIndex(1);
-                    resetScroll(0);
-                  }}
+                  onComplete={leaveScopeForward}
+                  onBack={leaveScopeBack}
                   locale={locale}
                   establishmentName={establishmentName}
                   navigationRef={interviewNavRef}
@@ -706,16 +779,8 @@ export function ModernJobsWizard({
                   entity={entity}
                   data={data}
                   onChange={onChange}
-                  onComplete={() => {
-                    setIsScopeStage(false);
-                    setSectionIndex(2);
-                    resetScroll(0);
-                  }}
-                  onBack={() => {
-                    setIsScopeStage(false);
-                    setSectionIndex(1);
-                    resetScroll(0);
-                  }}
+                  onComplete={leaveScopeForward}
+                  onBack={leaveScopeBack}
                   locale={locale}
                   establishmentName={establishmentName}
                   navigationRef={interviewNavRef}
@@ -740,7 +805,11 @@ export function ModernJobsWizard({
                     marginBottom: 20,
                   }}
                 >
-                  <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)" }}>
+                  <h2
+                    id={REVIEW_HEADING_ID}
+                    tabIndex={-1}
+                    style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)", outline: "none" }}
+                  >
                     {t("reviewHeading")}
                   </h2>
                   <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: 0 }}>
@@ -814,7 +883,10 @@ export function ModernJobsWizard({
                 {/* Validation summary card if blocking issues exist */}
                 {validationIssues.length > 0 && (
                   <div
-                    id="validation-summary-card"
+                    id={VALIDATION_SUMMARY_ID}
+                    tabIndex={-1}
+                    role="region"
+                    aria-labelledby={VALIDATION_SUMMARY_TITLE_ID}
                     style={{
                       marginBottom: 20,
                       padding: "16px 20px",
@@ -826,7 +898,7 @@ export function ModernJobsWizard({
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                       <span style={{ fontSize: 18, color: "var(--cam-error)" }}>⚠️</span>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-error)" }}>
+                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-error)" }}>
                           {locale === "fr"
                             ? `${validationIssues.length} point(s) à corriger avant la soumission`
                             : `${validationIssues.length} issue(s) require attention before submission`}
@@ -840,21 +912,9 @@ export function ModernJobsWizard({
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
                       {validationIssues.map((issue) => {
-                        let matchingField: OnefopField | undefined;
-                        const secIdx = sections.findIndex((sec) => {
-                          const found = sec.fields.find(
-                            (f) =>
-                              f.id === issue.fieldId ||
-                              (f.paperCode && f.paperCode === issue.fieldId) ||
-                              issue.fieldId.toLowerCase().startsWith(f.id.toLowerCase() + "_") ||
-                              (f.paperCode && issue.fieldId.toLowerCase().startsWith(f.paperCode.toLowerCase() + "_"))
-                          );
-                          if (found) {
-                            matchingField = found;
-                            return true;
-                          }
-                          return false;
-                        });
+                        const location = locateIssue(sections, issue.fieldId);
+                        const matchingField = location?.field;
+                        const secIdx = location ? location.sectionIndex : -1;
                         const secTitle =
                           secIdx !== -1
                             ? (sections[secIdx].title ? localized(sections[secIdx].title, locale) : `Section ${secIdx + 1}`)
@@ -1083,8 +1143,15 @@ export function ModernJobsWizard({
           the same handlePrev/handleContinue logic via the onPrev/onContinue
           props passed down through ScopeConfigurationWizard. Rendering this
           bar too just duplicated it. */}
+      {/* A1: the step announcement, outside every conditional tree so it
+          stays mounted (a live region that mounts together with its text
+          announces nothing). Visually hidden. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {stepAnnouncement}
+      </p>
+
       {!submissionResult && !isScopeStage && !isValidationStage && (() => {
-        const isTableSection = clampedSectionIndex >= 2 && !isValidationStage && !isScopeStage;
+        const isTableSection = clampedSectionIndex >= tableSectionsStart && !isValidationStage && !isScopeStage;
         const isTableDeckActive = Boolean(
           !isScopeStage && !isValidationStage && tableNavState?.hasMultiple && tableNavState?.isDeckFocus
         );

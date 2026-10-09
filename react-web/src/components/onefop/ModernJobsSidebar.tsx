@@ -14,6 +14,7 @@ import {
   quizGovernsEntry,
   missingQuizFieldKeys,
 } from "./tables/quizRequired";
+import { preliminaryQuizSlot } from "@/lib/wizard-navigation";
 
 interface ModernJobsSidebarProps {
   entity: OnefopEntity;
@@ -153,6 +154,8 @@ export function ModernJobsSidebar({
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.sidebar");
   const sections = entity.sections;
+  // The preliminary quiz sits right after Section 1 (same rule as the wizard).
+  const quizSlot = preliminaryQuizSlot(sections);
 
   const completedCount = sections.filter(
     (sec) => getSectionStatus(sec, data, issues) === "complete"
@@ -412,7 +415,7 @@ export function ModernJobsSidebar({
               })}
 
               {/* Preliminary quiz between Section 1 and Section 2 */}
-              {idx === 1 && onSelectScope &&
+              {idx === quizSlot?.previousSectionIndex && onSelectScope &&
                 renderStep({
                   key: "scope-configuration",
                   state: isScopeStage ? "active" : scopeConfigured ? "done" : "todo",

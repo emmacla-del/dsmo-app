@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, fieldDisplayLabel, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
@@ -41,6 +41,7 @@ import {
 } from "./vt-wizard-section-utils";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
+import { fieldOwnsIssue } from "@/lib/wizard-navigation";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
@@ -51,6 +52,21 @@ import {
   buildVt85TrainerStatusDefinition,
   buildVt88TrainerRosterDefinition,
 } from "./tables/StatisticalTableDefinition";
+
+/** The id of a VT section's heading, focused on every section change. */
+export function vtSectionHeadingId(sectionId: string): string {
+  return `vt-section-heading-${sectionId}`;
+}
+
+/**
+ * Lets the shell bring a validation issue on screen before focusing it: a
+ * tabbed section only mounts its active tab, so an issue in another tab has
+ * no element until that tab is shown.
+ */
+export interface VtSectionRevealHandle {
+  /** Switches to the tab that holds the issue's field, if it is not shown. */
+  showIssue: (issueFieldId: string) => void;
+}
 
 interface VtWizardSectionScreenProps {
   section: OnefopSection;
@@ -65,6 +81,8 @@ interface VtWizardSectionScreenProps {
   showBottomBar?: boolean;
   saving?: boolean;
   onOutlineChange?: (outline: VtWizardSectionOutlineModel | null) => void;
+  /** See VtSectionRevealHandle. */
+  revealRef?: Ref<VtSectionRevealHandle>;
 }
 
 interface VtFieldGroup {
@@ -575,13 +593,17 @@ function VtWizardFieldRows({
     }
 
     if (isVtTableField(f)) {
+      // The wrapper carries the table field's id: a table-level validation
+      // issue (fieldId = the table's id) is focused here, and a cell issue
+      // falls back to it (see issueFocusCandidates).
       rows.push(
-        <VtWizardTableField
-          key={f.id}
-          field={f}
-          data={data}
-          onChange={onChange}
-        />,
+        <div key={f.id} id={f.id} tabIndex={-1} style={{ minWidth: 0 }}>
+          <VtWizardTableField
+            field={f}
+            data={data}
+            onChange={onChange}
+          />
+        </div>,
       );
       consumed.add(f.id);
       i += 1;
@@ -1101,6 +1123,7 @@ export function VtWizardSectionScreen({
   showBottomBar = true,
   saving = false,
   onOutlineChange,
+  revealRef,
 }: VtWizardSectionScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -1121,6 +1144,18 @@ export function VtWizardSectionScreen({
   const tabbed = VT_TABBED_SECTION_IDS.has(sectionId);
 
   const [activeTab, setActiveTab] = useState(0);
+
+  useImperativeHandle(
+    revealRef,
+    () => ({
+      showIssue: (issueFieldId: string) => {
+        if (!tabbed || groups.length < 2) return;
+        const idx = groups.findIndex((g) => g.fields.some((f) => fieldOwnsIssue(f, issueFieldId)));
+        if (idx !== -1) setActiveTab(idx);
+      },
+    }),
+    [tabbed, groups],
+  );
 
   const cardFamily = (group: VtFieldGroup): string | null => {
     const sub = group.title;
@@ -1199,7 +1234,13 @@ export function VtWizardSectionScreen({
           paddingBottom: 12,
         }}
       >
-        <h2 style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.01em", color: "#0f172a", margin: 0, textTransform: "uppercase" }}>
+        {/* Focus target of the shell on every section change (useStepFocus):
+            not a Tab stop, and no ring around a title. */}
+        <h2
+          id={vtSectionHeadingId(sectionId)}
+          tabIndex={-1}
+          style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.01em", color: "#0f172a", margin: 0, textTransform: "uppercase", outline: "none" }}
+        >
           {sectionTitle}
         </h2>
       </div>

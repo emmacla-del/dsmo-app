@@ -747,7 +747,9 @@
     "proceedToValidationButton": "Proceed to Validation",
     "sectionsListLabel": "Task list",
     "saveFailedToast": "Could not save — please retry",
-    "savedJustNowToast": "Saved just now"
+    "savedJustNowToast": "Saved just now",
+    "stepAnnouncement": "{title} ({current} of {total})",
+    "quizAnnouncement": "Preliminary questionnaire"
   },
   "vtWizard": {
     "sectionTitle": "Section {section}",
@@ -1189,7 +1191,8 @@
       "reviewSubmit": "Review & Submit",
       "backTo": "Back to {target}",
       "previousStep": "Previous step",
-      "previousTable": "Previous table"
+      "previousTable": "Previous table",
+      "stepAnnouncement": "{title} ({current} of {total})"
     }
   },
   "onefopUi": {

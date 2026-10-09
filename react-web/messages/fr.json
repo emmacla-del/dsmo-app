@@ -747,7 +747,9 @@
     "proceedToValidationButton": "Passer à la Validation",
     "sectionsListLabel": "Liste des sections",
     "saveFailedToast": "Échec de l'enregistrement — réessayez",
-    "savedJustNowToast": "Enregistré à l'instant"
+    "savedJustNowToast": "Enregistré à l'instant",
+    "stepAnnouncement": "{title} ({current} sur {total})",
+    "quizAnnouncement": "Questionnaire préliminaire"
   },
   "vtWizard": {
     "sectionTitle": "Section {section}",
@@ -1189,7 +1191,8 @@
       "reviewSubmit": "Récapitulatif & Dépôt",
       "backTo": "Revenir à {target}",
       "previousStep": "Étape précédente",
-      "previousTable": "Tableau précédent"
+      "previousTable": "Tableau précédent",
+      "stepAnnouncement": "{title} ({current} sur {total})"
     }
   },
   "onefopUi": {

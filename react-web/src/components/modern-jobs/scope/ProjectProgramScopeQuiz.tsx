@@ -441,7 +441,11 @@ export function ProjectProgramScopeQuiz({
               {isEn ? "Period Declaration Quiz" : "Quiz préalable de déclaration"}
             </div>
             <h1
+              // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
+              id="mj-scope-heading"
+              tabIndex={-1}
               style={{
+                outline: "none",
                 fontSize: "clamp(20px, 3vw, 24px)",
                 fontWeight: 800,
                 margin: "0 0 8px",

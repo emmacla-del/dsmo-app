@@ -701,7 +701,11 @@ export function SectionRenderer({
           <div style={{ flex: 1, minWidth: 260 }}>
             <h1
               id={`${section.id}-heading`}
+              // Focus target of the wizard on every section change (see
+              // useStepFocus); not a Tab stop and not given a focus ring.
+              tabIndex={-1}
               style={{
+                outline: "none",
                 fontFamily: "var(--cam-font-serif)",
                 fontSize: "var(--cam-font-size-xl, 1.5rem)",
                 fontWeight: 700,
