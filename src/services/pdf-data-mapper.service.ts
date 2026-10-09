@@ -8,6 +8,7 @@ import {
     formatCollectionPeriodFr,
     formatCollectionPeriodEn,
 } from '../campaign/campaign-period.helper';
+import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 
 // ─────────────────────────────────────────────
 // SHARED TYPES
@@ -1527,6 +1528,35 @@ function vtArr(f: FlatData, key: string): string[] {
     return [];
 }
 
+// 7.1.3 channel labels, read from the generated schema (the AST's
+// _vt713ChannelOptions), never restated here. Loaded once, on first use.
+let vtSchemaLoader: OnefopSchemaLoaderService | null = null;
+function vtOptionLabels(fieldId: string, locale: 'fr' | 'en'): Map<string, string> {
+    vtSchemaLoader ??= new OnefopSchemaLoaderService();
+    const field = vtSchemaLoader.getFlattenedFields('vocationalTraining').get(fieldId);
+    return new Map((field?.options ?? []).map((o) => [o.value, locale === 'en' ? o.label.en : o.label.fr]));
+}
+
+/**
+ * One 7.1.3 stakeholder row's channels for the PDF: each ticked code by its
+ * label, and 96 "Autre" with the row's own "précisez" text
+ * ("Autre : Radio communautaire"). A value that is not a known code (an
+ * answer typed before the channels were coded) is printed as it is.
+ */
+function vtCommsChannels(f: FlatData, fieldId: string, locale: 'fr' | 'en' = 'fr'): string {
+    const labels = vtOptionLabels(fieldId, locale);
+    const other = str(f, `${fieldId}_OTHER`);
+    return vtArr(f, fieldId)
+        .map((code) => {
+            if (code === '96') {
+                const autre = locale === 'en' ? 'Other' : 'Autre';
+                return other ? `${autre}${locale === 'en' ? ': ' : ' : '}${other}` : autre;
+            }
+            return labels.get(code) ?? code;
+        })
+        .join(', ');
+}
+
 function vtAreaKey(f: FlatData, key: string): string {
     const v = f[key];
     if (typeof v !== 'string') return '';
@@ -2174,11 +2204,11 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             proceduresDisciplinaires: vtBool(f, 'VT7_6'),
             partiesPrenantesInformeesReponse: vtBool(f, 'VT7_6_INFORMED'),
             partiesPrenantesInformees: [
-                { categorie: 'Élèves / Pupils', informee: vtArr(f, 'VT7_7').length > 0, modeCommunication: vtArr(f, 'VT7_7').join(', ') },
-                { categorie: 'Personnel Enseignant / Teaching staff', informee: vtArr(f, 'VT7_8').length > 0, modeCommunication: vtArr(f, 'VT7_8').join(', ') },
-                { categorie: 'Personnel Non Enseignant / Non teaching staff', informee: vtArr(f, 'VT7_9').length > 0, modeCommunication: vtArr(f, 'VT7_9').join(', ') },
-                { categorie: 'Parents/Tuteurs / Parents/Guardians', informee: vtArr(f, 'VT7_10').length > 0, modeCommunication: vtArr(f, 'VT7_10').join(', ') },
-                { categorie: "Conseil d'établissement/ School council", informee: vtArr(f, 'VT7_11').length > 0, modeCommunication: vtArr(f, 'VT7_11').join(', ') },
+                { categorie: 'Élèves / Pupils', informee: vtArr(f, 'VT7_7').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_7', locale ?? 'fr') },
+                { categorie: 'Personnel Enseignant / Teaching staff', informee: vtArr(f, 'VT7_8').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_8', locale ?? 'fr') },
+                { categorie: 'Personnel Non Enseignant / Non teaching staff', informee: vtArr(f, 'VT7_9').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_9', locale ?? 'fr') },
+                { categorie: 'Parents/Tuteurs / Parents/Guardians', informee: vtArr(f, 'VT7_10').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_10', locale ?? 'fr') },
+                { categorie: "Conseil d'établissement/ School council", informee: vtArr(f, 'VT7_11').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_11', locale ?? 'fr') },
             ],
             priseEnCompteIST: vtBool(f, 'VT7_12'),
             // No 7.3 anywhere — the printed instrument's own numbering
