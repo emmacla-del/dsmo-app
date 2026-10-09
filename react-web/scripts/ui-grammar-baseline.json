@@ -24,11 +24,9 @@
       "src/components/modern-jobs/geography/CameroonGeographySelector.tsx": 16,
       "src/components/modern-jobs/scope/ConditionalOptions.tsx": 1,
       "src/components/modern-jobs/scope/EventQuestion.tsx": 2,
-      "src/components/modern-jobs/scope/FactsFrame.tsx": 1,
       "src/components/modern-jobs/scope/FactsReview.tsx": 4,
       "src/components/modern-jobs/scope/FactsTracker.tsx": 11,
       "src/components/modern-jobs/scope/ProjectProgramScopeQuiz.tsx": 18,
-      "src/components/modern-jobs/scope/ResizableSplitPane.tsx": 6,
       "src/components/modern-jobs/scope/ScopeConfigurationWizard.tsx": 2,
       "src/components/modern-jobs/section1/Section1ThematicRenderer.tsx": 1,
       "src/components/NewDeclarationDialog.tsx": 9,
@@ -44,10 +42,7 @@
       "src/components/onefop/OnefopLegalAcknowledgment.tsx": 1,
       "src/components/onefop/OnefopSubmissionSuccess.tsx": 10,
       "src/components/onefop/SectionRenderer.tsx": 3,
-      "src/components/onefop/SimpleModeSidebar.tsx": 1,
       "src/components/onefop/SkipLogicBanner.tsx": 2,
-      "src/components/onefop/SovereignMasthead.tsx": 8,
-      "src/components/onefop/SubmissionPanel.tsx": 1,
       "src/components/onefop/tables/AdaptiveStatisticalTable.tsx": 2,
       "src/components/onefop/tables/NominalRosterRenderer.tsx": 11,
       "src/components/onefop/ui/AccessibleCheckboxGroup.tsx": 11,
@@ -55,7 +50,6 @@
       "src/components/onefop/ui/AccessibleRadioGroup.tsx": 10,
       "src/components/onefop/ui/FormGrid.tsx": 6,
       "src/components/onefop/ui/InfoTooltip.tsx": 3,
-      "src/components/onefop/ui/MicroCopy.tsx": 9,
       "src/components/onefop/ui/StatisticalTable.tsx": 23,
       "src/components/onefop/VtWizardFields.tsx": 20,
       "src/components/onefop/VtWizardGuidedEntry.tsx": 8,
@@ -75,7 +69,6 @@
       "src/components/modern-jobs/scope/ConditionalOptions.tsx": 2,
       "src/components/modern-jobs/scope/EventProgress.tsx": 4,
       "src/components/modern-jobs/scope/EventQuestion.tsx": 37,
-      "src/components/modern-jobs/scope/FactsFrame.tsx": 6,
       "src/components/modern-jobs/scope/FactsReview.tsx": 6,
       "src/components/modern-jobs/scope/FactsTracker.tsx": 9,
       "src/components/modern-jobs/scope/ProjectProgramScopeQuiz.tsx": 52,
@@ -93,9 +86,7 @@
       "src/components/onefop/ModernJobsWizard.tsx": 25,
       "src/components/onefop/OnefopPdfPreviewModal.tsx": 18,
       "src/components/onefop/SectionRenderer.tsx": 6,
-      "src/components/onefop/SimpleModeSidebar.tsx": 4,
       "src/components/onefop/SkipLogicBanner.tsx": 2,
-      "src/components/onefop/SovereignMasthead.tsx": 17,
       "src/components/onefop/tables/AdaptiveStatisticalTable.tsx": 1,
       "src/components/onefop/tables/NominalRosterRenderer.tsx": 22,
       "src/components/onefop/tables/TableCompletionIndicator.tsx": 2,
@@ -104,7 +95,7 @@
       "src/components/onefop/VtWizardGuidedEntry.tsx": 44,
       "src/components/onefop/VtWizardSectionScreen.tsx": 12,
       "src/components/onefop/VtWizardSidebar.tsx": 14,
-      "src/components/onefop/WizardShell.tsx": 9
+      "src/components/onefop/WizardShell.tsx": 7
     },
     "respondent-locale-format": {},
     "respondent-spacing-off-scale": {
@@ -118,11 +109,9 @@
       "src/components/modern-jobs/scope/ConditionalOptions.tsx": 4,
       "src/components/modern-jobs/scope/EventProgress.tsx": 2,
       "src/components/modern-jobs/scope/EventQuestion.tsx": 7,
-      "src/components/modern-jobs/scope/FactsFrame.tsx": 5,
       "src/components/modern-jobs/scope/FactsReview.tsx": 5,
       "src/components/modern-jobs/scope/FactsTracker.tsx": 8,
       "src/components/modern-jobs/scope/ProjectProgramScopeQuiz.tsx": 39,
-      "src/components/modern-jobs/scope/ResizableSplitPane.tsx": 2,
       "src/components/modern-jobs/scope/ScopeConfigurationWizard.tsx": 4,
       "src/components/modern-jobs/section1/Section1ThematicRenderer.tsx": 6,
       "src/components/NewDeclarationDialog.tsx": 8,
@@ -138,9 +127,7 @@
       "src/components/onefop/OnefopLegalAcknowledgment.tsx": 1,
       "src/components/onefop/OnefopPdfPreviewModal.tsx": 12,
       "src/components/onefop/SectionRenderer.tsx": 11,
-      "src/components/onefop/SimpleModeSidebar.tsx": 1,
       "src/components/onefop/SkipLogicBanner.tsx": 1,
-      "src/components/onefop/SovereignMasthead.tsx": 12,
       "src/components/onefop/tables/AdaptiveStatisticalTable.tsx": 9,
       "src/components/onefop/tables/NominalRosterRenderer.tsx": 13,
       "src/components/onefop/tables/RequiredAsterisk.tsx": 1,
@@ -150,7 +137,7 @@
       "src/components/onefop/VtWizardGuidedEntry.tsx": 9,
       "src/components/onefop/VtWizardSectionScreen.tsx": 16,
       "src/components/onefop/VtWizardSidebar.tsx": 20,
-      "src/components/onefop/WizardShell.tsx": 8
+      "src/components/onefop/WizardShell.tsx": 7
     }
   }
 }

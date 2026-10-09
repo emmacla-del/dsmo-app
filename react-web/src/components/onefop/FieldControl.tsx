@@ -24,7 +24,7 @@ interface FieldControlProps {
   compact?: boolean;
   /** True when this field currently has a validation issue — red border +
    * aria-invalid, matching the field-level half of the error-summary
-   * pattern (the summary itself is ValidationSummary). */
+   * pattern (the summary itself is the wizard's validation summary card). */
   hasError?: boolean;
   /** Called on blur, for callers (Section 0's FieldRenderer branch) that
    * defer showing `hasError`/the error message until the field has
