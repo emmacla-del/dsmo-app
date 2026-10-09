@@ -2544,7 +2544,14 @@
     "dateColumn": "Date & time",
     "userColumn": "User",
     "formatColumn": "Format",
-    "scopeColumn": "Scope"
+    "scopeColumn": "Scope",
+    "questionnaireLabel": "Questionnaire",
+    "questionnaire": {
+      "DEMAND": "Employers (enterprises, cooperatives, CTDs, NGOs, administrations, projects)",
+      "TVET": "Vocational training centres"
+    },
+    "statusHint": "Files with an open blocking anomaly are always excluded from the export.",
+    "scopeQuestionnaire": "Questionnaire: {value}"
   },
   "homeNav": {
     "role": {

@@ -25,6 +25,13 @@ import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-direct
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import { listCampaigns } from "@/lib/campaigns";
 import {
+  buildExportFilters,
+  DEMAND_ENTITY_TYPES,
+  EXPORT_QUESTIONNAIRES,
+  type ExportQuestionnaire,
+  type ExportStatusChoice,
+} from "@/lib/diffusion-export-filters";
+import {
   NOT_PROVIDED,
   count,
   meterWidth,
@@ -65,12 +72,8 @@ function getStatusCount(
   return null;
 }
 
-// Employer-type filter: the seven types, labelled through ENTITY_TYPE_OPTION_KEYS.
-// The empty option used to read "(6 types)" over seven.
-const ENTITY_TYPE_VALUES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
-
 // Labels: adminDiffusionPage.status.<value>.
-const STATUS_VALUES = ["APPROVED", "ALL", "PENDING_REVIEW", "REJECTED"];
+const STATUS_VALUES: ExportStatusChoice[] = ["APPROVED", "ALL", "PENDING_REVIEW", "REJECTED"];
 
 // Export formats offered. Labels: adminDiffusionPage.<labelKey>.
 const EXPORT_FORMATS = [
@@ -119,6 +122,7 @@ function formatExportScope(filters: Record<string, unknown> | null | undefined, 
   if (filters.department && typeof filters.department === "string") parts.push(t("scopeDepartment", { value: filters.department }));
   if (filters.campaign && typeof filters.campaign === "string") parts.push(t("scopeCampaign", { value: filters.campaign }));
   if (filters.entityType && typeof filters.entityType === "string") parts.push(t("scopeType", { value: typeLabel(tRoot, filters.entityType) }));
+  else if (filters.partition === "DEMAND") parts.push(t("scopeQuestionnaire", { value: t("questionnaire.DEMAND") }));
   if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(t("scopeStatuses", { value: filters.statuses.join(", ") }));
   return parts.length > 0 ? parts.join(" • ") : t("fullScope");
 }
@@ -180,7 +184,10 @@ export default function DiffusionPage() {
   }, [campaignsQuery.data, selectedCampaign]);
 
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
-  const [selectedStatus, setSelectedStatus] = useState("APPROVED");
+  const [selectedStatus, setSelectedStatus] = useState<ExportStatusChoice>("APPROVED");
+  // The questionnaire decides the SPSS file's variables: employers (1–6) or
+  // training centres. The default keeps the employer file.
+  const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<ExportQuestionnaire>("DEMAND");
 
   // Additional granular filters (preserved so no capabilities are dropped)
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -270,26 +277,20 @@ export default function DiffusionPage() {
     return deptList.map((d) => ({ name: d }));
   }, [selectedRegion, deptList]);
 
-  const currentFilters = useMemo(() => {
-    const filters: Record<string, any> = {};
-    if (selectedRegion && selectedRegion !== "Toutes") filters.region = selectedRegion;
-    if (selectedDepartment) filters.department = selectedDepartment;
-    if (selectedEntityType) filters.entityType = selectedEntityType;
-    // campaignId is the one the export actually filters on
-    // (buildOnefopExportWhere); `campaign` is kept alongside it because it
-    // carries the human-readable code that formatExportScope renders in the
-    // export history. Sending only the id would show a UUID there.
-    if (selectedCampaign) filters.campaign = selectedCampaign;
-    if (selectedCampaignId) filters.campaignId = selectedCampaignId;
-    if (selectedStatus === "APPROVED") {
-      filters.statuses = ["APPROVED"];
-    } else if (selectedStatus === "PENDING_REVIEW") {
-      filters.statuses = ["PENDING_REVIEW"];
-    } else if (selectedStatus === "REJECTED") {
-      filters.statuses = ["REJECTED"];
-    }
-    return filters;
-  }, [selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedCampaignId, selectedStatus]);
+  // See lib/diffusion-export-filters.ts for the two server rules it encodes.
+  const currentFilters = useMemo(
+    () =>
+      buildExportFilters({
+        questionnaire: selectedQuestionnaire,
+        status: selectedStatus,
+        region: selectedRegion,
+        department: selectedDepartment,
+        entityType: selectedEntityType,
+        campaign: selectedCampaign,
+        campaignId: selectedCampaignId,
+      }),
+    [selectedQuestionnaire, selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedCampaignId, selectedStatus],
+  );
 
   const triggerFileDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -593,17 +594,38 @@ export default function DiffusionPage() {
               </div>
 
               <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="select-questionnaire">{t("questionnaireLabel")}</label>
+                <select
+                  id="select-questionnaire"
+                  className="cam-select"
+                  value={selectedQuestionnaire}
+                  onChange={(e) => {
+                    setSelectedQuestionnaire(e.target.value as ExportQuestionnaire);
+                    setSelectedEntityType("");
+                  }}
+                >
+                  {EXPORT_QUESTIONNAIRES.map((value) => (
+                    <option key={value} value={value}>{t(`questionnaire.${value}`)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="cam-field">
                 <label className="cam-admin-label" htmlFor="select-statut">{t("statusLabel")}</label>
                 <select
                   id="select-statut"
                   className="cam-select"
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  aria-describedby="select-statut-hint"
+                  onChange={(e) => setSelectedStatus(e.target.value as ExportStatusChoice)}
                 >
                   {STATUS_VALUES.map((value) => (
                     <option key={value} value={value}>{t(`status.${value}`)}</option>
                   ))}
                 </select>
+                <p id="select-statut-hint" className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
+                  {t("statusHint")}
+                </p>
               </div>
             </div>
 
@@ -638,20 +660,23 @@ export default function DiffusionPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="cam-field">
-                    <label className="cam-admin-label" htmlFor="adv-entity">{t("establishmentType")}</label>
-                    <select
-                      id="adv-entity"
-                      className="cam-select"
-                      value={selectedEntityType}
-                      onChange={(e) => setSelectedEntityType(e.target.value)}
-                    >
-                      <option value="">{t("allEmployers")}</option>
-                      {ENTITY_TYPE_VALUES.map((value) => (
-                        <option key={value} value={value}>{typeLabel(tRoot, value)}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* The training-centre questionnaire has a single type. */}
+                  {selectedQuestionnaire === "DEMAND" && (
+                    <div className="cam-field">
+                      <label className="cam-admin-label" htmlFor="adv-entity">{t("establishmentType")}</label>
+                      <select
+                        id="adv-entity"
+                        className="cam-select"
+                        value={selectedEntityType}
+                        onChange={(e) => setSelectedEntityType(e.target.value)}
+                      >
+                        <option value="">{t("allEmployers")}</option>
+                        {DEMAND_ENTITY_TYPES.map((value) => (
+                          <option key={value} value={value}>{typeLabel(tRoot, value)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
