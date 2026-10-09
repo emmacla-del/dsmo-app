@@ -39,6 +39,7 @@ import {
   vtWizardCardFamilyOf,
   vtWizardSection1LocalisationGroups,
   vtWizardSection1EnseignementGroup,
+  isVtSingleColumnSection,
   vtWizardRowColumnsFor,
 } from "./vt-wizard-section-utils";
 import type { ValidationIssue } from "@/lib/onefop-validation";
@@ -901,8 +902,9 @@ function VtWizardFixedRow({
   compact: boolean;
 }): ReactNode {
   const fields = fieldIds.map((id) => fieldById.get(id)).filter((f): f is OnefopField => !!f);
+  const singleColumn = isVtSingleColumnSection(sectionId);
 
-  if (flexes && flexes.length === fields.length && fields.length === 2) {
+  if (!singleColumn && flexes && flexes.length === fields.length && fields.length === 2) {
     return (
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:flex-[3] min-w-0">
@@ -932,7 +934,7 @@ function VtWizardFixedRow({
   }
 
   return (
-    <FormGrid columns={Math.min(3, Math.max(1, fields.length)) as 1 | 2 | 3}>
+    <FormGrid columns={singleColumn ? 1 : (Math.min(3, Math.max(1, fields.length)) as 1 | 2 | 3)}>
       {fields.map((f) => (
         <FormCol key={f.id}>
           <VtWizardField

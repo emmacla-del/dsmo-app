@@ -270,7 +270,16 @@ const THREE_COLUMN_SECTION_IDS = new Set([
   "section2_vocationalTraining",
 ]);
 
+/** Sections laid out one question per row, like Sections 0 and 1 of the
+ *  other entities' wizards (identification and respondent details). */
+const SINGLE_COLUMN_SECTION_IDS = new Set(["section1_vocationalTraining"]);
+
+export function isVtSingleColumnSection(sectionId: string): boolean {
+  return SINGLE_COLUMN_SECTION_IDS.has(sectionId);
+}
+
 export function vtWizardRowColumnsFor(sectionId: string): number {
+  if (SINGLE_COLUMN_SECTION_IDS.has(sectionId)) return 1;
   return THREE_COLUMN_SECTION_IDS.has(sectionId) ? 3 : 2;
 }
 
