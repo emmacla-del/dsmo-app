@@ -21,6 +21,11 @@ interface ModernJobsSidebarProps {
   data: FormData;
   currentSectionIndex: number;
   onSelectSection: (index: number) => void;
+  /** N2: why a section cannot be opened from the rail yet, or null. A locked
+   *  item stays readable and focusable but does nothing (aria-disabled). */
+  sectionLockReason?: (index: number) => string | null;
+  /** N2: why the preliminary quiz cannot be opened yet, or null. */
+  scopeLockReason?: string | null;
   issues?: ValidationIssue[];
   isValidationStage?: boolean;
   onGoToValidation?: () => void;
@@ -143,6 +148,8 @@ export function ModernJobsSidebar({
   data,
   currentSectionIndex,
   onSelectSection,
+  sectionLockReason,
+  scopeLockReason = null,
   issues = [],
   isValidationStage = false,
   onGoToValidation,
@@ -211,8 +218,10 @@ export function ModernJobsSidebar({
     detail?: string;
     onClick?: () => void;
     current: boolean;
+    lockReason?: string | null;
   }) => {
-    const { state, dot, title, detail, onClick, current } = opts;
+    const { state, dot, title, detail, current, lockReason } = opts;
+    const onClick = lockReason ? undefined : opts.onClick;
     const dotStyle: React.CSSProperties =
       state === "done"
         ? { background: "var(--cam-green)", color: "#ffffff", border: "1px solid var(--cam-green)" }
@@ -227,7 +236,9 @@ export function ModernJobsSidebar({
         type="button"
         onClick={onClick}
         aria-current={current ? "step" : undefined}
-        className="cam-hoverable"
+        aria-disabled={lockReason ? true : undefined}
+        title={lockReason ?? undefined}
+        className={lockReason ? undefined : "cam-hoverable"}
         style={{
           width: "100%",
           textAlign: "left",
@@ -239,7 +250,7 @@ export function ModernJobsSidebar({
           alignItems: "flex-start",
           gap: 10,
           fontFamily: "var(--cam-font-sans)",
-          cursor: onClick ? "pointer" : "default",
+          cursor: lockReason ? "not-allowed" : onClick ? "pointer" : "default",
           transition: "background 0.15s ease",
         }}
       >
@@ -265,10 +276,15 @@ export function ModernJobsSidebar({
               display: "block",
               fontSize: "var(--cam-font-size-sm, 0.875rem)",
               fontWeight: current ? 700 : 600,
-              color: state === "error" ? "var(--cam-error)" : "var(--cam-text)",
+              color: state === "error"
+                ? "var(--cam-error)"
+                : lockReason
+                  ? "var(--cam-rail-upcoming)"
+                  : "var(--cam-text)",
             }}
           >
             {title}
+            {lockReason && <span className="sr-only"> — {lockReason}</span>}
           </span>
           {detail && (
             <span
@@ -412,6 +428,7 @@ export function ModernJobsSidebar({
                 detail,
                 onClick: () => onSelectSection(idx),
                 current: isCurrent,
+                lockReason: sectionLockReason?.(idx) ?? null,
               })}
 
               {/* Preliminary quiz between Section 1 and Section 2 */}
@@ -428,6 +445,7 @@ export function ModernJobsSidebar({
                       : undefined,
                   onClick: onSelectScope,
                   current: isScopeStage,
+                  lockReason: scopeLockReason,
                 })}
             </React.Fragment>
           );
