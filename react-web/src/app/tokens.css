@@ -314,18 +314,30 @@
      scrollbar by only ~11px; this restores a readable gap. */
    --cam-card-body-pad-end: calc(var(--cam-card-pad-x) + var(--cam-space-2));
 
+   /* ── Slate primitives ──
+     The slate palette the statistical tables and the VT rail both draw on.
+     Named by step, not by job: the --cam-table-* and --cam-rail-* tokens
+     below alias them, so one value is written once. */
+   --cam-slate-200: #e2e8f0;
+   --cam-slate-300: #cbd5e1;
+   --cam-slate-400: #94a3b8;
+   --cam-slate-500: #64748b;
+   --cam-slate-600: #475569;
+   --cam-slate-700: #334155;
+   --cam-slate-800: #1e293b;
+
    /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
      TableRenderer's grids, VT tables, activities table, guided-mode live
      preview). Values are the slate palette the Modern Jobs grids already
      used (S22Q04 look), consolidated here instead of hardcoded per file. */
-   --cam-table-frame: #475569;      /* outer frame, header rules, label column rule */
-   --cam-table-line: #64748b;       /* cell grid lines */
-   --cam-table-strong: #334155;     /* total-row rule, sub-header text */
-   --cam-table-group-line: #1e293b; /* separator between column blocks */
+   --cam-table-frame: var(--cam-slate-600);      /* outer frame, header rules, label column rule */
+   --cam-table-line: var(--cam-slate-500);      /* cell grid lines */
+   --cam-table-strong: var(--cam-slate-700);    /* total-row rule, sub-header text */
+   --cam-table-group-line: var(--cam-slate-800); /* separator between column blocks */
    --cam-table-head-bg: #ffffff;
    --cam-table-text: #0f172a;
-   --cam-table-muted: #94a3b8;      /* empty-cell dash / placeholder */
+   --cam-table-muted: var(--cam-slate-400);     /* empty-cell dash / placeholder */
 
    /* ── Table typography (used only by .cam-dt-* in globals.css) ──
      One size for every cell; hierarchy by weight. Change a table's look
@@ -386,6 +398,51 @@
    --cam-amber-border: #fcd34d;
    --cam-amber-badge: #fef3c7;
    --cam-amber-text: #92400e;
+
+   /* ── VT respondent screens, recorded from inline literals ──
+     The VT sidebar, validation screen and PDF preview wrote these colours
+     as hex in inline styles. Each token holds exactly the value that was
+     rendered, so nothing visibly moves. Like the block above, they are a
+     record, not palette choices: folding them onto the core palette
+     (--cam-success-bg, --cam-green, --cam-warning-*) belongs with the
+     wizard restyle's UX review. */
+   /* Light green success tints: completion notices and the current rail item. */
+   --cam-success-surface: #f0fdf4;
+   --cam-success-border-soft: #bbf7d0;
+   --cam-success-border-faint: #dcfce7;
+   --cam-success-mark: #16a34a;        /* filled "done" step badge */
+   --cam-success-link: #15803d;        /* text button inside a success notice */
+   --cam-success-text-strong: #166534; /* success notice heading/body */
+   --cam-success-text-deep: #14532d;   /* detail list inside a success notice */
+   /* VT section rail (sidebar). */
+   --cam-rail-active: #0e4d29;         /* current item, progress fill, percentage */
+   --cam-rail-active-shadow: 0 1px 3px color-mix(in srgb, var(--cam-rail-active) 8%, transparent);
+   --cam-rail-text: var(--cam-slate-800);
+   --cam-rail-border: var(--cam-slate-200);
+   --cam-rail-kicker: var(--cam-slate-400);
+   --cam-rail-text-muted: var(--cam-slate-500);
+   --cam-rail-item-text: var(--cam-slate-600);
+   --cam-rail-item-done: var(--cam-slate-700);
+   --cam-rail-badge-border: var(--cam-slate-300);
+   /* 15% white: rail footer rules and progress track. */
+   --cam-white-wash: color-mix(in srgb, var(--cam-surface) 15%, transparent);
+   /* Validation-screen section status icons. */
+   --cam-status-in-progress: #555555;
+   --cam-status-not-started: #888888;
+   /* "In progress" badge (pale yellow notice). */
+   --cam-notice-surface: #fffceb;
+   --cam-notice-text: #7a6200;
+   /* PDF preview warnings (orange alert icon/heading, banner text). */
+   --cam-alert-orange: #d9530f;
+   --cam-alert-orange-text: #b03e08;
+   /* PDF viewer canvas behind the rendered pages. */
+   --cam-pdf-viewer-bg: #525659;
+   /* Resting shadow of a validation-screen section row. Black is not a
+     token, so the shadow base is named here. */
+   --cam-shadow-black: #000000;
+   --cam-shadow-row: 0 1px 3px color-mix(in srgb, var(--cam-shadow-black) 4%, transparent);
+   /* VT soft red (vt-wizard-section-utils VT_RED_SOFT). */
+   --vt-red-soft: #fff5f5;
 }
 
 .vt-wizard {

@@ -91,13 +91,13 @@ export function VtWizardSidebar({
         width: 280,
         flexShrink: 0,
         background: "var(--cam-surface)",
-        borderRight: "1px solid #e2e8f0",
+        borderRight: "1px solid var(--cam-rail-border)",
         display: "flex",
         flexDirection: "column",
         height: "100%",
         minHeight: "calc(100vh - 110px)",
         padding: "20px 14px 20px 18px",
-        color: "#1e293b",
+        color: "var(--cam-rail-text)",
       }}
     >
       {/* ── SOMMAIRE Header ── */}
@@ -108,7 +108,7 @@ export function VtWizardSidebar({
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            color: "#94a3b8",
+            color: "var(--cam-rail-kicker)",
             marginBottom: 6,
           }}
         >
@@ -117,10 +117,10 @@ export function VtWizardSidebar({
 
         {/* Progress Bar */}
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 6 }}>
-          <span style={{ fontWeight: 600, color: "#64748b" }}>
+          <span style={{ fontWeight: 600, color: "var(--cam-rail-text-muted)" }}>
             {locale === "en" ? `${doneCount} of ${sections.length} sections` : `${doneCount} sur ${sections.length} sections`}
           </span>
-          <span style={{ fontWeight: 700, color: "#0e4d29" }}>
+          <span style={{ fontWeight: 700, color: "var(--cam-rail-active)" }}>
             {Math.round((doneCount / sections.length) * 100)}%
           </span>
         </div>
@@ -136,7 +136,7 @@ export function VtWizardSidebar({
             style={{
               height: "100%",
               width: `${Math.round((doneCount / sections.length) * 100)}%`,
-              background: "#0e4d29",
+              background: "var(--cam-rail-active)",
               transition: "width 0.3s ease",
             }}
           />
@@ -168,12 +168,12 @@ export function VtWizardSidebar({
                   gap: 10,
                   padding: "8px 10px",
                   borderRadius: 6,
-                  border: isCurrent ? "1px solid #bbf7d0" : "1px solid transparent",
-                  background: isCurrent ? "#f0fdf4" : "transparent",
-                  color: isCurrent ? "#0e4d29" : isDone ? "#334155" : "#475569",
+                  border: isCurrent ? "1px solid var(--cam-success-border-soft)" : "1px solid transparent",
+                  background: isCurrent ? "var(--cam-success-surface)" : "transparent",
+                  color: isCurrent ? "var(--cam-rail-active)" : isDone ? "var(--cam-rail-item-done)" : "var(--cam-rail-item-text)",
                   cursor: lockReason ? "not-allowed" : "pointer",
                   textAlign: "left",
-                  boxShadow: isCurrent ? "0 1px 3px rgba(14, 77, 41, 0.08)" : "none",
+                  boxShadow: isCurrent ? "var(--cam-rail-active-shadow)" : "none",
                   transition: "all 0.15s ease",
                 }}
               >
@@ -191,12 +191,12 @@ export function VtWizardSidebar({
                     fontWeight: 700,
                     flexShrink: 0,
                     background: isCurrent
-                      ? "#0e4d29"
+                      ? "var(--cam-rail-active)"
                       : isDone
-                        ? "#16a34a"
-                        : "#f1f5f9",
-                    border: !isCurrent && !isDone ? "1px solid #cbd5e1" : "none",
-                    color: isCurrent || isDone ? "#ffffff" : "#64748b",
+                        ? "var(--cam-success-mark)"
+                        : "var(--cam-surface-2)",
+                    border: !isCurrent && !isDone ? "1px solid var(--cam-rail-badge-border)" : "none",
+                    color: isCurrent || isDone ? "var(--cam-surface)" : "var(--cam-rail-text-muted)",
                   }}
                 >
                   {isDone ? "✓" : idx + 1}
@@ -206,7 +206,7 @@ export function VtWizardSidebar({
                     flex: 1,
                     fontSize: 12.5,
                     fontWeight: isCurrent ? 700 : 500,
-                    color: isCurrent ? "#0e4d29" : lockReason ? "var(--cam-rail-upcoming)" : isDone ? "#334155" : "#475569",
+                    color: isCurrent ? "var(--cam-rail-active)" : lockReason ? "var(--cam-rail-upcoming)" : isDone ? "var(--cam-rail-item-done)" : "var(--cam-rail-item-text)",
                     lineHeight: 1.35,
                   }}
                 >
@@ -240,7 +240,7 @@ export function VtWizardSidebar({
                         border: "none",
                         textAlign: "left",
                         fontSize: "var(--cam-font-size-2xs)",
-                        color: "#64748b",
+                        color: "var(--cam-rail-text-muted)",
                         cursor: "pointer",
                         padding: "3px 0",
                         lineHeight: 1.25,
@@ -249,7 +249,7 @@ export function VtWizardSidebar({
                         gap: "6px",
                       }}
                     >
-                      <span style={{ color: "#0e4d29", fontWeight: 700, fontSize: "10px" }}>›</span>
+                      <span style={{ color: "var(--cam-rail-active)", fontWeight: 700, fontSize: "10px" }}>›</span>
                       <span>{sub.title}</span>
                     </button>
                   ))}
@@ -270,9 +270,9 @@ export function VtWizardSidebar({
                   gap: 10,
                   padding: "8px 10px",
                   borderRadius: 6,
-                  border: quiz.isCurrent ? "1px solid #bbf7d0" : "1px solid transparent",
-                  background: quiz.isCurrent ? "#f0fdf4" : "transparent",
-                  color: quiz.isCurrent ? "#0e4d29" : quiz.lockReason ? "var(--cam-rail-upcoming)" : "#475569",
+                  border: quiz.isCurrent ? "1px solid var(--cam-success-border-soft)" : "1px solid transparent",
+                  background: quiz.isCurrent ? "var(--cam-success-surface)" : "transparent",
+                  color: quiz.isCurrent ? "var(--cam-rail-active)" : quiz.lockReason ? "var(--cam-rail-upcoming)" : "var(--cam-rail-item-text)",
                   cursor: quiz.lockReason ? "not-allowed" : "pointer",
                   textAlign: "left",
                 }}
@@ -290,9 +290,9 @@ export function VtWizardSidebar({
                     fontSize: 11,
                     fontWeight: 700,
                     flexShrink: 0,
-                    background: quiz.isCurrent ? "#0e4d29" : quiz.isComplete ? "#16a34a" : "#f1f5f9",
-                    border: !quiz.isCurrent && !quiz.isComplete ? "1px solid #cbd5e1" : "none",
-                    color: quiz.isCurrent || quiz.isComplete ? "#ffffff" : "#64748b",
+                    background: quiz.isCurrent ? "var(--cam-rail-active)" : quiz.isComplete ? "var(--cam-success-mark)" : "var(--cam-surface-2)",
+                    border: !quiz.isCurrent && !quiz.isComplete ? "1px solid var(--cam-rail-badge-border)" : "none",
+                    color: quiz.isCurrent || quiz.isComplete ? "var(--cam-surface)" : "var(--cam-rail-text-muted)",
                   }}
                 >
                   {quiz.isComplete ? "✓" : "?"}
@@ -318,15 +318,15 @@ export function VtWizardSidebar({
               alignItems: "center",
               gap: 8,
               padding: "9px 10px",
-              border: isValidationStage ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+              border: isValidationStage ? "1px solid var(--cam-success-border-soft)" : "1px solid var(--cam-rail-border)",
               borderRadius: 6,
-              background: isValidationStage ? "#f0fdf4" : "transparent",
+              background: isValidationStage ? "var(--cam-success-surface)" : "transparent",
               cursor: "pointer",
               textAlign: "left",
               fontSize: "12px",
-              color: isValidationStage ? "#0e4d29" : "#334155",
+              color: isValidationStage ? "var(--cam-rail-active)" : "var(--cam-rail-item-done)",
               fontWeight: 700,
-              boxShadow: isValidationStage ? "0 1px 3px rgba(14, 77, 41, 0.08)" : "none",
+              boxShadow: isValidationStage ? "var(--cam-rail-active-shadow)" : "none",
               transition: "all 0.15s ease",
             }}
           >
@@ -340,7 +340,7 @@ export function VtWizardSidebar({
       <div
         style={{
           paddingTop: 14,
-          borderTop: "1px solid rgba(255, 255, 255, 0.15)",
+          borderTop: "1px solid var(--cam-white-wash)",
         }}
       >
         <div
@@ -360,7 +360,7 @@ export function VtWizardSidebar({
           style={{
             height: 6,
             borderRadius: "var(--cam-radius-sm, 2px)",
-            background: "rgba(255, 255, 255, 0.15)",
+            background: "var(--cam-white-wash)",
             overflow: "hidden",
             marginBottom: 12,
           }}
@@ -379,7 +379,7 @@ export function VtWizardSidebar({
         <div
           style={{
             background: "var(--cam-success-bg)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
+            border: "1px solid var(--cam-white-wash)",
             borderRadius: "var(--cam-radius-control, 6px)",
             padding: "10px 12px",
           }}
@@ -507,7 +507,7 @@ function VtWizardSidebarOutlineRow({
           <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z" />
         </svg>
       );
-      color = "#555555";
+      color = "var(--cam-status-in-progress)";
       detail = t("statusInProgress");
       break;
     case "needsAttention":
@@ -528,7 +528,7 @@ function VtWizardSidebarOutlineRow({
           <circle cx="12" cy="12" r="9" />
         </svg>
       );
-      color = "#888888";
+      color = "var(--cam-status-not-started)";
       detail = t("statusNotStarted");
       break;
   }

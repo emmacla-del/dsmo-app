@@ -284,7 +284,7 @@ export function OnefopPdfPreviewModal({
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 18, color: "#d9530f", flexShrink: 0 }}>⚠️</span>
+          <span style={{ fontSize: 18, color: "var(--cam-alert-orange)", flexShrink: 0 }}>⚠️</span>
           <p
             style={{
               margin: 0,
@@ -309,10 +309,10 @@ export function OnefopPdfPreviewModal({
           <div
             style={{
               padding: "10px 20px",
-              background: "#f0fdf4",
-              borderBottom: "1px solid #bbf7d0",
+              background: "var(--cam-success-surface)",
+              borderBottom: "1px solid var(--cam-success-border-soft)",
               fontSize: 13,
-              color: "#166534",
+              color: "var(--cam-success-text-strong)",
               display: "flex",
               flexDirection: "column",
               gap: 6,
@@ -334,7 +334,7 @@ export function OnefopPdfPreviewModal({
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#166534",
+                  color: "var(--cam-success-text-strong)",
                   fontSize: 12,
                   fontWeight: 600,
                   textDecoration: "underline",
@@ -348,7 +348,7 @@ export function OnefopPdfPreviewModal({
               </button>
             </div>
             {showZeroedDetails && (
-              <div style={{ background: "#ffffff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #dcfce7", marginTop: 4 }}>
+              <div style={{ background: "var(--cam-surface)", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--cam-success-border-faint)", marginTop: 4 }}>
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
                   {zeroedTables.map((t: ZeroedTableInfo) => (
                     <li key={t.code} style={{ marginBottom: 2 }}>
@@ -366,7 +366,7 @@ export function OnefopPdfPreviewModal({
           style={{
             flex: 1,
             position: "relative",
-            background: "#525659",
+            background: "var(--cam-pdf-viewer-bg)",
             overflow: "hidden",
             display: "flex",
             alignItems: "center",
@@ -423,7 +423,7 @@ export function OnefopPdfPreviewModal({
               }}
             >
               <span style={{ fontSize: 32 }}>⚠️</span>
-              <h3 style={{ margin: "10px 0 6px", fontSize: 15, fontWeight: 700, color: "#d9530f" }}>
+              <h3 style={{ margin: "10px 0 6px", fontSize: 15, fontWeight: 700, color: "var(--cam-alert-orange)" }}>
                 {isFr ? "Erreur de chargement de l'aperçu" : "Preview Loading Error"}
               </h3>
               <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
@@ -434,7 +434,7 @@ export function OnefopPdfPreviewModal({
                 onClick={() => loadPdf(activeLocale)}
                 style={{
                   background: "var(--cam-green)",
-                  color: "#ffffff",
+                  color: "var(--cam-surface)",
                   border: "none",
                   borderRadius: "4px",
                   padding: "8px 20px",
@@ -497,7 +497,7 @@ export function OnefopPdfPreviewModal({
               background: "rgba(217, 83, 15, 0.1)",
               borderTop: "1px solid rgba(217, 83, 15, 0.3)",
               fontSize: 13,
-              color: "#b03e08",
+              color: "var(--cam-alert-orange-text)",
             }}
           >
             <strong>{submissionError.summary}</strong>
@@ -585,7 +585,7 @@ export function OnefopPdfPreviewModal({
                 style={{
                   background: !canSubmit || hasErrors ? "var(--cam-border-strong)" : "var(--cam-green)",
                   border: "none",
-                  color: "#ffffff",
+                  color: "var(--cam-surface)",
                   borderRadius: "6px",
                   padding: "10px 28px",
                   fontSize: 14,
