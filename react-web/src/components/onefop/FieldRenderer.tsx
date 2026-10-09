@@ -85,7 +85,7 @@ interface FieldRendererProps {
    * question label above it, so short inputs never force the label to wrap. */
   controlMaxWidth?: number;
   /** This field's current validation message, if any — the field-level
-   * half of the error-summary pattern (see ValidationSummary for the
+   * half of the error-summary pattern (the wizard's validation summary card is the
    * top-of-form half). Undefined/omitted renders the field exactly as
    * before this existed. */
   errorMessage?: string;

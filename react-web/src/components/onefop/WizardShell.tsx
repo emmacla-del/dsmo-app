@@ -6,7 +6,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
-import { buildSectionUnits, isUnitVisible, FormUnit } from "@/lib/onefop-units";
 import {
   fetchDeclarationPreviewPdf,
   formatSubmissionError,
@@ -15,10 +14,7 @@ import {
 } from "@/lib/onefop-submission";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { clearDraft } from "@/lib/onefop-drafts";
-import { SectionRenderer } from "./SectionRenderer";
 import { VtWizardSectionScreen, vtSectionHeadingId, type VtSectionRevealHandle } from "./VtWizardSectionScreen";
-import { SubmissionPanel } from "./SubmissionPanel";
-import { ValidationSummary } from "./ValidationSummary";
 import { VtWizardSidebar } from "./VtWizardSidebar";
 import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
@@ -148,7 +144,6 @@ export function WizardShell({
   const viewportWidth = useViewportWidth();
 
   const [sectionIndex, setSectionIndex] = useState(0);
-  const [unitIndex, setUnitIndex] = useState(0);
   const [isValidationStage, setIsValidationStage] = useState(false);
   // Training centres: the preliminary quiz stage, between Sections 1 and 2.
   const [isVtQuizStage, setIsVtQuizStage] = useState(false);
@@ -303,20 +298,6 @@ export function WizardShell({
   );
   const currentSection = sections[clampedSectionIndex];
 
-  const sectionUnits = useMemo(() => {
-    if (!currentSection) return [];
-    return buildSectionUnits(currentSection, formLocale).filter((unit) =>
-      isUnitVisible(unit, data),
-    );
-  }, [currentSection, data, formLocale]);
-
-  const clampedUnitIndex = Math.min(
-    unitIndex,
-    Math.max(0, sectionUnits.length - 1),
-  );
-  const currentUnit: FormUnit | undefined =
-    sectionUnits[clampedUnitIndex];
-
   const sectionIssues = useMemo(
     () =>
       currentSection
@@ -425,7 +406,6 @@ export function WizardShell({
           ? position.index
           : Math.min(Math.max(stored.sectionIndex, 0), sections.length - 1),
       );
-      setUnitIndex(0);
     }
   }
   const vtStoredStage = isValidationStage ? "review" : isVtQuizStage ? "quiz" : "section";
@@ -468,7 +448,6 @@ export function WizardShell({
     );
 
     setSectionIndex(nextIndex);
-    setUnitIndex(0);
     setIsValidationStage(false);
     setIsVtQuizStage(false);
     setAttemptedAdvance(false);
@@ -551,11 +530,6 @@ export function WizardShell({
 
     setAttemptedAdvance(false);
 
-    if (!isVt && sectionUnits.length > 1 && clampedUnitIndex < sectionUnits.length - 1) {
-      setUnitIndex((index) => index + 1);
-      return;
-    }
-
     // Section 1 → the preliminary quiz → Section 2.
     if (vtQuizApplies && clampedSectionIndex === 0) {
       openVtQuiz();
@@ -564,24 +538,16 @@ export function WizardShell({
 
     if (clampedSectionIndex < sections.length - 1) {
       setSectionIndex((index) => index + 1);
-      setUnitIndex(0);
       setVtSectionOutline(null);
       requestStepFocus();
       return;
     }
 
-    if (isVt) {
-      goToValidation();
-    }
+    goToValidation();
   }
 
   function handlePrev() {
     setAttemptedAdvance(false);
-
-    if (!isVt && clampedUnitIndex > 0) {
-      setUnitIndex((index) => index - 1);
-      return;
-    }
 
     // Section 2 → back to the preliminary quiz.
     if (vtQuizApplies && clampedSectionIndex === 1) {
@@ -591,7 +557,6 @@ export function WizardShell({
 
     if (clampedSectionIndex > 0) {
       setSectionIndex((index) => index - 1);
-      setUnitIndex(0);
       setVtSectionOutline(null);
       requestStepFocus();
       return;
@@ -1163,7 +1128,7 @@ export function WizardShell({
 
   return (
     <div
-      className={isVt ? "vt-wizard" : undefined}
+      className="vt-wizard"
       style={{
         minHeight: "100%",
         display: "flex",
@@ -1172,7 +1137,6 @@ export function WizardShell({
       }}
     >
       {stepLiveRegion}
-      {isVt && (
         <ModernJobsHeader
           entityType={entity.entityType}
           establishmentName={effectiveEstablishment}
@@ -1184,7 +1148,6 @@ export function WizardShell({
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
         />
-      )}
       <div
         style={{
           flex: 1,
@@ -1226,119 +1189,10 @@ export function WizardShell({
             >
               {renderMobileTaskList()}
 
-              {/*
-                Flutter's VT shell communicates section progress through the
-                task rail/section outline. Do not add a second "Section N / 9"
-                header or nine-dot progress indicator above VT content.
-                Non-VT keeps the generic unit/section context header.
-              */}
-              {!isVt && (
-                <nav
-                  aria-label={t("wizardShell.sectionProgressAriaLabel")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 16,
-                    marginBottom: "var(--cam-space-5)",
-                    paddingBottom: "var(--cam-space-3)",
-                    borderBottom:
-                      "var(--cam-border-width) solid var(--cam-border)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: "var(--cam-space-3)",
-                      minWidth: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "var(--cam-font-size-base)",
-                        fontWeight: 700,
-                        color: "var(--cam-green)",
-                      }}
-                    >
-                      {t("wizardShell.sectionHeader", { current: clampedSectionIndex + 1, total: sections.length })}{" "}
-                      {localized(currentSection.title, formLocale)}
-                    </span>
-
-                    {sectionUnits.length > 1 && currentUnit && (
-                      <span
-                        style={{
-                          fontSize: "var(--cam-font-size-sm)",
-                          color: "var(--cam-text-muted)",
-                        }}
-                      >
-                        ({currentUnit.shortLabel} — {clampedUnitIndex + 1}/
-                        {sectionUnits.length})
-                      </span>
-                    )}
-                  </div>
-                </nav>
-              )}
-
-              {/* VT has no top-of-section error banner in Flutter — its error
-                  model is purely inline field errors + the block "À corriger"
-                  chip + the sidebar outline's needsAttention row. */}
-              {!isVt && showErrors && (
-                <ValidationSummary issues={sectionIssues} />
-              )}
-
-              {!isVt &&
-                sectionUnits.length > 1 &&
-                currentUnit ? (
-                <div
-                  style={{
-                    background: "var(--cam-surface)",
-                    border:
-                      "var(--cam-border-width) solid var(--cam-border)",
-                    borderRadius: "var(--cam-radius-md)",
-                    padding: "var(--cam-space-5)",
-                  }}
-                >
-                  <div
-                    style={{
-                      marginBottom: "var(--cam-space-4)",
-                      paddingBottom: "var(--cam-space-3)",
-                      borderBottom:
-                        "var(--cam-border-width) solid var(--cam-border)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "var(--cam-green)",
-                        letterSpacing: "0.5px",
-                      }}
-                    >
-                      {t("wizardShell.unitLabel", { label: currentUnit.shortLabel })}
-                    </span>
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        margin: "2px 0 0",
-                      }}
-                    >
-                      {currentUnit.title}
-                    </h3>
-                  </div>
-
-                  <SectionRenderer
-                    section={{
-                      ...currentSection,
-                      fields: currentUnit.fields,
-                    }}
-                    data={data}
-                    onChange={onChange}
-                    issues={showErrors ? sectionIssues : []}
-                  />
-                </div>
-              ) : isVt && isVtQuizStage ? (
+              {/* VT keeps no top-of-section header or error banner (as in
+                  Flutter): progress is the rail and the section outline,
+                  errors are inline plus the block "à corriger" text. */}
+              {isVtQuizStage ? (
                 <VtScopeQuiz
                   entity={entity}
                   data={data}
@@ -1349,7 +1203,7 @@ export function WizardShell({
                   onBack={() => showSection(0)}
                   locale={formLocale}
                 />
-              ) : isVt ? (
+              ) : (
                 <VtWizardSectionScreen
                   // Fresh instance per section: the active tab and outlined
                   // block of one section must not carry over to the next.
@@ -1367,13 +1221,6 @@ export function WizardShell({
                   showBottomBar={false}
                   saving={saving}
                   onOutlineChange={setVtSectionOutline}
-                />
-              ) : (
-                <SectionRenderer
-                  section={currentSection}
-                  data={data}
-                  onChange={onChange}
-                  issues={showErrors ? sectionIssues : []}
                 />
               )}
             </div>
@@ -1457,7 +1304,7 @@ export function WizardShell({
                 >
                   <span>←</span>
                   <span>
-                    {clampedSectionIndex === 0 && (!isVt || !!onCancel)
+                    {clampedSectionIndex === 0 && !!onCancel
                       ? t("common.cancel")
                       : t("wizardShell.previousStepButton")}
                   </span>
@@ -1485,9 +1332,7 @@ export function WizardShell({
                 >
                   <span>
                     {clampedSectionIndex === sections.length - 1
-                      ? isVt
-                        ? t("wizardShell.proceedToValidationButton")
-                        : t("wizardShell.lastSection")
+                      ? t("wizardShell.proceedToValidationButton")
                       : t("wizardShell.nextButton")}
                   </span>
                   <span>→</span>
@@ -1520,7 +1365,7 @@ export function WizardShell({
               saveToast === "failed" ? "var(--cam-error)" : "var(--cam-success)",
             fontSize: 12,
             fontWeight: 700,
-            fontFamily: isVt ? "var(--vt-font)" : undefined,
+            fontFamily: "var(--vt-font)",
             boxShadow: "0 2px 6px rgba(0,0,0,.08)",
           }}
         >
@@ -1529,30 +1374,6 @@ export function WizardShell({
             : t("wizardShell.savedJustNowToast")}
         </div>
       )}
-
-      {/* Preserve the existing non-VT terminal submission flow. VT owns its
-          separate validation stage above. */}
-      {!isVt &&
-        clampedSectionIndex === sections.length - 1 &&
-        clampedUnitIndex === sectionUnits.length - 1 && (
-          <div
-            style={{
-              maxWidth: "var(--vt-content-max)",
-              width: "calc(100% - 48px)",
-              margin: "0 auto",
-            }}
-          >
-            <SubmissionPanel
-              entityType={entity.entityType}
-              entity={entity}
-              data={data}
-              validationIssues={validationIssues}
-              attemptedSubmit={attemptedSubmit}
-              onAttemptSubmit={onAttemptSubmit}
-              formId={formId}
-            />
-          </div>
-        )}
 
       <OnefopPdfPreviewModal
         entity={entity}
