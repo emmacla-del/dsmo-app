@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { checkCoherence } from "@/lib/onefop-coherence";
 import { getActiveQuarter, saveDraftToBackend } from "@/lib/onefop-submission";
 import { validateEntityData } from "@/lib/onefop-validation";
+import { hasRealNiu } from "@/lib/companies-directory";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { cleanHiddenDependentFields, normalizeMultiChoiceValues, type FormData } from "@/lib/onefop-schema";
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
@@ -327,6 +328,7 @@ function OnefopDeclarationContent() {
             saveFailed={saveFailed}
             lastSavedAt={lastSavedAt}
             establishmentName={establishmentName}
+            niu={hasRealNiu(companyQuery.data?.taxNumber) ? companyQuery.data?.taxNumber : undefined}
             quarterCode={quarterCode}
             formId={formId}
             onSaveNow={handleSaveNow}

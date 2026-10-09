@@ -64,6 +64,8 @@ interface WizardShellProps {
   lastSavedAt?: Date | null;
 
   establishmentName?: string;
+  /** The company's real taxpayer number (NIU), or undefined when it has none. */
+  niu?: string;
   quarterCode?: string;
   /** Stable per-session idempotency key from useOnefopDraft (P4 fix). */
   formId?: string;
@@ -142,6 +144,7 @@ export function WizardShell({
   saveFailed = false,
   lastSavedAt = null,
   establishmentName,
+  niu,
   quarterCode,
   formId,
   onSubmitted,
@@ -913,6 +916,7 @@ export function WizardShell({
           onPreviewPdf={() => setPreviewModalOpen(true)}
           isGeneratingPdf={pdfMutation.isPending}
           establishmentName={effectiveEstablishment}
+          niu={niu}
           quarterCode={effectiveQuarter}
           positionKey={positionKey}
         />
@@ -1004,7 +1008,7 @@ export function WizardShell({
                 submissionId={submissionId}
                 entityType={entity.entityType}
                 establishmentName={effectiveEstablishment}
-                niu={(data["VT1_1"] as string) || (data["NIU"] as string)}
+                niu={niu}
                 quarterCode={effectiveQuarter}
                 locale={formLocale}
                 onDownloadPdf={() => handlePreviewPdf(formLocale)}
