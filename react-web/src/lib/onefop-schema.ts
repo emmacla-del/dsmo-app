@@ -182,6 +182,29 @@ export function isVtSectionWaived(sectionId: string, data: FormData): boolean {
  * Prevents stale phantom values from surviving visibility toggles
  * and leaking into submission totals.
  */
+/**
+ * A multiple-choice (checkbox) answer is always a list. A draft can still
+ * hold one as a single string (an older save, or a draft recovered from the
+ * server); visibility (`contains`) would then hide its follow-ups and
+ * cleanHiddenDependentFields would erase them. Wraps such a value in a
+ * one-item list, but only when the string is exactly one of the field's own
+ * options: anything else (no option list, as for VT7_7–VT7_11, or an
+ * unknown string) is left untouched for its own reader to interpret.
+ */
+export function normalizeMultiChoiceValues(entity: OnefopEntity, data: FormData): FormData {
+  let out: FormData | null = null;
+  for (const sec of entity.sections) {
+    for (const field of sec.fields) {
+      if (field.type !== "checkbox" || !field.options?.length) continue;
+      const value = data[field.id];
+      if (typeof value !== "string" || !field.options.some((o) => o.value === value)) continue;
+      out = out ?? { ...data };
+      out[field.id] = [value];
+    }
+  }
+  return out ?? data;
+}
+
 export function cleanHiddenDependentFields(
   entity: OnefopEntity,
   data: FormData,

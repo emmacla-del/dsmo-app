@@ -35,6 +35,9 @@ export function useOnefopDraft(
    *  for the current entity). Applied after every change, so changing a
    *  parent answer to "Non" erases its follow-ups right away. */
   pruneHidden?: (data: FormData) => FormData,
+  /** Repairs the shape of a loaded draft (normalizeMultiChoiceValues for the
+   *  current entity) before it is merged with registration autofill. */
+  normalizeLoaded?: (data: FormData) => FormData,
 ) {
   const [data, setData] = useState<FormData>({});
   const [loadedEntityType, setLoadedEntityType] = useState<string | null>(null);
@@ -52,6 +55,7 @@ export function useOnefopDraft(
   const userIdRef = useRef(userId);
   const establishmentIdRef = useRef(establishmentId);
   const pruneHiddenRef = useRef(pruneHidden);
+  const normalizeLoadedRef = useRef(normalizeLoaded);
   // P4 / N1: stable formId per entity+quarter session
   const formIdRef = useRef<string>(crypto.randomUUID());
 
@@ -79,6 +83,10 @@ export function useOnefopDraft(
     pruneHiddenRef.current = pruneHidden;
   }, [pruneHidden]);
 
+  useEffect(() => {
+    normalizeLoadedRef.current = normalizeLoaded;
+  }, [normalizeLoaded]);
+
   // Load draft once both entityType and quarterCode are known.
   // Reuses persisted formId if available for idempotency (N1 fix).
   useEffect(() => {
@@ -96,6 +104,7 @@ export function useOnefopDraft(
         }
       }
       if (cancelled) return;
+      if (normalizeLoadedRef.current) loaded = normalizeLoadedRef.current(loaded);
       if (draft?.formId) {
         formIdRef.current = draft.formId;
       } else {
