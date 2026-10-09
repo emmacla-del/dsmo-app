@@ -228,6 +228,24 @@ export function StatisticalGridRenderer({
     ? definition.rows.filter((r) => !r.isTotal)
     : definition.rows;
 
+  // Footer of a table with `hasTotalRow` but no stored total row (VT 4.1):
+  // the column's sum over the body rows, display only. Blank while any of
+  // those cells is blank, like the row totals (a missing cell is not 0).
+  const columnSum = (colKey: string): number | null => {
+    let sum = 0;
+    let counted = 0;
+    for (const row of bodyRows) {
+      if (row.isSubtotal) continue;
+      const cell = row.cells[colKey];
+      if (!cell) continue;
+      const v = getCellValue(cell.fieldKey);
+      if (v === null) return null;
+      sum += v;
+      counted++;
+    }
+    return counted > 0 ? sum : null;
+  };
+
   const isGroupBoundary = (colIdx: number): boolean => {
     const col = definition.columns[colIdx];
     const nextCol = definition.columns[colIdx + 1];
@@ -467,7 +485,11 @@ export function StatisticalGridRenderer({
                 </RowHeader>
                 {definition.columns.map((col, colIdx) => {
                   const cellDef = totalRow ? totalRow.cells[col.key] : null;
-                  const val = cellDef ? getCellValue(cellDef.fieldKey) : null;
+                  const val = cellDef
+                    ? getCellValue(cellDef.fieldKey)
+                    : totalRow
+                      ? null
+                      : columnSum(col.key);
                   const totalCellLabel = totalRow
                     ? `${localized(totalRow.label, locale)} - ${col.group ? `${localized(col.group, locale)} - ` : ""}${localized(col.header, locale)}`
                     : localized(col.header, locale);

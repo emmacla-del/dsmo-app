@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
-import { isVtSectionWaived, localized } from "@/lib/onefop-schema";
+import { localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
-import { getVtSectionShortLabel, vtWizardSectionStats } from "./vt-wizard-utils";
+import { getVtSectionShortLabel, isVtSectionComplete, vtWizardSectionStats } from "./vt-wizard-utils";
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
 
 /** The Validation heading, focused by WizardShell when this stage opens. */
@@ -36,18 +36,28 @@ interface VtValidationScreenProps {
 
 type SectionState = "notStarted" | "inProgress" | "done";
 
+/** Whether any cell of the section's tables holds a value. */
+function sectionHasTableData(section: OnefopSection, data: FormData): boolean {
+  return section.fields.some((f) =>
+    (f.table?.matrix ?? []).some((row) =>
+      row.some((id) => data[id] !== undefined && data[id] !== null && data[id] !== ""),
+    ),
+  );
+}
+
 // Same counting as the sidebar (vt-wizard-utils): required, visible,
 // non-table questions; tables are covered by the validator. A section a
-// closed or non-functional centre does not answer counts as done.
+// closed or non-functional centre does not answer counts as done, and so
+// does a valid section made only of tables (Section 4: 0 questions) —
+// isVtSectionComplete, the sidebar's own rule.
 function getSectionStats(section: OnefopSection, data: FormData) {
   const { filled, total } = vtWizardSectionStats(section, data);
   const issues = validateSectionData(section, data);
-  const isValid = issues.length === 0;
 
   let state: SectionState = "notStarted";
-  if (isVtSectionWaived(section.id, data) || (isValid && filled === total && total > 0)) {
+  if (isVtSectionComplete(section, data)) {
     state = "done";
-  } else if (filled > 0) {
+  } else if (filled > 0 || (total === 0 && sectionHasTableData(section, data))) {
     state = "inProgress";
   }
 

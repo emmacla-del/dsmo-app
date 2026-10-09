@@ -4,7 +4,7 @@ import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
-import { VtGeographyLockContext, VtWizardField, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { VtGeographyLockContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
 import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
 import {
@@ -594,7 +594,9 @@ function VtWizardFieldRows({
     if (isVtTableField(f)) {
       // The wrapper carries the table field's id: a table-level validation
       // issue (fieldId = the table's id) is focused here, and a cell issue
-      // falls back to it (see issueFocusCandidates).
+      // falls back to it (see issueFocusCandidates). The table-level message
+      // ("n cellule(s) restent à renseigner…") is shown under the table:
+      // without it a blocked Suivant only scrolled here, with no reason given.
       rows.push(
         <div key={f.id} id={f.id} tabIndex={-1} style={{ minWidth: 0 }}>
           <VtWizardTableField
@@ -602,6 +604,7 @@ function VtWizardFieldRows({
             data={data}
             onChange={onChange}
           />
+          <VtWizardFieldError id={`${f.id}-error`} message={issueByFieldId.get(f.id)} />
         </div>,
       );
       consumed.add(f.id);
