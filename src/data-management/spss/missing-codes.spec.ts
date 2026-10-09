@@ -157,7 +157,7 @@ describe('E1 — -98 « non applicable » user-missing code', () => {
       expect(sps).not.toMatch(/\(-99\)/);
       expect(sps).toContain("-98 = Non applicable (type d'établissement)");
       expect(sps).toContain('-99 = Non renseigné');
-      expect(sps).toContain('* Version du schéma du jeu de données : 5.');
+      expect(sps).toContain('* Version du schéma du jeu de données : 6.');
       expect(sps).not.toMatch(/ F[12]\.0$/m);
     });
   });

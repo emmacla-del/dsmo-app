@@ -13,16 +13,28 @@
 //     record per extra 8-byte segment of a string wider than 8
 //   value labels (types 3 + 4) for numeric and ≤8-byte string variables
 //   machine integer info (7/3), machine float info (7/4)
-//   variable display parameters (7/11) — measurement level / width / align
+//   variable display parameters (7/11) — measurement level / width / align,
+//     one entry per segment
 //   long variable names (7/13)
+//   very long string widths (7/14) — only when a string is wider than 255
 //   character encoding (7/20) = UTF-8
 //   long string value labels (7/21)
 //   dictionary termination (999), then the compressed case data.
 //
-// Strings are capped at 255 bytes (no "very long string" 7/14 support —
-// no canonical variable is wider than that). Values are converted exactly the
-// way the old pipeline did (csvEscape → pandas.to_numeric(errors='coerce')),
-// so switching writers changes no data: blank / non-numeric → system-missing.
+// Very long strings (E8, dataset v6): a string wider than 255 bytes is stored
+// the way SPSS and PSPP store it — as ceil(width / 252) consecutive "segment"
+// variables. Every segment but the last is an A255 variable (256 bytes in the
+// case: 255 data bytes + 1 padding byte); the last is A(width − 252·(n−1)),
+// of which only width − 255·(n−1) bytes carry data, the rest is padding. The
+// first segment holds the variable's short name, label and print format; the
+// others get generated short names. The 7/14 record maps the first segment's
+// short name to the real width, which is how readers (SPSS, PSPP, ReadStat)
+// reassemble the segments into one variable. Widths are bytes of UTF-8, not
+// characters. Files without such a variable are byte-identical to before.
+//
+// Values are converted exactly the way the old pipeline did (csvEscape →
+// pandas.to_numeric(errors='coerce')), so switching writers changes no data:
+// blank / non-numeric → system-missing.
 
 export type SavMeasure = 'nominal' | 'ordinal' | 'scale';
 
@@ -31,7 +43,7 @@ export interface SavVariable {
   name: string;
   label?: string;
   type: 'numeric' | 'string';
-  /** Strings: storage width in bytes (1–255). Numerics: display width. */
+  /** Strings: storage width in UTF-8 bytes (1–32767; > 255 = very long string). Numerics: display width. */
   width: number;
   decimals?: number;
   valueLabels?: Record<string, string>;
@@ -46,7 +58,14 @@ export interface SavWriterOptions {
 }
 
 const SYSMIS = -Number.MAX_VALUE;
-const MAX_STRING_WIDTH = 255;
+/** SPSS's maximum string width, in bytes. */
+export const MAX_STRING_WIDTH = 32767;
+/** Widest string stored as a single variable record. */
+const MAX_SHORT_STRING_WIDTH = 255;
+/** Data bytes of a very long string carried by each full segment. */
+const VLS_SEGMENT_DATA = 255;
+/** Width step between segments (SPSS: "effective" very-long-string chunk). */
+const VLS_EFFECTIVE_CHUNK = 252;
 const MAX_VALUE_LABEL_BYTES = 120;
 const BIAS = 100;
 /** Byte offset of the int32 case count in the file header. */
@@ -97,12 +116,36 @@ function padTo(buf: Buffer, multiple: number, fill = 0x20): Buffer {
   return out;
 }
 
-function segmentsOf(v: SavVariable): number {
-  return v.type === 'numeric' ? 1 : Math.ceil(stringWidth(v) / 8);
-}
-
 function stringWidth(v: SavVariable): number {
   return Math.min(Math.max(Math.round(v.width) || 1, 1), MAX_STRING_WIDTH);
+}
+
+/**
+ * Physical layout of one variable: one entry per segment (one for numerics
+ * and strings up to 255 bytes, ceil(width / 252) for very long strings).
+ * `width` is the segment's type-2 record width (0 = numeric), `dataBytes`
+ * how many bytes of the value it carries, `units` its 8-byte case slots.
+ */
+interface Segment {
+  width: number;
+  dataBytes: number;
+  units: number;
+}
+
+function segmentLayout(v: SavVariable): Segment[] {
+  if (v.type === 'numeric') return [{ width: 0, dataBytes: 8, units: 1 }];
+  const width = stringWidth(v);
+  if (width <= MAX_SHORT_STRING_WIDTH) return [{ width, dataBytes: width, units: Math.ceil(width / 8) }];
+  const n = Math.ceil(width / VLS_EFFECTIVE_CHUNK);
+  return Array.from({ length: n }, (_, i) => {
+    const segWidth = i < n - 1 ? MAX_SHORT_STRING_WIDTH : width - i * VLS_EFFECTIVE_CHUNK;
+    const dataBytes = Math.max(0, Math.min(VLS_SEGMENT_DATA, width - i * VLS_SEGMENT_DATA));
+    return { width: segWidth, dataBytes, units: Math.ceil(segWidth / 8) };
+  });
+}
+
+function unitsOf(layout: Segment[]): number {
+  return layout.reduce((n, s) => n + s.units, 0);
 }
 
 /** Same coercion as pandas.to_numeric(str, errors='coerce'); null = system-missing. */
@@ -123,28 +166,46 @@ export function toSavString(value: unknown): string {
   return String(value);
 }
 
+/** A<w> for a string segment of record width `w` (the format's width field is one byte). */
+function stringFormatCode(w: number): number {
+  return (1 << 16) | (Math.min(w, MAX_SHORT_STRING_WIDTH) << 8);
+}
+
 function formatCode(v: SavVariable): number {
-  if (v.type === 'string') {
-    const w = stringWidth(v);
-    return (1 << 16) | (w << 8); // A<w>
-  }
+  if (v.type === 'string') return stringFormatCode(stringWidth(v)); // A<w>, A255 on a very long string's first segment
   const w = Math.min(Math.max(Math.round(v.width) || 8, 1), 40);
   const d = Math.min(Math.max(v.decimals ?? 0, 0), 16);
   return (5 << 16) | (w << 8) | d; // F<w>.<d>
 }
 
-/** 8-byte, upper-case, unique short names as required by the type-2 records. */
-function buildShortNames(vars: SavVariable[]): string[] {
+/**
+ * 8-byte, upper-case, unique short names as required by the type-2 records:
+ * one per segment. A variable's first segment carries its own short name;
+ * the extra segments of a very long string are named after it, SPSS-style
+ * (first 5 characters + segment number), all unique across the file.
+ */
+function buildShortNames(vars: SavVariable[], layouts: Segment[][]): string[][] {
   const used = new Set<string>();
-  return vars.map((v) => {
-    const base = v.name.toUpperCase();
-    let candidate = base.slice(0, 8);
+  const unique = (base: string, firstTry: string) => {
+    let candidate = firstTry;
     for (let n = 1; used.has(candidate); n++) {
       const suffix = String(n);
       candidate = base.slice(0, 8 - suffix.length) + suffix;
     }
     used.add(candidate);
     return candidate;
+  };
+  const first = vars.map((v) => {
+    const base = v.name.toUpperCase();
+    return unique(base, base.slice(0, 8));
+  });
+  return vars.map((_, i) => {
+    const names = [first[i]];
+    for (let s = 1; s < layouts[i].length; s++) {
+      const stem = first[i].slice(0, 5);
+      names.push(unique(`${stem}S${s}`, `${stem}${s - 1}`.slice(0, 8)));
+    }
+    return names;
   });
 }
 
@@ -171,8 +232,9 @@ function validateVariables(vars: SavVariable[]) {
  * across cases (the format allows a block to span case boundaries).
  */
 export class SavWriter {
-  private readonly shortNames: string[];
-  private readonly totalSegments: number;
+  private readonly layouts: Segment[][];
+  private readonly shortNames: string[][];
+  private readonly totalUnits: number;
   private commands: number[] = [];
   private raw: Buffer[] = [];
   private caseCount = 0;
@@ -181,15 +243,20 @@ export class SavWriter {
   constructor(private readonly vars: SavVariable[], private readonly options: SavWriterOptions = {}) {
     if (vars.length === 0) throw new Error('Aucune variable à exporter.');
     validateVariables(vars);
-    this.shortNames = buildShortNames(vars);
-    this.totalSegments = vars.reduce((n, v) => n + segmentsOf(v), 0);
+    this.layouts = vars.map(segmentLayout);
+    this.shortNames = buildShortNames(vars, this.layouts);
+    this.totalUnits = this.layouts.reduce((n, l) => n + unitsOf(l), 0);
   }
 
   get casesWritten() {
     return this.caseCount;
   }
 
-  /** Variables whose values had to be shortened to fit their width, with counts. */
+  /**
+   * Variables whose values were longer (in UTF-8 bytes) than their declared
+   * width and had to be shortened, with counts. Callers must surface this —
+   * it is the only trace of the loss in the file.
+   */
   get truncatedValues(): ReadonlyMap<string, number> {
     return this.truncations;
   }
@@ -205,7 +272,7 @@ export class SavWriter {
     out.fixed('$FL2', 4);
     out.fixed('@(#) SPSS DATA FILE CAM-LEAP ONEFOP', 60);
     out.int32(2); // layout code
-    out.int32(this.totalSegments); // nominal case size
+    out.int32(this.totalUnits); // nominal case size (8-byte units)
     out.int32(1); // bytecode compression
     out.int32(0); // no weight variable
     out.int32(-1); // case count unknown while streaming — patched by the caller when known
@@ -215,41 +282,43 @@ export class SavWriter {
     out.fixed(this.options.fileLabel ?? '', 64);
     out.bytes(Buffer.alloc(3));
 
-    // ── Variable records ──
+    // ── Variable records (one per segment, each followed by its continuations) ──
     this.vars.forEach((v, i) => {
-      out.int32(2);
-      out.int32(v.type === 'numeric' ? 0 : stringWidth(v));
-      const label = v.label ? truncateUtf8(v.label, 255) : null;
-      out.int32(label && label.length > 0 ? 1 : 0);
-      const missing = v.type === 'numeric' ? v.missingValues ?? [] : [];
-      out.int32(missing.length);
-      const fmt = formatCode(v);
-      out.int32(fmt); // print format
-      out.int32(fmt); // write format
-      out.fixed(this.shortNames[i], 8);
-      if (label && label.length > 0) {
-        out.int32(label.length);
-        out.bytes(padTo(label, 4));
-      }
-      for (const m of missing) out.float64(m);
-
-      for (let s = 1; s < segmentsOf(v); s++) {
+      this.layouts[i].forEach((seg, s) => {
+        const label = s === 0 && v.label ? truncateUtf8(v.label, 255) : null;
+        const missing = s === 0 && v.type === 'numeric' ? v.missingValues ?? [] : [];
+        const fmt = s === 0 ? formatCode(v) : stringFormatCode(seg.width);
         out.int32(2);
-        out.int32(-1);
-        out.int32(0);
-        out.int32(0);
-        out.int32(0);
-        out.int32(0);
-        out.fixed('', 8);
-      }
+        out.int32(seg.width);
+        out.int32(label && label.length > 0 ? 1 : 0);
+        out.int32(missing.length);
+        out.int32(fmt); // print format
+        out.int32(fmt); // write format
+        out.fixed(this.shortNames[i][s], 8);
+        if (label && label.length > 0) {
+          out.int32(label.length);
+          out.bytes(padTo(label, 4));
+        }
+        for (const m of missing) out.float64(m);
+
+        for (let c = 1; c < seg.units; c++) {
+          out.int32(2);
+          out.int32(-1);
+          out.int32(0);
+          out.int32(0);
+          out.int32(0);
+          out.int32(0);
+          out.fixed('', 8);
+        }
+      });
     });
 
     // ── Value labels (types 3 + 4): numerics and strings up to 8 bytes ──
     const segmentIndex: number[] = [];
     let idx = 1;
-    for (const v of this.vars) {
+    for (const layout of this.layouts) {
       segmentIndex.push(idx);
-      idx += segmentsOf(v);
+      idx += unitsOf(layout);
     }
     const longStringLabels: { name: string; width: number; labels: [Buffer, Buffer][] }[] = [];
 
@@ -292,18 +361,31 @@ export class SavWriter {
     // ── 7/4 machine float info: sysmis, highest, lowest ──
     const lowest = Buffer.from([0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef, 0xff]); // -DBL_MAX + 1ulp
     this.extension(out, 4, 8, [float64(SYSMIS), float64(Number.MAX_VALUE), lowest]);
-    // ── 7/11 variable display parameters (one set per variable, not per segment) ──
+    // ── 7/11 variable display parameters: one set per segment. A very long
+    // string's extra segments repeat its measure and alignment with the width
+    // left from that segment on, as SPSS and PSPP write them. ──
     const display: Buffer[] = [];
-    for (const v of this.vars) {
+    this.vars.forEach((v, i) => {
       const measure = v.measure ?? (v.type === 'string' || Object.keys(v.valueLabels ?? {}).length > 0 ? 'nominal' : 'scale');
-      display.push(int32(measure === 'nominal' ? 1 : measure === 'ordinal' ? 2 : 3));
-      display.push(int32(v.type === 'string' ? Math.min(stringWidth(v), 40) : Math.min(Math.max(Math.round(v.width) || 8, 1), 40)));
-      display.push(int32(v.type === 'string' ? 0 : 1)); // left / right aligned
-    }
+      this.layouts[i].forEach((_, s) => {
+        display.push(int32(measure === 'nominal' ? 1 : measure === 'ordinal' ? 2 : 3));
+        display.push(int32(v.type === 'string'
+          ? Math.min(stringWidth(v) - s * VLS_EFFECTIVE_CHUNK, 40)
+          : Math.min(Math.max(Math.round(v.width) || 8, 1), 40)));
+        display.push(int32(v.type === 'string' ? 0 : 1)); // left / right aligned
+      });
+    });
     this.extension(out, 11, 4, display);
-    // ── 7/13 long variable names ──
-    const longNames = this.vars.map((v, i) => `${this.shortNames[i]}=${v.name}`).join('\t');
+    // ── 7/13 long variable names (first segment's short name only) ──
+    const longNames = this.vars.map((v, i) => `${this.shortNames[i][0]}=${v.name}`).join('\t');
     this.extension(out, 13, 1, [Buffer.from(longNames, 'utf8')]);
+    // ── 7/14 very long string record: "SHORT=WIDTH\0\t" per string over 255 bytes ──
+    const veryLong = this.vars
+      .map((v, i) => (this.layouts[i].length > 1
+        ? `${this.shortNames[i][0]}=${String(stringWidth(v)).padStart(5, '0')}\0\t`
+        : ''))
+      .join('');
+    if (veryLong.length > 0) this.extension(out, 14, 1, [Buffer.from(veryLong, 'utf8')]);
     // ── 7/20 character encoding ──
     this.extension(out, 20, 1, [Buffer.from('UTF-8', 'ascii')]);
     // ── 7/21 long string value labels ──
@@ -344,12 +426,18 @@ export class SavWriter {
         if (bytes.length < Buffer.byteLength(text, 'utf8')) {
           this.truncations.set(v.name, (this.truncations.get(v.name) ?? 0) + 1);
         }
-        const padded = Buffer.alloc(segmentsOf(v) * 8, 0x20);
-        bytes.copy(padded);
-        for (let off = 0; off < padded.length; off += 8) {
-          const chunk = padded.subarray(off, off + 8);
-          if (chunk.every((b) => b === 0x20)) this.push(254, null, blocks);
-          else this.push(253, Buffer.from(chunk), blocks);
+        // Each segment carries its slice of the value, space-padded to its
+        // own 8-byte units (for a ≤255-byte string: the whole value).
+        let offset = 0;
+        for (const seg of this.layouts[i]) {
+          const padded = Buffer.alloc(seg.units * 8, 0x20);
+          bytes.copy(padded, 0, Math.min(offset, bytes.length), Math.min(offset + seg.dataBytes, bytes.length));
+          offset += seg.dataBytes;
+          for (let off = 0; off < padded.length; off += 8) {
+            const chunk = padded.subarray(off, off + 8);
+            if (chunk.every((b) => b === 0x20)) this.push(254, null, blocks);
+            else this.push(253, Buffer.from(chunk), blocks);
+          }
         }
       }
     });

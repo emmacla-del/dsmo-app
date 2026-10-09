@@ -17,7 +17,7 @@ import {
     type OnefopExportFilters,
 } from './spss/export-filters';
 import { Territory, territoryWhere, territoryWhereForDeclaration, territoryWhereForExport } from '../auth/territory';
-import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
+import { SAV_NCASES_OFFSET, SavWriter, toSavString, type SavVariable } from './spss/sav-writer';
 import { hasRealNiu } from './niu';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -776,6 +776,10 @@ export class DataManagementService {
             // FIRSTCASE=2 (skips this row) and positional columns, unchanged.
             res.write('﻿' + variables.map((v) => this.csvEscape(v.variableName)).join(',') + '\r\n');
             const referencePeriods = await this.loadReferencePeriods();
+            // The CSV itself carries every value whole, but the .sps reads
+            // each string column as A<spssWidth> bytes, so SPSS would cut a
+            // longer one. Headers are already sent — count and log (E8).
+            const overWidth = new Map<string, number>();
 
             const BATCH_SIZE = 250;
             let cursor: string | undefined;
@@ -794,7 +798,11 @@ export class DataManagementService {
                     let chunk = '';
                     for (const s of batch) {
                         this.attachReferencePeriod(s, referencePeriods);
-                        chunk += variables.map((v) => this.csvEscape(this.canonicalAdapter!.exportValue(v, s))).join(',') + '\r\n';
+                        chunk += variables.map((v) => {
+                            const value = this.canonicalAdapter!.exportValue(v, s);
+                            if (v.spssDataType !== 'NUMERIC') this.countOverWidth(overWidth, v, value);
+                            return this.csvEscape(value);
+                        }).join(',') + '\r\n';
                     }
 
                     if (!res.write(chunk)) {
@@ -808,6 +816,12 @@ export class DataManagementService {
                 console.error('❌ SPSS CSV export failed mid-stream:', err);
             } finally {
                 res.end();
+            }
+            if (overWidth.size > 0) {
+                console.warn(
+                    '⚠️ SPSS CSV export: values wider than the .sps GET DATA width (SPSS will cut them):',
+                    Object.fromEntries(overWidth),
+                );
             }
             return;
         }
@@ -951,6 +965,7 @@ export class DataManagementService {
             res.setHeader('Content-Type', 'application/x-spss-sav');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.sav"');
             res.setHeader('X-Dataset-Schema-Version', String(DATASET_SCHEMA_VERSION));
+            this.setTruncationHeaders(res, writer.truncatedValues);
             res.setHeader('Content-Length', String(fs.statSync(tmpSav).size));
             const fileStream = fs.createReadStream(tmpSav);
             fileStream.pipe(res);
@@ -976,6 +991,21 @@ export class DataManagementService {
         }
     }
 
+    /// Reports values that did not fit their variable's declared width (E8,
+    /// dataset v6): X-Export-Truncated-Values = total count (0 when none),
+    /// X-Export-Truncated-Variables = "name=count,…" (capped — the server
+    /// log has the full list). Variable names are ASCII by construction.
+    private setTruncationHeaders(res: Response, truncated: ReadonlyMap<string, number>): void {
+        let total = 0;
+        for (const n of truncated.values()) total += n;
+        res.setHeader('X-Export-Truncated-Values', String(total));
+        if (truncated.size > 0) {
+            let list = [...truncated].map(([name, n]) => `${name}=${n}`).join(',');
+            if (list.length > 2000) list = list.slice(0, list.lastIndexOf(',', 2000)) + ',...';
+            res.setHeader('X-Export-Truncated-Variables', list);
+        }
+    }
+
     /// quarterCode → the SubmissionRound's period bounds, read once per export
     /// (the table holds one row per round, so this is small). Feeds the
     /// periodStart/periodEnd variables — see
@@ -994,6 +1024,17 @@ export class DataManagementService {
     ): void {
         const period = submission.quarterCode ? periods.get(submission.quarterCode) : undefined;
         if (period) submission.referencePeriod = period;
+    }
+
+    /// Counts a string value whose UTF-8 byte length exceeds its variable's
+    /// declared width (the width SPSS reads it with).
+    private countOverWidth(counts: Map<string, number>, v: AnalyticalVariableDefinition, value: unknown): void {
+        if (value === null || value === undefined) return;
+        const width = v.spssWidth || 254;
+        const text = toSavString(value);
+        // UTF-8 needs at most 3 bytes per UTF-16 code unit: skip the byte count when it cannot exceed.
+        if (text.length * 3 <= width) return;
+        if (Buffer.byteLength(text, 'utf8') > width) counts.set(v.variableName, (counts.get(v.variableName) ?? 0) + 1);
     }
 
     /// Canonical variable → SavWriter variable. Numeric display formats keep
@@ -1064,6 +1105,7 @@ export class DataManagementService {
         if (writer.truncatedValues.size > 0) {
             // Silent data loss would be worse than a noisy log: a registry
             // width is too small for real values — widen it in the adapter.
+            // The counts also go back to the client (setTruncationHeaders).
             console.warn(
                 '⚠️ SPSS .sav export truncated values to fit variable widths:',
                 Object.fromEntries(writer.truncatedValues),
