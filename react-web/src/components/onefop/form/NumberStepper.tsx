@@ -21,6 +21,8 @@ export function NumberStepper({
   showButtons,
   disabled = false,
   hasError = false,
+  describedBy,
+  invalid = false,
 }: {
   id: string;
   value: unknown;
@@ -37,7 +39,13 @@ export function NumberStepper({
    * width (e.g. VT_NO_STEPPER_IDS) without switching to the narrow box. */
   showButtons?: boolean;
   disabled?: boolean;
+  /** Also sets aria-invalid on the input, in addition to the error border. */
   hasError?: boolean;
+  /** id(s) of the element(s) describing the input, e.g. its error message. */
+  describedBy?: string;
+  /** Sets aria-invalid without changing the border (for callers that show
+   * the error elsewhere). */
+  invalid?: boolean;
 }) {
   const shouldShowButtons = showButtons ?? !compact;
   const n = parseInt(String(value ?? ""), 10);
@@ -92,6 +100,8 @@ export function NumberStepper({
           max={max}
           step={step}
           disabled={disabled}
+          aria-describedby={describedBy}
+          aria-invalid={hasError || invalid || undefined}
           value={(value as string) ?? ""}
           onChange={(e) => handleTyped(e.target.value)}
           style={{
