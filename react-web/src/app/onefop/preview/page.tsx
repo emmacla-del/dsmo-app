@@ -10,7 +10,7 @@ import { checkCoherence } from "@/lib/onefop-coherence";
 import { getActiveQuarter, saveDraftToBackend } from "@/lib/onefop-submission";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
-import { cleanHiddenDependentFields, type FormData } from "@/lib/onefop-schema";
+import { cleanHiddenDependentFields, normalizeMultiChoiceValues, type FormData } from "@/lib/onefop-schema";
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
@@ -149,9 +149,19 @@ function OnefopDeclarationContent() {
 
   const entity = schema?.entities[entityType];
 
-  // Changing a parent answer to "Non" erases its follow-up answers.
+  // A multiple-choice answer stored as a single string becomes a one-item
+  // list, so its follow-ups are judged visible exactly as the server does.
+  const normalizeLoaded = useCallback(
+    (data: FormData) => (entity ? normalizeMultiChoiceValues(entity, data) : data),
+    [entity],
+  );
+
+  // Changing a parent answer to "Non" erases its follow-up answers. Values
+  // are normalized first, so a follow-up is never erased only because its
+  // parent was stored as a string instead of a list.
   const pruneHidden = useCallback(
-    (data: FormData) => (entity ? cleanHiddenDependentFields(entity, data) : data),
+    (data: FormData) =>
+      entity ? cleanHiddenDependentFields(entity, normalizeMultiChoiceValues(entity, data)) : data,
     [entity],
   );
 
@@ -173,6 +183,7 @@ function OnefopDeclarationContent() {
       meQuery.data?.id,
       companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : null,
       pruneHidden,
+      normalizeLoaded,
     );
   // The stored acknowledgment of this declaration (same tenant-scoped key as
   // the draft). While the key is still resolving (quarter / company loading)
