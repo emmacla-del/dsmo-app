@@ -14,6 +14,7 @@ import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
+import { IgnoredIdentityChange, lockCompanyIdentity } from './company-territory-lock';
 import { Territory, territoryWhere } from '../auth/territory';
 
 @Injectable()
@@ -289,9 +290,52 @@ export class DsmoService {
     return { companies, total, page, pageSize };
   }
 
+  /** The stored territory and entityType of the user's company, if any. */
+  private findStoredIdentity(userId: string) {
+    return this.prisma.company.findUnique({
+      where: { userId },
+      select: {
+        region: true,
+        department: true,
+        subdivision: true,
+        regionId: true,
+        departmentId: true,
+        subdivisionId: true,
+        entityType: true,
+      },
+    });
+  }
+
+  /** Records every territory / entityType change a company tried to make on
+   *  itself and that was ignored (see company-territory-lock.ts). */
+  private async auditIgnoredIdentityChanges(
+    userId: string,
+    companyId: string,
+    ignored: IgnoredIdentityChange[],
+  ) {
+    for (const change of ignored) {
+      await this.auditService.log(
+        userId,
+        change.field === 'territory'
+          ? 'COMPANY_TERRITORY_CHANGE_IGNORED'
+          : 'COMPANY_ENTITY_TYPE_CHANGE_IGNORED',
+        'Company',
+        companyId,
+        change.field === 'territory'
+          ? 'Changement de territoire ignoré : il passe par une demande examinée.'
+          : "Changement de type d'entité ignoré : il relève des services du MINEFOP.",
+        change.kept,
+        change.sent,
+      );
+    }
+  }
+
   // Territory is resolved and validated here. Establishment IDs are NOT
   // issued on this path: they are allocated once, at staff approval of the
-  // registration (AuthService.approveUser).
+  // registration (AuthService.approveUser). On an existing company, the
+  // territory (once complete) and the entityType (once set) are kept: a
+  // company cannot move itself between reviewer scopes or instruments
+  // (company-territory-lock.ts).
   async saveCompanyProfile(userId: string, dto: any) {
     const resolvedTerritory = await resolveAndValidateTerritory(
       this.prisma,
@@ -334,14 +378,17 @@ export class DsmoService {
       // submission — see home_screen.dart) silently wiped out the real
       // headcount the dashboard displays. It should only ever default to 0
       // when the Company row is first created.
+      const existing = await this.findStoredIdentity(userId);
+      const { data: updateData, ignored } = lockCompanyIdentity(existing, data);
       const company = await this.prisma.company.upsert({
         where: { userId },
         update: {
-          ...data,
+          ...updateData,
         },
         create: { userId, totalEmployees: 0, ...data },
       });
       await this.auditService.log(userId, 'CREATE_COMPANY_PROFILE', 'Company', company.id, dto.name);
+      await this.auditIgnoredIdentityChanges(userId, company.id, ignored);
       return company;
     } catch (err: any) {
       if (err.code === 'P2002') {
@@ -391,14 +438,17 @@ export class DsmoService {
     };
 
     try {
+      const existing = await this.findStoredIdentity(userId);
+      const { data: updateData, ignored } = lockCompanyIdentity(existing, companyData);
       const company = await this.prisma.company.upsert({
         where: { userId },
         update: {
-          ...companyData,
+          ...updateData,
         },
         create: { userId, ...companyData },
       });
       await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', company.id, 'Mise à jour du profil entreprise');
+      await this.auditIgnoredIdentityChanges(userId, company.id, ignored);
       return company;
     } catch (err: any) {
       if (err.code === 'P2002') {
