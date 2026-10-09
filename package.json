@@ -16,7 +16,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate && npx puppeteer browsers install chrome",
-    "test": "jest"
+    "test": "jest",
+    "spss:registry": "ts-node -T scripts/spss-variable-registry.ts"
   },
   "jest": {
     "moduleFileExtensions": [

@@ -1533,7 +1533,7 @@ function buildTrainingNeeds(n: Record<string, unknown>): unknown[] {
 
 // ─── Enum mappers ─────────────────────────────────────────────────────────────
 
-function mapLegalStatus(v: string): number {
+export function mapLegalStatus(v: string): number {
     if (!v) return 0;
     if (v.includes('unipersonnelle')) return 1;
     if (v.includes('SARL')) return 2;
@@ -1542,7 +1542,7 @@ function mapLegalStatus(v: string): number {
     return 0;
 }
 
-function mapArea(v: string): number {
+export function mapArea(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv.includes('urbain') || lv.includes('urban')) return 1;
@@ -1550,7 +1550,7 @@ function mapArea(v: string): number {
     return 0;
 }
 
-function mapSector(v: string): number {
+export function mapSector(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv === '1' || lv.includes('primaire') || lv.includes('primary')) return 1;
@@ -1562,7 +1562,7 @@ function mapSector(v: string): number {
 // Administration's S1Q09/S1Q11 (Oui/Non) — matches
 // AdministrationIdentificationDto's hasProject/hasSupervisedStructures
 // numeric-code convention (1=Oui, 2=Non), same pattern as mapArea/mapSector.
-function mapYesNo(v: string): number {
+export function mapYesNo(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv.includes('oui') || lv.includes('yes')) return 1;
@@ -1572,7 +1572,7 @@ function mapYesNo(v: string): number {
 
 // Projects & Programs — PP_S1Q01 "Nature de la structure" (matches
 // ProjectProgramIdentificationDto's nature: @IsIn([1,2,3,4])).
-function mapNature(v: string): number {
+export function mapNature(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv.includes('projet') || lv.includes('project')) return 1;
@@ -1583,7 +1583,7 @@ function mapNature(v: string): number {
 }
 
 // PP_S1Q13 "Situation du Projet / Programme" (matches status: @IsIn([1,2,3])).
-function mapPPStatus(v: string): number {
+export function mapPPStatus(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv.includes('arrêt') || lv.includes('stopped')) return 1;
@@ -1594,7 +1594,7 @@ function mapPPStatus(v: string): number {
 
 // PP_S1Q14 "Si en arrêt, quel est le principal motif ?" (matches
 // stopReason: @IsIn([1,2,3,4]), only sent when status = Stopped).
-function mapStopReason(v: string): number {
+export function mapStopReason(v: string): number {
     if (!v) return 0;
     const lv = v.toLowerCase();
     if (lv.includes('terme') || lv.includes('expired')) return 1;
@@ -1604,7 +1604,7 @@ function mapStopReason(v: string): number {
     return 0;
 }
 
-function mapSize(v: string): number {
+export function mapSize(v: string): number {
     if (!v) return 0;
     if (v.includes('TPE')) return 1;
     if (v.includes('GE')) return 4;
@@ -1613,7 +1613,7 @@ function mapSize(v: string): number {
     return 0;
 }
 
-function mapCooperativeType(v: string): number {
+export function mapCooperativeType(v: string): number {
     if (!v) return 0;
     if (v === '1' || v.includes('simplifiée')) return 1;
     if (v === '2' || v.includes("conseil d'administration")) return 2;
@@ -1621,14 +1621,14 @@ function mapCooperativeType(v: string): number {
     return 0;
 }
 
-function mapCtdType(v: string): number {
+export function mapCtdType(v: string): number {
     if (!v) return 0;
     if (v.includes('Commune')) return 2;
     if (v.includes('Région')) return 1;
     return 0;
 }
 
-function mapCouncilType(v: string): number {
+export function mapCouncilType(v: string): number {
     if (!v) return 0;
     if (v.includes('Arrondissement')) return 1;
     if (v.includes('Urbaine')) return 2;

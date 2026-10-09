@@ -63,9 +63,9 @@ describe('CanonicalSchemaAdapterService', () => {
   });
 
   describe('2. Schema Completeness', () => {
-    it('represents all 13 system variables at the start (indices 1 to 13)', () => {
+    it('represents all 15 system variables at the start (indices 1 to 15)', () => {
       const all = adapter.getAllVariables();
-      const systemVars = all.slice(0, 13);
+      const systemVars = all.slice(0, 15);
 
       expect(systemVars.map((v) => v.variableName)).toEqual([
         'schemaVersion',
@@ -73,6 +73,8 @@ describe('CanonicalSchemaAdapterService', () => {
         'status',
         'surveyYear',
         'quarterCode',
+        'periodStart', // E11, dataset v4
+        'periodEnd',
         'formType',
         'companyName',
         'taxNumber',
@@ -449,6 +451,7 @@ describe('CanonicalSchemaAdapterService', () => {
             },
           ]),
         },
+        submissionRound: { findMany: jest.fn().mockResolvedValue([]) },
       };
 
       const dataService = new DataManagementService(mockPrisma as any, undefined, adapter);
@@ -459,9 +462,11 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(isEnded()).toBe(true);
       const output = chunks.join('');
 
-      // Header contains canonical labels
-      expect(output).toContain('N° de soumission');
-      expect(output).toContain("Régime/statut juridique");
+      // Header row carries the SPSS variable names (E10, dataset v4)
+      const header = output.replace(/^\ufeff/, '').split('\r\n')[0].split(',');
+      expect(header).toEqual(adapter.getVariablesForPartition('DEMAND').map((v) => v.variableName));
+      expect(header).toContain('submissionId');
+      expect(header).toContain('S1Q01');
 
       // Data row contains values
       expect(output).toContain('SUB-001');
@@ -487,6 +492,7 @@ describe('CanonicalSchemaAdapterService', () => {
             },
           ]),
         },
+        submissionRound: { findMany: jest.fn().mockResolvedValue([]) },
       };
 
       const dataService = new DataManagementService(mockPrisma as any, undefined, adapter);
@@ -497,7 +503,7 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(row).toContain('SUB-ADM');
       expect(row).not.toContain('NA-');
       // The column stays in place; only its cell is empty.
-      const col = header.split(',').indexOf('N° contribuable');
+      const col = header.split(',').indexOf('taxNumber');
       expect(col).toBeGreaterThanOrEqual(0);
       expect(row.split(',')[col]).toBe('');
     });

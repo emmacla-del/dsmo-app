@@ -86,6 +86,8 @@ function buildSubmission(variables: AnalyticalVariableDefinition[], row: number,
 
 function fakePrisma(submissions: any[]) {
   return {
+    // Reference periods (periodStart/periodEnd) come from the round table.
+    submissionRound: { findMany: async () => [] },
     onefopSubmission: {
       findMany: async ({ take, cursor }: { take: number; cursor?: { id: string } }) => {
         const start = cursor ? submissions.findIndex((s) => s.id === cursor.id) + 1 : 0;
