@@ -21,8 +21,9 @@ import {
   isEnteredValue,
 } from "@/components/onefop/tables/quizRequired";
 import { incompleteQuizQuestions, readQuizScope, withQuizDerivedStatuses } from "@/components/modern-jobs/scope/QuizSemantics";
-import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vtTableStatus } from "./vt-quiz";
+import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vtQuizQuestionForTable, vtTableStatus } from "./vt-quiz";
 import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
+import { vtCrossTableIssues } from "./vt-cross-table";
 
 export interface ValidationIssue {
   fieldId: string;
@@ -346,12 +347,19 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
     );
     const missing = missingVtTableCells(field, data);
     if (missing.length === 1 && missing[0] === field.id) {
+      // Only a quiz-gated table owes its row to a "Oui": an always-applicable
+      // one (8.8, 5.2…) must not cite a quiz answer the respondent never gave.
+      const gated = vtQuizQuestionForTable(field.id) !== undefined;
       issues.push({
         fieldId: field.id,
         message: labelled(
           label,
-          "Ajoutez au moins une ligne (réponse « Oui » au questionnaire préliminaire)",
-          "Add at least one row (you answered Yes in the preliminary questionnaire)",
+          gated
+            ? "Ajoutez au moins une ligne (réponse « Oui » au questionnaire préliminaire)"
+            : "Ajoutez au moins une ligne",
+          gated
+            ? "Add at least one row (you answered Yes in the preliminary questionnaire)"
+            : "Add at least one row",
           locale,
         ),
       });
@@ -545,6 +553,12 @@ export function validateEntityData(
     issues.push(...validateFields(section.fields, tableView, locale, territoryTree));
   }
 
+  // Training centres: breakdowns of the same learners / trainers must agree
+  // (vt-cross-table.ts). Blocking, like the section-level check.
+  if (entity.entityType === "vocationalTraining") {
+    issues.push(...crossTableIssues(entity.sections.flatMap((sec) => sec.fields), data, locale));
+  }
+
   // V1: S3Q02 reason rows 2 and 3 — text field required when any count in
   // that row is non-zero. These fields are in OPTIONAL_OVERRIDES to allow
   // single-reason declarations (where rows 2/3 have zero counts). The table-
@@ -591,5 +605,13 @@ export function validateSectionData(
   territoryTree?: LocationRegion[],
 ): ValidationIssue[] {
   if (isVtSectionWaived(section.id, data)) return [];
-  return validateFields(section.fields, data, locale, territoryTree);
+  return [
+    ...validateFields(section.fields, data, locale, territoryTree),
+    ...crossTableIssues(section.fields, data, locale),
+  ];
+}
+
+/** VT cross-table disagreements as validation issues (a no-op for other entities). */
+function crossTableIssues(fields: OnefopField[], data: FormData, locale?: ValidationLocale): ValidationIssue[] {
+  return vtCrossTableIssues(fields, data).map((i) => ({ fieldId: i.fieldId, message: msg(i.fr, i.en, locale, " / ") }));
 }
