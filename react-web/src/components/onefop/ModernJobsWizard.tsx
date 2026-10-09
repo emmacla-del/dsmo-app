@@ -60,6 +60,8 @@ export interface ModernJobsWizardProps {
   canSubmit?: boolean;
   quarterStatusMessage?: string;
   establishmentName?: string;
+  /** The company's real taxpayer number (NIU), or undefined when it has none. */
+  niu?: string;
   quarterCode?: string;
   /** N3: the tenant-scoped draft key once its draft is loaded; the wizard
    *  position is restored from / kept in sessionStorage under it. */
@@ -97,6 +99,7 @@ export function ModernJobsWizard({
   canSubmit = true,
   quarterStatusMessage,
   establishmentName,
+  niu,
   quarterCode,
   positionKey = null,
 }: ModernJobsWizardProps) {
@@ -813,7 +816,7 @@ export function ModernJobsWizard({
                   submissionId={submissionId}
                   entityType={entity.entityType}
                   establishmentName={effectiveEstablishment}
-                  niu={(data["S1Q01"] as string) || (data["VT1_1"] as string) || (data["NIU"] as string)}
+                  niu={niu}
                   quarterCode={quarterCode}
                   locale={locale.startsWith("en") ? "en" : "fr"}
                   onDownloadPdf={() => onPreviewPdf?.(locale.startsWith("en") ? "en" : "fr")}
