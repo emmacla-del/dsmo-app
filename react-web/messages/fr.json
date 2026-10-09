@@ -829,7 +829,7 @@
       "loadingRegions": "Chargement des régions…",
       "region": "Région",
       "dependsHint": "Chaque champ dépend du précédent",
-      "lockedNote": "Pour modifier, mettez à jour votre profil.",
+      "lockedNote": "Ces informations proviennent de votre dossier d'immatriculation. Si elles sont inexactes, signalez-le à votre délégation départementale du MINEFOP.",
       "ariaLabel": "Localisation administrative"
     },
     "eventProgress": {
