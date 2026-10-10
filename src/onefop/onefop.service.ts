@@ -11,6 +11,7 @@ import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
 import { OnefopSubmissionPdfService } from '../pdf/onefop-submission-pdf.service';
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { territoryFromUser, territoryWhere } from '../auth/territory';
+import { formatDoualaDateFr } from '../common/utils/douala-date';
 
 @Injectable()
 export class OnefopService {
@@ -318,7 +319,7 @@ export class OnefopService {
         // which is the only other human-readable string on this payload.
         const closedMessage = (r: { deadline: Date; labelFr: string }) =>
             r.deadline < new Date()
-                ? `La période de collecte « ${r.labelFr} » est close depuis le ${r.deadline.toLocaleDateString('fr-FR')}.`
+                ? `La période de collecte « ${r.labelFr} » est close depuis le ${formatDoualaDateFr(r.deadline)}.`
                 : `La période de collecte « ${r.labelFr} » n'est pas ouverte aux soumissions.`;
 
         if (!round) {

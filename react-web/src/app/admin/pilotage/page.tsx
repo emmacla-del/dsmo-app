@@ -6,12 +6,12 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
-import type { Campaign } from "@/lib/campaigns";
+import { formatCampaignDate, type Campaign } from "@/lib/campaigns";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
 import { DataState } from "@/components/admin/DataState";
-import { count, meterWidth, percent, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-state";
+import { count, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
@@ -110,10 +110,12 @@ function CampaignCard({
   // null unless both figures are known and the target is non-zero.
   const completionPct = rate(submittedCount, target);
 
+  // Campaign dates are Cameroon calendar days (Africa/Douala), not the
+  // viewer's own zone: see lib/douala-date.
   const dateRange = campaign.startDate && deadlineStr
-    ? `${stamp(campaign.startDate, false, locale)} — ${stamp(deadlineStr, false, locale)}`
+    ? `${formatCampaignDate(campaign.startDate)} — ${formatCampaignDate(deadlineStr)}`
     : campaign.startDate
-      ? t("since", { date: stamp(campaign.startDate, false, locale) })
+      ? t("since", { date: formatCampaignDate(campaign.startDate) })
       : NOT_PROVIDED;
 
   return (

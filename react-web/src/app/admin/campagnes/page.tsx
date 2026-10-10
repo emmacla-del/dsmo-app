@@ -27,6 +27,7 @@ import {
 } from "@/lib/campaigns";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
+import { doualaIsoDate } from "@/lib/douala-date";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
@@ -852,10 +853,11 @@ function CreateCampaignDialog({
   // collectionType, so switching back to Collecte restores the user's choice.
   const effectiveModule: "DSMO" | "ONEFOP" = registration ? "ONEFOP" : collectionType;
 
-  // Today and today + 90 days, read once when the form mounts. Lazy
-  // initialisers, so the clock is not read again on every render.
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [deadline, setDeadline] = useState(() => new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0]);
+  // Today and today + 90 days in Cameroon (Africa/Douala), read once when the
+  // form mounts. Lazy initialisers, so the clock is not read again on every
+  // render. (The UTC date was the day before from 00:00 to 01:00 Douala.)
+  const [startDate, setStartDate] = useState(() => doualaIsoDate(new Date()) ?? "");
+  const [deadline, setDeadline] = useState(() => doualaIsoDate(new Date(Date.now() + 90 * 86_400_000)) ?? "");
   const [referenceYear, setReferenceYear] = useState("");
   const [referenceQuarter, setReferenceQuarter] = useState("");
   const [description, setDescription] = useState("");

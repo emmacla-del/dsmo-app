@@ -19,6 +19,7 @@
 // « from 1st January … to date » variant that Flutter's id/phrase lists
 // miss. The schema JSON itself is never edited (CLAUDE.md §3).
 import type { LocalizedText, OnefopField, OnefopSchema } from "./onefop-schema";
+import { doualaYear, formatDoualaDate } from "./douala-date";
 
 /** The round's data-collection period; null when the server sent none. */
 export interface CampaignPeriod {
@@ -38,13 +39,13 @@ export function campaignPeriodFrom(
   return { start: parse(quarter?.periodStart), end: parse(quarter?.periodEnd) };
 }
 
-// The server stores period bounds as calendar dates at midnight UTC
-// (CampaignService.computeCollectionPeriod); format them in UTC so a
-// browser west of Greenwich does not show the previous day.
+// A period bound is a calendar day stored as midnight of that day, in UTC
+// or in Douala depending on the server that built it
+// (CampaignService.computeCollectionPeriod uses the server's own zone): the
+// round QUARTERLY_2026_T4_001 starts 2026-09-30T23:00:00Z, i.e. 1 Oct in
+// Douala. Both read as the intended day in Africa/Douala (lib/douala-date).
 function formatDate(date: Date): string {
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${date.getUTCFullYear()}`;
+  return formatDoualaDate(date) ?? "";
 }
 
 // Flutter's wording for an unset bound (OnefopFormController._undefined),
@@ -72,7 +73,7 @@ const FR_PRIOR_ACADEMIC_YEAR = /pour l'année antérieur \(\d{4}-\d{4}\)/g;
 function rewrite(text: LocalizedText | null, period: CampaignPeriod): LocalizedText | null {
   if (!text) return text;
   const phrase = periodPhrase(period);
-  const year = period.end?.getUTCFullYear();
+  const year = period.end ? doualaYear(period.end) : null;
   const prior = year ? `pour l'année antérieur (${year - 2}-${year - 1})` : `pour l'année antérieur (${NOT_SET.fr})`;
   const fr = text.fr.replace(FR_PLACEHOLDER, phrase.fr).replace(FR_PRIOR_ACADEMIC_YEAR, prior);
   const en = text.en.replace(EN_PLACEHOLDER, phrase.en);

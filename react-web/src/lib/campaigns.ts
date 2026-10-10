@@ -11,6 +11,7 @@
 // migration: built and wired, never exercised live without explicit,
 // separately-authorized testing.
 import { apiFetch } from "./api-client";
+import { formatDoualaDate } from "./douala-date";
 
 /**
  * Mirrors the Prisma `CampaignPeriodicity` enum (prisma/schema.prisma).
@@ -225,11 +226,13 @@ export const REMINDER_TYPES: { value: string; label: string }[] = [
   { value: "DEADLINE_EXTENDED", label: "Prorogation" },
 ];
 
+/**
+ * dd/MM/yyyy of the campaign date's Cameroon (Africa/Douala) calendar day,
+ * whatever the viewer's own time zone: 2026-09-30T23:00:00Z is 01/10/2026.
+ */
 export function formatCampaignDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  return formatDoualaDate(iso) ?? String(iso);
 }
 
 /**

@@ -16,6 +16,7 @@ import { PdfService, PdfData } from './pdf.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { IgnoredIdentityChange, lockCompanyIdentity } from './company-territory-lock';
 import { Territory, territoryWhere } from '../auth/territory';
+import { formatDoualaDateFr } from '../common/utils/douala-date';
 
 @Injectable()
 export class DsmoService {
@@ -517,7 +518,7 @@ export class DsmoService {
     const isOpen = round.id === openRound?.id;
     const closedMessage =
       round.deadline < new Date()
-        ? `La période de collecte « ${round.labelFr} » est close depuis le ${round.deadline.toLocaleDateString('fr-FR')}.`
+        ? `La période de collecte « ${round.labelFr} » est close depuis le ${formatDoualaDateFr(round.deadline)}.`
         : `La période de collecte « ${round.labelFr} » n'est pas ouverte aux soumissions.`;
     return {
       isOpen,
