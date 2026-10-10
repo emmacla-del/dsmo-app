@@ -1,7 +1,7 @@
 # CAM-LEAP UI grammar
 
 **Status:** normative. This is the answer to "which rules apply to this surface?"
-**Scope:** the staff console (`react-web/src/app/admin/**`, `react-web/src/components/admin/**`) and the registration wizard (`react-web/src/app/register/**`, `react-web/src/components/auth/**`). The 15 rules below are the staff console's class recipes. Both surfaces share §Shared rules. The wizard's own shell is §Respondent composition.
+**Scope:** the staff console (`react-web/src/app/admin/**`, `react-web/src/components/admin/**`) and the registration wizard (`react-web/src/app/register/**`, `react-web/src/components/auth/**`). The 15 rules G1–G15 below are the staff console's class recipes; G16 governs question, answer and hint text on every respondent form. Both surfaces share §Shared rules. The wizard's own shell is §Respondent composition.
 **Reference page:** `src/app/admin/campagnes/page.tsx` — 242 `cam-*` class usages, 0 colour literals, in 1,087 lines. It exercises the four things every admin page is made of: a filtered list, a table, dialogs, and status badges.
 **Enforced by:** `npm run check:ui-grammar` and the scoped `no-restricted-syntax` block in `react-web/eslint.config.mjs`. See §Enforcement.
 
@@ -24,7 +24,7 @@ It also exists because the console has already lost this discipline once. Commit
 
 ---
 
-## The 15 rules
+## The 16 rules
 
 ### G1 — Colour
 
@@ -118,6 +118,26 @@ The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was 
 ### G15 — URL state
 
 List filters, view switches and pagination live in the query string via `hrefWith` in `lib/admin-url.ts`, so a reload keeps the view.
+
+### G16 — Question, answer, hint
+
+Every respondent form (registration, Modern Jobs, VT) draws its three kinds of text from one set of tokens in `tokens.css`, so **changing a value there changes every form at once** (owner, 2026-10-10):
+
+| Text | Class | Tokens | Today |
+|---|---|---|---|
+| Question | `.cam-question` | `--cam-question-size`, `--cam-question-weight`, `--cam-question-line-height` | 15px bold, 1.3 |
+| Answer: typed value, option text, Oui/Non | `.cam-answer` | `--cam-answer-size` | 14px regular |
+| Hint: helper line, option caption, note | `.cam-hint` | `--cam-microcopy-size`, `--cam-microcopy-color` | 12px muted |
+
+Use the class, or the token inline where the element already has an inline style. **Never a ladder step (`--cam-font-size-base`, `-sm`, `-2xs`) or a number for these three.** A ladder step would still render the right size today, and silently stop following the setting tomorrow.
+
+- The gap under a question is `--cam-field-stack-gap` (6px).
+- Phones raise a typed control to `--cam-font-size-input-ios` (16px) so iOS does not zoom. That rule stays; the answer token is the desktop size.
+- A selected option may change its weight to show the selection. The size stays the answer token.
+- Out of scope: statistical tables (`--cam-table-fs`, `check:tables`), screen and section headings, buttons that are not answers, error text, and the staff console's compact `.cam-admin-label` (13px).
+- Not yet migrated (awaiting owner review): the Modern Jobs event quiz (`EventQuestion.tsx`), where each question is an 18px screen heading over boxed Oui/Non buttons, and the scope quiz's part headings.
+
+Enforced by `form-text-size` in `check:ui-grammar`: a `<label>` or `<legend>` under `src/app/register`, `src/components/auth`, `src/components/onefop` or `src/components/modern-jobs` whose inline `fontSize` is not one of the three tokens fails. It has no baseline: it was at zero when it arrived.
 
 ---
 
@@ -219,7 +239,7 @@ Run `check:ui-grammar` after any change under `app/admin/**`, `components/admin/
 | Where | Rules | Why there |
 |---|---|---|
 | `eslint.config.mjs`, scoped `no-restricted-syntax` | G7 `position:"fixed"`, G12 `toLocale*`, G13 literal `fontSize`, G1 Tailwind palette classes | AST-shaped. Reported in the editor, on the exact node. |
-| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption | Text-shaped, cross-file, or needing a per-file count. |
+| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption, G16 question/answer/hint size | Text-shaped, cross-file, or needing a per-file count. |
 
 G12 and G13 appear in both: ESLint shows them at the node, the script ratchets the count so they cannot grow while the backlog is still being worked off.
 
