@@ -43,9 +43,9 @@ function VerifyEmailContent() {
       <div className="wrap">
         <AuthHeader />
         <div className="card">
-          <div className="card-body" style={{ textAlign: "center" }}>
+          <div className="card-body">
             {loading ? (
-              <p style={{ color: "var(--muted)", margin: "16px 0" }}>
+              <p className="brand-sub receipt-subtitle" role="status">
                 {t("verifyEmailPage.verifyingMessage")}
               </p>
             ) : (
@@ -59,18 +59,12 @@ function VerifyEmailContent() {
                     ? t("verifyEmailPage.successBadge")
                     : t("verifyEmailPage.failureBadge")}
                 </span>
-                <h1
-                  className="brand-name"
-                  style={{ fontSize: 18, marginBottom: 8, textAlign: "center" }}
-                >
+                <h1 className="brand-name receipt-title">
                   {success
                     ? t("verifyEmailPage.successTitle")
                     : t("verifyEmailPage.failureTitle")}
                 </h1>
-                <p
-                  className="brand-sub"
-                  style={{ textAlign: "center", marginBottom: 20 }}
-                >
+                <p className="brand-sub receipt-subtitle">
                   {message ??
                     (success ? "" : t("verifyEmailPage.invalidLinkMessage"))}
                 </p>
@@ -84,11 +78,6 @@ function VerifyEmailContent() {
                 </Link>
               </>
             )}
-          </div>
-          <div className="card-footer">
-            <span className="create-account">
-              <Link href="/login">{t("verifyEmailPage.backToSignInLink")}</Link>
-            </span>
           </div>
         </div>
 
