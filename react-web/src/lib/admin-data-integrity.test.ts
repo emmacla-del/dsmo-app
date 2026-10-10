@@ -428,3 +428,9 @@ test("clockTime: time to the second in the console locale, neutral when absent",
   assert.equal(clockTime(null), NOT_PROVIDED);
   assert.equal(clockTime("not a date"), NOT_PROVIDED);
 });
+
+test("dataStateMessage: French loading text contracts de + article", () => {
+  assert.equal(dataStateMessage("loading", "les dossiers"), "Chargement des dossiers…");
+  assert.equal(dataStateMessage("loading", "le journal d'audit"), "Chargement du journal d'audit…");
+  assert.equal(dataStateMessage("loading", "cet établissement"), "Chargement de cet établissement…");
+});
