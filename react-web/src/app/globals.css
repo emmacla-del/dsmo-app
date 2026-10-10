@@ -2645,6 +2645,10 @@ html:has(.cam-auth-page--wizard) {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--cam-font-size-sm);
+  /* The table line height, not the body's 1.5: most admin cells are two
+     lines (a name over a .cam-admin-meta line), and 1.5 made each row about
+     57px against --cam-row-height's 40. */
+  line-height: var(--cam-table-lh);
   color: var(--cam-text);
 }
 
@@ -2684,6 +2688,14 @@ html:has(.cam-auth-page--wizard) {
   color: var(--cam-text);
   vertical-align: middle;
   height: var(--cam-row-height);
+}
+
+/* Numeric columns (G6): right-aligned, with figures of equal width so a
+   column of counts lines up digit for digit. */
+.cam-table th.is-num,
+.cam-table td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .cam-table th.text-center,

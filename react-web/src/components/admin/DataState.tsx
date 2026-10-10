@@ -119,7 +119,9 @@ export function DataStateRow({
   return (
     <tr>
       <td colSpan={colSpan} className="cam-admin-state-cell">
-        <DataState state={state} resource={resource} title={title} hint={hint} error={error} onRetry={onRetry} />
+        {/* Dense: a loading or empty row the height of a few table rows,
+            not a 140px block that collapses when the data arrives. */}
+        <DataState state={state} resource={resource} title={title} hint={hint} error={error} onRetry={onRetry} dense />
       </td>
     </tr>
   );

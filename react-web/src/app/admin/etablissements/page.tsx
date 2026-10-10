@@ -402,7 +402,6 @@ export default function EtablissementsPage() {
             </div>
           </div>
         </div>
-      </section>
 
       <div className="cam-table-wrapper">
         <table className="cam-table">
@@ -470,6 +469,7 @@ export default function EtablissementsPage() {
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Pager figures, all from the response GET /companies returned. The
           current page is text, not a button: it is where the reader already is. */}

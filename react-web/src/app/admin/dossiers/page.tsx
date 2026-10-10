@@ -447,7 +447,10 @@ function DossiersContent() {
         </p>
       ))}
 
-      {/* ── Filters. Statut is not here: the control above sets it. ──
+      {/* ── Filters, toolbar and table: one section, so the controls read as
+          belonging to the list they act on (the sectors composition). The
+          table wrapper drops its own frame inside a section.
+          Filters. Statut is not here: the control above sets it. ──
           .cam-admin-filters is auto-fit/minmax, so the row reflows instead of
           overflowing the way the fixed four-column grid it replaces did. */}
       <section className="cam-admin-section">
@@ -514,27 +517,34 @@ function DossiersContent() {
               />
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ── Action toolbar. One primary action (the visa); reject is the
-          danger variant and export the secondary one. ── */}
+      {/* ── Action toolbar. Says how many dossiers are selected; the visa
+          (the one primary action) and reject appear only once at least one
+          is, so a decision is never offered on an empty selection. Export
+          is the secondary action and is always there. ── */}
       {!readOnly && (
-      <div className="cam-admin-selection">
-        <button
-          type="button"
-          className="cam-button cam-button-primary cam-button-sm"
-          onClick={handleOpenBulkModal}
-        >
-          <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
-        </button>
-        <button
-          type="button"
-          className="cam-button cam-button-danger cam-button-sm"
-          onClick={handleOpenRejectModal}
-        >
-          <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
-        </button>
+      <div className="cam-admin-selection" aria-live="polite">
+        {selectedIds.size > 0 ? (
+          <>
+            <span className="cam-admin-strong">{t("selectionCount", { count: selectedIds.size })}</span>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              onClick={handleOpenBulkModal}
+            >
+              <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
+            </button>
+            <button
+              type="button"
+              className="cam-button cam-button-danger cam-button-sm"
+              onClick={handleOpenRejectModal}
+            >
+              <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
+            </button>
+          </>
+        ) : (
+          <span className="cam-admin-meta">{t("selectionHint")}</span>
+        )}
 
         <button
           type="button"
@@ -552,6 +562,7 @@ function DossiersContent() {
         </button>
       </div>
       )}
+        </div>
 
       {/* ── Table. .cam-table-wrapper carries the surface, border, radius
           and the horizontal scroll this nine-column table needs on a narrow
@@ -567,6 +578,7 @@ function DossiersContent() {
                     className="cam-admin-table-check"
                     checked={allShownSelected}
                     onChange={(e) => toggleSelectAll(e.target.checked)}
+                    aria-label={t("selectAllAria")}
                   />
                 </th>
               )}
@@ -661,6 +673,7 @@ function DossiersContent() {
                         className="cam-admin-table-check"
                         checked={selectedIds.has(d.id)}
                         onChange={(e) => toggleSelect(d.id, e.target.checked)}
+                        aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })}
                       />
                     </td>
                   )}
@@ -712,6 +725,7 @@ function DossiersContent() {
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. The range reflects the rows actually returned, and

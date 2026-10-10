@@ -234,7 +234,9 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-          <span className="cam-admin-meta">{t("usersDirectory.accountsCount", { count: total })}</span>
+          {/* Only once the list has answered: "0 comptes" while loading or
+              after a failure would state a count nobody has read (G10). */}
+          {query.data && <span className="cam-admin-meta">{t("usersDirectory.accountsCount", { count: total })}</span>}
           <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => query.refetch()}>
             {t("usersDirectory.refresh")}
           </button>

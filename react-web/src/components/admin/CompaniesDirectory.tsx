@@ -162,9 +162,12 @@ export function CompaniesDirectory() {
         </button>
       </div>
 
-      <p className="cam-admin-meta" style={{ marginBottom: "var(--cam-space-3)" }}>
-        {t("companiesDirectory.resultsCount", { count: total })}
-      </p>
+      {/* Only once the list has answered (G10), never "0 résultats" while loading. */}
+      {query.data && (
+        <p className="cam-admin-meta" style={{ marginBottom: "var(--cam-space-3)" }}>
+          {t("companiesDirectory.resultsCount", { count: total })}
+        </p>
+      )}
 
       {listState !== "ready" && (
         <DataState

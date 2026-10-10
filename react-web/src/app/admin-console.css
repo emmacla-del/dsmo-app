@@ -1535,10 +1535,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cam-space-3);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  border: var(--cam-border-width) solid var(--cam-success-border);
-  border-radius: var(--cam-radius-md);
-  background: var(--cam-success-bg);
+  /* A plain toolbar row, not a green panel: colour is for state, and an
+     empty selection is not a success. */
+  padding: var(--cam-space-2) 0;
   font-size: var(--cam-font-size-sm);
 }
 
