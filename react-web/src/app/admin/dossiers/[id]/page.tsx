@@ -31,6 +31,7 @@ import {
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
+  allowedDecisions,
   eligibilityAxis,
   endorsementAxis,
   qualityAxis,
@@ -126,6 +127,38 @@ const CORRECTION_DELAYS: { value: string; labelKey: string }[] = [
 ];
 
 type Detail = Record<string, unknown>;
+
+// The structure card's fields, per structure type, in reading order. Each
+// type has its own detail record (Onefop*Detail in prisma/schema.prisma);
+// the card used to read the enterprise fields for every type, so a training
+// centre showed six empty company fields. Labels: adminDossierPage.structureField.
+const STRUCTURE_FIELDS: { detail: keyof AdminDossier; fields: string[] }[] = [
+  { detail: "enterpriseDetail", fields: ["companyName", "headOffice", "sector", "branch", "enterpriseSize", "permanentWorkers"] },
+  { detail: "cooperativeDetail", fields: ["cooperativeName", "cooperativeType", "headOffice", "yearCreated", "sector", "permanentWorkers"] },
+  { detail: "ctdDetail", fields: ["ctdType", "councilType", "yearCreated", "sector", "permanentWorkers"] },
+  { detail: "ongDetail", fields: ["ongName", "headOffice", "yearCreated", "mainMission", "permanentWorkers"] },
+  { detail: "administrationDetail", fields: ["name", "sigle", "mainMission", "sector"] },
+  { detail: "projectProgramDetail", fields: ["name", "sigle", "nature", "supervisingMinistry", "personInCharge", "permanentWorkers"] },
+  { detail: "vocationalTrainingDetail", fields: ["name", "sigle", "cfpType", "educationSystem", "functionalStatus", "yearOfEstablishment", "promoterName", "accreditationOrderNumber"] },
+];
+
+// VT stores an option as its bilingual label, "fr/ en" ("Fonctionnelle/
+// Functional"); the reviewer reads the half in the interface language. The
+// separator is "/ " (slash then space), so "SAR/SM/ RA/HECs" splits in two.
+function localHalf(value: string, locale: "fr" | "en"): string {
+  const parts = value.split("/ ");
+  return parts.length === 2 ? parts[locale === "en" ? 1 : 0].trim() : value;
+}
+
+/** The structure fields this dossier actually carries, as [field, value]; never invented. */
+function structureFacts(d: AdminDossier): [string, string][] {
+  const entry = STRUCTURE_FIELDS.find((e) => d[e.detail]);
+  if (!entry) return [];
+  const rec = d[entry.detail] as Record<string, unknown>;
+  return entry.fields
+    .map((f): [string, string] => [f, rec[f] == null ? "" : String(rec[f]).trim()])
+    .filter(([, v]) => v !== "");
+}
 
 function entityDetail(d: AdminDossier): Detail {
   return (
@@ -238,6 +271,7 @@ function SubmissionDetailContent() {
     </span>
   );
   const detail: Detail = dossier ? entityDetail(dossier) : {};
+  const structure = dossier ? structureFacts(dossier) : [];
 
   const pageState = resolveDataState({
     isLoading: dossierQuery.isLoading,
@@ -251,6 +285,19 @@ function SubmissionDetailContent() {
   const submittedOn = stamp(dossier?.submissionDate, false, locale);
   const region = dossier?.region ?? null;
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
+  const decisions = allowedDecisions(dossier?.status);
+  // The decision in words where the buttons were, dated when the server
+  // recorded the review date; without a date the status badge already says it.
+  const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, false, locale) : null;
+  const decidedLine = !decidedOn
+    ? null
+    : dossier?.status === "APPROVED"
+      ? t("decisionApprovedOn", { date: decidedOn })
+      : dossier?.status === "REJECTED"
+        ? t("decisionRejectedOn", { date: decidedOn })
+        : dossier?.status === "CORRECTION_REQUESTED"
+          ? t("awaitingRespondent", { date: decidedOn })
+          : null;
   const formType = dossier?.formType ?? "";
   const section1Fr = SECTION1_TITLE_FR[formType] ?? SECTION1_TITLE_FR.ENTREPRISE;
   const section1Title = SECTION1_TITLE_FR[formType] ? t(`section1.${formType}`) : t("section1.ENTREPRISE");
@@ -451,15 +498,27 @@ function SubmissionDetailContent() {
         }}
         actions={readOnly ? undefined : (
           <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
-              {t("rejectFormButton")}
-            </button>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
-              {t("requestCorrectionButton")}
-            </button>
-            <button type="button" className="cam-button cam-button-primary cam-button-sm" onClick={openApproveModal}>
-              {t("validateArchiveButton")}
-            </button>
+            {/* A final decision is final: APPROVED and REJECTED offer no
+                decision, and a dossier awaiting the respondent's correction
+                can only be rejected. allowedDecisions mirrors the server's
+                guards (QuestionnairesService.approve / reject /
+                requestCorrection), which enforce the same rule. */}
+            {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
+            {decisions.reject && (
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
+                {t("rejectFormButton")}
+              </button>
+            )}
+            {decisions.requestCorrection && (
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
+                {t("requestCorrectionButton")}
+              </button>
+            )}
+            {decisions.approve && (
+              <button type="button" className="cam-button cam-button-primary cam-button-sm" onClick={openApproveModal}>
+                {t("validateArchiveButton")}
+              </button>
+            )}
           </>
         )}
       />
@@ -523,32 +582,19 @@ function SubmissionDetailContent() {
 
           <section className="cam-dash-card">
             <h2 className="cam-dossier-card-title">{t("organisationCardTitle")}</h2>
-            <dl className="cam-dossier-fields">
-              <div>
-                <dt>{t("companyNameLabel")}</dt>
-                <dd>{fact(detail.companyName)}</dd>
-              </div>
-              <div>
-                <dt>{t("headOfficeLabel")}</dt>
-                <dd>{fact(detail.headOffice)}</dd>
-              </div>
-              <div>
-                <dt>{t("sectorLabel")}</dt>
-                <dd>{fact(detail.sector)}</dd>
-              </div>
-              <div>
-                <dt>{t("branchLabel")}</dt>
-                <dd>{fact(detail.branch)}</dd>
-              </div>
-              <div>
-                <dt>{t("companySizeLabel")}</dt>
-                <dd>{fact(detail.enterpriseSize)}</dd>
-              </div>
-              <div>
-                <dt>{t("permanentEmployeesLabel")}</dt>
-                <dd>{fact(detail.permanentWorkers)}</dd>
-              </div>
-            </dl>
+            {structure.length > 0 ? (
+              <dl className="cam-dossier-fields">
+                {structure.map(([field, value]) => (
+                  <div key={field}>
+                    {/* yearOfEstablishment (VT) shares the founding-year label. */}
+                    <dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt>
+                    <dd>{localHalf(value, locale)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="cam-admin-meta">{t("structureEmpty")}</p>
+            )}
           </section>
         </div>
 

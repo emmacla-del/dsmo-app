@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DossierDiagnostic } from "./api-client";
-import { EXCLUSION_REASONS, eligibilityAxis, endorsementAxis, qualityAxis } from "./dossier-axes";
+import { EXCLUSION_REASONS, allowedDecisions, eligibilityAxis, endorsementAxis, qualityAxis } from "./dossier-axes";
 
 function diagnostic(partial: Partial<DossierDiagnostic>): DossierDiagnostic {
   return {
@@ -63,5 +63,13 @@ test("every badge key has a label in both catalogues", () => {
       const value = key.split(".").reduce<unknown>((node, k) => (node as Record<string, unknown> | undefined)?.[k], catalogue.adminDossierPage);
       assert.equal(typeof value, "string", `${locale}: adminDossierPage.${key}`);
     }
+  }
+});
+
+test("allowedDecisions mirrors the server's decision guards", () => {
+  assert.deepEqual(allowedDecisions("PENDING_REVIEW"), { approve: true, reject: true, requestCorrection: true });
+  assert.deepEqual(allowedDecisions("CORRECTION_REQUESTED"), { approve: false, reject: true, requestCorrection: false });
+  for (const final of ["APPROVED", "REJECTED", null, undefined, "UNKNOWN"]) {
+    assert.deepEqual(allowedDecisions(final), { approve: false, reject: false, requestCorrection: false });
   }
 });
