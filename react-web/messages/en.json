@@ -1247,6 +1247,8 @@
     }
   },
   "adminLayout": {
+    "keyFigures": "Key figures",
+    "loadingFigures": "Loading figures…",
     "sectorsSubtitle": "National classification of occupations and economic sectors",
     "accessDeniedTitle": "Restricted access",
     "accessDeniedMessage": "This administration console is reserved for accredited MINEFOP officers and auditors.",

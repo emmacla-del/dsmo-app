@@ -25,6 +25,7 @@ import {
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
   hrefWith,
@@ -80,6 +81,7 @@ function CentreQualiteContent() {
   const queryClient = useQueryClient();
   const tRoot = useTranslations();
   const t = useTranslations("adminCentreQualitePage");
+  const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
@@ -261,19 +263,12 @@ function CentreQualiteContent() {
             <h2 id="quality-kpis-title" className="cam-admin-h2" style={{ marginBottom: "var(--cam-space-3)" }}>
               {t("qualityIndicatorsTitle")}
             </h2>
-            {/* Five tiles, so the four-column .cam-pilot-kpis grid is widened
-                to auto-fit rather than leaving one orphan on a second row. */}
-            <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-              {qualityKpis.map((k) => (
-                <div key={k.key} className="cam-pilot-kpi">
-                  <span className="cam-pilot-kpi-label">{k.label}</span>
-                  <span className="cam-pilot-kpi-value" aria-busy={qualityQuery.isLoading || undefined}>
-                    {qualityQuery.isLoading ? NOT_PROVIDED : percent(k.value, 0, locale)}
-                  </span>
-                  <span className="cam-pilot-kpi-trend">{k.hint}</span>
-                </div>
-              ))}
-            </div>
+            <StatStrip
+              label={tStats("keyFigures")}
+              loadingLabel={tStats("loadingFigures")}
+              loading={qualityQuery.isLoading}
+              items={qualityKpis.map((k) => ({ key: k.key, value: percent(k.value, 0, locale), label: k.label, hint: k.hint }))}
+            />
           </section>
 
           {/* Authoritative aggregates by anomaly type and by region. */}
