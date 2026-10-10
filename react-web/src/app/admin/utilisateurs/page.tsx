@@ -279,7 +279,7 @@ export default function OnefopUsersPage() {
                 <th scope="col">{t("roleColumn")}</th>
                 <th scope="col">{t("territoryColumn")}</th>
                 <th scope="col">{t("staffNumberColumn")}</th>
-                <th scope="col" className="text-right">{t("formsColumn")}</th>
+                <th scope="col" className="is-num">{t("formsColumn")}</th>
                 <th scope="col">{t("lastSignInColumn")}</th>
                 <th scope="col">{t("createdColumn")}</th>
                 <th scope="col">{t("registeredByColumn")}</th>
@@ -321,7 +321,7 @@ export default function OnefopUsersPage() {
                     <span className="cam-admin-code">{agent.matricule ?? NOT_PROVIDED}</span>
                   </td>
 
-                  <td className="text-right">
+                  <td className="is-num">
                     <span className="cam-admin-strong">{count(agent.submissionsCount, locale)}</span>
                   </td>
 

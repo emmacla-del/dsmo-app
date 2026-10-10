@@ -251,7 +251,7 @@ function JournalAuditContent() {
     <div className="cam-admin-page">
       {header}
 
-      <section className="cam-admin-section" aria-label={t("filtersAriaLabel")}>
+      <section className="cam-admin-section">
         <div className="cam-admin-section-body">
           <div className="cam-admin-filters">
             <div className="cam-field">
@@ -341,7 +341,6 @@ function JournalAuditContent() {
             </div>
           </div>
         </div>
-      </section>
 
       <div className="cam-table-wrapper" role="region" aria-label={t("registerAriaLabel")}>
         <table className="cam-table">
@@ -406,6 +405,7 @@ function JournalAuditContent() {
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. No fixed page buttons: the number of pages is

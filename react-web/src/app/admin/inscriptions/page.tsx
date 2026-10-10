@@ -378,7 +378,6 @@ function InscriptionsContent() {
           </Filter>
         </div>
         </div>
-      </section>
 
       <div className="cam-table-wrapper">
         <table className="cam-table">
@@ -452,14 +451,18 @@ function InscriptionsContent() {
           </tbody>
         </table>
       </div>
+      </section>
 
-      <div className="cam-pagination">
+      {/* Only once the queue has answered (G10) and has rows: "0–0 sur 0"
+          read as a count nobody had read while loading, and repeats the
+          table's own empty state once loaded. */}
+      {queueQuery.data && total > 0 && <div className="cam-pagination">
         <span className="cam-pagination-info">
           {t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}
         </span>
         <button type="button" className="cam-pagination-btn" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("previousButton")}</button>
         <button type="button" className="cam-pagination-btn" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>{t("nextButton")}</button>
-      </div>
+      </div>}
       </>)}
 
       <AdminDialog
