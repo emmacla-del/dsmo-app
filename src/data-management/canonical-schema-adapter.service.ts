@@ -135,8 +135,18 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    (VT7_7_OTHER..VT7_11_OTHER), and each stakeholder x channel gets a 0/1
  *    variable right after the stakeholder's own (VT7_7_01..VT7_11_96; see
  *    MULTI_RESPONSE_DUMMY_FIELDS). Existing names and order unchanged.
+ * 8: export fixes, names and order unchanged. (a) VT1_15 respondent
+ *    (name, function, phones, e-mail) is read from the respondent record —
+ *    it was always blank. (b) A training-centre table's computed total
+ *    (« Total (calculé) », sum of the row's sibling cells) that was not
+ *    stored is computed — the row-by-row tables (4.2, 4.8-4.11, 6.3, 8.1,
+ *    8.2) never stored theirs; blank while any sibling is blank. (c)
+ *    establishmentId is A36 (a 36-character identifier was cut at A25).
+ *    (d) periodStart / periodEnd of a round are the Africa/Douala calendar
+ *    date (a round starting at midnight Douala, 23:00 UTC the day before,
+ *    exported the day before).
  */
-export const DATASET_SCHEMA_VERSION = 7;
+export const DATASET_SCHEMA_VERSION = 8;
 
 /**
  * Multiple-choice questions also exported as one 0/1 variable per option,
@@ -180,6 +190,8 @@ export class CanonicalSchemaAdapterService {
   private cachedDemandVariables: AnalyticalVariableDefinition[] | null = null;
   private cachedTvetVariables: AnalyticalVariableDefinition[] | null = null;
   private cachedByEntity = new Map<string, AnalyticalVariableDefinition[]>();
+  // VT computed cell id -> the sibling cell ids it sums (vtComputedTotal).
+  private vtComputedCells: Map<string, string[]> | null = null;
 
   // Frozen variable names (E4) — see spss/variable-registry.ts.
   private variableRegistry: VariableRegistry = DEFAULT_VARIABLE_REGISTRY;
@@ -354,17 +366,12 @@ export class CanonicalSchemaAdapterService {
 
     // 2. Respondent Section 0
     if (sp.startsWith('respondent.')) {
-      const prop = sp.slice('respondent.'.length);
-      const resp = submission.respondent;
-      if (resp) {
-        if (prop === 'name') return resp.respondentName;
-        if (prop === 'function') return resp.respondentFunction;
-        if (prop === 'phone1') return resp.phone1;
-        if (prop === 'phone2') return resp.phone2;
-        if (prop === 'email') return resp.email;
-        if (resp[prop] !== undefined) return resp[prop];
-      }
-      return submission.rawData?.respondent?.[prop];
+      return this.respondentValue(sp.slice('respondent.'.length), submission);
+    }
+    // A section-1 field whose schema path is respondent.<prop> (VT1_15) is
+    // named detail.respondent.<prop>; it lives on the respondent record too.
+    if (sp.startsWith('detail.respondent.')) {
+      return this.respondentValue(sp.slice('detail.respondent.'.length), submission);
     }
 
     // 3. Section 1 Detail Entities
@@ -406,7 +413,8 @@ export class CanonicalSchemaAdapterService {
       const childValue = this.extractMatrixValueFromRelations(tableId, cellId, submission);
       if (childValue !== undefined) return childValue;
 
-      return undefined;
+      // A VT « Total (calculé) » that was never stored (dataset v8).
+      return this.vtComputedTotal(cellId, submission.rawData);
     }
 
     // 5. Fixed Indexed slots (reasons, skills, training needs)
@@ -444,6 +452,62 @@ export class CanonicalSchemaAdapterService {
     }
 
     return undefined;
+  }
+
+  private respondentValue(prop: string, submission: any): unknown {
+    const resp = submission.respondent;
+    if (resp) {
+      if (prop === 'name') return resp.respondentName;
+      if (prop === 'function') return resp.respondentFunction;
+      if (prop === 'phone1') return resp.phone1;
+      if (prop === 'phone2') return resp.phone2;
+      if (prop === 'email') return resp.email;
+      if (resp[prop] !== undefined) return resp[prop];
+    }
+    return submission.rawData?.respondent?.[prop];
+  }
+
+  /**
+   * A training-centre table's computed cell (« Total (calculé) », formula
+   * sum-of-siblings) when it was not stored: the sum of the row's number
+   * cells of the same group — `total` sums every number cell of the row,
+   * `entrant_total` the `entrant_*` ones. Undefined (blank) while any of
+   * those cells is blank or when the cell is not a VT computed cell (dataset
+   * v8). The row-by-row entry never stored these totals.
+   */
+  private vtComputedTotal(cellId: string, rawData: Record<string, unknown> | undefined): number | undefined {
+    if (!rawData) return undefined;
+    if (!this.vtComputedCells) {
+      this.vtComputedCells = new Map();
+      const entity = this.schemaLoader.getRoot().entities['vocationalTraining'];
+      for (const sec of entity?.sections ?? []) {
+        for (const f of sec.fields) {
+          const vt = f.table?.vt;
+          const matrix = f.table?.matrix;
+          if (!vt || !matrix) continue;
+          for (const rowIds of matrix) {
+            vt.cells.forEach((cell, c) => {
+              if (cell.kind !== 'computed' || cell.formula !== 'sum-of-siblings') return;
+              const group = cell.key.replace(/_?total$/i, '');
+              const siblings = rowIds.filter((_, i) =>
+                vt.cells[i]?.kind === 'number' && (group === '' || vt.cells[i].key.startsWith(`${group}_`)));
+              if (siblings.length > 0 && rowIds[c]) this.vtComputedCells!.set(rowIds[c], siblings);
+            });
+          }
+        }
+      }
+    }
+    const siblings = this.vtComputedCells.get(cellId);
+    if (!siblings) return undefined;
+    let sum = 0;
+    for (const id of siblings) {
+      const v = rawData[id];
+      if (v === undefined || v === null || v === '') return undefined;
+      const n = Number(v);
+      if (!Number.isFinite(n)) return undefined;
+      sum += n;
+    }
+    return sum;
   }
 
   /**
@@ -497,8 +561,13 @@ export class CanonicalSchemaAdapterService {
   public resolveReferencePeriod(submission: any): { start: string; end: string } | null {
     const round = submission?.referencePeriod;
     if (round?.periodStart && round?.periodEnd) {
-      const utc = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
-      return { start: utc(round.periodStart), end: utc(round.periodEnd) };
+      // The Africa/Douala calendar date (dataset v8): a bound stored as
+      // midnight Douala (23:00 UTC the day before) and one stored as midnight
+      // UTC (01:00 Douala) both read as the intended day.
+      const douala = (d: Date | string) =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Douala', year: 'numeric', month: '2-digit', day: '2-digit' })
+          .format(new Date(d));
+      return { start: douala(round.periodStart), end: douala(round.periodEnd) };
     }
     const derived = collectionPeriodFromQuarterCode(submission?.quarterCode);
     if (!derived) return null;
@@ -917,7 +986,7 @@ export class CanonicalSchemaAdapterService {
         sectionId: 'system',
         entityApplicability: ['ALL'],
         spssDataType: 'A',
-        spssWidth: 25,
+        spssWidth: 36,
         measurementLevel: 'NOMINAL',
         sourcePath: 'submission.establishmentId',
       },
