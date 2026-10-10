@@ -127,7 +127,7 @@ List filters, view switches and pagination live in the query string via `hrefWit
 
 Two things that look like rule-breaking and are not:
 
-- **A local contract variable.** `--cam-kpi-tone` is set by `.cam-kpi-tile--{tone}` and read by `.cam-kpi-tile`. It is a parameter, not a palette entry, and it lives next to the class that defines it.
+- **A local contract variable.** `--cam-status-dot` is set by `.cam-admin-status-badge--{status}` and read by the badge's `::before` dot. It is a parameter, not a palette entry, and it lives next to the class that defines it.
 - **`#000` in a `mask`.** A mask reads only the opacity channel, so its opaque stop has to be a fully opaque literal. A palette token there would be wrong. `.cam-pilot-donut` is the one such case, and the check allowlists `mask` / `-webkit-mask`.
 
 A `var(--cam-*)` that resolves to nothing is **not** a style preference. The declaration is dropped, so the element renders transparent or unstyled. Four such references existed and were shipping two visible bugs — a transparent dialog card on `questionnaires`, a transparent highlight in `LiveTablePreview`. The phantom-token check therefore blocks immediately and has no baseline.
