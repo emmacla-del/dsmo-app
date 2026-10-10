@@ -25,8 +25,10 @@ import {
   metricUnavailable,
   notRecorded,
   resolveDataState,
+  shortRecordId,
   stamp,
 } from "@/lib/admin-data-state";
+import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
   eligibilityAxis,
@@ -36,6 +38,14 @@ import {
   type AxisTone,
   type DiagnosticState,
 } from "@/lib/dossier-axes";
+
+// An anomaly's observed/expected pair is worth a line only when it carries a
+// figure. The coherence checks store "Incohérence détectée" / "Égalité
+// requise", which repeated under every alert and said nothing the
+// description (which has the numbers) does not.
+function hasFigures(observed: unknown, expected: unknown): boolean {
+  return /\d/.test(String(observed ?? "")) || /\d/.test(String(expected ?? ""));
+}
 
 // Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
 // Axis verdict -> .cam-dossier-pill modifier. `neutral` keeps the base pill
@@ -355,7 +365,9 @@ function SubmissionDetailContent() {
       steps.push({
         key: "submitted",
         title: t("timelineReceived"),
-        detail: dossier.quarterCode ? t("timelineCampaign", { code: dossier.quarterCode }) : null,
+        detail: dossier.quarterCode
+          ? referencePeriodPhrases(dossier.quarterCode, locale)?.campaign ?? t("timelineCampaign", { code: dossier.quarterCode })
+          : null,
         stamp: stamp(dossier.submissionDate, true, locale),
         dot: "",
       });
@@ -393,7 +405,7 @@ function SubmissionDetailContent() {
         <AdminPageHeader
           breadcrumb={breadcrumb}
           backHref="/admin/dossiers"
-          title={t("fileTitle", { ref: id })}
+          title={t("fileTitle", { ref: shortRecordId(id) })}
         />
         <DataState
           state={pageState === "ready" ? "notFound" : pageState}
@@ -429,7 +441,7 @@ function SubmissionDetailContent() {
       <AdminPageHeader
         breadcrumb={breadcrumb}
         backHref="/admin/dossiers"
-        title={t("fileTitle", { ref })}
+        title={<span title={ref}>{t("fileTitle", { ref: shortRecordId(ref) })}</span>}
         subtitle={`${t("submittedOn", { date: submittedOn })}${region ? t("regionSuffix", { region }) : ""}${dossier.department ? ` / ${dossier.department}` : ""}`}
         statusBadge={{
           // A record with no stored status says so, in its own neutral tone,
@@ -620,11 +632,13 @@ function SubmissionDetailContent() {
               </h3>
               <ul className="cam-admin-issues" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.blockingAnomalies.map((ano, idx) => (
-                  <li key={idx}>
-                    <span className="cam-admin-issue-code">{ano.ruleCode}</span> &middot; {ano.description}
-                    <p className="cam-admin-meta" style={{ margin: 0 }}>
+                  <li key={idx} title={ano.ruleCode}>
+                    {ano.description}
+                    {hasFigures(ano.observedValue, ano.expectedValue) && (
+                      <p className="cam-admin-meta" style={{ margin: 0 }}>
                       {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
                     </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -638,11 +652,13 @@ function SubmissionDetailContent() {
               </h3>
               <ul className="cam-admin-issues is-warn" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.warningAnomalies.map((ano, idx) => (
-                  <li key={idx}>
-                    <span className="cam-admin-issue-code">{ano.ruleCode}</span> &middot; {ano.description}
-                    <p className="cam-admin-meta" style={{ margin: 0 }}>
+                  <li key={idx} title={ano.ruleCode}>
+                    {ano.description}
+                    {hasFigures(ano.observedValue, ano.expectedValue) && (
+                      <p className="cam-admin-meta" style={{ margin: 0 }}>
                       {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
                     </p>
+                    )}
                   </li>
                 ))}
               </ul>
