@@ -326,16 +326,21 @@ export class OnefopService {
             const currentYear = now.getFullYear();
             const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
             const quarterCode = `${currentYear}-T${currentQuarter}`;
-            // Deliberately still open: this branch is only reached when the
-            // SubmissionRound table holds no ONEFOP round whatsoever, i.e. a
-            // fresh or local database that has never run a campaign. It is an
-            // explicit test affordance (note the label), and the honesty fix
-            // below is scoped to real rounds. Flipping this to false would
-            // make a seed-less environment unable to submit at all.
+            // No ONEFOP round exists at all (no campaign has ever been
+            // launched). Reported closed: submitForm's assertOnefopRoundOpen
+            // refuses every final filing without a round anyway, so "open"
+            // here let respondents fill the whole form and only learn at the
+            // last click that they could not file it (F7, 2026-10-10). `code`
+            // stays populated so drafts keep saving; a draft filed under this
+            // "<year>-T<n>" code is picked up again when the campaign of the
+            // same quarter opens (react-web onefop-drafts.ts, use-onefop-draft.ts).
             return {
-                isOpen: true,
+                isOpen: false,
+                message:
+                    "Aucune campagne de collecte ONEFOP n'est encore ouverte. Vous pouvez remplir et sauvegarder " +
+                    "le questionnaire ; il pourra être soumis dès l'ouverture de la campagne.",
                 code: quarterCode,
-                label: `Trimestre ${currentQuarter} ${currentYear} (Période test)`,
+                label: `Trimestre ${currentQuarter} ${currentYear}`,
                 deadline: new Date(currentYear, 11, 31, 23, 59, 59),
                 periodStart: new Date(currentYear, (currentQuarter - 1) * 3, 1),
                 periodEnd: new Date(currentYear, currentQuarter * 3, 0),
