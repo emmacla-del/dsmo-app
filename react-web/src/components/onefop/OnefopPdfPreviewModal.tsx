@@ -182,7 +182,6 @@ export function OnefopPdfPreviewModal({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 24 }}>📄</span>
             <div>
               <h2
                 id="preview-modal-title"
@@ -287,7 +286,6 @@ export function OnefopPdfPreviewModal({
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 18, color: "var(--cam-alert-orange)", flexShrink: 0 }}>⚠️</span>
           <p
             style={{
               margin: 0,
@@ -324,7 +322,6 @@ export function OnefopPdfPreviewModal({
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>
-                ℹ️{" "}
                 <strong>
                   {isFr
                     ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément à vos réponses au questionnaire préliminaire.`
@@ -425,7 +422,6 @@ export function OnefopPdfPreviewModal({
                 maxWidth: 440,
               }}
             >
-              <span style={{ fontSize: 32 }}>⚠️</span>
               <h3 style={{ margin: "10px 0 6px", fontSize: 15, fontWeight: 700, color: "var(--cam-alert-orange)" }}>
                 {isFr ? "Erreur de chargement de l'aperçu" : "Preview Loading Error"}
               </h3>
@@ -548,7 +544,6 @@ export function OnefopPdfPreviewModal({
               transition: "background 0.15s ease",
             }}
           >
-            <span>✏️</span>
             <span>{isFr ? "Modifier les informations" : "Edit information"}</span>
           </button>
 
@@ -573,7 +568,6 @@ export function OnefopPdfPreviewModal({
                 gap: 8,
               }}
             >
-              <span>📥</span>
               <span>{isFr ? "Télécharger le PDF" : "Download PDF"}</span>
             </button>
 
@@ -609,7 +603,6 @@ export function OnefopPdfPreviewModal({
                     : undefined
                 }
               >
-                <span>{isSubmitting ? "⏳" : (!canSubmit || hasErrors ? "🔒" : "🚀")}</span>
                 <span>
                   {isSubmitting
                     ? (isFr ? "Soumission en cours..." : "Submitting...")

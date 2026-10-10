@@ -2164,61 +2164,70 @@ html:has(.cam-auth-page--wizard) {
   animation: onefopPulse 1.4s ease-in-out infinite;
 }
 
-/* Sovereign Forms Input & Control System */
-.sovereign-text-input {
-  width: 100%;
-  border: 1px solid var(--cam-green-dark) !important;
-  border-radius: 6px;
-  background: var(--cam-surface);
-  color: var(--cam-text);
-  outline: none;
-  font-family: inherit;
-  box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.sovereign-text-input:focus {
-  border: 2px solid var(--cam-green-dark) !important;
-  box-shadow: var(--cam-focus-shadow) !important;
-  outline: none !important;
-}
-
-.sovereign-text-input.has-error {
-  border: 1px solid var(--cam-error) !important;
-}
-
-.sovereign-text-input.has-error:focus {
-  border: 2px solid var(--cam-error) !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
-}
-
+/* Sovereign Forms Input & Control System
+   The ONEFOP/VT declaration wizard's one text input and select. Height,
+   radius, border and type live here, not inline at each call site, so the
+   Modern Jobs and VT wizards draw the same control. Focus changes colour
+   only (1px stays 1px) so the text does not shift; an invalid control keeps
+   a red border. Phones get 16px type so iOS does not zoom on focus.
+   On a wrapper (the VT +237 phone field) :focus-within draws the focus. */
+.sovereign-text-input,
 .sovereign-select {
   width: 100%;
-  border: 1px solid var(--cam-green-dark) !important;
-  border-radius: 6px;
+  height: var(--cam-form-field-height);
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
   background: var(--cam-surface);
   color: var(--cam-text);
   outline: none;
   font-family: inherit;
+  font-size: var(--cam-font-size-base);
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.sovereign-select:focus {
-  border-color: var(--cam-green-dark) !important;
-  box-shadow: var(--cam-focus-shadow) !important;
-  outline: none !important;
+textarea.sovereign-text-input {
+  height: auto;
+  padding: var(--cam-space-2) var(--cam-space-3);
 }
 
+.sovereign-text-input:focus,
+.sovereign-text-input:focus-within,
+.sovereign-select:focus {
+  border-color: var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
+  outline: none;
+}
+
+.sovereign-text-input[readonly] {
+  border-color: var(--cam-border);
+}
+
+.sovereign-text-input.has-error,
 .sovereign-select.has-error {
-  border-color: var(--cam-error) !important;
+  border-color: var(--cam-error);
+}
+
+.sovereign-text-input.has-error:focus,
+.sovereign-text-input.has-error:focus-within,
+.sovereign-select.has-error:focus {
+  border-color: var(--cam-error);
+  box-shadow: var(--cam-focus-shadow-error);
 }
 
 .sovereign-select:disabled {
-  background: var(--cam-bg) !important;
-  color: var(--cam-placeholder) !important;
+  background: var(--cam-bg);
+  color: var(--cam-placeholder);
   cursor: not-allowed;
-  border-color: var(--cam-border) !important;
+  border-color: var(--cam-border);
+}
+
+@media (max-width: 640px) {
+  .sovereign-text-input,
+  .sovereign-select {
+    font-size: var(--cam-font-size-input-ios);
+  }
 }
 
 /* Professional Transition for Deck & Statistical Table Views
@@ -2795,6 +2804,17 @@ html:has(.cam-auth-page--wizard) {
 .cam-home-mobilebar,
 .cam-home-backdrop {
   display: none;
+}
+
+/* Desktop: the rail stays in view while a long page scrolls, so the
+   language switch and sign-out at its foot are always reachable. */
+@media (min-width: 900px) {
+  .cam-home-rail {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100dvh;
+  }
 }
 
 @media (max-width: 899px) {

@@ -69,11 +69,15 @@ export function AccessibleNumberInput({
     onChange(raw);
   };
 
+  // Neutral outline for both buttons (a filled green "+" competed with the
+  // primary action); 40px square outside compact mode.
+  const stepButtonClass = `${compact ? "w-7 h-7" : "w-10 h-10"} flex items-center justify-center rounded-[2px] border border-[var(--cam-border-strong)] bg-[var(--cam-surface)] hover:bg-[var(--cam-green-wash-hover)] text-[var(--cam-text)] font-bold text-sm transition-colors duration-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer`;
+
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <div
         className={`flex items-center bg-white border border-[#1B4332] rounded-[4px] transition-all duration-150 focus-within:border-[#1B4332] focus-within:ring-2 focus-within:ring-[#1B4332]/20 shadow-xs ${
-          compact ? "h-8 max-w-[120px]" : "h-10 max-w-[200px]"
+          compact ? "h-8 max-w-[120px]" : "min-h-10 max-w-[240px]"
         } ${disabled ? "bg-[#fafaf7] opacity-60" : ""}`}
       >
         <input
@@ -99,7 +103,7 @@ export function AccessibleNumberInput({
               aria-label={t("decrease")}
               disabled={disabled || stepBlocked || (min !== undefined && currentNum <= min)}
               onClick={() => handleStep(-stepDelta)}
-              className="w-7 h-7 flex items-center justify-center rounded-[2px] border border-[#d8ddd3] bg-[#fafaf7] hover:bg-[#eaf3ec] active:bg-[#d8ddd3] text-[#0b1f14] font-bold text-sm transition-colors duration-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className={stepButtonClass}
             >
               −
             </button>
@@ -108,7 +112,7 @@ export function AccessibleNumberInput({
               aria-label={t("increase")}
               disabled={disabled || stepBlocked || (max !== undefined && currentNum >= max)}
               onClick={() => handleStep(stepDelta)}
-              className="w-7 h-7 flex items-center justify-center rounded-[2px] border border-[#1a5c3a] bg-[#1a5c3a] hover:bg-[#144a28] active:bg-[#0b1f14] text-white font-bold text-sm transition-colors duration-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className={stepButtonClass}
             >
               +
             </button>

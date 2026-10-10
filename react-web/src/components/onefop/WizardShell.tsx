@@ -617,24 +617,6 @@ export function WizardShell({
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              margin: "0 auto 12px",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: 8,
-              background: "rgba(255, 255, 255, 0.12)",
-              color: "#ffffff",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-            title="MINEFOP / ONEFOP"
-          >
-            🏫
-          </div>
-
-          <div
-            style={{
               borderTop: "1px solid rgba(255, 255, 255, 0.12)",
               paddingTop: 8,
             }}
@@ -1256,7 +1238,7 @@ export function WizardShell({
               {/* Left: Section Indicator & Save */}
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>
-                  {`Section ${clampedSectionIndex + 1} / ${sections.length}`}
+                  {t("wizardShell.sectionCounter", { current: clampedSectionIndex + 1, total: sections.length })}
                 </span>
 
                 {onSaveNow && onCancel && (
@@ -1276,7 +1258,7 @@ export function WizardShell({
                     onClick={handleSaveAndExit}
                     disabled={saving}
                   >
-                    {saving ? "Sauvegarde..." : `💾 ${t("wizardShell.saveAndExitButton")}`}
+                    {saving ? t("wizardShell.saving") : t("wizardShell.saveAndExitButton")}
                   </button>
                 )}
               </div>

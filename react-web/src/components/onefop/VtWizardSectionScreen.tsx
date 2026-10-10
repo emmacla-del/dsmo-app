@@ -1191,7 +1191,7 @@ export function VtWizardSectionScreen({
                 cursor: "pointer",
               }}
             >
-              💾 {t("vtWizard.saveAndExit", { default: "Enregistrer et quitter" })}
+              {t("vtWizard.saveAndExit", { default: "Enregistrer et quitter" })}
             </button>
           )}
           <button

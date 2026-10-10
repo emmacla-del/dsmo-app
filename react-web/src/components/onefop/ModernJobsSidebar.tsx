@@ -291,7 +291,7 @@ export function ModernJobsSidebar({
               style={{
                 display: "block",
                 marginTop: 2,
-                fontSize: "var(--cam-font-size-2xs, 0.6875rem)",
+                fontSize: "var(--cam-font-size-2xs)",
                 color: state === "error" ? "var(--cam-error)" : "var(--cam-text-muted)",
               }}
             >

@@ -30,7 +30,7 @@ export function SkipLogicBanner({
       style={{
         background: "var(--cam-surface)",
         border: "1px solid var(--vt-accent-soft, #c6e3d0)",
-        borderRadius: "var(--cam-radius-md, 8px)",
+        borderRadius: "var(--cam-radius-md)",
         padding: "var(--cam-space-4, 16px)",
         marginBottom: "var(--cam-space-4, 16px)",
         display: "flex",
@@ -90,7 +90,7 @@ export function SkipLogicBanner({
               gap: 4,
               marginTop: "var(--cam-space-2, 8px)",
               padding: "2px 8px",
-              borderRadius: "var(--cam-radius-sm, 4px)",
+              borderRadius: "var(--cam-radius-sm)",
               background: "var(--cam-success-bg)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",

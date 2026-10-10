@@ -50,7 +50,7 @@ export function TableCompletionIndicator({
         padding: "10px 14px",
         background: "var(--cam-amber-bg)",
         border: "1px solid var(--cam-amber-border)",
-        borderRadius: "var(--cam-radius-sm, 6px)",
+        borderRadius: "var(--cam-radius-sm)",
         color: "var(--cam-amber-text)",
         fontSize: "var(--cam-font-size-xs, 0.8125rem)",
         lineHeight: 1.4,

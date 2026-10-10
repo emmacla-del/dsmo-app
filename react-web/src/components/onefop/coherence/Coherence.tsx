@@ -172,7 +172,7 @@ const tipButtonStyle: React.CSSProperties = {
   color: "var(--cam-warning)",
   background: "var(--cam-surface)",
   border: "1px solid var(--cam-warning)",
-  borderRadius: "var(--cam-radius-sm, 4px)",
+  borderRadius: "var(--cam-radius-sm)",
   cursor: "pointer",
 };
 
@@ -327,7 +327,7 @@ function AnomalyTooltip({
         background: "var(--cam-surface)",
         border: "1px solid var(--cam-warning-border)",
         borderTop: "4px solid var(--cam-warning)",
-        borderRadius: "var(--cam-radius-sm, 6px)",
+        borderRadius: "var(--cam-radius-sm)",
         boxShadow: "0 8px 24px rgba(20, 30, 20, 0.18)",
         padding: "10px 12px",
         fontFamily: "var(--cam-font-sans)",
@@ -573,7 +573,7 @@ export function CoherenceFieldNote({ fieldId }: { fieldId: string }) {
         padding: "8px 10px",
         background: "var(--cam-warning-bg)",
         borderLeft: "3px solid var(--cam-warning)",
-        borderRadius: "var(--cam-radius-sm, 4px)",
+        borderRadius: "var(--cam-radius-sm)",
       }}
     >
       {flags.map((flag) => (
@@ -597,7 +597,7 @@ export function CoherenceReviewList({ onGoTo }: { onGoTo?: (cell: CoherenceCell)
         border: "1px solid var(--cam-warning-border)",
         borderLeft: "4px solid var(--cam-warning)",
         background: "var(--cam-warning-bg)",
-        borderRadius: "var(--cam-radius-sm, 6px)",
+        borderRadius: "var(--cam-radius-sm)",
         padding: "12px 14px",
         marginBottom: 20,
       }}

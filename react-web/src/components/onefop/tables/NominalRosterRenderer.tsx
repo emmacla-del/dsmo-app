@@ -476,7 +476,7 @@ export function NominalRosterRenderer({
                           minWidth: 36,
                         }}
                       >
-                        ✏
+                        {t("edit")}
                       </button>
                       <button
                         type="button"
@@ -497,7 +497,7 @@ export function NominalRosterRenderer({
                           color: errRed,
                         }}
                       >
-                        🗑
+                        {t("delete")}
                       </button>
                     </div>
                   </div>

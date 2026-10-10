@@ -3,9 +3,8 @@
 import { useTranslations } from "next-intl";
 import type { OnefopField } from "@/lib/onefop-schema";
 import { bilingual, localized, type LocalizedText } from "@/lib/onefop-schema";
-import { AccessibleRadioGroup } from "./ui/AccessibleRadioGroup";
-import { AccessibleCheckboxGroup } from "./ui/AccessibleCheckboxGroup";
-import { AccessibleNumberInput } from "./ui/AccessibleNumberInput";
+import { RadioGroup } from "./form/Radio";
+import { CheckboxGroup } from "./form/Checkbox";
 import { isOptionalField } from "@/lib/onefop-validation";
 
 /**
@@ -42,53 +41,28 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
   // blocks, so no native `required` (and its browser tooltip) is set.
   const required = !isOptionalField(field);
   const optionLabel = (text: LocalizedText | null) => (locale ? localized(text, locale) : bilingual(text));
-  const textInputStyle: React.CSSProperties = {
-    width: "100%",
-    height: compact ? 30 : 42,
-    border: `1px solid ${hasError ? "#dc2626" : "#1B4332"}`,
-    borderRadius: 6,
-    padding: `0 ${compact ? "8px" : "12px"}`,
-    fontSize: compact ? 13 : 14,
-    fontFamily: "inherit",
-    background: "#ffffff",
-    color: "#0f172a",
-    boxSizing: "border-box",
-    outline: "none",
-  };
-
-  const selectStyle: React.CSSProperties = {
-    width: "100%",
-    height: compact ? 30 : 42,
-    border: `1px solid ${hasError ? "#dc2626" : "#1B4332"}`,
-    borderRadius: 6,
-    padding: `0 ${compact ? "8px" : "12px"}`,
-    fontSize: compact ? 13 : 14,
-    fontFamily: "inherit",
-    background: "#ffffff",
-    color: "#0f172a",
-    boxSizing: "border-box",
-    outline: "none",
-  };
-
+  // Height, border, radius and type come from .sovereign-text-input /
+  // .sovereign-select (globals.css). Only the dense Tableur row overrides.
+  const compactStyle: React.CSSProperties | undefined = compact
+    ? { height: 30, padding: "0 var(--cam-space-2)", fontSize: "var(--cam-font-size-xs)" }
+    : undefined;
 
   if (field.type === "radio" && field.options) {
     if (!compact) {
-      const radioOptions = field.options.map((opt) => ({
-        value: opt.value,
-        label: optionLabel(opt.label),
-      }));
+      // The unboxed VT radio group (CLAUDE.md §9: no boxed options). The
+      // old control compared String(value), so a non-string stored value
+      // still matches its option here.
       return (
-        <div id={field.id} aria-invalid={hasError || undefined}>
-          <AccessibleRadioGroup
-            id={field.id}
-            name={field.id}
-            options={radioOptions}
-            value={value}
-            onChange={(val) => onChange(field.id, val)}
-            orientation={field.options.length <= 3 ? "horizontal" : "vertical"}
-            required={required}
-          />
-        </div>
+        <RadioGroup
+          fieldId={field.id}
+          ariaLabel={optionLabel(field.label)}
+          options={field.options.map((opt) => ({ value: opt.value, label: optionLabel(opt.label) }))}
+          value={value == null ? value : String(value)}
+          onChange={onChange}
+          layout={field.options.length <= 3 ? "horizontal" : "vertical"}
+          invalid={hasError}
+          required={required}
+        />
       );
     }
 
@@ -134,19 +108,18 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
   if (field.type === "checkbox" && field.options) {
     const current = Array.isArray(value) ? (value as unknown[]).map(String) : [];
     if (!compact) {
-      const checkboxOptions = field.options.map((opt) => ({
-        value: opt.value,
-        label: optionLabel(opt.label),
-      }));
+      // The unboxed VT checkbox group. It reports an empty selection as
+      // undefined; the old control stored [], so the adapter keeps [].
       return (
-        <div id={field.id} aria-invalid={hasError || undefined}>
-          <AccessibleCheckboxGroup
-            id={field.id}
-            options={checkboxOptions}
-            value={current}
-            onChange={(next) => onChange(field.id, next)}
-          />
-        </div>
+        <CheckboxGroup
+          fieldId={field.id}
+          ariaLabel={optionLabel(field.label)}
+          options={field.options.map((opt) => ({ value: opt.value, label: optionLabel(opt.label) }))}
+          value={current}
+          onChange={(id, next) => onChange(id, next ?? [])}
+          columns={field.options.length > 4 ? 2 : 1}
+          invalid={hasError}
+        />
       );
     }
     const toggle = (optionValue: string) => {
@@ -210,7 +183,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         aria-invalid={hasError || undefined}
         aria-required={required || undefined}
         className={`sovereign-select ${hasError ? "has-error" : ""}`}
-        style={selectStyle}
+        style={compactStyle}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -236,7 +209,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         aria-invalid={hasError || undefined}
         aria-required={required || undefined}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-        style={{ ...textInputStyle, height: compact ? 30 : "auto", minHeight: compact ? 30 : 80, padding: "8px 12px" }}
+        style={{ ...compactStyle, minHeight: compact ? 30 : 80 }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -260,7 +233,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
       aria-required={required || undefined}
       aria-invalid={hasError || undefined}
       className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-      style={textInputStyle}
+      style={compactStyle}
       value={(value as string) ?? ""}
       onChange={(e) => onChange(field.id, e.target.value)}
       onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}

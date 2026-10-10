@@ -102,7 +102,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     minWidth: 72,
     minHeight: "var(--cam-form-field-height, 40px)",
     padding: "0 18px",
-    borderRadius: "var(--cam-radius-sm, 6px)",
+    borderRadius: "var(--cam-radius-sm)",
     border: selected ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
     background: selected ? "var(--cam-green)" : "var(--cam-surface)",
     color: selected ? "var(--cam-surface)" : "var(--cam-text)",
@@ -176,7 +176,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
       </ol>
 
       {tablesToErase.length > 0 && (
-        <p role="status" style={{ margin: "16px 0 0", padding: "10px 12px", borderRadius: "var(--cam-radius-sm, 6px)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.5 }}>
+        <p role="status" style={{ margin: "16px 0 0", padding: "10px 12px", borderRadius: "var(--cam-radius-sm)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.5 }}>
           {isEn
             ? `The figures already entered in table${tablesToErase.length > 1 ? "s" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} will be erased when you validate.`
             : `Les chiffres déjà saisis dans le${tablesToErase.length > 1 ? "s" : ""} tableau${tablesToErase.length > 1 ? "x" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} seront effacés à la validation.`}
@@ -187,7 +187,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
         <button
           type="button"
           onClick={onBack}
-          style={{ background: "transparent", border: "1px solid var(--cam-border)", borderRadius: "var(--cam-radius-sm, 6px)", padding: "10px 20px", fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", cursor: "pointer" }}
+          style={{ background: "transparent", border: "1px solid var(--cam-border)", borderRadius: "var(--cam-radius-sm)", padding: "10px 20px", fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", cursor: "pointer" }}
         >
           {isEn ? "← Back to Section 1" : "← Retour à la Section 1"}
         </button>
@@ -199,7 +199,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
           style={{
             background: complete ? "var(--cam-green)" : "var(--cam-border-strong)",
             border: "none",
-            borderRadius: "var(--cam-radius-sm, 6px)",
+            borderRadius: "var(--cam-radius-sm)",
             padding: "11px 26px",
             fontSize: "var(--cam-font-size-sm)",
             fontWeight: 700,

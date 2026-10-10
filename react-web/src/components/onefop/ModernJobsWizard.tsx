@@ -675,7 +675,7 @@ export function ModernJobsWizard({
           style={{
             flex: 1,
             minWidth: 0,
-            paddingTop: "var(--cam-space-5, 20px)",
+            paddingTop: "var(--cam-space-5)",
             paddingLeft: "clamp(12px, 3vw, 24px)",
             paddingRight: "clamp(12px, 3vw, 24px)",
             paddingBottom: "calc(var(--cam-space-6, 24px) + 90px)",
@@ -701,7 +701,7 @@ export function ModernJobsWizard({
                   style={{
                     background: "var(--cam-surface)",
                     border: "1px solid var(--vt-card-border, #e5eae7)",
-                    borderRadius: "var(--cam-radius-sm, 6px)",
+                    borderRadius: "var(--cam-radius-sm)",
                     padding: "6px 14px",
                     fontSize: 12,
                     fontWeight: 600,
@@ -791,7 +791,7 @@ export function ModernJobsWizard({
                   padding: "12px 16px",
                   background: "var(--cam-error-bg)",
                   border: "1px solid var(--cam-error)",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
+                  borderRadius: "var(--cam-radius-sm)",
                   color: "var(--cam-error)",
                   fontSize: 13,
                   marginBottom: 16,
@@ -832,7 +832,7 @@ export function ModernJobsWizard({
                     style={{
                       background: "var(--cam-surface)",
                       border: "1px solid var(--cam-border)",
-                      borderRadius: "var(--cam-radius-md, 8px)",
+                      borderRadius: "var(--cam-radius-md)",
                       padding: "clamp(20px, 4vw, 32px)",
                       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
                     }}
@@ -865,7 +865,7 @@ export function ModernJobsWizard({
                             alignItems: "center",
                             justifyContent: "space-between",
                             padding: "10px 14px",
-                            borderRadius: "var(--cam-radius-sm, 4px)",
+                            borderRadius: "var(--cam-radius-sm)",
                             background: "var(--cam-bg)",
                             border: "1px solid var(--cam-border)",
                           }}
@@ -928,7 +928,7 @@ export function ModernJobsWizard({
                 style={{
                   background: "var(--cam-surface)",
                   border: "1px solid var(--vt-card-border, #e5eae7)",
-                  borderRadius: "var(--cam-radius-md, 8px)",
+                  borderRadius: "var(--cam-radius-md)",
                   padding: "clamp(20px, 4vw, 32px)",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
                 }}
@@ -968,7 +968,7 @@ export function ModernJobsWizard({
                           alignItems: "center",
                           justifyContent: "space-between",
                           padding: "10px 14px",
-                          borderRadius: "var(--cam-radius-sm, 4px)",
+                          borderRadius: "var(--cam-radius-sm)",
                           background: "var(--cam-bg)",
                           border: "1px solid var(--cam-border)",
                         }}
@@ -1027,13 +1027,12 @@ export function ModernJobsWizard({
                     style={{
                       marginBottom: 20,
                       padding: "16px 20px",
-                      borderRadius: "var(--cam-radius-sm, 6px)",
+                      borderRadius: "var(--cam-radius-sm)",
                       background: "rgba(179, 38, 30, 0.06)",
                       border: "1px solid rgba(179, 38, 30, 0.3)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 18, color: "var(--cam-error)" }}>⚠️</span>
                       <div>
                         <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-error)" }}>
                           {locale === "fr"
@@ -1096,7 +1095,7 @@ export function ModernJobsWizard({
                     style={{
                       marginBottom: 20,
                       padding: "14px 18px",
-                      borderRadius: "var(--cam-radius-sm, 6px)",
+                      borderRadius: "var(--cam-radius-sm)",
                       background: "rgba(230, 81, 0, 0.08)",
                       border: "1px solid rgba(230, 81, 0, 0.3)",
                       display: "flex",
@@ -1104,7 +1103,6 @@ export function ModernJobsWizard({
                       gap: 12,
                     }}
                   >
-                    <span style={{ fontSize: 20 }}>🔒</span>
                     <div style={{ fontSize: 13, color: "var(--cam-text)" }}>
                       <span style={{ fontWeight: 700 }}>
                         {locale === "fr" ? "Période de déclaration fermée" : "Declaration period closed"}
@@ -1163,7 +1161,7 @@ export function ModernJobsWizard({
                         style={{
                           background: "var(--cam-surface)",
                           border: "1px solid var(--cam-border)",
-                          borderRadius: "var(--cam-radius-sm, 4px)",
+                          borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 18px",
                           fontSize: 13,
                           fontWeight: 600,
@@ -1175,7 +1173,6 @@ export function ModernJobsWizard({
                           opacity: isGeneratingPdf ? 0.7 : 1,
                         }}
                       >
-                        <span>{isGeneratingPdf ? "⏳" : "📄"}</span>
                         <span>
                           {isGeneratingPdf
                             ? (locale === "fr" ? "Génération en cours..." : "Generating...")
@@ -1190,7 +1187,7 @@ export function ModernJobsWizard({
                       style={{
                         background: "var(--cam-surface)",
                         border: "1px solid var(--cam-border)",
-                        borderRadius: "var(--cam-radius-sm, 4px)",
+                        borderRadius: "var(--cam-radius-sm)",
                         padding: "10px 18px",
                         fontSize: 13,
                         fontWeight: 600,
@@ -1201,7 +1198,6 @@ export function ModernJobsWizard({
                         color: "var(--cam-text)",
                       }}
                     >
-                      <span>✏️</span>
                       <span>
                         {locale === "fr"
                           ? (validationIssues.length > 0 ? `Corriger (${validationIssues.length})` : "Corriger")
@@ -1218,7 +1214,7 @@ export function ModernJobsWizard({
                           background: "var(--cam-green)",
                           border: "none",
                           color: "#ffffff",
-                          borderRadius: "var(--cam-radius-sm, 4px)",
+                          borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 24px",
                           fontSize: 13,
                           fontWeight: 700,
@@ -1234,7 +1230,6 @@ export function ModernJobsWizard({
                           t("submitting")
                         ) : (
                           <>
-                            <span>👁️</span>
                             <span>{locale === "fr" ? "Vérifier & Soumettre" : "Review & Submit"}</span>
                             <span>→</span>
                           </>

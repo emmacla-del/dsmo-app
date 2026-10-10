@@ -38,9 +38,9 @@ export function FormSectionCard({
       style={{
         background: "var(--cam-surface)",
         border: "1px solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-md, 8px)",
-        padding: "var(--cam-space-5, 24px)",
-        marginBottom: "var(--cam-space-5, 24px)",
+        borderRadius: "var(--cam-radius-md)",
+        padding: "var(--cam-space-5)",
+        marginBottom: "var(--cam-space-5)",
         width: "100%",
         boxSizing: "border-box",
         boxShadow: "var(--cam-shadow-sm, 0 1px 2px rgba(20, 30, 20, 0.04))",
@@ -63,7 +63,7 @@ export function FormSectionCard({
               <span
                 style={{
                   display: "inline-block",
-                  fontSize: "var(--cam-font-size-2xs, 0.6875rem)",
+                  fontSize: "var(--cam-font-size-2xs)",
                   fontWeight: 700,
                   letterSpacing: "0.05em",
                   textTransform: "uppercase",
