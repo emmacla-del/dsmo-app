@@ -9,10 +9,10 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 ## Public / auth
 
-- [~] `/` — landing + sign-in. Open: left column "Avis aux déclarants" is three bordered cards (decorative containers); 2 off-scale spacings (advisory)
+- [x] `/` — landing + sign-in. 9fd8c69f: notices are a ruled list. Advisory: 2 off-scale inline spacings in `app/page.tsx` (:343, :360)
 - [x] `/login` — redirects to `/`
 - [x] `/register` — 8b201155 one column + page scroll; layout script 155/155 (desktop + mobile, no submission)
-- [~] `/inscription-agent` — invalid-link state is a dead end (no route back to sign-in)
+- [x] `/inscription-agent` — 9fd8c69f: back-to-sign-in footer link (invalid state checked; form state needs a valid invitation token)
 - [x] `/forgot-password` — 58fdd865
 - [x] `/reset-password` — 58fdd865 (no-token + form states, eye toggle, 375px)
 - [x] `/verify-email` — 58fdd865
