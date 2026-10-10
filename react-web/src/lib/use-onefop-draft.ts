@@ -5,6 +5,7 @@ import type { FormData } from "./onefop-schema";
 import { clearDraft, draftId, loadDraft, saveDraft } from "./onefop-drafts";
 import { mergeWithAutofill } from "./onefop-autofill";
 import { fetchBackendDraft } from "./onefop-submission";
+import { fallbackPeriodCode } from "./onefop-period-label";
 
 export type DraftStatus = "loading" | "saving" | "saved" | "error";
 
@@ -100,7 +101,13 @@ export function useOnefopDraft(
       let loaded = draft?.data ?? {};
       // D7 fix: If local draft has no data, recover from backend drafts (GET /onefop/draft)
       if (Object.keys(loaded).length === 0) {
-        const serverDraft = await fetchBackendDraft(entityType, quarterCode).catch(() => null);
+        let serverDraft = await fetchBackendDraft(entityType, quarterCode).catch(() => null);
+        // F8: a draft saved before the campaign opened is filed under the
+        // no-campaign code of the same quarter ("2026-T4").
+        const fallback = fallbackPeriodCode(quarterCode);
+        if ((!serverDraft || Object.keys(serverDraft).length === 0) && fallback) {
+          serverDraft = await fetchBackendDraft(entityType, fallback).catch(() => null);
+        }
         if (!cancelled && serverDraft && Object.keys(serverDraft).length > 0) {
           loaded = serverDraft;
           saveDraft(entityType, quarterCode, loaded, userId, establishmentId).catch(() => {});

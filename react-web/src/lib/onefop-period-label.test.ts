@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { entityTypeDisplayName, referencePeriodLabel, referencePeriodPhrases } from "./onefop-period-label";
+import { entityTypeDisplayName, fallbackPeriodCode, referencePeriodKey, referencePeriodLabel, referencePeriodPhrases } from "./onefop-period-label";
 
 test("campaign and fallback period codes read as a period, in both languages", () => {
   assert.equal(referencePeriodLabel("QUARTERLY_2026_T4_001", "fr"), "4e trimestre 2026");
@@ -31,4 +31,21 @@ test("in-sentence phrases carry the right article for each kind of period", () =
   assert.equal(referencePeriodPhrases("SEMESTER_2026_S2_003", "en")?.forPeriod, "for the 2nd half of 2026");
   assert.equal(referencePeriodPhrases("2026-T4", "en")?.campaign, "Campaign for the 4th quarter of 2026");
   assert.equal(referencePeriodPhrases("CUSTOM-RUN", "fr"), null);
+});
+
+test("a campaign code and the no-campaign fallback of the same quarter are the same period", () => {
+  assert.equal(referencePeriodKey("QUARTERLY_2026_T4_001"), "Q-2026-4");
+  assert.equal(referencePeriodKey("QUARTERLY_2026_T4_002"), "Q-2026-4");
+  assert.equal(referencePeriodKey("2026-T4"), "Q-2026-4");
+  assert.notEqual(referencePeriodKey("2026-T3"), referencePeriodKey("2026-T4"));
+  assert.equal(referencePeriodKey("SEMESTER_2026_S1_001"), "S-2026-1");
+  assert.equal(referencePeriodKey("ANNUAL_2026_AN_001"), "A-2026");
+  assert.equal(referencePeriodKey("CUSTOM-RUN"), null);
+});
+
+test("a quarterly campaign code names its no-campaign fallback; other codes have none", () => {
+  assert.equal(fallbackPeriodCode("QUARTERLY_2026_T4_001"), "2026-T4");
+  assert.equal(fallbackPeriodCode("2026-T4"), null);
+  assert.equal(fallbackPeriodCode("SEMESTER_2026_S1_001"), null);
+  assert.equal(fallbackPeriodCode(undefined), null);
 });
