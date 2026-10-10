@@ -9,6 +9,13 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
   public-sector form conventions (GOV.UK Design System as the reference):
   actions at the end of the form, error summary at the top, one primary
   action, labels above fields, plain wording, WCAG 2.2. No SaaS patterns.
+- **No stored codes on screen** (owner, 2026-10-10): campaign codes,
+  status enums, category values become plain fr/en words. Use
+  `referencePeriodLabel/Phrases` (lib/onefop-period-label),
+  `formatCampaignDisplayName` (lib/campaigns), `submissionStatusLabel`
+  (lib/audit-log), the `adminCampagnesPage.status.*` messages. Keep the code
+  in a tooltip. Quick check on a rendered page:
+  `document.body.innerText.match(/[A-Z]+_\d{4}_[A-Z0-9]+_\d+|[A-Z]+_[A-Z_]+/g)`.
 
 - **react-web only.** No Flutter, no backend changes (backend is paused).
 - Owner's brief: systemic UI/UX fixes over cosmetic ones; fix the shared
@@ -58,6 +65,7 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | 68e2205b | Registration footer at the end of the form (not sticky) and an error summary with field links at the top of the section — owner's decision, government-form convention. Layout script 158/158. |
 | 9fd8c69f | Landing notices a ruled list; /inscription-agent back-to-sign-in link. |
 | 9bf53ca9 | ViewSwitch stray vertical scrollbar (systemic); French "Chargement de les" → "des" (systemic, tested); cibles 24px rhythm. Admin rhythm from b161783a verified rendered on dossiers, centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, cibles, pilotage, sectors (all 24px). |
+| 4ee542e6 | Plain words instead of codes: header pill, campagnes, cibles, pilotage, diffusion export history, sectors categories; quarterRef "4e trimestre 2026". |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
