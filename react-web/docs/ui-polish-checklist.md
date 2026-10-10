@@ -11,7 +11,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 - [~] `/` — landing + sign-in. Open: left column "Avis aux déclarants" is three bordered cards (decorative containers); 2 off-scale spacings (advisory)
 - [x] `/login` — redirects to `/`
-- [~] `/register` — registration wizard. Steps 1–3 walked (signed out, no submission). Open: one-column layout (proposed to owner), nested scroll inside `.flow-frame-scroll`
+- [x] `/register` — 8b201155 one column + page scroll; layout script 155/155 (desktop + mobile, no submission)
 - [~] `/inscription-agent` — invalid-link state is a dead end (no route back to sign-in)
 - [x] `/forgot-password` — 58fdd865
 - [x] `/reset-password` — 58fdd865 (no-token + form states, eye toggle, 375px)
@@ -60,6 +60,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 ## Shared fixes
 
+- b161783a — admin page rhythm: `.cam-admin-page` gap is the only vertical spacing between page blocks.
 - 58fdd865 — auth card title recipe (`receipt-title` / `receipt-subtitle`) shared by the whole auth family; lede spacing fixed once in `globals.css`.
 
 ## Known systemic signals (from `npm run check:ui-grammar`, 2026-10-10)
