@@ -2170,6 +2170,10 @@ html:has(.cam-auth-page--wizard) {
 .sovereign-text-input,
 .sovereign-select {
   width: 100%;
+  /* A readable line, not the page width: a box says how long the answer
+     is. Fields that expect less (a phone, a code, a year) cap lower at the
+     call site with --cam-field-width-short / -medium. */
+  max-width: 37.5rem;
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-3);
   border: var(--cam-border-width) solid var(--cam-border-strong);

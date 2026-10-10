@@ -1019,10 +1019,8 @@ export function VtWizardSectionScreen({
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
       <div
         style={{
-          borderLeft: "4px solid #0e4d29",
-          paddingLeft: 14,
-          borderBottom: "1px solid #e2e8f0",
-          paddingBottom: 12,
+          borderBottom: "var(--cam-border-width) solid var(--cam-border)",
+          paddingBottom: "var(--cam-space-3)",
         }}
       >
         {/* Focus target of the shell on every section change (useStepFocus):
@@ -1030,7 +1028,7 @@ export function VtWizardSectionScreen({
         <h2
           id={vtSectionHeadingId(sectionId)}
           tabIndex={-1}
-          style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.01em", color: "#0f172a", margin: 0, textTransform: "uppercase", outline: "none" }}
+          style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xl)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: 0, outline: "none" }}
         >
           {sectionTitle}
         </h2>

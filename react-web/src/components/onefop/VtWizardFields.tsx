@@ -28,25 +28,43 @@ function vtLocale(locale: string): "fr" | "en" {
   return locale.startsWith("en") ? "en" : "fr";
 }
 
+// Every question label, whatever the control: 15px semibold in text colour,
+// under the subsection title (18px) and set apart from the typed answer
+// (15px regular) by weight. Radio/checkbox questions used to be 16px bold
+// and text inputs 15px, so two questions side by side read as two levels.
 const labelStyle: CSSProperties = {
   display: "block",
   fontFamily: "var(--cam-font-sans)",
-  fontSize: 15,
-  fontWeight: 600,
-  lineHeight: 1.35,
+  fontSize: "var(--cam-font-size-base)",
+  fontWeight: "var(--cam-font-weight-semibold)",
+  lineHeight: "var(--cam-line-height-label)",
   color: "var(--cam-text)",
-  marginBottom: 6,
+  marginBottom: "var(--cam-space-1)",
 };
 
-const questionLabelStyle: CSSProperties = {
-  display: "block",
-  fontFamily: "var(--cam-font-sans)",
-  fontSize: 16,
-  fontWeight: 700,
-  lineHeight: 1.35,
-  color: "var(--cam-text)",
-  marginBottom: 6,
-};
+const questionLabelStyle: CSSProperties = labelStyle;
+
+// The hint ("Ex : DRH", "A ne pas remplir") sits between the question and
+// its box, where it is read before answering, as on government forms; under
+// the box it was read after the answer, or not at all.
+function VtFieldHint({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p
+      id={id}
+      style={{
+        fontSize: "var(--cam-microcopy-size)",
+        color: "var(--cam-microcopy-color)",
+        lineHeight: "var(--cam-line-height-ui)",
+        margin: "0 0 var(--cam-space-2)",
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
+// Fields whose answer is a short code: a medium box, not a full line.
+const VT_MEDIUM_WIDTH_IDS = new Set(["VT1_1", "VT1_3"]);
 
 const errorStyle: CSSProperties = {
   fontSize: 13,
@@ -603,10 +621,10 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={describedBy} invalid={hasError} required={required} />
         {inlineExtra ? <div style={{ marginTop: 10 }}>{inlineExtra}</div> : null}
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -619,9 +637,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -634,9 +652,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -649,9 +667,9 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -664,6 +682,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <input
           id={field.id}
           {...a11yProps}
@@ -674,10 +693,9 @@ export function VtWizardField({
           onChange={(e) => onChange(field.id, e.target.value.slice(0, 4))}
           onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{ maxWidth: 160 }}
+          style={{ maxWidth: "var(--cam-field-width-short)" }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -690,9 +708,10 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <div
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{ display: "flex", alignItems: "center" }}
+          style={{ display: "flex", alignItems: "center", maxWidth: "var(--cam-field-width-medium)" }}
         >
           <span style={{ color: "var(--cam-text-muted)" }}>
             +237
@@ -719,7 +738,6 @@ export function VtWizardField({
           />
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -732,6 +750,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <textarea
           id={field.id}
           {...a11yProps}
@@ -743,7 +762,6 @@ export function VtWizardField({
           style={{ minHeight: 112, resize: "vertical" }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -756,7 +774,8 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        <div style={{ position: "relative" }}>
+        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        <div style={{ position: "relative", maxWidth: "37.5rem" }}>
           <select
             id={field.id}
             {...a11yProps}
@@ -794,7 +813,6 @@ export function VtWizardField({
           </span>
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
-        {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
       </div>
     );
   }
@@ -847,6 +865,7 @@ export function VtWizardField({
         {optionalSuffix}
         {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
       </label>
+      {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
       <input
         id={field.id}
         {...a11yProps}
@@ -858,10 +877,10 @@ export function VtWizardField({
         onChange={adminOnly ? undefined : (e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
+        style={VT_MEDIUM_WIDTH_IDS.has(field.id) ? { maxWidth: "var(--cam-field-width-medium)" } : undefined}
       />
       <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
       <VtWizardFieldError id={errorId} message={errorMessage} />
-      {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
     </div>
   );
 }

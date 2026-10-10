@@ -35,12 +35,12 @@ export type FormSectionVariant = "plain" | "accent";
  */
 export function FormSubsection({
   title,
-  variant = "accent",
   trailing,
   bordered = false,
   children,
 }: {
   title?: ReactNode;
+  /** Kept for callers; both variants now draw the same title. */
   variant?: FormSectionVariant;
   /** Status chip or similar, rendered opposite the title. */
   trailing?: ReactNode;
@@ -63,35 +63,22 @@ export function FormSubsection({
       {title && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {variant === "plain" ? (
-              <h3
-                style={{
-                  fontFamily: "var(--cam-font-sans)",
-                  fontWeight: 700,
-                  fontSize: 16,
-                  color: "var(--cam-green-dark)",
-                  margin: 0,
-                }}
-              >
-                {title}
-              </h3>
-            ) : (
-              <h3 style={{ display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
-                <span aria-hidden="true" style={{ width: 3.5, height: 18, backgroundColor: "var(--cam-green)", borderRadius: 2 }} />
-                <span
-                  style={{
-                    fontFamily: "var(--cam-font-sans)",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                    color: "var(--cam-green)",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {title}
-                </span>
-              </h3>
-            )}
+            {/* One recipe for both variants: 18px semibold in text colour,
+                one step under the section title (24px) and over the
+                questions (15px). The accent bar and capitals were
+                decoration (owner, 2026-10-10). */}
+            <h3
+              style={{
+                fontFamily: "var(--cam-font-sans)",
+                fontWeight: "var(--cam-font-weight-semibold)",
+                fontSize: "var(--cam-font-size-lg)",
+                lineHeight: "var(--cam-line-height-title)",
+                color: "var(--cam-text)",
+                margin: 0,
+              }}
+            >
+              {title}
+            </h3>
           </div>
           {trailing}
         </div>
