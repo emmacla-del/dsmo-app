@@ -20,13 +20,13 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 // Layout-level page header: the fallback for admin pages that don't render
 // their own AdminPageHeader yet. When a page is refactored to render its own
 // header, remove its entry here so it never shows two <h1>s. Refactored so
-// far: /admin/pilotage, /admin/dossiers/[id].
+// far: every admin page, so the table is empty; /admin/sectors was the last
+// entry and rendered two headers until it was removed.
 // `group` / `nav` mirror the page's section and label in AdminSidebar.
 // `detail` labels a sub-route: its breadcrumb becomes group › nav (linking
 // back to the list) › detail. A sub-route without `detail` renders its own.
 // Every value is a message key, resolved from the root namespace.
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
-  "/admin/sectors":       { title: "adminNav.routes.sectors", sub: "adminLayout.sectorsSubtitle", group: "adminNav.hubs.donnees", nav: "adminNav.routes.sectors" },
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

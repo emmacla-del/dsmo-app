@@ -352,7 +352,7 @@ export default function EtablissementsPage() {
         }
       />
 
-      <div className="cam-pilot-kpis" style={{ marginBottom: 0 }}>
+      <div className="cam-pilot-kpis">
         {volume.map((k) => (
           <div key={k.key} className="cam-pilot-kpi">
             <span className="cam-pilot-kpi-label">{k.label}</span>

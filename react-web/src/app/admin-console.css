@@ -872,6 +872,17 @@
   gap: var(--cam-space-5);
 }
 
+/* The page's flex gap is the only vertical rhythm between its blocks.
+   Flex margins do not collapse, so a block's own outer margin would stack
+   on the gap (a 48px band under every header). These blocks keep their
+   margins only where they sit outside a .cam-admin-page. */
+.cam-admin-page > .cam-admin-page-header,
+.cam-admin-page > .cam-admin-views,
+.cam-admin-page > .cam-pilot-kpis,
+.cam-admin-page > .cam-pagination {
+  margin-block: 0;
+}
+
 .cam-admin-h1 {
   margin: 0;
   font-size: var(--cam-font-size-xl);

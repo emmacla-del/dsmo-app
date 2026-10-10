@@ -247,7 +247,7 @@ export default function OnefopUsersPage() {
 
       {/* Three tiles, so the four-column .cam-pilot-kpis grid is widened to
           auto-fit rather than leaving an empty fourth column. */}
-      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginBottom: 0 }}>
+      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
         {headcount.map((k) => (
           <div key={k.key} className="cam-pilot-kpi">
             <span className="cam-pilot-kpi-label">{k.label}</span>
