@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
+import { formatApiError } from "@/lib/pilotage-targets";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ANOMALY_DEROGATION_ROLES,
@@ -20,9 +21,11 @@ import {
   type AnomalyResolutionType,
   type QualitySummary,
   type ValidationRuleItem,
+  ruleFamilyLabel,
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
   hrefWith,
   parseAnomalyStatusFilter,
@@ -37,6 +40,7 @@ import {
   count,
   percent,
   resolveDataState,
+  shortRecordId,
   stamp,
 } from "@/lib/admin-data-state";
 
@@ -177,7 +181,7 @@ function CentreQualiteContent() {
     },
     onError: (err: unknown) => {
       setActionError(
-        err instanceof Error ? err.message : t("resolveError"),
+        `${t("resolveError")} ${formatApiError(err, locale)}`,
       );
     },
   });
@@ -218,20 +222,26 @@ function CentreQualiteContent() {
 
   return (
     <div className="cam-admin-page">
-      {/* Shared header. Its tabs are the page's three sections, held in
-          ?vue= so a reload or a shared link reopens the same one. They
-          replace a self-link pill and a scroll button. A "Contrôle régional"
-          tab returns once GET quality/summary and anomalies/registry accept
-          a `region` filter (both are territory-scoped by territoryFromUser
-          today, so a REGIONAL_ADMIN cannot widen past its own ressort). */}
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.qualite") }, { label: tRoot("adminNav.routes.centreQualite") }]}
         title={tRoot("adminNav.routes.centreQualite")}
         actions={<AdminHeaderActions />}
-        tabs={QUALITE_TABS.map((item) => ({
+      />
+
+      {/* The page's three views, held in ?vue= so a reload or a shared link
+          reopens the same one. An in-page view switch, not header hub tabs:
+          they are views of one page, not sibling routes. A "Contrôle
+          régional" view returns once GET quality/summary and
+          anomalies/registry accept a `region` filter (both are
+          territory-scoped by territoryFromUser today, so a REGIONAL_ADMIN
+          cannot widen past its own ressort). */}
+      <ViewSwitch
+        label={t("viewsAriaLabel")}
+        items={QUALITE_TABS.map((item) => ({
+          key: item.vue,
           label: t(item.labelKey),
           href: hrefWith(pathname, searchParams.toString(), { vue: item.vue }),
-          isActive: vue === item.vue,
+          active: vue === item.vue,
         }))}
       />
 
@@ -277,7 +287,7 @@ function CentreQualiteContent() {
                 loading={qualityQuery.isLoading}
                 loadingLabel={t("loadingFamilies")}
                 emptyLabel={t("noFamily")}
-                rows={(quality?.byRuleFamily ?? []).map((f) => ({ key: f.ruleFamily, label: f.ruleFamily, count: count(f.count, locale) }))}
+                rows={(quality?.byRuleFamily ?? []).map((f) => ({ key: f.ruleFamily, label: ruleFamilyLabel(f.ruleFamily, locale), count: count(f.count, locale) }))}
               />
               <AggregateList
                 title={t("byRegion")}
@@ -321,7 +331,7 @@ function CentreQualiteContent() {
                       <div>
                         <div className="cam-admin-strong">{rule.name}</div>
                         <div className="cam-admin-meta">
-                          <span className="cam-admin-code">{rule.code}</span> • {t("familyLine", { family: rule.family })}
+                          <span title={rule.code}>{t("familyLine", { family: ruleFamilyLabel(rule.family, locale) })}</span>
                         </div>
                       </div>
                       <span className={`cam-badge ${severityBadge(rule.isBlocking)}`}>
@@ -425,8 +435,9 @@ function CentreQualiteContent() {
                           <Link
                             href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
                             className="cam-text-button"
+                            title={anomalyDossierRef(a)}
                           >
-                            {anomalyDossierRef(a)}
+                            {shortRecordId(anomalyDossierRef(a))}
                           </Link>
                           {/* Establishment name as stored on the submission's
                               company record, or nothing at all. */}
@@ -443,8 +454,7 @@ function CentreQualiteContent() {
                       )}
                     </td>
                     <td>
-                      <span className="cam-admin-code cam-admin-strong">{a.ruleCode}</span>
-                      <span className="cam-admin-meta" style={{ display: "block" }}>{a.ruleFamily}</span>
+                      <span title={a.ruleCode}>{ruleFamilyLabel(a.ruleFamily, locale)}</span>
                     </td>
                     <td>
                       <div style={{ maxWidth: 360, wordBreak: "break-word" }}>{a.description}</div>

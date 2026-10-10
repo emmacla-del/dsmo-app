@@ -13,6 +13,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { ADMIN_ROLES } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -89,10 +90,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const initials =
-    [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase() ||
-    user?.email?.slice(0, 2).toUpperCase() ||
-    "AD";
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || t("adminLayout.defaultDisplayName");
 
   // Derive current page title from pathname (longest matching prefix wins).
@@ -112,11 +109,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
       <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
         <AdminSidebar
-          user={{
-            displayName,
-            initials,
-            roleLabel: user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel"),
-          }}
           role={user?.role}
           pendingCount={pendingCount}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
@@ -131,7 +123,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
       <div className="cam-admin-body">
-        <div className="cam-admin-mobilebar">
+        {/* The account bar: the very top of every admin page, right-aligned:
+            who is signed in and the console language (owner, 2026-10-10).
+            Sign-out stays at the foot of the sidebar. On a phone it also
+            holds the menu button that opens the sidebar drawer. */}
+        <div className="cam-admin-topbar">
           <button
             type="button"
             className="cam-admin-menu-button"
@@ -146,6 +142,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <line x1="4" y1="17" x2="20" y2="17" />
             </svg>
           </button>
+          <div className="cam-admin-account">
+            <span className="cam-admin-account-name">{displayName}</span>
+            <span className="cam-admin-account-role">
+              {user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}
+            </span>
+            <LocaleSwitcher />
+          </div>
         </div>
 
         <main className="cam-admin-main">

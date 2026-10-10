@@ -122,7 +122,7 @@ export default function NotificationsPage() {
                     {isRead ? (
                       <span className="cam-dash-timeline-dot" aria-hidden="true" style={{ visibility: "hidden" }} />
                     ) : (
-                      <span className="cam-dash-timeline-dot cam-dash-timeline-dot--error" role="img" aria-label={t("unreadAriaLabel")} />
+                      <span className="cam-dash-timeline-dot cam-dash-timeline-dot--info" role="img" aria-label={t("unreadAriaLabel")} />
                     )}
                     <span className={`cam-dash-timeline-body${isRead ? " cam-admin-muted" : ""}`}>
                       {/* The subject opens the notification: it marks it read

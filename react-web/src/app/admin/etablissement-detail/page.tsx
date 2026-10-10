@@ -20,13 +20,15 @@ import {
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { DataState } from "@/components/admin/DataState";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
+import { formatApiError } from "@/lib/pilotage-targets";
 import {
   NOT_PROVIDED,
   count,
   fact,
   resolveDataState,
   stamp,
+  shortRecordId,
 } from "@/lib/admin-data-state";
 import { AUDIT_ROLES, NATIONAL_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
@@ -176,7 +178,7 @@ function EtablissementDetail() {
       invalidate();
       showToast(t("accountSuspended"));
     },
-    onError: (e: Error) => setActionError(e.message),
+    onError: (e: unknown) => setActionError(formatApiError(e, locale)),
   });
 
   const activateMutation = useMutation({
@@ -185,7 +187,7 @@ function EtablissementDetail() {
       invalidate();
       showToast(t("accountReactivated"));
     },
-    onError: (e: Error) => setActionError(e.message),
+    onError: (e: unknown) => setActionError(formatApiError(e, locale)),
   });
 
   const deleteMutation = useMutation({
@@ -196,7 +198,7 @@ function EtablissementDetail() {
       showToast(t("accountDeleted"));
       router.push("/admin/etablissements");
     },
-    onError: (e: Error) => setActionError(e.message),
+    onError: (e: unknown) => setActionError(formatApiError(e, locale)),
   });
 
   // ── Nothing renders without an authoritative record ─────────────────────
@@ -277,11 +279,12 @@ function EtablissementDetail() {
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
             <AdminHeaderActions showCampaignPill={false} showBell={false} />
             {/* Shown only when there is a real account to act on and the role
-                may act on it. The button performs the real call. */}
+                may act on it. The button performs the real call. Secondary,
+                not primary: a header action is not this view's main task. */}
             {linkedAccount && canManageAccount && (
               <button
                 type="button"
-                className={`cam-button cam-button-sm ${isSuspended ? "cam-button-primary" : "cam-button-danger"}`}
+                className={`cam-button cam-button-sm ${isSuspended ? "cam-button-secondary" : "cam-button-danger"}`}
                 disabled={accountPending}
                 onClick={toggleAccount}
               >
@@ -370,39 +373,47 @@ function EtablissementDetail() {
               </Link>
             </div>
 
-            <div className="cam-admin-section-body">
-              {submissionsState !== "ready" ? (
-                <DataState
-                  dense
-                  state={submissionsState}
-                  resource={t("submissionsResource")}
-                  error={submissionsQuery.error}
-                  onRetry={() => submissionsQuery.refetch()}
-                  title={submissionsState === "empty" ? t("noSubmissionTitle") : undefined}
-                  hint={submissionsState === "empty" ? t("noSubmissionHint") : undefined}
-                />
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-                  {submissionsQuery.data?.items.map((sub) => (
-                    <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
-                      <div>
-                        <div className="cam-admin-strong">{sub.submissionId || sub.id}</div>
-                        <div className="cam-admin-meta">
-                          {t("receivedLine", { date: stamp(sub.submissionDate || sub.createdAt, true, locale), type: typeDisplay(sub.formType) })}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-                        <span className={`cam-badge ${SUBMISSION_STATUS_BADGE[sub.status] ?? "cam-badge-neutral"}`}>
-                          {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
-                        </span>
-                        <Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`} className="cam-button cam-button-secondary cam-button-sm">
-                          {t("openLink")}
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="cam-table-wrapper">
+              <table className="cam-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t("submissionColumn.reference")}</th>
+                    <th scope="col">{t("submissionColumn.type")}</th>
+                    <th scope="col">{t("submissionColumn.received")}</th>
+                    <th scope="col">{t("submissionColumn.status")}</th>
+                    <th scope="col" className="text-right">{t("submissionColumn.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <DataStateRow
+                    colSpan={5}
+                    state={submissionsState}
+                    resource={t("submissionsResource")}
+                    error={submissionsQuery.error}
+                    onRetry={() => submissionsQuery.refetch()}
+                    title={submissionsState === "empty" ? t("noSubmissionTitle") : undefined}
+                    hint={submissionsState === "empty" ? t("noSubmissionHint") : undefined}
+                  />
+                  {submissionsState === "ready" &&
+                    submissionsQuery.data?.items.map((sub) => (
+                      <tr key={sub.id}>
+                        <td className="cam-admin-strong cam-admin-code" title={sub.submissionId || sub.id}>{shortRecordId(sub.submissionId || sub.id)}</td>
+                        <td>{typeDisplay(sub.formType)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{stamp(sub.submissionDate || sub.createdAt, true, locale)}</td>
+                        <td>
+                          <span className={`cam-badge ${SUBMISSION_STATUS_BADGE[sub.status] ?? "cam-badge-neutral"}`}>
+                            {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
+                          </span>
+                        </td>
+                        <td className="text-right">
+                          <Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`} className="cam-button cam-button-secondary cam-button-sm">
+                            {t("openLink")}
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
@@ -424,12 +435,15 @@ function EtablissementDetail() {
                   hint={t("noLinkedAccountHint")}
                 />
               ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-3)" }}>
-                  <div style={{ minWidth: 0 }}>
-                    {/* The account's own email. No display name is invented:
-                        /companies returns only id, email, status and
-                        isActive for the linked user. */}
-                    <div className="cam-admin-strong">{fact(linkedAccount.email)}</div>
+                <div style={{ minWidth: 0 }}>
+                  {/* The account's own email. No display name is invented:
+                      /companies returns only id, email, status and
+                      isActive for the linked user. Active / suspended is the
+                      header badge; the approval status is shown here only
+                      when it says more than that (pending, rejected,
+                      further information requested). */}
+                  <div className="cam-admin-strong">{fact(linkedAccount.email)}</div>
+                  {linkedAccount.status !== "ACTIVE" && (
                     <div className="cam-admin-meta">
                       {t("accountStatusLine", {
                         status: ACCOUNT_STATUS_CODES.has(linkedAccount.status ?? "")
@@ -437,13 +451,10 @@ function EtablissementDetail() {
                           : fact(linkedAccount.status),
                       })}
                     </div>
-                    <button type="button" className="cam-text-button" onClick={() => setAccountOpen(true)}>
-                      {t("manageTitle")}
-                    </button>
-                  </div>
-                  <span className={`cam-badge ${linkedAccount.isActive ? "cam-badge-success" : "cam-badge-neutral"}`}>
-                    {linkedAccount.isActive ? t("activeBadge") : t("inactiveBadge")}
-                  </span>
+                  )}
+                  <button type="button" className="cam-text-button" onClick={() => setAccountOpen(true)}>
+                    {t("manageTitle")}
+                  </button>
                 </div>
               )}
             </div>

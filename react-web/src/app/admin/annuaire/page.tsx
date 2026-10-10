@@ -11,6 +11,7 @@ import { USER_ADMIN_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
+import { DataState } from "@/components/admin/DataState";
 import { hrefWith } from "@/lib/admin-url";
 
 // The account and entity directory, inside the admin console (Administration
@@ -45,18 +46,22 @@ function AnnuaireContent() {
   // The list shown is URL state (?tab=), so a reload keeps it.
   const tab: "users" | "companies" = requestedTab === "users" ? "users" : "companies";
 
-  if (isLoading) return <p>{t("common.loading")}</p>;
-
-  if (forbidden) {
+  // The guard's non-ready outcomes keep the page chrome and say what is
+  // happening; none renders nothing (G10). No user while not loading means
+  // the guard is redirecting to /login.
+  if (isLoading || forbidden || !user) {
     return (
       <div className="cam-admin-page">
-        <h1 className="cam-admin-h1">{t("homeAnnuairePage.accessDeniedTitle")}</h1>
-        <p className="cam-admin-lede">{t("homeAnnuairePage.accessDeniedMessage")}</p>
+        <AnnuaireHeader title={t("homeAnnuairePage.pageTitle")} />
+        <DataState
+          state={forbidden ? "forbidden" : "loading"}
+          resource={t("homeAnnuairePage.pageTitle")}
+          title={forbidden ? t("homeAnnuairePage.accessDeniedTitle") : t("common.loading")}
+          hint={forbidden ? t("homeAnnuairePage.accessDeniedMessage") : undefined}
+        />
       </div>
     );
   }
-
-  if (!user) return null;
 
   const effectiveRole = resolveEffectiveRole(user);
   const showUsersTab = effectiveRole === "SUPER_ADMIN";

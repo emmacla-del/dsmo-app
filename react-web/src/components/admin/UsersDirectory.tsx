@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
+import { formatApiError } from "@/lib/pilotage-targets";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   STATUS_FILTERS,
@@ -163,7 +164,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
       <div className="cam-admin-filters">
         <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="users-search">Rechercher</label>
+          <label className="cam-admin-label" htmlFor="users-search">{t("usersDirectory.searchLabel")}</label>
           <div className="cam-admin-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
@@ -257,7 +258,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             listState === "loading"
               ? t("common.loading")
               : listState === "error"
-                ? t("usersDirectory.loadError", { error: (query.error as Error).message })
+                ? t("usersDirectory.loadError", { error: formatApiError(query.error, locale) })
                 : listState === "empty"
                   ? t("usersDirectory.emptyState")
                   : undefined
@@ -525,10 +526,11 @@ function RosterActions({ user, canReassign, onOpen }: { user: DirectoryUser; can
 
 function ErrorLine({ error }: { error: Error | null }) {
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
   if (!error) return null;
   return (
     <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-      <span>{t("usersDirectory.actionError", { error: error.message })}</span>
+      <span>{t("usersDirectory.actionError", { error: formatApiError(error, locale) })}</span>
     </div>
   );
 }

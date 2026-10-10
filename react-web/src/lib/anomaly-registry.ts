@@ -107,6 +107,19 @@ export function anomalyDossierRef(a: AnomalyRecord): string {
   return a.submission?.submissionId ?? a.submission?.id ?? a.submissionId;
 }
 
+// Plain names for the stored rule families (src/questionnaires/
+// coherence-anomaly.ts, eligibility-engine.service.ts). An unknown family is
+// shown as stored rather than guessed at.
+const RULE_FAMILY_LABELS: Record<string, { fr: string; en: string }> = {
+  COHERENCE: { fr: "Cohérence", en: "Consistency" },
+  VT_COHERENCE: { fr: "Cohérence (formation professionnelle)", en: "Consistency (vocational training)" },
+  ARITHMETIC: { fr: "Contrôles arithmétiques", en: "Arithmetic checks" },
+};
+
+export function ruleFamilyLabel(family: string, locale: "fr" | "en" = "fr"): string {
+  return RULE_FAMILY_LABELS[family]?.[locale] ?? family;
+}
+
 export const ANOMALY_STATUS_LABELS: Record<AnomalyStatus, string> = {
   OPEN: "Ouverte",
   RESOLVED: "Résolue",

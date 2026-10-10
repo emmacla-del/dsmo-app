@@ -16,6 +16,7 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
 import { APPROVAL_ROLES } from "@/lib/roles";
+import { formatApiError } from "@/lib/pilotage-targets";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
 // Every figure here is read from the generated schema or the submission
@@ -71,97 +72,91 @@ export default function QuestionnairesPage() {
         <DataState
           state="error"
           resource={tRoot("adminNav.routes.questionnaires")}
-          title={t("schemaError", { message: (schemaQuery.error as Error).message })}
+          title={t("schemaError", { message: formatApiError(schemaQuery.error, locale) })}
           onRetry={() => schemaQuery.refetch()}
         />
       )}
 
-      {/* Grid of 7 Questionnaires */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--cam-space-4)" }}>
-        {QUESTIONNAIRES.map((q, i) => {
-          const entity = schemaQuery.data?.entities[q.schemaKey];
-          const totalQuery = totals[i];
-          // A count still loading shows the neutral marker, never "…" (G10).
-          const totalLoading = canReadSubmissions && totalQuery.isLoading;
-          const total = !canReadSubmissions || totalQuery.isError || !totalQuery.data
-            ? NOT_PROVIDED
-            : count(totalQuery.data.total, locale);
-          return (
-            <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
-
-              <h3 id={`q-${q.formType}`} className="cam-dash-card-title">
-                {typeLabel(q.formType)}
-              </h3>
-              
-              <p className="cam-dash-card-sub" style={{ marginBottom: "var(--cam-space-4)" }}>
-                {entity ? t("sectionCount", { count: count(entity.sectionCount, locale) }) : schemaQuery.isLoading ? t("loadingSections") : metricUnavailable(locale)}
-              </p>
-
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-                <div className="cam-dash-metric-row">
-                  <span className="cam-admin-meta">{t("totalDeclarations")}</span>
-                  <strong
-                    title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}
-                    aria-busy={totalLoading || undefined}
-                  >
-                    {total}
-                  </strong>
-                </div>
-                <div className="cam-dash-metric-row">
-                  <span className="cam-admin-meta">{t("schemaVersion")}</span>
-                  <strong aria-busy={schemaQuery.isLoading || undefined}>
-                    {schemaQuery.data
-                      ? `v${schemaQuery.data.schemaVersion}`
-                      : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale)}
-                  </strong>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "var(--cam-space-3)", marginTop: "var(--cam-space-5)" }}>
-                {canReadSubmissions ? (
-                  <Link
-                    href={`/admin/dossiers?formType=${q.formType}`}
-                    className="cam-button cam-button-secondary cam-button-sm"
-                    style={{ flex: 1, justifyContent: "center" }}
-                  >
-                    {t("viewFiles")}
-                  </Link>
-                ) : (
-                  <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled style={{ flex: 1 }}>
-                    {t("viewFiles")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="cam-button cam-button-secondary cam-button-sm"
-                  style={{ flex: 1 }}
-                  onClick={() => setSelectedPreview(q)}
-                >
-                  {t("preview")}
-                </button>
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      {/* Structure Information Card */}
-      <section className="cam-dash-card" aria-labelledby="q-viewer-title">
-        <div className="cam-dash-card-head">
-          <h3 id="q-viewer-title" className="cam-dash-card-title">{t("registerTitle")}</h3>
+      {/* One register: the seven questionnaires as rows. The schema version
+          is the same for all of them, so it is stated once, in the head. */}
+      <section className="cam-admin-section" aria-labelledby="q-register-title">
+        <div className="cam-admin-section-head">
+          <h2 id="q-register-title" className="cam-admin-h2">{t("registerTitle")}</h2>
+          {schemaQuery.data && (
+            <span className="cam-admin-meta">
+              {t("activeSchema", {
+                version: schemaQuery.data.schemaVersion,
+                sections: schemaQuery.data.astTotals.sections,
+                questions: schemaQuery.data.astTotals.questions,
+              })}
+            </span>
+          )}
         </div>
-        <p className="cam-admin-meta" style={{ margin: 0 }}>
-          {t("registerBody")}
-        </p>
-        {schemaQuery.data && (
-          <p className="cam-admin-meta cam-admin-strong" style={{ margin: "var(--cam-space-2) 0 0" }}>
-            {t("activeSchema", {
-              version: schemaQuery.data.schemaVersion,
-              sections: schemaQuery.data.astTotals.sections,
-              questions: schemaQuery.data.astTotals.questions,
-            })}
-          </p>
-        )}
+        <div className="cam-table-wrapper">
+          <table className="cam-table">
+            <thead>
+              <tr>
+                <th scope="col">{t("questionnaireColumn")}</th>
+                <th scope="col" className="is-num">{t("sectionsColumn")}</th>
+                <th scope="col" className="is-num" title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
+                  {t("totalDeclarations")}
+                </th>
+                <th scope="col" className="text-right">{t("actionsColumn")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {QUESTIONNAIRES.map((q, i) => {
+                const entity = schemaQuery.data?.entities[q.schemaKey];
+                const totalQuery = totals[i];
+                // A count still loading shows the neutral marker, never "…" (G10).
+                const totalLoading = canReadSubmissions && totalQuery.isLoading;
+                const total = !canReadSubmissions || totalQuery.isError || !totalQuery.data
+                  ? NOT_PROVIDED
+                  : count(totalQuery.data.total, locale);
+                return (
+                  <tr key={q.formType}>
+                    <td className="cam-admin-strong">{typeLabel(q.formType)}</td>
+                    <td className="is-num" aria-busy={schemaQuery.isLoading || undefined}>
+                      {entity
+                        ? count(entity.sectionCount, locale)
+                        : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale)}
+                    </td>
+                    <td
+                      className="is-num"
+                      title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}
+                      aria-busy={totalLoading || undefined}
+                    >
+                      {total}
+                    </td>
+                    <td className="text-right" style={{ whiteSpace: "nowrap" }}>
+                      <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
+                        {canReadSubmissions ? (
+                          <Link
+                            href={`/admin/dossiers?formType=${q.formType}`}
+                            className="cam-button cam-button-secondary cam-button-sm"
+                          >
+                            {t("viewFiles")}
+                          </Link>
+                        ) : (
+                          <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled>
+                            {t("viewFiles")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="cam-button cam-button-secondary cam-button-sm"
+                          onClick={() => setSelectedPreview(q)}
+                        >
+                          {t("preview")}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* Preview Modal */}
@@ -187,7 +182,7 @@ export default function QuestionnairesPage() {
                   className="cam-button cam-button-primary"
                   onClick={() => setSelectedPreview(null)}
                 >
-                  {t("openFiles", { code: selectedPreview.formType })}
+                  {t("openFiles")}
                 </Link>
               )}
             </div>
@@ -198,9 +193,7 @@ export default function QuestionnairesPage() {
               <div className="cam-admin-strong">
                 {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
               </div>
-              <div className="cam-admin-meta">
-                {t("entityTypeLine")} <code className="cam-admin-code">{selectedPreview.formType}</code> &middot; {t("exportFormatLine")}
-              </div>
+              <div className="cam-admin-meta">{t("exportFormatLine")}</div>
             </div>
 
             <div>
@@ -218,13 +211,14 @@ export default function QuestionnairesPage() {
                       <div>
                         {/* The section title is AST data, rendered as the schema
                             carries it in the console locale. */}
-                        <div className="cam-admin-strong">
+                        {/* The schema identifier stays reachable as a tooltip,
+                            not as on-screen text. */}
+                        <div className="cam-admin-strong" title={sec.id}>
                           {(sec.title ? localized(sec.title, locale) : "") || sec.id}
                         </div>
-                        <div className="cam-admin-meta">
-                          {t("sectionId")} <code className="cam-admin-code">{sec.id}</code>
-                          {sec.order !== null ? t("sectionOrder", { order: sec.order }) : ""}
-                        </div>
+                        {sec.order !== null && (
+                          <div className="cam-admin-meta">{t("sectionOrder", { order: sec.order })}</div>
+                        )}
                       </div>
                       <span className="cam-admin-meta cam-admin-strong" style={{ whiteSpace: "nowrap" }}>
                         {t("fieldCount", { count: sec.fields.length })}

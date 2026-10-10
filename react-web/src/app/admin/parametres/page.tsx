@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
+import { formatApiError } from "@/lib/pilotage-targets";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import type { UserRole } from "@/lib/user-types";
@@ -284,7 +285,7 @@ function ParametresContent() {
         <form onSubmit={handleSaveOverdue} className="cam-admin-section-body" noValidate>
           {overdueMutation.isError && (
             <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-              <span>{(overdueMutation.error as Error).message}</span>
+              <span>{formatApiError(overdueMutation.error, locale)}</span>
             </div>
           )}
 

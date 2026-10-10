@@ -14,6 +14,7 @@ import {
   listCompanies,
 } from "@/lib/companies-directory";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { formatApiError } from "@/lib/pilotage-targets";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -178,7 +179,7 @@ export function CompaniesDirectory() {
             listState === "loading"
               ? t("common.loading")
               : listState === "error"
-                ? t("companiesDirectory.loadError", { error: (query.error as Error).message })
+                ? t("companiesDirectory.loadError", { error: formatApiError(query.error, locale) })
                 : listState === "empty"
                   ? t("companiesDirectory.emptyState")
                   : undefined

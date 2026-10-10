@@ -12,8 +12,8 @@ import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { DataState } from "@/components/admin/DataState";
-import { NOT_PROVIDED, count, meterWidth, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
 import {
   ACTOR_SUMMARY_PERIODS,
   ACTOR_SUMMARY_QUERY_KEY,
@@ -26,6 +26,7 @@ import {
   type NudgeTemplate,
 } from "@/lib/actor-summary";
 import { nudgePreview } from "@/lib/nudge-preview";
+import { formatApiError } from "@/lib/pilotage-targets";
 
 /**
  * Territorial Admin Monitoring Dashboard — Phase 4 of
@@ -94,10 +95,10 @@ function EquipeContent() {
       });
       closeNudgeModal();
     },
-    onError: (err: Error) => {
+    onError: (err: unknown) => {
       setNotice({
         tone: "error",
-        text: err.message || t("adminEquipePage.nudgeFailed"),
+        text: `${t("adminEquipePage.nudgeFailed")} ${formatApiError(err, locale)}`,
       });
     },
   });
@@ -185,9 +186,18 @@ function EquipeContent() {
         </div>
       )}
 
-      <section className="cam-admin-section" aria-label={t("adminEquipePage.filtersAriaLabel")}>
+      {/* Filters and roster are one section: a national view lists every
+          territorial actor as one row, so they can be compared column by
+          column. */}
+      <section className="cam-admin-section" aria-labelledby="equipe-roster-title">
+        <div className="cam-admin-section-head">
+          <h2 className="cam-admin-h2" id="equipe-roster-title">{t("adminEquipePage.rosterTitle")}</h2>
+          {summaryState === "ready" && (
+            <span className="cam-admin-meta">{t("adminEquipePage.rosterCount", { count: actors.length })}</span>
+          )}
+        </div>
         <div className="cam-admin-section-body">
-          <div className="cam-admin-filters">
+          <div className="cam-admin-filters" role="group" aria-label={t("adminEquipePage.filtersAriaLabel")}>
             <div className="cam-field">
               <label className="cam-admin-label" htmlFor="filter-period">{t("adminEquipePage.periodLabel")}</label>
               <select
@@ -240,29 +250,54 @@ function EquipeContent() {
             </div>
           </div>
         </div>
-      </section>
 
-      {summaryState !== "ready" ? (
-        <DataState
-          state={summaryState}
-          resource={t("adminNav.routes.equipe")}
-          error={summaryQuery.error}
-          onRetry={() => summaryQuery.refetch()}
-          title={
-            summaryState === "loading"
-              ? t("adminEquipePage.loading")
-              : summaryState === "error"
-                ? t("adminEquipePage.loadError")
-                : summaryState === "empty"
-                  ? t("adminEquipePage.empty")
-                  : undefined
-          }
-        />
-      ) : (
-        actors.map((actor) => (
-          <ActorCard key={actor.userId} actor={actor} onNudge={() => openNudgeModal(actor)} />
-        ))
-      )}
+        <div className="cam-table-wrapper">
+          <table className="cam-table">
+            <thead>
+              <tr>
+                <th scope="col">{t("adminEquipePage.column.actor")}</th>
+                <th scope="col">{t("adminEquipePage.column.territory")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.conversions")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.coverage")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.backlog")}</th>
+                <th scope="col" className="is-num">
+                  {staleAfterDays != null
+                    ? t("adminEquipePage.column.staleDays", { days: staleAfterDays })
+                    : t("adminEquipePage.column.stale")}
+                </th>
+                <th scope="col">{t("adminEquipePage.column.decisions")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.medianDays")}</th>
+                <th scope="col" className="text-right">{t("adminEquipePage.column.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Loading, failure and "no one matches these filters" stay
+                  three distinct renders. */}
+              <DataStateRow
+                colSpan={10}
+                state={summaryState}
+                resource={t("adminNav.routes.equipe")}
+                error={summaryQuery.error}
+                onRetry={() => summaryQuery.refetch()}
+                title={
+                  summaryState === "loading"
+                    ? t("adminEquipePage.loading")
+                    : summaryState === "error"
+                      ? t("adminEquipePage.loadError")
+                      : summaryState === "empty"
+                        ? t("adminEquipePage.empty")
+                        : undefined
+                }
+              />
+              {summaryState === "ready" &&
+                actors.map((actor) => (
+                  <ActorRow key={actor.userId} actor={actor} onNudge={() => openNudgeModal(actor)} />
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {/* ── Relancer Modal ── */}
       <AdminDialog
@@ -359,13 +394,11 @@ function EquipeContent() {
 }
 
 /**
- * One territorial admin:
- * - identity, role, territory and last action, with the row's actions
- * - Travail de terrain (registrations made, conversions, last registration)
- * - Ressort — Cible & Couverture (target, current, percentage bar)
- * - Traitement (backlog, stale, decisions, median time)
+ * One territorial admin as one roster row: identity and last action, field
+ * work (registrations, conversions), coverage against the quota, processing
+ * (backlog, stale, decisions, median time), and the row's actions.
  */
-function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () => void }) {
+function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () => void }) {
   // The journal is AUDIT_ROLES-only; ADMIN_ONEFOP and REGIONAL_ADMIN, who use
   // this page, would land on a refusal.
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
@@ -379,126 +412,81 @@ function ActorCard({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =
         : actor.role;
 
   const territoryLabel = [actor.region, actor.department].filter(Boolean).join(" — ") || t("unassigned");
-  const titleId = `actor-${actor.userId}-title`;
+  const { decisions } = actor.processing;
 
   return (
-    <section className="cam-admin-section" aria-labelledby={titleId}>
-      <div className="cam-admin-section-head" style={{ alignItems: "center" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-            <h3 id={titleId} className="cam-admin-h2">{actor.displayName}</h3>
-            <span className="cam-badge cam-badge-neutral">{roleLabel}</span>
-            <span className="cam-admin-meta">{territoryLabel}</span>
-          </div>
-          <div className="cam-admin-meta">
-            {t("lastSystemAction")}{" "}
-            <span className="cam-admin-strong">
-              {actor.lastActionAt ? stamp(actor.lastActionAt, true, locale) : t("noActionRecorded")}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
-          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onNudge}>
+    <tr>
+      <td>
+        <span className="cam-admin-strong">{actor.displayName}</span>
+        <span className="cam-admin-meta" style={{ display: "block" }}>{roleLabel}</span>
+        <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
+          {t("lastSystemAction")}{" "}
+          {actor.lastActionAt ? stamp(actor.lastActionAt, true, locale) : t("noActionRecorded")}
+        </span>
+      </td>
+      <td>{territoryLabel}</td>
+      <td className="is-num">
+        {count(actor.field.registrationsMade, locale)}
+        <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
+          {t("lastRegistrationShort", { date: stamp(actor.field.lastRegistrationAt, false, locale) })}
+        </span>
+      </td>
+      <td className="is-num">
+        {count(actor.field.conversions, locale)}
+        {actor.field.conversionRate != null && (
+          <span className="cam-admin-meta" style={{ display: "block" }}>{ratioLabel(actor.field.conversionRate, locale)}</span>
+        )}
+      </td>
+      <td className="is-num" style={{ whiteSpace: "nowrap" }}>
+        {count(actor.coverage.current, locale)} / {count(actor.coverage.target, locale)}
+        <span className="cam-admin-meta" style={{ display: "block" }}>{ratioLabel(actor.coverage.percent, locale)}</span>
+      </td>
+      <td className="is-num">{count(actor.processing.backlog, locale)}</td>
+      <td className="is-num">
+        {actor.processing.stale > 0 ? (
+          <span className="cam-badge cam-badge-error">{count(actor.processing.stale, locale)}</span>
+        ) : (
+          count(actor.processing.stale, locale)
+        )}
+      </td>
+      <td>
+        <span style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-1)" }}>
+          <span className="cam-badge cam-badge-success" title={t("approvedTitle")}>
+            {t("approvedShort", { count: decisions.approved })}
+          </span>
+          <span className="cam-badge cam-badge-error" title={t("rejectedTitle")}>
+            {t("rejectedShort", { count: decisions.rejected })}
+          </span>
+          <span className="cam-badge cam-badge-warning" title={t("correctionsTitle")}>
+            {t("correctionsShort", { count: decisions.corrections })}
+          </span>
+        </span>
+      </td>
+      <td className="is-num" style={{ whiteSpace: "nowrap" }}>
+        {actor.processing.medianDaysToDecision != null
+          ? t("medianDays", { days: actor.processing.medianDaysToDecision })
+          : NOT_PROVIDED}
+      </td>
+      <td className="text-right">
+        <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--cam-space-1)" }}>
+          <button
+            type="button"
+            className="cam-button cam-button-secondary cam-button-sm"
+            onClick={onNudge}
+            aria-label={t("nudgeAriaLabel", { name: actor.displayName })}
+          >
             {t("nudgeButton")}
           </button>
           {canReadAudit && (
-            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
+            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button" style={{ whiteSpace: "nowrap" }}>
               {t("viewLogLink")}
             </Link>
           )}
-          <Link href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
+          <Link href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`} className="cam-text-button" style={{ whiteSpace: "nowrap" }}>
             {t("viewRegistrationsLink")}
           </Link>
         </div>
-      </div>
-
-      {/* Three metric groups side by side, stacking on narrow screens. No
-          box around each group: the section is already the card. */}
-      <div className="cam-admin-section-body" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--cam-space-5)" }}>
-        <div>
-          <h4 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("fieldWorkTitle")}</h4>
-          <dl className="cam-admin-kv" style={{ gridTemplateColumns: "minmax(0, 1fr)", gap: "var(--cam-space-3)" }}>
-            <div>
-              <dt>{t("assistedRegistrations")}</dt>
-              <dd>{count(actor.field.registrationsMade, locale)}</dd>
-            </div>
-            <div>
-              <dt>{t("conversions")}</dt>
-              <dd>
-                {count(actor.field.conversions, locale)}
-                {actor.field.conversionRate != null && (
-                  <span className="cam-admin-meta"> ({ratioLabel(actor.field.conversionRate, locale)})</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>{t("lastRegistration")}</dt>
-              <dd>{stamp(actor.field.lastRegistrationAt, false, locale)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div>
-          <h4 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("coverageTitle")}</h4>
-          <dl className="cam-admin-kv" style={{ gridTemplateColumns: "minmax(0, 1fr)", gap: "var(--cam-space-3)" }}>
-            <div>
-              <dt>{t("registeredOverTarget")}</dt>
-              <dd>{count(actor.coverage.current, locale)} / {count(actor.coverage.target, locale)}</dd>
-            </div>
-            <div>
-              <dt>{t("coverageRate")}</dt>
-              <dd>{ratioLabel(actor.coverage.percent, locale)}</dd>
-            </div>
-          </dl>
-          <div className="cam-admin-bar-track" style={{ marginTop: "var(--cam-space-2)" }}>
-            <div
-              className="cam-admin-bar-fill"
-              style={{ width: meterWidth(actor.coverage.percent == null ? null : actor.coverage.percent * 100) }}
-            />
-          </div>
-        </div>
-
-        <div>
-          <h4 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("processingTitle")}</h4>
-          <dl className="cam-admin-kv" style={{ gridTemplateColumns: "minmax(0, 1fr)", gap: "var(--cam-space-3)" }}>
-            <div>
-              <dt>{t("pendingQueue")}</dt>
-              <dd>
-                {t("backlogFiles", { count: actor.processing.backlog })}
-                {actor.processing.stale > 0 && (
-                  <>
-                    {" "}
-                    <span className="cam-badge cam-badge-error">{t("staleBadge", { count: actor.processing.stale })}</span>
-                  </>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>{t("decisionsMade")}</dt>
-              <dd style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-1)" }}>
-                <span className="cam-badge cam-badge-success" title={t("approvedTitle")}>
-                  {t("approvedShort", { count: actor.processing.decisions.approved })}
-                </span>
-                <span className="cam-badge cam-badge-error" title={t("rejectedTitle")}>
-                  {t("rejectedShort", { count: actor.processing.decisions.rejected })}
-                </span>
-                <span className="cam-badge cam-badge-warning" title={t("correctionsTitle")}>
-                  {t("correctionsShort", { count: actor.processing.decisions.corrections })}
-                </span>
-              </dd>
-            </div>
-            <div>
-              <dt>{t("medianDecisionTime")}</dt>
-              <dd>
-                {actor.processing.medianDaysToDecision != null
-                  ? t("medianDays", { days: actor.processing.medianDaysToDecision })
-                  : NOT_PROVIDED}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-    </section>
+      </td>
+    </tr>
   );
 }

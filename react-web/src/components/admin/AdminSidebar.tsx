@@ -1,22 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
-import { useAuthStore } from "@/lib/auth-store";
 import { useNavProfile } from "@/hooks/useNavProfile";
 import { navHubsFor } from "@/lib/nav-profiles";
 
 export interface AdminSidebarProps {
-  user?: {
-    displayName: string;
-    roleLabel: string;
-    initials: string;
-  };
   /**
    * Current user's role key. Optional override: when omitted the rail renders
    * the signed-in account's profile from the auth store (useNavProfile). Pass
@@ -32,6 +25,7 @@ export interface AdminSidebarProps {
   inscriptionsCount?: number;
   /** Badge count on "Contrôle Qualité" */
   anomaliesCount?: number;
+  /** Sign-out, kept at the foot of the rail (owner, 2026-10-10). */
   onLogout?: () => void;
 }
 
@@ -107,7 +101,6 @@ function Badge({ count }: { count: number }) {
 // ── AdminSidebar ──────────────────────────────────────────────────────────────
 
 export function AdminSidebar({
-  user,
   role,
   pendingCount = 0,
   inscriptionsCount = 0,
@@ -116,19 +109,8 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const authLogout = useAuthStore((s) => s.logout);
   const t = useTranslations("adminSidebar");
   const tNav = useTranslations("adminNav");
-
-  const handleLogout = () => {
-    if (onLogout) {
-      onLogout();
-    } else {
-      authLogout();
-      router.push("/login");
-    }
-  };
 
   // The signed-in account's profile, unless a role was passed explicitly.
   // Either way the hubs come from NAV_PROFILES, each href already pointing at
@@ -178,46 +160,30 @@ export function AdminSidebar({
         })}
       </nav>
 
-      {/* ── Footer: user card ── */}
-      <div className="cam-admin-rail-account">
-        {user && (
-          <div className="cam-admin-rail-user">
-            <div className="cam-admin-rail-user-id">
-              <div className="cam-admin-rail-avatar" aria-hidden="true">{user.initials}</div>
-              <div className="cam-admin-rail-user-text">
-                <div className="cam-admin-rail-user-name">{user.displayName}</div>
-                <div className="cam-admin-rail-user-role">{user.roleLabel}</div>
-              </div>
-            </div>
-
-            <button type="button" onClick={handleLogout} className="cam-admin-rail-logout">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>{t("logoutButton")}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Console language. The rail is the one element every admin page
-            renders (several pages carry no header actions), so the switcher
-            lives here rather than in AdminHeaderActions. */}
-        <div className="cam-admin-rail-locale">
-          <LocaleSwitcher variant="masthead" />
+      {/* ── Footer: sign-out only. Who is signed in and the language switch
+          are in the account bar at the top of the page. ── */}
+      {onLogout && (
+        <div className="cam-admin-rail-account">
+          <button type="button" onClick={onLogout} className="cam-admin-rail-logout">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>{t("logoutButton")}</span>
+          </button>
         </div>
-      </div>
+      )}
     </aside>
   );
 }
