@@ -3,12 +3,8 @@
 import { useTranslations } from "next-intl";
 
 import { REGISTRATION_STEPS } from "@/lib/register-constants";
-import {
-  railItemEnabled,
-  railItemShowsCheck,
-  railItemState,
-  railStateLabelKey,
-} from "@/lib/register-rail";
+import { railItemState, railStateLabelKey } from "@/lib/register-rail";
+import { WizardStepList, type WizardStep } from "@/components/wizard/WizardStepList";
 
 interface RegistrationStepListProps {
   // The section showing in the frame.
@@ -46,54 +42,22 @@ export function RegistrationStepList({
   const t = useTranslations("registerPage");
   const activeIdx = Math.min(Math.max(currentIndex, 0), REGISTRATION_STEPS.length - 1);
 
-  return (
-    <nav className="step-list" aria-label={t("railLabel")}>
-      <ol className="step-list-items">
-        {REGISTRATION_STEPS.map((s, idx) => {
-          const state = railItemState(idx, { currentIndex: activeIdx, reached, completed });
-          const enabled = railItemEnabled(state);
-          const name = t(s.labelKey);
-          const stateText = t(railStateLabelKey(state));
-          // A locked step has nothing to summarise yet.
-          const summary = state === "locked" ? "" : (summaries[idx] ?? "");
+  const steps: WizardStep[] = REGISTRATION_STEPS.map((s, idx) => {
+    const state = railItemState(idx, { currentIndex: activeIdx, reached, completed });
+    return {
+      key: s.id,
+      marker: idx + 1,
+      name: t(s.labelKey),
+      // "revealed" is the shared list's "inProgress": started, not finished.
+      state: state === "revealed" ? "inProgress" : state,
+      stateLabel: t(railStateLabelKey(state)),
+      // A locked step has nothing to summarise yet.
+      detail: state === "locked" ? undefined : summaries[idx] || undefined,
+      // A locked item still takes the click: it is how the respondent asks
+      // what is still missing.
+      onSelect: () => onSelect(idx),
+    };
+  });
 
-          return (
-            <li key={s.id} className={`step-list-item is-${state}`}>
-              <button
-                type="button"
-                className="step-list-button"
-                aria-disabled={!enabled || undefined}
-                aria-current={idx === activeIdx ? "step" : undefined}
-                aria-label={summary ? `${name} — ${stateText} : ${summary}` : `${name} — ${stateText}`}
-                onClick={() => onSelect(idx)}
-              >
-                <span className="progress-step-circle" aria-hidden="true">
-                  {railItemShowsCheck(state) ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    idx + 1
-                  )}
-                </span>
-                <span className="step-list-name" aria-hidden="true">
-                  {name}
-                </span>
-                {state === "done" && (
-                  <span className="step-list-edit" aria-hidden="true">
-                    {t("editSectionButton")}
-                  </span>
-                )}
-                {summary && (
-                  <span className="step-list-summary" aria-hidden="true">
-                    {summary}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
+  return <WizardStepList label={t("railLabel")} steps={steps} editLabel={t("editSectionButton")} />;
 }

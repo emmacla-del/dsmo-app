@@ -74,6 +74,7 @@ import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityTo
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { RegistrationStepList } from "@/components/auth/RegistrationStepList";
+import { WizardRail } from "@/components/wizard/WizardRail";
 import { StepHeader } from "@/components/auth/StepHeader";
 import { OfficialLogo } from "@/components/landing/OfficialLogo";
 
@@ -1903,17 +1904,21 @@ export default function RegisterPage() {
 
       <div className="flow-split">
         {/* Wide screens only: the dossier panel. */}
-        <div className="flow-panel">
-          <div className="flow-panel-identity">
-            <span className="flow-panel-emblem">
-              <OfficialLogo label={t("landingPage.emblemLabel")} />
-            </span>
-            <div>
-              <div className="flow-panel-wordmark">{t("authShared.wordmark")}</div>
-              <p className="flow-panel-sub">{t("authShared.subtitle")}</p>
+        <WizardRail
+          className="flow-panel"
+          head={
+            <div className="flow-panel-identity">
+              <span className="flow-panel-emblem">
+                <OfficialLogo label={t("landingPage.emblemLabel")} />
+              </span>
+              <div>
+                <div className="flow-panel-wordmark">{t("authShared.wordmark")}</div>
+                <p className="flow-panel-sub">{t("authShared.subtitle")}</p>
+              </div>
             </div>
-          </div>
-
+          }
+          foot={<div className="flow-panel-foot">{exitLinks}</div>}
+        >
           <RegistrationStepList
             currentIndex={current}
             reached={reached}
@@ -1921,9 +1926,7 @@ export default function RegisterPage() {
             summaries={railSummaries}
             onSelect={goToSection}
           />
-
-          <div className="flow-panel-foot">{exitLinks}</div>
-        </div>
+        </WizardRail>
 
         <div className="flow-body">
           {/* The frame: the one bordered element in the body. */}
