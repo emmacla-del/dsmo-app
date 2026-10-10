@@ -2,18 +2,16 @@
 
    Everything here reads the --cam-* tokens from tokens.css. The four values
    declared on .page are the only ones with no token to read: two display
-   sizes larger than the ladder's top step, the emblem's size, and the gap
-   between the disc and its ring.
+   sizes larger than the ladder's top step and the logo's largest size (its
+   native width, so the image is never upscaled).
 
-   The flag's colours are used in one place only, the emblem. The bar and the
-   sign-in card carry no tricolour stripe on this page. */
+   No flag colours on this page: the identity is the official ONEFOP logo. */
 
 .page {
   --landing-gutter: var(--cam-space-4);
   --landing-wordmark-max: 5rem;        /* 80px */
   --landing-notice-title: 1.25rem;     /* 20px */
-  --landing-emblem-max: 280px;
-  --landing-emblem-ring: 14px;
+  --landing-emblem-max: 200px;
 
   flex: 1;
   min-height: 100vh;
@@ -77,43 +75,17 @@
   min-width: 0;
 }
 
-/* Width and height are both set from one size. aspect-ratio alone lets the
-   map inside stretch the disc into an oval. */
+/* The official logo, plain: no disc, ring or tint behind it. */
 .emblem {
   --landing-emblem-size: clamp(120px, 40cqi, var(--landing-emblem-max));
   flex: none;
   width: var(--landing-emblem-size);
-  height: var(--landing-emblem-size);
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-success-bg);
-  outline: 1px solid var(--cam-success-border);
-  outline-offset: var(--landing-emblem-ring);
-  display: grid;
-  place-items: center;
-}
-
-.emblemMap {
-  display: block;
-  height: 80%;
-  width: auto;
-}
-
-.flagGreen {
-  fill: var(--cam-flag-green);
-}
-
-.flagRed {
-  fill: var(--cam-flag-red);
-}
-
-.flagYellow {
-  fill: var(--cam-flag-yellow);
 }
 
 /* 19cqi keeps the eight characters of "CAM-LEAP" inside the column at any
    width; the clamp stops it at the ladder's base size and at 80px. */
 .wordmark {
-  margin: calc(var(--cam-space-5) + var(--landing-emblem-ring)) 0 0;
+  margin: var(--cam-space-5) 0 0;
   font-family: var(--cam-font-serif);
   font-size: clamp(2.5rem, 19cqi, var(--landing-wordmark-max));
   font-weight: var(--cam-font-weight-bold);
@@ -259,6 +231,6 @@
   }
 
   .wordmark {
-    margin-top: calc(var(--cam-space-6) + var(--landing-emblem-ring));
+    margin-top: var(--cam-space-6);
   }
 }

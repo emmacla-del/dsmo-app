@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
-import { CameroonEmblem } from "./CameroonEmblem";
+import { OfficialLogo } from "./OfficialLogo";
 import styles from "./landing.module.css";
 
 const WHATSAPP_URL = "https://wa.me/237651965905";
@@ -45,7 +45,7 @@ export function LandingShell({
       <main className={styles.stage}>
         <section className={styles.identity}>
           <div className={styles.emblem}>
-            <CameroonEmblem label={t("landingPage.emblemLabel")} />
+            <OfficialLogo label={t("landingPage.emblemLabel")} />
           </div>
           <Wordmark className={styles.wordmark}>{t("authShared.wordmark")}</Wordmark>
           <p className={styles.name}>{t("authShared.subtitle")}</p>

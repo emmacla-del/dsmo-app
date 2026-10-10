@@ -432,14 +432,14 @@ export default function PilotagePage() {
   const nationalCount = !isTerritorial && queues ? queues.pendingNationalVisasCount : null;
   const readyCount = queues ? queues.statisticallyReadyCount : null;
 
-  // `highlighted` lives on each stage, so it travels with "Déclarations" when
-  // the Inscriptions stage is dropped for a role that cannot read its source.
+  // No stage is highlighted: the yellow "Déclarations" box carried no stated
+  // meaning (owner, 2026-10-10).
   const pipeline = [
-    ...(canReadDataStats ? [{ label: t("adminPilotagePage.pipelineRegistrations"), value: totalInscriptions, highlighted: false }] : []),
-    { label: t("adminPilotagePage.pipelineDeclarations"), value: totalSubmissions, highlighted: true },
-    { label: t("adminPilotagePage.pipelineNational"), value: nationalCount, highlighted: false },
-    { label: t("adminPilotagePage.pipelineApproved"), value: statusApproved, highlighted: false },
-    { label: t("adminPilotagePage.pipelineExportable"), value: readyCount, highlighted: false },
+    ...(canReadDataStats ? [{ label: t("adminPilotagePage.pipelineRegistrations"), value: totalInscriptions }] : []),
+    { label: t("adminPilotagePage.pipelineDeclarations"), value: totalSubmissions },
+    { label: t("adminPilotagePage.pipelineNational"), value: nationalCount },
+    { label: t("adminPilotagePage.pipelineApproved"), value: statusApproved },
+    { label: t("adminPilotagePage.pipelineExportable"), value: readyCount },
   ];
 
   // 4 "À TRAITER" tiles: null renders "—" when the source is absent for
@@ -502,7 +502,7 @@ export default function PilotagePage() {
         <SectionLabel id="dash-pipeline-title" tone="green">{t("adminPilotagePage.pipelineTitle")}</SectionLabel>
         <ol className="cam-dash-pipeline">
           {pipeline.map((stage) => (
-            <li key={stage.label} className={stage.highlighted ? "is-highlighted" : undefined}>
+            <li key={stage.label}>
               <span className="cam-dash-pipeline-value">{count(stage.value, locale)}</span>
               <span className="cam-dash-pipeline-label">{stage.label}</span>
             </li>

@@ -1211,7 +1211,6 @@
   },
   "onefopUi": {
     "moreInfo": "More information",
-    "selectAllThatApply": "Select all that apply",
     "decrease": "Decrease",
     "increase": "Increase",
     "optionalSuffix": "(optional)",
@@ -2636,7 +2635,7 @@
     "signOut": "Sign out"
   },
   "landingPage": {
-    "emblemLabel": "Map of Cameroon in the national colours",
+    "emblemLabel": "ONEFOP logo, National Observatory of Employment and Vocational Training",
     "otherLanguageName": "Plateforme camerounaise d'analyse de l'emploi et du travail",
     "noticesHeading": "Notices to respondents",
     "notice1Title": "Welcome to CAM-LEAP",
