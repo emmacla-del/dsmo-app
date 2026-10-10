@@ -280,6 +280,7 @@
     "errorSelectArea": "Veuillez sélectionner un milieu (urbain ou rural).",
     "errorPasswordMismatch": "Les mots de passe ne correspondent pas.",
     "missingFieldsNotice": "{count, plural, one {Il reste # champ obligatoire : {names}} other {Il reste # champs obligatoires : {names}}}",
+    "missingFieldsLead": "{count, plural, one {Il reste # champ obligatoire :} other {Il reste # champs obligatoires :}}",
     "lockedStepNotice": "Terminez cette étape pour accéder à la suivante.",
     "successTitle": "Inscription réussie",
     "establishmentIdLabel": "Identifiant établissement : {establishmentId}",

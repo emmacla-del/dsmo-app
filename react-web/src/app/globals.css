@@ -738,9 +738,10 @@ body {
      .flow-body     flex: 1, the frame; as tall as its section needs.
      .flow-footer   one line: back to sign-in, and the help link.
 
-   What must stay on screen however long the section is -- Retour /
-   Continuer and the missing-fields notice -- lives in .flow-frame-dock,
-   which is position: sticky to the bottom of the viewport. The modifier is
+   Retour / Continuer sit in .flow-frame-dock at the END of the frame, not
+   pinned (owner's decision, 2026-10-10: a sticky bar covered the focused
+   field and sat on the phone keyboard). The missing-fields summary and the
+   reset snackbar sit at the TOP of the section content. The modifier is
    used by src/app/register/page.tsx and nowhere else (the register success
    screen renders .cam-auth-page without it, and
    login/forgot-password/verify-email use .wrap, not .wrap-wide), so no
@@ -754,15 +755,10 @@ body {
   justify-content: flex-start;
 }
 
-/* Focus and scrollIntoView (promptMissing, the certify box, plain Tab) must
-   not park a control underneath the sticky dock. scroll-padding belongs to
-   the scroll container, which is now the root. Sized for the dock's usual
-   height: the footer's button row plus a one-line notice. */
 /* scrollbar-gutter keeps the root's scrollbar space reserved, so moving
    from a short section to a long one does not shift the frame sideways. */
 html:has(.cam-auth-page--wizard) {
   scrollbar-gutter: stable;
-  scroll-padding-bottom: calc(var(--cam-field-height) * 2 + var(--cam-space-6));
 }
 
 .cam-auth-page--wizard .flow-stripe {
@@ -833,9 +829,8 @@ html:has(.cam-auth-page--wizard) {
 }
 
 /* The one framed element on the page. overflow: clip, not hidden: it keeps
-   the dock's background inside the rounded corners without making the frame
-   a scroll container, which would turn the dock's position: sticky into
-   "sticky to the frame" and stop it following the viewport. */
+   the footer's background inside the rounded corners without making the
+   frame a scroll container -- the document is the only scroller. */
 .cam-auth-page--wizard .flow-frame {
   width: 100%;
   max-width: var(--cam-container-wizard);
@@ -855,15 +850,9 @@ html:has(.cam-auth-page--wizard) {
   padding: var(--cam-frame-scroll-pad-top) var(--cam-frame-scroll-pad-x) var(--cam-space-2);
 }
 
-/* What has to stay on screen while the respondent scrolls a long section:
-   the snackbar, the missing-fields notice and the footer with Retour /
-   Continuer. Sticky to the bottom of the VIEWPORT (the frame is not a
-   scroll container -- see overflow: clip above), so it rides at the bottom
-   of the screen until the frame's own end scrolls into view. Later in the
-   DOM than the content, so it paints over it without a z-index. */
+/* The frame's footer row: Retour / Continuer after the last field. In flow,
+   not sticky -- see the composition note above. */
 .cam-auth-page--wizard .flow-frame-dock {
-  position: sticky;
-  bottom: 0;
   flex: 0 0 auto;
   background: var(--cam-surface);
 }
@@ -1281,20 +1270,24 @@ html:has(.cam-auth-page--wizard) {
   margin: var(--cam-space-1) 0 0;
 }
 
-/* ── The missing-fields notice ──
-   In the sticky .flow-frame-dock rather than in the section's content: it
-   reports fields that may be anywhere in a section taller than the screen,
-   so it has to stay on screen while the respondent scrolls the page to
-   them. */
+/* ── The missing-fields summary ──
+   At the top of the section content, the error-summary convention: it names
+   every missing field, and each name is a link that focuses its control. */
 .cam-auth-page--wizard .flow-missing-notice {
-  flex: 0 0 auto;
   background: var(--cam-error-bg);
-  border-top: var(--cam-border-width) solid var(--cam-error-border);
+  border: var(--cam-border-width) solid var(--cam-error-border);
+  border-radius: var(--cam-radius-control);
   color: var(--cam-error);
   font-size: var(--cam-font-size-xs);
   font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-ui);
-  padding: var(--cam-space-2) var(--cam-space-4);
+  padding: var(--cam-space-2) var(--cam-space-3);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-auth-page--wizard .flow-missing-notice a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 /* Inline per-field status line (email availability, password confirmation).
@@ -1514,9 +1507,8 @@ html:has(.cam-auth-page--wizard) {
 }
 
 /* ── Frame footer: the step's primary action ──
-   In the sticky .flow-frame-dock with the missing-fields notice, so
-   "Continuer" is on screen however tall the section is while the page
-   scrolls. One green action per screen (CLAUDE.md section 11). */
+   After the last field, in .flow-frame-dock. One green action per screen
+   (CLAUDE.md section 11). */
 .cam-auth-page--wizard .flow-frame-foot {
   flex: 0 0 auto;
   display: flex;
@@ -1676,18 +1668,14 @@ html:has(.cam-auth-page--wizard) {
 }
 
 /* ── Reset notices ──
-   A strip in the sticky .flow-frame-dock, above the footer -- the same slot
-   the missing-fields notice uses. It used to be a floating toast fixed to
-   the viewport, which on a phone sat on top of Continuer and the footer
-   links for its six seconds. Here it sits above them, and it is still on
-   screen wherever the respondent has scrolled to. */
-.cam-auth-page--wizard .wizard-snackbar-region {
-  flex: 0 0 auto;
-}
-
+   At the top of the section content, above the missing-fields summary. It
+   used to be a floating toast fixed to the viewport, which on a phone sat
+   on top of Continuer for its six seconds. */
 .cam-auth-page--wizard .wizard-snackbar {
+  margin-bottom: var(--cam-space-4);
+  border-radius: var(--cam-radius-control);
   background: var(--cam-success-bg);
-  border-top: var(--cam-border-width) solid var(--cam-border);
+  border: var(--cam-border-width) solid var(--cam-border);
   color: var(--cam-text);
   font-size: var(--cam-font-size-xs);
   font-weight: var(--cam-font-weight-semibold);

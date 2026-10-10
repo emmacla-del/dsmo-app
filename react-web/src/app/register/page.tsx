@@ -928,8 +928,15 @@ export default function RegisterPage() {
     const missing = missingFieldsToReport(currentStep, regState, nameResolvers);
     if (missing.length === 0) return false;
     setFlaggedIds(missing.map((f) => f.id));
-    requestAnimationFrame(() => {
-      const first = document.getElementById(missing[0].id);
+    requestAnimationFrame(() => focusField(missing[0].id));
+    return true;
+  }
+
+  // Focuses a field by id and brings it into view. Used by promptMissing for
+  // the first gap, and by the summary's links for any of them.
+  function focusField(id: string) {
+    {
+      const first = document.getElementById(id);
       // The type list's "field" is a <fieldset>, which carries the id but
       // cannot take focus, so the first radio stands in for it. Checking the
       // element kind rather than the id keeps this true if another group
@@ -941,15 +948,12 @@ export default function RegisterPage() {
           ? first
           : firstEntityRadioRef.current;
       // Default scroll behaviour on purpose: the page scrolls the minimum
-      // needed to reveal the control (clear of the sticky dock, by the root's
-      // scroll-padding-bottom in globals.css), which on a long section 3 is the
-      // difference between an error message and a visible error message.
+      // needed to reveal the control.
       focusable?.focus();
       if (first && first !== focusable) {
         first.scrollIntoView({ block: "nearest" });
       }
-    });
-    return true;
+    }
   }
 
   // Clearing happens per field as it is fixed, which the derivation above
@@ -1925,6 +1929,36 @@ export default function RegisterPage() {
           {/* The frame: the one bordered element in the body. */}
           <div className="flow-frame">
             <div className="flow-frame-content">
+              {/* Reset and restore notices. Announced, because the change they
+                  report happened somewhere the respondent may not be looking. */}
+              <div className="wizard-snackbar-region" role="status" aria-live="polite">
+                {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
+              </div>
+
+              {/* Error summary at the top of the section, the convention for
+                  government forms: it names every missing field and each name
+                  links to its control. The first missing control is also
+                  focused and points here (aria-describedby). */}
+              {shownErrors.length > 0 && (
+                <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
+                  {t("registerPage.missingFieldsLead", { count: shownErrors.length })}{" "}
+                  {shownErrors.map((f, i) => (
+                    <span key={f.id}>
+                      {i > 0 && ", "}
+                      <a
+                        href={`#${f.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          focusField(f.id);
+                        }}
+                      >
+                        {f.name}
+                      </a>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Above the section rather than inside the review: a failure
                   sends the respondent to the section that failed, and the
                   message has to travel with them. */}
@@ -1967,7 +2001,7 @@ export default function RegisterPage() {
                       const next = e.relatedTarget as HTMLElement | null;
                       if (!next) return;
                       // The frame footer's Retour and Continuer are in the
-                      // sticky dock below the content, outside this <section>
+                      // dock below the content, outside this <section>
                       // in the DOM, but they are still this section's own
                       // controls. Only moving to Continuer says "done here":
                       // a respondent heading for Retour must not be pushed
@@ -1989,35 +2023,12 @@ export default function RegisterPage() {
               </form>
             </div>
 
-            {/* The dock: what has to stay on screen however tall the section
-                is. position: sticky to the bottom of the viewport (globals.css,
-                .flow-frame-dock) -- the document scrolls, nothing inside the
-                frame does. */}
+            {/* The frame footer: Retour / Continuer at the end of the form,
+                where respondents finish the section. Not pinned: a sticky bar
+                covered the field being filled (WCAG 2.2, 2.4.11) and, on a
+                phone, sat on the keyboard. Owner's decision, 2026-10-10. */}
             <div className="flow-frame-dock">
-              {/* Reset and restore notices. Announced, because the change they
-                  report happened somewhere the respondent may not be looking;
-                  in the dock under the content so they cover none of it. */}
-              <div className="wizard-snackbar-region" role="status" aria-live="polite">
-                {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
-              </div>
-
-              {/* In the sticky dock, not in the section's content: it reports
-                  fields that may be anywhere in a section taller than the
-                  screen, so it has to stay on screen while the respondent
-                  scrolls the page to them. */}
-              {shownErrors.length > 0 && (
-                <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
-                  {t("registerPage.missingFieldsNotice", {
-                    count: shownErrors.length,
-                    names: shownErrors.map((f) => f.name).join(", "),
-                  })}
-                </div>
-              )}
-
-              {/* In the sticky dock, so both actions are on screen however
-                  tall the section is.
-
-                  Retour: every section but the first. The step list (or the
+              {/* Retour: every section but the first. The step list (or the
                   rail) can jump anywhere already revealed; this is the plain
                   one-step-back respondents look for at the bottom of a form.
 

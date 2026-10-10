@@ -8,8 +8,9 @@
 //
 // Owner's decision, 2026-10-10: the wizard is ONE column at every width
 // (label above control, no side-by-side layout), and the DOCUMENT scrolls --
-// there is no scroll region inside the frame. Retour / Continuer and the
-// missing-fields notice stay on screen in the sticky .flow-frame-dock.
+// there is no scroll region inside the frame. Retour / Continuer sit at the
+// END of the form in .flow-frame-dock, not pinned; the missing-fields summary
+// sits at the TOP of the section.
 //
 // Usage:  node scripts/test-register-layout.mjs [baseUrl]
 //         BASE_URL=http://localhost:3005 node scripts/test-register-layout.mjs
@@ -140,9 +141,9 @@ const measureLayout = () => {
   const dockPosition = dock ? getComputedStyle(dock).position : null;
   return {
     dockPosition,
-    dockSticky: dockPosition === "sticky",
-    dockBottom: dock ? Math.round(dock.getBoundingClientRect().bottom) : null,
-    viewportHeight: window.innerHeight,
+    dockInFlow: dockPosition === "static" || dockPosition === "relative",
+    dockIsFrameEnd: !!dock && dock.parentElement?.lastElementChild === dock
+      && dock.parentElement.classList.contains("flow-frame"),
     docScrollHeight: doc.scrollHeight,
     docClientHeight: doc.clientHeight,
     docScrollWidth: doc.scrollWidth,
@@ -342,9 +343,9 @@ async function runViewport(browser, vp) {
       names.length ? names.join(", ") : "(nothing overflowing)"
     );
     check(
-      L.dockSticky && L.dockBottom !== null && L.dockBottom <= L.viewportHeight + 1,
-      "the dock (Retour / Continuer) is sticky and on screen" + tag,
-      "position=" + L.dockPosition + " bottom=" + L.dockBottom + " viewport=" + L.viewportHeight
+      L.dockInFlow && L.dockIsFrameEnd,
+      "Retour / Continuer sit at the end of the frame, not pinned" + tag,
+      "position=" + L.dockPosition
     );
     check(
       L.scrollers.every((s) => !s.overflowsX),
@@ -943,6 +944,12 @@ const promptState = () => ({
   errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].length,
   focused: document.activeElement?.id ?? null,
   describedBy: document.querySelector("#reg-first-name")?.getAttribute("aria-describedby") ?? null,
+  links: [...document.querySelectorAll(".flow-missing-notice a")].map((a) => a.getAttribute("href")),
+  noticeAboveFields: (() => {
+    const n = document.querySelector(".flow-missing-notice");
+    const f = document.querySelector(".wizard-section:not([hidden]) .field");
+    return !!n && !!f && n.getBoundingClientRect().bottom <= f.getBoundingClientRect().top;
+  })(),
 });
 
 async function runPrompts(browser) {
@@ -996,6 +1003,18 @@ async function runPrompts(browser) {
     st.describedBy === "reg-missing-notice",
     "and points that control at the notice",
     st.describedBy || ""
+  );
+  check(st.noticeAboveFields, "the summary sits above the section's fields");
+  check(
+    st.links.length === 5 && st.links[0] === "#reg-first-name",
+    "every missing field in the summary is a link to its control",
+    st.links.join(", ")
+  );
+  await page.click('.flow-missing-notice a[href="#reg-email"]');
+  await page.waitForTimeout(100);
+  check(
+    (await page.evaluate(() => document.activeElement?.id)) === "reg-email",
+    "a summary link focuses its field"
   );
   const stillHere = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
   check(
