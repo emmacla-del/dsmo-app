@@ -109,15 +109,13 @@ export function buildSpssExportWhere(filters: OnefopExportFilters, eligibilityWh
 }
 
 /**
- * Excel export rows. The workbook keeps one sheet per entity type, so with no
- * population requested it still holds every population (unchanged). When the
- * request names one — `partition` (the admin "Employeurs" choice sends
- * DEMAND) or an entity type — the rows are restricted exactly as the SPSS
- * file's are, through the same predicate, so an employer workbook never
- * carries training-centre rows and the reverse.
+ * Excel export rows: the same population rule as the SPSS/CSV files, so one
+ * request means the same rows in every format. An explicit entity type or
+ * `partition` decides it (the admin "Employeurs" choice sends DEMAND);
+ * without either the default is DEMAND, as for SPSS (decided 2026-10-10 —
+ * before, an Excel request naming no population held every population).
+ * `partition: 'ALL'` still yields one sheet per entity type, VT included.
  */
 export function buildExcelExportWhere(filters: OnefopExportFilters, eligibilityWhere: object): any {
-  return filters.partition
-    ? buildSpssExportWhere(filters, eligibilityWhere)
-    : buildOnefopExportWhere(filters, eligibilityWhere);
+  return buildSpssExportWhere(filters, eligibilityWhere);
 }
