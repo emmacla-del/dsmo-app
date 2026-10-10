@@ -214,14 +214,41 @@ const GuidedStatBox = memo(function GuidedStatBox({
   );
 });
 
+/** Accessible name for a summary row's edit/delete button: says which row
+ * (its 1-based position, plus its label when it has one), since several of
+ * these buttons sit on the same screen. */
+function rowActionLabel(
+  t: ReturnType<typeof useTranslations>,
+  action: "edit" | "remove",
+  row: VRow,
+  name: string,
+): string {
+  const index = row.idx + 1;
+  const trimmed = name.trim();
+  if (action === "edit") {
+    return trimmed
+      ? t("vtWizard.editRowNamed", { default: "Modifier la ligne {index} : {name}", index, name: trimmed })
+      : t("vtWizard.editRow", { default: "Modifier la ligne {index}", index });
+  }
+  return trimmed
+    ? t("vtWizard.removeRowNamed", { default: "Supprimer la ligne {index} : {name}", index, name: trimmed })
+    : t("vtWizard.removeRow", { default: "Supprimer la ligne {index}", index });
+}
+
+/** Icon-only edit/delete button. The glyph is decorative (aria-hidden); the
+ * accessible name comes from `label`, which is also shown as a tooltip.
+ * Keyboard focus gets the page-wide :focus-visible ring (globals.css). */
 const IconButton = memo(function IconButton({
   icon,
+  label,
   onTap,
-}: { icon: string; onTap: () => void }) {
+}: { icon: string; label: string; onTap: () => void }) {
   return (
     <button
       type="button"
       onClick={onTap}
+      aria-label={label}
+      title={label}
       style={{
         width: 28,
         height: 28,
@@ -233,9 +260,8 @@ const IconButton = memo(function IconButton({
         borderRadius: "var(--cam-radius-sm)",
         cursor: "pointer",
       }}
-      aria-label={icon}
     >
-      <span style={{ fontSize: 14, color: inkSoft }}>{icon}</span>
+      <span aria-hidden="true" style={{ fontSize: 14, color: inkSoft }}>{icon}</span>
     </button>
   );
 });
@@ -448,6 +474,7 @@ function FixedSummaryRow({
   row: VRow; data: FormData;
   numberCells: VtCellDef[]; onEdit: (row: VRow) => void; onRemove: (row: VRow) => void;
 }) {
+  const t = useTranslations();
   const locale = useLocale();
   const label = cellLabelText(row.rowDef.label, locale) || "";
   const vals = numberCells.map((c) => {
@@ -475,8 +502,8 @@ function FixedSummaryRow({
             {guidedNumberDisplay(total, locale)}
           </span>
         )}
-        <IconButton icon="✏" onTap={() => onEdit(row)} />
-        <IconButton icon="🗑" onTap={() => onRemove(row)} />
+        <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
+        <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
       </div>
     </div>
   );
@@ -669,6 +696,7 @@ function ProgressiveSummaryRow({
   numberCells: VtCellDef[]; computedCell?: VtCellDef;
   onEdit: (row: VRow) => void; onRemove: (row: VRow) => void;
 }) {
+  const t = useTranslations();
   const locale = useLocale();
   const label = (data[cellId(row, vt.cells[0])] as string) ?? "";
   const vals = numberCells.map((c) => {
@@ -702,8 +730,8 @@ function ProgressiveSummaryRow({
           {computedVal}
         </span>
       )}
-      <IconButton icon="✏" onTap={() => onEdit(row)} />
-      <IconButton icon="🗑" onTap={() => onRemove(row)} />
+      <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
+      <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
     </div>
   );
 }
@@ -720,6 +748,7 @@ export function VtWizardProgressiveBooleanTableEntry({
   const [selectedRow, setSelectedRow] = useState<VRow | null>(null);
   const [labelValue, setLabelValue] = useState("");
   const [boolValues, setBoolValues] = useState<Record<string, boolean | null>>({});
+  const groupIdPrefix = useId();
 
   const rowHasLabel = (row: VRow): boolean => {
     const v = data[cellId(row, labelCell)];
@@ -785,38 +814,45 @@ export function VtWizardProgressiveBooleanTableEntry({
           const gateValue = dependsOn ? boolValues[dependsOn] : true;
           if (!gateValue) return null;
           const val = boolValues[cell.key] ?? null;
+          // Native radio group: no option is checked until the respondent
+          // picks one, so "not answered" (null) stays distinct from Non.
+          const groupName = `${groupIdPrefix}-${cell.key}`;
           return (
-            <div key={cell.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink, margin: 0 }}>
+            <fieldset
+              key={cell.key}
+              style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, border: "none", margin: 0, padding: 0, minWidth: 0 }}
+            >
+              <legend style={{ float: "left", padding: 0, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink, margin: 0 }}>
                 {cellLabel(cell, locale)}
-              </label>
-              <div style={{ display: "flex", gap: 4 }}>
+              </legend>
+              <div style={{ display: "flex", gap: 16 }}>
                 {([true, false] as const).map((answer) => {
                   const selected = val === answer;
                   return (
-                    <button
+                    <label
                       key={String(answer)}
-                      type="button"
-                      onClick={() => setBoolValues({ ...boolValues, [cell.key]: answer })}
                       style={{
                         display: "flex", alignItems: "center", gap: 6,
-                        padding: "6px 12px", borderRadius: "var(--cam-radius-sm)",
-                        background: selected ? accentGreen : "#ffffff",
-                        border: `1px solid ${selected ? accentGreen : cardBorder}`,
-                        cursor: "pointer", fontFamily: "var(--cam-font-sans)",
+                        minHeight: 32, cursor: "pointer",
+                        fontFamily: "var(--cam-font-sans)",
                         fontWeight: selected ? 600 : 400, fontSize: 13,
-                        color: selected ? "#ffffff" : ink,
+                        color: selected ? ink : inkSoft,
                       }}
                     >
-                      <span style={{ fontSize: 14, color: "inherit" }}>
-                        {selected ? "●" : "○"}
-                      </span>
+                      <input
+                        type="radio"
+                        name={groupName}
+                        value={String(answer)}
+                        checked={selected}
+                        onChange={() => setBoolValues({ ...boolValues, [cell.key]: answer })}
+                        style={{ margin: 0, accentColor: accentGreen, cursor: "pointer" }}
+                      />
                       {answer ? t("vtTableRenderer.booleanYes") : t("vtTableRenderer.booleanNo")}
-                    </button>
+                    </label>
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
           );
         })}
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
@@ -843,11 +879,16 @@ export function VtWizardProgressiveBooleanTableEntry({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {entered.map((row) => {
             const label = (data[cellId(row, labelCell)] as string) ?? "";
+            // Unanswered cells (null/undefined/"") are left out rather than
+            // shown as "Non".
             const detailParts = boolCells
-              .filter((c) => boolValues[c.key] != null || data[cellId(row, c)] !== null)
+              .filter((c) => {
+                const v = data[cellId(row, c)];
+                return v !== null && v !== undefined && v !== "";
+              })
               .map((c) => {
                 const v = data[cellId(row, c)];
-                const boolVal = v === null ? null : (typeof v === "boolean" ? v : v === "true");
+                const boolVal = typeof v === "boolean" ? v : v === "true";
                 return `${cellLabel(c, locale)} : ${boolVal ? t("vtTableRenderer.booleanYes") : t("vtTableRenderer.booleanNo")}`;
               });
             return (
@@ -862,8 +903,8 @@ export function VtWizardProgressiveBooleanTableEntry({
                     </p>
                   )}
                 </div>
-                <IconButton icon="✏" onTap={() => handleEdit(row)} />
-                <IconButton icon="🗑" onTap={() => handleRemove(row)} />
+                <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
+                <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
               </div>
             );
           })}
@@ -1094,8 +1135,8 @@ export function VtWizardRosterGuidedEntry({
                     </p>
                   )}
                 </div>
-                <IconButton icon="✏" onTap={() => handleEdit(row)} />
-                <IconButton icon="🗑" onTap={() => handleRemove(row)} />
+                <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
+                <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
               </div>
             );
           })}
