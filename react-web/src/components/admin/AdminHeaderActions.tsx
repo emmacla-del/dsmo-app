@@ -40,7 +40,7 @@ export interface AdminHeaderActionsProps {
 
 /**
  * Right-hand chips shared by every admin page header: active campaign pill,
- * the account's territorial scope, and the Cameroon flag.
+ * the account's territorial scope.
  */
 export function AdminHeaderActions({
   showCampaignPill = true,
@@ -135,15 +135,6 @@ export function AdminHeaderActions({
           </svg>
         </Link>
       )}
-
-      {/* Cameroon flag circle */}
-      <span className="cam-admin-flag-circle" role="img" aria-label={t("flagAriaLabel")} title={t("flagTitle")}>
-        <span className="cam-admin-flag-green" />
-        <span className="cam-admin-flag-red">
-          <span className="cam-admin-flag-star">★</span>
-        </span>
-        <span className="cam-admin-flag-yellow" />
-      </span>
     </div>
   );
 }
