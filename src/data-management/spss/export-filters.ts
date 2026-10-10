@@ -107,3 +107,17 @@ export function buildSpssExportWhere(filters: OnefopExportFilters, eligibilityWh
   }
   return where;
 }
+
+/**
+ * Excel export rows. The workbook keeps one sheet per entity type, so with no
+ * population requested it still holds every population (unchanged). When the
+ * request names one — `partition` (the admin "Employeurs" choice sends
+ * DEMAND) or an entity type — the rows are restricted exactly as the SPSS
+ * file's are, through the same predicate, so an employer workbook never
+ * carries training-centre rows and the reverse.
+ */
+export function buildExcelExportWhere(filters: OnefopExportFilters, eligibilityWhere: object): any {
+  return filters.partition
+    ? buildSpssExportWhere(filters, eligibilityWhere)
+    : buildOnefopExportWhere(filters, eligibilityWhere);
+}
