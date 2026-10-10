@@ -51,7 +51,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 - [ ] `/admin/inscriptions`
 - [ ] `/admin/inscriptions/nouvelle`
 - [ ] `/admin/utilisateurs`
-- [~] `/admin/sectors` — b161783a one header (verified). Open: category badge shows English codes (Tertiary/Primary/Public/Secondary) on the French UI; "Nom (EN)" and "Code" columns empty and use two different dashes (— vs –)
+- [~] `/admin/sectors` — b161783a one header (verified). 4ee542e6 categories in fr/en. Open: "Nom (EN)" and "Code" columns empty and use two different dashes (— vs –)
 
 ## Staff console — system
 
@@ -60,6 +60,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 ## Shared fixes
 
+- 4ee542e6 — no stored codes on screen: campaign period/name, submission and campaign statuses, sector categories.
 - 9bf53ca9 — ViewSwitch no longer draws a vertical scrollbar (every page with in-page views); French loading text "Chargement des/du …" (every admin list).
 - b161783a — admin page rhythm: `.cam-admin-page` gap is the only vertical spacing between page blocks.
 - 58fdd865 — auth card title recipe (`receipt-title` / `receipt-subtitle`) shared by the whole auth family; lede spacing fixed once in `globals.css`.
