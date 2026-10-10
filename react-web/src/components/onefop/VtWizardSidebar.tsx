@@ -374,39 +374,6 @@ export function VtWizardSidebar({
           />
         </div>
 
-        {/* Bottom Accreditation Box */}
-        <div
-          style={{
-            background: "var(--cam-success-bg)",
-            border: "1px solid var(--cam-white-wash)",
-            borderRadius: "var(--cam-radius-control, 6px)",
-            padding: "10px 12px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11.5,
-              fontWeight: 800,
-              color: "var(--cam-green-dark)",
-              marginBottom: 2,
-              letterSpacing: "0.04em",
-            }}
-          >
-            MINEFOP
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--cam-text)",
-              lineHeight: 1.25,
-              opacity: 0.9,
-            }}
-          >
-            {locale === "en"
-              ? "Ministry of Employment and Vocational Training"
-              : "Ministère de l'Emploi et de la Formation Professionnelle"}
-          </div>
-        </div>
       </div>
     </aside>
   );

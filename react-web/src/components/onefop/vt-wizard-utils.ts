@@ -6,6 +6,21 @@ import { isVtCentreClosed, missingVtTableCells, vtTableStatus } from "@/lib/vt-q
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
 /** The two Sexe questions: short two-option radios, laid out like Yes/No. */
 export const VT_SEX_CHOICE_IDS = new Set(["VT1_15_SEX", "VT1_16_SEX"]);
+/**
+ * 1.15 and 1.16 ask the same five things (name, sex, WhatsApp, phone 2,
+ * e-mail) about two different people. The canonical AST names each block in
+ * its `subsection` (lib/core/focus/compiler/onefop_ast.dart, VT1_15_NAME /
+ * VT1_16_NAME), but the generated schema JSON does not carry subsections, so
+ * the web wizard showed two runs of identical labels, each tagged with the
+ * same code. The titles below are the AST's own wording; the wizard draws
+ * one heading per block and drops the repeated code from its fields.
+ */
+export const VT_BLOCK_HEADINGS: Record<string, { code: string; fr: string; en: string }> = {
+  VT1_15_NAME: { code: "1.15", fr: "Informations sur le répondant", en: "Respondent information" },
+  VT1_16_NAME: { code: "1.16", fr: "Noms et contacts du Promoteur/Directeur du CFP", en: "Name and contact of Head/Promoter of VTC" },
+};
+export const VT_BLOCK_PAPER_CODES = new Set(Object.values(VT_BLOCK_HEADINGS).map((h) => h.code));
+
 /** Administrative fields the respondent sees but never edits (1.1 Code de la
  *  Structure, "A ne pas remplir" on the paper form). */
 export const VT_ADMIN_ONLY_IDS = new Set(["VT1_1"]);
