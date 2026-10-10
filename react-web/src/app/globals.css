@@ -1806,9 +1806,9 @@ html:has(.cam-auth-page--wizard) {
 .cam-auth-page .progress-step-item:not(:last-child)::after {
   content: "";
   position: absolute;
-  top: 15px;
-  left: calc(50% + 17px);
-  right: calc(-50% + 17px);
+  top: calc(var(--cam-step-marker-size) / 2);
+  left: calc(50% + var(--cam-step-marker-size) / 2 + var(--cam-space-hairline));
+  right: calc(-50% + var(--cam-step-marker-size) / 2 + var(--cam-space-hairline));
   height: 2px;
   background: var(--cam-border);
   z-index: 1;
@@ -1818,22 +1818,9 @@ html:has(.cam-auth-page--wizard) {
   background: var(--cam-green);
 }
 
-.cam-auth-page .progress-step-circle {
-  width: 30px;
-  height: 30px;
+.cam-auth-page .progress-step-item .cam-step-marker {
   flex: 0 0 auto;
-  border-radius: var(--cam-radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--cam-font-size-xs);
-  font-weight: var(--cam-font-weight-bold);
-  background: var(--cam-surface);
-  border: 2px solid var(--cam-border);
-  color: var(--cam-text-muted);
-  position: relative;
   z-index: 2;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .cam-auth-page .progress-step-label {
@@ -1848,14 +1835,11 @@ html:has(.cam-auth-page--wizard) {
   max-width: 100%;
 }
 
-/* Complete: solid green, check mark, dark label. A check mark means complete
-   and nothing else -- "Recapitulatif" is never complete from field state, so
-   it can never show one before the registration has been sent. */
-.cam-auth-page .progress-step-item.is-done .progress-step-circle {
-  background: var(--cam-green);
-  border-color: var(--cam-green);
-  color: var(--cam-surface);
-}
+/* The circles are the shared .cam-step-marker, states and all (see "Wizard
+   rail"). Only the labels under them are this rail's own.
+   A check mark means complete and nothing else -- "Recapitulatif" is never
+   complete from field state, so it can never show one before the
+   registration has been sent. */
 
 /* Underlined, because a completed circle is a way back into that section
    and nothing else on the rail said so. The pointer cursor is already on
@@ -1866,61 +1850,22 @@ html:has(.cam-auth-page--wizard) {
   text-underline-offset: 2px;
 }
 
-/* Current: a gold ring. Gold, not green, because green means "answered" and
-   the section in hand is usually the one that is not. */
-.cam-auth-page .progress-step-item.is-current .progress-step-circle,
-.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
-  border-color: var(--cam-gold);
-  color: var(--cam-gold-dark);
-  box-shadow: var(--cam-focus-shadow-gold);
-}
-
-/* Current AND complete -- the respondent came back to an answered section.
-   The gold ring says "you are here", the soft green fill says "this one is
-   done": two facts, two channels, no check mark competing with the ring. */
-.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
-  background: var(--cam-success-bg);
-  color: var(--cam-green-dark);
-}
-
 .cam-auth-page .progress-step-item.is-current .progress-step-label,
 .cam-auth-page .progress-step-item.is-currentComplete .progress-step-label {
   color: var(--cam-green);
   font-weight: var(--cam-font-weight-bold);
 }
 
-/* Revealed but unanswered, and not in hand: a DASHED gold ring. Dashed is the
-   point -- it is the same gold as "you are here" but visibly unfinished, so
-   an abandoned section is distinguishable from the current one at a glance
-   and still reads as somewhere to go back to. */
-.cam-auth-page .progress-step-item.is-revealed .progress-step-circle {
-  border-style: dashed;
-  border-color: var(--cam-gold);
-  color: var(--cam-gold-dark);
-}
-
-.cam-auth-page .progress-step-item.is-revealed .progress-step-label {
+.cam-auth-page .progress-step-item.is-inProgress .progress-step-label {
   color: var(--cam-text-muted);
 }
 
-/* Not revealed yet: grey and disabled. Shown rather than hidden, because
-   "six steps, three to go" is worth knowing. */
-.cam-auth-page .progress-step-item.is-locked .progress-step-circle {
-  background: var(--cam-surface-subtle);
-  border-color: var(--cam-border);
-  color: var(--cam-border-strong);
-}
-
-/* The CIRCLE stays on --cam-border-strong: it is a disabled control and has
-   to look it. The LABEL does not -- it is the only place the six steps are
+/* Not revealed yet. The circle stays on --cam-border-strong: it is a
+   disabled control and has to look it. The LABEL does not -- it is the only place the six steps are
    named, and a step name drawn at hairline contrast is a step name nobody
    reads. See --cam-rail-upcoming. */
 .cam-auth-page .progress-step-item.is-locked .progress-step-label {
   color: var(--cam-rail-upcoming);
-}
-
-.cam-auth-page .progress-step-item:not([aria-disabled="true"]):hover .progress-step-circle {
-  border-color: var(--cam-green);
 }
 
 .cam-auth-page .progress-step-item:focus-visible {
@@ -2130,7 +2075,7 @@ html:has(.cam-auth-page--wizard) {
 }
 
 .cam-wizard-rail-bar {
-  height: 6px;
+  height: var(--cam-wizard-rail-bar-height);
   border-radius: var(--cam-radius-full);
   background: var(--cam-border-subtle);
   overflow: hidden;
@@ -2164,12 +2109,12 @@ html:has(.cam-auth-page--wizard) {
 }
 
 /* The connector, from just under one circle to just above the next. 14px is
-   the centre of the 30px circle less half the line. */
+   the centre of the circle less half the line. */
 .cam-step:not(:last-child)::after {
   content: "";
   position: absolute;
-  left: 14px;
-  top: calc(var(--cam-space-2) + 30px + var(--cam-space-hairline));
+  left: calc(var(--cam-step-marker-size) / 2 - 1px);
+  top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
   bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
   width: 2px;
   background: var(--cam-border);
@@ -2181,7 +2126,7 @@ html:has(.cam-auth-page--wizard) {
 
 .cam-step-button {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: var(--cam-step-marker-size) minmax(0, 1fr) auto;
   column-gap: var(--cam-space-3);
   align-items: center;
   width: 100%;
@@ -2209,8 +2154,8 @@ html:has(.cam-auth-page--wizard) {
 .cam-step-marker {
   position: relative;
   z-index: 1;
-  width: 30px;
-  height: 30px;
+  width: var(--cam-step-marker-size);
+  height: var(--cam-step-marker-size);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2223,40 +2168,40 @@ html:has(.cam-auth-page--wizard) {
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.cam-step-button:not([aria-disabled="true"]):hover .cam-step-marker {
+:is(.cam-step-button, .progress-step-item):not([aria-disabled="true"]):hover .cam-step-marker {
   border-color: var(--cam-green);
 }
 
-.cam-step.is-done .cam-step-marker {
+:is(.cam-step, .progress-step-item).is-done .cam-step-marker {
   background: var(--cam-green);
   border-color: var(--cam-green);
   color: var(--cam-surface);
 }
 
-.cam-step:is(.is-current, .is-currentComplete) .cam-step-marker {
+:is(.cam-step, .progress-step-item):is(.is-current, .is-currentComplete) .cam-step-marker {
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
   box-shadow: var(--cam-focus-shadow-gold);
 }
 
-.cam-step.is-currentComplete .cam-step-marker {
+:is(.cam-step, .progress-step-item).is-currentComplete .cam-step-marker {
   background: var(--cam-success-bg);
   color: var(--cam-green-dark);
 }
 
-.cam-step.is-inProgress .cam-step-marker {
+:is(.cam-step, .progress-step-item).is-inProgress .cam-step-marker {
   border-style: dashed;
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
 }
 
-.cam-step.is-error .cam-step-marker {
+:is(.cam-step, .progress-step-item).is-error .cam-step-marker {
   background: var(--cam-error-bg);
   border-color: var(--cam-error);
   color: var(--cam-error);
 }
 
-.cam-step.is-locked .cam-step-marker {
+:is(.cam-step, .progress-step-item).is-locked .cam-step-marker {
   background: var(--cam-surface-subtle);
   border-color: var(--cam-border);
   color: var(--cam-border-strong);
@@ -2318,11 +2263,11 @@ html:has(.cam-auth-page--wizard) {
 
 /* ── Section outline, under the step in hand (VT) ── */
 .cam-step-outline-progress {
-  margin: 0 0 var(--cam-space-2) calc(30px + var(--cam-space-3));
+  margin: 0 0 var(--cam-space-2) calc(var(--cam-step-marker-size) + var(--cam-space-3));
 }
 
 .cam-step-outline {
-  margin: 0 0 var(--cam-space-2) calc(30px + var(--cam-space-3));
+  margin: 0 0 var(--cam-space-2) calc(var(--cam-step-marker-size) + var(--cam-space-3));
   padding: 0;
   list-style: none;
   display: flex;

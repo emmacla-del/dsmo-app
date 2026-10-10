@@ -173,6 +173,10 @@
    /* The side navigation of every respondent wizard (.cam-wizard-rail):
      registration, Modern Jobs, VT. One width so the three line up. */
    --cam-wizard-rail-width: 280px;
+   /* The step circle on every wizard rail, wide and phone. The connectors
+     and the outline indent are computed from it. */
+   --cam-step-marker-size: 30px;
+   --cam-wizard-rail-bar-height: 6px;
    --cam-container-form: 640px;
 
    /* ── Borders ── */
