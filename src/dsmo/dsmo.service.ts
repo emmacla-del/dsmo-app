@@ -473,7 +473,7 @@ export class DsmoService {
    * next happens to run.
    */
   async getActivePeriod() {
-    let round = await this.prisma.submissionRound.findFirst({
+    const openRound = await this.prisma.submissionRound.findFirst({
       where: {
         module: 'DSMO',
         status: { in: ['OPEN', 'EXTENDED'] },
@@ -481,6 +481,11 @@ export class DsmoService {
       },
       orderBy: { openedAt: 'desc' },
     });
+    // No genuinely open round: fall back to the most recent one so the
+    // respondent can be told *which* period is closed and `code` stays
+    // populated. Before 2026-10-10 this fallback round was reported open
+    // regardless of its status or deadline.
+    let round = openRound;
     if (!round) {
       round = await this.prisma.submissionRound.findFirst({
         where: { module: 'DSMO' },
@@ -507,8 +512,16 @@ export class DsmoService {
         deadline: new Date(currentYear, 11, 31, 23, 59, 59),
       };
     }
+    // Same notion of "open" and same catalogued messages as
+    // OnefopService.getActiveQuarter (error-messages.ts translates them).
+    const isOpen = round.id === openRound?.id;
+    const closedMessage =
+      round.deadline < new Date()
+        ? `La période de collecte « ${round.labelFr} » est close depuis le ${round.deadline.toLocaleDateString('fr-FR')}.`
+        : `La période de collecte « ${round.labelFr} » n'est pas ouverte aux soumissions.`;
     return {
-      isOpen: true,
+      isOpen,
+      ...(isOpen ? {} : { message: closedMessage }),
       code: round.quarterCode,
       label: round.labelFr,
       deadline: round.deadline,
