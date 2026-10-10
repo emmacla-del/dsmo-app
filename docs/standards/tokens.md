@@ -90,7 +90,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-font-sans` | `var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif` | Font family | UI text. |
 | `--cam-font-serif` | `var(--font-zilla-slab), "Zilla Slab", Georgia, "Times New Roman", serif` | Font family | Serif display, where a screen already uses it. |
 | `--cam-font-mono` | `ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace` | Font family | Codes and identifiers only: NIU, CNPS, row codes. Table numbers use the UI font with tabular figures. |
-| `--cam-font-size-4xs` | `0.5625rem` (9px) | Font size | Sidebar brand sub-label and the star in the flag circle. Nothing new uses it. |
+| `--cam-font-size-4xs` | `0.5625rem` (9px) | Font size | The star in the flag circle. The admin rail's brand sub-label left it for 12px on 2026-10-10. Nothing new uses it. |
 | `--cam-font-size-3xs` | `0.6875rem` (11px) | Font size | Smallest body step above the sidebar micro-copy. |
 | `--cam-font-size-2xs` | `0.75rem` (12px) | Font size | Compact UI text. The most-used raw size. |
 | `--cam-font-size-xs` | `0.8125rem` (13px) | Font size | Hints, kickers, compact labels. |
@@ -132,7 +132,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-button-height` | `44px` | Density | Button height. |
 | `--cam-form-gap` | `var(--cam-space-4)` | Density | Gap between form fields. |
 | `--cam-container-compact` | `380px` | Container | Narrow dialogs and compact auth. |
-| `--cam-wizard-rail-width` | `280px` | Wizard rail | Side navigation of every respondent wizard (`.cam-wizard-rail`). |
+| `--cam-side-rail-width` | `280px` | Side rail | Every side navigation: the respondent wizards' `.cam-wizard-rail` and the staff console's `.cam-admin-rail` (shell grid and phone drawer). |
 | `--cam-step-marker-size` | `30px` | Wizard rail | Step circle on the wide and phone rails. Connectors and the outline indent are computed from it. |
 | `--cam-wizard-rail-bar-height` | `6px` | Wizard rail | Progress bar height on the rail and in the VT section outline. |
 | `--cam-container-form` | `640px` | Container | Auth card width. |
@@ -217,7 +217,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--vt-accent` | `var(--cam-green)` | VT | VT accent. |
 | `--vt-accent-soft` | `var(--cam-success-bg)` | VT | VT soft accent fill. |
 | `--vt-card-radius` | `var(--cam-radius-md)` | VT | VT card radius. |
-| `--vt-sidebar-width` | `var(--cam-wizard-rail-width)` | VT | Alias, kept for `ModernJobsNavigation`'s footer grid. |
+| `--vt-sidebar-width` | `var(--cam-side-rail-width)` | VT | Alias, kept for `ModernJobsNavigation`'s footer grid. |
 | `--vt-content-max` | `760px` | VT | Respondent reading width: questionnaire form sections, their footer, the declarations list (600px answers + padding). |
 | `--vt-content-max-wide` | `1100px` | VT | VT sections holding a statistical table (sections 4, 5, 6, 8). |
 | `--vt-font` | `var(--cam-font-sans)` | VT | VT font. |
@@ -230,4 +230,4 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-amber-badge` | `#fef3c7` | Respondent record | Amber badge fill recorded from the live fallback. |
 | `--cam-amber-text` | `#92400e` | Respondent record | Amber text recorded from the live fallback. |
 
-Class parameters are not palette entries and are not listed. `--cam-status-dot` and `--cam-admin-rail-width` are set next to the class that reads them.
+Class parameters are not palette entries and are not listed. `--cam-status-dot` is set next to the class that reads it. (`--cam-admin-rail-width` was one too, until the admin rail took `--cam-side-rail-width` on 2026-10-10.)

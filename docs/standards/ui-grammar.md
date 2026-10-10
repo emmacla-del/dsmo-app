@@ -107,7 +107,7 @@ Size and weight come from the class. **A page sets no `fontSize`.** Where a one-
 
 The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was added: 12px is the most-used raw font size in the app, and a token called `2xs` that rendered *smaller* than one called `3xs` would misread at every call site.
 
-`4xs` exists for two pieces of sidebar micro-copy that are deliberately below the body floor — the uppercase, letter-spaced brand sub-label and the star in the flag circle. It is a record of an existing intent, not an invitation: nothing new should reach for it. There is no 10px step, so the sidebar's one 10.5px label rounds up to `3xs`.
+`4xs` exists for the star in the flag circle, deliberately below the body floor. It also served the admin rail's uppercase brand sub-label until 2026-10-10, when that became 12px sentence case. It is a record of an existing intent, not an invitation: nothing new should reach for it.
 
 ### G14 — Spacing
 
@@ -208,7 +208,7 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 
 | What | Where |
 |---|---|
-| Width, circle size, bar height | `--cam-wizard-rail-width` (280px), `--cam-step-marker-size` (30px), `--cam-wizard-rail-bar-height` (6px) in `tokens.css` |
+| Width, circle size, bar height | `--cam-side-rail-width` (280px), `--cam-step-marker-size` (30px), `--cam-wizard-rail-bar-height` (6px) in `tokens.css` |
 | Look of the frame, steps and states | `.cam-wizard-rail*` and `.cam-step*` in `globals.css` (§"Wizard rail") |
 | Structure | `WizardRail` and `WizardStepList` in `src/components/wizard/` |
 | Words | `wizardRail.*` in `messages/{fr,en}.json` |
@@ -217,7 +217,7 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 - **Breakpoint.** The rail from 1024px, in all three wizards. Below it, registration shows its horizontal phone rail (same circles) and the questionnaires a sections drawer that renders the same rail with `sheet`.
 - **Under a sticky header** the rail pins at `--cam-wizard-rail-top`, which `ModernJobsHeader` publishes from its own height.
 - **Numbering** follows each paper form: Modern Jobs from 0, VT and registration from 1.
-- **Not this rail:** the staff console's dark rail (`.cam-admin-rail`) is site navigation, not form progress.
+- **The staff console's rail** (`.cam-admin-rail`) is site navigation, not form progress, so it keeps its dark green and its own classes. It shares everything else: `--cam-side-rail-width`, the 24/16/16 padding and 24px gap, 46px rows (a `--cam-step-marker-size` icon box), and 14px semibold items, bold when current.
 
 Do not draw a step list, a step circle or a progress bar for a wizard any other way.
 
