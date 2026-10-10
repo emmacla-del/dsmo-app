@@ -16,13 +16,19 @@
    --cam-flag-yellow: #f0b429;
 
    /* ── Surface / text ── */
-   --cam-bg: #fafaf7;
+   /* Pure colours (owner, 2026-10-10): white page, pure black text, and
+     every grey neutral -- no green, yellow or blue tint. The page was
+     #fafaf7 and the text #0b1f14 (a dark green), so text sat on a tinted
+     ground and read soft. Each grey kept its lightness, so its contrast
+     is unchanged; secondary text #555555 is 7.5:1 on white. Brand and
+     state colours (green, gold, red) are not greys and are unchanged. */
+   --cam-bg: #ffffff;
    --cam-surface: #ffffff;
-   --cam-surface-subtle: #fbfbf9;
-   --cam-text: #0b1f14;
-   --cam-text-muted: #4a5a50;
-   --cam-border: #d8ddd3;
-   --cam-border-strong: #aab5a3;
+   --cam-surface-subtle: #fafafa;
+   --cam-text: #000000;
+   --cam-text-muted: #555555;
+   --cam-border: #d9d9d9;
+   --cam-border-strong: #ababab;
 
    /* ── Shadows ──
      The one rgba() in this file. rgb(20, 30, 20) is not a token, so this
@@ -275,14 +281,14 @@
      label naming the field made a column of untouched inputs read as
      already filled in. Lighter than both the label and the typed value,
      and still over 4.5:1 on --cam-surface. */
-   --cam-placeholder: #7d8981;
+   --cam-placeholder: #858585;
 
    /* Rail items the respondent has not reached. Lighter than --cam-text-muted
      so "not yet" reads as not yet, darker than --cam-border-strong (which
      the circle keeps) so the step NAME stays legible -- a label the colour
      of a hairline is a label nobody reads, and the rail is the only place
      the six steps are listed. */
-   --cam-rail-upcoming: #6b776f;
+   --cam-rail-upcoming: #6e6e6e;
 
    /* ── Wizard frame ──
      The single bordered frame the current section is shown in. The padding
@@ -313,13 +319,13 @@
      The slate palette the statistical tables and the VT rail both draw on.
      Named by step, not by job: the --cam-table-* and --cam-rail-* tokens
      below alias them, so one value is written once. */
-   --cam-slate-200: #e2e8f0;
-   --cam-slate-300: #cbd5e1;
-   --cam-slate-400: #94a3b8;
-   --cam-slate-500: #64748b;
-   --cam-slate-600: #475569;
-   --cam-slate-700: #334155;
-   --cam-slate-800: #1e293b;
+   --cam-slate-200: #e5e5e5;
+   --cam-slate-300: #d4d4d4;
+   --cam-slate-400: #a3a3a3;
+   --cam-slate-500: #737373;
+   --cam-slate-600: #525252;
+   --cam-slate-700: #404040;
+   --cam-slate-800: #262626;
 
    /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
@@ -331,7 +337,7 @@
    --cam-table-strong: var(--cam-slate-700);    /* total-row rule, sub-header text */
    --cam-table-group-line: var(--cam-slate-800); /* separator between column blocks */
    --cam-table-head-bg: #ffffff;
-   --cam-table-text: #0f172a;
+   --cam-table-text: #000000;
    --cam-table-muted: var(--cam-slate-400);     /* empty-cell dash / placeholder */
 
    /* ── Table typography (used only by .cam-dt-* in globals.css) ──
@@ -345,7 +351,7 @@
    --cam-table-w-value: 400;          /* typed numbers */
    --cam-table-w-computed: 600;       /* calculated totals */
    --cam-table-w-total: 700;          /* TOTAL GÉNÉRAL row */
-   --cam-table-hover: #f8fafc;
+   --cam-table-hover: #fafafa;
    --cam-table-focus: #1a5c3a;
    --cam-table-readonly-bg: var(--cam-success-bg);   /* calculated cells & total rows */
    --cam-table-readonly-text: var(--cam-success);
@@ -368,7 +374,7 @@
    --vt-card-border: var(--cam-border);
    --vt-ink: var(--cam-text);
    --vt-ink-soft: var(--cam-text-muted);
-   --vt-ink-faint: #7a827f;
+   --vt-ink-faint: #7a7a7a;
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
@@ -386,9 +392,9 @@
      choices: --cam-primary in particular is a Tailwind blue on the locale
      switcher, not the brand primary (--cam-green). Redirecting them onto
      the core palette belongs with the wizard restyle's UX review. */
-   --cam-border-subtle: #eef0eb;
-   --cam-surface-2: #f1f5f9;
-   --cam-bg-subtle: #f8fafc;
+   --cam-border-subtle: #eeeeee;
+   --cam-surface-2: #f2f2f2;
+   --cam-bg-subtle: #f8f8f8;
    --cam-primary: #1d4ed8;
    --cam-amber-bg: #fff8e6;
    --cam-amber-border: #fcd34d;
@@ -432,7 +438,7 @@
    --cam-alert-orange: #d9530f;
    --cam-alert-orange-text: #b03e08;
    /* PDF viewer canvas behind the rendered pages. */
-   --cam-pdf-viewer-bg: #525659;
+   --cam-pdf-viewer-bg: #525252;
    /* Resting shadow of a validation-screen section row. Black is not a
      token, so the shadow base is named here. */
    --cam-shadow-black: #000000;
@@ -448,7 +454,7 @@
    --vt-card-border: var(--cam-border);
    --vt-ink: var(--cam-text);
    --vt-ink-soft: var(--cam-text-muted);
-   --vt-ink-faint: #7a827f;
+   --vt-ink-faint: #7a7a7a;
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);

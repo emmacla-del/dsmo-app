@@ -112,7 +112,7 @@ export function SubsectionHeader({
                 {code}
               </span>
             )}
-            <h3 className="font-sans text-base sm:text-lg font-bold text-[#0b1f14] tracking-tight leading-tight m-0">
+            <h3 className="font-sans text-base sm:text-lg font-bold text-[color:var(--cam-text)] tracking-tight leading-tight m-0">
               {title}
             </h3>
           </div>
@@ -121,7 +121,7 @@ export function SubsectionHeader({
       </div>
 
       {description && (
-        <p className="text-xs sm:text-sm text-[#4a5a50] mt-1.5 ml-4 leading-relaxed max-w-3xl">
+        <p className="text-xs sm:text-sm text-[color:var(--cam-text-muted)] mt-1.5 ml-4 leading-relaxed max-w-3xl">
           {description}
         </p>
       )}

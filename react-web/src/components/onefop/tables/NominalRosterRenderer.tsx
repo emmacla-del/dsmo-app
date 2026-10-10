@@ -23,13 +23,15 @@ export interface NominalRosterRendererProps {
   className?: string;
 }
 
-const accentGreen = "#006633";
-const ink = "#1a1a1a";
-const inkSoft = "#555555";
-const borderLight = "#d0d7de";
-const bgCard = "#ffffff";
-const bgMuted = "#f6f8fa";
-const errRed = "#cf222e";
+// The app's tokens, so this table follows the pure-colour palette
+// (owner, 2026-10-10) instead of keeping its own near-black and tinted greys.
+const accentGreen = "var(--cam-green)";
+const ink = "var(--cam-text)";
+const inkSoft = "var(--cam-text-muted)";
+const borderLight = "var(--cam-border)";
+const bgCard = "var(--cam-surface)";
+const bgMuted = "var(--cam-surface-subtle)";
+const errRed = "var(--cam-error)";
 
 export function NominalRosterRenderer({
   definition,
