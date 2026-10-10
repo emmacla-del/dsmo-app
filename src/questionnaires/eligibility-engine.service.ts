@@ -35,8 +35,9 @@ export class EligibilityEngineService {
    */
   async evaluateDossier(submissionId: string, territory?: Territory): Promise<DossierDiagnostic> {
     // Out-of-territory dossiers are reported as not found (no existence leak).
+    // `submissionId` may be the dossier id or the receipt's reference (F12).
     const submission = await this.prisma.onefopSubmission.findFirst({
-      where: { id: submissionId, ...territoryWhere(territory) },
+      where: { AND: [{ OR: [{ id: submissionId }, { submissionId }] }, territoryWhere(territory)] },
       include: {
         anomalies: {
           orderBy: { detectedAt: 'desc' },
