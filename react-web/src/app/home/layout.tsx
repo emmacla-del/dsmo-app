@@ -11,10 +11,10 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
-import { activeQuarterQueryOptions, meQueryOptions } from "@/lib/shared-queries";
+import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions } from "@/lib/shared-queries";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useIsClient } from "@/lib/use-is-client";
-import { referencePeriodLabel } from "@/lib/onefop-period-label";
+import { campaignPhrase, respondentTypeLabel } from "@/lib/respondent-identity";
 import { asUiLocale } from "@/lib/register-i18n";
 
 /**
@@ -56,6 +56,11 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   const quarterQuery = useQuery({
     ...activeQuarterQueryOptions,
     enabled: authState === "authed" && !awaitingApproval,
+  });
+  // The respondent's own structure, for its type in the rail.
+  const companyQuery = useQuery({
+    ...myCompanyQueryOptions,
+    enabled: authState === "authed" && user?.role === "COMPANY",
   });
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
   // Below 900px the rail is a drawer (globals.css .cam-home-rail). Escape,
@@ -149,29 +154,19 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": t("homeLayout.menuLabel") } : {})}
       >
         <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "var(--cam-radius-md)", background: "var(--cam-green)", color: "var(--cam-surface)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: "var(--cam-font-size-3xs)" }}>
-              R.C.
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
+            {/* The campaign in words ("Campagne du 4e trimestre 2026"), never the
+                stored code nor the survey's all-caps title (lib/respondent-identity). */}
+            <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+              {campaignPhrase(quarterQuery.data, uiLocale) ?? t("homeLayout.currentCampaign")}
             </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
-              {/* The period in words ("4e trimestre 2026"), never the stored
-                  campaign code; the server's label comes first when it has one. */}
-              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                {quarterQuery.data?.label
-                  ?? (quarterQuery.data?.code ? referencePeriodLabel(quarterQuery.data.code, uiLocale) : null)
-                  ?? t("homeLayout.currentCampaign")}
+            {/* A closed period must not read as the live campaign. */}
+            {quarterQuery.data?.isOpen === false && (
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, color: "var(--cam-warning)" }}>
+                {t("homeLayout.periodClosed")}
               </div>
-              {/* A closed period must not read as the live campaign. The
-                  badge otherwise shows the round's label either way, which
-                  is the one always-visible place a respondent would still
-                  infer the campaign is collecting. */}
-              {quarterQuery.data?.isOpen === false && (
-                <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, color: "var(--cam-warning)" }}>
-                  {t("homeLayout.periodClosed")}
-                </div>
-              )}
-            </div>
+            )}
           </div>
           {user && (
             <div style={{ marginTop: "var(--cam-space-3)" }}>
@@ -179,7 +174,8 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 {user.email}
               </div>
               <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
+                {(user.role === "COMPANY" ? respondentTypeLabel(companyQuery.data?.entityType, uiLocale) : null)
+                  ?? (roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole)}
               </div>
             </div>
           )}
@@ -194,7 +190,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 setMenuOpen(false);
                 setIsNewDeclarationOpen(true);
               }}
-              className="cam-button cam-button-primary cam-button-block cam-button-sm"
+              className="cam-button cam-button-secondary cam-button-block cam-button-sm"
             >
               {t("homeLayout.newDeclarationButton")}
             </button>
@@ -241,18 +237,8 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={openAttestation}
                 disabled={attestationLoading}
-                style={{
-                  width: "100%",
-                  background: "none",
-                  border: "var(--cam-border-width) solid var(--cam-border-strong)",
-                  borderRadius: "var(--cam-radius-sm)",
-                  padding: "var(--cam-space-2) var(--cam-space-3)",
-                  fontSize: "var(--cam-font-size-sm)",
-                  color: "var(--cam-green-dark)",
-                  fontWeight: 600,
-                  cursor: attestationLoading ? "progress" : "pointer",
-                  marginBottom: "var(--cam-space-2)",
-                }}
+                className="cam-text-button"
+                style={{ display: "block", marginBottom: "var(--cam-space-3)" }}
               >
                 {attestationLoading ? t("homeLayout.attestationLoading") : t("homeLayout.attestationButton")}
               </button>
@@ -281,15 +267,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
               logout();
               router.replace("/");
             }}
-            style={{
-              width: "100%",
-              background: "none",
-              border: "var(--cam-border-width) solid var(--cam-border-strong)",
-              borderRadius: "var(--cam-radius-sm)",
-              padding: "var(--cam-space-2) var(--cam-space-3)",
-              fontSize: "var(--cam-font-size-sm)",
-              cursor: "pointer",
-            }}
+            className="cam-button cam-button-secondary cam-button-block cam-button-sm"
           >
             {t("homeLayout.logoutButton")}
           </button>
