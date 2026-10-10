@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * Consolidated numeric stepper: tabular-nums so digits don't jitter as the
@@ -9,6 +10,20 @@ import type { ReactNode } from "react";
  * markup in VtWizardFields.tsx (VtWizardNumberStepper / the inline
  * insertion-stats inputs).
  */
+/** Both buttons are neutral outlines: a filled green "+" competed with the
+ * screen's one primary action. */
+const stepperButtonStyle = {
+  width: 44,
+  height: 44,
+  border: "var(--cam-border-width) solid var(--cam-border-strong)",
+  borderRadius: "var(--cam-radius-sm)",
+  cursor: "pointer",
+  fontWeight: 700,
+  fontSize: "var(--cam-font-size-lg)",
+  background: "var(--cam-surface)",
+  color: "var(--cam-text)",
+} as const;
+
 export function NumberStepper({
   id,
   value,
@@ -50,6 +65,7 @@ export function NumberStepper({
   /** Sets aria-required on the input. */
   required?: boolean;
 }) {
+  const t = useTranslations("onefopUi");
   const shouldShowButtons = showButtons ?? !compact;
   const n = parseInt(String(value ?? ""), 10);
   const current = Number.isFinite(n) ? n : 0;
@@ -125,41 +141,21 @@ export function NumberStepper({
           <div style={{ display: "flex", gap: 4 }}>
             <button
               type="button"
-              aria-label="−"
+              aria-label={t("decrease")}
               disabled={disabled || (min != null && current <= min)}
               onClick={() => stepBy(-step)}
               className="vt-stepper-button"
-              style={{
-                width: 44,
-                height: 44,
-                border: "1px solid var(--cam-border)",
-                borderRadius: "var(--cam-radius-sm)",
-                cursor: "pointer",
-                fontWeight: 700,
-                fontSize: 18,
-                background: "var(--cam-bg)",
-                color: "var(--cam-text)",
-              }}
+              style={stepperButtonStyle}
             >
               −
             </button>
             <button
               type="button"
-              aria-label="+"
+              aria-label={t("increase")}
               disabled={disabled || (max != null && current >= max)}
               onClick={() => stepBy(step)}
               className="vt-stepper-button"
-              style={{
-                width: 44,
-                height: 44,
-                border: "1px solid var(--cam-green)",
-                borderRadius: "var(--cam-radius-sm)",
-                cursor: "pointer",
-                fontWeight: 700,
-                fontSize: 18,
-                background: "var(--cam-green)",
-                color: "#fff",
-              }}
+              style={stepperButtonStyle}
             >
               +
             </button>

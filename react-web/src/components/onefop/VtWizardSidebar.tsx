@@ -330,7 +330,6 @@ export function VtWizardSidebar({
               transition: "all 0.15s ease",
             }}
           >
-            <span style={{ fontSize: 13 }}>📋</span>
             <span>{t("vtWizardSidebar.validationLink")}</span>
           </button>
         </div>
@@ -359,7 +358,7 @@ export function VtWizardSidebar({
         <div
           style={{
             height: 6,
-            borderRadius: "var(--cam-radius-sm, 2px)",
+            borderRadius: "var(--cam-radius-sm)",
             background: "var(--cam-white-wash)",
             overflow: "hidden",
             marginBottom: 12,

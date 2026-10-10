@@ -75,8 +75,7 @@ export function VtWizardFieldError({ message, id }: { message?: string; id?: str
   if (!message) return null;
   return (
     <p id={id} role="alert" style={errorStyle}>
-      <span>⚠️</span>
-      <span>{message}</span>
+      {message}
     </p>
   );
 }
@@ -675,21 +674,7 @@ export function VtWizardField({
           onChange={(e) => onChange(field.id, e.target.value.slice(0, 4))}
           onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{
-            maxWidth: 160,
-            width: "100%",
-            height: "var(--cam-form-field-height)",
-            backgroundColor: "#ffffff",
-            border: `1px solid ${hasError ? "var(--cam-error)" : "#1B4332"}`,
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "0 var(--cam-space-3)",
-            fontFamily: "var(--cam-font-sans)",
-            fontSize: "var(--cam-font-size-base)",
-            fontWeight: 600,
-            color: "var(--cam-text)",
-            outline: "none",
-            boxSizing: "border-box",
-          }}
+          style={{ maxWidth: 160 }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
@@ -706,25 +691,10 @@ export function VtWizardField({
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            height: "var(--cam-form-field-height)",
-            backgroundColor: "#ffffff",
-            border: `1px solid ${hasError ? "var(--cam-error)" : "#1B4332"}`,
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "0 var(--cam-space-3)",
-            boxSizing: "border-box",
-          }}
+          className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
+          style={{ display: "flex", alignItems: "center" }}
         >
-          <span
-            style={{
-              fontFamily: "var(--cam-font-sans)",
-              fontWeight: 600,
-              fontSize: "var(--cam-font-size-base)",
-              color: "var(--cam-text-muted)",
-            }}
-          >
+          <span style={{ color: "var(--cam-text-muted)" }}>
             +237
           </span>
           <div style={{ width: 1, height: 20, backgroundColor: "var(--cam-border)", margin: "0 10px" }} />
@@ -742,9 +712,7 @@ export function VtWizardField({
               minWidth: 0,
               border: "none",
               outline: "none",
-              fontFamily: "var(--cam-font-sans)",
-              fontWeight: 600,
-              fontSize: "var(--cam-font-size-base)",
+              font: "inherit",
               backgroundColor: "transparent",
               color: "var(--cam-text)",
             }}
@@ -772,21 +740,7 @@ export function VtWizardField({
           onChange={(e) => onChange(field.id, e.target.value)}
           onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{
-            width: "100%",
-            minHeight: 112,
-            backgroundColor: "#ffffff",
-            border: `1px solid ${hasError ? "var(--cam-error)" : "#1B4332"}`,
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "8px var(--cam-space-3)",
-            fontFamily: "var(--cam-font-sans)",
-            fontSize: "var(--cam-font-size-base)",
-            fontWeight: 500,
-            color: "var(--cam-text)",
-            outline: "none",
-            resize: "vertical",
-            boxSizing: "border-box",
-          }}
+          style={{ minHeight: 112, resize: "vertical" }}
         />
         <VtWizardFieldError id={errorId} message={errorMessage} />
         {hint ? <Microcopy id={hintId}>{hint}</Microcopy> : null}
@@ -811,21 +765,11 @@ export function VtWizardField({
             onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
             className={`sovereign-select ${hasError ? "has-error" : ""}`}
             style={{
-              width: "100%",
-              height: "var(--cam-form-field-height)",
-              backgroundColor: "#ffffff",
-              border: `1px solid ${hasError ? "var(--cam-error)" : "#cbd5e1"}`,
-              borderRadius: "var(--cam-radius-sm, 6px)",
-              padding: "0 36px 0 var(--cam-space-3)",
-              fontFamily: "var(--cam-font-sans)",
-              fontSize: "var(--cam-font-size-base)",
-              fontWeight: 500,
+              paddingRight: "var(--cam-space-6)",
               color: value ? "var(--cam-text)" : "var(--cam-text-muted)",
-              outline: "none",
               appearance: "none",
               WebkitAppearance: "none",
               cursor: "pointer",
-              boxSizing: "border-box",
             }}
           >
             <option value="">{t("vtWizard.selectAnOption", { default: "Sélectionner une option" })}</option>
@@ -872,19 +816,7 @@ export function VtWizardField({
           readOnly
           aria-readonly="true"
           aria-describedby={noteId}
-          style={{
-            width: "100%",
-            height: "var(--cam-form-field-height)",
-            backgroundColor: "var(--cam-surface)",
-            border: "1px solid var(--cam-border)",
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "0 var(--cam-space-3)",
-            fontFamily: "var(--cam-font-sans)",
-            fontSize: "var(--cam-font-size-base)",
-            fontWeight: 500,
-            color: "var(--cam-text)",
-            boxSizing: "border-box",
-          }}
+          className="sovereign-text-input"
         />
         {field.id === "VT1_6" ? (
           <p
@@ -926,20 +858,6 @@ export function VtWizardField({
         onChange={adminOnly ? undefined : (e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-        style={{
-          width: "100%",
-          height: "var(--cam-form-field-height)",
-          backgroundColor: "#ffffff",
-          border: `1px solid ${hasError ? "var(--cam-error)" : adminOnly ? "var(--cam-border)" : "#1B4332"}`,
-          borderRadius: "var(--cam-radius-sm, 6px)",
-          padding: "0 var(--cam-space-3)",
-          fontFamily: "var(--cam-font-sans)",
-          fontSize: "var(--cam-font-size-base)",
-          fontWeight: 500,
-          color: "var(--cam-text)",
-          outline: "none",
-          boxSizing: "border-box",
-        }}
       />
       <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
       <VtWizardFieldError id={errorId} message={errorMessage} />

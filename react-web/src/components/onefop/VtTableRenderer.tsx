@@ -311,7 +311,6 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
       <div
         style={{
           overflowX: "auto",
-          maxHeight: "75vh",
           border: "1px solid var(--cam-table-frame)",
           borderRadius: "var(--cam-radius-sm)",
         }}

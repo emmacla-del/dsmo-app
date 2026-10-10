@@ -62,10 +62,9 @@ test("5.2 summary rows: edit/delete buttons name the row, and an unanswered cell
 
   const edit = screen.getByRole("button", { name: "Modifier la ligne 1 : Menuiserie" });
   const remove = screen.getByRole("button", { name: "Supprimer la ligne 1 : Menuiserie" });
-  for (const button of [edit, remove]) {
-    const glyph = button.querySelector("span");
-    assert.equal(glyph?.getAttribute("aria-hidden"), "true");
-  }
+  // A visible word, not an emoji; the accessible name starts with it.
+  assert.equal(edit.textContent, "Modifier");
+  assert.equal(remove.textContent, "Supprimer");
   assert.equal(screen.queryByText(/: Non\b/), null, "unanswered isApproved must not read as Non");
   assert.ok(screen.getByText(/Existence d'un référentiel de formation : Oui/));
 });

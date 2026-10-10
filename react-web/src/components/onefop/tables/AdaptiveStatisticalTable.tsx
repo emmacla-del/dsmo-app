@@ -485,7 +485,7 @@ export function AdaptiveStatisticalTable({
                   color: statusBadge.color,
                   border: statusBadge.border,
                   borderRadius: "var(--cam-radius-full, 9999px)",
-                  fontSize: "var(--cam-font-size-2xs, 0.6875rem)",
+                  fontSize: "var(--cam-font-size-2xs)",
                   fontWeight: 600,
                   padding: "3px 10px",
                   fontFamily: "var(--cam-font-sans)",
@@ -560,7 +560,7 @@ export function AdaptiveStatisticalTable({
                   padding: "6px 14px",
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
                   fontWeight: 700,
-                  borderRadius: "var(--cam-radius-sm, 4px) var(--cam-radius-sm, 4px) 0 0",
+                  borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
                   borderBottom: "2px solid",
                   borderColor: isActive ? "var(--cam-green)" : "transparent",
                   color: isActive ? "var(--cam-green)" : "var(--cam-text-muted)",
@@ -662,7 +662,7 @@ function blockNavButtonStyle(isDisabled: boolean): React.CSSProperties {
     color: "var(--cam-text)",
     background: "var(--cam-surface)",
     border: "1px solid var(--cam-border-strong)",
-    borderRadius: "var(--cam-radius-sm, 4px)",
+    borderRadius: "var(--cam-radius-sm)",
     cursor: isDisabled ? "default" : "pointer",
     opacity: isDisabled ? 0.4 : 1,
   };
@@ -736,7 +736,7 @@ function BlockTabs({
               border: "1px solid",
               borderColor: isActive ? "#475569" : "transparent",
               borderBottomColor: isActive ? "var(--cam-surface)" : "transparent",
-              borderRadius: "var(--cam-radius-sm, 4px) var(--cam-radius-sm, 4px) 0 0",
+              borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
             }}
           >
             <span

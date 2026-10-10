@@ -135,7 +135,7 @@ export function VtValidationScreen({
           paddingLeft: "var(--cam-space-3, 12px)",
           borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-2, 8px)",
-          marginBottom: "var(--cam-space-5, 20px)",
+          marginBottom: "var(--cam-space-5)",
         }}
       >
         <h2
@@ -168,7 +168,6 @@ export function VtValidationScreen({
           marginBottom: "var(--cam-space-4)",
         }}
       >
-        <span style={{ fontSize: "20px", color: "var(--cam-green)", lineHeight: 1 }}>🛡️</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-green)", marginBottom: "4px" }}>
             {t("vtValidationScreen.confidentialityTitle")}
@@ -195,7 +194,6 @@ export function VtValidationScreen({
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>
-              ℹ️{" "}
               <strong>
                 {isFr
                   ? `${zeroedTables.length} tableau(x) certifié(s) à néant (0) conformément au questionnaire préliminaire.`
@@ -304,7 +302,6 @@ export function VtValidationScreen({
             gap: "12px",
           }}
         >
-          <span style={{ fontSize: "20px", lineHeight: 1 }}>🔒</span>
           <div>
             <div style={{ fontWeight: 700 }}>{t("vtValidationScreen.periodClosedTitle")}</div>
             {quarterStatusMessage && (
@@ -547,7 +544,6 @@ export function VtValidationScreen({
                   opacity: isGeneratingPdf ? 0.7 : 1,
                 }}
               >
-                {isGeneratingPdf ? "⏳ " : "📄 "}
                 {isGeneratingPdf
                   ? (locale.startsWith("en") ? "Generating..." : "Génération en cours...")
                   : t("vtValidationScreen.previewPdfButton")}
@@ -570,7 +566,7 @@ export function VtValidationScreen({
                 fontFamily: "var(--cam-font-sans)",
               }}
             >
-              ✏️ {locale.startsWith("en") ? "Edit" : "Corriger"}
+              {locale.startsWith("en") ? "Edit" : "Corriger"}
             </button>
 
             {onSaveDraft && (
@@ -590,7 +586,7 @@ export function VtValidationScreen({
                   fontFamily: "var(--cam-font-sans)",
                 }}
               >
-                💾 {t("vtValidationScreen.saveDraftButton")}
+                {t("vtValidationScreen.saveDraftButton")}
               </button>
             )}
           </div>
@@ -633,7 +629,6 @@ export function VtValidationScreen({
               t("vtValidationScreen.submitting")
             ) : (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span>👁️</span>
                 <span>{locale.startsWith("en") ? "Review & Submit" : "Vérifier & Soumettre"}</span>
                 <span>→</span>
               </span>

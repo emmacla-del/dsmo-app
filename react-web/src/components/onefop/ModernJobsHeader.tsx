@@ -114,23 +114,6 @@ export function ModernJobsHeader({
       >
         {/* Left: Sovereign Identity */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "var(--cam-radius-control, 6px)",
-              background: "rgba(255, 255, 255, 0.15)",
-              color: "#ffffff",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 18,
-              fontWeight: 800,
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              flexShrink: 0,
-            }}
-          >
-            🏛️
-          </div>
           <div>
             <div
               style={{
@@ -275,7 +258,6 @@ export function ModernJobsHeader({
               }}
               title={locale.startsWith("en") ? "Official PDF Preview" : "Aperçu PDF officiel"}
             >
-              <span>📄</span>
               <span>{isGeneratingPdf ? (locale.startsWith("en") ? "PDF..." : "PDF...") : (locale.startsWith("en") ? "PDF Preview" : "Aperçu PDF")}</span>
             </button>
           )}
@@ -302,7 +284,6 @@ export function ModernJobsHeader({
                 transition: "all 0.15s ease",
               }}
             >
-              <span>💾</span>
               <span>{t("save")}</span>
             </button>
           )}

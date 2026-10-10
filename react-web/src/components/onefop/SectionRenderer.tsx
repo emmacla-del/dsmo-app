@@ -484,7 +484,7 @@ export function SectionRenderer({
               alignItems: "center",
               gap: 8,
               padding: "8px 12px",
-              borderRadius: "var(--cam-radius-sm, 6px)",
+              borderRadius: "var(--cam-radius-sm)",
               background: "var(--vt-accent-soft, #eaf3ec)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
@@ -492,7 +492,6 @@ export function SectionRenderer({
               fontWeight: 600,
             }}
           >
-            <span>ℹ️</span>
             <span>
               {t("recallRecruits", { total: grandTotalRecruits, permanent: permTotal, temporary: tempTotal })}
             </span>
@@ -512,7 +511,7 @@ export function SectionRenderer({
               alignItems: "center",
               gap: 8,
               padding: "8px 12px",
-              borderRadius: "var(--cam-radius-sm, 6px)",
+              borderRadius: "var(--cam-radius-sm)",
               background: "var(--cam-success-bg)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
@@ -520,7 +519,6 @@ export function SectionRenderer({
               fontWeight: 600,
             }}
           >
-            <span>ℹ️</span>
             <span>
               {t("recallDepartures", { count: depTotal })}
             </span>
@@ -571,13 +569,13 @@ export function SectionRenderer({
                 border: "none",
                 boxShadow: "none",
                 borderRadius: 0,
-                padding: "0 0 var(--cam-space-5, 24px) 0",
-                marginBottom: "var(--cam-space-5, 24px)",
+                padding: "0 0 var(--cam-space-5) 0",
+                marginBottom: "var(--cam-space-5)",
                 borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
                 maxWidth: "840px",
               }
             : chunkHasTable
-              ? { maxWidth: `calc(${TABLE_MAX_WIDTH_PX}px + 2 * var(--cam-space-5, 24px) + 2px)` }
+              ? { maxWidth: `calc(${TABLE_MAX_WIDTH_PX}px + 2 * var(--cam-space-5) + 2px)` }
               : undefined
         }
       >
@@ -684,7 +682,7 @@ export function SectionRenderer({
         style={{
           borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-4, 16px)",
-          marginBottom: "var(--cam-space-5, 24px)",
+          marginBottom: "var(--cam-space-5)",
           width: "100%",
           boxSizing: "border-box",
         }}
@@ -922,8 +920,8 @@ export function SectionRenderer({
           style={{
             background: "var(--cam-surface)",
             border: "var(--cam-border-width, 1px) solid var(--cam-border)",
-            borderRadius: "var(--cam-radius-md, 8px)",
-            padding: "var(--cam-space-5, 24px)",
+            borderRadius: "var(--cam-radius-md)",
+            padding: "var(--cam-space-5)",
             maxWidth: 780,
             width: "100%",
             boxSizing: "border-box",
@@ -1053,12 +1051,11 @@ export function SectionRenderer({
                 style={{
                   background: "var(--cam-surface)",
                   border: "1px dashed var(--cam-border)",
-                  borderRadius: "var(--cam-radius-md, 8px)",
+                  borderRadius: "var(--cam-radius-md)",
                   padding: "36px 24px",
                   textAlign: "center",
                 }}
               >
-                <div style={{ fontSize: 28, marginBottom: 12 }}>📋</div>
                 <h3
                   style={{
                     fontSize: 16,
@@ -1087,7 +1084,7 @@ export function SectionRenderer({
                     style={{
                       background: "var(--cam-surface)",
                       border: "1px solid var(--cam-border)",
-                      borderRadius: "var(--cam-radius-sm, 4px)",
+                      borderRadius: "var(--cam-radius-sm)",
                       padding: "8px 18px",
                       fontSize: 13,
                       fontWeight: 600,
@@ -1147,7 +1144,7 @@ function EntryModeSwitch({
     background: active ? "var(--cam-text)" : "transparent",
     color: active ? "#ffffff" : "var(--cam-text-muted)",
     border: "none",
-    borderRadius: "var(--cam-radius-sm, 4px)",
+    borderRadius: "var(--cam-radius-sm)",
     padding: "5px 12px",
     fontSize: "var(--cam-font-size-xs, 0.8125rem)",
     fontWeight: 600,

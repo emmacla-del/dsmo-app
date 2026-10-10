@@ -25,7 +25,6 @@ const accentGreen = "var(--cam-green)";
 const cardBorder = "var(--cam-border)";
 const ink = "var(--cam-text)";
 const inkSoft = "var(--cam-text-muted)";
-const accentSoft = "var(--cam-success-bg)";
 const cardRadius = 4;
 
 const guidedHeaderBoxStyle: CSSProperties = {
@@ -238,11 +237,13 @@ function rowActionLabel(
 /** Icon-only edit/delete button. The glyph is decorative (aria-hidden); the
  * accessible name comes from `label`, which is also shown as a tooltip.
  * Keyboard focus gets the page-wide :focus-visible ring (globals.css). */
+// A short visible word ("Modifier" / "Supprimer") rather than an emoji;
+// the accessible name keeps the row it acts on and starts with that word.
 const IconButton = memo(function IconButton({
-  icon,
+  text,
   label,
   onTap,
-}: { icon: string; label: string; onTap: () => void }) {
+}: { text: string; label: string; onTap: () => void }) {
   return (
     <button
       type="button"
@@ -250,18 +251,17 @@ const IconButton = memo(function IconButton({
       aria-label={label}
       title={label}
       style={{
-        width: 28,
-        height: 28,
-        padding: 0,
-        display: "grid",
-        placeItems: "center",
-        background: accentSoft,
+        minHeight: 28,
+        padding: "0 var(--cam-space-2)",
+        background: "transparent",
         border: `1px solid ${cardBorder}`,
         borderRadius: "var(--cam-radius-sm)",
+        fontSize: "var(--cam-font-size-xs)",
+        color: inkSoft,
         cursor: "pointer",
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: 14, color: inkSoft }}>{icon}</span>
+      {text}
     </button>
   );
 });
@@ -502,8 +502,8 @@ function FixedSummaryRow({
             {guidedNumberDisplay(total, locale)}
           </span>
         )}
-        <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
-        <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
+        <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
+        <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
       </div>
     </div>
   );
@@ -730,8 +730,8 @@ function ProgressiveSummaryRow({
           {computedVal}
         </span>
       )}
-      <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
-      <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
+      <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => onEdit(row)} />
+      <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => onRemove(row)} />
     </div>
   );
 }
@@ -875,8 +875,8 @@ export function VtWizardProgressiveBooleanTableEntry({
                     </p>
                   )}
                 </div>
-                <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
-                <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
+                <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
+                <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
               </div>
             );
           })}
@@ -1109,8 +1109,8 @@ export function VtWizardRosterGuidedEntry({
                     </p>
                   )}
                 </div>
-                <IconButton icon="✏" label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
-                <IconButton icon="🗑" label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
+                <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
+                <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
               </div>
             );
           })}

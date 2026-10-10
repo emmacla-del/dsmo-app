@@ -309,7 +309,7 @@ function GenericGrid({
         borderRadius: "var(--cam-radius-sm)",
       }}
     >
-      <div style={{ width: "100%", overflow: "auto", maxHeight: "75vh" }}>
+      <div style={{ width: "100%", overflowX: "auto" }}>
         <DataTable
           style={{
             width: "100%",
@@ -492,7 +492,6 @@ function ContractGroupedGrid({
     <div
       style={{
         overflowX: "auto",
-        maxHeight: "75vh",
         border: "1px solid var(--cam-table-frame)",
         borderRadius: "var(--cam-radius-sm)",
       }}
