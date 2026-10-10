@@ -211,7 +211,8 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--vt-accent-soft` | `var(--cam-success-bg)` | VT | VT soft accent fill. |
 | `--vt-card-radius` | `var(--cam-radius-md)` | VT | VT card radius. |
 | `--vt-sidebar-width` | `280px` | VT | VT wizard sidebar. |
-| `--vt-content-max` | `940px` | VT | VT and respondent reading width. |
+| `--vt-content-max` | `760px` | VT | Respondent reading width: questionnaire form sections, their footer, the declarations list (600px answers + padding). |
+| `--vt-content-max-wide` | `1100px` | VT | VT sections holding a statistical table (sections 4, 5, 6, 8). |
 | `--vt-font` | `var(--cam-font-sans)` | VT | VT font. |
 | `--cam-border-subtle` | `#eef0eb` | Respondent record | Faint divider recorded from the live fallback. |
 | `--cam-surface-2` | `#f1f5f9` | Respondent record | Second surface recorded from the live fallback. |
