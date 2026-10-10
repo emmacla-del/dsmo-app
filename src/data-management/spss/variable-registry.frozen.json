@@ -11006,6 +11006,377 @@
         "0": "Non",
         "1": "Oui"
       }
+    },
+    "multi.VT2_2.Stage académique/ academic internship": {
+      "variableName": "VT2_2_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_2.Stage professionnel/ work placement": {
+      "variableName": "VT2_2_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_2.Stage pré emploi/ pre-employment internship": {
+      "variableName": "VT2_2_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_2.Insertion/ Insertion": {
+      "variableName": "VT2_2_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_18.Formation Initiale (FI)/ Initial Training (IT)": {
+      "variableName": "VT2_18_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_18.Formation Continue (FC)/ Continuing Training (CT)": {
+      "variableName": "VT2_18_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_25.ENEO/ ENEO": {
+      "variableName": "VT2_25_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_25.Groupe électrogène/ Generator": {
+      "variableName": "VT2_25_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_25.Solaire/ Solar": {
+      "variableName": "VT2_25_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_27.CAMWATER/ Tap Water": {
+      "variableName": "VT2_27_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_27.Puits/ Well": {
+      "variableName": "VT2_27_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_27.Forage/ Bore-hole": {
+      "variableName": "VT2_27_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_27.Source aménagée/ Spring": {
+      "variableName": "VT2_27_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_27.Marigot/ Pool": {
+      "variableName": "VT2_27_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_38.WC avec chasse d'eau/ Flushing toilet": {
+      "variableName": "VT2_38_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_38.Latrines aménagées/ Equipped toilets": {
+      "variableName": "VT2_38_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_38.Latrines non aménagées/ Unequipped toilets": {
+      "variableName": "VT2_38_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_42.Terrain de football/ Football": {
+      "variableName": "VT2_42_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_42.Terrain de handball/ Handball": {
+      "variableName": "VT2_42_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_42.Plateau de saut en hauteur/ High jump": {
+      "variableName": "VT2_42_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_42.Terrain de basketball/ Basketball": {
+      "variableName": "VT2_42_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT2_42.Terrain de volleyball/ Volleyball": {
+      "variableName": "VT2_42_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Attaque contre l'établissement/ Attack on the School": {
+      "variableName": "VT3_2_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Attaque contre des élèves et personnels/ Attack on students and staff": {
+      "variableName": "VT3_2_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Utilisation militaire de l'établissement/ Military use of the school": {
+      "variableName": "VT3_2_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Mouvements sociaux/ Social movements": {
+      "variableName": "VT3_2_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Endémie/épidémie/pandémie/ Endemic/epidemic/pandemic": {
+      "variableName": "VT3_2_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Inondation/ Flood": {
+      "variableName": "VT3_2_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Sècheresse/ Drought": {
+      "variableName": "VT3_2_07",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Tempêtes/ Storms": {
+      "variableName": "VT3_2_08",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Glissement de Terrain/ Landslide": {
+      "variableName": "VT3_2_09",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT3_2.Incendies/ Fires": {
+      "variableName": "VT3_2_10",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_2.Avant la formation/ Before training": {
+      "variableName": "VT6_2_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_2.Pendant la formation/ During the training": {
+      "variableName": "VT6_2_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_2.Après la formation/ After the training": {
+      "variableName": "VT6_2_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_5.Orientation d'imprégnation/ impregnation orientation": {
+      "variableName": "VT6_5_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_5.Orientation de consolidation/ Consolidation orientation": {
+      "variableName": "VT6_5_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_5.Orientation d'insertion/ Insertion orientation": {
+      "variableName": "VT6_5_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_5.Suivi post-formation/ Post-training follow-up": {
+      "variableName": "VT6_5_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_5.Autres/ Others": {
+      "variableName": "VT6_5_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_8.Téléphonique/ Telephone": {
+      "variableName": "VT6_8_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_8.Email/ Email address": {
+      "variableName": "VT6_8_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_8.Contact direct/ Direct contact": {
+      "variableName": "VT6_8_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT6_8.Autres/ Others": {
+      "variableName": "VT6_8_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_20_DOMAINS.Scolaire/ School": {
+      "variableName": "VT7_20_DOMAINS_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_20_DOMAINS.Social/ Social": {
+      "variableName": "VT7_20_DOMAINS_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT7_20_DOMAINS.Professionnel/ Professional": {
+      "variableName": "VT7_20_DOMAINS_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Insuffisances d'équipements de formation/ Insufficient number of training equipment": {
+      "variableName": "VT9_2_01",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Coût de la formation/ Training cost": {
+      "variableName": "VT9_2_02",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Difficultés de stage pour les apprenants/ Internship difficulties faced by trainees": {
+      "variableName": "VT9_2_03",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Insuffisance du personnel enseignant/ Insufficient number of trainers": {
+      "variableName": "VT9_2_04",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Faible effectif d'apprenants/ Insufficient number of trainees": {
+      "variableName": "VT9_2_05",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
+    },
+    "multi.VT9_2.Insécurité/ Insecurity": {
+      "variableName": "VT9_2_06",
+      "valueLabels": {
+        "0": "Non",
+        "1": "Oui"
+      }
     }
   }
 }

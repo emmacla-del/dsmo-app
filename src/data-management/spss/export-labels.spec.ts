@@ -79,8 +79,8 @@ describe('Canonical registry with E10 / E11 applied', () => {
     adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
   });
 
-  it('dataset schema version is 8', () => {
-    expect(DATASET_SCHEMA_VERSION).toBe(8);
+  it('dataset schema version is 9', () => {
+    expect(DATASET_SCHEMA_VERSION).toBe(9);
   });
 
   it.each(['DEMAND', 'TVET', 'ALL'] as const)('%s: every French label is unique and none names a specific round', (p) => {

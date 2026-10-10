@@ -801,7 +801,7 @@ describe('E8 (dataset v6): free-text width', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
     for (const name of ['VT3_10', 'VT9_3', 'VT9_4']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 8.');
+    expect(sps).toContain('Version du schéma du jeu de données : 9.');
   });
 });
 
@@ -889,6 +889,42 @@ describe('dataset v8 export fixes (VT end-to-end test, 2026-10-10)', () => {
     // A bound stored as midnight UTC keeps its day.
     expect(adapter.resolveReferencePeriod({ referencePeriod: { periodStart: '2026-10-01T00:00:00.000Z', periodEnd: '2026-12-31T00:00:00.000Z' } }))
       .toEqual({ start: '2026-10-01', end: '2026-12-31' });
+  });
+});
+
+describe('E2: every multiple-choice question has its 0/1 variables (dataset v9)', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+  const vars = adapter.getTvetVariables();
+  const names = vars.map((x) => x.variableName);
+  const v = (name: string) => vars.find((x) => x.variableName === name)!;
+  const vt = (rawData: Record<string, unknown>) => ({ formType: 'VOCATIONAL_TRAINING', rawData });
+
+  it('labelled options are numbered by position, right after the question; coded ones keep their code', () => {
+    const at = names.indexOf('VT2_2');
+    expect(names.slice(at + 1, at + 5)).toEqual(['VT2_2_01', 'VT2_2_02', 'VT2_2_03', 'VT2_2_04']);
+    expect(v('VT2_2_01').labelFr).toContain('Stage acad\u00e9mique');
+    expect(v('VT2_2_01')).toMatchObject({ spssDataType: 'NUMERIC', valueLabels: { '0': 'Non', '1': 'Oui' } });
+    expect(names).toContain('VT7_7_06');
+    expect(names).not.toContain('VT7_7_01_');
+  });
+
+  it('every checkbox question of the schema has one dummy per option', () => {
+    for (const q of ['VT2_2', 'VT2_18', 'VT2_25', 'VT2_27', 'VT2_38', 'VT2_42', 'VT3_2', 'VT6_2', 'VT6_5', 'VT6_8', 'VT7_20_DOMAINS', 'VT9_2']) {
+      expect(names.filter((n) => n.startsWith(`${q}_`) && /_\d{2}$/.test(n)).length).toBeGreaterThan(1);
+    }
+  });
+
+  it('1 ticked, 0 answered without it, blank when never answered; a lone legacy string counts as its option', () => {
+    const sub = vt({
+      VT2_2: ['Stage acad\u00e9mique/ academic internship', 'Stage professionnel/ work placement'],
+      VT2_18: 'Formation Continue (FC)/ Continuing Training (CT)',
+    });
+    expect(adapter.exportValue(v('VT2_2_01'), sub)).toBe(1);
+    expect(adapter.exportValue(v('VT2_2_02'), sub)).toBe(1);
+    expect(adapter.exportValue(v('VT2_2_03'), sub)).toBe(0);
+    expect(adapter.exportValue(v('VT2_18_02'), sub)).toBe(1);
+    expect(adapter.exportValue(v('VT2_18_01'), sub)).toBe(0);
+    expect(adapter.exportValue(v('VT9_2_01'), sub)).toBeUndefined();
   });
 });
 
