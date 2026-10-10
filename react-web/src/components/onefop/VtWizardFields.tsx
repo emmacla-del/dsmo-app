@@ -6,7 +6,7 @@ import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { questionCodeText } from "@/lib/question-code";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
-import { VT_ADMIN_ONLY_IDS, VT_NO_STEPPER_IDS } from "./vt-wizard-utils";
+import { VT_ADMIN_ONLY_IDS, VT_BLOCK_PAPER_CODES, VT_NO_STEPPER_IDS } from "./vt-wizard-utils";
 import { VT_FIELD_TOOLTIPS } from "./vt-field-tooltips";
 import {
   findCameroonDepartment,
@@ -521,7 +521,8 @@ export function VtWizardField({
   const labelText = localized(field.label, vtLocale(locale));
   // Plain text (aria) + badge node (display) — every question shows its code.
   const label = questionCodeText(field.paperCode, labelText);
-  const labelNode = <CodedLabel code={field.paperCode} text={labelText} />;
+  // Inside a 1.15 / 1.16 block the code is on the block heading, once.
+  const labelNode = <CodedLabel code={VT_BLOCK_PAPER_CODES.has(field.paperCode ?? "") ? null : field.paperCode} text={labelText} />;
   const hint = localized(field.hint, vtLocale(locale));
   // Every one-choice question, the Sexe questions included, is a plain radio
   // group (VtWizardRadioGroup); the two-button switch is gone (owner,

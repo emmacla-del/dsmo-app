@@ -20,6 +20,7 @@ import {
   getVtSectionShortLabel,
   VT_NO_STEPPER_IDS,
   VT_SEX_CHOICE_IDS,
+  VT_BLOCK_HEADINGS,
   type VtWizardSectionOutlineItem,
   type VtWizardSectionOutlineModel,
 } from "./vt-wizard-utils";
@@ -48,6 +49,7 @@ import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
 import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
+import { CodedLabel } from "./ui/QuestionCode";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import {
   buildSection41Definition,
@@ -206,6 +208,7 @@ function VtWizardFieldRows({
   compact: boolean;
   columns?: number;
 }): ReactNode {
+  const blockLocale = useLocale().startsWith("en") ? "en" : "fr";
   const rows: ReactNode[] = [];
   const consumed = new Set<string>();
   const issueByFieldId = new Map(issues.map((i) => [i.fieldId, i.message]));
@@ -246,6 +249,28 @@ function VtWizardFieldRows({
   for (let i = 0; i < visibleFields.length; i++) {
     const f = visibleFields[i];
     if (consumed.has(f.id)) continue;
+
+    // 1.15 / 1.16: one heading per person block (see VT_BLOCK_HEADINGS),
+    // ruled off from what precedes it.
+    const block = VT_BLOCK_HEADINGS[f.id];
+    if (block) {
+      rows.push(
+        <h4
+          key={`${f.id}-block`}
+          style={{
+            margin: "var(--cam-space-2) 0 0",
+            paddingTop: "var(--cam-space-4)",
+            borderTop: "var(--cam-border-width) solid var(--cam-border)",
+            fontSize: "var(--cam-font-size-base)",
+            fontWeight: "var(--cam-font-weight-bold)",
+            lineHeight: "var(--cam-line-height-title)",
+            color: "var(--cam-text)",
+          }}
+        >
+          <CodedLabel code={block.code} text={block[blockLocale]} />
+        </h4>,
+      );
+    }
 
     const next = visibleFields[i + 1];
     if (
