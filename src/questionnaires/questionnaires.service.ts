@@ -3264,8 +3264,10 @@ export class QuestionnairesService {
 
   async getById(id: string, territory?: Territory) {
     // Out-of-territory rows are reported as not found (no existence leak).
+    // `id` may also be the submission reference printed on the respondent's
+    // receipt (submissionId), so a dossier is found from it too (F12).
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
-      where: { id, ...territoryWhere(territory) },
+      where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
       include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true, establishment: { include: { company: { select: { yearOfCreation: true } } } } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
