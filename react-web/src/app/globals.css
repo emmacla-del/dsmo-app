@@ -2176,7 +2176,10 @@ html:has(.cam-auth-page--wizard) {
   max-width: 37.5rem;
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-3);
-  border: var(--cam-border-width) solid var(--cam-border-strong);
+  /* --cam-text-muted, not --cam-border-strong: an input's edge needs 3:1
+     against white (WCAG 2.2, 1.4.11). #aab5a3 gave about 2.1:1, so a filled
+     box read as one more line of text under its label. */
+  border: var(--cam-border-width) solid var(--cam-text-muted);
   border-radius: var(--cam-radius-control);
   background: var(--cam-surface);
   color: var(--cam-text);
@@ -2200,8 +2203,11 @@ textarea.sovereign-text-input {
   outline: none;
 }
 
+/* Read-only (pre-filled from the registration record): the same visible
+   edge, on the page's tint, so it still reads as an answer box that cannot
+   be edited rather than as plain text. */
 .sovereign-text-input[readonly] {
-  border-color: var(--cam-border);
+  background: var(--cam-bg);
 }
 
 .sovereign-text-input.has-error,

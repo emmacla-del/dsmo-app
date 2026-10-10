@@ -28,7 +28,7 @@ function vtLocale(locale: string): "fr" | "en" {
   return locale.startsWith("en") ? "en" : "fr";
 }
 
-// Every question label, whatever the control: 15px semibold in text colour,
+// Every question label, whatever the control: 15px bold in text colour,
 // under the subsection title (18px) and set apart from the typed answer
 // (15px regular) by weight. Radio/checkbox questions used to be 16px bold
 // and text inputs 15px, so two questions side by side read as two levels.
@@ -36,7 +36,9 @@ const labelStyle: CSSProperties = {
   display: "block",
   fontFamily: "var(--cam-font-sans)",
   fontSize: "var(--cam-font-size-base)",
-  fontWeight: "var(--cam-font-weight-semibold)",
+  // Bold, not semibold: the question must read apart from the answer under
+  // it (15px regular) at a glance (owner, 2026-10-10).
+  fontWeight: "var(--cam-font-weight-bold)",
   lineHeight: "var(--cam-line-height-label)",
   color: "var(--cam-text)",
   marginBottom: "var(--cam-space-1)",
@@ -82,6 +84,11 @@ const errorStyle: CSSProperties = {
  * Provided by VtWizardSectionScreen.
  */
 export const VtGeographyLockContext = createContext<Record<string, string> | null>(null);
+
+// Each field's paper code in the current section, so a follow-up ("Si oui,
+// …") can tell that it shares its question's code and not repeat it. The
+// code belongs to the question and is shown once, on the question.
+export const VtPaperCodeContext = createContext<ReadonlyMap<string, string | null | undefined> | null>(null);
 
 /** Stable id of a VT field's error message, referenced by the control's
  * aria-describedby (same `${id}-error` convention as FieldRenderer). */
@@ -521,8 +528,14 @@ export function VtWizardField({
   const labelText = localized(field.label, vtLocale(locale));
   // Plain text (aria) + badge node (display) — every question shows its code.
   const label = questionCodeText(field.paperCode, labelText);
-  // Inside a 1.15 / 1.16 block the code is on the block heading, once.
-  const labelNode = <CodedLabel code={VT_BLOCK_PAPER_CODES.has(field.paperCode ?? "") ? null : field.paperCode} text={labelText} />;
+  // The code is shown once per question: not on the fields of a 1.15 / 1.16
+  // block (the block heading carries it), and not on a follow-up that shares
+  // its parent question's code.
+  const paperCodes = useContext(VtPaperCodeContext);
+  const parentCode = field.visibility?.dependsOn ? paperCodes?.get(field.visibility.dependsOn) : undefined;
+  const repeatsCode =
+    VT_BLOCK_PAPER_CODES.has(field.paperCode ?? "") || (!!parentCode && parentCode === field.paperCode);
+  const labelNode = <CodedLabel code={repeatsCode ? null : field.paperCode} text={labelText} />;
   const hint = localized(field.hint, vtLocale(locale));
   // Every one-choice question, the Sexe questions included, is a plain radio
   // group (VtWizardRadioGroup); the two-button switch is gone (owner,
