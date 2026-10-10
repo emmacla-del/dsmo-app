@@ -14,11 +14,11 @@ import { getModernJobsTooltip } from "./modern-jobs-tooltips";
 import { ConditionalTable } from "@/components/modern-jobs/conditional/ConditionalTable";
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 
-/** Question text — the most prominent text of a field: larger, bold, full-contrast ink. */
+/** Question text: 15px bold, as in the VT wizard; answers are 14px regular, hints 12px. */
 const labelStyle: React.CSSProperties = {
   display: "block",
-  fontSize: "var(--cam-font-size-base, 0.9375rem)",
-  fontWeight: 600,
+  fontSize: "var(--cam-font-size-base)",
+  fontWeight: "var(--cam-font-weight-bold)",
   lineHeight: 1.4,
   color: "var(--cam-text)",
   marginBottom: "var(--cam-space-2, 8px)",
@@ -29,13 +29,13 @@ const wrapperStyle: React.CSSProperties = {
 };
 
 const hintStyle: React.CSSProperties = {
-  fontSize: "var(--cam-font-size-sm)",
+  fontSize: "var(--cam-microcopy-size)",
   color: "var(--cam-text-muted)",
   margin: "var(--cam-space-1) 0 0",
 };
 
 const selectAllHintStyle: React.CSSProperties = {
-  fontSize: "var(--cam-font-size-sm)",
+  fontSize: "var(--cam-microcopy-size)",
   color: "var(--cam-text-muted)",
   fontStyle: "italic",
   margin: "0 0 var(--cam-space-2)",

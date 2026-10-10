@@ -177,7 +177,7 @@ export function RadioGroup({
                   display: "block",
                   fontFamily: "var(--vt-font)",
                   fontWeight: selected ? 600 : 400,
-                  fontSize: 15,
+                  fontSize: "var(--cam-font-size-sm)",
                   color: selected ? "var(--vt-ink, #1c1f1d)" : "var(--vt-ink-soft, #4e5451)",
                 }}
               >
@@ -189,7 +189,7 @@ export function RadioGroup({
                     display: "block",
                     fontFamily: "var(--vt-font)",
                     fontWeight: 400,
-                    fontSize: 13,
+                    fontSize: "var(--cam-microcopy-size)",
                     color: selected ? "var(--vt-ink-soft, #4e5451)" : "var(--vt-ink-faint, #7a827f)",
                     lineHeight: 1.25,
                     marginTop: 2,

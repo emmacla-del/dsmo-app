@@ -2185,7 +2185,7 @@ html:has(.cam-auth-page--wizard) {
   color: var(--cam-text);
   outline: none;
   font-family: inherit;
-  font-size: var(--cam-font-size-base);
+  font-size: var(--cam-font-size-sm); /* answers 14px (owner, 2026-10-10) */
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
