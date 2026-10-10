@@ -142,7 +142,7 @@
    /* ── Micro-copy (hints, "select all", helper text) ──
      One shared scale instead of each field re-declaring its own size/
      color/margin — see form/Microcopy.tsx. */
-   --cam-microcopy-size: var(--cam-font-size-xs);
+   --cam-microcopy-size: var(--cam-font-size-2xs); /* 12px: questionnaire hints (owner, 2026-10-10) */
    --cam-microcopy-color: var(--cam-text-muted);
    --cam-microcopy-margin-top: 4px;
 
