@@ -6,7 +6,7 @@ import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { questionCodeText } from "@/lib/question-code";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
-import { VT_ADMIN_ONLY_IDS, VT_NO_STEPPER_IDS, VT_SEGMENTED_RADIO_IDS } from "./vt-wizard-utils";
+import { VT_ADMIN_ONLY_IDS, VT_NO_STEPPER_IDS } from "./vt-wizard-utils";
 import { VT_FIELD_TOOLTIPS } from "./vt-field-tooltips";
 import {
   findCameroonDepartment,
@@ -347,72 +347,6 @@ export function isVtYearField(field: OnefopField): boolean {
   return id === "VT1_14" || id.includes("YEAR") || fr.includes("année");
 }
 
-export function VtWizardSegmentedToggle({
-  field,
-  value,
-  onChange,
-  compact = false,
-  describedBy,
-  invalid = false,
-  required = false,
-}: {
-  field: OnefopField;
-  value: unknown;
-  onChange: (fieldId: string, value: unknown) => void;
-  compact?: boolean;
-  describedBy?: string;
-  invalid?: boolean;
-  required?: boolean;
-}) {
-  const locale = vtLocale(useLocale());
-  const opts = field.options ?? [];
-  return (
-    <div
-      id={field.id}
-      tabIndex={-1}
-      role="radiogroup"
-      aria-label={localized(field.label, locale)}
-      aria-describedby={describedBy}
-      aria-invalid={invalid || undefined}
-      aria-required={required || undefined}
-      style={{
-        display: "flex",
-        padding: 2,
-        background: compact ? "var(--vt-accent-soft, #eaf3ec)" : "#f1f5f9",
-        borderRadius: 6,
-        maxWidth: compact ? 220 : "100%",
-      }}
-    >
-      {opts.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(field.id, opt.value)}
-            style={{
-              flex: 1,
-              border: "none",
-              cursor: "pointer",
-              padding: compact ? "4px 8px" : "8px 12px",
-              borderRadius: 4,
-              background: active ? "var(--vt-accent, #1e6b3a)" : "transparent",
-              color: active ? "#fff" : "var(--vt-ink-soft, #4e5451)",
-              fontFamily: "var(--vt-font)",
-              fontWeight: 700,
-              fontSize: compact ? 11 : 12,
-            }}
-          >
-            {localized(opt.label, locale)}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function VtWizardNumberStepper({
   field,
   value,
@@ -563,7 +497,6 @@ export function VtWizardField({
   onChange,
   sectionId,
   errorMessage,
-  compact = false,
   inlineExtra,
   data,
   onFieldTouch,
@@ -573,6 +506,7 @@ export function VtWizardField({
   onChange: (fieldId: string, value: unknown) => void;
   sectionId: string;
   errorMessage?: string;
+  /** No longer changes anything: it sized the removed Sexe switch. */
   compact?: boolean;
   inlineExtra?: ReactNode;
   /** Full form data — only needed for the VT1_4-VT1_7 cascading admin-area
@@ -589,10 +523,9 @@ export function VtWizardField({
   const label = questionCodeText(field.paperCode, labelText);
   const labelNode = <CodedLabel code={field.paperCode} text={labelText} />;
   const hint = localized(field.hint, vtLocale(locale));
-  // Segmented pill toggle is reserved for the Sex fields only — every other
-  // Yes/No question renders as a plain radio-button pair via the generic
-  // "radio" branch below (VtWizardRadioGroup), per explicit request.
-  const usePills = VT_SEGMENTED_RADIO_IDS.has(field.id);
+  // Every one-choice question, the Sexe questions included, is a plain radio
+  // group (VtWizardRadioGroup); the two-button switch is gone (owner,
+  // 2026-10-10: "make it simple").
   const isYear = isVtYearField(field);
   const isTel = field.type === "tel";
   const hasError = !!errorMessage;
@@ -612,22 +545,6 @@ export function VtWizardField({
     "aria-required": required || undefined,
   };
   const optionalSuffix = <OptionalSuffix field={field} />;
-
-  if (usePills && field.options) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <div style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </div>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <VtWizardSegmentedToggle field={field} value={value} onChange={onChange} compact={compact} describedBy={describedBy} invalid={hasError} required={required} />
-        {inlineExtra ? <div style={{ marginTop: 10 }}>{inlineExtra}</div> : null}
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
-    );
-  }
 
   if (field.type === "radio" && field.options) {
     return (

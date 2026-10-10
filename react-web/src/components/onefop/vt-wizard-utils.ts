@@ -4,7 +4,8 @@ import { isOptionalField, validateSectionData } from "@/lib/onefop-validation";
 import { isVtCentreClosed, missingVtTableCells, vtTableStatus } from "@/lib/vt-quiz";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
-export const VT_SEGMENTED_RADIO_IDS = new Set(["VT1_15_SEX", "VT1_16_SEX"]);
+/** The two Sexe questions: short two-option radios, laid out like Yes/No. */
+export const VT_SEX_CHOICE_IDS = new Set(["VT1_15_SEX", "VT1_16_SEX"]);
 /** Administrative fields the respondent sees but never edits (1.1 Code de la
  *  Structure, "A ne pas remplir" on the paper form). */
 export const VT_ADMIN_ONLY_IDS = new Set(["VT1_1"]);
