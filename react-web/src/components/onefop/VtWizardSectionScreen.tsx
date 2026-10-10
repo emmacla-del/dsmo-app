@@ -19,7 +19,7 @@ import {
   vtWizardBlockSummary,
   getVtSectionShortLabel,
   VT_NO_STEPPER_IDS,
-  VT_SEGMENTED_RADIO_IDS,
+  VT_SEX_CHOICE_IDS,
   type VtWizardSectionOutlineItem,
   type VtWizardSectionOutlineModel,
 } from "./vt-wizard-utils";
@@ -96,7 +96,7 @@ interface VtFieldGroup {
 const isVtWizardShortPairableField = (field: OnefopField): boolean =>
   ["text", "number", "email", "tel", "select"].includes(field.type) &&
   !VT_NO_STEPPER_IDS.has(field.id) ||
-  (field.type === "radio" && (VT_SEGMENTED_RADIO_IDS.has(field.id) || isYesNoField(field)));
+  (field.type === "radio" && (VT_SEX_CHOICE_IDS.has(field.id) || isYesNoField(field)));
 
 function vtWizardGroupFields(
   sectionId: string,
@@ -375,7 +375,7 @@ function VtWizardFieldRows({
       continue;
     }
 
-    if (isYesNoField(f) || VT_SEGMENTED_RADIO_IDS.has(f.id)) {
+    if (isYesNoField(f) || VT_SEX_CHOICE_IDS.has(f.id)) {
       // No extra wrapper margin here: VtWizardField already applies its own
       // marginBottom, and FormSubsection's flex `gap` spaces every row —
       // stacking a third margin on top of both was compounding into ~50px+
