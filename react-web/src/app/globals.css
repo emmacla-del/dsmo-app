@@ -725,35 +725,44 @@ body {
   box-shadow: var(--cam-card-shadow);
 }
 
-/* ── Registration flow: one screen, one frame, one scrollbar ──
-   The route is a 100dvh flex column that never scrolls:
+/* ── Registration flow: one frame, and the DOCUMENT scrolls ──
+   Owner's decision, 2026-10-10: the page scrolls, never a box inside it
+   (CLAUDE.md section 13, no nested scrolling). The frame used to be a
+   fixed-height card with its own scroll region, which put a second
+   scrollbar inside the card on every long section; do not bring it back.
+   The route is a flex column at least 100dvh tall:
 
      .flow-stripe   4px of national tricolor, full bleed
-     .flow-header   the wordmark, the caption and the progress rail. Sticky by
-                    STRUCTURE -- it is a fixed-size row of the column, so
-                    nothing can scroll under it and no position: sticky, no
-                    z-index and no scroll-margin-top compensation is needed
-                    anywhere (the three rules that used to do that, and the
-                    --cam-flow-header-offset token behind them, are gone).
-     .flow-body     flex: 1, min-height: 0 -- the min-height is what lets the
-                    frame inside it be shorter than its content and scroll.
+     .flow-header   the wordmark, the caption and the progress rail (narrow
+                    screens). An ordinary row: it scrolls away with the page.
+     .flow-body     flex: 1, the frame; as tall as its section needs.
      .flow-footer   one line: back to sign-in, and the help link.
 
-   Inside .flow-body there is exactly one frame, and inside the frame exactly
-   one scroll container. The modifier is used by src/app/register/page.tsx and
-   nowhere else (the register success screen renders .cam-auth-page without
-   it, and login/forgot-password/verify-email use .wrap, not .wrap-wide), so
-   no other route is affected. */
+   What must stay on screen however long the section is -- Retour /
+   Continuer and the missing-fields notice -- lives in .flow-frame-dock,
+   which is position: sticky to the bottom of the viewport. The modifier is
+   used by src/app/register/page.tsx and nowhere else (the register success
+   screen renders .cam-auth-page without it, and
+   login/forgot-password/verify-email use .wrap, not .wrap-wide), so no
+   other route is affected. */
 .cam-auth-page--wizard {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 100dvh;
   padding: 0;
   align-items: stretch;
   justify-content: flex-start;
+}
+
+/* Focus and scrollIntoView (promptMissing, the certify box, plain Tab) must
+   not park a control underneath the sticky dock. scroll-padding belongs to
+   the scroll container, which is now the root. Sized for the dock's usual
+   height: the footer's button row plus a one-line notice. */
+/* scrollbar-gutter keeps the root's scrollbar space reserved, so moving
+   from a short section to a long one does not shift the frame sideways. */
+html:has(.cam-auth-page--wizard) {
+  scrollbar-gutter: stable;
+  scroll-padding-bottom: calc(var(--cam-field-height) * 2 + var(--cam-space-6));
 }
 
 .cam-auth-page--wizard .flow-stripe {
@@ -813,50 +822,50 @@ body {
   text-overflow: ellipsis;
 }
 
-/* min-height: 0 is the whole trick: without it a flex item refuses to be
-   shorter than its content, the frame grows past the viewport and the
-   document starts scrolling again. */
+/* The frame is stretched to the body's height, so a short section still
+   gets a full-height frame with its dock at the bottom, and a long one
+   simply makes the page longer. */
 .cam-auth-page--wizard .flow-body {
   flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   justify-content: center;
   padding: var(--cam-space-4) var(--cam-space-4) var(--cam-space-2);
 }
 
-/* The one framed element on the page, and the query container the
-   side-by-side field layout measures -- see the @container rule below. It is
-   the FRAME and not the scroll region that carries the container, because the
-   scroll region's content box is narrower by its own padding and the
-   reserved scrollbar gutter, which would put a 600px frame under the 560px
-   threshold and stack every label. */
+/* The one framed element on the page. overflow: clip, not hidden: it keeps
+   the dock's background inside the rounded corners without making the frame
+   a scroll container, which would turn the dock's position: sticky into
+   "sticky to the frame" and stop it following the viewport. */
 .cam-auth-page--wizard .flow-frame {
-  container: cam-form / inline-size;
   width: 100%;
   max-width: var(--cam-container-wizard);
-  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1.5px solid var(--cam-green);
   border-radius: var(--cam-section-radius);
   background: var(--cam-surface);
-  overflow: hidden;
+  overflow: clip;
 }
 
-/* The only scroll container on the route. scrollbar-gutter keeps the space
-   reserved whether or not the section in the frame is tall enough to need it,
-   so moving between sections does not shift the fields sideways. */
-.cam-auth-page--wizard .flow-frame-scroll {
+/* The section's content. Not a scroller: it grows with the section, and the
+   document scrolls. flex: 1 pushes the dock to the bottom of a frame taller
+   than its section. */
+.cam-auth-page--wizard .flow-frame-content {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  /* The frame is 600px wide and the gutter is reserved whether or not it is
-     in use, so a platform-default 15-17px bar is a visible bite out of the
-     input column on every section, tall or short. */
-  scrollbar-width: thin;
   padding: var(--cam-frame-scroll-pad-top) var(--cam-frame-scroll-pad-x) var(--cam-space-2);
+}
+
+/* What has to stay on screen while the respondent scrolls a long section:
+   the snackbar, the missing-fields notice and the footer with Retour /
+   Continuer. Sticky to the bottom of the VIEWPORT (the frame is not a
+   scroll container -- see overflow: clip above), so it rides at the bottom
+   of the screen until the frame's own end scrolls into view. Later in the
+   DOM than the content, so it paints over it without a z-index. */
+.cam-auth-page--wizard .flow-frame-dock {
+  position: sticky;
+  bottom: 0;
+  flex: 0 0 auto;
+  background: var(--cam-surface);
 }
 
 /* One line under the frame: the way back to sign-in and the help contact,
@@ -891,7 +900,6 @@ body {
    go: the panel carries the identity, the navigation and the way out. */
 .cam-auth-page--wizard .flow-split {
   flex: 1 1 auto;
-  min-height: 0;
   display: flex;
 }
 
@@ -901,11 +909,18 @@ body {
 
 /* Never a scroller: one line per step summary, and the panel is sized to
    fit six steps at 680px tall. overflow: hidden keeps a pathological
-   summary from growing a second scrollbar beside the frame's. */
+   summary from growing a scrollbar of its own beside the page's.
+   Sticky at the top and one viewport tall, so the step list stays put while
+   the DOCUMENT scrolls a long section beside it. The height leaves out the
+   4px .flow-stripe above it (--cam-space-1), so a section that fits the
+   screen does not make the page scroll by the stripe's height. */
 .cam-auth-page--wizard .flow-panel {
   flex: 0 0 var(--cam-container-compact);
   width: var(--cam-container-compact);
-  min-height: 0;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: calc(100dvh - var(--cam-space-1));
   flex-direction: column;
   gap: var(--cam-space-5);
   padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
@@ -953,8 +968,8 @@ body {
   color: var(--cam-text-muted);
 }
 
-/* Short viewports: the header gives back what it can, since the frame's
-   height is whatever is left. */
+/* Short viewports: the header gives back what it can, so the first fields
+   of a section are on screen without scrolling. */
 @media (max-height: 699px) {
   .cam-auth-page--wizard .flow-header {
     padding-top: var(--cam-space-2);
@@ -980,7 +995,7 @@ body {
     padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-2);
   }
 
-  .cam-auth-page--wizard .flow-frame-scroll {
+  .cam-auth-page--wizard .flow-frame-content {
     padding: var(--cam-section-pad) var(--cam-section-pad) var(--cam-space-2);
   }
 }
@@ -1005,9 +1020,8 @@ body {
 
 /* The cascade affordance on the location step. It used to be a separate flex
    sibling of the .field with a marginTop: 28px tuned by hand to the height of
-   a stacked label -- which broke the moment a label wrapped, and would break
-   again under the side-by-side grid below. Folded into the label instead, so it
-   tracks the label in both layouts with no offset at all, and inherits the
+   a stacked label -- which broke the moment a label wrapped. Folded into the
+   label instead, so it tracks the label with no offset at all, and inherits the
    label's colour, which is what greys it out while the parent select is
    still empty. */
 .cam-auth-page .cascade-arrow {
@@ -1103,7 +1117,7 @@ body {
   margin-left: var(--cam-space-1);
 }
 
-/* Explanation under the input, in the input column. Example values are not
+/* Explanation directly under the input. Example values are not
    hints -- they belong in the control's own placeholder. */
 .cam-auth-page .field-hint {
   font-size: var(--cam-field-hint-size);
@@ -1117,12 +1131,6 @@ body {
    margin-bottom (which the shared auth pages still use) is cleared here --
    including the :last-of-type variant, which has the same specificity as the
    rule below and would otherwise win on source order. */
-/* The query container for the field layout below is .flow-frame, not this
-   form: the frame's width is the 600px the layout is specified against, while
-   the form sits inside the scroll region's padding and reserved gutter and so
-   measures ~60px narrower. There is no scroll-margin-top anywhere any more --
-   the header is a flex row above the scroll container rather than a sticky
-   overlay on top of it, so nothing can land underneath it. */
 .cam-auth-page--wizard .cam-form-flow .field,
 .cam-auth-page--wizard .cam-form-flow .field:last-of-type {
   margin-bottom: 0;
@@ -1132,8 +1140,11 @@ body {
   gap: var(--cam-field-row-gap);
 }
 
-/* Stacked layout (the default, and the only layout below 560px): label above
-   its input, left-aligned, 6px apart. */
+/* One column at every width (owner's decision, 2026-10-10): label above its
+   input, left-aligned, 6px apart; hint, error and status lines under the
+   input. There is no side-by-side layout and no label column -- the
+   @container rule that put labels in a right-aligned column beside their
+   inputs from 560px is gone, and must not come back. */
 .cam-auth-page--wizard .cam-form-flow .field>label {
   margin-bottom: var(--cam-field-stack-gap);
   font-size: var(--cam-font-size-sm);
@@ -1172,8 +1183,8 @@ body {
 }
 
 /* iOS Safari zooms the viewport in on focus whenever the focused control's
-   font is under 16px, and it does not zoom back out. On a page that must not
-   scroll, that leaves the respondent inside a magnified form with the rail
+   font is under 16px, and it does not zoom back out. That leaves the
+   respondent inside a magnified form with the rail and the dock
    off-screen -- so phones get 16px controls rather than the 15px base. The
    value typed is what has to be 16px; the placeholder may stay smaller,
    because a placeholder is never focused text. 16px is
@@ -1227,99 +1238,21 @@ body {
   opacity: 1;
 }
 
-/* ── Side-by-side field layout, container >= 560px ──
-   Label left of its input on one row, right-aligned against a fixed column so
-   every label/input boundary in a section lines up on one vertical rule. Hint,
-   error and status text sit under the input, aligned to the input column
-   rather than hanging under the label.
+/* ── Field widths (FormRow's `size`) ──
+   Capped on EVERY child but the label, not just the control, so the hint and
+   the error line keep the control's right edge instead of running the full
+   width under a short box. */
+.cam-auth-page--wizard .cam-form-flow .field--short>*:not(label) {
+  max-width: var(--cam-field-width-short);
+}
 
-   This is a CONTAINER query, not a media query: it measures .flow-frame (see
-   `container:` there), which is the frame the fields actually sit in. A media
-   query would measure the viewport, so the layout would flip on a wide window
-   even though the 600px frame had not changed width at all.
-
-   Scoped to .cam-form-flow's descendants rather than .form-single-column:
-   it reaches every field in sections 2-5 and naturally excludes section 1's
-   radio list (a <fieldset> of <label> rows, no .field). */
-@container cam-form (min-width: 560px) {
-
-  /* The COLUMN owns the tracks, and each .field is a subgrid of it.
-     Why not a fixed label column: a fixed width has to be wide enough for
-     the longest label anywhere in the wizard, so every other label floats in
-     whitespace, and any label that still does not fit wraps to two lines and
-     pushes its own input down. fit-content() sizes the track to the longest
-     label IN THIS SECTION and no wider, which is what keeps labels on one
-     line and inputs on one x at the same time. The 14rem cap stops one long
-     label from eating the input column; --cam-field-label-col is the floor,
-     applied as a min-width on the labels themselves, because minmax() will
-     not take fit-content() as a maximum. */
-  .cam-auth-page--wizard .cam-form-flow .form-single-column {
-    display: grid;
-    grid-template-columns: fit-content(14rem) minmax(0, 1fr);
-    column-gap: var(--cam-field-label-gap);
-    row-gap: var(--cam-field-row-gap);
-    align-items: start;
-  }
-
-  /* subgrid, so every row measures against the SAME track -- including rows
-     separated by a block heading, which is why section 3 renders one grid
-     for all its blocks rather than one per block. */
-  .cam-auth-page--wizard .cam-form-flow .field {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-    align-items: start;
-  }
-
-  /* Block headings are rows of the same grid and span both tracks. */
-  .cam-auth-page--wizard .cam-form-flow .admin-section-header {
-    grid-column: 1 / -1;
-  }
-
-  /* Overrides the global .cam-auth-page label rule's margin-bottom and the
-     stacked-layout gap above, for this layout only. */
-  .cam-auth-page--wizard .cam-form-flow .field>label {
-    display: block;
-    margin-bottom: 0;
-    /* The floor for the fit-content() track above. */
-    min-width: var(--cam-field-label-col);
-    /* Centres the label's first line on the input's own text. Derived from
-       the control height rather than hand-tuned, so the two stay aligned if
-       --cam-field-height ever moves again. The 1em factor is the label's
-       own font size; the multiplier is --cam-line-height-label, the same
-       token as the stacked rule above. */
-    padding-top: calc((var(--cam-field-height) - (var(--cam-line-height-label) * 1em)) / 2);
-    text-align: right;
-    grid-column: 1;
-  }
-
-  /* Everything that is not the label belongs to the input column: .input-row
-     (which wraps every input and select in the flow and carries the
-     position: relative the password eye-toggle depends on), the password
-     strength meter, the rule tips and the aria-live status regions. Matching
-     on :not(label) rather than naming each class means a field gaining
-     another sub-element lands in the right column without a CSS change. */
-  .cam-auth-page--wizard .cam-form-flow .field>*:not(label) {
-    grid-column: 2;
-    min-width: 0;
-  }
-
-  /* ── Field widths (FormRow's `size`) ──
-     Capped on EVERY child of the input column, not just the control, so the
-     hint and the error line keep the control's right edge instead of running
-     the full width under a short box. */
-  .cam-auth-page--wizard .cam-form-flow .field--short>*:not(label) {
-    max-width: var(--cam-field-width-short);
-  }
-
-  .cam-auth-page--wizard .cam-form-flow .field--medium>*:not(label) {
-    max-width: var(--cam-field-width-medium);
-  }
+.cam-auth-page--wizard .cam-form-flow .field--medium>*:not(label) {
+  max-width: var(--cam-field-width-medium);
 }
 
 /* A cascade field whose parent is still unanswered: the label greys to match
    its disabled control. Set by FormRow's `gated` prop rather than an inline
-   style, so the colour comes from the token system in both layouts. */
+   style, so the colour comes from the token system. */
 .cam-auth-page .field--gated>label {
   color: var(--cam-text-muted);
 }
@@ -1339,7 +1272,7 @@ body {
   box-shadow: var(--cam-focus-shadow-error);
 }
 
-/* Under the input, in the input column, where the hint would be. */
+/* Under the input, where the hint would be. */
 .cam-auth-page--wizard .field-error {
   font-size: var(--cam-field-hint-size);
   font-weight: var(--cam-font-weight-semibold);
@@ -1349,11 +1282,10 @@ body {
 }
 
 /* ── The missing-fields notice ──
-   Pinned to the bottom of the frame rather than placed in the scrolling
-   content: it reports fields that may be anywhere in a section taller than
-   the frame, so it has to stay on screen while the respondent scrolls to
-   them. It is a sibling of .flow-frame-scroll, so it adds no scroller and
-   the frame's own border still closes around it. */
+   In the sticky .flow-frame-dock rather than in the section's content: it
+   reports fields that may be anywhere in a section taller than the screen,
+   so it has to stay on screen while the respondent scrolls the page to
+   them. */
 .cam-auth-page--wizard .flow-missing-notice {
   flex: 0 0 auto;
   background: var(--cam-error-bg);
@@ -1398,8 +1330,8 @@ body {
 }
 
 /* ── Password strength meter and rule tips ──
-   Both live in the input column (they are children of the password .field, so
-   the grid rule puts them there). The tips replaced a static paragraph that
+   Both sit under the password input (they are children of the password
+   .field). The tips replaced a static paragraph that
    listed the criteria whether or not they were met. */
 .cam-auth-page .password-strength-block {
   margin-top: var(--cam-space-2);
@@ -1454,32 +1386,12 @@ body {
   flex: 0 0 auto;
 }
 
-/* The review step's summary tables share the form's label column width, so the
-   label/value boundary in section 6 lands on the same vertical rule the fields
-   above it used. Text stays left-aligned: these cells have visible borders, so
-   the column edge is already drawn, and right-aligning inside a drawn box is a
-   different device from right-aligning a borderless label. */
-.cam-auth-page--wizard .cam-form-flow .table-official .label-cell {
-  width: var(--cam-field-label-col);
-}
-
-/* Single-column responsive field layout. This is the STACKED form, used
-   below the 560px container query above and by the non-wizard auth pages;
-   the wizard replaces it with a grid at wider widths. */
+/* Single-column field layout: the stacked form used by the wizard at every
+   width and by the non-wizard auth pages. */
 .cam-auth-page .form-single-column {
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-3);
-}
-
-/* Narrow: the caps still apply, so a phone number does not stretch the full
-   width of a phone screen either. */
-.cam-auth-page--wizard .cam-form-flow .field--short .input-row {
-  max-width: var(--cam-field-width-short);
-}
-
-.cam-auth-page--wizard .cam-form-flow .field--medium .input-row {
-  max-width: var(--cam-field-width-medium);
 }
 
 /* Two-column responsive field grid */
@@ -1597,16 +1509,14 @@ body {
 /* The error banner sits above the section inside the frame, so a failure
    stays on screen when the respondent is sent back to the section that
    caused it. */
-.cam-auth-page--wizard .flow-frame-scroll > .auth-error-box {
+.cam-auth-page--wizard .flow-frame-content > .auth-error-box {
   margin-bottom: var(--cam-space-4);
 }
 
 /* ── Frame footer: the step's primary action ──
-   Pinned under the scrolling content, beside the missing-fields notice, so
-   "Continuer" is on screen however tall the section is -- the tallest one
-   used to put it at the end of more than two frames of scrolling. A sibling
-   of .flow-frame-scroll, so it adds no scroller and the frame's border
-   closes around it. One green action per screen (CLAUDE.md section 11). */
+   In the sticky .flow-frame-dock with the missing-fields notice, so
+   "Continuer" is on screen however tall the section is while the page
+   scrolls. One green action per screen (CLAUDE.md section 11). */
 .cam-auth-page--wizard .flow-frame-foot {
   flex: 0 0 auto;
   display: flex;
@@ -1766,12 +1676,11 @@ body {
 }
 
 /* ── Reset notices ──
-   A strip pinned to the frame, between the scrolling content and the
-   footer -- the same slot the missing-fields notice uses. It used to be a
-   floating toast fixed to the viewport, which on a phone sat on top of
-   Continuer and the footer links for its six seconds. Here it covers
-   nothing: the scroll area gives up its height while the notice is shown,
-   and it is still on screen wherever the respondent has scrolled to. */
+   A strip in the sticky .flow-frame-dock, above the footer -- the same slot
+   the missing-fields notice uses. It used to be a floating toast fixed to
+   the viewport, which on a phone sat on top of Continuer and the footer
+   links for its six seconds. Here it sits above them, and it is still on
+   screen wherever the respondent has scrolled to. */
 .cam-auth-page--wizard .wizard-snackbar-region {
   flex: 0 0 auto;
 }

@@ -2,9 +2,14 @@
 //
 // These are not screenshots: every assertion is a number read off the live
 // page, because the properties that matter here are exactly the ones a
-// screenshot cannot state -- whether the DOCUMENT scrolls, how many scroll
-// containers exist, whether an input has a border, and whether a side label
-// sits on the same optical line as the text inside its input.
+// screenshot cannot state -- how many scroll containers exist besides the
+// document, whether an input has a border, and whether every label sits above
+// its input.
+//
+// Owner's decision, 2026-10-10: the wizard is ONE column at every width
+// (label above control, no side-by-side layout), and the DOCUMENT scrolls --
+// there is no scroll region inside the frame. Retour / Continuer and the
+// missing-fields notice stay on screen in the sticky .flow-frame-dock.
 //
 // Usage:  node scripts/test-register-layout.mjs [baseUrl]
 //         BASE_URL=http://localhost:3005 node scripts/test-register-layout.mjs
@@ -117,7 +122,7 @@ const measureLayout = () => {
   // Controls are meant to be boxed; containers are not.
   const skip = ["INPUT", "SELECT", "TEXTAREA", "BUTTON", "TABLE", "TD", "TH", "TR", "HR"];
   const borderedExtras = [];
-  for (const el of document.querySelectorAll(".flow-frame-scroll *")) {
+  for (const el of document.querySelectorAll(".flow-frame-content *")) {
     if (skip.includes(el.tagName)) continue;
     const cs = getComputedStyle(el);
     if (cs.display === "none") continue;
@@ -131,7 +136,13 @@ const measureLayout = () => {
     }
   }
   const seal = document.querySelector(".seal");
+  const dock = document.querySelector(".flow-frame-dock");
+  const dockPosition = dock ? getComputedStyle(dock).position : null;
   return {
+    dockPosition,
+    dockSticky: dockPosition === "sticky",
+    dockBottom: dock ? Math.round(dock.getBoundingClientRect().bottom) : null,
+    viewportHeight: window.innerHeight,
     docScrollHeight: doc.scrollHeight,
     docClientHeight: doc.clientHeight,
     docScrollWidth: doc.scrollWidth,
@@ -145,7 +156,7 @@ const measureLayout = () => {
 
 const measureControls = () => {
   const out = [];
-  for (const el of document.querySelectorAll(".flow-frame-scroll input, .flow-frame-scroll select")) {
+  for (const el of document.querySelectorAll(".flow-frame-content input, .flow-frame-content select")) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
     const cs = getComputedStyle(el);
@@ -164,9 +175,7 @@ const measureControls = () => {
   return out;
 };
 
-// Label/input optical alignment: the centre of the label's FIRST LINE box
-// against the centre of the input's text. The first line, not the whole
-// label box, because a two-line bilingual label must still align on line one.
+// Label placement: every label must end above the top of its control.
 const measureLabelAlignment = () => {
   const rows = [];
   for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
@@ -177,15 +186,9 @@ const measureLabelAlignment = () => {
     const cr = control.getBoundingClientRect();
     if (lr.height === 0 || cr.height === 0) continue;
     const ls = getComputedStyle(label);
-    const lineHeight = parseFloat(ls.lineHeight) || parseFloat(ls.fontSize) * 1.3;
-    const padTop = parseFloat(ls.paddingTop);
-    const labelFirstLineCentre = lr.top + padTop + lineHeight / 2;
-    const controlTextCentre = cr.top + cr.height / 2;
     rows.push({
       id: control.id || "(anon)",
-      sideBySide: lr.right <= cr.left + 1,
       stacked: lr.bottom <= cr.top + 1,
-      delta: Math.round((labelFirstLineCentre - controlTextCentre) * 10) / 10,
       labelColor: ls.color,
     });
   }
@@ -193,7 +196,7 @@ const measureLabelAlignment = () => {
 };
 
 const measurePlaceholderVsLabel = () => {
-  const field = document.querySelector(".flow-frame-scroll .field");
+  const field = document.querySelector(".flow-frame-content .field");
   if (!field) return null;
   const label = field.querySelector(":scope > label");
   if (!label) return null;
@@ -294,7 +297,7 @@ async function runViewport(browser, vp) {
   const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
   const page = await context.newPage();
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".flow-frame-scroll");
+  await page.waitForSelector(".flow-frame-content");
 
   console.log("\n── " + vp.name + " ──");
 
@@ -328,20 +331,20 @@ async function runViewport(browser, vp) {
     const tag = " [" + phase + "]";
 
     check(
-      L.docScrollHeight === L.docClientHeight,
-      "document does not scroll" + tag,
-      "scrollHeight=" + L.docScrollHeight + " clientHeight=" + L.docClientHeight
-    );
-    check(
       L.docScrollWidth <= L.docClientWidth,
       "no horizontal page scroll" + tag,
       "scrollWidth=" + L.docScrollWidth + " clientWidth=" + L.docClientWidth
     );
     const names = L.scrollers.map((s) => s.selector);
     check(
-      L.scrollers.every((s) => s.selector.indexOf("flow-frame-scroll") !== -1),
-      "the only scroll container is .flow-frame-scroll" + tag,
+      L.scrollers.length === 0,
+      "no scroll container besides the document (no nested scroll)" + tag,
       names.length ? names.join(", ") : "(nothing overflowing)"
+    );
+    check(
+      L.dockSticky && L.dockBottom !== null && L.dockBottom <= L.viewportHeight + 1,
+      "the dock (Retour / Continuer) is sticky and on screen" + tag,
+      "position=" + L.dockPosition + " bottom=" + L.dockBottom + " viewport=" + L.viewportHeight
     );
     check(
       L.scrollers.every((s) => !s.overflowsX),
@@ -401,30 +404,13 @@ async function runViewport(browser, vp) {
   const align = await page.evaluate(measureLabelAlignment);
   check(align.length > 0, "label/input rows found to measure", align.length + " rows");
   if (align.length > 0) {
-    if (vp.width >= 1000) {
-      const notSide = align.filter((r) => !r.sideBySide);
-      check(
-        notSide.length === 0,
-        "labels sit beside their inputs",
-        notSide.map((r) => r.id).join(", ") || align.length + " rows"
-      );
-      const worst = align.reduce(
-        (a, r) => (Math.abs(r.delta) > Math.abs(a.delta) ? r : a),
-        align[0]
-      );
-      check(
-        Math.abs(worst.delta) <= 2,
-        "label line centre within 2px of the input text centre",
-        "worst: " + worst.id + " " + worst.delta + "px"
-      );
-    } else {
-      const notStacked = align.filter((r) => !r.stacked);
-      check(
-        notStacked.length === 0,
-        "labels sit above their inputs at " + vp.width + "px",
-        notStacked.map((r) => r.id).join(", ") || align.length + " rows"
-      );
-    }
+    // One column at every width: no width puts a label beside its input.
+    const notStacked = align.filter((r) => !r.stacked);
+    check(
+      notStacked.length === 0,
+      "labels sit above their inputs at " + vp.width + "px",
+      notStacked.map((r) => r.id).join(", ") || align.length + " rows"
+    );
 
     const pl = await page.evaluate(measurePlaceholderVsLabel);
     if (pl && pl.resolved) {
@@ -692,8 +678,8 @@ const measureLabels = () => {
       text: (label.childNodes.length ? label.textContent : "").replace(/\s*\*\s*$/, "").trim(),
       lines: Math.round((r.height - padding) / lineHeight),
       // Rounded: subpixel layout makes exact equality meaningless, and what
-      // matters is that every input starts on the same visible x.
-      labelRight: Math.round(r.right),
+      // matters is that every label starts on the same visible x.
+      labelLeft: Math.round(r.left),
       width: Math.round(r.width),
     });
   }
@@ -725,7 +711,7 @@ const measureInputWidths = () => {
 
 async function openEntitySection(page, type) {
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".flow-frame-scroll");
+  await page.waitForSelector(".flow-frame-content");
   await page.click('input[name="entityType"][value="' + type + '"]');
   await page.waitForTimeout(250);
   await page.fill("#reg-first-name", "Marie");
@@ -777,8 +763,8 @@ async function runLabels(browser) {
         if (/[^ ]\/ /.test(l.text)) bilingual.push(type + ": " + l.text);
         if (l.lines > 1) wrapped.push(type + ': "' + l.text + '" on ' + l.lines + " lines");
       }
-      const rights = new Set(labels.map((l) => l.labelRight));
-      columnsPerType.push({ type, rights: [...rights], count: labels.length });
+      const lefts = new Set(labels.map((l) => l.labelLeft));
+      columnsPerType.push({ type, lefts: [...lefts], count: labels.length });
     }
 
     check(
@@ -791,12 +777,12 @@ async function runLabels(browser) {
       "every label fits on one line at a 600px frame",
       wrapped.slice(0, 4).join(" | ") || "none wrapped"
     );
-    const multiColumn = columnsPerType.filter((c) => c.rights.length > 1);
+    const multiColumn = columnsPerType.filter((c) => c.lefts.length > 1);
     check(
       multiColumn.length === 0,
-      "the label column is one width for every field of a section",
-      multiColumn.map((c) => c.type + " has " + c.rights.length + " edges").join(", ") ||
-        columnsPerType.map((c) => c.type + "=" + c.rights[0] + "px").join(" ")
+      "every label of a section starts on the same x",
+      multiColumn.map((c) => c.type + " has " + c.lefts.length + " edges").join(", ") ||
+        columnsPerType.map((c) => c.type + "=" + c.lefts[0] + "px").join(" ")
     );
 
     await context.close();
@@ -833,7 +819,7 @@ async function runFieldWidths(browser) {
     bySize.full.length ? bySize.full[0].id + "=" + bySize.full[0].width + "px" : "none"
   );
 
-  // Left-aligned in column 2: every control starts on the same x whatever
+  // Left-aligned under its label: every control starts on the same x whatever
   // its width.
   const lefts = new Set(widths.map((w) => w.left));
   check(lefts.size === 1, "every control starts at the same x", [...lefts].join("/"));
@@ -965,7 +951,7 @@ async function runPrompts(browser) {
   console.log("\n\u2500\u2500 missing-field prompt triggers \u2500\u2500");
 
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".flow-frame-scroll");
+  await page.waitForSelector(".flow-frame-content");
 
   // Nothing is flagged before a trigger fires.
   let st = await page.evaluate(promptState);

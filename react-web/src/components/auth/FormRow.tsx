@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// How wide the input column's contents may grow.
+// How wide a field's control (and its hint) may grow.
 //
 // A 9-digit phone number in a 400px box is not a form, it is a box with a
 // phone number lost in it: the width of a field is a readability cue about
@@ -21,27 +21,27 @@ const SIZE_CLASS: Record<FieldSize, string> = {
 
 // The single label/field layout for the registration wizard's sections.
 //
-// Layout lives in CSS (.field, plus the @container rule in globals.css): the
-// label and every non-label child are grid items, so at container widths
-// >= 560px the label sits in a fixed right-aligned column beside its input,
-// and below that it stacks above the input. Nothing here measures anything --
-// no window.innerWidth, no ResizeObserver -- which is what keeps the layout
-// correct relative to the form's own width rather than the viewport's.
+// Layout lives in CSS (.field in globals.css): ONE column at every width --
+// the label above its control, left-aligned, and the hint directly under the
+// control. Owner's decision, 2026-10-10: there is no side-by-side layout and
+// no right-aligned label column at any width (the @container cam-form rule
+// that did that from 560px was removed); do not reintroduce one. Nothing here
+// measures anything -- no window.innerWidth, no ResizeObserver.
 //
 // The required marker is its own element carrying aria-hidden, never appended
 // to the label text: a screen reader announcing "Prenom star" is noise, and
 // the information it carries is already on the control as aria-required. The
 // caller owns that attribute, since the control is passed in as children.
 //
-// `hint` renders under the input, inside the input column, never under the
-// label -- example values belong in the control's own placeholder instead.
+// `hint` renders directly under the input, never between the label and the
+// control -- example values belong in the control's own placeholder instead.
 //
 // There is no optional marker. A trailing "(optionnel)" was the second thing
 // on every optional label, which pushed those labels onto two lines and made
-// the label column size itself to a parenthesis rather than to a field name.
+// the label wrap on a parenthesis rather than on a field name.
 // Optionality is said in the control instead, by a "Facultatif" placeholder:
 // it is in the box the respondent is deciding whether to fill, and it costs
-// the label column nothing.
+// the label nothing.
 export function FormRow({
   htmlFor,
   label,
@@ -67,7 +67,7 @@ export function FormRow({
   // as children) -- one message rather than "Champ obligatoire" under every
   // row.
   //
-  // Caps the input column's contents -- the control and its hint together,
+  // Caps everything under the label -- the control and its hint together,
   // so the two stay the same width and keep one right edge.
   size?: FieldSize;
   // Decoration before the label text -- the location step's cascade arrow.

@@ -195,35 +195,13 @@
 
    /* The wizard's one frame. 600px is a reading measure, not a viewport
      fraction: the form is a single column of label + input, and widening it
-     only stretches the inputs. The frame fills the page's remaining height
-     whatever the window, so this caps width alone. */
+     only stretches the inputs. The frame grows with its section and the
+     page scrolls, so this caps width alone. */
    --cam-container-wizard: 600px;
 
-   /* ── Side-by-side field layout (container >= 560px) ──
-     The label column is fixed so every label/input boundary in a step lines up
-     into one vertical rule; the input column takes the rest. Labels are
-     right-aligned against that rule, so a label sits as close to its own input
-     as the column allows and a long bilingual label wraps without moving the
-     input.
-
-     The label's first line is put on the same optical line as the text inside
-     the input by the @container rule itself, with
-     calc((--cam-field-height - (var(--cam-line-height-label) * 1em)) / 2)
-     -- computed from the control height rather than from a hand-tuned
-     constant, so changing the height moves the label with it. The calc
-     in globals.css reads the same token.
-     (The constant it replaces, --cam-field-label-pad-top, is gone for
-     exactly that reason.)
-
-     The 560px threshold itself has to stay a literal in the @container rule --
-     custom properties are not usable in container or media query conditions.
-     It is a CONTAINER width, not a viewport width: the query measures the
-     frame, so the layout is correct whatever chrome surrounds it. */
-   --cam-field-label-col: 160px;
-   --cam-field-label-gap: 12px;
-
-   /* Space between two field rows, and (in the stacked layout) between a label
-     and the input beneath it. */
+   /* Space between two field rows, and between a label and the input
+     beneath it. (No label-column tokens: the wizard is one column at every
+     width -- owner's decision, 2026-10-10.) */
    --cam-field-row-gap: 16px;
    --cam-field-stack-gap: 6px;
 
