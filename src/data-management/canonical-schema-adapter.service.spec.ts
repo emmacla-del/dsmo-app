@@ -801,7 +801,7 @@ describe('E8 (dataset v6): free-text width', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
     for (const name of ['VT3_10', 'VT9_3', 'VT9_4']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 7.');
+    expect(sps).toContain('Version du schéma du jeu de données : 8.');
   });
 });
 
@@ -844,3 +844,51 @@ describe('7.1.3 communication channels (dataset v7)', () => {
     expect(adapter.exportValue(v, { formType: 'ENTREPRISE', rawData: {} })).toBe(-98);
   });
 });
+
+describe('dataset v8 export fixes (VT end-to-end test, 2026-10-10)', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+  const v = (name: string) => adapter.getTvetVariables().find((x) => x.variableName === name)!;
+
+  it('(a) the VT1_15 respondent is read from the respondent record', () => {
+    const submission = {
+      formType: 'VOCATIONAL_TRAINING',
+      respondent: { respondentName: 'Walters KOng', respondentFunction: 'Directeur Général', phone1: '673456677', phone2: '699112233', email: 'walti@gmail.com' },
+      rawData: {},
+    };
+    expect(adapter.extractValue(v('VT1_15_NAME'), submission)).toBe('Walters KOng');
+    expect(adapter.extractValue(v('VT1_15_FUNCTION'), submission)).toBe('Directeur Général');
+    expect(adapter.extractValue(v('VT1_15_TEL2'), submission)).toBe('699112233');
+    expect(adapter.extractValue(v('VT1_15_EMAIL'), submission)).toBe('walti@gmail.com');
+  });
+
+  it('(b) an unstored « Total (calculé) » is the sum of its row group, blank while a cell is blank', () => {
+    const rawData = {
+      s4q2_cap_male: 10, s4q2_cap_female: '8',
+      s4q8_primaire_entrant_male: 7, s4q8_primaire_entrant_female: 5,
+      s4q8_primaire_sortant_male: 1,
+      s4q1_bepc_total: 45,
+    };
+    const sub = { formType: 'VOCATIONAL_TRAINING', rawData };
+    expect(adapter.extractValue(v('s4q2_cap_total'), sub)).toBe(18);
+    expect(adapter.extractValue(v('s4q8_primaire_entrant_total'), sub)).toBe(12);
+    expect(adapter.extractValue(v('s4q8_primaire_sortant_total'), sub)).toBeUndefined();
+    // A stored total is kept as stored.
+    expect(adapter.extractValue(v('s4q1_bepc_total'), sub)).toBe(45);
+    // An unused row of a row-by-row table stays blank.
+    expect(adapter.extractValue(v('s4q10_row5_total'), sub)).toBeUndefined();
+  });
+
+  it('(c) establishmentId is wide enough for its 36-character identifier', () => {
+    expect(v('establishmentId').spssWidth).toBeGreaterThanOrEqual(36);
+  });
+
+  it('(d) a round\'s dates are the Africa/Douala calendar day', () => {
+    // Round of the test campaign: midnight Douala = 23:00 UTC the day before.
+    expect(adapter.resolveReferencePeriod({ referencePeriod: { periodStart: '2026-09-30T23:00:00.000Z', periodEnd: '2026-12-31T00:00:00.000Z' } }))
+      .toEqual({ start: '2026-10-01', end: '2026-12-31' });
+    // A bound stored as midnight UTC keeps its day.
+    expect(adapter.resolveReferencePeriod({ referencePeriod: { periodStart: '2026-10-01T00:00:00.000Z', periodEnd: '2026-12-31T00:00:00.000Z' } }))
+      .toEqual({ start: '2026-10-01', end: '2026-12-31' });
+  });
+});
+
