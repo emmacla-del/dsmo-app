@@ -280,6 +280,7 @@
     "errorSelectArea": "Please select an area.",
     "errorPasswordMismatch": "Passwords do not match.",
     "missingFieldsNotice": "{count, plural, one {# required field left: {names}} other {# required fields left: {names}}}",
+    "missingFieldsLead": "{count, plural, one {# required field left:} other {# required fields left:}}",
     "lockedStepNotice": "Complete this step to reach the next one.",
     "successTitle": "Registration successful",
     "establishmentIdLabel": "Establishment ID: {establishmentId}",
