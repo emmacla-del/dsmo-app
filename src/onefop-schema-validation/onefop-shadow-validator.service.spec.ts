@@ -135,6 +135,34 @@ describe('OnefopShadowValidatorService', () => {
     expect(result.discrepancies.filter((d) => d.fieldId === conditional!.id)).toEqual([]);
   });
 
+  describe('invalidOptionAnswers (blocking for VT final submissions)', () => {
+    const validator = new OnefopShadowValidatorService(new OnefopSchemaLoaderService());
+
+    it('flags radio values and tick-box values outside the declared options', () => {
+      const bad = validator.invalidOptionAnswers('vocationalTraining', {
+        VT2_4: 'Agrement N 0128',
+        VT2_18: ['Formation Initiale (FI)/ Initial Training (IT)', 'Formation Continue'],
+        VT7_7: ['06', '42'],
+      });
+      expect(bad.map((b) => [b.field.id, b.values])).toEqual(expect.arrayContaining([
+        ['VT2_4', ['Agrement N 0128']],
+        ['VT2_18', ['Formation Continue']],
+        ['VT7_7', ['42']],
+      ]));
+    });
+
+    it('accepts option values, and ignores empty answers and questions without options', () => {
+      expect(validator.invalidOptionAnswers('vocationalTraining', {
+        VT2_4: 'Non/ No',
+        VT2_18: ['Formation Initiale (FI)/ Initial Training (IT)'],
+        VT7_7: ['01', '96'],
+        VT7_7_OTHER: 'Radio communautaire',
+        VT2_1: '',
+        VT2_2: [],
+      })).toEqual([]);
+    });
+  });
+
   describe('sum-of-siblings formula (VT tables)', () => {
     // Find a real VT table field with a computed sum-of-siblings cell —
     // this is the only formula in the whole schema (see the migration
