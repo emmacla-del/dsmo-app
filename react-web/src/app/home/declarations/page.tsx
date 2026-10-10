@@ -151,6 +151,18 @@ function mapOnefop(s: OnefopSubmission, t: Translator, locale: "fr" | "en"): His
 
 // ── Component ─────────────────────────────────────────────────────────────
 
+// The wizard a declaration is continued or corrected in follows its stream.
+// Every entry used to open the DSMO wizard, so an ONEFOP draft or correction
+// request landed in the wrong questionnaire. /onefop/preview accepts the
+// stored entityType code (ENTERPRISE, VOCATIONAL_TRAINING, ...) as `entity`.
+function wizardHref(entry: HistoryEntry): string {
+  if (entry.stream === "DSMO") return "/home/declarations/new";
+  const entityType = (entry.raw as { entityType?: string | null }).entityType;
+  return entityType
+    ? `/onefop/preview?entity=${encodeURIComponent(entityType)}`
+    : "/onefop/preview";
+}
+
 export default function CompanyDeclarationsPage() {
   const router = useRouter();
   const t = useTranslations();
@@ -387,8 +399,8 @@ export default function CompanyDeclarationsPage() {
               entry={entry}
               hasPdf={hasPdf(entry)}
               onPdf={() => openPdf(entry)}
-              onContinue={entry.group === "draft" ? () => router.push("/home/declarations/new") : undefined}
-              onCorrect={entry.status === "CORRECTION_REQUESTED" ? () => router.push("/home/declarations/new") : undefined}
+              onContinue={entry.group === "draft" ? () => router.push(wizardHref(entry)) : undefined}
+              onCorrect={entry.status === "CORRECTION_REQUESTED" ? () => router.push(wizardHref(entry)) : undefined}
             />
           ))}
         </div>
