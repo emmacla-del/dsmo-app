@@ -37,5 +37,31 @@ describe('DsmoService.getActivePeriod', () => {
     const p = await service.getActivePeriod();
     expect(p).toMatchObject({ isOpen: true, code: 'QUARTERLY_2026_T4_001', label: 'T4 2026' });
     expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(p).not.toHaveProperty('message');
+  });
+
+  it('a latest round past its deadline is reported closed, naming the period and its closing date', async () => {
+    const deadline = new Date(Date.now() - 86_400_000);
+    const latest = {
+      id: 'r0', quarterCode: 'QUARTERLY_2026_T3_001', labelFr: 'T3 2026',
+      status: 'OPEN', deadline,
+    };
+    const { service } = build(null, latest);
+    const p = await service.getActivePeriod();
+    expect(p).toMatchObject({ isOpen: false, code: 'QUARTERLY_2026_T3_001', label: 'T3 2026', deadline });
+    expect((p as any).message).toBe(
+      `La période de collecte « T3 2026 » est close depuis le ${deadline.toLocaleDateString('fr-FR')}.`,
+    );
+  });
+
+  it('a latest round CLOSED before its deadline is reported closed, not open to submissions', async () => {
+    const latest = {
+      id: 'r0', quarterCode: 'QUARTERLY_2026_T4_001', labelFr: 'T4 2026',
+      status: 'CLOSED', deadline: new Date(Date.now() + 86_400_000),
+    };
+    const { service } = build(null, latest);
+    const p = await service.getActivePeriod();
+    expect(p.isOpen).toBe(false);
+    expect((p as any).message).toBe("La période de collecte « T4 2026 » n'est pas ouverte aux soumissions.");
   });
 });
