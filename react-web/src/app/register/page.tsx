@@ -182,9 +182,6 @@ export default function RegisterPage() {
   // may open. Re-evaluated on every field change rather than latched, so
   // going back to an earlier field in the same section disarms it again.
   const [advanceArmed, setAdvanceArmed] = useState(false);
-  // The only scroll container on the page. A section change puts it back to
-  // the top; nothing else scrolls.
-  const frameScrollRef = useRef<HTMLDivElement>(null);
   // Focus on a section change. The section being left is `hidden`, so
   // whatever had focus inside it drops to <body> and a keyboard or
   // screen-reader user is nowhere. Every navigation that changes the section
@@ -582,11 +579,11 @@ export default function RegisterPage() {
     setCurrent(failure.index);
     setAdvanceArmed(false);
     requestAnimationFrame(() => {
-      // The frame swaps to the failing section; put it back to the top so the
-      // error banner above the section is the first thing on screen, then let
-      // focusing the control scroll the frame the rest of the way if the
-      // field sits below the fold (section 3 runs to thirteen rows).
-      scrollFrameTop();
+      // The frame swaps to the failing section; put the page back to the top
+      // so the error banner above the section is the first thing on screen,
+      // then let focusing the control scroll the page the rest of the way if
+      // the field sits below the fold (section 3 runs to thirteen rows).
+      scrollPageTop();
       const control = failure.focusId ? document.getElementById(failure.focusId) : null;
       if (control) {
         control.focus();
@@ -773,12 +770,12 @@ export default function RegisterPage() {
   );
 
   // ── Navigation ─────────────────────────────────────────────────────────
-  // The frame is the only scroll container, so "go to a section" is a scroll
-  // of that one element rather than of the document. Instant, not smooth: the
-  // frame's content is swapped at the same moment, so there is nothing to
-  // animate past.
-  function scrollFrameTop() {
-    frameScrollRef.current?.scrollTo({ top: 0 });
+  // The DOCUMENT is the only scroll container (no scroller inside the frame --
+  // owner's decision, 2026-10-10), so "go to a section" is a scroll of the
+  // page back to its top. Instant, not smooth: the frame's content is swapped
+  // at the same moment, so there is nothing to animate past.
+  function scrollPageTop() {
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   // Called by the rail. A locked section is not reachable -- the rail renders
@@ -800,7 +797,7 @@ export default function RegisterPage() {
     lastFieldEditedRef.current = false;
     if (index !== current) headingFocusPendingRef.current = true;
     setCurrent(index);
-    requestAnimationFrame(scrollFrameTop);
+    requestAnimationFrame(scrollPageTop);
   }
 
   // Move forward from `index`, revealing the next section if it was locked.
@@ -813,7 +810,7 @@ export default function RegisterPage() {
     headingFocusPendingRef.current = true;
     setReached((prev) => Math.max(prev, next));
     setCurrent(next);
-    requestAnimationFrame(scrollFrameTop);
+    requestAnimationFrame(scrollPageTop);
   }
 
   // ── Entity-type change ─────────────────────────────────────────────────
@@ -843,7 +840,7 @@ export default function RegisterPage() {
       setCurrent(infoIndex);
       setAdvanceArmed(false);
       lastFieldEditedRef.current = false;
-      requestAnimationFrame(scrollFrameTop);
+      requestAnimationFrame(scrollPageTop);
       setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
       forceSaveRef.current = true;
     } else {
@@ -888,7 +885,7 @@ export default function RegisterPage() {
     setReached(next);
     setCurrent(next);
     /* eslint-enable react-hooks/set-state-in-effect */
-    requestAnimationFrame(() => frameScrollRef.current?.scrollTo({ top: 0 }));
+    requestAnimationFrame(scrollPageTop);
   }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
 
   // Moves focus to the new section's heading -- see headingFocusPendingRef.
@@ -896,8 +893,8 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!headingFocusPendingRef.current) return;
     headingFocusPendingRef.current = false;
-    // preventScroll: the frame is put back to its top by the navigation
-    // itself, and the heading is the first thing in it.
+    // preventScroll: the page is put back to its top by the navigation
+    // itself, and the heading is the first thing in the frame.
     document
       .getElementById(`reg-section-title-${STEPS[current]}`)
       ?.focus({ preventScroll: true });
@@ -943,8 +940,9 @@ export default function RegisterPage() {
         first instanceof HTMLTextAreaElement
           ? first
           : firstEntityRadioRef.current;
-      // Default scroll behaviour on purpose: the frame scrolls the minimum
-      // needed to reveal the control, which on a long section 3 is the
+      // Default scroll behaviour on purpose: the page scrolls the minimum
+      // needed to reveal the control (clear of the sticky dock, by the root's
+      // scroll-padding-bottom in globals.css), which on a long section 3 is the
       // difference between an error message and a visible error message.
       focusable?.focus();
       if (first && first !== focusable) {
@@ -1851,16 +1849,17 @@ export default function RegisterPage() {
     </>
   );
 
-  // One screen, one frame, one section, one scrollbar.
+  // One frame, one section, one scrollbar -- the page's own.
   //
-  // The page itself does not scroll. On a wide screen it is two columns: the
-  // dossier panel -- identity, the six steps with what each holds, the way
-  // out -- and a body that gives every remaining pixel to a single bordered
-  // frame. On a narrow screen the panel is not shown and the page is a
-  // 100dvh column of the header that carries the rail, the body and a
-  // one-line footer. Either way the frame's inner region is the only scroll
-  // container on the route, so a long section scrolls inside the frame while
-  // the navigation stays put without needing position: sticky to do it.
+  // Owner's decision, 2026-10-10: the DOCUMENT scrolls, never a region inside
+  // the frame (CLAUDE.md section 13). On a wide screen the page is two
+  // columns: the dossier panel -- identity, the six steps with what each
+  // holds, the way out -- sticky beside a body holding a single bordered
+  // frame. On a narrow screen the panel is not shown and the page is a column
+  // of the header that carries the rail, the body and a one-line footer.
+  // Either way a long section makes the page longer, and the frame's dock
+  // (notices, Retour, Continuer) is position: sticky to the bottom of the
+  // viewport so the step's actions stay on screen.
   //
   // Every revealed section stays MOUNTED and is merely hidden: a section the
   // respondent has left keeps its state and its in-flight requests, and the
@@ -1923,10 +1922,9 @@ export default function RegisterPage() {
         </div>
 
         <div className="flow-body">
-          {/* The frame: the one bordered element in the body, and the query
-              container the side-by-side field layout measures. */}
+          {/* The frame: the one bordered element in the body. */}
           <div className="flow-frame">
-            <div className="flow-frame-scroll" ref={frameScrollRef}>
+            <div className="flow-frame-content">
               {/* Above the section rather than inside the review: a failure
                   sends the respondent to the section that failed, and the
                   message has to travel with them. */}
@@ -1968,8 +1966,8 @@ export default function RegisterPage() {
                       if ((e.target as HTMLElement).id !== currentLastFieldId) return;
                       const next = e.relatedTarget as HTMLElement | null;
                       if (!next) return;
-                      // The frame footer's Retour and Continuer are pinned
-                      // below the scrolling content, outside this <section>
+                      // The frame footer's Retour and Continuer are in the
+                      // sticky dock below the content, outside this <section>
                       // in the DOM, but they are still this section's own
                       // controls. Only moving to Continuer says "done here":
                       // a respondent heading for Retour must not be pushed
@@ -1991,105 +1989,110 @@ export default function RegisterPage() {
               </form>
             </div>
 
-            {/* Reset and restore notices. Announced, because the change they
-                report happened somewhere the respondent may not be looking;
-                pinned under the content so they cover none of it. */}
-            <div className="wizard-snackbar-region" role="status" aria-live="polite">
-              {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
-            </div>
-
-            {/* Pinned to the frame, not placed in the scrolling content: it
-                reports fields that may be anywhere in a section taller than
-                the frame, so it has to stay on screen while the respondent
-                scrolls to them. Outside .flow-frame-scroll, so it adds no
-                scroller. */}
-            {shownErrors.length > 0 && (
-              <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
-                {t("registerPage.missingFieldsNotice", {
-                  count: shownErrors.length,
-                  names: shownErrors.map((f) => f.name).join(", "),
-                })}
+            {/* The dock: what has to stay on screen however tall the section
+                is. position: sticky to the bottom of the viewport (globals.css,
+                .flow-frame-dock) -- the document scrolls, nothing inside the
+                frame does. */}
+            <div className="flow-frame-dock">
+              {/* Reset and restore notices. Announced, because the change they
+                  report happened somewhere the respondent may not be looking;
+                  in the dock under the content so they cover none of it. */}
+              <div className="wizard-snackbar-region" role="status" aria-live="polite">
+                {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
               </div>
-            )}
 
-            {/* Pinned under the scrolling content, so both actions are on
-                screen however tall the section is.
+              {/* In the sticky dock, not in the section's content: it reports
+                  fields that may be anywhere in a section taller than the
+                  screen, so it has to stay on screen while the respondent
+                  scrolls the page to them. */}
+              {shownErrors.length > 0 && (
+                <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
+                  {t("registerPage.missingFieldsNotice", {
+                    count: shownErrors.length,
+                    names: shownErrors.map((f) => f.name).join(", "),
+                  })}
+                </div>
+              )}
 
-                Retour: every section but the first. The step list (or the
-                rail) can jump anywhere already revealed; this is the plain
-                one-step-back respondents look for at the bottom of a form.
+              {/* In the sticky dock, so both actions are on screen however
+                  tall the section is.
 
-                Continuer: the step's one primary action, on every section
-                but the review. At the frontier it is trigger (b) -- shown
-                whether or not the section is complete, because a control
-                that disappears until the form is correct cannot tell anyone
-                what is wrong with the form. On a section the respondent has
-                come back to, it moves on to the next revealed one, which
-                nothing on screen used to offer. The class name is kept from
-                the text link this replaced, which the layout test selects
-                by. */}
-            <div className="flow-frame-foot">
-              {current > 0 && (
-                <button
-                  type="button"
-                  className="btn-secondary flow-back"
-                  data-flow-back
-                  onClick={() => goToSection(current - 1)}
-                >
-                  <span aria-hidden="true">←</span>
-                  {t("registerPage.backButton")}
-                </button>
-              )}
-              {current < LAST_INDEX && (
-                <button
-                  type="button"
-                  className="btn-primary btn-primary--inline flow-continue-link"
-                  data-flow-continue
-                  aria-disabled={(showContinueLink && continueBlocked) || undefined}
-                  // Never the `disabled` attribute: a disabled button
-                  // swallows the click, and the click is how the
-                  // respondent asks what is missing.
-                  onClick={() => {
-                    if (!showContinueLink) {
-                      goToSection(current + 1);
-                      return;
-                    }
-                    if (promptMissing()) return;
-                    advanceFrom(current);
-                  }}
-                >
-                  {t("registerPage.continueButton")}
-                  <span aria-hidden="true">→</span>
-                </button>
-              )}
-              {/* Soumettre: the review's primary action, in the same place
-                  as Continuer on every other step. aria-disabled rather
-                  than disabled until the box is ticked, for the same reason
-                  as Continuer: the click is how the respondent learns what
-                  is still missing. Truly disabled only while in flight. */}
-              {current === LAST_INDEX && (
-                <button
-                  type="button"
-                  className="btn-primary btn-primary--inline btn-primary--submit"
-                  aria-disabled={!certified || undefined}
-                  aria-busy={submitting || undefined}
-                  disabled={submitting}
-                  onClick={() => {
-                    if (!certified) {
-                      setCertifyFlagged(true);
-                      const box = document.getElementById("reg-certify");
-                      box?.focus();
-                      box?.scrollIntoView({ block: "nearest" });
-                      return;
-                    }
-                    handleSubmitPress();
-                  }}
-                >
-                  {submitting
-                    ? t("registerPage.submittingLabel")
-                    : t("registerPage.submitButton")}
-                </button>
-              )}
+                  Retour: every section but the first. The step list (or the
+                  rail) can jump anywhere already revealed; this is the plain
+                  one-step-back respondents look for at the bottom of a form.
+
+                  Continuer: the step's one primary action, on every section
+                  but the review. At the frontier it is trigger (b) -- shown
+                  whether or not the section is complete, because a control
+                  that disappears until the form is correct cannot tell anyone
+                  what is wrong with the form. On a section the respondent has
+                  come back to, it moves on to the next revealed one, which
+                  nothing on screen used to offer. The class name is kept from
+                  the text link this replaced, which the layout test selects
+                  by. */}
+              <div className="flow-frame-foot">
+                {current > 0 && (
+                  <button
+                    type="button"
+                    className="btn-secondary flow-back"
+                    data-flow-back
+                    onClick={() => goToSection(current - 1)}
+                  >
+                    <span aria-hidden="true">←</span>
+                    {t("registerPage.backButton")}
+                  </button>
+                )}
+                {current < LAST_INDEX && (
+                  <button
+                    type="button"
+                    className="btn-primary btn-primary--inline flow-continue-link"
+                    data-flow-continue
+                    aria-disabled={(showContinueLink && continueBlocked) || undefined}
+                    // Never the `disabled` attribute: a disabled button
+                    // swallows the click, and the click is how the
+                    // respondent asks what is missing.
+                    onClick={() => {
+                      if (!showContinueLink) {
+                        goToSection(current + 1);
+                        return;
+                      }
+                      if (promptMissing()) return;
+                      advanceFrom(current);
+                    }}
+                  >
+                    {t("registerPage.continueButton")}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                )}
+                {/* Soumettre: the review's primary action, in the same place
+                    as Continuer on every other step. aria-disabled rather
+                    than disabled until the box is ticked, for the same reason
+                    as Continuer: the click is how the respondent learns what
+                    is still missing. Truly disabled only while in flight. */}
+                {current === LAST_INDEX && (
+                  <button
+                    type="button"
+                    className="btn-primary btn-primary--inline btn-primary--submit"
+                    aria-disabled={!certified || undefined}
+                    aria-busy={submitting || undefined}
+                    disabled={submitting}
+                    onClick={() => {
+                      if (!certified) {
+                        setCertifyFlagged(true);
+                        const box = document.getElementById("reg-certify");
+                        box?.focus();
+                        box?.scrollIntoView({ block: "nearest" });
+                        return;
+                      }
+                      handleSubmitPress();
+                    }}
+                  >
+                    {submitting
+                      ? t("registerPage.submittingLabel")
+                      : t("registerPage.submitButton")}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
