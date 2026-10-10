@@ -40,6 +40,89 @@ interface LocationItem { id: string; name: string; [k: string]: unknown }
 
 // ── Main component ─────────────────────────────────────────────────────────
 
+// ── UI helpers ─────────────────────────────────────────────────────────────
+// Declared at module scope on purpose. Declared inside the page component,
+// each render made them new component types, so React remounted every input
+// they wrap on each keystroke and the field lost focus after one character.
+
+const accent = "var(--cam-accent)";
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div style={{ margin: "20px 0 8px", fontWeight: 700, fontSize: 13, color: accent, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `2px solid ${accent}`, paddingBottom: 4 }}>
+      {title}
+    </div>
+  );
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: "block", fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 4, fontWeight: 500 }}>{label}</label>
+      {children}
+      {error && <div style={{ color: "var(--cam-error)", fontSize: 11, marginTop: 2 }}>{error}</div>}
+    </div>
+  );
+}
+
+function NumInput({ value, onChange, placeholder = "0", readOnly = false }: { value: string; onChange?: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
+  return (
+    <input
+      className="cam-input"
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={value}
+      onChange={onChange ? (e) => onChange(e.target.value.replace(/\D/g, "")) : undefined}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      style={{
+        width: "100%",
+        fontSize: 13,
+        background: readOnly ? "var(--cam-accent-soft)" : undefined,
+        color: readOnly ? accent : undefined,
+        fontWeight: readOnly ? 700 : undefined,
+      }}
+    />
+  );
+}
+
+function CascadeSelect({ value, onChange, items, loading, disabled, placeholder }: {
+  value: string; onChange: (id: string) => void;
+  items: LocationItem[]; loading: boolean; disabled?: boolean; placeholder?: string;
+}) {
+  const t = useTranslations();
+  return (
+    <select
+      className="cam-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={loading || disabled}
+      style={{ width: "100%", fontSize: 13 }}
+    >
+      <option value="">{loading ? t("common.loading") : (placeholder ?? t("homeDeclarationsNewPage.selectPlaceholder"))}</option>
+      {items.map((item) => (
+        <option key={item.id} value={item.id}>{item.name}</option>
+      ))}
+    </select>
+  );
+}
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: "1px solid var(--cam-border)" }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ marginTop: 2, width: 18, height: 18, accentColor: accent, flexShrink: 0 }}
+      />
+      <span style={{ fontSize: 13, color: "var(--cam-text)", lineHeight: 1.4 }}>{label}</span>
+    </label>
+  );
+}
+
+
 export default function DsmoDeclarationWizardPage() {
   const router = useRouter();
   const t = useTranslations();
@@ -447,68 +530,6 @@ export default function DsmoDeclarationWizardPage() {
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
-  const accent = "var(--cam-accent)";
-
-  function SectionHeader({ title }: { title: string }) {
-    return (
-      <div style={{ margin: "20px 0 8px", fontWeight: 700, fontSize: 13, color: accent, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `2px solid ${accent}`, paddingBottom: 4 }}>
-        {title}
-      </div>
-    );
-  }
-
-  function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-    return (
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: "block", fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 4, fontWeight: 500 }}>{label}</label>
-        {children}
-        {error && <div style={{ color: "var(--cam-error)", fontSize: 11, marginTop: 2 }}>{error}</div>}
-      </div>
-    );
-  }
-
-  function NumInput({ value, onChange, placeholder = "0", readOnly = false }: { value: string; onChange?: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
-    return (
-      <input
-        className="cam-input"
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={value}
-        onChange={onChange ? (e) => onChange(e.target.value.replace(/\D/g, "")) : undefined}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        style={{
-          width: "100%",
-          fontSize: 13,
-          background: readOnly ? "var(--cam-accent-soft)" : undefined,
-          color: readOnly ? accent : undefined,
-          fontWeight: readOnly ? 700 : undefined,
-        }}
-      />
-    );
-  }
-
-  function CascadeSelect({ value, onChange, items, loading, disabled, placeholder }: {
-    value: string; onChange: (id: string) => void;
-    items: LocationItem[]; loading: boolean; disabled?: boolean; placeholder?: string;
-  }) {
-    return (
-      <select
-        className="cam-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={loading || disabled}
-        style={{ width: "100%", fontSize: 13 }}
-      >
-        <option value="">{loading ? t("common.loading") : (placeholder ?? t("homeDeclarationsNewPage.selectPlaceholder"))}</option>
-        {items.map((item) => (
-          <option key={item.id} value={item.id}>{item.name}</option>
-        ))}
-      </select>
-    );
-  }
-
   // ── Step content renderers ─────────────────────────────────────────────────
 
   function renderStep1() {
@@ -678,27 +699,13 @@ export default function DsmoDeclarationWizardPage() {
   }
 
   function renderStep3() {
-    function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-      return (
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: "1px solid var(--cam-border)" }}>
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => { onChange(e.target.checked); scheduleAutosave(); }}
-            style={{ marginTop: 2, width: 18, height: 18, accentColor: accent, flexShrink: 0 }}
-          />
-          <span style={{ fontSize: 13, color: "var(--cam-text)", lineHeight: 1.4 }}>{label}</span>
-        </label>
-      );
-    }
-
     return (
       <div>
         <SectionHeader title={L.sectionQualitative} />
-        <Toggle label={L.qTraining} checked={hasTrainingCenter} onChange={setHasTrainingCenter} />
-        <Toggle label={L.qRecruitmentNext} checked={recruitmentPlansNext} onChange={setRecruitmentPlansNext} />
-        <Toggle label={L.qCamerounisation} checked={camerounisationPlan} onChange={setCamerounisationPlan} />
-        <Toggle label={L.qTempAgencies} checked={usesTempAgencies} onChange={setUsesTempAgencies} />
+        <Toggle label={L.qTraining} checked={hasTrainingCenter} onChange={(v) => { setHasTrainingCenter(v); scheduleAutosave(); }} />
+        <Toggle label={L.qRecruitmentNext} checked={recruitmentPlansNext} onChange={(v) => { setRecruitmentPlansNext(v); scheduleAutosave(); }} />
+        <Toggle label={L.qCamerounisation} checked={camerounisationPlan} onChange={(v) => { setCamerounisationPlan(v); scheduleAutosave(); }} />
+        <Toggle label={L.qTempAgencies} checked={usesTempAgencies} onChange={(v) => { setUsesTempAgencies(v); scheduleAutosave(); }} />
         {usesTempAgencies && (
           <div style={{ marginTop: 8 }}>
             <Field label={L.qTempAgencyDetails}>
