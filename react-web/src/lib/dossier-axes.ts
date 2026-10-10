@@ -89,3 +89,23 @@ export function eligibilityAxis(state: DiagnosticState, diag: DossierDiagnostic 
   }
   return { key: "axis3NotEligible", tone: "neutral" };
 }
+
+/** Which decisions a reviewer may take on a dossier in this status. */
+export interface AllowedDecisions {
+  approve: boolean;
+  reject: boolean;
+  requestCorrection: boolean;
+}
+
+/**
+ * Mirrors the server's own guards (QuestionnairesService.approve / reject /
+ * requestCorrection): approve and request-correction from PENDING_REVIEW
+ * only; reject from PENDING_REVIEW or CORRECTION_REQUESTED. APPROVED and
+ * REJECTED are final, so nothing is offered. The server enforces this; the
+ * interface only stops offering what it would refuse.
+ */
+export function allowedDecisions(status: string | null | undefined): AllowedDecisions {
+  if (status === "PENDING_REVIEW") return { approve: true, reject: true, requestCorrection: true };
+  if (status === "CORRECTION_REQUESTED") return { approve: false, reject: true, requestCorrection: false };
+  return { approve: false, reject: false, requestCorrection: false };
+}
