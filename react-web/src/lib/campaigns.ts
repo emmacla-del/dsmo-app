@@ -255,3 +255,20 @@ export function canArchive(status: string): boolean {
 export function canDelete(status: string): boolean {
   return status === "DRAFT";
 }
+
+// Readable campaign name for staff screens: the stored names are the official
+// all-caps titles. Moved from admin/campagnes so every screen shows the same
+// wording.
+export function formatCampaignDisplayName(name: string): string {
+  if (!name) return "—";
+  if (name.includes("COLLECTE DES DONNEES SUR LES EMPLOIS") || name.includes("SECTEUR MODERNE")) {
+    return "Collecte des données sur les emplois (Secteur moderne)";
+  }
+  if (name.includes("DECLARATION SUR LA SITUATION DE LA MAIN D'OEUVRE") || name.includes("MAIN D'OEUVRE")) {
+    return "Déclaration sur la situation de la main d'œuvre (DSMO)";
+  }
+  if (name.length > 40 && name === name.toUpperCase()) {
+    return name.charAt(0) + name.slice(1).toLowerCase();
+  }
+  return name;
+}

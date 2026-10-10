@@ -10,6 +10,7 @@
     "loading": "Chargement…"
   },
   "adminSectorsPage": {
+    "category": {"Primary": "Primaire", "Secondary": "Secondaire", "Tertiary": "Tertiaire", "Public": "Public"},
     "accessDeniedTitle": "Accès refusé",
     "accessDeniedMessage": "Votre compte n'a pas accès à cette page.",
     "logoutButton": "Se déconnecter",
@@ -1257,7 +1258,7 @@
   "adminHeaderActions": {
     "noActiveCampaign": "Aucune campagne active",
     "campaignCode": "Campagne {code}",
-    "campaignQuarter": "Campagne {year}-T{quarter}",
+    "campaignQuarter": "Campagne du {quarter, selectordinal, one {#er} other {#e}} trimestre {year}",
     "scopeTitle": "Ressort territorial",
     "scopeChip": "Ressort : {scope}",
     "searchPlaceholder": "Rechercher...",
@@ -2034,7 +2035,7 @@
       "DEADLINE_EXTENDED": "Prorogation"
     },
     "reminderTypeColumn": "Type",
-    "quarterRef": "{year}-T{quarter}",
+    "quarterRef": "{quarter, selectordinal, one {#er} other {#e}} trimestre {year}",
     "noDeadline": "Aucune échéance fixée",
     "unreadableDeadline": "Échéance illisible",
     "pastDue": "Échue",

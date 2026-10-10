@@ -36,6 +36,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { count } from "@/lib/admin-data-state";
+import { formatCampaignDisplayName } from "@/lib/campaigns";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 
 // @Roles on POST /campaigns/:id/activate|pause|close|remind (campaign.controller.ts).
 // Every other role that reaches this page (REGIONAL_ADMIN) reads only.
@@ -98,19 +100,6 @@ function StatusBadge({ status, registration = false }: { status: string; registr
   );
 }
 
-export function formatCampaignDisplayName(name: string): string {
-  if (!name) return "—";
-  if (name.includes("COLLECTE DES DONNEES SUR LES EMPLOIS") || name.includes("SECTEUR MODERNE")) {
-    return "Collecte des données sur les emplois (Secteur moderne)";
-  }
-  if (name.includes("DECLARATION SUR LA SITUATION DE LA MAIN D'OEUVRE") || name.includes("MAIN D'OEUVRE")) {
-    return "Déclaration sur la situation de la main d'œuvre (DSMO)";
-  }
-  if (name.length > 40 && name === name.toUpperCase()) {
-    return name.charAt(0) + name.slice(1).toLowerCase();
-  }
-  return name;
-}
 
 // A disabled <button> swallows the pointer without showing its own title, so
 // the reason sits on a wrapper span and the disabled button lets the pointer
@@ -325,7 +314,7 @@ export default function CampagnesPage() {
                           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", minWidth: 0 }}>
                             <div
                               className="cam-admin-strong"
-                              title={c.name}
+                              title={`${c.name} (${c.code})`}
                               style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}
                             >
                               {formatCampaignDisplayName(c.name)}
@@ -337,7 +326,6 @@ export default function CampagnesPage() {
                               </span>
                             )}
                           </div>
-                          <span className="cam-admin-code cam-admin-muted">{c.code}</span>
                         </td>
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
                           <span className="cam-badge cam-badge-neutral">
@@ -600,10 +588,7 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
       <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
-            <h2 className="cam-admin-h2" title={c.name}>{formatCampaignDisplayName(c.name)}</h2>
-            <span className="cam-admin-code cam-admin-muted">
-              {c.code}
-            </span>
+            <h2 className="cam-admin-h2" title={`${c.name} (${c.code})`}>{formatCampaignDisplayName(c.name)}</h2>
             {c.referenceYear && c.referenceQuarter && (
               <span className="cam-badge cam-badge-neutral">
                 {quarterRef(t, c.referenceYear, c.referenceQuarter)}
@@ -764,7 +749,7 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
       open
       wide
       onClose={onClose}
-      eyebrow={campaign.code}
+      eyebrow={referencePeriodLabel(campaign.code, locale)}
       title={campaign.name}
       footer={<button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose}>{t("close")}</button>}
     >

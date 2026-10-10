@@ -10,6 +10,7 @@
     "loading": "Loading…"
   },
   "adminSectorsPage": {
+    "category": {"Primary": "Primary", "Secondary": "Secondary", "Tertiary": "Tertiary", "Public": "Public"},
     "accessDeniedTitle": "Access denied",
     "accessDeniedMessage": "Your account does not have access to this page.",
     "logoutButton": "Log out",
@@ -1257,7 +1258,7 @@
   "adminHeaderActions": {
     "noActiveCampaign": "No active campaign",
     "campaignCode": "Campaign {code}",
-    "campaignQuarter": "Campaign {year}-Q{quarter}",
+    "campaignQuarter": "Campaign for Q{quarter} {year}",
     "scopeTitle": "Territory",
     "scopeChip": "Territory: {scope}",
     "searchPlaceholder": "Search...",
@@ -2034,7 +2035,7 @@
       "DEADLINE_EXTENDED": "Extension"
     },
     "reminderTypeColumn": "Type",
-    "quarterRef": "{year}-Q{quarter}",
+    "quarterRef": "Q{quarter} {year}",
     "noDeadline": "No deadline set",
     "unreadableDeadline": "Unreadable deadline",
     "pastDue": "Past due",

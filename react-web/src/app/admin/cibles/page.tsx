@@ -14,7 +14,8 @@ import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
 import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
-import { isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
+import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
   buildTargetPayload,
@@ -299,7 +300,7 @@ function TargetsPanel({
 
       {query.data && (
         <p className="cam-admin-lede">
-          {query.data.campaign.name} ({query.data.campaign.code}) — {campaignStatusLabel(t, query.data.campaign.status)}
+          {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(t, query.data.campaign.status)}
         </p>
       )}
 
@@ -441,7 +442,7 @@ function QuotasPanel({
               <optgroup label={t("collectionCampaignsGroup")}>
                 {collection.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
-                    {campaign.code} — {campaign.name} ({campaignStatusLabel(tRoot, campaign.status)})
+                    {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
                   </option>
                 ))}
               </optgroup>
@@ -450,7 +451,7 @@ function QuotasPanel({
               <optgroup label={t("registrationCampaignsGroup")}>
                 {registration.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
-                    {campaign.code} — {campaign.name} ({t("registrationStatus")})
+                    {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({t("registrationStatus")})
                   </option>
                 ))}
               </optgroup>
@@ -558,7 +559,7 @@ function ReturnsPanel({
           >
             {onefop.map((campaign) => (
               <option key={campaign.id} value={campaign.id}>
-                {campaign.code} — {campaign.name} ({campaignStatusLabel(tRoot, campaign.status)})
+                {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
               </option>
             ))}
           </select>
@@ -605,7 +606,7 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
   return (
     <>
       <p className="cam-admin-lede">
-        {query.data.campaign.name} ({query.data.campaign.code}) — {campaignStatusLabel(tRoot, query.data.campaign.status)}
+        {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
       </p>
       <CampaignReturnsTable
         data={query.data}

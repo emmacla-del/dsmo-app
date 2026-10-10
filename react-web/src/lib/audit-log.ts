@@ -243,9 +243,14 @@ const SUBMISSION_STATUS_LABELS: Record<UiLocale, Record<string, string>> = {
   },
 };
 
+/** A submission status in words ("En instance", "Visé"…); an unknown code as stored. */
+export function submissionStatusLabel(status: string, locale: UiLocale = "fr"): string {
+  return SUBMISSION_STATUS_LABELS[locale][status] ?? status;
+}
+
 /** "before → after", or null when the entry records no state change. */
 export function auditTransition(e: AuditLogEntry, locale: UiLocale = "fr"): string | null {
-  const statusLabel = (status: string) => SUBMISSION_STATUS_LABELS[locale][status] ?? status;
+  const statusLabel = (status: string) => submissionStatusLabel(status, locale);
   if (e.previousValue || e.newValue) return `${compact(e.previousValue)} → ${compact(e.newValue)}`;
   const d = asRecord(e.details);
   if (!d) return null;
