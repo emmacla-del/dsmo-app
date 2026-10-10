@@ -6,16 +6,23 @@ import "./globals.css";
 import { QueryProvider } from "./query-provider";
 import { AuthInitializer } from "./auth-initializer";
 
-// Inter, self-hosted: the variable font (weights 100-900), latin subset,
-// which covers French (é, è, ç, œ, Œ). From Google Fonts' official files
-// (fonts.gstatic.com, inter v20), SIL Open Font License 1.1, which permits
-// bundling. It was loaded with next/font/google, which downloads the font
-// when the app is built or the dev server starts; when that download failed,
-// Next fell back silently to "Inter Fallback" (Arial regular) and, with
-// font-synthesis: none, every bold in the app rendered regular (owner's
-// screenshot, 2026-10-10). Self-hosting removes that network dependency.
+// Inter, self-hosted, HINTED (owner, 2026-10-10). The four weights the type
+// scale uses (400/500/600/700), from the official Inter 4.1 release
+// (github.com/rsms/inter, extras/woff-hinted; SIL Open Font License 1.1,
+// see fonts/Inter-LICENSE.txt). The unhinted variable file used before
+// rendered soft on Windows at 125% scaling: without hinting instructions
+// (fpgm/cvt) the glyph edges fall between pixels. Each file is subset with
+// fontTools to Latin, French accents, punctuation, arrows and the few
+// symbols the app draws, keeping the hinting and the tnum feature the
+// statistical tables use: about 34 KB a weight, 137 KB for all four.
+// Weights outside 400-700 (the documented scale) draw at the nearest one.
 const inter = localFont({
-  src: [{ path: "./fonts/Inter-latin-var.woff2", weight: "100 900", style: "normal" }],
+  src: [
+    { path: "./fonts/Inter-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Inter-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/Inter-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/Inter-Bold.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-inter",
   display: "swap",
   fallback: ["Segoe UI", "Arial", "sans-serif"],
