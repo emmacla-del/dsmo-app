@@ -795,7 +795,11 @@
     "totalAdded": "{count} {noun} added",
     "filledOfTotalNoun": "{count}/{total} {noun} filled in",
     "rowsNoun": "Rows",
-    "total": "Total"
+    "total": "Total",
+    "editRow": "Edit row {index}",
+    "editRowNamed": "Edit row {index}: {name}",
+    "removeRow": "Delete row {index}",
+    "removeRowNamed": "Delete row {index}: {name}"
   },
   "modernJobs": {
     "adaptive": {
