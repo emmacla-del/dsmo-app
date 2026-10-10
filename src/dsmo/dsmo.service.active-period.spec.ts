@@ -41,7 +41,9 @@ describe('DsmoService.getActivePeriod', () => {
   });
 
   it('a latest round past its deadline is reported closed, naming the period and its closing date', async () => {
-    const deadline = new Date(Date.now() - 86_400_000);
+    // Midnight Douala on 31 Dec 2025 is 23:00 UTC on 30 Dec: the message names
+    // the Cameroon day, 31/12/2025, whatever zone the server runs in.
+    const deadline = new Date('2025-12-30T23:00:00.000Z');
     const latest = {
       id: 'r0', quarterCode: 'QUARTERLY_2026_T3_001', labelFr: 'T3 2026',
       status: 'OPEN', deadline,
@@ -50,7 +52,7 @@ describe('DsmoService.getActivePeriod', () => {
     const p = await service.getActivePeriod();
     expect(p).toMatchObject({ isOpen: false, code: 'QUARTERLY_2026_T3_001', label: 'T3 2026', deadline });
     expect((p as any).message).toBe(
-      `La période de collecte « T3 2026 » est close depuis le ${deadline.toLocaleDateString('fr-FR')}.`,
+      'La période de collecte « T3 2026 » est close depuis le 31/12/2025.',
     );
   });
 
