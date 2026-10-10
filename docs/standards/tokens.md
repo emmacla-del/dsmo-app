@@ -222,4 +222,4 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-amber-badge` | `#fef3c7` | Respondent record | Amber badge fill recorded from the live fallback. |
 | `--cam-amber-text` | `#92400e` | Respondent record | Amber text recorded from the live fallback. |
 
-Class parameters are not palette entries and are not listed. `--cam-kpi-tone`, `--cam-status-dot`, and `--cam-admin-rail-width` are set next to the class that reads them.
+Class parameters are not palette entries and are not listed. `--cam-status-dot` and `--cam-admin-rail-width` are set next to the class that reads them.
