@@ -606,10 +606,10 @@ export function ProjectProgramScopeQuiz({
                   }}
                 />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
+                  <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
                     {isEn ? opt.titleEn : opt.titleFr}
                   </div>
-                  <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+                  <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                     {isEn ? opt.descEn : opt.descFr}
                   </div>
                 </div>
@@ -646,12 +646,12 @@ export function ProjectProgramScopeQuiz({
               }}
             />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
+              <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
                 {isEn
                   ? "No beneficiaries placed or trained during this period"
                   : "Aucun bénéficiaire inséré ou formé au cours de la période"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {isEn
                   ? "Select this option if no outcome has been recorded yet. Realizations will be initialized to 0."
                   : "Sélectionnez cette option si aucun résultat n'a été enregistré. Les réalisations de la période seront initialisées à 0."}
@@ -728,12 +728,12 @@ export function ProjectProgramScopeQuiz({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
+                <div style={{ fontSize: "var(--cam-question-size)", fontWeight: "var(--cam-question-weight)", lineHeight: "var(--cam-question-line-height)", color: "var(--cam-text)" }}>
                   {isEn
                     ? "2.1 Permanent staff (open-ended contract or civil servant) — Table 4.1"
                     : "2.1 Personnel permanent (CDI ou statutaire) — Tableau 4.1"}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+                <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
                     ? "Personnel holding open-ended employment contracts or permanent statutory appointment."
                     : "Personnel titulaire d'un contrat à durée indéterminée ou d'un statut permanent dans la structure."}
@@ -751,7 +751,7 @@ export function ProjectProgramScopeQuiz({
                       : "1px solid var(--cam-border)",
                     background: hasPermanentStaff === true ? "var(--cam-green)" : "#ffffff",
                     color: hasPermanentStaff === true ? "#ffffff" : "var(--cam-text)",
-                    fontSize: 13,
+                    fontSize: "var(--cam-answer-size)",
                     fontWeight: 700,
                     cursor: "pointer",
                     transition: "all 0.15s ease",
@@ -770,7 +770,7 @@ export function ProjectProgramScopeQuiz({
                       : "1px solid var(--cam-border)",
                     background: hasPermanentStaff === false ? "var(--cam-green)" : "#ffffff",
                     color: hasPermanentStaff === false ? "#ffffff" : "var(--cam-text)",
-                    fontSize: 13,
+                    fontSize: "var(--cam-answer-size)",
                     fontWeight: 700,
                     cursor: "pointer",
                     transition: "all 0.15s ease",
@@ -807,12 +807,12 @@ export function ProjectProgramScopeQuiz({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
+                <div style={{ fontSize: "var(--cam-question-size)", fontWeight: "var(--cam-question-weight)", lineHeight: "var(--cam-question-line-height)", color: "var(--cam-text)" }}>
                   {isEn
                     ? "2.2 Temporary staff (fixed-term, seasonal, consultant) — Table 4.2"
                     : "2.2 Personnel temporaire (CDD, vacataires, consultants) — Tableau 4.2"}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+                <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
                     ? "Personnel holding fixed-term contracts, service providers, or casual staff."
                     : "Personnel sous contrat à durée déterminée, vacataires, consultants ou saisonniers."}
@@ -830,7 +830,7 @@ export function ProjectProgramScopeQuiz({
                       : "1px solid var(--cam-border)",
                     background: hasTemporaryStaff === true ? "var(--cam-green)" : "#ffffff",
                     color: hasTemporaryStaff === true ? "#ffffff" : "var(--cam-text)",
-                    fontSize: 13,
+                    fontSize: "var(--cam-answer-size)",
                     fontWeight: 700,
                     cursor: "pointer",
                     transition: "all 0.15s ease",
@@ -849,7 +849,7 @@ export function ProjectProgramScopeQuiz({
                       : "1px solid var(--cam-border)",
                     background: hasTemporaryStaff === false ? "var(--cam-green)" : "#ffffff",
                     color: hasTemporaryStaff === false ? "#ffffff" : "var(--cam-text)",
-                    fontSize: 13,
+                    fontSize: "var(--cam-answer-size)",
                     fontWeight: 700,
                     cursor: "pointer",
                     transition: "all 0.15s ease",
@@ -937,12 +937,12 @@ export function ProjectProgramScopeQuiz({
             }}
           >
             <div style={{ flex: "1 1 300px" }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--cam-text)" }}>
+              <div style={{ fontSize: "var(--cam-question-size)", fontWeight: "var(--cam-question-weight)", lineHeight: "var(--cam-question-line-height)", color: "var(--cam-text)" }}>
                 {isEn
                   ? "Did your structure or project carry out recruitments during the period (since January 1st)?"
                   : "Votre structure ou projet a-t-il effectué des recrutements durant la période (depuis le 1er janvier) ?"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                 {isEn
                   ? "Recruitments of permanent, temporary, disabled, or vulnerable workers."
                   : "Recrutements de nouveaux collaborateurs (permanents, temporaires, handicapés, vulnérables)."}
@@ -960,7 +960,7 @@ export function ProjectProgramScopeQuiz({
                     : "1px solid var(--cam-border)",
                   background: hasRecruitment === true ? "var(--cam-green)" : "#ffffff",
                   color: hasRecruitment === true ? "#ffffff" : "var(--cam-text)",
-                  fontSize: 13,
+                  fontSize: "var(--cam-answer-size)",
                   fontWeight: 700,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
@@ -982,7 +982,7 @@ export function ProjectProgramScopeQuiz({
                     : "1px solid var(--cam-border)",
                   background: hasRecruitment === false ? "var(--cam-green)" : "#ffffff",
                   color: hasRecruitment === false ? "#ffffff" : "var(--cam-text)",
-                  fontSize: 13,
+                  fontSize: "var(--cam-answer-size)",
                   fontWeight: 700,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
@@ -1063,10 +1063,10 @@ export function ProjectProgramScopeQuiz({
                         }}
                       />
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
+                        <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
                           {isEn ? opt.titleEn : opt.titleFr}
                         </div>
-                        <div style={{ fontSize: 12.5, color: "var(--cam-text-muted)", marginTop: 2 }}>
+                        <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                           {isEn ? opt.descEn : opt.descFr}
                         </div>
                       </div>

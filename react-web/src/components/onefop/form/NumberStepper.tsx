@@ -131,7 +131,7 @@ export function NumberStepper({
             outline: "none",
             fontFamily: "var(--cam-font-sans)",
             fontWeight: "var(--cam-font-weight-regular)",
-            fontSize: "var(--cam-font-size-sm)",
+            fontSize: "var(--cam-answer-size)",
             fontVariantNumeric: "tabular-nums",
             background: "transparent",
             color: "var(--cam-text)",

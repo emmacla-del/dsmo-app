@@ -87,7 +87,7 @@ export function ConditionalOptions({
                 ? "var(--cam-green)"
                 : "var(--cam-text)",
               fontWeight: isSelected ? 600 : 400,
-              fontSize: 13,
+              fontSize: "var(--cam-answer-size)",
               cursor: "pointer",
               transition: "border-color 0.12s ease, background-color 0.12s ease",
               display: "flex",
@@ -100,7 +100,7 @@ export function ConditionalOptions({
             {opt.sublabel && (
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--cam-microcopy-size)",
                   color: isSelected
                     ? "var(--cam-green)"
                     : "var(--cam-text-muted)",
