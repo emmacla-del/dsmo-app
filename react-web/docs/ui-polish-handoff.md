@@ -9,6 +9,11 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
   public-sector form conventions (GOV.UK Design System as the reference):
   actions at the end of the form, error summary at the top, one primary
   action, labels above fields, plain wording, WCAG 2.2. No SaaS patterns.
+- **Simplify to the least** (owner, 2026-10-10): remove what is not
+  needed, especially decoration — flag stripes/circles, coloured accent
+  edges, shadows, hover lifts, uppercase+tracked labels, emoji. Keep colour
+  that carries meaning (status, focus, counts). Ask before removing an
+  identity element (landing emblem, official letterhead).
 - **No stored codes on screen** (owner, 2026-10-10): campaign codes,
   status enums, category values become plain fr/en words. Use
   `referencePeriodLabel/Phrases` (lib/onefop-period-label),
@@ -67,6 +72,7 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | 9bf53ca9 | ViewSwitch stray vertical scrollbar (systemic); French "Chargement de les" → "des" (systemic, tested); cibles 24px rhythm. Admin rhythm from b161783a verified rendered on dossiers, centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, cibles, pilotage, sectors (all 24px). |
 | 4ee542e6 | Plain words instead of codes: header pill, campagnes, cibles, pilotage, diffusion export history, sectors categories; quarterRef "4e trimestre 2026". |
 | 38252dfa | Shared table fixes (line-height, `.is-num`, dense state rows, G10 counts); dossiers selection bar (count, actions only when selected, neutral, labelled checkboxes); filters + table in one section on dossiers, etablissements, inscriptions, journal-audit. |
+| 8c02d3fd | Decoration removed (flag ribbon/stripes/circle, tricolour bars, KPI tone edges, accent rules); sentence case for headers and staff labels; page header actions wrap under the title. |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
@@ -94,6 +100,7 @@ Admin (systemic first) — items 1–4 DONE in 38252dfa except th sentence case 
 7. Hub tabs filled green compete with primary (admin-console.css:1168-1218).
 8. Mobile: admin inputs 14px → iOS zoom; use `--cam-font-size-input-ios`
    under 640px. utilisateurs:548 dialog `1fr 1fr`.
+Simplification candidates awaiting the owner: one search box on etablissements (header + filter duplicate); KPI cards → one compact strip (etablissements, inscriptions, utilisateurs, centre-qualite, diffusion); pilotage pipeline "Déclarations" yellow highlight (meaning unknown); landing emblem; official letterhead caps in the questionnaire masthead.
 Owner decision pending: dossiers ID column shows the full UUID (wraps to 4 lines, a raw code) — shorten to 8 chars + tooltip? Check server search accepts a prefix first.
 Needs domain/backend decision, don't touch: dossier review sections
 unavailable + decision buttons on terminal statuses (dossiers/[id]);
