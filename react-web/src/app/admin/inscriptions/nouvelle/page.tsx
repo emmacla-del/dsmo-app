@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
+import { formatApiError } from "@/lib/pilotage-targets";
 
 // Organisation types in the order offered, with the public wizard's labels.
 // Those avoid administrative codes (CTD/ONG/CFP) that ENTITY_CONFIGS titles
@@ -94,6 +95,13 @@ export default function NouvelleInscriptionPage() {
   const [department, setDepartment] = useState(isNational ? "" : user?.department ?? "");
   const [subdivision, setSubdivision] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Bumped on every failed submit, so the same message repeated still moves
+  // focus back to the summary.
+  const [errorAttempt, setErrorAttempt] = useState(0);
+  function reportError(message: string | null) {
+    setError(message);
+    setErrorAttempt((n) => n + 1);
+  }
   const [result, setResult] = useState<AssistedRegistrationResult | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -114,8 +122,16 @@ export default function NouvelleInscriptionPage() {
       setError(null);
       setCopied(false);
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => reportError(formatApiError(e, locale)),
   });
+
+  // The error summary sits at the top of the form (government-form
+  // convention). A failed submit moves focus to it, which also scrolls it into
+  // view, so the message is never left off-screen above the submit button.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error, errorAttempt]);
 
   function chooseEntityType(next: EntityType) {
     setEntityType(next);
@@ -162,7 +178,7 @@ export default function NouvelleInscriptionPage() {
   function submit() {
     const problem = firstProblem();
     if (problem || !entityType) {
-      setError(problem);
+      reportError(problem);
       return;
     }
     // Hidden dependent fields must not reach the payload — the same gate the
@@ -268,7 +284,7 @@ export default function NouvelleInscriptionPage() {
       <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
 
       {error && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+        <div ref={errorRef} tabIndex={-1} role="alert" className="cam-admin-notice cam-admin-notice--error">
           <span>{error}</span>
           <button type="button" className="cam-admin-notice-close" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</button>
         </div>
@@ -290,8 +306,10 @@ export default function NouvelleInscriptionPage() {
                   checked={entityType === type}
                   onChange={() => chooseEntityType(type)}
                 />
-                {t(labelKey)}
-                {hintKey && <span className="cam-admin-choice-hint">{t(hintKey)}</span>}
+                <span>
+                  {t(labelKey)}
+                  {hintKey && <span className="cam-admin-choice-hint">{t(hintKey)}</span>}
+                </span>
               </label>
             ))}
           </div>

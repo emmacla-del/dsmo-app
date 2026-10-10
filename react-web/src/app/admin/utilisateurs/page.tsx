@@ -545,7 +545,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
         </div>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 var(--cam-space-3)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0 var(--cam-space-3)" }}>
             <div className="cam-field">
               <label className="cam-admin-label" htmlFor="officer-first-name">{t("firstName")}</label>
               <input id="officer-first-name" type="text" className="cam-input" value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} required />
