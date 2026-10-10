@@ -390,14 +390,6 @@ body {
   box-shadow: var(--cam-shadow-sm);
 }
 
-.cam-auth-page .stripe {
-  height: 4px;
-  background: linear-gradient(to right,
-      var(--cam-flag-green) 0 33.3%,
-      var(--cam-flag-red) 33.3% 66.6%,
-      var(--cam-flag-yellow) 66.6% 100%);
-}
-
 .cam-auth-page .card-body {
   padding: var(--cam-auth-card-pad) var(--cam-auth-card-pad) var(--cam-auth-card-pad-bottom);
 }
@@ -732,7 +724,6 @@ body {
    scrollbar inside the card on every long section; do not bring it back.
    The route is a flex column at least 100dvh tall:
 
-     .flow-stripe   4px of national tricolor, full bleed
      .flow-header   the wordmark, the caption and the progress rail (narrow
                     screens). An ordinary row: it scrolls away with the page.
      .flow-body     flex: 1, the frame; as tall as its section needs.
@@ -759,16 +750,6 @@ body {
    from a short section to a long one does not shift the frame sideways. */
 html:has(.cam-auth-page--wizard) {
   scrollbar-gutter: stable;
-}
-
-.cam-auth-page--wizard .flow-stripe {
-  flex: 0 0 auto;
-  height: 4px;
-  width: 100%;
-  background: linear-gradient(to right,
-      var(--cam-flag-green) 0 33.3%,
-      var(--cam-flag-red) 33.3% 66.6%,
-      var(--cam-flag-yellow) 66.6% 100%);
 }
 
 .cam-auth-page--wizard .flow-header {
@@ -900,16 +881,14 @@ html:has(.cam-auth-page--wizard) {
    fit six steps at 680px tall. overflow: hidden keeps a pathological
    summary from growing a scrollbar of its own beside the page's.
    Sticky at the top and one viewport tall, so the step list stays put while
-   the DOCUMENT scrolls a long section beside it. The height leaves out the
-   4px .flow-stripe above it (--cam-space-1), so a section that fits the
-   screen does not make the page scroll by the stripe's height. */
+   the DOCUMENT scrolls a long section beside it. */
 .cam-auth-page--wizard .flow-panel {
   flex: 0 0 var(--cam-container-compact);
   width: var(--cam-container-compact);
   position: sticky;
   top: 0;
   align-self: flex-start;
-  height: calc(100dvh - var(--cam-space-1));
+  height: 100dvh;
   flex-direction: column;
   gap: var(--cam-space-5);
   padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
@@ -2660,9 +2639,9 @@ html:has(.cam-auth-page--wizard) {
 .cam-table th {
   padding: var(--cam-space-2) var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  /* Sentence case, no tracking: uppercase headers were decoration that cost
+     width on 9-10 column tables (owner, 2026-10-10). */
+  font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text-muted);
   text-align: left;
   white-space: nowrap;

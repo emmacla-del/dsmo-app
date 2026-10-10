@@ -147,15 +147,10 @@ export function AdminSidebar({
 
   return (
     <aside id="cam-admin-rail" className="cam-admin-rail" aria-label={t("navAriaLabel")}>
-      {/* ── Cameroon flag ribbon ── */}
-      <div className="cam-admin-ribbon" aria-hidden="true" />
-
       {/* ── Brand ── */}
       <div className="cam-admin-rail-brand">
         <div className="cam-admin-rail-brand-name">ONEFOP</div>
         <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
-        {/* Cameroon stripes */}
-        <div className="cam-admin-rail-stripes" aria-hidden="true" />
       </div>
 
       {/* ── 6 Primary Navigation Hubs ── */}

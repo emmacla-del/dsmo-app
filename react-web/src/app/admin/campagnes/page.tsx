@@ -584,7 +584,7 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
   const remaining = daysLeft(c, t);
   const expected = c.progress?.total;
   return (
-    <section className="cam-admin-section" style={{ borderLeft: "4px solid var(--cam-green)" }} aria-label={t("activeCampaignAriaLabel", { name: c.name })}>
+    <section className="cam-admin-section" aria-label={t("activeCampaignAriaLabel", { name: c.name })}>
       <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>

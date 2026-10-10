@@ -77,13 +77,6 @@ export function ModernJobsHeader({
         zIndex: 50,
       }}
     >
-      {/* Cameroon Tricolor Accent Bar */}
-      <div style={{ height: 4, display: "flex", width: "100%" }}>
-        <div style={{ flex: 1, background: "var(--cam-flag-green)" }} />
-        <div style={{ flex: 1, background: "var(--cam-flag-red)" }} />
-        <div style={{ flex: 1, background: "var(--cam-flag-yellow)" }} />
-      </div>
-
       <style>{`
         .cam-masthead-row {
           flex-wrap: nowrap;

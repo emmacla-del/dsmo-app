@@ -194,18 +194,6 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-.cam-admin-rail-stripes {
-  height: 3px;
-  margin-top: var(--cam-space-4);
-  border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--cam-flag-green) 0 33.33%,
-    var(--cam-flag-red) 33.33% 66.66%,
-    var(--cam-flag-yellow) 66.66% 100%
-  );
-}
-
 .cam-admin-rail-nav {
   flex: 1 0 auto;
   display: flex;
@@ -377,18 +365,6 @@
   margin-top: var(--cam-space-3);
 }
 
-/* Cameroon flag stripe at the top of the sidebar */
-.cam-admin-ribbon {
-  flex-shrink: 0;
-  height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--cam-flag-green) 0 33.33%,
-    var(--cam-flag-red) 33.33% 66.66%,
-    var(--cam-flag-yellow) 66.66% 100%
-  );
-}
-
 .cam-admin-campaign {
   display: flex;
   align-items: center;
@@ -454,8 +430,10 @@
   padding-bottom: var(--cam-space-5);
 }
 
+/* A 20rem floor: when the title and the actions do not both fit, the actions
+   wrap under the title instead of squeezing it to one word per line. */
 .cam-admin-page-header-main {
-  flex: 1;
+  flex: 1 1 20rem;
   min-width: 0;
 }
 
@@ -580,6 +558,7 @@
 .cam-admin-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--cam-space-3);
   flex-shrink: 0;
 }
@@ -742,41 +721,6 @@
   padding: var(--cam-space-3) var(--cam-space-4);
   border-top: var(--cam-border-width) solid var(--cam-border);
   text-align: center;
-}
-
-/* Cameroon flag circle */
-.cam-admin-flag-circle {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--cam-radius-full);
-  overflow: hidden;
-  display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
-}
-
-.cam-admin-flag-circle span {
-  flex: 1;
-}
-
-.cam-admin-flag-circle .cam-admin-flag-green { background: var(--cam-flag-green); }
-.cam-admin-flag-circle .cam-admin-flag-yellow { background: var(--cam-flag-yellow); }
-
-.cam-admin-flag-circle .cam-admin-flag-red {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--cam-flag-red);
-}
-
-.cam-admin-flag-star {
-  position: absolute;
-  color: var(--cam-flag-yellow);
-  font-size: var(--cam-font-size-4xs);
-  line-height: 1;
 }
 
 /* Tablet / phone only: holds the drawer toggle above the page header. */
@@ -1611,8 +1555,6 @@
 .cam-admin-dialog-eyebrow {
   font-size: var(--cam-font-size-3xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   color: var(--cam-green);
 }
 
@@ -1693,8 +1635,6 @@
 .cam-admin-axis-label {
   font-size: var(--cam-font-size-3xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--cam-text-muted);
 }
 
@@ -2053,8 +1993,6 @@
   text-align: left;
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--cam-text-muted);
   border-bottom: var(--cam-border-width) solid var(--cam-border);
   white-space: nowrap;
@@ -2327,22 +2265,16 @@
   padding: 16px 20px;
   background: var(--cam-surface);
   border: 1px solid var(--cam-border);
-  border-left: 4px solid var(--cam-kpi-tone, var(--cam-border));
   border-radius: 8px;
   color: var(--cam-text);
   text-decoration: none;
-  box-shadow: var(--cam-shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.cam-kpi-tile--warning { --cam-kpi-tone: var(--cam-warning); }
-.cam-kpi-tile--info    { --cam-kpi-tone: var(--cam-info); }
-.cam-kpi-tile--error   { --cam-kpi-tone: var(--cam-error); }
+/* No tone edge: a KPI tile coloured the same whatever its count was
+   decoration (owner, 2026-10-10). The --{tone} modifiers stay as hooks. */
 
 a.cam-kpi-tile:hover {
   border-color: var(--cam-border-strong);
-  border-left-color: var(--cam-kpi-tone);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 a.cam-kpi-tile:focus-visible {
@@ -2389,13 +2321,9 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 /* ── Dashboard (admin/pilotage) ── */
 .cam-dash-section-label {
-  margin: 0 0 14px;
-  padding-left: 10px;
-  border-left: 3px solid var(--cam-green);
-  font-size: 13px;
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--cam-text);
   line-height: 1.2;
 }
@@ -2547,8 +2475,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 .cam-dash-stats dt {
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--cam-text-muted);
 }
 
@@ -2716,7 +2642,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   padding: var(--cam-space-5);
   background: var(--cam-surface);
   border: var(--cam-border-width) solid var(--cam-border);
-  border-left: 4px solid var(--cam-flag-yellow);
   border-radius: var(--cam-radius-lg);
 }
 
@@ -2740,8 +2665,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   margin: 0;
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--cam-text-muted);
 }
 
@@ -2807,8 +2730,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 .cam-dossier-fields dt {
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--cam-text-muted);
 }
 

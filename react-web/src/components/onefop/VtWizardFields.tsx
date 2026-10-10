@@ -324,39 +324,6 @@ function VtWizardAdminSuggestionChips({
   );
 }
 
-export function CameroonFlagBadge() {
-  return (
-    <div
-      style={{
-        width: 18,
-        height: 12,
-        borderRadius: 2,
-        overflow: "hidden",
-        display: "inline-flex",
-        flexShrink: 0,
-        boxShadow: "0 0 0 0.5px rgba(0,0,0,0.1)",
-      }}
-    >
-      <div style={{ flex: 1, backgroundColor: "var(--cam-flag-green)" }} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--cam-flag-red)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--cam-flag-yellow)",
-          fontSize: 8,
-          lineHeight: 1,
-        }}
-      >
-        ★
-      </div>
-      <div style={{ flex: 1, backgroundColor: "var(--cam-flag-yellow)" }} />
-    </div>
-  );
-}
-
 export function isVtYearField(field: OnefopField): boolean {
   const id = field.id.toUpperCase();
   const fr = (field.label && typeof field.label === "object" ? field.label.fr : String(field.label || "")).toLowerCase();
@@ -750,10 +717,8 @@ export function VtWizardField({
             boxSizing: "border-box",
           }}
         >
-          <CameroonFlagBadge />
           <span
             style={{
-              marginLeft: 8,
               fontFamily: "var(--cam-font-sans)",
               fontWeight: 600,
               fontSize: "var(--cam-font-size-base)",
