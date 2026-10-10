@@ -183,7 +183,7 @@ Database migrations require explicit architectural review.
 
 # 7. COHERENCE RULES
 
-Arithmetic coherence checks are currently advisory.
+Arithmetic coherence checks are advisory by default.
 
 `onefop-coherence.ts`
 
@@ -195,6 +195,22 @@ Real establishments may have legitimate statistical exceptions.
 
 Coherence warnings should remain distinguishable from
 structural validation errors.
+
+A check MAY block when a human owner decides it should, because
+it compares breakdowns of the same population that cannot
+legitimately disagree. Each such decision is recorded below,
+with its date and scope. A check comparing different populations
+or reference periods stays advisory until domain review.
+
+Blocking checks currently in force:
+
+- 2026-10-09 — VT cross-table totals (`react-web/src/lib/vt-cross-table.ts`):
+  4.1 = 4.2 = 4.5 (learners), 4.5 FI = 4.6, and 8.1 = 8.2 = 8.3 = 8.5
+  (trainers), by sex, once both tables are complete. They block
+  Suivant and submission in the wizard. The server's 4.2/4.7, 4.2/4.8
+  and 4.7/4.10 checks are NOT in this list: they await domain review.
+  Server-side, coherence flags are stored as non-blocking warnings
+  (`src/questionnaires/coherence-anomaly.ts`).
 
 ---
 
@@ -475,6 +491,19 @@ or merging:
 - changes affecting official PDF output
 - major infrastructure changes
 - deletion of production functionality
+
+These rules exist to protect correctness, not to leave real
+defects unfixed. When a rule in this constitution stands in the
+way of resolving a genuine issue:
+
+1. name the rule and the issue, and trace the issue to its root;
+2. propose the smallest fix and its consequences;
+3. proceed once the human owner approves it explicitly in chat;
+4. record the decision in the section concerned (as §7 does),
+   so later agents do not undo it.
+
+An approval covers the change it was given for. It is not a
+standing waiver of the rule.
 
 ---
 
