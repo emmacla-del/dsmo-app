@@ -1,16 +1,24 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { QueryProvider } from "./query-provider";
 import { AuthInitializer } from "./auth-initializer";
 
-const inter = Inter({
-  subsets: ["latin"],
+// Inter, self-hosted: the variable font (weights 100-900), latin subset,
+// which covers French (é, è, ç, œ, Œ). From Google Fonts' official files
+// (fonts.gstatic.com, inter v20), SIL Open Font License 1.1, which permits
+// bundling. It was loaded with next/font/google, which downloads the font
+// when the app is built or the dev server starts; when that download failed,
+// Next fell back silently to "Inter Fallback" (Arial regular) and, with
+// font-synthesis: none, every bold in the app rendered regular (owner's
+// screenshot, 2026-10-10). Self-hosting removes that network dependency.
+const inter = localFont({
+  src: [{ path: "./fonts/Inter-latin-var.woff2", weight: "100 900", style: "normal" }],
   variable: "--font-inter",
   display: "swap",
+  fallback: ["Segoe UI", "Arial", "sans-serif"],
 });
 
 const zillaSlab = localFont({
