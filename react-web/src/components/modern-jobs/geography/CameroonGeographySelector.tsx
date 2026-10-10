@@ -219,13 +219,8 @@ export function CameroonGeographySelector({
             <div key={level}>
               <label
                 htmlFor={`${baseId}-${level}`}
-                style={{
-                  display: "block",
-                  fontSize: "var(--cam-font-size-base, 0.9375rem)",
-                  fontWeight: 600,
-                  color: "var(--cam-text)",
-                  marginBottom: 4,
-                }}
+                className="cam-question"
+                style={{ marginBottom: "var(--cam-field-stack-gap)" }}
               >
                 {t(level)}
               </label>
@@ -241,7 +236,7 @@ export function CameroonGeographySelector({
                   width: "100%",
                   height: 42,
                   padding: "0 12px",
-                  fontSize: "var(--cam-font-size-sm)",
+                  fontSize: "var(--cam-answer-size)",
                   fontFamily: "inherit",
                   borderRadius: 6,
                   border: "1px solid var(--cam-border)",
@@ -252,13 +247,13 @@ export function CameroonGeographySelector({
               />
             </div>
           ))}
-          <p id={`${baseId}-locked-note`} style={{ margin: 0, fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)" }}>
+          <p id={`${baseId}-locked-note`} className="cam-hint" style={{ margin: 0 }}>
             {t("lockedNote")}
           </p>
         </div>
       ) : (
       <div style={{ paddingTop: 4 }}>
-        <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 8, fontStyle: "italic" }}>
+        <div className="cam-hint" style={{ marginBottom: "var(--cam-space-2)", fontStyle: "italic" }}>
           {t("dependsHint")}
         </div>
 
@@ -266,13 +261,8 @@ export function CameroonGeographySelector({
         <div>
           <label
             htmlFor={`${baseId}-region`}
-            style={{
-              display: "block",
-              fontSize: "var(--cam-font-size-base, 0.9375rem)",
-              fontWeight: 600,
-              color: "var(--cam-text)",
-              marginBottom: 4,
-            }}
+            className="cam-question"
+            style={{ marginBottom: "var(--cam-field-stack-gap)" }}
           >
             {t("region")}
             <OptionalSuffix field={{ id: regionFieldId, required }} />
@@ -290,7 +280,7 @@ export function CameroonGeographySelector({
               width: "100%",
               height: 42,
               padding: "0 12px",
-              fontSize: 14,
+              fontSize: "var(--cam-answer-size)",
               borderRadius: 6,
               background: disabled ? "#f8fafc" : "#ffffff",
               color: "#0f172a",
@@ -334,10 +324,11 @@ export function CameroonGeographySelector({
               htmlFor={`${baseId}-department`}
               style={{
                 display: "block",
-                fontSize: "var(--cam-font-size-base, 0.9375rem)",
-                fontWeight: 600,
+                fontSize: "var(--cam-question-size)",
+                fontWeight: "var(--cam-question-weight)",
+                lineHeight: "var(--cam-question-line-height)",
                 color: !selectedRegionId ? "#94a3b8" : "var(--cam-text)",
-                marginBottom: 4,
+                marginBottom: "var(--cam-field-stack-gap)",
               }}
             >
               {t("department")}
@@ -356,7 +347,7 @@ export function CameroonGeographySelector({
                 width: "100%",
                 height: 42,
                 padding: "0 12px",
-                fontSize: 14,
+                fontSize: "var(--cam-answer-size)",
                 borderRadius: 6,
                 background: disabled || !selectedRegionId ? "#f8fafc" : "#ffffff",
                 color: !selectedRegionId ? "#94a3b8" : "#0f172a",
@@ -401,10 +392,11 @@ export function CameroonGeographySelector({
               htmlFor={`${baseId}-subdivision`}
               style={{
                 display: "block",
-                fontSize: "var(--cam-font-size-base, 0.9375rem)",
-                fontWeight: 600,
+                fontSize: "var(--cam-question-size)",
+                fontWeight: "var(--cam-question-weight)",
+                lineHeight: "var(--cam-question-line-height)",
                 color: !selectedDeptId ? "#94a3b8" : "var(--cam-text)",
-                marginBottom: 4,
+                marginBottom: "var(--cam-field-stack-gap)",
               }}
             >
               {t("subdivision")}
@@ -425,7 +417,7 @@ export function CameroonGeographySelector({
                 width: "100%",
                 height: 42,
                 padding: "0 12px",
-                fontSize: 14,
+                fontSize: "var(--cam-answer-size)",
                 borderRadius: 6,
                 background: disabled || !selectedDeptId ? "#f8fafc" : "#ffffff",
                 color: !selectedDeptId ? "#94a3b8" : "#0f172a",
@@ -458,13 +450,8 @@ export function CameroonGeographySelector({
         <div style={{ marginTop: 16 }}>
           <label
             htmlFor={`${baseId}-locality`}
-            style={{
-              display: "block",
-              fontSize: "var(--cam-font-size-base, 0.9375rem)",
-              fontWeight: 600,
-              color: "var(--cam-text)",
-              marginBottom: 4,
-            }}
+            className="cam-question"
+            style={{ marginBottom: "var(--cam-field-stack-gap)" }}
           >
             {t("locality")}
             <OptionalSuffix field={{ id: regionFieldId, required }} />
@@ -486,7 +473,7 @@ export function CameroonGeographySelector({
               width: "100%",
               height: 42,
               padding: "0 12px",
-              fontSize: 14,
+              fontSize: "var(--cam-answer-size)",
               borderRadius: 6,
               background: disabled ? "#f8fafc" : "#ffffff",
               color: "#0f172a",

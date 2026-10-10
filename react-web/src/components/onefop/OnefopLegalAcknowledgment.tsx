@@ -258,7 +258,7 @@ export function OnefopLegalAcknowledgment({
               justifyContent: "center",
               alignItems: "flex-start",
               gap: "var(--cam-space-2)",
-              fontSize: "var(--cam-font-size-xs)",
+              fontSize: "var(--cam-answer-size)",
               color: "var(--cam-text-muted)",
               margin: "0 auto var(--cam-space-5)",
               cursor: "pointer",

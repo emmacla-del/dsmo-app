@@ -106,7 +106,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     border: selected ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
     background: selected ? "var(--cam-green)" : "var(--cam-surface)",
     color: selected ? "var(--cam-surface)" : "var(--cam-text)",
-    fontSize: "var(--cam-font-size-sm)",
+    fontSize: "var(--cam-answer-size)",
     fontWeight: 700,
     cursor: "pointer",
   });
@@ -150,10 +150,10 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
             >
               <div role="radiogroup" aria-labelledby={`${groupId}-label`} onKeyDown={handleGroupKeyDown(q.id)} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
                 <div style={{ flex: "1 1 320px" }}>
-                  <div id={`${groupId}-label`} style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 600, color: "var(--cam-text)", lineHeight: 1.4 }}>
+                  <div id={`${groupId}-label`} className="cam-question">
                     {label}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)" }}>
+                  <div className="cam-hint" style={{ marginTop: "var(--cam-space-1)" }}>
                     {value === true
                       ? isEn ? `Table ${q.tableCode} will be open to fill.` : `Le tableau ${q.tableCode} sera à renseigner.`
                       : value === false

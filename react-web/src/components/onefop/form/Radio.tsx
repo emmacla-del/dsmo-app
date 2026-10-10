@@ -177,7 +177,7 @@ export function RadioGroup({
                   display: "block",
                   fontFamily: "var(--vt-font)",
                   fontWeight: selected ? 600 : 400,
-                  fontSize: "var(--cam-font-size-sm)",
+                  fontSize: "var(--cam-answer-size)",
                   color: selected ? "var(--vt-ink, #1c1f1d)" : "var(--vt-ink-soft, #4e5451)",
                 }}
               >

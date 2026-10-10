@@ -114,8 +114,8 @@ const stripJsComment = (line) => line.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\
 
 /**
  * Every `style={{ ... }}` object in a TSX file, brace-matched so a nested
- * object does not truncate the block. Returns the block text and the 1-based
- * line it starts on.
+ * object does not truncate the block. Returns the block text, the 1-based
+ * line it starts on, and its offset in the source.
  */
 function inlineStyleBlocks(src) {
   const blocks = [];
@@ -132,7 +132,7 @@ function inlineStyleBlocks(src) {
       }
     }
     if (j >= src.length) break; // unbalanced; stop rather than mis-report
-    blocks.push({ text: src.slice(i, j + 1), line: src.slice(0, i).split("\n").length });
+    blocks.push({ text: src.slice(i, j + 1), line: src.slice(0, i).split("\n").length, index: i });
     i = src.indexOf(needle, j);
   }
   return blocks;
@@ -176,6 +176,35 @@ function offScaleSpacing(files) {
         if (!SPACING_SCALE.has(Math.abs(Number(m[2])))) {
           out.push({ file, line: block.line, text: `${m[1]}: ${m[2]}${m[3] ?? ""}` });
         }
+      }
+    }
+  }
+  return out;
+}
+
+// G16 — the respondent forms: registration, Modern Jobs, VT.
+const FORM_DIRS = [
+  ...WIZARD_DIRS,
+  join(root, "src", "components", "onefop"),
+  join(root, "src", "components", "modern-jobs"),
+];
+
+const FORM_TEXT_TOKEN = /--cam-(question-size|answer-size|microcopy-size)\b/;
+
+/** G16: a <label> or <legend> whose inline style sets a font size not
+ *  read from the question/answer/hint tokens. Statistical tables have their
+ *  own scale (--cam-table-fs, check:tables), so they are not scanned here. */
+function formTextSize(files) {
+  const out = [];
+  for (const file of files) {
+    if (/[\\/]tables?[\\/]/.test(file)) continue;
+    const src = readFileSync(file, "utf-8");
+    for (const block of inlineStyleBlocks(src)) {
+      const m = block.text.match(/\bfontSize:\s*([^,}\n]+)/);
+      if (!m || FORM_TEXT_TOKEN.test(m[1])) continue;
+      const tag = src.slice(Math.max(0, block.index - 400), block.index).match(/<([a-zA-Z][\w.]*)\b[^<]*$/);
+      if (tag && (tag[1] === "label" || tag[1] === "legend")) {
+        out.push({ file, line: block.line, text: `<${tag[1]}> fontSize: ${m[1].trim()}` });
       }
     }
   }
@@ -361,6 +390,19 @@ const RULES = [
     fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
     warn: true,
     run: () => offScaleSpacing(collectRespondent([".tsx"])),
+  },
+
+  // ── G16: question, answer, hint ──
+  // Every respondent form, so that a change to --cam-question-* /
+  // --cam-answer-size / --cam-microcopy-size in tokens.css reaches all of
+  // them. A <label> or <legend> is where a question (or, around an option,
+  // an answer) is drawn; one that sets its own size bypasses the tokens.
+  {
+    key: "form-text-size",
+    rule: "G16",
+    title: "<label> or <legend> on a respondent form sizing its own text",
+    fix: "Use .cam-question / .cam-answer / .cam-hint, or var(--cam-question-size) / var(--cam-answer-size) / var(--cam-microcopy-size).",
+    run: () => formTextSize(collectAll(FORM_DIRS, [".tsx"])),
   },
 
   // ── Copy: retired terms in the admin catalogue (plan Part 4, §5.4) ──

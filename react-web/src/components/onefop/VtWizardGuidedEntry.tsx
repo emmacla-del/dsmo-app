@@ -56,8 +56,8 @@ const numberBoxInputStyle = {
   border: `1px solid ${cardBorder}`,
   borderRadius: "var(--cam-radius-sm)",
   fontFamily: "var(--cam-font-sans)",
-  fontWeight: 600,
-  fontSize: "var(--cam-font-size-base)",
+  fontWeight: "var(--cam-font-weight-regular)",
+  fontSize: "var(--cam-answer-size)",
   fontVariantNumeric: "tabular-nums",
   color: ink,
   background: "#ffffff",
@@ -168,7 +168,7 @@ const GuidedNumberBox = memo(function GuidedNumberBox({
   const errorId = `${inputId}-error`;
   return (
     <div style={numberBoxContainerStyle}>
-      <label htmlFor={inputId} style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink }}>
+      <label htmlFor={inputId} style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink }}>
         {label}
       </label>
       <input
@@ -203,10 +203,10 @@ const GuidedStatBox = memo(function GuidedStatBox({
   const locale = useLocale();
   return (
     <div style={statBoxStyle}>
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0 }}>
         {label}
       </p>
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: 0 }}>
         {guidedNumberDisplay(value, locale)}
       </p>
     </div>
@@ -363,7 +363,7 @@ export function VtWizardFixedRowMultiNumberEntry({
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 4px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
-        <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
+        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
           {cellLabelText(vt.progressNoun, locale) || t("vtWizard.rowsNoun", { default: "Lignes" })}
         </p>
         <div style={{ marginBottom: 12 }}>
@@ -380,7 +380,7 @@ export function VtWizardFixedRowMultiNumberEntry({
               }
               setControls(newControls);
             }}
-            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, background: "#ffffff", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "#ffffff", outline: "none", boxSizing: "border-box" }}
           >
             <option value="">{t("vtWizard.select", { default: "Sélectionner…" })}</option>
             {available.map((row) => (
@@ -432,7 +432,7 @@ export function VtWizardFixedRowMultiNumberEntry({
       <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
         {t("vtWizard.summary", { default: "Résumé des lignes saisies" })}
       </p>
-      <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
+      <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
         {t("vtWizard.rowsFilledNote", {
           default: "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
           count: entered.length,
@@ -442,7 +442,7 @@ export function VtWizardFixedRowMultiNumberEntry({
       </p>
 
       {entered.length === 0 ? (
-        <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
+        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
           {t("vtWizard.noRows", { default: "Aucune ligne saisie pour le moment." })}
         </p>
       ) : (
@@ -489,16 +489,16 @@ function FixedSummaryRow({
   return (
     <div style={summaryRowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </p>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, margin: "2px 0 0" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
           {numberCells.map((c, i) => `${cellLabel(c, locale)}: ${guidedNumberDisplay(vals[i], locale)}`).join(" · ")}
         </p>
       </div>
       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
         {vals.length === 2 && (
-          <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, minWidth: 56, textAlign: "center" }}>
+          <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, minWidth: 56, textAlign: "center" }}>
             {guidedNumberDisplay(total, locale)}
           </span>
         )}
@@ -591,7 +591,7 @@ export function VtWizardProgressiveGuidedTableEntry({
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 4px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
-        <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
+        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
           {cellLabelText(vt.progressNoun, locale) || t("vtWizard.rowsNoun", { default: "Lignes" })}
         </p>
         <GuidedNumberBox
@@ -646,7 +646,7 @@ export function VtWizardProgressiveGuidedTableEntry({
       <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
         {t("vtWizard.summary", { default: "Résumé des lignes saisies" })}
       </p>
-      <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
+      <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
         {t("vtWizard.rowsFilledNote", {
           default: "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
           count: entered.length,
@@ -656,7 +656,7 @@ export function VtWizardProgressiveGuidedTableEntry({
       </p>
 
       {entered.length === 0 ? (
-        <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
+        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
           {t("vtWizard.noRows", { default: "Aucune ligne saisie pour le moment." })}
         </p>
       ) : (
@@ -716,17 +716,17 @@ function ProgressiveSummaryRow({
   return (
     <div style={summaryRowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </p>
         {detail && (
-          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, margin: "2px 0 0" }}>
+          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
             {detail}
           </p>
         )}
       </div>
       {computedCell && computedVal != null && (
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, minWidth: 60, textAlign: "right" }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, minWidth: 60, textAlign: "right" }}>
           {computedVal}
         </span>
       )}
@@ -866,11 +866,11 @@ export function VtWizardProgressiveBooleanTableEntry({
             return (
               <div key={row.idx} style={{ ...summaryRowStyle, justifyContent: "space-between" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {label}
                   </p>
                   {detailParts.length > 0 && (
-                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, margin: "2px 0 0" }}>
+                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
                       {detailParts.join(" • ")}
                     </p>
                   )}
@@ -1073,7 +1073,7 @@ export function VtWizardRosterGuidedEntry({
       <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
         {t("vtWizard.registeredTrainers", { default: "Formateurs enregistrés" })}
       </p>
-      <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
+      <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
         {t("vtWizard.countOfTotalNoun", {
           default: "{count} {noun} sur {total}.",
           count: filledRows.length,
@@ -1083,7 +1083,7 @@ export function VtWizardRosterGuidedEntry({
       </p>
 
       {entered.length === 0 ? (
-        <p style={{ fontSize: 12, color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
+        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)" }}>
           {t("vtWizard.noTrainers", { default: "Aucun formateur enregistré pour le moment." })}
         </p>
       ) : (
@@ -1100,11 +1100,11 @@ export function VtWizardRosterGuidedEntry({
             return (
               <div key={row.idx} style={summaryRowStyle}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {label}
                   </p>
                   {detailParts.length > 0 && (
-                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-font-size-sm)", color: ink, margin: "2px 0 0" }}>
+                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
                       {detailParts.join(" · ")}
                     </p>
                   )}
@@ -1135,7 +1135,7 @@ const GuidedRadioDropdown = memo(function GuidedRadioDropdown({
   const locale = useLocale();
   return (
     <div style={numberBoxContainerStyle}>
-      <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink }}>
+      <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink }}>
         {label}
       </label>
       <select
@@ -1168,7 +1168,7 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
   const locale = useLocale();
   return (
     <div style={numberBoxContainerStyle}>
-      <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-base)", color: ink }}>
+      <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink }}>
         {label}
       </label>
       <div style={{ display: "flex", height: "var(--cam-form-field-height)", padding: 2, background: "var(--cam-bg)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)" }}>
@@ -1222,7 +1222,7 @@ const GuidedYesNoRadioGroup = memo(function GuidedYesNoRadioGroup({
     <fieldset
       style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, border: "none", margin: 0, padding: 0, minWidth: 0, ...style }}
     >
-      <legend style={{ float: "left", padding: 0, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink, margin: 0 }}>
+      <legend style={{ float: "left", padding: 0, fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", lineHeight: "var(--cam-question-line-height)", color: ink, margin: 0 }}>
         {label}
       </legend>
       <div style={{ display: "flex", gap: 16 }}>
@@ -1235,7 +1235,7 @@ const GuidedYesNoRadioGroup = memo(function GuidedYesNoRadioGroup({
                 display: "flex", alignItems: "center", gap: 6,
                 minHeight: 32, cursor: "pointer",
                 fontFamily: "var(--cam-font-sans)",
-                fontWeight: selected ? 600 : 400, fontSize: "var(--cam-font-size-sm)",
+                fontWeight: selected ? 600 : 400, fontSize: "var(--cam-answer-size)",
                 color: selected ? ink : inkSoft,
               }}
             >

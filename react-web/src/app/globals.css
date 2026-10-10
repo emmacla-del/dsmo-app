@@ -2173,6 +2173,29 @@ html:has(.cam-auth-page--wizard) {
   animation: onefopPulse 1.4s ease-in-out infinite;
 }
 
+/* ── Question, answer, hint (G16) ──
+   The three kinds of text on a respondent form. Their sizes live in
+   tokens.css (--cam-question-*, --cam-answer-size, --cam-microcopy-*), so
+   changing one there changes every form: registration, Modern Jobs, VT. */
+.cam-question {
+  display: block;
+  font-size: var(--cam-question-size);
+  font-weight: var(--cam-question-weight);
+  line-height: var(--cam-question-line-height);
+  color: var(--cam-text);
+}
+
+.cam-answer {
+  font-size: var(--cam-answer-size);
+  font-weight: var(--cam-font-weight-regular);
+}
+
+.cam-hint {
+  font-size: var(--cam-microcopy-size);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-microcopy-color);
+}
+
 /* Sovereign Forms Input & Control System
    The ONEFOP/VT declaration wizard's one text input and select. Height,
    radius, border and type live here, not inline at each call site, so the

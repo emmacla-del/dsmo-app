@@ -90,7 +90,7 @@ export function Checkbox({
       <span
         style={{
           fontFamily: "var(--vt-font)",
-          fontSize: "var(--cam-font-size-sm)",
+          fontSize: "var(--cam-answer-size)",
           fontWeight: checked ? 600 : 400,
           color: checked ? "var(--vt-ink, #1c1f1d)" : "var(--vt-ink-soft, #4e5451)",
         }}
