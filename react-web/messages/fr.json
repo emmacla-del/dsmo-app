@@ -203,7 +203,7 @@
   },
   "homeLandingPage": {
     "welcomeTitle": "Bienvenue",
-    "sectionsAvailable": "{role} — {count, plural, one {# section disponible} other {# sections disponibles}} dans le menu.",
+    "campaignOpenUntil": "{campaign}, ouverte jusqu'au {date}",
     "newDeclarationHeading": "Nouvelle déclaration",
     "newDeclarationDesc": "Créer une nouvelle déclaration d'emploi DSMO ou remplir le questionnaire officiel ONEFOP.",
     "startDeclarationButton": "Commencer une déclaration",

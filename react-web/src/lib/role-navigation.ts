@@ -71,11 +71,12 @@ export interface NavItem {
 // item (home_screen.dart's drawer, shown for every `!isCompany` role) is
 // appended separately below rather than duplicated into each list.
 const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
+  // Only destinations that exist. "Analytique" and "Paramètres" led to the
+  // not-yet-migrated placeholder, and "Accueil" had no route, so it opened
+  // /home/home, the same placeholder (owner, 2026-10-10).
   COMPANY: [
-    { slug: "home", labelKey: "homeNav.item.home" },
+    { slug: "home", labelKey: "homeNav.item.home", route: "/home" },
     { slug: "declarations", labelKey: "homeNav.item.declarations", route: "/home/declarations" },
-    { slug: "analytics", labelKey: "homeNav.item.analytics" },
-    { slug: "settings", labelKey: "homeNav.item.settings" },
   ],
   DIVISIONAL_ADMIN: [
     { slug: "pilotage", labelKey: "homeNav.item.territorialDashboard", route: "/admin/pilotage" },
@@ -106,7 +107,6 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },
     { slug: "utilisateurs", labelKey: "homeNav.item.onefopUsers", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
     { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/annuaire" },
-    { slug: "analytics-dsmo", labelKey: "homeNav.item.dsmoStatistics" },
   ],
   SUPER_ADMIN: [
     { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
