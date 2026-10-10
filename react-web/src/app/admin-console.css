@@ -138,9 +138,8 @@
 
 /* ── Shell ── */
 .cam-admin {
-  --cam-admin-rail-width: 260px;
   display: grid;
-  grid-template-columns: var(--cam-admin-rail-width) minmax(0, 1fr);
+  grid-template-columns: var(--cam-side-rail-width) minmax(0, 1fr);
   min-height: 100vh;
   background: var(--cam-bg);
   color: var(--cam-text);
@@ -160,6 +159,11 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
+  gap: var(--cam-space-5);
+  /* Same frame rhythm as the wizards' .cam-wizard-rail: width, padding,
+     gap, row height and type. Only the colour differs: this rail is site
+     navigation, not form progress. */
+  padding: var(--cam-space-5) var(--cam-space-4) var(--cam-space-4);
   background: var(--cam-green-dark);
   border-right: none;
   z-index: var(--cam-z-nav);
@@ -174,23 +178,20 @@
    as rgba: they are tints of the dark rail, not palette colours. */
 .cam-admin-rail-brand {
   flex-shrink: 0;
-  padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
 }
 
 .cam-admin-rail-brand-name {
   font-size: var(--cam-font-size-lg);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  line-height: 1.1;
+  font-weight: var(--cam-font-weight-bold);
+  letter-spacing: var(--cam-tracking-tight);
+  line-height: var(--cam-line-height-tight);
   color: var(--cam-surface);
 }
 
 .cam-admin-rail-brand-sub {
   margin-top: var(--cam-space-1);
-  font-size: var(--cam-font-size-4xs);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: var(--cam-font-size-2xs);
+  line-height: var(--cam-line-height-ui);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -199,17 +200,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-1);
-  padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-4);
 }
 
 .cam-admin-rail-hub {
   display: flex;
   align-items: center;
   gap: var(--cam-space-3);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  border-radius: 8px;
+  /* A 30px icon box and 8px above and below: the wizard step's row. */
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border-radius: var(--cam-radius-control);
   font-size: var(--cam-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
   color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
   cursor: pointer;
@@ -220,7 +222,7 @@
 .cam-admin-rail-hub[aria-current="page"] {
   background: var(--cam-green);
   color: var(--cam-surface);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-bold);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
@@ -238,8 +240,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--cam-step-marker-size);
+  height: var(--cam-step-marker-size);
   flex-shrink: 0;
   border-radius: var(--cam-radius-control);
   transition: background-color 0.15s ease;
@@ -276,7 +278,8 @@
 
 .cam-admin-rail-account {
   flex-shrink: 0;
-  padding: var(--cam-space-3) var(--cam-space-4);
+  margin-top: auto;
+  padding-top: var(--cam-space-3);
   border-top: var(--cam-border-width) solid rgba(255, 255, 255, 0.1);
 }
 
@@ -770,7 +773,7 @@
   .cam-admin-rail {
     position: fixed;
     inset: 0 auto 0 0;
-    width: min(var(--cam-admin-rail-width), 86vw);
+    width: min(var(--cam-side-rail-width), 86vw);
     transform: translateX(-100%);
     visibility: hidden;
     transition: transform 0.2s ease, visibility 0s linear 0.2s;

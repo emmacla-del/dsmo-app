@@ -170,9 +170,10 @@
 
    /* ── Containers ── */
    --cam-container-compact: 380px;
-   /* The side navigation of every respondent wizard (.cam-wizard-rail):
-     registration, Modern Jobs, VT. One width so the three line up. */
-   --cam-wizard-rail-width: 280px;
+   /* Every side navigation in the app: the respondent wizards' rail
+     (.cam-wizard-rail: registration, Modern Jobs, VT) and the staff
+     console's dark rail (.cam-admin-rail). One width, so they line up. */
+   --cam-side-rail-width: 280px;
    /* The step circle on every wizard rail, wide and phone. The connectors
      and the outline indent are computed from it. */
    --cam-step-marker-size: 30px;
@@ -371,7 +372,7 @@
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: var(--cam-wizard-rail-width);
+   --vt-sidebar-width: var(--cam-side-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);
@@ -451,7 +452,7 @@
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: var(--cam-wizard-rail-width);
+   --vt-sidebar-width: var(--cam-side-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);

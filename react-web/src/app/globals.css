@@ -2034,8 +2034,8 @@ html:has(.cam-auth-page--wizard) {
   position: sticky;
   top: var(--cam-wizard-rail-top, 0px);
   align-self: flex-start;
-  flex: 0 0 var(--cam-wizard-rail-width);
-  width: var(--cam-wizard-rail-width);
+  flex: 0 0 var(--cam-side-rail-width);
+  width: var(--cam-side-rail-width);
   height: calc(100dvh - var(--cam-wizard-rail-top, 0px));
   display: flex;
   flex-direction: column;
