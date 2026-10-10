@@ -297,6 +297,13 @@ export function WizardShell({
     Math.max(0, sections.length - 1),
   );
   const currentSection = sections[clampedSectionIndex];
+  // A form section uses the reading measure (--vt-content-max, 760px: 600px
+  // answers plus padding); a section holding a statistical table uses the
+  // wide one, so the table is not squeezed (owner, 2026-10-10). Modern Jobs
+  // makes the same split for its table sections.
+  const contentMax = currentSection?.fields.some((f) => f.type === "table" || f.type === "repeating_table")
+    ? "var(--vt-content-max-wide)"
+    : "var(--vt-content-max)";
 
   const sectionIssues = useMemo(
     () =>
@@ -1165,7 +1172,7 @@ export function WizardShell({
             <div
               style={{
                 width: "100%",
-                maxWidth: "var(--vt-content-max)",
+                maxWidth: contentMax,
                 margin: "0 auto",
               }}
             >
@@ -1226,7 +1233,7 @@ export function WizardShell({
             <div
               style={{
                 width: "100%",
-                maxWidth: "var(--vt-content-max)",
+                maxWidth: contentMax,
                 margin: "0 auto",
                 display: "flex",
                 alignItems: "center",

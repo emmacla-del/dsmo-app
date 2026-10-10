@@ -356,7 +356,8 @@
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
    --vt-sidebar-width: 280px;
-   --vt-content-max: 940px;
+   --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
+   --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);
 
    /* ── Respondent tokens recorded from live fallbacks ──
@@ -435,7 +436,8 @@
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
    --vt-sidebar-width: 280px;
-   --vt-content-max: 940px;
+   --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
+   --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);
    font-family: var(--vt-font);
    color: var(--vt-ink);
