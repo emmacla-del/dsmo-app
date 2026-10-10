@@ -625,6 +625,33 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT2_19', 'VT2_18']));
   });
 
+  it('rejects a final VT submission whose answers are not among their options, naming them', async () => {
+    const prisma = buildMockPrisma();
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+    const data: Record<string, unknown> = { ...completeVtAnswers(), ...respondentFlat };
+    // As in dossier 607ea380 (2026-10-09): free text where the form offers options.
+    data.VT2_4 = 'Agrement N 0128/MINEFOP du 10/06/2021'; // radio Oui/Non
+    data.VT2_18 = ['Formation Initiale']; // tick list, not the option value
+    data.VT7_7 = ['06', '42']; // 7.1.3: 42 is not a channel code
+
+    const error = await service.submitQuestionnaire({
+      formId: 'vt-form-final-off-list', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false, data,
+    } as any).catch((e) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse().invalidFields).toEqual(expect.arrayContaining(['VT2_4', 'VT2_18', 'VT7_7']));
+    expect(prisma.onefopSubmission.create).not.toHaveBeenCalled();
+  });
+
+  it('a VT draft keeps an off-list answer (only a final submission is checked)', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+    await expect(service.submitQuestionnaire({
+      formId: 'vt-form-draft-off-list', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: true,
+      data: { ...respondentFlat, VT1_2: 'Centre', VT2_4: 'texte libre' },
+    } as any)).resolves.toMatchObject({ success: true });
+  });
+
   it('rejects a final VT submission whose table has no quiz status, or a reported table left empty', async () => {
     const prisma = buildMockPrisma();
     prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);

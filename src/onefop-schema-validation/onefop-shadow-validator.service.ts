@@ -129,6 +129,31 @@ export class OnefopShadowValidatorService {
   }
 
   /**
+   * Answers that are not one of their question's options: a radio / select
+   * value, or any value of a tick-box list, outside the schema's declared
+   * option values. Only questions that declare options are checked; an empty
+   * answer is left to missingRequiredAnswers. Unlike validate(), this is meant
+   * to block a final submission — such a value would reach the official
+   * export as a code no value label explains.
+   */
+  invalidOptionAnswers(entityType: SchemaEntityType, flat: Record<string, unknown>): { field: SchemaField; values: string[] }[] {
+    const out: { field: SchemaField; values: string[] }[] = [];
+    for (const field of this.schemaLoader.getFlattenedFields(entityType).values()) {
+      if (field.table || !field.options || field.options.length === 0) continue;
+      if (field.type !== 'radio' && field.type !== 'select' && field.type !== 'checkbox') continue;
+      const raw = flat[field.id];
+      if (isEmpty(raw) || (Array.isArray(raw) && raw.length === 0)) continue;
+      const allowed = new Set(field.options.map((o) => o.value));
+      const given = field.type === 'checkbox'
+        ? (Array.isArray(raw) ? raw.map(String) : [String(raw)])
+        : [String(raw)];
+      const bad = given.filter((v) => !allowed.has(v));
+      if (bad.length > 0) out.push({ field, values: bad });
+    }
+    return out;
+  }
+
+  /**
    * Training-centre tables left incomplete in a final submission. Every table
    * must carry the status the web form derives from the preliminary quiz
    * (REPORTED or NONE, in `<tableId>_RESPONSE_STATUS`); a REPORTED one must be

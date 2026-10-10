@@ -2007,6 +2007,27 @@ export class QuestionnairesService {
         missingFields.push(field);
       }
     }
+    // Training centres: every answer to a question with options must be one
+    // of them (the web form only ever sends option values). A value outside
+    // the list would reach the official export uncoded.
+    if (entityType === 'vocationalTraining') {
+      const invalid = this.shadowValidator.invalidOptionAnswers('vocationalTraining', flat);
+      if (invalid.length > 0) {
+        const labels = invalid.map(({ field }) => `${field.label.fr} / ${field.label.en}`);
+        const summary = labels.length <= 3
+          ? labels.join(', ')
+          : `${labels.slice(0, 3).join(', ')}, +${labels.length - 3}`;
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          message:
+            `Réponses non valides : ${summary}. Choisissez une des options proposées. / ` +
+            `Invalid answers: ${summary}. Choose one of the options offered.`,
+          invalidFields: invalid.map(({ field }) => field.id),
+        });
+      }
+    }
+
     if (missingFields.length > 0) {
       const labels = missingFields.map((f) => REQUIRED_FIELD_LABELS[f] ?? schemaLabels[f] ?? f);
       const summary = labels.length <= 3

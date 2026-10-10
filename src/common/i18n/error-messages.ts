@@ -334,6 +334,13 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'La période de collecte « {0} » est close depuis le {1}.', en: 'The collection period "{0}" closed on {1}.' },
   { fr: 'La période de collecte « {0} » n\'est pas ouverte aux soumissions.', en: 'The collection period "{0}" is not open for submissions.' },
   {
+    fr: 'Réponses non valides : {0}. Choisissez une des options proposées.',
+    en: 'Invalid answers: {0}. Choose one of the options offered.',
+    also: [
+      'Réponses non valides : {0}. Choisissez une des options proposées. / Invalid answers: {0}. Choose one of the options offered.',
+    ],
+  },
+  {
     fr: 'Informations obligatoires manquantes : {0}. Veuillez compléter le formulaire avant de soumettre.',
     en: 'Missing required information: {0}. Please complete the form before submitting.',
     also: [
