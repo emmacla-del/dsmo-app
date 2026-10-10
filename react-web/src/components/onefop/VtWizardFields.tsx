@@ -397,7 +397,7 @@ export function VtWizardInlineCountBox({
   const t = useTranslations();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontFamily: "var(--vt-font)", fontWeight: 600, fontSize: 13, color: "var(--vt-ink-soft, #4e5451)" }}>
+      <span style={labelStyle}>
         {t("vtWizard.number", { default: "Nombre :" })}
       </span>
       <VtWizardNumberStepper field={field} value={value} onChange={onChange} compactBox required={!isOptionalField(field)} />
