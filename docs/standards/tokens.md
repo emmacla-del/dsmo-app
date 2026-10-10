@@ -142,8 +142,6 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-card-shell-pad-y` | `var(--cam-space-5)`; `var(--cam-space-3)` at ≤640px | Wizard frame | Page padding around the wizard shell, block axis. |
 | `--cam-card-shell-pad-x` | `var(--cam-space-4)`; `var(--cam-space-2)` at ≤640px | Wizard frame | Page padding around the wizard shell, inline axis. |
 | `--cam-container-wizard` | `600px` | Container | Wizard reading measure. Caps width only. |
-| `--cam-field-label-col` | `160px` | Wizard field | Side-by-side label column. |
-| `--cam-field-label-gap` | `12px` | Wizard field | Gap between the label column and the input. Matches `--cam-space-3`. |
 | `--cam-field-row-gap` | `16px` | Wizard field | Gap between field rows. Matches `--cam-space-4`. |
 | `--cam-field-stack-gap` | `6px` | Wizard field | Gap between a stacked label and its input. Also the shared auth label gap and the password-meter offset. Purpose value, off the space ladder. |
 | `--cam-field-height` | `var(--cam-form-field-height)` | Wizard field | Wizard control height. Aliases the density token, so one change moves both surfaces. |
@@ -158,8 +156,8 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-auth-check-gap` | `7px` | Spacing | Gap between the login checkbox and its label. |
 | `--cam-auth-footer-pad-y` | `14px` | Spacing | Auth card footer, block axis. |
 | `--cam-auth-block-gap` | `20px` | Spacing | Space under the auth sub-row, the help line, and the receipt hero. |
-| `--cam-frame-scroll-pad-top` | `20px` | Spacing | Padding at the top of the wizard's scrolling frame. |
-| `--cam-frame-scroll-pad-x` | `22px` | Spacing | Inline padding of the wizard's scrolling frame. |
+| `--cam-frame-scroll-pad-top` | `20px` | Spacing | Padding at the top of the wizard frame's content (`.flow-frame-content`). |
+| `--cam-frame-scroll-pad-x` | `22px` | Spacing | Inline padding of the wizard frame's content and dock. |
 | `--cam-inline-button-pad-x` | `22px` | Spacing | Inline padding of `.btn-primary--inline`. |
 | `--cam-honour-pad-x` | `14px` | Spacing | Inline padding of the review honour notice. |
 | `--cam-edit-pad-y` | `3px` | Spacing | Block padding of the review edit button. |
