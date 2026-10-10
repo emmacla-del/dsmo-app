@@ -855,7 +855,6 @@
    margins only where they sit outside a .cam-admin-page. */
 .cam-admin-page > .cam-admin-page-header,
 .cam-admin-page > .cam-admin-views,
-.cam-admin-page > .cam-pilot-kpis,
 .cam-admin-page > .cam-pagination,
 .cam-admin-page > .cam-admin-lede,
 .cam-admin-page > .cam-target-actions {
@@ -906,6 +905,45 @@
 }
 
 /* ── Figures: one ruled strip, not a row of cards ── */
+/* StatStrip: one line of figures, "3 établissements · 3 actifs". Plain text,
+   no box; a middle dot between items; wraps on a phone. */
+.cam-admin-statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+.cam-admin-statline li + li::before {
+  content: "·";
+  margin-right: var(--cam-space-3);
+  color: var(--cam-text-muted);
+}
+
+.cam-admin-statline-value {
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-admin-statline a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cam-admin-statline a:hover .cam-admin-statline-value,
+.cam-admin-statline a:focus-visible .cam-admin-statline-value {
+  text-decoration: underline;
+}
+
+.cam-admin-statline-loading {
+  margin: 0;
+}
+
 .cam-admin-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1661,73 +1699,6 @@
 }
 
 /* ── Pilotage / Dashboard ── */
-.cam-pilot-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--cam-space-4);
-  margin-bottom: var(--cam-space-5);
-}
-
-@media (max-width: 1199px) {
-  .cam-pilot-kpis {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 639px) {
-  .cam-pilot-kpis {
-    grid-template-columns: 1fr;
-  }
-}
-
-.cam-pilot-kpi {
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-lg);
-  padding: var(--cam-space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-2);
-}
-
-.cam-pilot-kpi-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--cam-space-3);
-}
-
-.cam-pilot-kpi-label {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 500;
-  color: var(--cam-text-muted);
-  line-height: 1.4;
-}
-
-.cam-pilot-kpi-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--cam-radius-control);
-  display: grid;
-  place-items: center;
-}
-
-.cam-pilot-kpi-value {
-  font-size: var(--cam-font-size-2xl);
-  font-weight: 800;
-  color: var(--cam-green-dark);
-  letter-spacing: -0.02em;
-  line-height: 1;
-  margin-top: var(--cam-space-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.cam-pilot-kpi-trend {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-}
-
 /* Panel (white card with header) */
 .cam-pilot-panel {
   background: var(--cam-surface);

@@ -17,6 +17,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
 import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
@@ -114,6 +115,7 @@ export default function EtablissementsPage() {
   const router = useRouter();
   const tRoot = useTranslations();
   const t = useTranslations("adminEtablissementsPage");
+  const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const typeDisplay = (type: string) =>
     ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
@@ -325,7 +327,7 @@ export default function EtablissementsPage() {
         subtitle={t("subtitle")}
         actions={
           <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center", flexWrap: "wrap" }}>
-            <AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />
+            <AdminHeaderActions showCampaignPill={false} showBell={false} />
             {!readOnly && (
             <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={exportCsv}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -352,17 +354,12 @@ export default function EtablissementsPage() {
         }
       />
 
-      <div className="cam-pilot-kpis">
-        {volume.map((k) => (
-          <div key={k.key} className="cam-pilot-kpi">
-            <span className="cam-pilot-kpi-label">{k.label}</span>
-            <span className="cam-pilot-kpi-value" aria-busy={k.loading || undefined}>
-              {k.loading ? NOT_PROVIDED : count(k.value, locale)}
-            </span>
-            <span className="cam-pilot-kpi-trend">{k.hint}</span>
-          </div>
-        ))}
-      </div>
+      <StatStrip
+        label={tStats("keyFigures")}
+        loadingLabel={tStats("loadingFigures")}
+        loading={volume.some((k) => k.loading)}
+        items={volume.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
+      />
 
       <section className="cam-admin-section">
         <div className="cam-admin-section-body">

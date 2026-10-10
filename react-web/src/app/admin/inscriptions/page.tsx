@@ -30,6 +30,7 @@ import {
 } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -101,6 +102,7 @@ function InscriptionsContent() {
   const { regions: territoryRegions } = useTerritoryRegions();
   const tRoot = useTranslations();
   const t = useTranslations("adminInscriptionsPage");
+  const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "—";
@@ -326,17 +328,12 @@ function InscriptionsContent() {
         </div>
       )}
 
-      {/* Five tiles: auto-fit rather than the four-column default. */}
-      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        {queueKpis.map((k) => (
-          <div key={k.key} className="cam-pilot-kpi">
-            <span className="cam-pilot-kpi-label">{k.label}</span>
-            <span className="cam-pilot-kpi-value" aria-busy={queueQuery.isLoading || undefined}>
-              {count(k.value, locale)}
-            </span>
-          </div>
-        ))}
-      </div>
+      <StatStrip
+        label={tStats("keyFigures")}
+        loadingLabel={tStats("loadingFigures")}
+        loading={queueQuery.isLoading}
+        items={queueKpis.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label }))}
+      />
 
       {/* Was className="cam-admin-panel", a class defined nowhere, so the
           filter bar rendered unstyled. */}

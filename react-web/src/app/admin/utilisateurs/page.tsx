@@ -20,6 +20,7 @@ import { InviteAgentDialog } from "@/components/admin/InviteAgentDialog";
 import { PendingStaffRequests } from "@/components/admin/PendingStaffRequests";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { READ_ONLY_ROLES, USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
@@ -83,6 +84,7 @@ export default function OnefopUsersPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(USER_ADMIN_ROLES);
   const tRoot = useTranslations();
   const t = useTranslations("adminUtilisateursPage");
+  const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const enabled = !isLoading && !forbidden;
   const [createOpen, setCreateOpen] = useState(false);
@@ -245,19 +247,12 @@ export default function OnefopUsersPage() {
         </div>
       )}
 
-      {/* Three tiles, so the four-column .cam-pilot-kpis grid is widened to
-          auto-fit rather than leaving an empty fourth column. */}
-      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        {headcount.map((k) => (
-          <div key={k.key} className="cam-pilot-kpi">
-            <span className="cam-pilot-kpi-label">{k.label}</span>
-            <span className="cam-pilot-kpi-value" aria-busy={k.query.isLoading || undefined}>
-              {k.query.isLoading ? NOT_PROVIDED : count(k.query.data?.total ?? null, locale)}
-            </span>
-            <span className="cam-pilot-kpi-trend">{k.hint}</span>
-          </div>
-        ))}
-      </div>
+      <StatStrip
+        label={tStats("keyFigures")}
+        loadingLabel={tStats("loadingFigures")}
+        loading={headcount.some((k) => k.query.isLoading)}
+        items={headcount.map((k) => ({ key: k.key, value: count(k.query.data?.total ?? null, locale), label: k.label, hint: k.hint }))}
+      />
 
       {/* Agent table.
           Columns are sourced directly from GET /auth/users (AuthService.listUsers),

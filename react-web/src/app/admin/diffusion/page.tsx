@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
@@ -133,6 +134,7 @@ export default function DiffusionPage() {
   const { isLoading, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const tRoot = useTranslations();
   const t = useTranslations("adminDiffusionPage");
+  const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
   // The subtitle names the active campaign, when there is one, instead of
@@ -478,17 +480,12 @@ export default function DiffusionPage() {
         </div>
       )}
 
-      <div className="cam-pilot-kpis">
-        {repositoryKpis.map((k) => (
-          <div key={k.key} className="cam-pilot-kpi">
-            <span className="cam-pilot-kpi-label">{k.label}</span>
-            <span className="cam-pilot-kpi-value" aria-busy={statsQuery.isLoading || undefined}>
-              {statsQuery.isLoading ? NOT_PROVIDED : count(k.value, locale)}
-            </span>
-            <span className="cam-pilot-kpi-trend">{k.hint}</span>
-          </div>
-        ))}
-      </div>
+      <StatStrip
+        label={tStats("keyFigures")}
+        loadingLabel={tStats("loadingFigures")}
+        loading={statsQuery.isLoading}
+        items={repositoryKpis.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
+      />
 
       <div className="cam-admin-grid">
         {/* ── Left column: export configuration ── */}
