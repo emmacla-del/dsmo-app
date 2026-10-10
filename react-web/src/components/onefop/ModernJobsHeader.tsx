@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { clockTime } from "@/lib/admin-data-state";
@@ -66,8 +67,28 @@ export function ModernJobsHeader({
     ? clockTime(lastSavedAt, asUiLocale(locale))
     : null;
 
+  // Publish this sticky header's height as --mj-header-h and
+  // --cam-wizard-rail-top on the wizard root
+  // (its parent), so the side rail and the table tab strips pin just below
+  // it. Both wizards render the header there: Modern Jobs and VT.
+  const headerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    const root = header?.parentElement;
+    if (!header || !root || typeof ResizeObserver === "undefined") return;
+    const publish = () => {
+      root.style.setProperty("--mj-header-h", `${header.offsetHeight}px`);
+      root.style.setProperty("--cam-wizard-rail-top", `${header.offsetHeight}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <header
+      ref={headerRef}
       style={{
         background: "var(--cam-green-dark)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.12)",

@@ -170,6 +170,9 @@
 
    /* ── Containers ── */
    --cam-container-compact: 380px;
+   /* The side navigation of every respondent wizard (.cam-wizard-rail):
+     registration, Modern Jobs, VT. One width so the three line up. */
+   --cam-wizard-rail-width: 280px;
    --cam-container-form: 640px;
 
    /* ── Borders ── */
@@ -364,7 +367,7 @@
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: 280px;
+   --vt-sidebar-width: var(--cam-wizard-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);
@@ -444,7 +447,7 @@
    --vt-accent: var(--cam-green);
    --vt-accent-soft: var(--cam-success-bg);
    --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: 280px;
+   --vt-sidebar-width: var(--cam-wizard-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
    --vt-font: var(--cam-font-sans);

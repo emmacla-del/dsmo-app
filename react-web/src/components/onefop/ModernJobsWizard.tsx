@@ -613,22 +613,8 @@ export function ModernJobsWizard({
   const drawerSheetRef = useRef<HTMLDivElement | null>(null);
   useDialogFocus(!isDesktop && mobileMenuOpen, drawerSheetRef, closeMobileMenu);
 
-  // Publish the sticky header's height as --mj-header-h so the sidebar and
-  // the table tab strips can pin just below it while tables scroll.
-  const [wizardRoot, setWizardRoot] = useState<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const header = wizardRoot?.firstElementChild as HTMLElement | null;
-    if (!wizardRoot || !header || typeof ResizeObserver === "undefined") return;
-    const publish = () => wizardRoot.style.setProperty("--mj-header-h", `${header.offsetHeight}px`);
-    publish();
-    const observer = new ResizeObserver(publish);
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, [wizardRoot]);
-
   return (
     <div
-      ref={setWizardRoot}
       data-mj-root=""
       style={{
         minHeight: "100vh",
@@ -766,6 +752,7 @@ export function ModernJobsWizard({
                     </button>
                   </div>
                   <ModernJobsSidebar
+                    sheet
                     entity={entity}
                     data={data}
                     currentSectionIndex={clampedSectionIndex}

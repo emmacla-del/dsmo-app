@@ -2836,5 +2836,21 @@
     "reasonLabel": "Motif du refus",
     "rejectConfirm": "Refuser",
     "cancel": "Annuler"
+  },
+  "wizardRail": {
+    "title": "Sommaire",
+    "progress": "{done} sur {total} sections terminées",
+    "progressBar": "Sections terminées",
+    "edit": "Modifier",
+    "stateDone": "terminée, modifier",
+    "stateCurrent": "étape actuelle",
+    "stateInProgress": "en cours",
+    "stateTodo": "pas commencée",
+    "stateError": "à corriger",
+    "stateLocked": "pas encore ouverte",
+    "quiz": "Questionnaire préliminaire",
+    "review": "Récapitulatif et dépôt",
+    "tableProgress": "Tableau {current} sur {total}",
+    "outlineLabel": "Plan de la section"
   }
 }

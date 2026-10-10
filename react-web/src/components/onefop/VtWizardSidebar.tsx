@@ -1,6 +1,8 @@
 "use client";
 
-import { Fragment } from "react";
+import { WizardRail } from "@/components/wizard/WizardRail";
+import { WizardStepList, type WizardStep, type WizardStepState } from "@/components/wizard/WizardStepList";
+import type { CSSProperties, ReactNode } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
 import { localized, computeSubsectionLayout } from "@/lib/onefop-schema";
@@ -25,17 +27,16 @@ interface VtWizardSidebarProps {
   outline?: VtWizardSectionOutlineModel | null;
   /** The preliminary quiz, listed right after Section 1 (absent for a closed centre). */
   quiz?: { isCurrent: boolean; isComplete: boolean; onOpen: () => void; lockReason?: string | null };
+  /** Inside the phone drawer: no panel frame of its own. */
+  sheet?: boolean;
 }
 
 /**
- * Faithful port of _VtWizardSidebar & _VtWizardSidebarOutline from
- * lib/screens/onefop/wizard/vt_wizard_shell.dart:
- * - 280px sovereign sidebar for Vocational Training
- * - MINEFOP / ONEFOP masthead and Census header
- * - 9 numbered sections with status badges (_isComplete)
- * - Live nested subsection outline tree under the active section
- * - "X sur 9 sections terminées" progress bar
- * - Validation & Submission review stage link
+ * The VT wizard's side navigation: the shared WizardRail and WizardStepList,
+ * so it looks and behaves like the registration and Modern Jobs wizards.
+ * Under the section in hand it lists that section's subsections, with
+ * their status when the wizard supplies an outline. `sheet` renders it
+ * inside the phone drawer.
  */
 export function VtWizardSidebar({
   entity,
@@ -47,22 +48,24 @@ export function VtWizardSidebar({
   onGoToValidation,
   outline,
   quiz,
+  sheet = false,
 }: VtWizardSidebarProps) {
-  const t = useTranslations();
+  const t = useTranslations("wizardRail");
+  const tVt = useTranslations("vtWizardSidebar");
   const locale = useLocale();
   const sections = entity.sections;
 
   const isSectionComplete = (sec: OnefopSection): boolean => isVtSectionComplete(sec, data);
-
   const doneCount = sections.filter(isSectionComplete).length;
+
   const activeSection = sections[currentSectionIndex];
   const { startsHeadingFieldIds, headingByFieldId } = activeSection
     ? computeSubsectionLayout(activeSection, locale.startsWith("en") ? "en" : "fr")
     : { startsHeadingFieldIds: new Set<string>(), headingByFieldId: new Map<string, string>() };
 
-  // Collect distinct subsection titles for the active section — skipped for
-  // tabbed sections (4, 8): only the active tab's fields are mounted in the
-  // DOM, so a scroll-to-field link for a subsection in a different tab would
+  // Distinct subsection titles for the active section -- skipped for tabbed
+  // sections (4, 8): only the active tab's fields are mounted in the DOM, so
+  // a scroll-to-field link for a subsection in a different tab would
   // silently do nothing. VtWizardCategoryTabs already provides equivalent
   // (and functional) navigation between those subsections.
   const activeSubsections: { id: string; title: string }[] = [];
@@ -70,375 +73,124 @@ export function VtWizardSidebar({
     for (const field of activeSection.fields) {
       if (startsHeadingFieldIds.has(field.id)) {
         const title = headingByFieldId.get(field.id);
-        if (title) {
-          activeSubsections.push({ id: field.id, title });
-        }
+        if (title) activeSubsections.push({ id: field.id, title });
       }
     }
   }
 
   const scrollToField = (fieldId: string) => {
-    const el = document.getElementById(fieldId);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    document.getElementById(fieldId)?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const stateLabel = (state: WizardStepState) =>
+    t(
+      state === "done"
+        ? "stateDone"
+        : state === "current" || state === "currentComplete"
+          ? "stateCurrent"
+          : state === "locked"
+            ? "stateLocked"
+            : "stateTodo",
+    );
+
+  const stepState = (current: boolean, done: boolean, lockReason: string | null): WizardStepState =>
+    current ? (done ? "currentComplete" : "current") : lockReason ? "locked" : done ? "done" : "todo";
+
+  const steps: WizardStep[] = [];
+  sections.forEach((sec, idx) => {
+    const isCurrent = !isValidationStage && !quiz?.isCurrent && idx === currentSectionIndex;
+    const lockReason = sectionLockReason?.(idx) ?? null;
+    const state = stepState(isCurrent, isSectionComplete(sec), lockReason);
+    steps.push({
+      key: sec.id,
+      marker: idx + 1,
+      name: getVtSectionShortLabel(sec.id, locale) ?? localized(sec.title, locale.startsWith("en") ? "en" : "fr"),
+      state,
+      stateLabel: stateLabel(state),
+      lockReason,
+      onSelect: lockReason ? undefined : () => onSelectSection(idx),
+      children: !isCurrent ? undefined : outline && outline.items.length > 0 ? (
+        <VtWizardSidebarOutline outline={outline} />
+      ) : activeSubsections.length > 0 ? (
+        <ul className="cam-step-outline" aria-label={t("outlineLabel")}>
+          {activeSubsections.map((sub) => (
+            <li key={sub.id}>
+              <button type="button" className="cam-step-outline-row" onClick={() => scrollToField(sub.id)}>
+                <span className="cam-step-outline-icon" aria-hidden="true">›</span>
+                <span className="cam-step-outline-label">{sub.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : undefined,
+    });
+
+    if (idx === 0 && quiz) {
+      const quizLock = quiz.lockReason ?? null;
+      const quizState = stepState(quiz.isCurrent, quiz.isComplete, quizLock);
+      steps.push({
+        key: "vt-quiz",
+        marker: "?",
+        name: t("quiz"),
+        state: quizState,
+        stateLabel: stateLabel(quizState),
+        lockReason: quizLock,
+        onSelect: quizLock ? undefined : quiz.onOpen,
+      });
+    }
+  });
+
+  if (onGoToValidation) {
+    const reviewState: WizardStepState = isValidationStage ? "current" : "todo";
+    steps.push({
+      key: "validation",
+      marker: sections.length + 1,
+      name: t("review"),
+      state: reviewState,
+      stateLabel: stateLabel(reviewState),
+      onSelect: onGoToValidation,
+    });
+  }
+
   return (
-    <aside
-      aria-label={t("vtWizardSidebar.navAriaLabel")}
-      style={{
-        width: 280,
-        flexShrink: 0,
-        background: "var(--cam-surface)",
-        borderRight: "1px solid var(--cam-rail-border)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        minHeight: "calc(100vh - 110px)",
-        padding: "20px 14px 20px 18px",
-        color: "var(--cam-rail-text)",
-      }}
-    >
-      {/* ── SOMMAIRE Header ── */}
-      <div style={{ marginBottom: 14 }}>
-        <div
-          style={{
-            fontSize: "var(--cam-font-size-3xs)",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--cam-rail-kicker)",
-            marginBottom: 6,
-          }}
-        >
-          {locale === "en" ? "CONTENTS" : "SOMMAIRE"}
-        </div>
-
-        {/* Progress Bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 6 }}>
-          <span style={{ fontWeight: 600, color: "var(--cam-rail-text-muted)" }}>
-            {locale === "en" ? `${doneCount} of ${sections.length} sections` : `${doneCount} sur ${sections.length} sections`}
-          </span>
-          <span style={{ fontWeight: 700, color: "var(--cam-rail-active)" }}>
-            {Math.round((doneCount / sections.length) * 100)}%
-          </span>
-        </div>
-        <div
-          style={{
-            height: 4,
-            background: "var(--cam-surface-2)",
-            borderRadius: 2,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${Math.round((doneCount / sections.length) * 100)}%`,
-              background: "var(--cam-rail-active)",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-      </div>
-
-      <div style={{ height: 1, backgroundColor: "var(--cam-surface-2)", marginBottom: 12 }} />
-
-      {/* ── 9 Numbered Sections ── */}
-      <nav style={{ flex: 1, overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: 4 }}>
-        {sections.map((sec, idx) => {
-          const isCurrent = !isValidationStage && !quiz?.isCurrent && idx === currentSectionIndex;
-          const isDone = isSectionComplete(sec);
-          const title = getVtSectionShortLabel(sec.id, locale) ?? localized(sec.title, locale.startsWith("en") ? "en" : "fr");
-          const lockReason = sectionLockReason?.(idx) ?? null;
-
-          return (
-            <Fragment key={sec.id}>
-            <div>
-              <button
-                type="button"
-                aria-disabled={lockReason ? true : undefined}
-                title={lockReason ?? undefined}
-                onClick={lockReason ? undefined : () => onSelectSection(idx)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 6,
-                  border: isCurrent ? "1px solid var(--cam-success-border-soft)" : "1px solid transparent",
-                  background: isCurrent ? "var(--cam-success-surface)" : "transparent",
-                  color: isCurrent ? "var(--cam-rail-active)" : isDone ? "var(--cam-rail-item-done)" : "var(--cam-rail-item-text)",
-                  cursor: lockReason ? "not-allowed" : "pointer",
-                  textAlign: "left",
-                  boxShadow: isCurrent ? "var(--cam-rail-active-shadow)" : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    boxSizing: "border-box",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    background: isCurrent
-                      ? "var(--cam-rail-active)"
-                      : isDone
-                        ? "var(--cam-success-mark)"
-                        : "var(--cam-surface-2)",
-                    border: !isCurrent && !isDone ? "1px solid var(--cam-rail-badge-border)" : "none",
-                    color: isCurrent || isDone ? "var(--cam-surface)" : "var(--cam-rail-text-muted)",
-                  }}
-                >
-                  {isDone ? "✓" : idx + 1}
-                </span>
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 12.5,
-                    fontWeight: isCurrent ? 700 : 500,
-                    color: isCurrent ? "var(--cam-rail-active)" : lockReason ? "var(--cam-rail-upcoming)" : isDone ? "var(--cam-rail-item-done)" : "var(--cam-rail-item-text)",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {title}
-                  {lockReason && <span className="sr-only"> — {lockReason}</span>}
-                </span>
-              </button>
-
-              {/* ── Section Outline or Subsection Tree for the Active Section ── */}
-              {isCurrent && outline && outline.items.length > 0 ? (
-                <VtWizardSidebarOutline outline={outline} />
-              ) : isCurrent && activeSubsections.length > 0 ? (
-                <div
-                  style={{
-                    paddingLeft: "34px",
-                    paddingRight: "8px",
-                    paddingTop: "4px",
-                    paddingBottom: "6px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "2px",
-                  }}
-                >
-                  {activeSubsections.map((sub) => (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={() => scrollToField(sub.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        textAlign: "left",
-                        fontSize: "var(--cam-font-size-2xs)",
-                        color: "var(--cam-rail-text-muted)",
-                        cursor: "pointer",
-                        padding: "3px 0",
-                        lineHeight: 1.25,
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: "6px",
-                      }}
-                    >
-                      <span style={{ color: "var(--cam-rail-active)", fontWeight: 700, fontSize: "10px" }}>›</span>
-                      <span>{sub.title}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            {idx === 0 && quiz && (
-              <button
-                type="button"
-                onClick={quiz.lockReason ? undefined : quiz.onOpen}
-                aria-current={quiz.isCurrent ? "step" : undefined}
-                aria-disabled={quiz.lockReason ? true : undefined}
-                title={quiz.lockReason ?? undefined}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 6,
-                  border: quiz.isCurrent ? "1px solid var(--cam-success-border-soft)" : "1px solid transparent",
-                  background: quiz.isCurrent ? "var(--cam-success-surface)" : "transparent",
-                  color: quiz.isCurrent ? "var(--cam-rail-active)" : quiz.lockReason ? "var(--cam-rail-upcoming)" : "var(--cam-rail-item-text)",
-                  cursor: quiz.lockReason ? "not-allowed" : "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    boxSizing: "border-box",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    background: quiz.isCurrent ? "var(--cam-rail-active)" : quiz.isComplete ? "var(--cam-success-mark)" : "var(--cam-surface-2)",
-                    border: !quiz.isCurrent && !quiz.isComplete ? "1px solid var(--cam-rail-badge-border)" : "none",
-                    color: quiz.isCurrent || quiz.isComplete ? "var(--cam-surface)" : "var(--cam-rail-text-muted)",
-                  }}
-                >
-                  {quiz.isComplete ? "✓" : "?"}
-                </span>
-                <span style={{ flex: 1, fontSize: 12.5, fontWeight: quiz.isCurrent ? 700 : 500, lineHeight: 1.35 }}>
-                  {locale === "en" ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
-                  {quiz.lockReason && <span className="sr-only"> — {quiz.lockReason}</span>}
-                </span>
-              </button>
-            )}
-            </Fragment>
-          );
-        })}
-
-        {/* ── Validation / Submission Summary Step Link ── */}
-        <div style={{ marginTop: "8px", borderTop: "1px solid var(--cam-surface-2)", paddingTop: "8px" }}>
-          <button
-            type="button"
-            onClick={onGoToValidation}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 10px",
-              border: isValidationStage ? "1px solid var(--cam-success-border-soft)" : "1px solid var(--cam-rail-border)",
-              borderRadius: 6,
-              background: isValidationStage ? "var(--cam-success-surface)" : "transparent",
-              cursor: "pointer",
-              textAlign: "left",
-              fontSize: "12px",
-              color: isValidationStage ? "var(--cam-rail-active)" : "var(--cam-rail-item-done)",
-              fontWeight: 700,
-              boxShadow: isValidationStage ? "var(--cam-rail-active-shadow)" : "none",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <span>{t("vtWizardSidebar.validationLink")}</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* ── Progress Indicator Footer ── */}
-      <div
-        style={{
-          paddingTop: 14,
-          borderTop: "1px solid var(--cam-white-wash)",
-        }}
-      >
-        <div
-          style={{
-            fontFamily: "var(--cam-font-sans)",
-            fontSize: 11.5,
-            fontWeight: 600,
-            color: "rgba(255, 255, 255, 0.8)",
-            marginBottom: 6,
-          }}
-        >
-          {locale === "fr"
-            ? `${doneCount} sur ${sections.length} sections terminées`
-            : `${doneCount} of ${sections.length} sections complete`}
-        </div>
-        <div
-          style={{
-            height: 6,
-            borderRadius: "var(--cam-radius-sm)",
-            background: "var(--cam-white-wash)",
-            overflow: "hidden",
-            marginBottom: 12,
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${(doneCount / Math.max(1, sections.length)) * 100}%`,
-              background: "var(--cam-gold)",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-
-      </div>
-    </aside>
+    <WizardRail sheet={sheet} progress={{ done: doneCount, total: sections.length }}>
+      <WizardStepList label={tVt("navAriaLabel")} steps={steps} editLabel={t("edit")} />
+    </WizardRail>
   );
 }
 
 /**
- * Section outline matching Flutter's _VtWizardSidebarOutline in vt_wizard_shell.dart:
- * - "PLAN DE LA SECTION" caption header
- * - Linear progress indicator showing coverage (filled / total)
- * - Clickable outline rows with semantic status icons (complete, inProgress, needsAttention, notStarted)
+ * The section in hand's outline: one row per subsection with its status,
+ * and how much of the section is filled. Rows come from the wizard
+ * (VtWizardSectionOutlineModel).
  */
 function VtWizardSidebarOutline({ outline }: { outline: VtWizardSectionOutlineModel }) {
   const t = useTranslations("vtWizard");
+  const tRail = useTranslations("wizardRail");
   const total = outline.items.reduce((sum, item) => sum + item.total, 0);
   const filled = outline.items.reduce((sum, item) => sum + item.filled, 0);
-  const coverage = total === 0 ? 0 : filled / total;
+  const coverage = total === 0 ? 0 : Math.round((filled / total) * 100);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", marginTop: 6, paddingLeft: 12 }}>
+    <>
       <div
-        style={{
-          padding: "2px 8px 6px 10px",
-          fontSize: "11px",
-          fontWeight: 800,
-          letterSpacing: "0.3px",
-          color: "var(--cam-text-muted)",
-        }}
-      >
-        {t("outlineTitle")}
-      </div>
-      <div
+        className="cam-wizard-rail-bar cam-step-outline-progress"
         role="progressbar"
-        aria-label={`${t("outlineProgressLabel")} ${Math.round(coverage * 100)}%`}
-        aria-valuenow={Math.round(coverage * 100)}
+        aria-label={`${t("outlineProgressLabel")} ${coverage}%`}
+        aria-valuenow={coverage}
         aria-valuemin={0}
         aria-valuemax={100}
-        style={{
-          margin: "0 10px 10px 10px",
-          height: 5,
-          borderRadius: 3,
-          background: "var(--cam-border)",
-          overflow: "hidden",
-        }}
       >
-        <div
-          style={{
-            height: "100%",
-            width: `${Math.round(coverage * 100)}%`,
-            background: "var(--cam-green)",
-            borderRadius: 3,
-            transition: "width 0.2s ease",
-          }}
-        />
+        <div className="cam-wizard-rail-bar-fill" style={{ width: `${coverage}%` }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <ul className="cam-step-outline" aria-label={tRail("outlineLabel")}>
         {outline.items.map((item, i) => (
-          <VtWizardSidebarOutlineRow
-            key={i}
-            item={item}
-            selected={i === outline.activeIndex}
-            onTap={() => outline.onSelect(i)}
-          />
+          <li key={i}>
+            <VtWizardSidebarOutlineRow item={item} selected={i === outline.activeIndex} onTap={() => outline.onSelect(i)} />
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </>
   );
 }
 
@@ -453,7 +205,7 @@ function VtWizardSidebarOutlineRow({
 }) {
   const t = useTranslations("vtWizard");
 
-  let iconNode: React.ReactNode;
+  let iconNode: ReactNode;
   let color: string;
   let detail: string;
 
@@ -502,53 +254,17 @@ function VtWizardSidebarOutlineRow({
   return (
     <button
       type="button"
+      className="cam-step-outline-row"
       onClick={onTap}
       aria-label={`${item.label}, ${detail}`}
       aria-current={selected ? "true" : undefined}
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 8,
-        padding: "8px 10px",
-        background: selected ? "var(--cam-success-bg)" : "transparent",
-        borderRadius: "var(--cam-radius-sm)",
-        border: "none",
-        cursor: "pointer",
-        textAlign: "left",
-        width: "100%",
-        transition: "background 0.15s ease",
-      }}
+      style={{ "--cam-step-outline-tone": color } as CSSProperties}
     >
-      <span style={{ color, flexShrink: 0, marginTop: 1, display: "inline-flex" }}>{iconNode}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: "var(--cam-font-sans)",
-            fontSize: "11px",
-            fontWeight: selected ? 700 : 600,
-            color: selected ? "var(--cam-green)" : "var(--cam-text)",
-            lineHeight: 1.25,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-          }}
-        >
-          {item.label}
-        </div>
-        <div
-          style={{
-            fontSize: "10px",
-            fontWeight: 600,
-            color,
-            marginTop: 2,
-            lineHeight: 1.2,
-          }}
-        >
-          {detail}
-        </div>
-      </div>
+      <span className="cam-step-outline-icon">{iconNode}</span>
+      <span>
+        <span className="cam-step-outline-label">{item.label}</span>
+        <span className="cam-step-outline-status">{detail}</span>
+      </span>
     </button>
   );
 }

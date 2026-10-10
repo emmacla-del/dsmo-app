@@ -2836,5 +2836,21 @@
     "reasonLabel": "Reason for rejection",
     "rejectConfirm": "Reject",
     "cancel": "Cancel"
+  },
+  "wizardRail": {
+    "title": "Contents",
+    "progress": "{done} of {total} sections completed",
+    "progressBar": "Sections completed",
+    "edit": "Edit",
+    "stateDone": "completed, edit",
+    "stateCurrent": "current step",
+    "stateInProgress": "in progress",
+    "stateTodo": "not started",
+    "stateError": "to correct",
+    "stateLocked": "not open yet",
+    "quiz": "Preliminary questionnaire",
+    "review": "Review and submission",
+    "tableProgress": "Table {current} of {total}",
+    "outlineLabel": "Section outline"
   }
 }

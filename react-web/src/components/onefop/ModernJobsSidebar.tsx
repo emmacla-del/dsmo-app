@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import { WizardRail } from "@/components/wizard/WizardRail";
+import { WizardStepList, type WizardStep, type WizardStepState } from "@/components/wizard/WizardStepList";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, computeSubsectionLayout, isFieldVisible } from "@/lib/onefop-schema";
@@ -139,9 +140,9 @@ export function formatSidebarSectionTitle(rawTitle: string, index: number): stri
 }
 
 /**
- * Responsive Sidebar for the Modern Jobs Wizard (all non-VT entities).
- * Displays section list, progress bar, real-time completion status chips,
- * and direct subsection jump anchors.
+ * The Modern Jobs wizard's side navigation (all non-VT entities): the shared
+ * WizardRail and WizardStepList, so it looks and behaves like the
+ * registration and VT wizards. `sheet` renders it inside the phone drawer.
  */
 export function ModernJobsSidebar({
   entity,
@@ -156,340 +157,122 @@ export function ModernJobsSidebar({
   isScopeStage = false,
   onSelectScope,
   activeTableId,
-  onSelectTable,
-}: ModernJobsSidebarProps) {
+  sheet = false,
+}: ModernJobsSidebarProps & { sheet?: boolean }) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
-  const t = useTranslations("modernJobs.sidebar");
+  const t = useTranslations("wizardRail");
+  const tNav = useTranslations("modernJobs.sidebar");
   const sections = entity.sections;
   // The preliminary quiz sits right after Section 1 (same rule as the wizard).
   const quizSlot = preliminaryQuizSlot(sections);
 
-  const completedCount = sections.filter(
-    (sec) => getSectionStatus(sec, data, issues) === "complete"
-  ).length;
-  const progressPercent = Math.round((completedCount / sections.length) * 100);
+  const statuses = sections.map((sec) => getSectionStatus(sec, data, issues));
+  const completedCount = statuses.filter((st) => st === "complete").length;
 
-  const activeSection = !isScopeStage && !isValidationStage ? sections[currentSectionIndex] : null;
-  const { startsHeadingFieldIds, headingByFieldId } = activeSection
-    ? computeSubsectionLayout(activeSection, locale)
-    : { startsHeadingFieldIds: new Set<string>(), headingByFieldId: new Map<string, string>() };
-
-  const activeSubsections: { id: string; title: string }[] = [];
-  if (activeSection) {
-    for (const field of activeSection.fields) {
-      if (startsHeadingFieldIds.has(field.id)) {
-        // Filter out tables that are NONE or NOT_APPLICABLE
-        if (!isTableNoneOrNa(field, data) && !isCompanionHiddenByGateway(field, data, activeSection.fields)) {
-          const title = headingByFieldId.get(field.id);
-          if (title) {
-            activeSubsections.push({ id: field.id, title });
-          }
-        }
-      }
-    }
-  }
-
-  const scrollToSubsection = (fieldId: string) => {
-    const el = document.getElementById(`subsection-${fieldId}`) ?? document.getElementById(fieldId);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
-  // "Section X sur Y": numbering matches the step dots (section0 = 0).
-  const lastSectionNumber = Math.max(0, sections.length - 1);
-  const progressLabel = isScopeStage
-    ? t("progressQuiz")
-    : isValidationStage
-      ? t("progressReview")
-      : t("progressSection", { current: currentSectionIndex, total: lastSectionNumber });
-
-  // Sidebar titles without the "Section N." prefix — the number sits in the dot.
+  // Sidebar titles without the "Section N." prefix -- the number sits in the circle.
   const stepTitle = (rawTitle: string, idx: number) =>
     formatSidebarSectionTitle(rawTitle, idx).replace(/^Section\s+\d+\.\s*/, "");
 
-  type StepState = "done" | "active" | "error" | "todo";
-
-  const renderStep = (opts: {
-    key: string;
-    state: StepState;
-    dot: string;
-    title: string;
-    detail?: string;
-    onClick?: () => void;
-    current: boolean;
-    lockReason?: string | null;
-  }) => {
-    const { state, dot, title, detail, current, lockReason } = opts;
-    const onClick = lockReason ? undefined : opts.onClick;
-    const dotStyle: React.CSSProperties =
+  const stateLabel = (state: WizardStepState) =>
+    t(
       state === "done"
-        ? { background: "var(--cam-green)", color: "#ffffff", border: "1px solid var(--cam-green)" }
-        : state === "active"
-          ? { background: "var(--cam-green)", color: "#ffffff", border: "1px solid var(--cam-green)" }
-          : state === "error"
-            ? { background: "var(--cam-error-bg)", color: "var(--cam-error)", border: "1px solid var(--cam-error-border)" }
-            : { background: "var(--cam-surface)", color: "var(--cam-text-muted)", border: "1px solid var(--cam-border-strong)" };
-    return (
-      <button
-        key={opts.key}
-        type="button"
-        onClick={onClick}
-        aria-current={current ? "step" : undefined}
-        aria-disabled={lockReason ? true : undefined}
-        title={lockReason ?? undefined}
-        className={lockReason ? undefined : "cam-hoverable"}
-        style={{
-          width: "100%",
-          textAlign: "left",
-          background: current ? "var(--cam-success-bg)" : "transparent",
-          border: "none",
-          borderRadius: "var(--cam-radius-control, 6px)",
-          padding: "10px 8px",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 10,
-          fontFamily: "var(--cam-font-sans)",
-          cursor: lockReason ? "not-allowed" : onClick ? "pointer" : "default",
-          transition: "background 0.15s ease",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            width: 25,
-            height: 25,
-            borderRadius: "var(--cam-radius-full, 9999px)",
-            display: "grid",
-            placeItems: "center",
-            fontSize: 11,
-            fontWeight: 700,
-            flexShrink: 0,
-            ...dotStyle,
-          }}
-        >
-          {dot}
-        </span>
-        <span style={{ flex: 1, minWidth: 0, lineHeight: 1.3, paddingTop: 3 }}>
-          <span
-            style={{
-              display: "block",
-              fontSize: "var(--cam-font-size-sm, 0.875rem)",
-              fontWeight: current ? 700 : 600,
-              color: state === "error"
-                ? "var(--cam-error)"
-                : lockReason
-                  ? "var(--cam-rail-upcoming)"
-                  : "var(--cam-text)",
-            }}
-          >
-            {title}
-            {lockReason && <span className="sr-only"> — {lockReason}</span>}
-          </span>
-          {detail && (
-            <span
-              style={{
-                display: "block",
-                marginTop: 2,
-                fontSize: "var(--cam-font-size-2xs)",
-                color: state === "error" ? "var(--cam-error)" : "var(--cam-text-muted)",
-              }}
-            >
-              {detail}
-            </span>
-          )}
-        </span>
-      </button>
+        ? "stateDone"
+        : state === "current" || state === "currentComplete"
+          ? "stateCurrent"
+          : state === "inProgress"
+            ? "stateInProgress"
+            : state === "error"
+              ? "stateError"
+              : state === "locked"
+                ? "stateLocked"
+                : "stateTodo",
     );
+
+  // "Tableau 1 sur 2" under the section in hand when it holds several tables.
+  const tableProgress = (section: OnefopSection): string | undefined => {
+    const { startsHeadingFieldIds } = computeSubsectionLayout(section, locale);
+    const tableFields = section.fields.filter(
+      (f) => startsHeadingFieldIds.has(f.id) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
+    );
+    if (tableFields.length <= 1) return undefined;
+    const active = activeTableId
+      ? tableFields.findIndex(
+          (f) =>
+            f.id.toLowerCase() === activeTableId.toLowerCase() ||
+            (f.paperCode && f.paperCode.toLowerCase() === activeTableId.toLowerCase())
+        )
+      : -1;
+    return t("tableProgress", { current: active >= 0 ? active + 1 : 1, total: tableFields.length });
   };
 
-  const scopeConfigured = Boolean(data._scopeConfig);
+  const steps: WizardStep[] = [];
+  sections.forEach((section, idx) => {
+    const isCurrent = !isValidationStage && !isScopeStage && idx === currentSectionIndex;
+    const status = statuses[idx];
+    const lockReason = sectionLockReason?.(idx) ?? null;
+    const state: WizardStepState =
+      status === "has-errors"
+        ? "error"
+        : isCurrent
+          ? status === "complete" ? "currentComplete" : "current"
+          : lockReason
+            ? "locked"
+            : status === "complete"
+              ? "done"
+              : status === "in-progress"
+                ? "inProgress"
+                : "todo";
+    steps.push({
+      key: section.id,
+      // Modern Jobs numbers its sections from 0, as the paper form does.
+      marker: idx,
+      name: stepTitle(localized(section.title, locale), idx),
+      state,
+      stateLabel: stateLabel(state),
+      detail: state === "error" ? t("stateError") : isCurrent ? tableProgress(section) : undefined,
+      lockReason,
+      onSelect: lockReason ? undefined : () => onSelectSection(idx),
+    });
+
+    if (idx === quizSlot?.previousSectionIndex && onSelectScope) {
+      const configured = Boolean(data._scopeConfig);
+      const quizState: WizardStepState = isScopeStage
+        ? configured ? "currentComplete" : "current"
+        : scopeLockReason
+          ? "locked"
+          : configured
+            ? "done"
+            : "todo";
+      steps.push({
+        key: "scope-configuration",
+        marker: "?",
+        name: t("quiz"),
+        state: quizState,
+        stateLabel: stateLabel(quizState),
+        lockReason: scopeLockReason,
+        onSelect: scopeLockReason ? undefined : onSelectScope,
+      });
+    }
+  });
+
+  if (onGoToValidation) {
+    const reviewState: WizardStepState = isValidationStage ? "current" : "todo";
+    steps.push({
+      key: "validation",
+      marker: sections.length,
+      name: t("review"),
+      state: reviewState,
+      stateLabel: stateLabel(reviewState),
+      onSelect: onGoToValidation,
+    });
+  }
 
   return (
-    <aside
-      aria-label={t("ariaLabel")}
-      style={{
-        width: "var(--vt-sidebar-width, 280px)",
-        flex: "0 0 var(--vt-sidebar-width, 280px)",
-        background: "var(--cam-surface-subtle)",
-        borderRight: "var(--cam-border-width, 1px) solid var(--cam-border)",
-        display: "flex",
-        flexDirection: "column",
-        // Pinned under the header: the sidebar stays in view while the
-        // tables scroll; its own section list scrolls if it is taller.
-        position: "sticky",
-        top: "var(--mj-header-h, 0px)",
-        alignSelf: "flex-start",
-        height: "calc(100vh - var(--mj-header-h, 0px))",
-        color: "var(--cam-text)",
-      }}
+    <WizardRail
+      sheet={sheet}
+      progress={{ done: completedCount, total: sections.length }}
     >
-      {/* Header: title + progress */}
-      <div style={{ padding: "24px 20px 8px" }}>
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 700,
-            letterSpacing: "0.02em",
-            color: "var(--cam-text)",
-          }}
-        >
-          {t("contents")}
-        </div>
-        <div
-          style={{
-            fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-            color: "var(--cam-text-muted)",
-            margin: "4px 0 10px",
-          }}
-        >
-          {progressLabel} · {progressPercent}%
-        </div>
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progressPercent}
-          aria-label={t("completedSections")}
-          style={{
-            height: 6,
-            background: "var(--cam-border-subtle)",
-            borderRadius: "var(--cam-radius-full, 9999px)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${progressPercent}%`,
-              background: "var(--cam-green)",
-              borderRadius: "var(--cam-radius-full, 9999px)",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Steps */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "14px 12px 12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-        }}
-      >
-        {sections.map((section, idx) => {
-          const isCurrent = !isValidationStage && !isScopeStage && idx === currentSectionIndex;
-          const status = getSectionStatus(section, data, issues);
-          const isComplete = status === "complete";
-          const hasError = status === "has-errors";
-
-          // Table progress for the active multi-table section (e.g. "En cours · 1/2")
-          const sectionTableProgress = (() => {
-            if (!isCurrent) return null;
-            const { startsHeadingFieldIds } = computeSubsectionLayout(section, locale);
-            const tableFields = section.fields.filter(
-              (f) => startsHeadingFieldIds.has(f.id) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
-            );
-            if (tableFields.length <= 1) return null;
-            const activeTableIndex = activeTableId
-              ? tableFields.findIndex(
-                  (f) =>
-                    f.id.toLowerCase() === activeTableId.toLowerCase() ||
-                    (f.paperCode && f.paperCode.toLowerCase() === activeTableId.toLowerCase())
-                )
-              : -1;
-            const currentNum = activeTableIndex >= 0 ? activeTableIndex + 1 : 1;
-            return { current: currentNum, total: tableFields.length };
-          })();
-
-          const state: StepState = hasError ? "error" : isCurrent ? "active" : isComplete ? "done" : "todo";
-          const dot = hasError ? "!" : isComplete && !isCurrent ? "✓" : String(idx);
-          const detail = hasError
-            ? t("statusToCorrect")
-            : isCurrent
-              ? `${t("statusInProgress")}${sectionTableProgress ? ` · ${sectionTableProgress.current}/${sectionTableProgress.total}` : ""}`
-              : isComplete
-                ? t("statusCompleted")
-                : status === "in-progress"
-                  ? t("statusInProgress")
-                  : undefined;
-
-          return (
-            <React.Fragment key={section.id}>
-              {renderStep({
-                key: section.id,
-                state,
-                dot,
-                title: stepTitle(localized(section.title, locale), idx),
-                detail,
-                onClick: () => onSelectSection(idx),
-                current: isCurrent,
-                lockReason: sectionLockReason?.(idx) ?? null,
-              })}
-
-              {/* Preliminary quiz between Section 1 and Section 2 */}
-              {idx === quizSlot?.previousSectionIndex && onSelectScope &&
-                renderStep({
-                  key: "scope-configuration",
-                  state: isScopeStage ? "active" : scopeConfigured ? "done" : "todo",
-                  dot: scopeConfigured && !isScopeStage ? "✓" : "?",
-                  title: t("quizTitle"),
-                  detail: isScopeStage
-                    ? t("statusInProgress")
-                    : scopeConfigured
-                      ? t("statusCompleted")
-                      : undefined,
-                  onClick: onSelectScope,
-                  current: isScopeStage,
-                  lockReason: scopeLockReason,
-                })}
-            </React.Fragment>
-          );
-        })}
-
-        {/* Final review & submission */}
-        {onGoToValidation &&
-          renderStep({
-            key: "validation",
-            state: isValidationStage ? "active" : "todo",
-            dot: String(sections.length),
-            title: t("reviewTitle"),
-            onClick: onGoToValidation,
-            current: isValidationStage,
-          })}
-
-        {/* Bottom User Avatar Pinned at bottom */}
-        <div
-          style={{
-            marginTop: "auto",
-            paddingTop: "var(--cam-space-4, 16px)",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <div
-            aria-label={t("userProfile")}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "var(--cam-radius-full, 9999px)",
-              background: "var(--cam-green-dark)",
-              color: "#ffffff",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "var(--cam-font-size-sm, 0.875rem)",
-              fontWeight: 700,
-              fontFamily: "var(--cam-font-sans)",
-            }}
-          >
-            N
-          </div>
-        </div>
-      </div>
-    </aside>
+      <WizardStepList label={tNav("ariaLabel")} steps={steps} editLabel={t("edit")} />
+    </WizardRail>
   );
 }

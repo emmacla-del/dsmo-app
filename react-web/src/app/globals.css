@@ -865,7 +865,7 @@ html:has(.cam-auth-page--wizard) {
 
 /* ── Split: the dossier panel beside the body ──
    On a narrow screen .flow-split is just the body, between the header and
-   the footer. From 1080px -- the panel, the 600px frame and their gutters
+   the footer. From 1024px -- the panel, the 600px frame and their gutters
    side by side -- the panel appears on the left and the header and footer
    go: the panel carries the identity, the navigation and the way out. */
 .cam-auth-page--wizard .flow-split {
@@ -877,25 +877,9 @@ html:has(.cam-auth-page--wizard) {
   display: none;
 }
 
-/* Never a scroller: one line per step summary, and the panel is sized to
-   fit six steps at 680px tall. overflow: hidden keeps a pathological
-   summary from growing a scrollbar of its own beside the page's.
-   Sticky at the top and one viewport tall, so the step list stays put while
-   the DOCUMENT scrolls a long section beside it. */
-.cam-auth-page--wizard .flow-panel {
-  flex: 0 0 var(--cam-container-compact);
-  width: var(--cam-container-compact);
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-  height: 100dvh;
-  flex-direction: column;
-  gap: var(--cam-space-5);
-  padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
-  background: var(--cam-surface);
-  border-right: var(--cam-border-width) solid var(--cam-border);
-  overflow: hidden;
-}
+/* The panel is the shared .cam-wizard-rail (WizardRail.tsx): same width,
+   frame and step list as the Modern Jobs and VT wizards. This file only
+   decides when it shows -- see the min-width rule below. */
 
 .cam-auth-page--wizard .flow-panel-identity {
   display: flex;
@@ -966,7 +950,7 @@ html:has(.cam-auth-page--wizard) {
 
 /* Wide: the dossier panel replaces the header and the footer. After the
    short-viewport rule above, so the body's padding here wins at 1366x680. */
-@media (min-width: 1080px) {
+@media (min-width: 1024px) {
   .cam-auth-page--wizard .flow-header,
   .cam-auth-page--wizard .flow-footer {
     display: none;
@@ -1867,7 +1851,7 @@ html:has(.cam-auth-page--wizard) {
 /* Complete: solid green, check mark, dark label. A check mark means complete
    and nothing else -- "Recapitulatif" is never complete from field state, so
    it can never show one before the registration has been sent. */
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-done .progress-step-circle {
+.cam-auth-page .progress-step-item.is-done .progress-step-circle {
   background: var(--cam-green);
   border-color: var(--cam-green);
   color: var(--cam-surface);
@@ -1884,8 +1868,8 @@ html:has(.cam-auth-page--wizard) {
 
 /* Current: a gold ring. Gold, not green, because green means "answered" and
    the section in hand is usually the one that is not. */
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-current .progress-step-circle,
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-currentComplete .progress-step-circle {
+.cam-auth-page .progress-step-item.is-current .progress-step-circle,
+.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
   box-shadow: var(--cam-focus-shadow-gold);
@@ -1894,7 +1878,7 @@ html:has(.cam-auth-page--wizard) {
 /* Current AND complete -- the respondent came back to an answered section.
    The gold ring says "you are here", the soft green fill says "this one is
    done": two facts, two channels, no check mark competing with the ring. */
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-currentComplete .progress-step-circle {
+.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
   background: var(--cam-success-bg);
   color: var(--cam-green-dark);
 }
@@ -1909,7 +1893,7 @@ html:has(.cam-auth-page--wizard) {
    point -- it is the same gold as "you are here" but visibly unfinished, so
    an abandoned section is distinguishable from the current one at a glance
    and still reads as somewhere to go back to. */
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-revealed .progress-step-circle {
+.cam-auth-page .progress-step-item.is-revealed .progress-step-circle {
   border-style: dashed;
   border-color: var(--cam-gold);
   color: var(--cam-gold-dark);
@@ -1921,7 +1905,7 @@ html:has(.cam-auth-page--wizard) {
 
 /* Not revealed yet: grey and disabled. Shown rather than hidden, because
    "six steps, three to go" is worth knowing. */
-.cam-auth-page :is(.progress-step-item, .step-list-item).is-locked .progress-step-circle {
+.cam-auth-page .progress-step-item.is-locked .progress-step-circle {
   background: var(--cam-surface-subtle);
   border-color: var(--cam-border);
   color: var(--cam-border-strong);
@@ -1943,117 +1927,6 @@ html:has(.cam-auth-page--wizard) {
   outline: 2px solid var(--cam-focus);
   outline-offset: 3px;
   border-radius: var(--cam-radius-md);
-}
-
-/* ── Dossier panel step list (RegistrationStepList.tsx) ──
-   The same six steps and the same circle states as the rail above (the
-   state rules there match both), laid out vertically so each finished step
-   has room to say what it holds. Wide screens only -- see .flow-panel. */
-.cam-auth-page .step-list-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.cam-auth-page .step-list-item {
-  position: relative;
-}
-
-/* The connector, from just under one circle to just above the next. 14px is
-   the centre of the 30px circle less half the line; the top is the item's
-   padding plus the circle, and both ends keep a hairline clear. */
-.cam-auth-page .step-list-item:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: calc(var(--cam-space-2) + 30px + var(--cam-space-hairline));
-  bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
-  width: 2px;
-  background: var(--cam-border);
-}
-
-.cam-auth-page .step-list-item.is-done:not(:last-child)::after {
-  background: var(--cam-green);
-}
-
-.cam-auth-page .step-list-button {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  column-gap: var(--cam-space-3);
-  align-items: center;
-  width: 100%;
-  padding: var(--cam-space-2) 0;
-  background: none;
-  border: none;
-  font-family: inherit;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-
-/* A locked item still takes a click -- it answers "why can't I go there?" --
-   so it keeps the pointer, as the rail's does. */
-.cam-auth-page .step-list-button[aria-disabled="true"] {
-  cursor: pointer;
-}
-
-.cam-auth-page .step-list-button:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 2px;
-  border-radius: var(--cam-radius-md);
-}
-
-.cam-auth-page .step-list-button:not([aria-disabled="true"]):hover .progress-step-circle {
-  border-color: var(--cam-green);
-}
-
-.cam-auth-page .step-list-name {
-  font-size: var(--cam-font-size-sm);
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-text);
-  line-height: var(--cam-line-height-ui);
-  min-width: 0;
-}
-
-.cam-auth-page .step-list-item:is(.is-current, .is-currentComplete) .step-list-name {
-  color: var(--cam-green);
-  font-weight: var(--cam-font-weight-bold);
-}
-
-.cam-auth-page .step-list-item.is-revealed .step-list-name {
-  color: var(--cam-text-muted);
-}
-
-/* Same reasoning as the rail's locked label: the name stays readable. */
-.cam-auth-page .step-list-item.is-locked .step-list-name {
-  color: var(--cam-rail-upcoming);
-  font-weight: var(--cam-font-weight-medium);
-}
-
-/* Underlined, because it is how a finished step is reached again. The
-   whole row is the button; this is the visible word for what it does. */
-.cam-auth-page .step-list-edit {
-  font-size: var(--cam-font-size-xs);
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-green);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-/* One line, whatever the answers: the panel must never scroll, so a long
-   summary truncates rather than wraps. The full text is in the button's
-   accessible name. */
-.cam-auth-page .step-list-summary {
-  grid-column: 2 / -1;
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-  line-height: var(--cam-line-height-ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
 /* Said once, when the first circle turns green and the rail stops being a
@@ -2194,6 +2067,318 @@ html:has(.cam-auth-page--wizard) {
   font-size: var(--cam-microcopy-size);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-microcopy-color);
+}
+
+/* ── Wizard rail (WizardRail.tsx, WizardStepList.tsx) ──
+   The one side navigation of every respondent wizard: registration, Modern
+   Jobs, VT (owner, 2026-10-10). Same frame, same step list, same states.
+   The staff console's dark rail is site navigation, not form progress, and
+   keeps its own classes in admin-console.css.
+
+   Step states, one meaning each:
+     done             green circle, check mark    -- complete
+     current          gold ring                   -- the step in hand
+     currentComplete  gold ring on a green fill   -- in hand, and complete
+     inProgress       dashed gold ring            -- started, not finished
+     todo             grey ring, number           -- open, not started
+     error            red ring, "!"               -- answers to correct
+     locked           grey fill                   -- not open yet
+   Gold, not green, marks "you are here", because green means "answered"
+   and the step in hand is usually the one that is not. */
+.cam-wizard-rail {
+  position: sticky;
+  top: var(--cam-wizard-rail-top, 0px);
+  align-self: flex-start;
+  flex: 0 0 var(--cam-wizard-rail-width);
+  width: var(--cam-wizard-rail-width);
+  height: calc(100dvh - var(--cam-wizard-rail-top, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+  padding: var(--cam-space-5) var(--cam-space-4) var(--cam-space-4);
+  background: var(--cam-surface);
+  border-right: var(--cam-border-width) solid var(--cam-border);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+  /* Scrolls on its own only when an open outline outgrows a short screen. */
+  overflow-y: auto;
+}
+
+/* In a phone drawer the sheet is the frame: no stickiness, width or edge. */
+.cam-wizard-rail--sheet {
+  position: static;
+  width: auto;
+  height: auto;
+  flex: none;
+  padding: 0;
+  border-right: none;
+  overflow: visible;
+}
+
+.cam-wizard-rail-title {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+}
+
+.cam-wizard-rail-progress {
+  margin: var(--cam-space-1) 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+}
+
+.cam-wizard-rail-bar {
+  height: 6px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border-subtle);
+  overflow: hidden;
+}
+
+.cam-wizard-rail-bar-fill {
+  height: 100%;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-green);
+  transition: width 0.3s ease;
+}
+
+.cam-wizard-rail-foot {
+  margin-top: auto;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+/* ── Step list ── */
+.cam-steps-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-step {
+  position: relative;
+}
+
+/* The connector, from just under one circle to just above the next. 14px is
+   the centre of the 30px circle less half the line. */
+.cam-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: calc(var(--cam-space-2) + 30px + var(--cam-space-hairline));
+  bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
+  width: 2px;
+  background: var(--cam-border);
+}
+
+.cam-step.is-done:not(:last-child)::after {
+  background: var(--cam-green);
+}
+
+.cam-step-button {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  column-gap: var(--cam-space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--cam-space-2) 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* A step with nothing to do on click (the wizard locks it and says why in
+   the title) does not pretend to be a link. */
+.cam-step-button[data-inert] {
+  cursor: not-allowed;
+}
+
+.cam-step-button:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-md);
+}
+
+.cam-step-marker {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cam-radius-full);
+  border: 2px solid var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cam-step-button:not([aria-disabled="true"]):hover .cam-step-marker {
+  border-color: var(--cam-green);
+}
+
+.cam-step.is-done .cam-step-marker {
+  background: var(--cam-green);
+  border-color: var(--cam-green);
+  color: var(--cam-surface);
+}
+
+.cam-step:is(.is-current, .is-currentComplete) .cam-step-marker {
+  border-color: var(--cam-gold);
+  color: var(--cam-gold-dark);
+  box-shadow: var(--cam-focus-shadow-gold);
+}
+
+.cam-step.is-currentComplete .cam-step-marker {
+  background: var(--cam-success-bg);
+  color: var(--cam-green-dark);
+}
+
+.cam-step.is-inProgress .cam-step-marker {
+  border-style: dashed;
+  border-color: var(--cam-gold);
+  color: var(--cam-gold-dark);
+}
+
+.cam-step.is-error .cam-step-marker {
+  background: var(--cam-error-bg);
+  border-color: var(--cam-error);
+  color: var(--cam-error);
+}
+
+.cam-step.is-locked .cam-step-marker {
+  background: var(--cam-surface-subtle);
+  border-color: var(--cam-border);
+  color: var(--cam-border-strong);
+}
+
+.cam-step-name {
+  min-width: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+}
+
+.cam-step:is(.is-current, .is-currentComplete) .cam-step-name {
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-step.is-inProgress .cam-step-name {
+  color: var(--cam-text-muted);
+}
+
+.cam-step.is-error .cam-step-name {
+  color: var(--cam-error);
+}
+
+/* The name of a step not open yet stays readable: it is the only place the
+   steps are named. See --cam-rail-upcoming. */
+.cam-step.is-locked .cam-step-name {
+  color: var(--cam-rail-upcoming);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+/* Underlined, because it is how a finished step is reached again. */
+.cam-step-edit {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* One line: a long summary truncates rather than wraps. The full text is in
+   the button's accessible name. */
+.cam-step-detail {
+  grid-column: 2 / -1;
+  min-width: 0;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cam-step.is-error .cam-step-detail {
+  color: var(--cam-error);
+}
+
+/* ── Section outline, under the step in hand (VT) ── */
+.cam-step-outline-progress {
+  margin: 0 0 var(--cam-space-2) calc(30px + var(--cam-space-3));
+}
+
+.cam-step-outline {
+  margin: 0 0 var(--cam-space-2) calc(30px + var(--cam-space-3));
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+}
+
+.cam-step-outline-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: var(--cam-space-2);
+  align-items: start;
+  width: 100%;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  background: none;
+  border: none;
+  border-radius: var(--cam-radius-md);
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cam-step-outline-row[aria-current="true"] {
+  background: var(--cam-success-bg);
+}
+
+.cam-step-outline-row:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+}
+
+.cam-step-outline-icon {
+  display: inline-flex;
+  margin-top: var(--cam-space-hairline);
+  color: var(--cam-step-outline-tone, var(--cam-text-muted));
+}
+
+.cam-step-outline-label {
+  display: block;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-label);
+  color: var(--cam-text);
+}
+
+.cam-step-outline-row[aria-current="true"] .cam-step-outline-label {
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-step-outline-status {
+  display: block;
+  font-size: var(--cam-microcopy-size);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-step-outline-tone, var(--cam-text-muted));
 }
 
 /* Sovereign Forms Input & Control System
