@@ -238,10 +238,16 @@ export class ActorSummaryService {
     const ids = users.map((user) => user.id);
     const staleBefore = new Date(now.getTime() - STALE_AFTER_DAYS * DAY_MS);
 
+    // Six reads plus getCoverage's, at most three in flight (was five in one
+    // Promise.all, one of them getCoverage, whose own final pair could overlap
+    // the other four: six at once). The pooler runs in session mode with a
+    // tenant pool of 15 and Prisma opens one connection per concurrent query,
+    // so wide fan-outs on admin screens exhausted it (EMAXCONNSESSION). The
+    // queries and their filters are unchanged; only their timing is.
+    //
     // One groupBy per (user, action) yields both the latest action of any kind
-    // and the latest decision, without a sixth parallel query against the
-    // session-mode pool.
-    const [lastActions, decisionRows, fieldRows, backlogRows, coverage] = await Promise.all([
+    // and the latest decision, so no separate latest-decision query is needed.
+    const [lastActions, decisionRows, backlogRows] = await Promise.all([
       this.prisma.auditLog.groupBy({
         by: ['userId', 'action'],
         where: { userId: { in: ids } },
@@ -252,26 +258,35 @@ export class ActorSummaryService {
         select: { userId: true, action: true, resourceType: true, resourceId: true, timestamp: true },
       }),
       this.prisma.user.findMany({
-        where: { createdBy: { in: ids }, registrationMethod: 'ASSISTED', createdAt: { gte: start, lte: now } },
-        select: { createdBy: true, createdAt: true, _count: { select: { onefopSubmissions: true } } },
-      }),
-      this.prisma.user.findMany({
         where: { assigneeId: { in: ids }, status: { in: [...BACKLOG_STATUSES] } },
         select: { assigneeId: true, createdAt: true },
       }),
-      this.loadCoverage(now),
     ]);
 
     // Days-to-decision needs when each decided registration was filed.
     const registrantIds = [
       ...new Set(decisionRows.filter((row) => row.resourceType === 'User').map((row) => row.resourceId)),
     ];
-    const registrants = registrantIds.length
-      ? await this.prisma.user.findMany({
-          where: { id: { in: registrantIds } },
-          select: { id: true, createdAt: true },
-        })
-      : [];
+
+    // getCoverage reads one query at a time except for a final pair, so it
+    // holds at most two connections; the field read, then the registrant
+    // read, share the third.
+    const [coverage, { fieldRows, registrants }] = await Promise.all([
+      this.loadCoverage(now),
+      (async () => {
+        const fieldRows = await this.prisma.user.findMany({
+          where: { createdBy: { in: ids }, registrationMethod: 'ASSISTED', createdAt: { gte: start, lte: now } },
+          select: { createdBy: true, createdAt: true, _count: { select: { onefopSubmissions: true } } },
+        });
+        const registrants = registrantIds.length
+          ? await this.prisma.user.findMany({
+              where: { id: { in: registrantIds } },
+              select: { id: true, createdAt: true },
+            })
+          : [];
+        return { fieldRows, registrants };
+      })(),
+    ]);
     const filedAt = new Map(registrants.map((row) => [row.id, row.createdAt]));
 
     return users.map((user) => {
