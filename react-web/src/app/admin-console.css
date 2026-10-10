@@ -879,7 +879,9 @@
 .cam-admin-page > .cam-admin-page-header,
 .cam-admin-page > .cam-admin-views,
 .cam-admin-page > .cam-pilot-kpis,
-.cam-admin-page > .cam-pagination {
+.cam-admin-page > .cam-pagination,
+.cam-admin-page > .cam-admin-lede,
+.cam-admin-page > .cam-target-actions {
   margin-block: 0;
 }
 
@@ -1241,12 +1243,18 @@
 /* In-page view switch (ViewSwitch): the views or filters of one page, under
    the hub tabs. Text items, the active one underlined — not tab-styled, so it
    does not read as a second navigation row. */
+/* overflow-x: auto lets a long view list scroll sideways on a phone, but it
+   also makes the block axis a scroll axis. The rule line is therefore an
+   inset shadow, not a border the items overlap with a negative margin: that
+   1px overlap made every view bar 1px taller than itself and drew a
+   vertical scrollbar beside the views. The active item's underline paints
+   over the shadow. */
 .cam-admin-views {
   display: flex;
   align-items: center;
   gap: var(--cam-space-5);
   overflow-x: auto;
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  box-shadow: inset 0 calc(-1 * var(--cam-border-width)) 0 var(--cam-border);
   margin-bottom: var(--cam-space-4);
 }
 
@@ -1255,7 +1263,6 @@
   align-items: center;
   gap: var(--cam-space-2);
   padding: var(--cam-space-2) 0;
-  margin-bottom: calc(-1 * var(--cam-border-width));
   border: none;
   border-bottom: 2px solid transparent;
   background: none;

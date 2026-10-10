@@ -430,7 +430,7 @@ function QuotasPanel({
   return (
     <>
       {canList && (
-        <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
+        <label className="cam-target-year">
           {t("onefopCampaignLabel")}
           <select
             className="cam-select"
@@ -459,7 +459,7 @@ function QuotasPanel({
         </label>
       )}
       {selectedCampaign && (
-        <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
+        <p className="cam-admin-meta" style={{ margin: 0 }}>
           {isRegistrationCampaign(selectedCampaign)
             ? <>{t("registrationTargetsNoteBefore")} <Link href={coverageHref(null)}>{t("registrationTargetsNoteLink")}</Link> {t("registrationTargetsNoteAfter")}</>
             : t("declarationQuotasNote")}
@@ -549,7 +549,7 @@ function ReturnsPanel({
   return (
     <>
       {canList && (
-        <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
+        <label className="cam-target-year">
           {t("onefopCollectionCampaignLabel")}
           <select
             className="cam-select"

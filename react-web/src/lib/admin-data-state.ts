@@ -297,12 +297,22 @@ export function resolveDataState(input: DataStateInput): DataState {
   return "ready";
 }
 
+// "de" + an article-led resource, contracted as French requires: de + les
+// is "des", de + le is "du". Resources are passed with their article ("les
+// dossiers", "le journal d'audit"), and a plain "de " prefix rendered
+// "Chargement de les dossiers" on every admin page.
+export function frenchDe(resource: string): string {
+  if (resource.startsWith("les ")) return "des " + resource.slice(4);
+  if (resource.startsWith("le ")) return "du " + resource.slice(3);
+  return "de " + resource;
+}
+
 /** Human message for a non-ready state. `null` for `ready`. */
 export function dataStateMessage(state: DataState, resource: string, locale: UiLocale = "fr"): string | null {
   const en = locale === "en";
   switch (state) {
     case "loading":
-      return en ? `Loading ${resource}…` : `Chargement de ${resource}…`;
+      return en ? `Loading ${resource}…` : `Chargement ${frenchDe(resource)}…`;
     case "forbidden":
       return en
         ? "Access denied. Your role does not allow you to view this data."
