@@ -81,6 +81,15 @@ function getOnefopStatusLabel(t: Translator, status: string): string {
   return map[status] ?? status;
 }
 
+// The .cam-badge variant that names each group's status.
+const GROUP_BADGE: Record<Group, string> = {
+  draft: "cam-badge-neutral",
+  pending: "cam-badge-info",
+  approved: "cam-badge-success",
+  rejected: "cam-badge-error",
+  correction: "cam-badge-warning",
+};
+
 const GROUP_COLOR: Record<Group, string> = {
   draft: "var(--cam-text-muted)",
   pending: "var(--cam-info)",
@@ -284,28 +293,28 @@ export default function CompanyDeclarationsPage() {
     // two measures — 600 wizard, 940 content — rather than a third.
     <div style={{ maxWidth: "var(--vt-content-max)", margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--cam-space-3)", marginBottom: "var(--cam-space-5)" }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "var(--cam-text)" }}>
+          <h1 style={{ margin: 0, fontSize: "var(--cam-font-size-xl)", fontWeight: 700, color: "var(--cam-text)" }}>
             {t("homeDeclarationsPage.pageTitle")}
           </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--cam-text-muted)" }}>
+          <p style={{ margin: "var(--cam-space-1) 0 0", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
             {t("homeDeclarationsPage.pageSubtitle")}
           </p>
         </div>
         <button
+          type="button"
           className="cam-button cam-button-primary"
           onClick={() => setIsNewDialogOpen(true)}
-          style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+          style={{ whiteSpace: "nowrap" }}
         >
-          <span style={{ fontSize: 18, lineHeight: 1 }}>＋</span>
           {t("homeDeclarationsPage.newDeclarationButton")}
         </button>
       </div>
 
       {/* Summary cards */}
       {!loading && !error && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(10rem, 1fr))", gap: "var(--cam-space-3)", marginBottom: "var(--cam-space-5)" }}>
           <SummaryCard label={t("homeDeclarationsPage.statusSubmitted")} value={submittedCount} tone="info" />
           <SummaryCard label={t("homeDeclarationsPage.statusPendingReview")} value={underReviewCount} tone="info" />
           <SummaryCard label={t("homeDeclarationsPage.summaryApprovedLabel")} value={approvedCount} tone="success" />
@@ -315,51 +324,56 @@ export default function CompanyDeclarationsPage() {
 
       {/* Toolbar — filter chips + search + campaign selector */}
       {!loading && !error && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+        <div style={{ marginBottom: "var(--cam-space-4)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-3)" }}>
             {chipDefs.map((c) => (
               <button
                 key={c.label}
+                type="button"
+                aria-pressed={groupFilter === c.value}
                 onClick={() => setGroupFilter(c.value)}
                 style={{
-                  padding: "4px 14px",
-                  borderRadius: 20,
-                  border: `1.5px solid ${groupFilter === c.value ? c.color : "var(--cam-border)"}`,
+                  padding: "var(--cam-space-1) var(--cam-space-3)",
+                  borderRadius: "var(--cam-radius-full)",
+                  border: `var(--cam-border-width) solid ${groupFilter === c.value ? c.color : "var(--cam-border-strong)"}`,
                   background: groupFilter === c.value ? c.color : "transparent",
-                  color: groupFilter === c.value ? "#fff" : "var(--cam-text)",
-                  fontSize: 13,
+                  color: groupFilter === c.value ? "var(--cam-surface)" : "var(--cam-text)",
+                  fontSize: "var(--cam-font-size-xs)",
                   cursor: "pointer",
                   fontWeight: groupFilter === c.value ? 600 : 400,
-                  transition: "all 0.15s",
                 }}
               >
                 {c.label}
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-2)", alignItems: "center" }}>
             <input
               className="cam-input"
               placeholder={t("homeDeclarationsPage.searchPlaceholder")}
+              aria-label={t("homeDeclarationsPage.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, fontSize: 13 }}
+              style={{ flex: "1 1 14rem", width: "auto", minWidth: 0 }}
             />
             <select
               className="cam-input"
               value={campaignFilter}
+              aria-label={t("homeDeclarationsPage.allCampaignsOption")}
               onChange={(e) => setCampaignFilter(e.target.value as "ALL" | Stream)}
-              style={{ width: 160, fontSize: 13 }}
+              style={{ flex: "0 1 10rem", width: "auto" }}
             >
               <option value="ALL">{t("homeDeclarationsPage.allCampaignsOption")}</option>
               <option value="DSMO">{t("homeDeclarationsPage.dsmoOption")}</option>
               <option value="ONEFOP">{t("homeDeclarationsPage.onefopOption")}</option>
             </select>
             <button
+              type="button"
               className="cam-button cam-button-secondary"
               onClick={load}
               title={t("homeDeclarationsPage.refreshTitle")}
-              style={{ padding: "8px 12px" }}
+              aria-label={t("homeDeclarationsPage.refreshTitle")}
+              style={{ padding: "0 var(--cam-space-3)" }}
             >
               ↻
             </button>
@@ -369,7 +383,7 @@ export default function CompanyDeclarationsPage() {
 
       {/* Body */}
       {loading && (
-        <div style={{ textAlign: "center", padding: 48, color: "var(--cam-text-muted)" }}>
+        <div style={{ textAlign: "center", padding: "var(--cam-space-7)", color: "var(--cam-text-muted)" }}>
           {t("common.loading")}
         </div>
       )}
@@ -377,9 +391,10 @@ export default function CompanyDeclarationsPage() {
         <div className="cam-error-box" style={{ marginBottom: 16 }}>
           {error}
           <button
-            className="cam-button cam-button-secondary"
+            type="button"
+            className="cam-button cam-button-secondary cam-button-sm"
             onClick={load}
-            style={{ marginLeft: 16, fontSize: 12 }}
+            style={{ marginLeft: "var(--cam-space-4)" }}
           >
             {t("common.retry")}
           </button>
@@ -390,9 +405,9 @@ export default function CompanyDeclarationsPage() {
       )}
       {!loading && !error && filtered.length > 0 && (
         <div>
-          <p style={{ fontSize: 13, color: "var(--cam-text-muted)", marginBottom: 10 }}>
+          <h2 style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-2)" }}>
             {t("homeDeclarationsPage.historyLabel")}
-          </p>
+          </h2>
           {filtered.map((entry) => (
             <DeclarationTile
               key={entry.id}
@@ -445,96 +460,76 @@ function DeclarationTile({
   const statusLabel = entry.stream === "DSMO"
     ? getDsmoStatusLabel(t, entry.status)
     : getOnefopStatusLabel(t, entry.status);
-  const color = GROUP_COLOR[entry.group];
-
+  // A ruled row, not a card: the history reads as one list.
   return (
     <div style={{
-      background: "var(--cam-surface)",
-      border: "1px solid var(--cam-border)",
-      borderRadius: 10,
-      padding: "14px 18px",
-      marginBottom: 8,
+      padding: "var(--cam-space-3) 0",
+      borderBottom: "var(--cam-border-width) solid var(--cam-border)",
       display: "flex",
+      flexWrap: "wrap",
       alignItems: "center",
-      gap: 14,
+      gap: "var(--cam-space-3)",
     }}>
-      {/* Stream badge */}
-      <div style={{
-        padding: "3px 9px",
-        borderRadius: 6,
-        background: entry.stream === "DSMO" ? "var(--cam-accent-soft)" : "#f0fdf4",
-        color: entry.stream === "DSMO" ? "var(--cam-accent)" : "#16a34a",
-        fontSize: 11,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}>
-        {entry.stream}
-      </div>
+      {/* Stream: the programme's name, neutral; the status badge carries the colour. */}
+      <span className="cam-badge cam-badge-neutral" style={{ flexShrink: 0 }}>
+        {entry.stream === "DSMO" ? t("homeDeclarationsPage.dsmoOption") : t("homeDeclarationsPage.onefopOption")}
+      </span>
 
-      {/* Title + meta + correction banner */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "var(--cam-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {/* Title + meta + correction notice */}
+      <div style={{ flex: "1 1 auto", minWidth: 0, maxWidth: "100%" }}>
+        <div style={{ fontWeight: 600, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {entry.subtitle}
         </div>
-        <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>
+        <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
           {formatDate(entry.date, t)} · {t("homeDeclarationsPage.periodLabel", { period: entry.period })}
         </div>
         {entry.status === "CORRECTION_REQUESTED" && (
           <div style={{
-            marginTop: 8,
-            padding: "8px 12px",
-            borderRadius: 6,
-            background: "#fffbeb",
-            border: "1px solid #fde68a",
-            color: "#92400e",
-            fontSize: 12,
-            lineHeight: 1.4,
+            marginTop: "var(--cam-space-2)",
+            padding: "var(--cam-space-2) var(--cam-space-3)",
+            borderRadius: "var(--cam-radius-sm)",
+            background: "var(--cam-warning-bg)",
+            border: "var(--cam-border-width) solid var(--cam-warning-border)",
+            color: "var(--cam-text)",
+            fontSize: "var(--cam-font-size-2xs)",
+            whiteSpace: "normal",
           }}>
-            <strong style={{ display: "block", marginBottom: 2 }}>{t("homeDeclarationsPage.correctionRequestedTitle")}</strong>
-            <span>{(entry.raw as any).rejectionReason || t("homeDeclarationsPage.correctionRequestedFallback")}</span>
+            <strong style={{ display: "block" }}>{t("homeDeclarationsPage.correctionRequestedTitle")}</strong>
+            <span>{(entry.raw as { rejectionReason?: string | null }).rejectionReason || t("homeDeclarationsPage.correctionRequestedFallback")}</span>
           </div>
         )}
       </div>
 
-      {/* Status pill */}
-      <div style={{
-        padding: "3px 10px",
-        borderRadius: 20,
-        border: `1.5px solid ${color}`,
-        color,
-        fontSize: 11,
-        fontWeight: 600,
-        flexShrink: 0,
-        whiteSpace: "nowrap",
-      }}>
+      {/* Status */}
+      <span className={`cam-badge ${GROUP_BADGE[entry.group]}`} style={{ flexShrink: 0 }}>
         {statusLabel}
-      </div>
+      </span>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: "var(--cam-space-2)", flexShrink: 0 }}>
         {onCorrect && (
           <button
-            className="cam-button cam-button-primary"
+            type="button"
+            className="cam-button cam-button-primary cam-button-sm"
             onClick={onCorrect}
-            style={{ fontSize: 12, padding: "5px 12px", background: "#d97706", borderColor: "#d97706", color: "#fff", fontWeight: 600 }}
           >
             {t("homeDeclarationsPage.correctAndResubmit")}
           </button>
         )}
         {onContinue && (
           <button
-            className="cam-button cam-button-secondary"
+            type="button"
+            className="cam-button cam-button-secondary cam-button-sm"
             onClick={onContinue}
-            style={{ fontSize: 12, padding: "5px 12px" }}
           >
             {t("homeDeclarationsPage.continueButton")}
           </button>
         )}
         {hasPdf && (
           <button
-            className="cam-button cam-button-secondary"
+            type="button"
+            className="cam-button cam-button-secondary cam-button-sm"
             onClick={onPdf}
-            style={{ fontSize: 12, padding: "5px 12px" }}
             title={t("homeDeclarationsPage.downloadPdfTitle")}
           >
             {t("homeDeclarationsPage.pdfButtonLabel")}
@@ -548,18 +543,17 @@ function DeclarationTile({
 function EmptyState({ hasEntries, onNew }: { hasEntries: boolean; onNew: () => void }) {
   const t = useTranslations();
   return (
-    <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--cam-text-muted)" }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
-      <p style={{ fontWeight: 600, color: "var(--cam-text)", marginBottom: 6 }}>
+    <div style={{ textAlign: "center", padding: "var(--cam-space-7) var(--cam-space-5)", color: "var(--cam-text-muted)" }}>
+      <p style={{ fontWeight: 600, color: "var(--cam-text)", marginBottom: "var(--cam-space-2)" }}>
         {hasEntries ? t("homeDeclarationsPage.emptyNoResultsTitle") : t("homeDeclarationsPage.emptyNoDeclarationsTitle")}
       </p>
-      <p style={{ fontSize: 13, marginBottom: 20 }}>
+      <p style={{ fontSize: "var(--cam-font-size-sm)", marginBottom: "var(--cam-space-5)" }}>
         {hasEntries
           ? t("homeDeclarationsPage.emptyNoResultsBody")
           : t("homeDeclarationsPage.emptyNoDeclarationsBody")}
       </p>
       {!hasEntries && (
-        <button className="cam-button cam-button-primary" onClick={onNew}>
+        <button type="button" className="cam-button cam-button-primary" onClick={onNew}>
           {t("homeDeclarationsPage.newDeclarationButton")}
         </button>
       )}

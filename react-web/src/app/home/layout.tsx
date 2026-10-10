@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ApiError, getCachedUser, getMyAttestation } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -14,6 +14,8 @@ import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions } from "@/lib/shared-queries";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useIsClient } from "@/lib/use-is-client";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
+import { asUiLocale } from "@/lib/register-i18n";
 
 /**
  * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
@@ -31,6 +33,7 @@ import { useIsClient } from "@/lib/use-is-client";
  */
 export default function HomeLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
+  const uiLocale = asUiLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const authState = useRequireAuth();
@@ -134,7 +137,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           onClick={() => setMenuOpen(true)}
         >
           <span aria-hidden="true">☰</span>
-          <span aria-hidden="true">Menu</span>
+          <span aria-hidden="true">{t("homeLayout.menuLabel")}</span>
         </button>
         <span style={{ fontWeight: 800, fontSize: "var(--cam-font-size-sm)" }}>CAM-LEAP · MINEFOP</span>
       </div>
@@ -143,35 +146,39 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         id="cam-home-rail"
         ref={railRef}
         className="cam-home-rail"
-        {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" } : {})}
+        {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": t("homeLayout.menuLabel") } : {})}
       >
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--cam-border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 6, background: "var(--cam-green)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 11 }}>
+        <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "var(--cam-radius-md)", background: "var(--cam-green)", color: "var(--cam-surface)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: "var(--cam-font-size-3xs)" }}>
               R.C.
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: "13px", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
-              <div style={{ fontSize: "11px", color: "var(--cam-text-muted)" }}>
-                {quarterQuery.data?.label ?? quarterQuery.data?.code ?? t("homeLayout.currentCampaign")}
+              <div style={{ fontWeight: 800, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
+              {/* The period in words ("4e trimestre 2026"), never the stored
+                  campaign code; the server's label comes first when it has one. */}
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+                {quarterQuery.data?.label
+                  ?? (quarterQuery.data?.code ? referencePeriodLabel(quarterQuery.data.code, uiLocale) : null)
+                  ?? t("homeLayout.currentCampaign")}
               </div>
               {/* A closed period must not read as the live campaign. The
                   badge otherwise shows the round's label either way, which
                   is the one always-visible place a respondent would still
                   infer the campaign is collecting. */}
               {quarterQuery.data?.isOpen === false && (
-                <div style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--cam-warning)", marginTop: 1 }}>
+                <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, color: "var(--cam-warning)" }}>
                   {t("homeLayout.periodClosed")}
                 </div>
               )}
             </div>
           </div>
           {user && (
-            <div style={{ marginTop: 12, padding: "8px 10px", background: "var(--cam-bg)", borderRadius: 6, border: "1px solid var(--cam-border)" }}>
-              <div style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--cam-text)", overflowWrap: "break-word" }}>
+            <div style={{ marginTop: "var(--cam-space-3)" }}>
+              <div style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)", overflowWrap: "break-word" }}>
                 {user.email}
               </div>
-              <div style={{ fontSize: "10.5px", color: "var(--cam-green)", fontWeight: 700, marginTop: 2 }}>
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                 {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
               </div>
             </div>
@@ -180,30 +187,21 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
 
         {/* Global New Declaration CTA button: EXCLUSIVELY for COMPANY roles */}
         {user?.role === "COMPANY" && (
-          <div style={{ padding: "12px 16px 4px" }}>
+          <div style={{ padding: "var(--cam-space-3) var(--cam-space-4) var(--cam-space-1)" }}>
             <button
               type="button"
               onClick={() => {
                 setMenuOpen(false);
                 setIsNewDeclarationOpen(true);
               }}
-              className="cam-button cam-button-primary cam-button-block"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                fontSize: 12.5,
-                padding: "8px 12px",
-              }}
+              className="cam-button cam-button-primary cam-button-block cam-button-sm"
             >
-              <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span>
               {t("homeLayout.newDeclarationButton")}
             </button>
           </div>
         )}
 
-        <nav style={{ flex: 1, padding: "8px 0", overflowY: "auto" }}>
+        <nav style={{ flex: 1, padding: "var(--cam-space-2) 0", overflowY: "auto" }}>
           {navItems.map((item) => {
             const href = item.route ?? `/home/${item.slug}`;
             const active = item.route ? pathname === item.route : pathname === `/home/${item.slug}`;
@@ -212,17 +210,17 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 key={item.slug}
                 href={href}
                 onClick={() => setMenuOpen(false)}
+                aria-current={active ? "page" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "10px 20px",
-                  fontSize: "12.5px",
+                  padding: "var(--cam-space-2) var(--cam-space-4)",
+                  fontSize: "var(--cam-font-size-sm)",
                   color: active ? "var(--cam-green)" : "var(--cam-text)",
-                  background: active ? "rgba(0, 122, 94, 0.08)" : "transparent",
+                  background: active ? "var(--cam-green-wash)" : "transparent",
                   borderLeft: active ? "3px solid var(--cam-green)" : "3px solid transparent",
                   textDecoration: "none",
                   fontWeight: active ? 700 : 500,
-                  transition: "all 0.15s ease",
                 }}
               >
                 {t(item.labelKey)}

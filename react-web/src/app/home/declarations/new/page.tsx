@@ -49,18 +49,18 @@ const accent = "var(--cam-accent)";
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div style={{ margin: "20px 0 8px", fontWeight: 700, fontSize: 13, color: accent, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `2px solid ${accent}`, paddingBottom: 4 }}>
+    <h2 style={{ margin: "var(--cam-space-5) 0 var(--cam-space-2)", fontWeight: 700, fontSize: "var(--cam-font-size-base)", color: "var(--cam-text)" }}>
       {title}
-    </div>
+    </h2>
   );
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ display: "block", fontSize: 12, color: "var(--cam-text-muted)", marginBottom: 4, fontWeight: 500 }}>{label}</label>
+    <div style={{ marginBottom: "var(--cam-space-3)" }}>
+      <label style={{ display: "block", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", marginBottom: "var(--cam-space-1)", fontWeight: 500 }}>{label}</label>
       {children}
-      {error && <div style={{ color: "var(--cam-error)", fontSize: 11, marginTop: 2 }}>{error}</div>}
+      {error && <div style={{ color: "var(--cam-error)", fontSize: "var(--cam-font-size-xs)", marginTop: "var(--cam-space-1)" }}>{error}</div>}
     </div>
   );
 }
@@ -78,7 +78,6 @@ function NumInput({ value, onChange, placeholder = "0", readOnly = false }: { va
       placeholder={placeholder}
       style={{
         width: "100%",
-        fontSize: 13,
         background: readOnly ? "var(--cam-accent-soft)" : undefined,
         color: readOnly ? accent : undefined,
         fontWeight: readOnly ? 700 : undefined,
@@ -98,7 +97,7 @@ function CascadeSelect({ value, onChange, items, loading, disabled, placeholder 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={loading || disabled}
-      style={{ width: "100%", fontSize: 13 }}
+      style={{ width: "100%" }}
     >
       <option value="">{loading ? t("common.loading") : (placeholder ?? t("homeDeclarationsNewPage.selectPlaceholder"))}</option>
       {items.map((item) => (
@@ -110,14 +109,14 @@ function CascadeSelect({ value, onChange, items, loading, disabled, placeholder 
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: "1px solid var(--cam-border)" }}>
+    <label style={{ display: "flex", alignItems: "flex-start", gap: "var(--cam-space-3)", padding: "var(--cam-space-3) 0", cursor: "pointer", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         style={{ marginTop: 2, width: 18, height: 18, accentColor: accent, flexShrink: 0 }}
       />
-      <span style={{ fontSize: 13, color: "var(--cam-text)", lineHeight: 1.4 }}>{label}</span>
+      <span style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", lineHeight: "var(--cam-line-height-ui)" }}>{label}</span>
     </label>
   );
 }
@@ -535,33 +534,33 @@ export default function DsmoDeclarationWizardPage() {
   function renderStep1() {
     return (
       <div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
           <Field label={L.fieldBudgetYear}>
-            <select className="cam-input" style={{ width: "100%", fontSize: 13 }} value={budgetYear} onChange={(e) => { setBudgetYear(Number(e.target.value)); scheduleAutosave(); }}>
+            <select className="cam-input" style={{ width: "100%" }} value={budgetYear} onChange={(e) => { setBudgetYear(Number(e.target.value)); scheduleAutosave(); }}>
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </Field>
           <Field label={L.fieldFillingDate}>
-            <input className="cam-input" type="date" value={fillingDate} onChange={(e) => { setFillingDate(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+            <input className="cam-input" type="date" value={fillingDate} onChange={(e) => { setFillingDate(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
           </Field>
         </div>
 
         <SectionHeader title={L.sectionIdentification} />
 
         <Field label={L.fieldCompanyName} error={fieldErrors.companyName}>
-          <input className="cam-input" value={companyName} onChange={(e) => { setCompanyName(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+          <input className="cam-input" value={companyName} onChange={(e) => { setCompanyName(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
         </Field>
         <Field label={L.fieldParentCompany}>
-          <input className="cam-input" value={parentCompany} onChange={(e) => { setParentCompany(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+          <input className="cam-input" value={parentCompany} onChange={(e) => { setParentCompany(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
         </Field>
         <Field label={L.fieldMainActivity} error={fieldErrors.sector}>
-          <select className="cam-input" style={{ width: "100%", fontSize: 13 }} value={selectedSectorId} onChange={(e) => { setSelectedSectorId(e.target.value); scheduleAutosave(); }} disabled={loadingSectors}>
+          <select className="cam-input" style={{ width: "100%" }} value={selectedSectorId} onChange={(e) => { setSelectedSectorId(e.target.value); scheduleAutosave(); }} disabled={loadingSectors}>
             <option value="">{loadingSectors ? t("common.loading") : t("homeDeclarationsNewPage.selectPlaceholder")}</option>
             {sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </Field>
         <Field label={L.fieldSecondaryActivity}>
-          <input className="cam-input" value={secondaryActivity} onChange={(e) => { setSecondaryActivity(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+          <input className="cam-input" value={secondaryActivity} onChange={(e) => { setSecondaryActivity(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
         </Field>
 
         <SectionHeader title={L.sectionLocalisation} />
@@ -579,22 +578,22 @@ export default function DsmoDeclarationWizardPage() {
         <SectionHeader title={L.sectionCoordonnees} />
 
         <Field label={L.fieldAddress} error={fieldErrors.address}>
-          <input className="cam-input" value={address} onChange={(e) => { setAddress(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+          <input className="cam-input" value={address} onChange={(e) => { setAddress(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
         </Field>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "var(--cam-space-3)" }}>
           <Field label={L.fieldFax}>
-            <input className="cam-input" value={fax} onChange={(e) => { setFax(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+            <input className="cam-input" value={fax} onChange={(e) => { setFax(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
           </Field>
           <Field label={L.fieldTaxNumber} error={fieldErrors.taxNumber}>
-            <input className="cam-input" value={taxNumber} onChange={(e) => { setTaxNumber(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+            <input className="cam-input" value={taxNumber} onChange={(e) => { setTaxNumber(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
           </Field>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
           <Field label={L.fieldCapital}>
             <NumInput value={capital} onChange={(v) => { setCapital(v); scheduleAutosave(); }} />
           </Field>
           <Field label={L.fieldCnps}>
-            <input className="cam-input" value={cnps} onChange={(e) => { setCnps(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+            <input className="cam-input" value={cnps} onChange={(e) => { setCnps(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
           </Field>
         </div>
       </div>
@@ -602,6 +601,9 @@ export default function DsmoDeclarationWizardPage() {
   }
 
   function renderStep2() {
+    const colLabel: Record<(typeof MOV_SUFFIXES)[number], string> = {
+      "1_3": L.colCat13, "4_6": L.colCat46, "7_9": L.colCat79, "10_12": L.colCat1012, nd: L.colNd,
+    };
     const movRows: { label: string; prefix: MovementType }[] = [
       { label: L.rowRecruitment, prefix: "rec" },
       { label: L.rowPromotion, prefix: "pro" },
@@ -613,8 +615,8 @@ export default function DsmoDeclarationWizardPage() {
     return (
       <div>
         <SectionHeader title={L.sectionWorkforceCurrent} />
-        <p style={{ fontSize: 12, color: "var(--cam-text-muted)", margin: "0 0 8px" }}>{L.helperCurrentWorkforce}</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-2)" }}>{L.helperCurrentWorkforce}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--cam-space-3)" }}>
           <Field label={L.fieldMen}>
             <NumInput value={menCount} onChange={(v) => { setMenCount(v); scheduleAutosave(); }} />
           </Field>
@@ -625,11 +627,11 @@ export default function DsmoDeclarationWizardPage() {
             <NumInput value={String(totalEmp)} readOnly />
           </Field>
         </div>
-        {fieldErrors.total && <div style={{ color: "var(--cam-error)", fontSize: 12, marginBottom: 8 }}>{fieldErrors.total}</div>}
+        {fieldErrors.total && <div style={{ color: "var(--cam-error)", fontSize: "var(--cam-font-size-xs)", marginBottom: "var(--cam-space-2)" }}>{fieldErrors.total}</div>}
 
         <SectionHeader title={L.sectionWorkforcePrevious} />
-        <p style={{ fontSize: 12, color: "var(--cam-text-muted)", margin: "0 0 8px" }}>{L.helperOptionalTotal}</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-2)" }}>{L.helperOptionalTotal}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--cam-space-3)" }}>
           <Field label={L.fieldMen}>
             <NumInput value={lastYearMen} onChange={(v) => { setLastYearMen(v); scheduleAutosave(); }} />
           </Field>
@@ -642,52 +644,53 @@ export default function DsmoDeclarationWizardPage() {
         </div>
 
         <SectionHeader title={L.sectionMovements} />
-        <p style={{ fontSize: 12, color: "var(--cam-text-muted)", margin: "0 0 10px" }}>{L.helperMovementTable}</p>
+        <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-3)" }}>{L.helperMovementTable}</p>
 
-        {/* Movement table */}
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+        {/* Movement table: the shared .cam-table; the wrapper scrolls sideways on a phone. */}
+        <div style={{ overflowX: "auto", border: "var(--cam-border-width) solid var(--cam-border)", borderRadius: "var(--cam-radius-sm)" }}>
+          <table className="cam-table">
             <thead>
-              <tr style={{ background: "var(--cam-surface-2)" }}>
-                {[L.colMovement, L.colCat13, L.colCat46, L.colCat79, L.colCat1012, L.colNd, L.colTotal].map((h) => (
-                  <th key={h} style={{ border: "1px solid var(--cam-border)", padding: "8px 10px", textAlign: "center", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+              <tr>
+                {[L.colMovement, L.colCat13, L.colCat46, L.colCat79, L.colCat1012, L.colNd, L.colTotal].map((h, i) => (
+                  <th key={h} scope="col" className={i > 0 ? "is-num" : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {movRows.map(({ label, prefix }, ri) => (
-                <tr key={prefix} style={{ background: ri % 2 === 0 ? "#fff" : "var(--cam-surface)" }}>
-                  <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</td>
+              {movRows.map(({ label, prefix }) => (
+                <tr key={prefix}>
+                  <th scope="row" style={{ fontWeight: 600, color: "var(--cam-text)", textAlign: "left", whiteSpace: "nowrap" }}>{label}</th>
                   {MOV_SUFFIXES.map((suf) => (
-                    <td key={suf} style={{ border: "1px solid var(--cam-border)", padding: 4, textAlign: "center" }}>
+                    <td key={suf} className="is-num">
                       <input
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
+                        aria-label={`${label}, ${colLabel[suf]}`}
                         value={movements[`${prefix}_${suf}`]}
                         onChange={(e) => {
                           const v = e.target.value.replace(/\D/g, "");
                           setMovements((m) => ({ ...m, [`${prefix}_${suf}`]: v }));
                           scheduleAutosave();
                         }}
-                        style={{ width: 52, textAlign: "center", border: "1px solid var(--cam-border)", borderRadius: 4, padding: "4px 6px", fontSize: 12 }}
+                        style={{ width: 56, textAlign: "right", border: "var(--cam-border-width) solid var(--cam-border-strong)", borderRadius: "var(--cam-radius-sm)", padding: "var(--cam-space-1)", font: "inherit" }}
                       />
                     </td>
                   ))}
-                  <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 700, color: accent, background: "var(--cam-accent-soft)" }}>
+                  <td className="is-num" style={{ fontWeight: 700, color: accent, background: "var(--cam-accent-soft)" }}>
                     {movRowTotal(prefix)}
                   </td>
                 </tr>
               ))}
               {/* Column totals row */}
               <tr style={{ background: "var(--cam-accent-soft)" }}>
-                <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", fontWeight: 700, color: accent }}>{L.colTotal}</td>
+                <th scope="row" style={{ fontWeight: 700, color: accent, textAlign: "left" }}>{L.colTotal}</th>
                 {MOV_SUFFIXES.map((suf) => (
-                  <td key={suf} style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 700, color: accent }}>
+                  <td key={suf} className="is-num" style={{ fontWeight: 700, color: accent }}>
                     {movColTotal(suf)}
                   </td>
                 ))}
-                <td style={{ border: "1px solid var(--cam-border)", padding: "6px 10px", textAlign: "center", fontWeight: 800, color: accent, fontSize: 13 }}>
+                <td className="is-num" style={{ fontWeight: 700, color: accent }}>
                   {movGrandTotal()}
                 </td>
               </tr>
@@ -707,13 +710,13 @@ export default function DsmoDeclarationWizardPage() {
         <Toggle label={L.qCamerounisation} checked={camerounisationPlan} onChange={(v) => { setCamerounisationPlan(v); scheduleAutosave(); }} />
         <Toggle label={L.qTempAgencies} checked={usesTempAgencies} onChange={(v) => { setUsesTempAgencies(v); scheduleAutosave(); }} />
         {usesTempAgencies && (
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: "var(--cam-space-2)" }}>
             <Field label={L.qTempAgencyDetails}>
-              <input className="cam-input" value={tempAgencyDetails} onChange={(e) => { setTempAgencyDetails(e.target.value); scheduleAutosave(); }} style={{ width: "100%", fontSize: 13 }} />
+              <input className="cam-input" value={tempAgencyDetails} onChange={(e) => { setTempAgencyDetails(e.target.value); scheduleAutosave(); }} style={{ width: "100%" }} />
             </Field>
           </div>
         )}
-        {submitError && <div className="cam-error-box" style={{ marginTop: 16 }}>{submitError}</div>}
+        {submitError && <div className="cam-error-box" style={{ marginTop: "var(--cam-space-4)" }}>{submitError}</div>}
       </div>
     );
   }
@@ -725,50 +728,60 @@ export default function DsmoDeclarationWizardPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "24px 16px" }}>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)" }}>
       {/* Page title */}
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--cam-text)", marginBottom: 20 }}>
+      <h1 style={{ fontSize: "var(--cam-font-size-xl)", fontWeight: 700, color: "var(--cam-text)", margin: "0 0 var(--cam-space-5)" }}>
         {L.appTitle}
       </h1>
 
-      {/* Step indicator */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 28 }}>
+      {/* Step indicator. Each step draws the line to the next one from its
+          own circle, so the line sits on the circles' centre without a
+          negative-margin overlay. */}
+      <ol style={{ display: "flex", listStyle: "none", padding: 0, margin: "0 0 var(--cam-space-5)" }}>
         {steps.map((label, i) => (
-          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <li
+            key={i}
+            aria-current={i === step ? "step" : undefined}
+            style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}
+          >
+            {i < steps.length - 1 && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  top: 15,
+                  left: "calc(50% + 16px)",
+                  width: "calc(100% - 32px)",
+                  height: 2,
+                  background: i < step ? accent : "var(--cam-border)",
+                }}
+              />
+            )}
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
-              background: i < step ? accent : i === step ? accent : "var(--cam-border)",
-              color: i <= step ? "#fff" : "var(--cam-text-muted)",
+              background: i <= step ? accent : "var(--cam-border)",
+              color: i <= step ? "var(--cam-surface)" : "var(--cam-text-muted)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 13,
+              fontWeight: 700, fontSize: "var(--cam-font-size-xs)",
             }}>
               {i < step ? "✓" : i + 1}
             </div>
-            <div style={{ fontSize: 10, color: i === step ? accent : "var(--cam-text-muted)", marginTop: 4, textAlign: "center", fontWeight: i === step ? 700 : 400 }}>
+            <div style={{ fontSize: "var(--cam-font-size-2xs)", color: i === step ? "var(--cam-text)" : "var(--cam-text-muted)", marginTop: "var(--cam-space-1)", textAlign: "center", fontWeight: i === step ? 700 : 400 }}>
               {label}
             </div>
-            {i < steps.length - 1 && (
-              <div style={{ position: "absolute", display: "none" }} />
-            )}
-          </div>
+          </li>
         ))}
-      </div>
-      {/* Connector lines */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0, marginTop: -44, marginBottom: 28, paddingLeft: 48, paddingRight: 48 }}>
-        {steps.slice(0, -1).map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 2, background: i < step ? accent : "var(--cam-border)" }} />
-        ))}
-      </div>
+      </ol>
 
       {/* Step body */}
-      <div style={{ background: "var(--cam-surface)", border: "1px solid var(--cam-border)", borderRadius: 12, padding: 24 }}>
+      <div style={{ background: "var(--cam-surface)", border: "var(--cam-border-width) solid var(--cam-border)", borderRadius: "var(--cam-radius-md)", padding: "var(--cam-space-5)" }}>
         {step === 0 && renderStep1()}
         {step === 1 && renderStep2()}
         {step === 2 && renderStep3()}
       </div>
 
       {/* Navigation buttons */}
-      <div style={{ display: "flex", gap: 12, marginTop: 20, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: "var(--cam-space-3)", marginTop: "var(--cam-space-5)", justifyContent: "flex-end" }}>
         {step > 0 && (
           <button className="cam-button cam-button-secondary" onClick={goBack} disabled={submitting}>
             {L.btnBack}
