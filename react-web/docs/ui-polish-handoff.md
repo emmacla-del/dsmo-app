@@ -34,8 +34,8 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 
 ## Browser / data
 
-- Dev server: http://localhost:3000, owned by another session — open it with
-  `preview_start {url}`; do not start/stop it. Backend at localhost:3001 uses
+- Dev servers: start both with `preview_start {name: "react-web"}` and
+  `{name: "backend"}` (`.claude/launch.json`); the backend takes ~40s. Backend at localhost:3001 uses
   the **shared database**: read and navigate only; ask the owner before any
   save/approve/submit/send/delete. Never submit the registration wizard.
 - The owner supplied a SUPER_ADMIN test login for localhost in chat on
@@ -53,9 +53,11 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | 58fdd865 | Auth family on one card shell (reset/forgot-password, verify-email). |
 | 701c81e9 | `docs/ui-polish-checklist.md` |
 | 8b201155 | Registration wizard one column at every width + page scroll (owner's decision). `scripts/test-register-layout.mjs` 155/155 against localhost, no submission. Backend was down, so region/department option loading was not exercised. |
-| b161783a | Admin: page-level margins no longer stack on the `.cam-admin-page` gap; `/admin/sectors` one header. **Not yet seen rendered** (needs SUPER_ADMIN sign-in) — verify on dossiers, dossiers/[id], centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, sectors. `cibles:433,552` inline margins left in place pending a render. |
+| b161783a | Admin: page-level margins no longer stack on the `.cam-admin-page` gap; `/admin/sectors` one header. **Not yet seen rendered** — now verified rendered (see 9bf53ca9); dossiers/[id] still to view. |
 | 2032ee18 | DSMO inputs keep focus (inner components hoisted); ONEFOP drafts/corrections route to `/onefop/preview?entity=<entityType>`. **Not yet seen rendered** (needs a company account). Unverified: whether the ONEFOP wizard reopens that submission's data. |
 | 68e2205b | Registration footer at the end of the form (not sticky) and an error summary with field links at the top of the section — owner's decision, government-form convention. Layout script 158/158. |
+| 9fd8c69f | Landing notices a ruled list; /inscription-agent back-to-sign-in link. |
+| 9bf53ca9 | ViewSwitch stray vertical scrollbar (systemic); French "Chargement de les" → "des" (systemic, tested); cibles 24px rhythm. Admin rhythm from b161783a verified rendered on dossiers, centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, cibles, pilotage, sectors (all 24px). |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors

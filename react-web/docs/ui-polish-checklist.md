@@ -30,7 +30,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 ## Staff console — supervision
 
 - [ ] `/admin/pilotage`
-- [ ] `/admin/dossiers`
+- [~] `/admin/dossiers` — rhythm verified. Open: filters boxed apart from the table; bulk "Viser la sélection" always enabled with a green bar and no selected count; uppercase headers
 - [ ] `/admin/dossiers/[id]` — review workflow
 - [ ] `/admin/centre-qualite`
 - [ ] `/admin/equipe`
@@ -38,7 +38,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 ## Staff console — collection
 
 - [ ] `/admin/campagnes` (grammar reference page)
-- [ ] `/admin/cibles`
+- [~] `/admin/cibles` — 9bf53ca9 even 24px rhythm, view switch scrollbar fixed. Open: table/inputs not yet reviewed
 - [ ] `/admin/questionnaires`
 - [ ] `/admin/diffusion`
 - [ ] `/admin/notifications`
@@ -51,7 +51,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 - [ ] `/admin/inscriptions`
 - [ ] `/admin/inscriptions/nouvelle`
 - [ ] `/admin/utilisateurs`
-- [ ] `/admin/sectors`
+- [~] `/admin/sectors` — b161783a one header (verified). Open: category badge shows English codes (Tertiary/Primary/Public/Secondary) on the French UI; "Nom (EN)" and "Code" columns empty and use two different dashes (— vs –)
 
 ## Staff console — system
 
@@ -60,6 +60,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 ## Shared fixes
 
+- 9bf53ca9 — ViewSwitch no longer draws a vertical scrollbar (every page with in-page views); French loading text "Chargement des/du …" (every admin list).
 - b161783a — admin page rhythm: `.cam-admin-page` gap is the only vertical spacing between page blocks.
 - 58fdd865 — auth card title recipe (`receipt-title` / `receipt-subtitle`) shared by the whole auth family; lede spacing fixed once in `globals.css`.
 
