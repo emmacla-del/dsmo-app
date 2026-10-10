@@ -40,15 +40,15 @@ export function LocaleSwitcher({ variant = "default" }: { variant?: "default" | 
               padding: isMasthead ? "3px 8px" : "2px 8px",
               borderRadius: isMasthead ? 4 : 6,
               border: isMasthead
-                ? isCurrent ? "1px solid #ffffff" : "1px solid rgba(255, 255, 255, 0.3)"
-                : "1px solid var(--cam-border)",
+                ? isCurrent ? "1px solid var(--cam-surface)" : "1px solid rgba(255, 255, 255, 0.3)"
+                : isCurrent ? "1px solid var(--cam-green)" : "1px solid var(--cam-border)",
               background: isMasthead
-                ? isCurrent ? "#ffffff" : "transparent"
-                : isCurrent ? "var(--cam-primary)" : "transparent",
+                ? isCurrent ? "var(--cam-surface)" : "transparent"
+                : isCurrent ? "var(--cam-green)" : "transparent",
               color: isMasthead
-                ? isCurrent ? "#0e3d23" : "#ffffff"
-                : isCurrent ? "#fff" : "inherit",
-              fontSize: 11,
+                ? isCurrent ? "var(--cam-green-dark)" : "var(--cam-surface)"
+                : isCurrent ? "var(--cam-surface)" : "inherit",
+              fontSize: "var(--cam-font-size-3xs)",
               fontWeight: 700,
               cursor: isPending ? "default" : "pointer",
               transition: "all 0.15s ease",
