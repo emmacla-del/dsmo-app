@@ -251,6 +251,8 @@ export default function OnefopUsersPage() {
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={headcount.some((k) => k.query.isLoading)}
+        error={headcount.some((k) => k.query.isError)}
+        errorLabel={tStats("figuresUnavailable")}
         items={headcount.map((k) => ({ key: k.key, value: count(k.query.data?.total ?? null, locale), label: k.label, hint: k.hint }))}
       />
 

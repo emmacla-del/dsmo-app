@@ -358,6 +358,8 @@ export default function EtablissementsPage() {
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={volume.some((k) => k.loading)}
+        error={companyStatsQuery.isError || statsQuery.isError}
+        errorLabel={tStats("figuresUnavailable")}
         items={volume.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
       />
 

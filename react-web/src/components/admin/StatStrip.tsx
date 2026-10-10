@@ -23,19 +23,31 @@ function inLine(label: string): string {
 // 2026-10-10). Plain text on the page background: no card, border or colour.
 //
 // G10: while loading it shows one muted status line, never a placeholder
-// figure; an error is the caller's notice, shown instead of the strip.
+// figure; if a source failed it says the figures are unavailable instead.
 export function StatStrip({
   items,
   label,
   loading = false,
   loadingLabel,
+  error = false,
+  errorLabel,
 }: {
   items: StatItem[];
   /** Accessible name of the list, e.g. "Chiffres clés". */
   label: string;
   loading?: boolean;
   loadingLabel: string;
+  /** A source of these figures failed: say so, rather than print "—" for figures nobody read. */
+  error?: boolean;
+  errorLabel: string;
 }) {
+  if (error) {
+    return (
+      <p className="cam-admin-meta cam-admin-statline-loading" role="status">
+        {errorLabel}
+      </p>
+    );
+  }
   if (loading) {
     return (
       <p className="cam-admin-meta cam-admin-statline-loading" role="status">

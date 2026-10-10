@@ -1247,6 +1247,7 @@
     }
   },
   "adminLayout": {
+    "figuresUnavailable": "Figures unavailable for now.",
     "keyFigures": "Key figures",
     "loadingFigures": "Loading figures…",
     "sectorsSubtitle": "National classification of occupations and economic sectors",

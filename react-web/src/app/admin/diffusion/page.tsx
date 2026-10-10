@@ -56,6 +56,9 @@ const BREAKDOWN_FORM_TYPES = [
   "VOCATIONAL_TRAINING",
 ] as const;
 
+// The breakdown is a group-by over stored statuses, which omits a status
+// with no records: once the breakdown is present, a missing status is 0, not
+// "unknown". Only a missing breakdown is null (shown as "—").
 function getStatusCount(
   source: Record<string, number> | { status: string; _count: number }[] | undefined | null,
   statuses: string[],
@@ -63,7 +66,7 @@ function getStatusCount(
   if (!source) return null;
   if (Array.isArray(source)) {
     const item = source.find((s) => statuses.includes(s.status));
-    return item ? item._count : null;
+    return item ? item._count : 0;
   }
   if (typeof source === "object") {
     for (const st of statuses) {
@@ -71,6 +74,7 @@ function getStatusCount(
         return (source as Record<string, number>)[st];
       }
     }
+    return 0;
   }
   return null;
 }
@@ -411,7 +415,6 @@ export default function DiffusionPage() {
         <AdminHeaderActions
           showCampaignPill={false}
           showBell={false}
-          showSearchInput={true}
         />
       }
     />
@@ -484,6 +487,8 @@ export default function DiffusionPage() {
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={statsQuery.isLoading}
+        error={statsQuery.isError}
+        errorLabel={tStats("figuresUnavailable")}
         items={repositoryKpis.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
       />
 

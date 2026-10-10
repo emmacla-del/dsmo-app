@@ -332,6 +332,8 @@ function InscriptionsContent() {
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={queueQuery.isLoading}
+        error={queueQuery.isError}
+        errorLabel={tStats("figuresUnavailable")}
         items={queueKpis.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label }))}
       />
 

@@ -174,7 +174,6 @@ function ParametresContent() {
         <AdminHeaderActions
           showCampaignPill={false}
           showBell={false}
-          showSearchInput={true}
         />
       }
     />
