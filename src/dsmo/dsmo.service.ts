@@ -492,10 +492,18 @@ export class DsmoService {
       const currentYear = now.getFullYear();
       const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
       const quarterCode = `${currentYear}-T${currentQuarter}`;
+      // No DSMO round exists at all (no DSMO campaign has ever been
+      // launched). Reported closed, mirroring OnefopService.getActiveQuarter
+      // (F7, 2026-10-10): "open" here was a test affordance that told
+      // respondents a period was collecting when none was. `code` stays
+      // populated so anything keyed on it keeps working.
       return {
-        isOpen: true,
+        isOpen: false,
+        message:
+          "Aucune campagne de collecte DSMO n'est encore ouverte. Vous pouvez remplir et sauvegarder " +
+          "la déclaration ; elle pourra être soumise dès l'ouverture de la campagne.",
         code: quarterCode,
-        label: `Trimestre ${currentQuarter} ${currentYear} (Période test)`,
+        label: `Trimestre ${currentQuarter} ${currentYear}`,
         deadline: new Date(currentYear, 11, 31, 23, 59, 59),
       };
     }
