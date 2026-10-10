@@ -4,7 +4,7 @@ import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
-import { VtGeographyLockContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { VtGeographyLockContext, VtPaperCodeContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
 import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
 import {
@@ -168,22 +168,23 @@ function vtWizardGroupFields(
 }
 
 function _vtWizardConditionalContainer(children: ReactNode, isRevealed: boolean): ReactNode {
+  // A revealed follow-up ("Si oui, …") is indented under its question with a
+  // grey rule on the left, the government-form convention for a conditional
+  // reveal. It was a green-tinted bordered box: a card inside the card.
   return (
     <div
       style={{
         width: "100%",
-        padding: isRevealed ? 16 : 0,
-        backgroundColor: "var(--cam-success-bg)",
-        border: "1px solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-sm)",
+        paddingLeft: isRevealed ? "var(--cam-space-4)" : 0,
+        marginLeft: "var(--cam-space-2)",
+        borderLeft: "var(--cam-space-1) solid var(--cam-border-strong)",
         opacity: isRevealed ? 1 : 0,
-        transform: isRevealed ? "translateY(0)" : "translateY(-8px)",
-        transition: "all 220ms ease-out, padding 220ms ease-out, opacity 220ms ease-out",
+        transition: "opacity 160ms ease-out",
         overflow: isRevealed ? "visible" : "hidden",
         pointerEvents: isRevealed ? "auto" : "none",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
         {children}
       </div>
     </div>
@@ -933,6 +934,7 @@ export function VtWizardSectionScreen({
 
   const visibleFields = section.fields.filter((f) => isFieldVisible(f, data));
   const visibleFieldsReordered = visibleFields;
+  const paperCodes = useMemo(() => new Map(section.fields.map((f) => [f.id, f.paperCode])), [section.fields]);
 
   // VT1_4/5/6 are read-only when the server will store the company record's
   // region/department/subdivision instead (see onefop-geography-lock.ts).
@@ -1041,6 +1043,7 @@ export function VtWizardSectionScreen({
 
   return (
     <VtGeographyLockContext.Provider value={lockedGeography}>
+    <VtPaperCodeContext.Provider value={paperCodes}>
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
       <div
         style={{
@@ -1240,6 +1243,7 @@ export function VtWizardSectionScreen({
         </div>
       )}
     </div>
+    </VtPaperCodeContext.Provider>
     </VtGeographyLockContext.Provider>
   );
 }
