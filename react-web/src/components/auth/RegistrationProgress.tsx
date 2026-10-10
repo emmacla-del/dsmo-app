@@ -81,7 +81,8 @@ export function RegistrationProgress({
             <button
               key={s.id}
               type="button"
-              className={`progress-step-item is-${state}`}
+              // "revealed" is the shared marker's "inProgress" (WizardStepList).
+              className={`progress-step-item is-${state === "revealed" ? "inProgress" : state}`}
               // aria-disabled, never the `disabled` attribute. A locked step
               // is a real question -- "why can't I go there?" -- and a
               // disabled button swallows the click that asks it. The handler
@@ -100,7 +101,7 @@ export function RegistrationProgress({
               }
               onClick={() => onSelect(idx)}
             >
-              <span className="progress-step-circle" aria-hidden="true">
+              <span className="cam-step-marker" aria-hidden="true">
                 {railItemShowsCheck(state) ? (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
