@@ -200,7 +200,26 @@ The registration route adds this shell on top of the shared tokens. Login, forgo
 
 **Frame.** `.flow-frame` is the one bordered element (`max-width: var(--cam-container-wizard)`, `overflow: clip`). It is not a container query and not a scroller. The document is the only scroll container on the route: a long section makes the page longer, and nothing inside the frame scrolls (owner's decision, 2026-10-10; CLAUDE.md §13). The section sits in `.flow-frame-content`. The snackbar and the missing-fields summary sit at the top of `.flow-frame-content`. The footer (Retour / Continuer / Soumettre) is `.flow-frame-dock`, the frame's last row, in normal flow after the last field. It is **not** sticky (owner's decision, 2026-10-10, government-form convention): a pinned bar covered the focused field (WCAG 2.2, 2.4.11) and sat on the phone keyboard. Do not make it sticky again. On a wide screen the dossier panel (`.flow-panel`) is `position: sticky; top: 0`, one viewport tall, and never scrolls on its own. Do not reintroduce a fixed-height frame with an inner scroll region.
 
-**Rail.** `RegistrationProgress` (`src/components/auth/RegistrationProgress.tsx`) renders `.registration-progress` and `.progress-rail` in `.flow-header`. It is a row of the page's flex column, not a `position: sticky` bar, so it scrolls away with the page on a long section.
+**Rail (phone).** `RegistrationProgress` (`src/components/auth/RegistrationProgress.tsx`) renders `.registration-progress` and `.progress-rail` in `.flow-header`. It is a row of the page's flex column, not a `position: sticky` bar, so it scrolls away with the page on a long section. Its circles are the shared `.cam-step-marker` (see §Wizard rail).
+
+### Wizard rail
+
+Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). Each wizard decides the state of a step from its own data; everything else comes from one source:
+
+| What | Where |
+|---|---|
+| Width, circle size, bar height | `--cam-wizard-rail-width` (280px), `--cam-step-marker-size` (30px), `--cam-wizard-rail-bar-height` (6px) in `tokens.css` |
+| Look of the frame, steps and states | `.cam-wizard-rail*` and `.cam-step*` in `globals.css` (§"Wizard rail") |
+| Structure | `WizardRail` and `WizardStepList` in `src/components/wizard/` |
+| Words | `wizardRail.*` in `messages/{fr,en}.json` |
+
+- **States.** `done` green circle with a check; `current` gold ring; `currentComplete` gold ring on a green fill; `inProgress` dashed gold ring; `todo` grey ring; `error` red ring and "!"; `locked` grey fill. Gold means "you are here", green means "answered". A finished step that can be reopened shows "Modifier".
+- **Breakpoint.** The rail from 1024px, in all three wizards. Below it, registration shows its horizontal phone rail (same circles) and the questionnaires a sections drawer that renders the same rail with `sheet`.
+- **Under a sticky header** the rail pins at `--cam-wizard-rail-top`, which `ModernJobsHeader` publishes from its own height.
+- **Numbering** follows each paper form: Modern Jobs from 0, VT and registration from 1.
+- **Not this rail:** the staff console's dark rail (`.cam-admin-rail`) is site navigation, not form progress.
+
+Do not draw a step list, a step circle or a progress bar for a wizard any other way.
 
 **Fields.** `FormRow`, as in §Shared rules. Sections 2–5 put those rows in `.cam-form-flow` > `.form-single-column`. Section 1's entity choice is `.entity-type-list`, a fieldset of `.entity-type-option` rows, not a `.field`.
 

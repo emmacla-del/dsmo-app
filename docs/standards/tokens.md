@@ -132,6 +132,9 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-button-height` | `44px` | Density | Button height. |
 | `--cam-form-gap` | `var(--cam-space-4)` | Density | Gap between form fields. |
 | `--cam-container-compact` | `380px` | Container | Narrow dialogs and compact auth. |
+| `--cam-wizard-rail-width` | `280px` | Wizard rail | Side navigation of every respondent wizard (`.cam-wizard-rail`). |
+| `--cam-step-marker-size` | `30px` | Wizard rail | Step circle on the wide and phone rails. Connectors and the outline indent are computed from it. |
+| `--cam-wizard-rail-bar-height` | `6px` | Wizard rail | Progress bar height on the rail and in the VT section outline. |
 | `--cam-container-form` | `640px` | Container | Auth card width. |
 | `--cam-border-width` | `1px` | Border | Default border thickness. |
 | `--cam-table-grid` | `#171a18` | Table | Official review-table rule. |
@@ -214,7 +217,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--vt-accent` | `var(--cam-green)` | VT | VT accent. |
 | `--vt-accent-soft` | `var(--cam-success-bg)` | VT | VT soft accent fill. |
 | `--vt-card-radius` | `var(--cam-radius-md)` | VT | VT card radius. |
-| `--vt-sidebar-width` | `280px` | VT | VT wizard sidebar. |
+| `--vt-sidebar-width` | `var(--cam-wizard-rail-width)` | VT | Alias, kept for `ModernJobsNavigation`'s footer grid. |
 | `--vt-content-max` | `760px` | VT | Respondent reading width: questionnaire form sections, their footer, the declarations list (600px answers + padding). |
 | `--vt-content-max-wide` | `1100px` | VT | VT sections holding a statistical table (sections 4, 5, 6, 8). |
 | `--vt-font` | `var(--cam-font-sans)` | VT | VT font. |
