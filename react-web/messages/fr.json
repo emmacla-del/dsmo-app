@@ -1247,6 +1247,7 @@
     }
   },
   "adminLayout": {
+    "figuresUnavailable": "Chiffres indisponibles pour le moment.",
     "keyFigures": "Chiffres clés",
     "loadingFigures": "Chargement des chiffres…",
     "sectorsSubtitle": "Nomenclature nationale des métiers et secteurs d'activité",

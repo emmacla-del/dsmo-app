@@ -267,6 +267,8 @@ function CentreQualiteContent() {
               label={tStats("keyFigures")}
               loadingLabel={tStats("loadingFigures")}
               loading={qualityQuery.isLoading}
+              error={qualityQuery.isError}
+              errorLabel={tStats("figuresUnavailable")}
               items={qualityKpis.map((k) => ({ key: k.key, value: percent(k.value, 0, locale), label: k.label, hint: k.hint }))}
             />
           </section>

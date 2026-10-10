@@ -637,35 +637,6 @@
   outline-offset: 2px;
 }
 
-/* Header search: a compact pill input that opens the dossier list. */
-.cam-admin-header-search {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.cam-admin-header-search svg {
-  position: absolute;
-  left: var(--cam-space-3);
-  color: var(--cam-placeholder);
-  pointer-events: none;
-}
-
-.cam-admin-header-search input {
-  width: 170px;
-  padding: var(--cam-space-1) var(--cam-space-4) var(--cam-space-1) 34px;
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-surface-subtle);
-  color: var(--cam-text);
-  font-size: var(--cam-font-size-xs);
-}
-
-.cam-admin-header-search input:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 1px;
-}
-
 /* Notification bell: unread badge and the preview popover. */
 .cam-admin-bell {
   position: relative;
@@ -1126,8 +1097,7 @@
   .cam-admin .cam-select,
   .cam-admin-dialog .cam-input,
   .cam-admin-dialog .cam-select,
-  .cam-admin-textarea,
-  .cam-admin-header-search input {
+  .cam-admin-textarea {
     font-size: var(--cam-font-size-input-ios);
   }
 }
