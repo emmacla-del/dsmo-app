@@ -65,7 +65,7 @@ Never an inline white box. The mechanical tell is an inline `style` object carry
 
 ### G6 — Tables
 
-Directories and record lists: `.cam-table-wrapper` › `.cam-table`. Numeric dashboard grids: `.cam-dash-table`. Dashboard panel tables: `.cam-pilot-table`. Numeric columns carry `.is-num`. Never a bare `<table>`.
+Directories and record lists: `.cam-table-wrapper` › `.cam-table`. Numeric dashboard grids: `.cam-dash-table`. Numeric columns carry `.is-num`. Never a bare `<table>`.
 
 ### G7 — Dialogs
 
@@ -128,7 +128,7 @@ List filters, view switches and pagination live in the query string via `hrefWit
 Two things that look like rule-breaking and are not:
 
 - **A local contract variable.** `--cam-status-dot` is set by `.cam-admin-status-badge--{status}` and read by the badge's `::before` dot. It is a parameter, not a palette entry, and it lives next to the class that defines it.
-- **`#000` in a `mask`.** A mask reads only the opacity channel, so its opaque stop has to be a fully opaque literal. A palette token there would be wrong. `.cam-pilot-donut` is the one such case, and the check allowlists `mask` / `-webkit-mask`.
+- **`#000` in a `mask`.** A mask reads only the opacity channel, so its opaque stop has to be a fully opaque literal. A palette token there would be wrong. The check allowlists `mask` / `-webkit-mask` for that reason. `.cam-pilot-donut`, the one such case, was removed with the other unused dashboard classes on 2026-10-10.
 
 A `var(--cam-*)` that resolves to nothing is **not** a style preference. The declaration is dropped, so the element renders transparent or unstyled. Four such references existed and were shipping two visible bugs — a transparent dialog card on `questionnaires`, a transparent highlight in `LiveTablePreview`. The phantom-token check therefore blocks immediately and has no baseline.
 
@@ -186,7 +186,7 @@ The registration route adds this shell on top of the shared tokens. Login, forgo
 
 **Buttons.** `.btn-primary--inline` on the in-flow actions. The submit also carries `.btn-primary--submit`.
 
-**Table.** `.table-official` is the receipt table and the review table (`register/page.tsx`, `RegistrationReview.tsx`). `bare-table` exempts that class on the wizard globs only. An admin `<table>` still has to be `.cam-table`, `.cam-dash-table`, or `.cam-pilot-table`.
+**Table.** `.table-official` is the receipt table and the review table (`register/page.tsx`, `RegistrationReview.tsx`). `bare-table` exempts that class on the wizard globs only. An admin `<table>` still has to be `.cam-table` or `.cam-dash-table`.
 
 **State model.** `register/page.tsx` calls `useQuery` for regions, departments, subdivisions, and sectors. No file under `src/components/auth` calls `useQuery` or `useMutation`, and neither tree imports `DataState`. `selectStatusLabel` turns `isFetching`, `isError`, and an empty list into different empty-option text. The subdivision list keeps a fourth state, `idle`, for a department that has not been chosen yet. A submit failure renders `.auth-error-box`. This is why `datastate-adoption` skips `src/app/register/**` and `src/components/auth/**` (`check-admin-ui-grammar.mjs`, `isWizardPath`).
 
