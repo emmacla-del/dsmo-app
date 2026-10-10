@@ -191,12 +191,11 @@
   color: var(--cam-green);
 }
 
-.notice {
-  padding: var(--cam-space-4) var(--cam-space-5) var(--cam-space-5);
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-lg);
-  box-shadow: var(--cam-shadow-sm);
+/* The notices are a ruled list, not cards: a government notice board, with
+   a hairline between items and no box, shadow or fill around each one. */
+.notice + .notice {
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
 }
 
 .notice h3 {

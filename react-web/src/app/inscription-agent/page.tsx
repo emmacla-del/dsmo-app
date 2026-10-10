@@ -43,6 +43,7 @@ function InscriptionAgentContent() {
   const t = useTranslations("inscriptionAgentPage");
   const tRegister = useTranslations("registerPage");
   const tLogin = useTranslations("loginPage");
+  const tForgot = useTranslations("forgotPasswordPage");
   const locale = asUiLocale(useLocale());
   const searchParams = useSearchParams();
   const token = searchParams.get("invitation") ?? "";
@@ -109,6 +110,7 @@ function InscriptionAgentContent() {
   // the network or the server, which a retry may fix.
   const previewStatus = previewQuery.error instanceof ApiError ? previewQuery.error.status : null;
 
+  const showBackToLogin = Boolean(groupToken) || !(previewStatus === 409 || createdEmail);
   let body: React.ReactNode;
   if (groupToken) {
     body = <GroupSignUpForm token={groupToken} />;
@@ -264,6 +266,16 @@ function InscriptionAgentContent() {
         <AuthHeader />
         <div className="card">
           <div className="card-body">{body}</div>
+          {/* The way back to sign-in, as on the other auth cards. Left out
+              where the body's own primary action is already "Se connecter"
+              (link already used, account just created). */}
+          {showBackToLogin && (
+            <div className="card-footer">
+              <span className="create-account">
+                <Link href="/login">{tForgot("backToLoginLink")}</Link>
+              </span>
+            </div>
+          )}
         </div>
         <p className="help">
           {tLogin("needHelpText")}{" "}
