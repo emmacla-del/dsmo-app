@@ -87,7 +87,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
               display: "flex",
               alignItems: "center",
               gap: "var(--cam-space-1)",
-              fontSize: compact ? "var(--cam-font-size-sm)" : "var(--cam-font-size-base)",
+              fontSize: "var(--cam-answer-size)",
               whiteSpace: "nowrap",
             }}
           >
@@ -140,7 +140,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
           display: "flex",
           alignItems: "center",
           gap: "var(--cam-space-2)",
-          fontSize: compact ? "var(--cam-font-size-sm)" : "var(--cam-font-size-base)",
+          fontSize: "var(--cam-answer-size)",
           marginBottom: compact ? 2 : "var(--cam-space-2)",
         }}
       >

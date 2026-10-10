@@ -28,20 +28,19 @@ function vtLocale(locale: string): "fr" | "en" {
   return locale.startsWith("en") ? "en" : "fr";
 }
 
-// Every question label, whatever the control: 15px bold in text colour,
-// under the subsection title (18px) and set apart from the typed answer
-// (15px regular) by weight. Radio/checkbox questions used to be 16px bold
-// and text inputs 15px, so two questions side by side read as two levels.
+// Every question label, whatever the control: the --cam-question-* tokens
+// every respondent form shares (15px bold), under the subsection title
+// (18px) and set apart from the answer (--cam-answer-size, 14px regular).
+// Radio/checkbox questions used to be 16px bold and text inputs 15px, so
+// two questions side by side read as two levels.
 const labelStyle: CSSProperties = {
   display: "block",
   fontFamily: "var(--cam-font-sans)",
-  fontSize: "var(--cam-font-size-base)",
-  // Bold, not semibold: the question must read apart from the answer under
-  // it (15px regular) at a glance (owner, 2026-10-10).
-  fontWeight: "var(--cam-font-weight-bold)",
-  lineHeight: "var(--cam-line-height-label)",
+  fontSize: "var(--cam-question-size)",
+  fontWeight: "var(--cam-question-weight)",
+  lineHeight: "var(--cam-question-line-height)",
   color: "var(--cam-text)",
-  marginBottom: "var(--cam-space-1)",
+  marginBottom: "var(--cam-field-stack-gap)",
 };
 
 const questionLabelStyle: CSSProperties = labelStyle;

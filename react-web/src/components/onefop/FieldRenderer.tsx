@@ -14,14 +14,15 @@ import { getModernJobsTooltip } from "./modern-jobs-tooltips";
 import { ConditionalTable } from "@/components/modern-jobs/conditional/ConditionalTable";
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 
-/** Question text: 15px bold, as in the VT wizard; answers are 14px regular, hints 12px. */
+/** Question text: the --cam-question-* tokens every respondent form shares
+ *  (15px bold); answers are --cam-answer-size (14px), hints 12px. */
 const labelStyle: React.CSSProperties = {
   display: "block",
-  fontSize: "var(--cam-font-size-base)",
-  fontWeight: "var(--cam-font-weight-bold)",
-  lineHeight: 1.4,
+  fontSize: "var(--cam-question-size)",
+  fontWeight: "var(--cam-question-weight)",
+  lineHeight: "var(--cam-question-line-height)",
   color: "var(--cam-text)",
-  marginBottom: "var(--cam-space-2, 8px)",
+  marginBottom: "var(--cam-field-stack-gap)",
 };
 
 const wrapperStyle: React.CSSProperties = {

@@ -1044,7 +1044,7 @@ html:has(.cam-auth-page--wizard) {
   gap: var(--cam-space-3);
   margin: 0;
   padding: calc((var(--cam-field-height) - (var(--cam-line-height-copy) * 1em)) / 2) 0;
-  font-size: var(--cam-font-size-sm);
+  font-size: var(--cam-answer-size);
   font-weight: var(--cam-font-weight-regular);
   cursor: pointer;
 }
@@ -1111,8 +1111,21 @@ html:has(.cam-auth-page--wizard) {
    inputs from 560px is gone, and must not come back. */
 .cam-auth-page--wizard .cam-form-flow .field>label {
   margin-bottom: var(--cam-field-stack-gap);
-  font-size: var(--cam-font-size-sm);
-  line-height: var(--cam-line-height-label);
+  font-size: var(--cam-question-size);
+  font-weight: var(--cam-question-weight);
+  line-height: var(--cam-question-line-height);
+}
+
+/* The answer, at the size every respondent form uses. Its own rule, at the
+   same specificity as the phone rule below, so the 16px phone size still
+   wins there. Folding it into the input-metrics rule (0,3,1) would beat it. */
+.cam-auth-page--wizard .cam-form-flow :is(input, select, textarea) {
+  font-size: var(--cam-answer-size);
+}
+
+/* The hint, at the questionnaire's 12px. Login keeps --cam-field-hint-size. */
+.cam-auth-page--wizard .cam-form-flow .field-hint {
+  font-size: var(--cam-microcopy-size);
 }
 
 /* ── Wizard control metrics ──
@@ -1149,7 +1162,7 @@ html:has(.cam-auth-page--wizard) {
 /* iOS Safari zooms the viewport in on focus whenever the focused control's
    font is under 16px, and it does not zoom back out. That leaves the
    respondent inside a magnified form with the rail and the dock
-   off-screen -- so phones get 16px controls rather than the 15px base. The
+   off-screen -- so phones get 16px controls rather than the 14px answer size. The
    value typed is what has to be 16px; the placeholder may stay smaller,
    because a placeholder is never focused text. 16px is
    --cam-font-size-input-ios and is not a step on the font-size ladder. */
@@ -2185,7 +2198,7 @@ html:has(.cam-auth-page--wizard) {
   color: var(--cam-text);
   outline: none;
   font-family: inherit;
-  font-size: var(--cam-font-size-sm); /* answers 14px (owner, 2026-10-10) */
+  font-size: var(--cam-answer-size); /* answers 14px (owner, 2026-10-10) */
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
