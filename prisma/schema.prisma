@@ -1254,17 +1254,18 @@ model OnefopVocationalTrainingDetail {
   // 7.1.3 — five stakeholder rows, blank channel headers on the printed
   // form. One String[] of channel codes per stakeholder ("01".."08", "96";
   // _vt713ChannelOptions in onefop_ast.dart, provisional 2026-10-09), and
-  // the row's "précisez" text when 96 "Autre" is ticked.
+  // the row's "précisez" text when 96 "Autre" is ticked ('' otherwise:
+  // never null, the précisez being required whenever 96 is ticked).
   pupilsCommsChannels             String[] @default([])
   teachingStaffCommsChannels      String[] @default([])
   nonTeachingStaffCommsChannels   String[] @default([])
   parentsCommsChannels            String[] @default([])
   schoolCouncilCommsChannels      String[] @default([])
-  pupilsCommsChannelsOther           String?
-  teachingStaffCommsChannelsOther    String?
-  nonTeachingStaffCommsChannelsOther String?
-  parentsCommsChannelsOther          String?
-  schoolCouncilCommsChannelsOther    String?
+  pupilsCommsChannelsOther           String @default("")
+  teachingStaffCommsChannelsOther    String @default("")
+  nonTeachingStaffCommsChannelsOther String @default("")
+  parentsCommsChannelsOther          String @default("")
+  schoolCouncilCommsChannelsOther    String @default("")
   addressesIstIssues         Boolean?   // 7.2
   traineesReceivedFullSexEd  Boolean?   // 7.4
   genericLifeSkillsInSyllabus        Boolean?
