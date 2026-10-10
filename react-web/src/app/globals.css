@@ -292,9 +292,11 @@ body {
   line-height: var(--cam-line-height-ui);
 }
 
-/* Receipt only. The success screen reuses .brand-name and .brand-sub, whose
-   shared sizes are 25px and 14px. These modifiers keep the receipt at 20px
-   and 13px. The ID is the code treatment: mono, bold, a green wash. It is
+/* Card title recipe for the auth family: the registration receipt, the
+   agent invitation, forgot-password, verify-email and reset-password all
+   title their card with `.brand-name.receipt-title` and lead with
+   `.brand-sub.receipt-subtitle`. The shared .brand-name / .brand-sub sizes
+   are 25px and 14px; these modifiers bring the card title to 20px and 13px. The ID is the code treatment: mono, bold, a green wash. It is
    not a .cam-badge. */
 .cam-auth-page .receipt-hero {
   text-align: center;
@@ -320,6 +322,12 @@ body {
 
 .cam-auth-page .receipt-subtitle {
   font-size: var(--cam-font-size-xs);
+}
+
+/* A lede followed by a form, a table or a button needs air before it. As
+   the last child (the receipt hero, a message-only card) it takes none. */
+.cam-auth-page .receipt-subtitle:not(:last-child) {
+  margin-bottom: var(--cam-auth-block-gap);
 }
 
 .cam-auth-page .receipt-id {

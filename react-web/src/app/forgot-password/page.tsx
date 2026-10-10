@@ -72,18 +72,12 @@ export default function ForgotPasswordPage() {
 
         <div className="card">
           <div className="card-body">
-            <h1
-              className="brand-name"
-              style={{ fontSize: 18, marginBottom: 6, textAlign: "center" }}
-            >
+            <h1 className="brand-name receipt-title">
               {step === 2
                 ? t("forgotPasswordPage.titleReset")
                 : t("forgotPasswordPage.titleDefault")}
             </h1>
-            <p
-              className="brand-sub"
-              style={{ textAlign: "center", marginBottom: 20 }}
-            >
+            <p className="brand-sub receipt-subtitle">
               {step === 0 && t("forgotPasswordPage.subtitleStep0")}
               {step === 1 && t("forgotPasswordPage.subtitleStep1")}
               {step === 2 && t("forgotPasswordPage.subtitleStep2")}
@@ -160,13 +154,7 @@ export default function ForgotPasswordPage() {
                       hideLabel={t("forgotPasswordPage.hideButton")}
                     />
                   </div>
-                  <p
-                    style={{
-                      fontSize: 11.5,
-                      color: "var(--muted)",
-                      margin: "4px 0 0",
-                    }}
-                  >
+                  <p className="field-hint">
                     {t("forgotPasswordPage.visibilityAppliesToConfirmHint")}
                   </p>
                 </div>
@@ -195,7 +183,7 @@ export default function ForgotPasswordPage() {
                     ? t("forgotPasswordPage.validatingButton")
                     : t("forgotPasswordPage.resetButton")}
                 </button>
-                <div style={{ textAlign: "center", marginTop: 14 }}>
+                <div style={{ display: "flex", justifyContent: "center", marginTop: "var(--cam-space-3)" }}>
                   <button
                     type="button"
                     className="btn-secondary"
