@@ -66,6 +66,7 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | 9fd8c69f | Landing notices a ruled list; /inscription-agent back-to-sign-in link. |
 | 9bf53ca9 | ViewSwitch stray vertical scrollbar (systemic); French "Chargement de les" → "des" (systemic, tested); cibles 24px rhythm. Admin rhythm from b161783a verified rendered on dossiers, centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, cibles, pilotage, sectors (all 24px). |
 | 4ee542e6 | Plain words instead of codes: header pill, campagnes, cibles, pilotage, diffusion export history, sectors categories; quarterRef "4e trimestre 2026". |
+| 38252dfa | Shared table fixes (line-height, `.is-num`, dense state rows, G10 counts); dossiers selection bar (count, actions only when selected, neutral, labelled checkboxes); filters + table in one section on dossiers, etablissements, inscriptions, journal-audit. |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
@@ -74,7 +75,7 @@ check:ui-grammar PASS; npm test 445/445.
 
 ## Next batches (from the two read-only audits, 2026-10-10)
 
-Admin (systemic first):
+Admin (systemic first) — items 1–4 DONE in 38252dfa except th sentence case (needs owner OK):
 1. `.cam-table` density: `line-height: var(--cam-line-height-ui)`; th sentence
    case / no tracking / weight 600 (visible — show owner); `DataStateRow`
    pass `dense` (loading row ~140px → jump).
@@ -93,6 +94,7 @@ Admin (systemic first):
 7. Hub tabs filled green compete with primary (admin-console.css:1168-1218).
 8. Mobile: admin inputs 14px → iOS zoom; use `--cam-font-size-input-ios`
    under 640px. utilisateurs:548 dialog `1fr 1fr`.
+Owner decision pending: dossiers ID column shows the full UUID (wraps to 4 lines, a raw code) — shorten to 8 chars + tooltip? Check server search accepts a prefix first.
 Needs domain/backend decision, don't touch: dossier review sections
 unavailable + decision buttons on terminal statuses (dossiers/[id]);
 CompaniesDirectory sort is page-only; campagnes "Soumissions collectées"

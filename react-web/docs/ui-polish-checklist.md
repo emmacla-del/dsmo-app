@@ -30,7 +30,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 ## Staff console — supervision
 
 - [ ] `/admin/pilotage`
-- [~] `/admin/dossiers` — rhythm verified. Open: filters boxed apart from the table; bulk "Viser la sélection" always enabled with a green bar and no selected count; uppercase headers
+- [~] `/admin/dossiers` — 38252dfa filters+table one section, selection bar fixed, checkbox labels. Open: ID column shows full UUID (owner decision); uppercase headers (owner decision); review page dossiers/[id] not yet viewed
 - [ ] `/admin/dossiers/[id]` — review workflow
 - [ ] `/admin/centre-qualite`
 - [ ] `/admin/equipe`
@@ -60,6 +60,7 @@ Legend: `[ ]` not inspected · `[~]` inspected, issues open · `[x]` done
 
 ## Shared fixes
 
+- 38252dfa — `.cam-table` line-height and `.is-num`; dense table state rows; counts only after load; filters + table in one section (4 routes).
 - 4ee542e6 — no stored codes on screen: campaign period/name, submission and campaign statuses, sector categories.
 - 9bf53ca9 — ViewSwitch no longer draws a vertical scrollbar (every page with in-page views); French loading text "Chargement des/du …" (every admin list).
 - b161783a — admin page rhythm: `.cam-admin-page` gap is the only vertical spacing between page blocks.
