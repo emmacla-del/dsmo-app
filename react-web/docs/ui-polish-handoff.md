@@ -5,6 +5,11 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 
 ## Scope and working rules (agreed with the owner)
 
+- **This is a government platform.** Judge every review and edit against
+  public-sector form conventions (GOV.UK Design System as the reference):
+  actions at the end of the form, error summary at the top, one primary
+  action, labels above fields, plain wording, WCAG 2.2. No SaaS patterns.
+
 - **react-web only.** No Flutter, no backend changes (backend is paused).
 - Owner's brief: systemic UI/UX fixes over cosmetic ones; fix the shared
   component/token, not each page. Institutional, data-dense look; no SaaS
@@ -47,9 +52,10 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 |---|---|
 | 58fdd865 | Auth family on one card shell (reset/forgot-password, verify-email). |
 | 701c81e9 | `docs/ui-polish-checklist.md` |
-| 8b201155 | Registration wizard one column at every width + page scroll, sticky `.flow-frame-dock` (owner's decision). `scripts/test-register-layout.mjs` 155/155 against localhost, no submission. Backend was down, so region/department option loading was not exercised. |
+| 8b201155 | Registration wizard one column at every width + page scroll (owner's decision). `scripts/test-register-layout.mjs` 155/155 against localhost, no submission. Backend was down, so region/department option loading was not exercised. |
 | b161783a | Admin: page-level margins no longer stack on the `.cam-admin-page` gap; `/admin/sectors` one header. **Not yet seen rendered** (needs SUPER_ADMIN sign-in) — verify on dossiers, dossiers/[id], centre-qualite, diffusion, etablissements, inscriptions, utilisateurs, sectors. `cibles:433,552` inline margins left in place pending a render. |
 | 2032ee18 | DSMO inputs keep focus (inner components hoisted); ONEFOP drafts/corrections route to `/onefop/preview?entity=<entityType>`. **Not yet seen rendered** (needs a company account). Unverified: whether the ONEFOP wizard reopens that submission's data. |
+| 68e2205b | Registration footer at the end of the form (not sticky) and an error summary with field links at the top of the section — owner's decision, government-form convention. Layout script 158/158. |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
