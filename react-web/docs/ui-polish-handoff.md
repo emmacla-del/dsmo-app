@@ -77,6 +77,9 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | afe6358f | Account bar at the top (name, role, FR/EN; sign-out stays at the sidebar foot); equipe/questionnaires as tables; centre-qualite ViewSwitch + rule families in words; etablissement-detail, annuaire, notifications, inscriptions/nouvelle, utilisateurs fixes; quiet hub tabs; iOS 16px; dead CSS removed. Verified rendered except equipe rows (server returned 0 actors). |
 | 54375482 | Respondent /home pages simplified (agent; NOT yet seen rendered — needs a company account). |
 | 5f550baf | ONEFOP wizard shared fixes: unboxed choices, one input style, no nested table scroll, emoji removed (agent; NOT yet seen rendered). |
+| cab73f5a | Official ONEFOP logo on landing + registration (flag-map emblem deleted); pilotage pipeline highlight removed; dead Accessible*/StatisticalTable components deleted. |
+| 73338a1c | Dossier review: decisions follow the server's own guards (allowedDecisions, tested) — final dossiers show "Visé/Rejeté le …", CORRECTION_REQUESTED offers only Rejeter; structure card shows each entity type's own fields. Server already enforced the rule: no backend change. |
+| dcfc2c0f | StatStrip: one line of key figures replaces KPI cards on 5 pages; etablissements header search (which searched dossiers) removed. |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
@@ -92,7 +95,8 @@ check:ui-grammar PASS; npm test 445/445.
 - DSMO wizard labels not linked to inputs (htmlFor).
 - scripts/check-admin-ui-grammar.mjs still names .cam-pilot-table in its bare-table regex text.
 - Unused CSS left: .cam-param-panel/-note/-list, .cam-pilot-kpi-icon/-top, .cam-admin-rail-user*/-rail-locale (sidebar foot now only has sign-out).
-- Dossier review: decision buttons offered on terminal statuses (server rule needed); VT dossiers show company fields as dashes.
+- diffusion and parametres still show the header search box, which searches dossiers, not the page — consider the icon there too.
+- StatStrip shows "—" when the server fails; a distinct error line would be clearer (G10).
 
 ## Next batches (from the two read-only audits, 2026-10-10)
 
