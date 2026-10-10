@@ -1211,7 +1211,6 @@
   },
   "onefopUi": {
     "moreInfo": "Informations complémentaires",
-    "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "decrease": "Diminuer",
     "increase": "Augmenter",
     "optionalSuffix": "(facultatif)",
@@ -2636,7 +2635,7 @@
     "signOut": "Se déconnecter"
   },
   "landingPage": {
-    "emblemLabel": "Carte du Cameroun aux couleurs nationales",
+    "emblemLabel": "Logo de l'ONEFOP, Observatoire national de l'emploi et de la formation professionnelle",
     "otherLanguageName": "Cameroon Labour and Employment Analytical Platform",
     "noticesHeading": "Avis aux déclarants",
     "notice1Title": "Bienvenue sur CAM-LEAP",

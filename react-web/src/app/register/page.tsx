@@ -75,7 +75,7 @@ import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { RegistrationStepList } from "@/components/auth/RegistrationStepList";
 import { StepHeader } from "@/components/auth/StepHeader";
-import { CameroonEmblem } from "@/components/landing/CameroonEmblem";
+import { OfficialLogo } from "@/components/landing/OfficialLogo";
 
 // CAM-LEAP Official Administrative Registration Wizard
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
@@ -1906,7 +1906,7 @@ export default function RegisterPage() {
         <div className="flow-panel">
           <div className="flow-panel-identity">
             <span className="flow-panel-emblem">
-              <CameroonEmblem label={t("landingPage.emblemLabel")} />
+              <OfficialLogo label={t("landingPage.emblemLabel")} />
             </span>
             <div>
               <div className="flow-panel-wordmark">{t("authShared.wordmark")}</div>
