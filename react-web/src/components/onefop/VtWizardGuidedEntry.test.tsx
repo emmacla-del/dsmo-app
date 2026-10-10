@@ -98,3 +98,84 @@ test("8.8 roster summary buttons name the trainer, in English too", () => {
   assert.ok(screen.getByRole("button", { name: "Edit row 1: Ndi Paul" }));
   assert.ok(screen.getByRole("button", { name: "Delete row 1: Ndi Paul" }));
 });
+
+// 8.8 trainer roster: "Personnel administratif" is a boolean cell. The form
+// stores a real boolean (true/false), or null when the question was skipped.
+function render88(data: FormData = {}) {
+  const field = schemaField("vocationalTraining", "VT8_8");
+  const calls: Array<[string, unknown]> = [];
+  const result = renderWithProviders(
+    <VtWizardRosterGuidedEntry field={field} data={data} onChange={(id, v) => calls.push([id, v])} />,
+  );
+  return { ...result, calls, row1: field.table!.vt!.rows[0].id };
+}
+
+test("8.8 Personnel administratif is a native radio group named by the question, nothing checked", () => {
+  render88();
+
+  const group = screen.getByRole("group", { name: "Personnel administratif" });
+  const radios = within(group).getAllByRole("radio") as HTMLInputElement[];
+  assert.equal(radios.length, 2);
+  assert.equal(new Set(radios.map((r) => r.name)).size, 1, "options share one name");
+  assert.ok(radios[0].name, "the shared name is not empty");
+  assert.ok(within(group).getByRole("radio", { name: "Oui" }));
+  assert.ok(within(group).getByRole("radio", { name: "Non" }));
+  assert.equal(radios.filter((r) => r.checked).length, 0, "unanswered: no default selection");
+});
+
+for (const [labelText, stored] of [["Oui", true], ["Non", false]] as const) {
+  test(`8.8 clicking the ${labelText} label stores the boolean ${stored} as before`, async () => {
+    const { user, calls, row1 } = render88();
+
+    await user.type(screen.getByRole("textbox", { name: /^Nom/ }), "Ndi");
+    const group = screen.getByRole("group", { name: "Personnel administratif" });
+    await user.click(within(group).getByText(labelText));
+    assert.equal((within(group).getByRole("radio", { name: labelText }) as HTMLInputElement).checked, true);
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer le formateur" }));
+    const written = Object.fromEntries(calls);
+    assert.equal(written[`${row1}_lastName`], "Ndi");
+    assert.strictEqual(written[`${row1}_isAdminPersonnel`], stored);
+  });
+}
+
+test("8.8 unanswered Personnel administratif is stored as null, not false", async () => {
+  const { user, calls, row1 } = render88();
+
+  await user.type(screen.getByRole("textbox", { name: /^Nom/ }), "Ndi");
+  await user.click(screen.getByRole("button", { name: "Enregistrer le formateur" }));
+  assert.strictEqual(Object.fromEntries(calls)[`${row1}_isAdminPersonnel`], null);
+});
+
+test("8.8 summary: an unanswered admin cell is not shown as Non; editing restores it unchecked", async () => {
+  const row1 = schemaField("vocationalTraining", "VT8_8").table!.vt!.rows[0].id;
+  const { user } = render88({ [`${row1}_lastName`]: "Ndi", [`${row1}_firstName`]: "Paul" });
+
+  const edit = screen.getByRole("button", { name: "Modifier la ligne 1 : Ndi Paul" });
+  const summaryRow = edit.parentElement!;
+  assert.equal(summaryRow.textContent?.includes("Non"), false, "unanswered must not read as Non");
+  assert.equal(summaryRow.textContent?.includes("Personnel administratif"), false);
+
+  await user.click(edit);
+  const group = screen.getByRole("group", { name: "Personnel administratif" });
+  const radios = within(group).getAllByRole("radio") as HTMLInputElement[];
+  assert.equal(radios.filter((r) => r.checked).length, 0, "edit keeps it unanswered");
+});
+
+test("8.8 summary and edit: a stored false reads back as Non checked, a stored true as Oui", async () => {
+  const vt = schemaField("vocationalTraining", "VT8_8").table!.vt!;
+  const [r1, r2] = [vt.rows[0].id, vt.rows[1].id];
+  const { user } = render88({
+    [`${r1}_lastName`]: "Ndi", [`${r1}_isAdminPersonnel`]: false,
+    [`${r2}_lastName`]: "Abena", [`${r2}_isAdminPersonnel`]: true,
+  });
+
+  await user.click(screen.getByRole("button", { name: "Modifier la ligne 1 : Ndi" }));
+  let group = screen.getByRole("group", { name: "Personnel administratif" });
+  assert.equal((within(group).getByRole("radio", { name: "Non" }) as HTMLInputElement).checked, true);
+  assert.equal((within(group).getByRole("radio", { name: "Oui" }) as HTMLInputElement).checked, false);
+
+  await user.click(screen.getByRole("button", { name: "Modifier la ligne 2 : Abena" }));
+  group = screen.getByRole("group", { name: "Personnel administratif" });
+  assert.equal((within(group).getByRole("radio", { name: "Oui" }) as HTMLInputElement).checked, true);
+});

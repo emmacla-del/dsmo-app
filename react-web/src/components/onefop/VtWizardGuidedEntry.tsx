@@ -818,41 +818,13 @@ export function VtWizardProgressiveBooleanTableEntry({
           // picks one, so "not answered" (null) stays distinct from Non.
           const groupName = `${groupIdPrefix}-${cell.key}`;
           return (
-            <fieldset
+            <GuidedYesNoRadioGroup
               key={cell.key}
-              style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, border: "none", margin: 0, padding: 0, minWidth: 0 }}
-            >
-              <legend style={{ float: "left", padding: 0, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink, margin: 0 }}>
-                {cellLabel(cell, locale)}
-              </legend>
-              <div style={{ display: "flex", gap: 16 }}>
-                {([true, false] as const).map((answer) => {
-                  const selected = val === answer;
-                  return (
-                    <label
-                      key={String(answer)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        minHeight: 32, cursor: "pointer",
-                        fontFamily: "var(--cam-font-sans)",
-                        fontWeight: selected ? 600 : 400, fontSize: 13,
-                        color: selected ? ink : inkSoft,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name={groupName}
-                        value={String(answer)}
-                        checked={selected}
-                        onChange={() => setBoolValues({ ...boolValues, [cell.key]: answer })}
-                        style={{ margin: 0, accentColor: accentGreen, cursor: "pointer" }}
-                      />
-                      {answer ? t("vtTableRenderer.booleanYes") : t("vtTableRenderer.booleanNo")}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+              name={groupName}
+              label={cellLabel(cell, locale)}
+              value={val}
+              onChange={(answer) => setBoolValues({ ...boolValues, [cell.key]: answer })}
+            />
           );
         })}
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
@@ -943,6 +915,7 @@ export function VtWizardRosterGuidedEntry({
   const [firstName, setFirstName] = useState("");
   const [radioValues, setRadioValues] = useState<Record<string, string | null>>({});
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const adminGroupName = useId();
   const [lastNameError, setLastNameError] = useState(false);
 
   const rowFilled = (row: VRow): boolean => {
@@ -1079,12 +1052,13 @@ export function VtWizardRosterGuidedEntry({
           </div>
         ))}
         {adminCell && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
-            <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink }}>
-              {cellLabel(adminCell, locale)}
-            </span>
-            <GuidedBooleanToggle value={isAdmin} onChange={setIsAdmin} />
-          </div>
+          <GuidedYesNoRadioGroup
+            name={adminGroupName}
+            label={cellLabel(adminCell, locale)}
+            value={isAdmin}
+            onChange={setIsAdmin}
+            style={{ marginTop: 16 }}
+          />
         )}
         <button
           type="button"
@@ -1227,45 +1201,58 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
   );
 });
 
-const GuidedBooleanToggle = memo(function GuidedBooleanToggle({
+/** Oui/Non question as a native radio group: a fieldset named by the
+ * question (legend), one shared `name`, the whole label clickable. Nothing is
+ * checked while `value` is null, so "not answered" stays distinct from Non. */
+const GuidedYesNoRadioGroup = memo(function GuidedYesNoRadioGroup({
+  name,
+  label,
   value,
   onChange,
+  style,
 }: {
+  name: string;
+  label: ReactNode;
   value: boolean | null;
   onChange: (v: boolean) => void;
+  style?: CSSProperties;
 }) {
   const t = useTranslations();
-  const option = (answer: boolean, label: string) => {
-    const selected = value === answer;
-    return (
-      <button
-        key={String(answer)}
-        type="button"
-        onClick={() => onChange(answer)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "10px 4px",
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          fontFamily: "var(--cam-font-sans)",
-          fontWeight: selected ? 600 : 400,
-          fontSize: 14,
-          color: selected ? ink : inkSoft,
-        }}
-      >
-        <span style={{ fontSize: 14, color: selected ? accentGreen : "var(--cam-border)" }}>{selected ? "●" : "○"}</span>
-        {label}
-      </button>
-    );
-  };
   return (
-    <div style={{ display: "flex", gap: 8 }}>
-      {option(true, t("vtTableRenderer.booleanYes"))}
-      {option(false, t("vtTableRenderer.booleanNo"))}
-    </div>
+    <fieldset
+      style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, border: "none", margin: 0, padding: 0, minWidth: 0, ...style }}
+    >
+      <legend style={{ float: "left", padding: 0, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: ink, margin: 0 }}>
+        {label}
+      </legend>
+      <div style={{ display: "flex", gap: 16 }}>
+        {([true, false] as const).map((answer) => {
+          const selected = value === answer;
+          return (
+            <label
+              key={String(answer)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                minHeight: 32, cursor: "pointer",
+                fontFamily: "var(--cam-font-sans)",
+                fontWeight: selected ? 600 : 400, fontSize: 13,
+                color: selected ? ink : inkSoft,
+              }}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={String(answer)}
+                checked={selected}
+                onChange={() => onChange(answer)}
+                style={{ margin: 0, accentColor: accentGreen, cursor: "pointer" }}
+              />
+              {answer ? t("vtTableRenderer.booleanYes") : t("vtTableRenderer.booleanNo")}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 });
 
