@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   DEMAND_FORM_TYPES,
+  buildExcelExportWhere,
   buildOnefopExportWhere,
   buildSpssExportWhere,
   parseStatuses,
@@ -70,5 +71,15 @@ describe('ONEFOP export filters', () => {
     expect(resolveExportPartition({ entityType: 'VOCATIONAL_TRAINING' })).toBe('TVET');
     expect(resolveExportPartition({ entityType: 'ONG' })).toBe('DEMAND');
     expect(() => resolveExportPartition({ entityType: 'ONG', partition: 'TVET' })).toThrow(BadRequestException);
+  });
+
+  it('restricts Excel rows to a requested population with the SPSS predicate, and leaves "all" untouched', () => {
+    expect(buildExcelExportWhere({ partition: 'DEMAND' }, ELIGIBLE).formType).toEqual({ in: DEMAND_FORM_TYPES });
+    expect(buildExcelExportWhere({ partition: 'TVET' }, ELIGIBLE).formType).toBe('VOCATIONAL_TRAINING');
+    expect(buildExcelExportWhere({ entityType: 'VOCATIONAL_TRAINING' }, ELIGIBLE).formType).toBe('VOCATIONAL_TRAINING');
+    expect(buildExcelExportWhere({ partition: 'DEMAND', entityType: 'ONG' }, ELIGIBLE).formType).toBe('ONG');
+    // No population requested, or ALL: every population, as before.
+    expect(buildExcelExportWhere({}, ELIGIBLE)).toEqual(buildOnefopExportWhere({}, ELIGIBLE));
+    expect(buildExcelExportWhere({ partition: 'ALL' }, ELIGIBLE).formType).toBeUndefined();
   });
 });

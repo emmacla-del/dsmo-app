@@ -11,7 +11,7 @@ import {
     AnalyticalVariableDefinition,
 } from './canonical-schema-adapter.service';
 import {
-    buildOnefopExportWhere,
+    buildExcelExportWhere,
     buildSpssExportWhere,
     resolveExportPartition,
     type OnefopExportFilters,
@@ -713,11 +713,13 @@ export class DataManagementService {
             : EligibilityEngineService.getStatisticalEligibilityWhere();
     }
 
-    /// Rows for every ONEFOP export. Without `statuses` this is the official
+    /// Rows for the Excel export. Without `statuses` this is the official
     /// statistical base (APPROVED, no open blocking anomaly); with `statuses`
     /// it is exactly those administrative statuses — see export-filters.ts.
+    /// A requested population (`partition`, e.g. the admin "Employeurs"
+    /// choice) restricts the rows through the same predicate as SPSS/CSV.
     private buildApprovedOnefopWhere(filters: OnefopExportFilters, territory?: Territory): any {
-        const base = buildOnefopExportWhere(filters, this.eligibilityWhere());
+        const base = buildExcelExportWhere(filters, this.eligibilityWhere());
         if (!territory) return base;
         return { AND: [territoryWhereForExport(territory), base] };
     }

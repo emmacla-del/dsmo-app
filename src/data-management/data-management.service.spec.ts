@@ -695,6 +695,90 @@ describe('DataManagementService — VOCATIONAL_TRAINING breakdown sheets (VT-8)'
   });
 });
 
+// Bug 3 (2026-10-10): the admin "Employeurs" choice sends partition DEMAND,
+// which the SPSS/CSV export honoured but the Excel export ignored, so an
+// employer workbook still carried a "Formation Professionnelle" sheet. The
+// fake table below applies the `formType` predicate the way Postgres would.
+describe('DataManagementService.streamOnefopSubmissionsExcel — population (partition) filter', () => {
+  const ROWS = [
+    { id: 'sub-e', submissionId: 'S-E', formType: 'ENTREPRISE' },
+    { id: 'sub-o', submissionId: 'S-O', formType: 'ONG' },
+    { id: 'sub-v', submissionId: 'S-V', formType: 'VOCATIONAL_TRAINING' },
+  ];
+  const matches = (formTypeWhere: any, formType: string) =>
+    formTypeWhere === undefined
+      || (typeof formTypeWhere === 'string' ? formTypeWhere === formType : formTypeWhere.in.includes(formType));
+  // The where is either the base itself or { AND: [territory, base] } with
+  // the per-sheet formType at top level; without territory it is flat.
+  const rowsFor = (where: any) => ROWS.filter((r) => matches(where.formType, r.formType));
+
+  async function exportSheets(filters: any) {
+    const { service, prisma } = makeService();
+    prisma.onefopSubmission.findMany.mockImplementation(async (args: any) => {
+      const rows = rowsFor(args.where);
+      if (args.distinct?.includes('formType')) return rows.map((r) => ({ formType: r.formType }));
+      if (args.include) {
+        if (args.cursor) return [];
+        return rows.map((r) => ({
+          ...r,
+          status: 'APPROVED',
+          surveyYear: 2026,
+          company: { name: r.id, region: 'Centre', department: 'Mfoundi' },
+        }));
+      }
+      return [];
+    });
+    const { res, finished, buffer } = fakeExcelRes();
+    await service.streamOnefopSubmissionsExcel(filters, res);
+    await finished;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer() as any);
+    const ids = wb.worksheets.flatMap((s) => {
+      const out: unknown[] = [];
+      s.eachRow((row, n) => { if (n > 1) out.push(...(row.values as unknown[])); });
+      return out;
+    }).filter((v) => typeof v === 'string' && v.startsWith('S-'));
+    return { sheets: wb.worksheets.map((s) => s.name), ids, prisma };
+  }
+
+  it('Employeurs (partition DEMAND) excludes training-centre rows', async () => {
+    const { sheets, ids, prisma } = await exportSheets({ partition: 'DEMAND' });
+    expect(sheets).toEqual(['Entreprises', 'ONG']);
+    expect(ids.sort()).toEqual(['S-E', 'S-O']);
+    expect(ids).not.toContain('S-V');
+    // The same predicate also bounds the breakdown sheets' existence checks.
+    const breakdownWhere = prisma.onefopCspGenderAge.findFirst.mock.calls[0][0].where.submission;
+    expect(breakdownWhere.formType).toEqual({ in: expect.not.arrayContaining(['VOCATIONAL_TRAINING']) });
+  });
+
+  it('Formation professionnelle (entity type VOCATIONAL_TRAINING, as the admin page sends it) excludes employer rows', async () => {
+    const { sheets, ids } = await exportSheets({ entityType: 'VOCATIONAL_TRAINING' });
+    expect(sheets).toEqual(['Formation Professionnelle']);
+    expect(ids).toEqual(['S-V']);
+  });
+
+  it('partition TVET excludes employer rows', async () => {
+    const { sheets, ids } = await exportSheets({ partition: 'TVET' });
+    expect(sheets).toEqual(['Formation Professionnelle']);
+    expect(ids).toEqual(['S-V']);
+  });
+
+  it('with no population requested, or partition ALL, the workbook is unchanged and holds every population', async () => {
+    for (const filters of [{}, { partition: 'ALL' }]) {
+      const { sheets, ids } = await exportSheets(filters);
+      expect(sheets).toEqual(['Entreprises', 'ONG', 'Formation Professionnelle']);
+      expect(ids.sort()).toEqual(['S-E', 'S-O', 'S-V']);
+    }
+  });
+
+  it('under a territory scope the partition still applies', async () => {
+    const { service } = makeService();
+    const where = service.buildApprovedOnefopWhere({ partition: 'DEMAND' }, { role: 'REGIONAL_ADMIN', region: 'Centre', regionId: 'r1' });
+    const base = where.AND ? where.AND[1] : where;
+    expect(base.formType).toEqual({ in: expect.not.arrayContaining(['VOCATIONAL_TRAINING']) });
+  });
+});
+
 // getDataStats fans one territory out over three models. Company and
 // OnefopSubmission accept every key territoryWhere emits; Declaration has
 // neither regionId nor departmentId and calls the second administrative tier
