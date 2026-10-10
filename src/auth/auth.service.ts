@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import type { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
@@ -1814,14 +1815,31 @@ export class AuthService {
   }
 
   private async companyRegistrationCounts(scope: Record<string, unknown>, cutoff: Date) {
-    const [pending, complements, approved, rejected] = await Promise.all([
-      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'PENDING_APPROVAL' } } }),
-      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'COMPLEMENTS_REQUESTED' } } }),
-      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'ACTIVE' } } }),
-      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'REJECTED' } } }),
-    ]);
-    // After the four above rather than alongside them: the session-mode pool
-    // is small (15) and wide fan-outs have exhausted it before.
+    // One groupBy instead of four parallel counts: the session-mode pool is
+    // small (15), Prisma opens a connection per concurrent query, and wide
+    // fan-outs have exhausted it before (EMAXCONNSESSION).
+    //
+    // Grouped from the User side because a Company groupBy cannot group on a
+    // relation column. Company.userId is required and unique, so every
+    // company has exactly one user and "COMPANY users with status S whose
+    // company matches the scope" counts the same rows as "companies in scope
+    // whose user is a COMPANY with status S". The territory scope is applied
+    // unchanged, through `company: { is: scope }`.
+    const statusGroups = await this.prisma.user.groupBy({
+      by: ['status'],
+      where: {
+        role: 'COMPANY',
+        status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED', 'ACTIVE', 'REJECTED'] },
+        company: { is: scope as Prisma.CompanyWhereInput },
+      },
+      _count: { _all: true },
+    });
+    const byStatus = new Map<string, number>(statusGroups.map((g) => [g.status, g._count._all]));
+    const pending = byStatus.get('PENDING_APPROVAL') ?? 0;
+    const complements = byStatus.get('COMPLEMENTS_REQUESTED') ?? 0;
+    const approved = byStatus.get('ACTIVE') ?? 0;
+    const rejected = byStatus.get('REJECTED') ?? 0;
+    // Sequential, after the groupBy, for the same reason.
     const recentlyResubmitted = await this.usersResubmittedSince(cutoff);
     const overdue = await this.prisma.company.count({
       where: {

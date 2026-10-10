@@ -53,6 +53,8 @@ describe('AuthService.listCompanyRegistrations — overdue view', () => {
         findMany: jest.fn(async ({ where }: any) =>
           where?.action === 'COMPANY_REGISTRATION_RESUBMITTED' && where?.createdAt ? [{ resourceId: 'u-fresh' }] : []),
       },
+      // The status tab counts are one groupBy over COMPANY users.
+      user: { groupBy: jest.fn(async () => []) },
     };
     const systemSettings: any = { getSettings: jest.fn(async () => ({ registrationOverdueDays: settingDays })) };
     const service = new AuthService(prisma, {} as any, {} as any, {} as any, systemSettings);
@@ -90,5 +92,66 @@ describe('AuthService.listCompanyRegistrations — overdue view', () => {
     prisma.company.count.mockImplementation(async ({ where }: any) => (where.createdAt?.lt ? 3 : 1));
     const r = await service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, {});
     expect(r.counts).toMatchObject({ overdue: 3 });
+  });
+
+  // The four status tabs used to be four parallel company.count calls; they
+  // are now one groupBy, so the endpoint never holds more than two pool
+  // connections at once (session-mode pooler, pool_size 15).
+  it('reads the four status tab counts from one groupBy, same figures', async () => {
+    const { prisma, service } = makeService();
+    prisma.user.groupBy.mockResolvedValue([
+      { status: 'PENDING_APPROVAL', _count: { _all: 5 } },
+      { status: 'ACTIVE', _count: { _all: 12 } },
+      { status: 'REJECTED', _count: { _all: 2 } },
+    ]);
+    prisma.company.count.mockImplementation(async ({ where }: any) => (where.createdAt?.lt ? 3 : 99));
+    const r = await service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, {});
+    // A status with no rows reads 0, as count() did.
+    expect(r.counts).toEqual({ pending: 5, complements: 0, approved: 12, rejected: 2, overdue: 3 });
+    expect(prisma.user.groupBy).toHaveBeenCalledTimes(1);
+    // company.count now serves only the list total and the overdue figure.
+    expect(prisma.company.count).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies the territory scope (and region filter) to the status counts', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { region: 'Littoral' },
+    );
+    const args = prisma.user.groupBy.mock.calls[0][0];
+    expect(args.by).toEqual(['status']);
+    expect(args.where.role).toBe('COMPANY');
+    expect(args.where.company).toEqual({
+      is: {
+        region: { equals: 'Littoral', mode: 'insensitive' },
+        AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }],
+      },
+    });
+  });
+
+  it('fails closed for an unassigned territorial reviewer', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations({ role: 'REGIONAL_ADMIN' }, {});
+    expect(prisma.user.groupBy.mock.calls[0][0].where.company).toEqual({ is: { id: { in: [] } } });
+  });
+
+  it('never has more than two queries in flight', async () => {
+    const { prisma, service } = makeService();
+    let inFlight = 0;
+    let peak = 0;
+    const slow = <T>(value: T) => async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return value;
+    };
+    prisma.company.count.mockImplementation(slow(0));
+    prisma.company.findMany.mockImplementation(slow([]));
+    prisma.user.groupBy.mockImplementation(slow([]));
+    prisma.auditLog.findMany.mockImplementation(slow([]));
+    await service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, {});
+    expect(peak).toBeLessThanOrEqual(2);
   });
 });

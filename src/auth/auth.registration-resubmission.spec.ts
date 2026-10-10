@@ -414,6 +414,8 @@ describe('AuthService.listCompanyRegistrations — resubmission diff and ADMINIS
         findMany: jest.fn(async (args: any) => (args?.where?.id?.notIn ? [] : [row])),
       },
       auditLog: { findMany: jest.fn(async () => auditRows) },
+      // The status tab counts are one groupBy over COMPANY users.
+      user: { groupBy: jest.fn(async () => []) },
     };
     return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }

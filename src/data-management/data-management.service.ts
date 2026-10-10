@@ -584,22 +584,14 @@ export class DataManagementService {
         const companyWhere = territoryWhere(territory) as Prisma.CompanyWhereInput;
         const onefopWhere = territoryWhere(territory) as Prisma.OnefopSubmissionWhereInput;
         const declarationWhere: Prisma.DeclarationWhereInput = territoryWhereForDeclaration(territory);
-        const [
-            totalCompanies,
-            totalDeclarations,
-            totalOnefopSubmissions,
-            totalUsers,
-            declarationsByStatus,
-            onefopByStatus,
-            companiesByRegion,
-        ] = await Promise.all([
-            this.prisma.company.count({ where: companyWhere }),
-            this.prisma.declaration.count({ where: declarationWhere }),
-            this.prisma.onefopSubmission.count({ where: onefopWhere }),
-            territory?.region
-                ? this.prisma.user.count({ where: { region: territory.region } })
-                : this.prisma.user.count(),
-
+        // Four queries, at most two in flight (was seven in one Promise.all).
+        // The pooler runs in session mode with a tenant pool of 15 and Prisma
+        // opens one connection per concurrent query, so wide fan-outs on admin
+        // screens exhausted it (EMAXCONNSESSION). The three model totals are
+        // the sums of the groupBys below: a groupBy's buckets (a null bucket
+        // included) partition its `where`, so the sum equals count() over
+        // the same filter.
+        const [declarationsByStatus, onefopByStatus] = await Promise.all([
             this.prisma.declaration.groupBy({
                 by: ['status'],
                 where: declarationWhere,
@@ -611,14 +603,23 @@ export class DataManagementService {
                 where: onefopWhere,
                 _count: true,
             }),
-
+        ]);
+        const [companiesByRegion, totalUsers] = await Promise.all([
             this.prisma.company.groupBy({
                 by: ['region'],
                 where: companyWhere,
                 _count: true,
                 orderBy: { _count: { region: 'desc' } },
             }),
+            territory?.region
+                ? this.prisma.user.count({ where: { region: territory.region } })
+                : this.prisma.user.count(),
         ]);
+        const sumCounts = (groups: Array<{ _count: number }>) =>
+            groups.reduce((total, g) => total + g._count, 0);
+        const totalCompanies = sumCounts(companiesByRegion);
+        const totalDeclarations = sumCounts(declarationsByStatus);
+        const totalOnefopSubmissions = sumCounts(onefopByStatus);
 
         return {
             totals: {
