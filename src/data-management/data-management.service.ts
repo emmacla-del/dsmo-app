@@ -717,8 +717,8 @@ export class DataManagementService {
     /// Rows for the Excel export. Without `statuses` this is the official
     /// statistical base (APPROVED, no open blocking anomaly); with `statuses`
     /// it is exactly those administrative statuses — see export-filters.ts.
-    /// A requested population (`partition`, e.g. the admin "Employeurs"
-    /// choice) restricts the rows through the same predicate as SPSS/CSV.
+    /// The population follows the same rule as SPSS/CSV (default: employers;
+    /// `partition: 'ALL'` for every population).
     private buildApprovedOnefopWhere(filters: OnefopExportFilters, territory?: Territory): any {
         const base = buildExcelExportWhere(filters, this.eligibilityWhere());
         if (!territory) return base;

@@ -763,12 +763,16 @@ describe('DataManagementService.streamOnefopSubmissionsExcel — population (par
     expect(ids).toEqual(['S-V']);
   });
 
-  it('with no population requested, or partition ALL, the workbook is unchanged and holds every population', async () => {
-    for (const filters of [{}, { partition: 'ALL' }]) {
-      const { sheets, ids } = await exportSheets(filters);
-      expect(sheets).toEqual(['Entreprises', 'ONG', 'Formation Professionnelle']);
-      expect(ids.sort()).toEqual(['S-E', 'S-O', 'S-V']);
-    }
+  it('with no population requested, the workbook defaults to employers, as SPSS does', async () => {
+    const { sheets, ids } = await exportSheets({});
+    expect(sheets).toEqual(['Entreprises', 'ONG']);
+    expect(ids.sort()).toEqual(['S-E', 'S-O']);
+  });
+
+  it('partition ALL holds every population, one sheet per entity type', async () => {
+    const { sheets, ids } = await exportSheets({ partition: 'ALL' });
+    expect(sheets).toEqual(['Entreprises', 'ONG', 'Formation Professionnelle']);
+    expect(ids.sort()).toEqual(['S-E', 'S-O', 'S-V']);
   });
 
   it('under a territory scope the partition still applies', async () => {
