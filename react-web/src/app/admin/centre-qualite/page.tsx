@@ -253,7 +253,7 @@ function CentreQualiteContent() {
             </h2>
             {/* Five tiles, so the four-column .cam-pilot-kpis grid is widened
                 to auto-fit rather than leaving one orphan on a second row. */}
-            <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: 0 }}>
+            <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
               {qualityKpis.map((k) => (
                 <div key={k.key} className="cam-pilot-kpi">
                   <span className="cam-pilot-kpi-label">{k.label}</span>

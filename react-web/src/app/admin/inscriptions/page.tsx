@@ -327,7 +327,7 @@ function InscriptionsContent() {
       )}
 
       {/* Five tiles: auto-fit rather than the four-column default. */}
-      <div className="cam-pilot-kpis" style={{ marginBottom: 0, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <div className="cam-pilot-kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {queueKpis.map((k) => (
           <div key={k.key} className="cam-pilot-kpi">
             <span className="cam-pilot-kpi-label">{k.label}</span>

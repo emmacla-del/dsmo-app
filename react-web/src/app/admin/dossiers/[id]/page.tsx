@@ -480,7 +480,7 @@ function SubmissionDetailContent() {
         </div>
       </div>
 
-      <div className="cam-dossier-grid" style={{ marginTop: "var(--cam-space-5)" }}>
+      <div className="cam-dossier-grid">
         {/* Left: respondent and structure, as stored */}
         <div className="cam-dash-column">
           <section className="cam-dash-card">
@@ -665,7 +665,7 @@ function SubmissionDetailContent() {
           actor is named: `reviewedBy` holds a bare account id, and the named
           history of who did what lives in the audit journal, which is linked
           rather than reconstructed here. */}
-      <section className="cam-admin-section" style={{ marginTop: "var(--cam-space-5)" }}>
+      <section className="cam-admin-section">
         <div className="cam-admin-section-head">
           <h2 className="cam-admin-h2">{t("historyTitle")}</h2>
           {canReadAudit && (

@@ -41,6 +41,7 @@ export default function AdminSectorsPage() {
     <AdminPageHeader
       breadcrumb={[{ label: t("adminNav.hubs.donnees") }, { label: t("adminNav.routes.sectors") }]}
       title={t("adminNav.routes.sectors")}
+      subtitle={t("adminLayout.sectorsSubtitle")}
       actions={<AdminHeaderActions showCampaignPill={false} />}
     />
   );
@@ -82,7 +83,6 @@ export default function AdminSectorsPage() {
 
       <section className="cam-admin-section">
         <div className="cam-admin-section-head">
-          <h2 className="cam-admin-h2">{t("adminSectorsPage.pageTitle")}</h2>
           {sectorsQuery.isSuccess && (
             <span className="cam-admin-meta">
               {t("adminSectorsPage.sectorCount", { count: filteredSectors.length })}

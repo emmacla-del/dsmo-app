@@ -442,7 +442,6 @@ function DossiersContent() {
         <p
           key={view.labelKey}
           className="cam-admin-notice cam-admin-notice--info"
-          style={{ marginBottom: "var(--cam-space-4)" }}
         >
           {view.noteKey && t(view.noteKey)}
         </p>
