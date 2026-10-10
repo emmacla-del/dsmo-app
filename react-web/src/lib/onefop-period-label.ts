@@ -30,6 +30,30 @@ function parsePeriod(code: string | null | undefined): Period | null {
   return null;
 }
 
+/**
+ * The period a code stands for, independent of its campaign sequence:
+ * "QUARTERLY_2026_T4_001", "QUARTERLY_2026_T4_002" and the no-campaign
+ * fallback "2026-T4" all give "Q-2026-4". Null for an unknown code, so two
+ * unknown codes are never taken for the same period.
+ */
+export function referencePeriodKey(code: string | null | undefined): string | null {
+  const p = parsePeriod(code);
+  if (!p) return null;
+  return p.kind === "annual" ? `A-${p.year}` : `${p.kind === "quarter" ? "Q" : "S"}-${p.year}-${p.n}`;
+}
+
+/**
+ * The no-campaign fallback code of the same quarter ("2026-T4" for
+ * "QUARTERLY_2026_T4_001"), which GET /onefop/active-quarter issues while no
+ * campaign exists; null when the code is not a quarterly campaign code.
+ */
+export function fallbackPeriodCode(code: string | null | undefined): string | null {
+  const p = parsePeriod(code);
+  if (!p || p.kind !== "quarter") return null;
+  const fallback = `${p.year}-T${p.n}`;
+  return fallback === code ? null : fallback;
+}
+
 /** A short label: "4e trimestre 2026", "Q4 2026", "Année 2026"… An unknown code is returned as is. */
 export function referencePeriodLabel(code: string | null | undefined, locale: Locale): string {
   const p = parsePeriod(code);

@@ -8,6 +8,7 @@
 import Dexie, { type Table } from "dexie";
 import type { FormData } from "./onefop-schema";
 import { purgeWizardSessions } from "./wizard-position";
+import { referencePeriodKey } from "./onefop-period-label";
 
 export interface DraftRecord {
   id: string;          // `${userId || "anon"}::${establishmentId || "default"}::${entityType}::${quarterCode}`
@@ -79,6 +80,32 @@ export async function loadDraft(
         establishmentId: establishmentId || undefined,
       });
       await draftsDb.drafts.delete(legacyId);
+    }
+  }
+
+  // Same period, other code (F8): a draft started under the no-campaign
+  // fallback "2026-T4" must still be found once the campaign opens as
+  // "QUARTERLY_2026_T4_001" (or a later "…_002"). Same user, establishment
+  // and entity only; the most recent one wins. It moves to the current key.
+  if (!record) {
+    const period = referencePeriodKey(quarterCode);
+    if (period) {
+      const u = userId?.trim() || "anon";
+      const e = establishmentId?.trim() || "default";
+      const candidates = (await draftsDb.drafts.where("entityType").equals(entityType).toArray())
+        .filter((r) =>
+          r.id !== id &&
+          (r.userId || "anon") === u &&
+          (r.establishmentId || "default") === e &&
+          referencePeriodKey(r.quarterCode) === period &&
+          r.data && Object.keys(r.data).length > 0)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+      const found = candidates[0];
+      if (found) {
+        record = { ...found, id, quarterCode };
+        await draftsDb.drafts.put(record);
+        await draftsDb.drafts.delete(found.id);
+      }
     }
   }
 
