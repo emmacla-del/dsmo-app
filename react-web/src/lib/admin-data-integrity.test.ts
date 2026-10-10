@@ -20,6 +20,7 @@ import {
   elapsedSince,
   resolveDataState,
   dataStateMessage,
+  shortRecordId,
   errorDetail,
 } from "./admin-data-state";
 import {
@@ -433,4 +434,9 @@ test("dataStateMessage: French loading text contracts de + article", () => {
   assert.equal(dataStateMessage("loading", "les dossiers"), "Chargement des dossiers…");
   assert.equal(dataStateMessage("loading", "le journal d'audit"), "Chargement du journal d'audit…");
   assert.equal(dataStateMessage("loading", "cet établissement"), "Chargement de cet établissement…");
+});
+
+test("shortRecordId: shortens a UUID, keeps any other reference whole", () => {
+  assert.equal(shortRecordId("d9dcd4ca-ecc5-4d40-8211-edd6829a0ebc"), "d9dcd4ca");
+  assert.equal(shortRecordId("DSMO-2026-000123"), "DSMO-2026-000123");
 });

@@ -20,6 +20,7 @@ import {
   count,
   resolveDataState,
   stamp,
+  shortRecordId,
 } from "@/lib/admin-data-state";
 import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { hrefWith, parseDossierStatus, type DossierStatus } from "@/lib/admin-url";
@@ -681,8 +682,10 @@ function DossiersContent() {
                     <Link
                       href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
                       className="cam-admin-code cam-admin-strong"
+                      title={d.submissionId}
+                      aria-label={d.submissionId}
                     >
-                      {d.submissionId}
+                      {shortRecordId(d.submissionId)}
                     </Link>
                   </td>
                   <td className="cam-admin-strong">

@@ -307,6 +307,17 @@ export function frenchDe(resource: string): string {
   return "de " + resource;
 }
 
+/**
+ * A UUID-shaped record id shortened to its first 8 characters for a list
+ * cell ("d9dcd4ca"); the full id belongs in a tooltip and on the detail page.
+ * Admin search matches any part of the id, so the short form finds the
+ * record. Anything that is not a UUID (an official reference) is returned
+ * whole.
+ */
+export function shortRecordId(id: string): string {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id.slice(0, 8) : id;
+}
+
 /** Human message for a non-ready state. `null` for `ready`. */
 export function dataStateMessage(state: DataState, resource: string, locale: UiLocale = "fr"): string | null {
   const en = locale === "en";
