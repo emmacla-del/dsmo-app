@@ -73,11 +73,26 @@ For the next coding agent. Read this, then `docs/ui-polish-checklist.md`
 | 4ee542e6 | Plain words instead of codes: header pill, campagnes, cibles, pilotage, diffusion export history, sectors categories; quarterRef "4e trimestre 2026". |
 | 38252dfa | Shared table fixes (line-height, `.is-num`, dense state rows, G10 counts); dossiers selection bar (count, actions only when selected, neutral, labelled checkboxes); filters + table in one section on dossiers, etablissements, inscriptions, journal-audit. |
 | 8c02d3fd | Decoration removed (flag ribbon/stripes/circle, tricolour bars, KPI tone edges, accent rules); sentence case for headers and staff labels; page header actions wrap under the title. |
+| efcd106d / 226dcc7f | Dossier list short IDs (search by short id verified); dossier review page without raw codes. |
+| afe6358f | Account bar at the top (name, role, FR/EN; sign-out stays at the sidebar foot); equipe/questionnaires as tables; centre-qualite ViewSwitch + rule families in words; etablissement-detail, annuaire, notifications, inscriptions/nouvelle, utilisateurs fixes; quiet hub tabs; iOS 16px; dead CSS removed. Verified rendered except equipe rows (server returned 0 actors). |
+| 54375482 | Respondent /home pages simplified (agent; NOT yet seen rendered — needs a company account). |
+| 5f550baf | ONEFOP wizard shared fixes: unboxed choices, one input style, no nested table scroll, emoji removed (agent; NOT yet seen rendered). |
 | 5f0a6748 | ui-grammar.md / tokens.md record the one-column wizard. |
 
 Gates at 5f0a6748: tsc clean; eslint no new findings (pre-existing errors
 in centre-qualite, diffusion, dossiers, admin/layout, home/declarations);
 check:ui-grammar PASS; npm test 445/445.
+
+## Open after the parallel run (2026-10-10)
+
+- Respondent + ONEFOP batches need a rendered check with a company account (each agent listed what to look at in its commit).
+- Unconsumed: ui/AccessibleRadioGroup, ui/AccessibleCheckboxGroup, ui/AccessibleNumberInput, message onefopUi.selectAllThatApply — delete with owner OK.
+- modern-jobs/geography/CameroonGeographySelector.tsx sets inline height 42 / font 14 — overrides the shared input style.
+- EventQuestion / FactsTracker (modern-jobs/scope) may nest vertical scrollers — check rendered.
+- DSMO wizard labels not linked to inputs (htmlFor).
+- scripts/check-admin-ui-grammar.mjs still names .cam-pilot-table in its bare-table regex text.
+- Unused CSS left: .cam-param-panel/-note/-list, .cam-pilot-kpi-icon/-top, .cam-admin-rail-user*/-rail-locale (sidebar foot now only has sign-out).
+- Dossier review: decision buttons offered on terminal statuses (server rule needed); VT dossiers show company fields as dashes.
 
 ## Next batches (from the two read-only audits, 2026-10-10)
 
