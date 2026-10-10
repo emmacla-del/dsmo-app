@@ -589,7 +589,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--cam-space-2);
-  max-width: 200px;
+  max-width: 260px; /* fits "Campagne du 4e trimestre 2026" */
   padding: var(--cam-space-1) var(--cam-space-3);
   border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-full);

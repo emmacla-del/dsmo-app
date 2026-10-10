@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
+import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 import { NotificationBell } from "./NotificationBell";
 
@@ -56,11 +57,12 @@ export function AdminHeaderActions({
   const scope = computeUserScopeLabel(user, locale);
 
   const rawCampaignName = activeCampaign?.name || activeCampaign?.code || null;
+  // Plain words, never the stored code: "Campagne du 4e trimestre 2026", not
+  // "Campagne QUARTERLY_2026_T4_001". The code stays in the tooltip.
   const campaignName = (() => {
     if (!rawCampaignName) return null;
-    if (activeCampaign?.code) {
-      return activeCampaign.code.toLowerCase().includes("campagne") ? activeCampaign.code : t("campaignCode", { code: activeCampaign.code });
-    }
+    const phrase = referencePeriodPhrases(activeCampaign?.code, locale)?.campaign;
+    if (phrase) return phrase;
     const m = rawCampaignName.match(/(PREMIER|DEUXIEME|TROISIEME|QUATRIEME)\s+TRIMESTRE\s+(\d{4})/i);
     if (m) {
       const qMap: Record<string, number> = { premier: 1, deuxieme: 2, troisieme: 3, quatrieme: 4 };
@@ -79,7 +81,7 @@ export function AdminHeaderActions({
         <Link
           href="/admin/campagnes"
           className="cam-admin-campaign-pill"
-          title={rawCampaignName ?? t("noActiveCampaign")}
+          title={activeCampaign ? `${rawCampaignName} (${activeCampaign.code})` : t("noActiveCampaign")}
         >
           <span className={`cam-admin-campaign-pill-dot${activeCampaign ? " is-active" : ""}`} aria-hidden="true" />
           <span>

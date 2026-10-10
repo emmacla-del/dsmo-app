@@ -17,6 +17,10 @@ export default function AdminSectorsPage() {
   const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  // The stored category is an English word (Primary, Tertiary…); shown in the
+  // interface language. An unknown value is shown as stored.
+  const tCategory = useTranslations("adminSectorsPage.category");
+  const categoryLabel = (c: string) => (tCategory.has(c) ? tCategory(c) : c);
 
   const sectorsQuery = useQuery({
     queryKey: ["sectors"],
@@ -103,7 +107,7 @@ export default function AdminSectorsPage() {
               >
                 <option value="">{t("adminSectorsPage.allCategoriesOption")}</option>
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>{categoryLabel(c)}</option>
                 ))}
               </select>
             </div>
@@ -143,7 +147,7 @@ export default function AdminSectorsPage() {
                   <td className="cam-admin-strong">{s.name}</td>
                   <td className="cam-admin-muted">{s.nameEn ?? NOT_PROVIDED}</td>
                   <td>
-                    <span className="cam-badge cam-badge-neutral">{s.category ?? NOT_PROVIDED}</span>
+                    <span className="cam-badge cam-badge-neutral">{s.category ? categoryLabel(s.category) : NOT_PROVIDED}</span>
                   </td>
                   <td>
                     <span className="cam-admin-code">{s.code ?? NOT_PROVIDED}</span>

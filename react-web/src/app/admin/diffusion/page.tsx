@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { asUiLocale } from "@/lib/register-i18n";
+import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { submissionStatusLabel } from "@/lib/audit-log";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import {
   getSpssManifest,
@@ -23,7 +24,8 @@ import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { listAdminQuestionnaires } from "@/lib/api-client";
-import { listCampaigns } from "@/lib/campaigns";
+import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import {
   buildExportFilters,
   DEMAND_ENTITY_TYPES,
@@ -112,7 +114,7 @@ function formatExportFormat(fmt: string): string {
   }
 }
 
-function formatExportScope(filters: Record<string, unknown> | null | undefined, tRoot: Translate): string {
+function formatExportScope(filters: Record<string, unknown> | null | undefined, tRoot: Translate, locale: UiLocale): string {
   const t = (key: string, values?: Record<string, string>) => tRoot(`adminDiffusionPage.${key}`, values);
   if (!filters || typeof filters !== "object" || Object.keys(filters).length === 0) {
     return t("fullScope");
@@ -120,10 +122,10 @@ function formatExportScope(filters: Record<string, unknown> | null | undefined, 
   const parts: string[] = [];
   if (filters.region && typeof filters.region === "string") parts.push(t("scopeRegion", { value: filters.region }));
   if (filters.department && typeof filters.department === "string") parts.push(t("scopeDepartment", { value: filters.department }));
-  if (filters.campaign && typeof filters.campaign === "string") parts.push(t("scopeCampaign", { value: filters.campaign }));
+  if (filters.campaign && typeof filters.campaign === "string") parts.push(t("scopeCampaign", { value: referencePeriodLabel(filters.campaign, locale) }));
   if (filters.entityType && typeof filters.entityType === "string") parts.push(t("scopeType", { value: typeLabel(tRoot, filters.entityType) }));
   else if (filters.partition === "DEMAND") parts.push(t("scopeQuestionnaire", { value: t("questionnaire.DEMAND") }));
-  if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(t("scopeStatuses", { value: filters.statuses.join(", ") }));
+  if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(t("scopeStatuses", { value: filters.statuses.map((st) => submissionStatusLabel(String(st), locale)).join(", ") }));
   return parts.length > 0 ? parts.join(" • ") : t("fullScope");
 }
 
@@ -565,7 +567,7 @@ export default function DiffusionPage() {
                   {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
                     campaignsQuery.data.map((c) => (
                       <option key={c.id} value={c.code || c.name || c.id}>
-                        {c.name || c.code || c.id}
+                        {c.code ? `${referencePeriodLabel(c.code, locale)} — ` : ""}{c.name ? formatCampaignDisplayName(c.name) : c.id}
                       </option>
                     ))
                   ) : (
@@ -830,7 +832,7 @@ export default function DiffusionPage() {
                       )}
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>{formatExportFormat(row.format)}</td>
-                    <td>{formatExportScope(row.filters, tRoot)}</td>
+                    <td>{formatExportScope(row.filters, tRoot, locale)}</td>
                   </tr>
                 ))}
               </tbody>

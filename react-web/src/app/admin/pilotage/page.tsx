@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
-import { formatCampaignDate, type Campaign } from "@/lib/campaigns";
+import { formatCampaignDate, formatCampaignDisplayName, type Campaign } from "@/lib/campaigns";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
@@ -84,6 +85,7 @@ function CampaignCard({
   canOpenTargets: boolean;
 }) {
   const t = useTranslations("adminPilotagePage");
+  const tStatus = useTranslations("adminCampagnesPage.status");
   const locale = useUiLocale();
   const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
   const daysLeft = computeDaysLeft(deadlineStr);
@@ -123,9 +125,11 @@ function CampaignCard({
       <div className="cam-dash-card-head">
         <div>
           <div className="cam-dash-card-title-row">
-            <h3 id="dash-campaign-title" className="cam-dash-card-title">{campaign.name || campaign.code}</h3>
+            <h3 id="dash-campaign-title" className="cam-dash-card-title">{campaign.name ? formatCampaignDisplayName(campaign.name) : referencePeriodLabel(campaign.code, locale)}</h3>
             <span className={`cam-badge ${campaign.status === "ACTIVE" ? "cam-badge-success" : "cam-badge-neutral"}`}>
-              {campaign.status === "ACTIVE" ? t("campaignActive") : campaign.status}
+              {campaign.status === "ACTIVE"
+                ? t("campaignActive")
+                : tStatus.has(campaign.status) ? tStatus(campaign.status) : campaign.status}
             </span>
           </div>
           <p className="cam-dash-card-sub">{dateRange}</p>
