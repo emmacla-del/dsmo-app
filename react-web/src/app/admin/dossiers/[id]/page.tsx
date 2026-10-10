@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -194,6 +194,15 @@ function SubmissionDetailContent() {
     queryFn: () => getDossierDiagnostic(id),
     retry: false,
   });
+
+  // Opened from the reference on the respondent's receipt (its submissionId,
+  // which the API also resolves): continue under the dossier's own id, the one
+  // every action and link on this page uses (F12).
+  const router = useRouter();
+  const canonicalId = dossierQuery.data?.id;
+  useEffect(() => {
+    if (canonicalId && canonicalId !== id) router.replace(`/admin/dossiers/${encodeURIComponent(canonicalId)}`);
+  }, [canonicalId, id, router]);
 
   /**
    * Source: GET /admin/questionnaires/:id (QuestionnairesService.getById).
