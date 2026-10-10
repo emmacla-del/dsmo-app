@@ -236,7 +236,7 @@ export class EligibilityEngineService {
     // Drafts are respondents' unsubmitted work: never counted as submissions.
     const baseWhere: any = { AND: [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }] };
 
-    // Kept deliberately narrow: four round trips, not seven.
+    // Kept deliberately narrow: four round trips, never more than two at once.
     //
     // DATABASE_URL points at Supabase's pooler in *session* mode, where each
     // client connection pins a backend for its whole life and the tenant pool
@@ -245,7 +245,7 @@ export class EligibilityEngineService {
     // once. The admin dashboard refetches this endpoint plus the quality
     // summary every 30s from every open tab, which drove the pool to its
     // ceiling and surfaced as `EMAXCONNSESSION ... max clients reached in
-    // session mode`.
+    // session mode`. The four queries therefore run as two pairs.
     //
     // The three per-status counts that used to be separate `count()` calls are
     // derived from the status groupBy instead. OnefopStatus has exactly five
@@ -253,12 +253,21 @@ export class EligibilityEngineService {
     // partition the result set exactly and the total is their sum — identical
     // figures, no extra connections. Do not reintroduce the separate counts
     // without re-checking that invariant against the enum.
-    const [
-      blockingAnomaliesCount,
-      statisticallyReadyCount,
-      statusGroups,
-      regionGroups,
-    ] = await Promise.all([
+    const [statusGroups, regionGroups] = await Promise.all([
+      // Dashboard aggregates are computed here, over the whole territory, so
+      // the client never derives national figures from a paginated list.
+      this.prisma.onefopSubmission.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.onefopSubmission.groupBy({
+        by: ['region'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+    ]);
+    const [blockingAnomaliesCount, statisticallyReadyCount] = await Promise.all([
       this.prisma.onefopAnomaly.count({
         where: {
           status: AnomalyStatus.OPEN,
@@ -275,18 +284,6 @@ export class EligibilityEngineService {
           status: OnefopStatus.APPROVED,
           anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
         },
-      }),
-      // Dashboard aggregates are computed here, over the whole territory, so
-      // the client never derives national figures from a paginated list.
-      this.prisma.onefopSubmission.groupBy({
-        by: ['status'],
-        where: baseWhere,
-        _count: { _all: true },
-      }),
-      this.prisma.onefopSubmission.groupBy({
-        by: ['region'],
-        where: baseWhere,
-        _count: { _all: true },
       }),
     ]);
 
@@ -328,22 +325,48 @@ export class EligibilityEngineService {
       ],
     };
 
+    // At most three queries in flight at once (was ten in one Promise.all).
+    // See getPilotageQueues: the pooler runs in session mode with a tenant
+    // pool of 15, and Prisma opens one connection per concurrent query, so a
+    // wide fan-out on a dashboard that refetches every 30s exhausted it.
+    //
+    // Two pairs of counts are folded into groupBys over the same filter:
+    //  - total and in-correction submissions come from one status groupBy
+    //    (the buckets of a groupBy partition its `where`, so their sum is the
+    //    count, and the CORRECTION_REQUESTED bucket is the filtered count);
+    //  - open blocking and open non-blocking anomaly counts come from one
+    //    groupBy on `isBlocking` (a non-nullable boolean: two buckets).
+    const [statusGroups, openAnomalyGroups, statisticallyReadyCount] = await Promise.all([
+      this.prisma.onefopSubmission.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.onefopAnomaly.groupBy({
+        by: ['isBlocking'],
+        where: {
+          status: AnomalyStatus.OPEN,
+          submission: baseWhere,
+        },
+        _count: { _all: true },
+      }),
+      // Counted in the database rather than by fetching every approved row and
+      // filtering in process: the old findMany pulled one row per approved
+      // submission on every 30s dashboard refetch.
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          status: OnefopStatus.APPROVED,
+          anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
+        },
+      }),
+    ]);
+
     const [
-      totalSubmissions,
-      submissionsInCorrection,
       submissionsWithBlockingAnomalies,
       submissionsWithWarnings,
       submissionsWithCoherenceAnomalies,
-      blockingAnomaliesCount,
-      warningsCount,
-      statisticallyReadyCount,
-      familyGroups,
-      anomalyRegions,
     ] = await Promise.all([
-      this.prisma.onefopSubmission.count({ where: baseWhere }),
-      this.prisma.onefopSubmission.count({
-        where: { ...baseWhere, status: OnefopStatus.CORRECTION_REQUESTED },
-      }),
       this.prisma.onefopSubmission.count({
         where: {
           ...baseWhere,
@@ -367,30 +390,9 @@ export class EligibilityEngineService {
           },
         },
       }),
-      this.prisma.onefopAnomaly.count({
-        where: {
-          status: AnomalyStatus.OPEN,
-          isBlocking: true,
-          submission: baseWhere,
-        },
-      }),
-      this.prisma.onefopAnomaly.count({
-        where: {
-          status: AnomalyStatus.OPEN,
-          isBlocking: false,
-          submission: baseWhere,
-        },
-      }),
-      // Counted in the database rather than by fetching every approved row and
-      // filtering in process: the old findMany pulled one row per approved
-      // submission on every 30s dashboard refetch.
-      this.prisma.onefopSubmission.count({
-        where: {
-          ...baseWhere,
-          status: OnefopStatus.APPROVED,
-          anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
-        },
-      }),
+    ]);
+
+    const [familyGroups, anomalyRegions] = await Promise.all([
       this.prisma.onefopAnomaly.groupBy({
         by: ['ruleFamily'],
         where: {
@@ -412,6 +414,19 @@ export class EligibilityEngineService {
         },
       }),
     ]);
+
+    let totalSubmissions = 0;
+    let submissionsInCorrection = 0;
+    for (const g of statusGroups) {
+      totalSubmissions += g._count._all;
+      if (g.status === OnefopStatus.CORRECTION_REQUESTED) submissionsInCorrection = g._count._all;
+    }
+    let blockingAnomaliesCount = 0;
+    let warningsCount = 0;
+    for (const g of openAnomalyGroups) {
+      if (g.isBlocking) blockingAnomaliesCount += g._count._all;
+      else warningsCount += g._count._all;
+    }
 
     // Rates: 0-100% or null if 0 submissions
     const completenessRate = totalSubmissions > 0

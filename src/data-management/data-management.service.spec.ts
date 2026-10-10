@@ -796,19 +796,19 @@ describe('DataManagementService — getDataStats territory scoping', () => {
     return { service: new DataManagementService(prisma as any) as any, prisma };
   }
 
-  /** The two where clauses the declaration queries were actually given. */
+  /**
+   * The where clauses the declaration queries were actually given. The total
+   * is now the sum of the status groupBy, so groupBy is the only query.
+   */
   function declarationWheres(prisma: any) {
-    return [
-      prisma.declaration.count.mock.calls[0][0].where,
-      prisma.declaration.groupBy.mock.calls[0][0].where,
-    ];
+    expect(prisma.declaration.count).not.toHaveBeenCalled();
+    return [prisma.declaration.groupBy.mock.calls[0][0].where];
   }
 
   it('runs the declaration queries unscoped for the national roles', async () => {
     for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
       const { service, prisma } = makeStatsService();
       await expect(service.getDataStats({ role })).resolves.toBeDefined();
-      expect(prisma.declaration.count).toHaveBeenCalledTimes(1);
       expect(prisma.declaration.groupBy).toHaveBeenCalledTimes(1);
       for (const where of declarationWheres(prisma)) expect(where).toEqual({});
     }
@@ -823,7 +823,8 @@ describe('DataManagementService — getDataStats territory scoping', () => {
       expect(where).not.toHaveProperty('regionId');
     }
     // Company still gets the full shape — its model has the id column.
-    expect(prisma.company.count.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
+    expect(prisma.company.groupBy.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
+    expect(prisma.onefopSubmission.groupBy.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
   });
 
   it('scopes a DIVISIONAL_ADMIN by division — not department, not departmentId', async () => {
@@ -849,6 +850,72 @@ describe('DataManagementService — getDataStats territory scoping', () => {
       expect(where).not.toHaveProperty('departmentId');
     }
     // The id branch is still correct for Company, which does have the column.
-    expect(prisma.company.count.mock.calls[0][0].where).toEqual({ departmentId: 'dep-wouri' });
+    expect(prisma.company.groupBy.mock.calls[0][0].where).toEqual({ departmentId: 'dep-wouri' });
+  });
+
+  // The seven parallel queries became four, at most two in flight, against a
+  // session-mode pooler capped at 15 connections. The totals are the sums of
+  // the groupBys, which partition the same where as the old count() calls.
+  it('returns the same totals and breakdowns from the groupBys alone', async () => {
+    const { service, prisma } = makeStatsService();
+    prisma.declaration.groupBy.mockResolvedValue([
+      { status: 'SUBMITTED', _count: 4 },
+      { status: 'VALIDATED', _count: 6 },
+    ]);
+    prisma.onefopSubmission.groupBy.mockResolvedValue([
+      { status: 'APPROVED', _count: 7 },
+      { status: 'DRAFT', _count: 2 },
+    ]);
+    prisma.company.groupBy.mockResolvedValue([
+      { region: 'Littoral', _count: 30 },
+      { region: 'Centre', _count: 12 },
+    ]);
+    prisma.user.count.mockResolvedValue(55);
+
+    const stats = await service.getDataStats({ role: 'SUPER_ADMIN' });
+
+    expect(stats.totals).toEqual({ companies: 42, declarations: 10, onefopSubmissions: 9, users: 55 });
+    expect(stats.declarationsByStatus).toEqual({ SUBMITTED: 4, VALIDATED: 6 });
+    expect(stats.onefopByStatus).toEqual({ APPROVED: 7, DRAFT: 2 });
+    expect(stats.companiesByRegion).toEqual([
+      { region: 'Littoral', count: 30 },
+      { region: 'Centre', count: 12 },
+    ]);
+    expect(stats.generatedAt).toBeInstanceOf(Date);
+    expect(prisma.company.count).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.count).not.toHaveBeenCalled();
+    expect(prisma.declaration.count).not.toHaveBeenCalled();
+  });
+
+  it('reports zero totals when nothing is in scope', async () => {
+    const { service } = makeStatsService();
+    const stats = await service.getDataStats({ role: 'REGIONAL_ADMIN' });
+    expect(stats.totals).toEqual({ companies: 0, declarations: 0, onefopSubmissions: 0, users: 0 });
+  });
+
+  it('keeps the user count scoped by the territory region', async () => {
+    const { service, prisma } = makeStatsService();
+    await service.getDataStats({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
+    expect(prisma.user.count).toHaveBeenCalledWith({ where: { region: 'Littoral' } });
+  });
+
+  it('never has more than two queries in flight', async () => {
+    const { service, prisma } = makeStatsService();
+    let inFlight = 0;
+    let peak = 0;
+    const slow = (value: unknown) => async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return value;
+    };
+    for (const model of ['company', 'declaration', 'onefopSubmission'] as const) {
+      (prisma as any)[model].groupBy.mockImplementation(slow([]));
+      (prisma as any)[model].count.mockImplementation(slow(0));
+    }
+    prisma.user.count.mockImplementation(slow(0));
+    await service.getDataStats({ role: 'SUPER_ADMIN' });
+    expect(peak).toBeLessThanOrEqual(2);
   });
 });

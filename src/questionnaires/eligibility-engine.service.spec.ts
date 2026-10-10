@@ -628,6 +628,193 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
   });
 });
 
+// ── Connection high-water mark (EMAXCONNSESSION) ────────────────────────────
+// Prisma opens one pooled connection per concurrent query, and the production
+// pooler runs in session mode with a tenant pool of 15. These cases pin the
+// peak number of queries each dashboard aggregate keeps in flight.
+
+/** Wraps every mock so it resolves after a tick, tracking the peak in flight. */
+function trackConcurrency(prisma: any) {
+  const state = { inFlight: 0, peak: 0, calls: 0 };
+  for (const model of Object.values(prisma) as any[]) {
+    for (const [name, fn] of Object.entries(model) as Array<[string, any]>) {
+      if (!jest.isMockFunction(fn)) continue;
+      const impl = fn.getMockImplementation();
+      model[name] = jest.fn(async (...args: any[]) => {
+        state.inFlight += 1;
+        state.calls += 1;
+        state.peak = Math.max(state.peak, state.inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        state.inFlight -= 1;
+        return impl ? impl(...args) : undefined;
+      });
+    }
+  }
+  return state;
+}
+
+describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', () => {
+  it('keeps at most two queries in flight and returns the same figures', async () => {
+    const prisma: any = {
+      onefopSubmission: {
+        count: jest.fn(async () => 650),
+        groupBy: jest.fn(async ({ by }: any) =>
+          by[0] === 'status'
+            ? [
+                { status: 'APPROVED', _count: { _all: 700 } },
+                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
+              ]
+            : [{ region: 'Littoral', _count: { _all: 1100 } }],
+        ),
+      },
+      onefopAnomaly: { count: jest.fn(async () => 3) },
+    };
+    const state = trackConcurrency(prisma);
+    const engine = new EligibilityEngineService(prisma);
+
+    const queues = await engine.getPilotageQueues({ role: 'SUPER_ADMIN' });
+
+    expect(state.calls).toBe(4);
+    expect(state.peak).toBeLessThanOrEqual(2);
+    expect(queues).toEqual({
+      totalSubmissionsCount: 1100,
+      blockingAnomaliesCount: 3,
+      pendingNationalVisasCount: 400,
+      correctionsUnderReviewCount: 0,
+      statisticallyReadyCount: 650,
+      statusCounts: { PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 0 },
+      approvedCount: 700,
+      regionCounts: [{ region: 'Littoral', count: 1100 }],
+    });
+  });
+});
+
+describe('EligibilityEngineService.getQualitySummary — aggregates', () => {
+  const scoped = {
+    AND: [
+      { region: { equals: 'Littoral', mode: 'insensitive' } },
+      { status: { not: 'DRAFT' } },
+      { campaignId: 'camp-1' },
+    ],
+  };
+
+  function makePrisma() {
+    return {
+      onefopSubmission: {
+        groupBy: jest.fn(async () => [
+          { status: 'APPROVED', _count: { _all: 60 } },
+          { status: 'PENDING_REVIEW', _count: { _all: 25 } },
+          { status: 'CORRECTION_REQUESTED', _count: { _all: 10 } },
+          { status: 'REJECTED', _count: { _all: 5 } },
+        ]),
+        count: jest.fn(async ({ where }: any) => {
+          if (where.status === 'APPROVED') return 50; // statistically ready
+          const some = where.anomalies?.some;
+          if (some?.ruleFamily) return 8; // coherence
+          if (some?.isBlocking === true) return 12;
+          if (some?.isBlocking === false) return 30;
+          throw new Error(`unexpected count ${JSON.stringify(where)}`);
+        }),
+      },
+      onefopAnomaly: {
+        groupBy: jest.fn(async ({ by }: any) =>
+          by[0] === 'isBlocking'
+            ? [
+                { isBlocking: true, _count: { _all: 14 } },
+                { isBlocking: false, _count: { _all: 41 } },
+              ]
+            : [
+                { ruleFamily: 'COHERENCE', _count: { _all: 33 } },
+                { ruleFamily: 'COMPLETENESS', _count: { _all: 22 } },
+              ],
+        ),
+        findMany: jest.fn(async () => [
+          { submission: { region: 'Littoral' } },
+          { submission: { region: 'Littoral' } },
+          { submission: { region: null } },
+        ]),
+      },
+    };
+  }
+
+  it('returns the same indicators, derived from the folded groupBys', async () => {
+    const prisma: any = makePrisma();
+    const engine = new EligibilityEngineService(prisma);
+
+    const summary = await engine.getQualitySummary({ role: 'REGIONAL_ADMIN', region: 'Littoral' }, 'camp-1');
+
+    // total 100, 10 in correction, 8 with coherence anomalies, 12 with
+    // blocking, 30 with warnings, 50 statistically ready.
+    expect(summary).toEqual({
+      completenessRate: 90,
+      coherenceRate: 92,
+      anomalyRate: 12,
+      warningRate: 30,
+      statisticalEligibilityRate: 50,
+      totalSubmissions: 100,
+      blockingAnomaliesCount: 14,
+      warningsCount: 41,
+      statisticallyReadyCount: 50,
+      byRuleFamily: [
+        { ruleFamily: 'COHERENCE', count: 33 },
+        { ruleFamily: 'COMPLETENESS', count: 22 },
+      ],
+      byRegion: [
+        { region: 'Littoral', count: 2 },
+        { region: 'Non assigné', count: 1 },
+      ],
+    });
+  });
+
+  it('applies the territory, draft and campaign filters to every query', async () => {
+    const prisma: any = makePrisma();
+    const engine = new EligibilityEngineService(prisma);
+    await engine.getQualitySummary({ role: 'REGIONAL_ADMIN', region: 'Littoral' }, 'camp-1');
+
+    for (const [args] of prisma.onefopSubmission.groupBy.mock.calls) expect(args.where).toEqual(scoped);
+    for (const [args] of prisma.onefopSubmission.count.mock.calls) {
+      expect(args.where.AND).toEqual(scoped.AND);
+    }
+    for (const [args] of [...prisma.onefopAnomaly.groupBy.mock.calls, ...prisma.onefopAnomaly.findMany.mock.calls]) {
+      expect(args.where).toEqual({ status: 'OPEN', submission: scoped });
+    }
+  });
+
+  it('reports null rates and zero counts when nothing is in scope', async () => {
+    const prisma: any = makePrisma();
+    prisma.onefopSubmission.groupBy.mockResolvedValue([]);
+    prisma.onefopSubmission.count.mockResolvedValue(0);
+    prisma.onefopAnomaly.groupBy.mockResolvedValue([]);
+    prisma.onefopAnomaly.findMany.mockResolvedValue([]);
+    const engine = new EligibilityEngineService(prisma);
+
+    const summary = await engine.getQualitySummary({ role: 'REGIONAL_ADMIN' });
+
+    expect(summary).toMatchObject({
+      completenessRate: null,
+      coherenceRate: null,
+      anomalyRate: null,
+      warningRate: null,
+      statisticalEligibilityRate: null,
+      totalSubmissions: 0,
+      blockingAnomaliesCount: 0,
+      warningsCount: 0,
+      statisticallyReadyCount: 0,
+      byRuleFamily: [],
+      byRegion: [],
+    });
+  });
+
+  it('keeps at most three queries in flight (was ten)', async () => {
+    const prisma: any = makePrisma();
+    const state = trackConcurrency(prisma);
+    const engine = new EligibilityEngineService(prisma);
+    await engine.getQualitySummary({ role: 'SUPER_ADMIN' });
+    expect(state.calls).toBe(8);
+    expect(state.peak).toBeLessThanOrEqual(3);
+  });
+});
+
 // ── Campaign progress B4: bulk review transitions ────────────────────────────
 
 describe('EligibilityEngineService — campaign progress on bulk review (B4)', () => {

@@ -678,6 +678,8 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
       },
       // The overdue count looks up recent resubmissions (registration-overdue.ts).
       auditLog: { findMany: jest.fn(async () => []) },
+      // The status tab counts are one groupBy over COMPANY users.
+      user: { groupBy: jest.fn(async () => []) },
     };
     return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }
@@ -737,6 +739,8 @@ describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', ()
       },
       // The overdue count looks up recent resubmissions (registration-overdue.ts).
       auditLog: { findMany: jest.fn(async () => []) },
+      // The status tab counts are one groupBy over COMPANY users.
+      user: { groupBy: jest.fn(async () => []) },
     };
     return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any) };
   }
@@ -814,6 +818,8 @@ describe('AuthService.listCompanyRegistrations — review fields', () => {
     const prisma: any = {
       company: { count: jest.fn(async () => 1), findMany: jest.fn().mockResolvedValueOnce([row]).mockResolvedValue([]) },
       auditLog: { findMany: jest.fn(async () => []) },
+      // The status tab counts are one groupBy over COMPANY users.
+      user: { groupBy: jest.fn(async () => []) },
     };
     const service = new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any);
     const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
