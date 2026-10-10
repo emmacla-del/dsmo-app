@@ -45,13 +45,13 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-flag-green` | `#0e5c2b` | Flag | Flag ribbon and wordmark stripe. |
 | `--cam-flag-red` | `#b3202c` | Flag | Flag ribbon and wordmark stripe. |
 | `--cam-flag-yellow` | `#f0b429` | Flag | Flag ribbon and wordmark stripe. |
-| `--cam-bg` | `#fafaf7` | Surface | Page background. |
+| `--cam-bg` | `#ffffff` | Surface | Page background. Pure white (owner, 2026-10-10): text is pure black and every grey is neutral, no tint. |
 | `--cam-surface` | `#ffffff` | Surface | Cards, inputs, dialogs, table cells. |
-| `--cam-surface-subtle` | `#fbfbf9` | Surface | Quiet fill on a surface: seal, table head. |
-| `--cam-text` | `#0b1f14` | Text | Body ink and the page title. |
-| `--cam-text-muted` | `#4a5a50` | Text | Secondary text. |
-| `--cam-border` | `#d8ddd3` | Border | Default hairline. |
-| `--cam-border-strong` | `#aab5a3` | Border | Stronger rule. Upcoming-step circle. |
+| `--cam-surface-subtle` | `#fafafa` | Surface | Quiet fill on a surface: seal, table head. |
+| `--cam-text` | `#000000` | Text | Body ink and the page title. |
+| `--cam-text-muted` | `#555555` | Text | Secondary text. |
+| `--cam-border` | `#d9d9d9` | Border | Default hairline. |
+| `--cam-border-strong` | `#ababab` | Border | Stronger rule. Upcoming-step circle. |
 | `--cam-shadow-sm` | `0 1px 2px rgba(20, 30, 20, 0.04)` | Shadow | Resting elevation. The one `rgba()` exception: `rgb(20, 30, 20)` is not a token. A second exception means that base needs a name. |
 | `--cam-focus` | `#e8a020` | State | Page-wide gold focus colour. |
 | `--cam-focus-ring` | `var(--cam-green)` | State | Focus ring on a custom radio or checkbox. |
@@ -174,8 +174,8 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-field-width-medium` | `280px` | Wizard field | FormRow `medium`: NIU, CNPS, registration numbers. |
 | `--cam-field-width-short` | `220px` | Wizard field | FormRow `short`: phone, year, counts. |
 | `--cam-field-hint-size` | `var(--cam-font-size-xs)` | Wizard field | Helper text under an input. |
-| `--cam-placeholder` | `#7d8981` | Text | Placeholder. Lighter than the label, over 4.5:1 on `--cam-surface`. |
-| `--cam-rail-upcoming` | `#6b776f` | Text | Name of a wizard step the respondent has not reached. |
+| `--cam-placeholder` | `#858585` | Text | Placeholder. Lighter than the label, over 4.5:1 on `--cam-surface`. |
+| `--cam-rail-upcoming` | `#6e6e6e` | Text | Name of a wizard step the respondent has not reached. |
 | `--cam-section-radius` | `12px` | Radius | Wizard section frame. Purpose value, off the radius ladder. |
 | `--cam-section-pad` | `20px`; `16px` at ≤640px | Wizard frame | Padding inside the wizard section frame. |
 | `--cam-section-gap` | `20px` | Wizard frame | Gap inside the wizard section. Purpose value, off the space ladder. |
@@ -189,7 +189,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-table-strong` | `#334155` | Table | Total-row rule and sub-header text. |
 | `--cam-table-group-line` | `#1e293b` | Table | Separator between column blocks. |
 | `--cam-table-head-bg` | `#ffffff` | Table | Statistical table header fill. |
-| `--cam-table-text` | `#0f172a` | Table | Statistical table text. |
+| `--cam-table-text` | `#000000` | Table | Statistical table text. |
 | `--cam-table-muted` | `#94a3b8` | Table | Empty-cell dash and placeholder. |
 | `--cam-table-fs` | `0.875rem` (14px); `0.8125rem` (13px) at ≤639px | Table | One size for every statistical table cell. |
 | `--cam-table-lh` | `1.35` | Table | Statistical table line-height. Purpose value, off the line-height ladder. |
@@ -199,7 +199,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-table-w-value` | `400` | Table | Typed number. Same weight as `--cam-font-weight-regular`. |
 | `--cam-table-w-computed` | `600` | Table | Calculated total. Same weight as `--cam-font-weight-semibold`. |
 | `--cam-table-w-total` | `700` | Table | Grand-total row. Same weight as `--cam-font-weight-bold`. |
-| `--cam-table-hover` | `#f8fafc` | Table | Row hover fill. |
+| `--cam-table-hover` | `#fafafa` | Table | Row hover fill. |
 | `--cam-table-focus` | `#1a5c3a` | Table | Focus colour inside a statistical table. |
 | `--cam-table-readonly-bg` | `var(--cam-success-bg)` | Table | Calculated cells and total rows. |
 | `--cam-table-readonly-text` | `var(--cam-success)` | Table | Text on a calculated cell. |
@@ -213,7 +213,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--vt-card-border` | `var(--cam-border)` | VT | VT card border. |
 | `--vt-ink` | `var(--cam-text)` | VT | VT text. |
 | `--vt-ink-soft` | `var(--cam-text-muted)` | VT | VT secondary text. |
-| `--vt-ink-faint` | `#7a827f` | VT | VT faint text. |
+| `--vt-ink-faint` | `#7a7a7a` | VT | VT faint text. |
 | `--vt-accent` | `var(--cam-green)` | VT | VT accent. |
 | `--vt-accent-soft` | `var(--cam-success-bg)` | VT | VT soft accent fill. |
 | `--vt-card-radius` | `var(--cam-radius-md)` | VT | VT card radius. |
@@ -221,9 +221,9 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--vt-content-max` | `760px` | VT | Respondent reading width: questionnaire form sections, their footer, the declarations list (600px answers + padding). |
 | `--vt-content-max-wide` | `1100px` | VT | VT sections holding a statistical table (sections 4, 5, 6, 8). |
 | `--vt-font` | `var(--cam-font-sans)` | VT | VT font. |
-| `--cam-border-subtle` | `#eef0eb` | Respondent record | Faint divider recorded from the live fallback. |
-| `--cam-surface-2` | `#f1f5f9` | Respondent record | Second surface recorded from the live fallback. |
-| `--cam-bg-subtle` | `#f8fafc` | Respondent record | Subtle page fill recorded from the live fallback. |
+| `--cam-border-subtle` | `#eeeeee` | Respondent record | Faint divider recorded from the live fallback. |
+| `--cam-surface-2` | `#f2f2f2` | Respondent record | Second surface recorded from the live fallback. |
+| `--cam-bg-subtle` | `#f8f8f8` | Respondent record | Subtle page fill recorded from the live fallback. |
 | `--cam-primary` | `#1d4ed8` | Respondent record | Locale-switcher blue recorded from the live fallback. |
 | `--cam-amber-bg` | `#fff8e6` | Respondent record | Amber fill recorded from the live fallback. |
 | `--cam-amber-border` | `#fcd34d` | Respondent record | Amber border recorded from the live fallback. |
