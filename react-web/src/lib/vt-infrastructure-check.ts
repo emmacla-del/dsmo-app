@@ -1,10 +1,14 @@
 // 5.3 (infrastructure by condition): on the paper form the condition columns
 // break down the same buildings as "Nombre total de locaux" — Définitif (bon
-// état, mauvais état) and Provisoire. A row whose total differs from that sum
-// is flagged to the respondent as advisory only (constitution §7): it never
-// blocks Suivant or submission, and the typed total is never overwritten.
+// état, mauvais état) and Provisoire — under the one heading "Nombre de
+// locaux selon les matériaux de construction et l'état", and the
+// instructions give every room a construction type and every permanent room
+// a condition. A row whose total differs from that sum blocks Suivant and
+// submission (owner, 2026-10-11, constitution §7). The typed total is never
+// overwritten: the respondent corrects one side or the other.
 
 import type { FormData, LocalizedText, OnefopField } from "@/lib/onefop-schema";
+import { isVtCentreClosed } from "@/lib/vt-quiz";
 
 export const VT53_FIELD_ID = "VT5_6";
 
@@ -46,4 +50,34 @@ export function vt53TotalMismatches(field: OnefopField, data: FormData): Vt53Mis
     }
   });
   return out;
+}
+
+/**
+ * 5.3's disagreeing rows as one blocking issue on the table, or null. Applies
+ * only when 5.3 is among `fields` (its section, or the whole entity).
+ */
+export function vt53Issue(
+  fields: readonly OnefopField[],
+  data: FormData,
+): { fieldId: string; fr: string; en: string } | null {
+  if (isVtCentreClosed(data)) return null;
+  const field = fields.find((f) => f.id === VT53_FIELD_ID);
+  if (!field) return null;
+  const mismatches = vt53TotalMismatches(field, data);
+  if (mismatches.length === 0) return null;
+  const rows = (lang: "fr" | "en") =>
+    mismatches
+      .map((m) => {
+        const [good, bad, temporary] = m.parts;
+        const sum = good + bad + temporary;
+        return lang === "fr"
+          ? `${m.label.fr} : total ${m.total}, mais ${good} + ${bad} + ${temporary} = ${sum}`
+          : `${m.label.en}: total ${m.total}, but ${good} + ${bad} + ${temporary} = ${sum}`;
+      })
+      .join(lang === "fr" ? " ; " : "; ");
+  return {
+    fieldId: field.id,
+    fr: `Le nombre total de locaux doit être la somme des trois états (définitif bon état, définitif mauvais état, provisoire). ${rows("fr")}.`,
+    en: `The total number of rooms must be the sum of the three conditions (permanent good, permanent bad, temporary). ${rows("en")}.`,
+  };
 }

@@ -42,7 +42,6 @@ import {
 } from "./vt-wizard-section-utils";
 import { Vt713ChannelGrid } from "./Vt713ChannelGrid";
 import { VT85_FIELD_IDS, Vt85StatusTable } from "./Vt85StatusTable";
-import { vt53TotalMismatches } from "@/lib/vt-infrastructure-check";
 import {
   VT_STEPPED_SECTION_IDS,
   isVtStepApplicable,
@@ -632,7 +631,6 @@ function VtWizardTableField({
         ) : (
           <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />
         )}
-        <Vt53TotalNote field={field} data={data} isEn={isEn} />
       </>
     );
   }
@@ -664,45 +662,6 @@ function VtWizardTableField({
   return isBoolean
     ? <VtWizardProgressiveBooleanTableEntry field={field} data={data} onChange={changeCell} />
     : <VtWizardProgressiveGuidedTableEntry field={field} data={data} onChange={changeCell} />;
-}
-
-/**
- * 5.3: rows whose "Nombre total de locaux" is not Bon + Mauvais + Provisoire.
- * Advisory only (vt-infrastructure-check.ts): nothing is blocked or rewritten.
- */
-function Vt53TotalNote({ field, data, isEn }: { field: OnefopField; data: FormData; isEn: boolean }) {
-  const mismatches = vt53TotalMismatches(field, data);
-  if (mismatches.length === 0) return null;
-  return (
-    <div
-      role="status"
-      style={{
-        marginTop: "var(--cam-space-3)",
-        fontSize: "var(--cam-font-size-sm)",
-        lineHeight: "var(--cam-line-height-copy)",
-        color: "var(--cam-text)",
-      }}
-    >
-      <p style={{ margin: 0, fontWeight: "var(--cam-font-weight-bold)" }}>
-        {isEn
-          ? "Please check: the total number of rooms is not the sum of the three conditions."
-          : "À vérifier : le nombre total de locaux n'est pas la somme des trois états."}
-      </p>
-      <ul style={{ margin: "var(--cam-space-1) 0 0", paddingLeft: "var(--cam-space-5)" }}>
-        {mismatches.map((m) => {
-          const [good, bad, temporary] = m.parts;
-          const sum = good + bad + temporary;
-          return (
-            <li key={m.rowId}>
-              {isEn
-                ? `${m.label.en}: total ${m.total}, but ${good} + ${bad} + ${temporary} = ${sum}.`
-                : `${m.label.fr} : total ${m.total}, mais ${good} + ${bad} + ${temporary} = ${sum}.`}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
 }
 
 const SECTION1_LOCALISATION_TITLE = "Localisation administrative et Milieu d'implantation";
