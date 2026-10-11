@@ -702,6 +702,8 @@
   "vtTableRenderer": {
     "booleanYes": "Oui",
     "booleanNo": "Non",
+    "booleanUnanswered": "Sans réponse",
+    "booleanNotApplicable": "Sans objet",
     "notYetRendered": "Tableau VT pas encore disponible — {template} ({fieldId}).",
     "defaultRowLabel": "Ligne {number}",
     "addRowButton": "+ Ajouter une ligne ({current}/{total})",

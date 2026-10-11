@@ -2,20 +2,21 @@ import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { useState } from "react";
-import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot, vtSpelledOutCellLabel, vtStartedSlots } from "./VtProgressiveRowGrid";
+import { VtProgressiveRowGrid, isVtProgressiveRowTable, vtNextFreeSlot, vtSpelledOutCellLabel, vtStartedSlots } from "./VtProgressiveRowGrid";
 import { schemaEntity, schemaField } from "@/test/schema";
 import type { FormData } from "@/lib/onefop-schema";
 
 const field = schemaField("vocationalTraining", "VT4_3");
+const field52 = schemaField("vocationalTraining", "VT5_5");
 
-/** Renders 4.3 over a live data object, recording every write. */
-function render43(initial: FormData = {}) {
+/** Renders a table over a live data object, recording every write. */
+function renderGrid(f: typeof field, initial: FormData = {}) {
   const writes: Array<[string, unknown]> = [];
   function Harness() {
     const [data, setData] = useState<FormData>(initial);
     return (
       <VtProgressiveRowGrid
-        field={field}
+        field={f}
         data={data}
         onChange={(key, value) => {
           writes.push([key, value]);
@@ -27,17 +28,22 @@ function render43(initial: FormData = {}) {
   return { ...renderWithProviders(<Harness />), writes };
 }
 
+/** Renders 4.3 over a live data object, recording every write. */
+function render43(initial: FormData = {}) {
+  return renderGrid(field, initial);
+}
+
 const shownSlots = () =>
   Array.from(document.querySelectorAll<HTMLInputElement>('input[id$="_specialtyText"]')).map((i) =>
     Number(/_row(\d+)_/.exec(i.id)![1]),
   );
 
-test("serves the add-a-row tables of a specialty and counts", () => {
+test("serves the add-a-row tables of a specialty and counts, and 5.2's Yes/No", () => {
   const ids = schemaEntity("vocationalTraining")
     .sections.flatMap((s) => s.fields)
-    .filter(isVtProgressiveNumberTable)
+    .filter(isVtProgressiveRowTable)
     .map((f) => f.id);
-  assert.deepEqual(ids, ["VT4_3", "VT4_4", "VT4_5", "VT4_6", "VT4_10", "VT6_13", "VT8_4", "VT8_7"]);
+  assert.deepEqual(ids, ["VT4_3", "VT4_4", "VT4_5", "VT4_6", "VT4_10", "VT5_5", "VT6_13", "VT8_4", "VT8_7"]);
 });
 
 test("an empty table offers its first line, and typing writes that slot", async () => {
@@ -143,4 +149,48 @@ test("a stored total alone does not make a row started (validation's rule)", () 
   const f410 = schemaField("vocationalTraining", "VT4_10");
   const [row1, row2] = f410.table!.matrix!;
   assert.deepEqual(vtStartedSlots(f410, { [row1[3]]: 0, [row2[1]]: 1 }), [1]);
+});
+
+const CURRICULUM = "Couture - Existence d'un référentiel de formation";
+const APPROVED = "Couture - Le référentiel est-il homologué ?";
+
+test("5.2: a Yes/No cell stores the answer as text, and Sans réponse stores nothing", async () => {
+  const { user, writes } = renderGrid(field52, { s5q2_row1_specialtyText: "Couture" });
+  const curriculum = screen.getByLabelText(CURRICULUM);
+  await user.selectOptions(curriculum, "true");
+  assert.deepEqual(writes.at(-1), ["s5q2_row1_hasCurriculum", "true"], "as the row-by-row entry stores it");
+  await user.selectOptions(curriculum, "");
+  assert.deepEqual(writes.at(-1), ["s5q2_row1_hasCurriculum", null], "unanswered is not Non");
+});
+
+test("5.2: the dependent question is asked only while the first answer is Oui", async () => {
+  const { user, writes } = renderGrid(field52, { s5q2_row1_specialtyText: "Couture" });
+  assert.equal(screen.getByLabelText(`${APPROVED} (Sans objet)`).textContent, "—", "inert until then");
+
+  await user.selectOptions(screen.getByLabelText(CURRICULUM), "true");
+  await user.selectOptions(screen.getByLabelText(APPROVED), "false");
+  assert.deepEqual(writes.at(-1), ["s5q2_row1_isApproved", "false"]);
+
+  // Answering the gate anything but Oui takes its follow-up with it.
+  await user.selectOptions(screen.getByLabelText(CURRICULUM), "false");
+  assert.deepEqual(writes.slice(-2), [
+    ["s5q2_row1_hasCurriculum", "false"],
+    ["s5q2_row1_isApproved", null],
+  ]);
+  assert.equal(screen.getByLabelText(`${APPROVED} (Sans objet)`).textContent, "—");
+});
+
+test("5.2 has no Total row: Yes/No answers are not added up", () => {
+  renderGrid(field52, { s5q2_row1_specialtyText: "Couture", s5q2_row1_hasCurriculum: "true" });
+  assert.equal(document.querySelector("tfoot"), null);
+});
+
+test("5.2: a row started with a Yes/No answer alone is shown", () => {
+  renderGrid(field52, { s5q2_row2_hasCurriculum: "false" });
+  assert.deepEqual(
+    Array.from(document.querySelectorAll<HTMLSelectElement>('select[id*="_hasCurriculum"]')).map((s) =>
+      Number(/_row(\d+)_/.exec(s.id)![1]),
+    ),
+    [2],
+  );
 });
