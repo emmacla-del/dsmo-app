@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useContext, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useContext, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef, VtCellOption, VtRowDef, VtTableMeta } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -105,6 +105,20 @@ const statBoxStyle: CSSProperties = {
   borderRadius: "var(--cam-radius-sm)",
 };
 
+/** Same label as a GuidedNumberBox's, for the row dropdown beside them. */
+const guidedFieldLabelStyle: CSSProperties = {
+  display: "block",
+  marginBottom: 6,
+  fontFamily: "var(--cam-font-sans)",
+  fontWeight: "var(--cam-question-weight)",
+  fontSize: "var(--cam-question-size)",
+  color: ink,
+};
+
+function capitalizeFirst(text: string): string {
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
 function cellLabel(cell: VtCellDef, locale: string): string {
   return vtSpelledOutCellLabel(cell.label, locale.startsWith("en") ? "en" : "fr") || cell.key;
 }
@@ -147,6 +161,45 @@ function rowOwes(field: OnefopField, row: VRow, data: FormData, locale: string):
   if (!vt || !ids) return [];
   const missing = new Set(missingVtRowCells(field, row.idx, data));
   return ids.flatMap((id, c) => (missing.has(id) && vt.cells[c] ? [cellLabel(vt.cells[c], locale)] : []));
+}
+
+/**
+ * What is announced after a row is saved, opened for editing or removed
+ * (audit R7): the action never moved focus or said anything, so a screen
+ * reader user had no way to tell an Add had worked.
+ */
+function rowAnnouncement(
+  t: ReturnType<typeof useTranslations>,
+  action: "saved" | "editing" | "removed",
+  row: VRow,
+  name: string,
+  noun: "row" | "trainer" = "row",
+): string {
+  const label = name.trim() || t("vtWizard.rowNumber", { index: row.idx + 1 });
+  const key =
+    noun === "trainer"
+      ? { saved: "trainerSaved", editing: "trainerEditing", removed: "trainerRemoved" }[action]
+      : { saved: "rowSaved", editing: "rowEditing", removed: "rowRemoved" }[action];
+  return t(`vtWizard.${key}`, { label });
+}
+
+/**
+ * The live region and focus handling shared by the row-by-row entries: after
+ * Add, Modifier or Supprimer, focus returns to the entry's first field —
+ * where the next row is typed, and where an edited row's values now are —
+ * and what happened is announced politely.
+ */
+function useGuidedRowFeedback(entryRef: RefObject<HTMLDivElement | null>) {
+  const [message, setMessage] = useState("");
+  const focusEntry = () => {
+    entryRef.current?.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus();
+  };
+  const region = (
+    <p aria-live="polite" aria-atomic="true" className="sr-only">
+      {message}
+    </p>
+  );
+  return { announce: setMessage, focusEntry, region };
 }
 
 /** "À compléter : Hommes, Femmes" under a saved row that is not finished. */
@@ -353,6 +406,9 @@ export function VtWizardFixedRowMultiNumberEntry({
   const numberCells = vt.cells.filter((c) => c.kind === "number");
   const [selectedRow, setSelectedRow] = useState<VRow | null>(null);
   const [controls, setControls] = useState<Record<string, string>>({});
+  const entryRef = useRef<HTMLDivElement>(null);
+  const rowSelectId = useId();
+  const { announce, focusEntry, region } = useGuidedRowFeedback(entryRef);
 
   const rowHasData = (row: VRow): boolean => {
     return numberCells.some((c) => {
@@ -382,18 +438,22 @@ export function VtWizardFixedRowMultiNumberEntry({
       const parsed = val === undefined || val === "" ? null : Number(val);
       onChange(cellId(selectedRow, cell), parsed ?? null, true);
     }
+    announce(rowAnnouncement(t, "saved", selectedRow, cellLabelText(selectedRow.rowDef.label, locale) || ""));
     setSelectedRow(null);
     setControls({});
+    focusEntry();
   };
 
   const handleRemove = (row: VRow) => {
     for (const cell of numberCells) {
       onChange(cellId(row, cell), null, true);
     }
+    announce(rowAnnouncement(t, "removed", row, cellLabelText(row.rowDef.label, locale) || ""));
     if (selectedRow === row) {
       setSelectedRow(null);
       setControls({});
     }
+    focusEntry();
   };
 
   const handleEdit = (row: VRow) => {
@@ -404,6 +464,8 @@ export function VtWizardFixedRowMultiNumberEntry({
       newControls[cell.key] = v == null ? "" : String(v);
     }
     setControls(newControls);
+    announce(rowAnnouncement(t, "editing", row, cellLabelText(row.rowDef.label, locale) || ""));
+    focusEntry();
   };
 
   const title = <CodedLabel code={field.paperCode} text={cellLabelText(vt.title, locale)} />;
@@ -411,12 +473,19 @@ export function VtWizardFixedRowMultiNumberEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} />
-      <div style={guidedEntryContainerStyle}>
+      {region}
+      <div ref={entryRef} style={guidedEntryContainerStyle}>
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
         <div style={{ marginBottom: 12 }}>
+          {/* The row this entry is filling: a dropdown with nothing but
+              "Sélectionner…" named nothing at all (audit R7). */}
+          <label htmlFor={rowSelectId} style={guidedFieldLabelStyle}>
+            {capitalizeFirst(localizedNoun(vt.progressNoun, locale, "lignes", "rows"))}
+          </label>
           <select
+            id={rowSelectId}
             value={selectedRow ? selectedRow.idx : ""}
             onChange={(e) => {
               const idx = Number(e.target.value);
@@ -573,6 +642,7 @@ export function VtWizardProgressiveGuidedTableEntry({
   const [controls, setControls] = useState<Record<string, string>>({});
   const [labelError, setLabelError] = useState(false);
   const entryRef = useRef<HTMLDivElement>(null);
+  const { announce, focusEntry, region } = useGuidedRowFeedback(entryRef);
 
   const filledRows = rows.filter((r) => rowStarted(vt, r, data));
   const entered = filledRows.filter((r) => r !== selectedRow);
@@ -598,19 +668,23 @@ export function VtWizardProgressiveGuidedTableEntry({
       const val = controls[cell.key];
       onChange(cellId(row, cell), val === undefined || val === "" ? null : Number(val), true);
     }
+    announce(rowAnnouncement(t, "saved", row, labelValue));
     setSelectedRow(null);
     setLabelValue("");
     setControls({});
     setLabelError(false);
     // Back to the first field, ready for the next row.
-    entryRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    focusEntry();
   };
 
   const handleRemove = (row: VRow) => {
+    const name = (data[cellId(row, labelCell)] as string) ?? "";
     onChange(cellId(row, labelCell), null, false);
     for (const cell of numberCells) {
       onChange(cellId(row, cell), null, true);
     }
+    announce(rowAnnouncement(t, "removed", row, name));
+    focusEntry();
     if (selectedRow === row) {
       setSelectedRow(null);
       setLabelValue("");
@@ -621,7 +695,8 @@ export function VtWizardProgressiveGuidedTableEntry({
 
   const handleEdit = (row: VRow) => {
     setSelectedRow(row);
-    setLabelValue((data[cellId(row, labelCell)] as string) ?? "");
+    const name = (data[cellId(row, labelCell)] as string) ?? "";
+    setLabelValue(name);
     const newControls: Record<string, string> = {};
     for (const cell of numberCells) {
       const v = data[cellId(row, cell)];
@@ -629,6 +704,8 @@ export function VtWizardProgressiveGuidedTableEntry({
     }
     setControls(newControls);
     setLabelError(false);
+    announce(rowAnnouncement(t, "editing", row, name));
+    focusEntry();
   };
 
   const title = <CodedLabel code={field.paperCode} text={cellLabelText(vt.title, locale)} />;
@@ -636,6 +713,7 @@ export function VtWizardProgressiveGuidedTableEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} tinted={false} />
+      {region}
       <div ref={entryRef} style={guidedEntryContainerStyle}>
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
@@ -798,6 +876,7 @@ export function VtWizardProgressiveBooleanTableEntry({
   const [boolValues, setBoolValues] = useState<Record<string, boolean | null>>({});
   const groupIdPrefix = useId();
   const entryRef = useRef<HTMLDivElement>(null);
+  const { announce, focusEntry, region } = useGuidedRowFeedback(entryRef);
 
   const startedRows = rows.filter((r) => rowStarted(vt, r, data));
   const filledCount = startedRows.length;
@@ -819,18 +898,22 @@ export function VtWizardProgressiveBooleanTableEntry({
       const v = gate ? boolValues[cell.key] : null;
       onChange(cellId(row, cell), v == null ? null : String(v), false);
     }
+    announce(rowAnnouncement(t, "saved", row, labelValue));
     setSelectedRow(null);
     setLabelValue("");
     setBoolValues({});
     // Back to the first field, ready for the next row.
-    entryRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    focusEntry();
   };
 
   const handleRemove = (row: VRow) => {
+    const name = (data[cellId(row, labelCell)] as string) ?? "";
     onChange(cellId(row, labelCell), null, false);
     for (const cell of boolCells) {
       onChange(cellId(row, cell), null, false);
     }
+    announce(rowAnnouncement(t, "removed", row, name));
+    focusEntry();
     if (selectedRow === row) {
       setSelectedRow(null);
       setLabelValue("");
@@ -840,7 +923,8 @@ export function VtWizardProgressiveBooleanTableEntry({
 
   const handleEdit = (row: VRow) => {
     setSelectedRow(row);
-    setLabelValue((data[cellId(row, labelCell)] as string) ?? "");
+    const name = (data[cellId(row, labelCell)] as string) ?? "";
+    setLabelValue(name);
     const newBools: Record<string, boolean | null> = {};
     for (const cell of boolCells) {
       const v = data[cellId(row, cell)];
@@ -849,6 +933,8 @@ export function VtWizardProgressiveBooleanTableEntry({
       else newBools[cell.key] = v === "true";
     }
     setBoolValues(newBools);
+    announce(rowAnnouncement(t, "editing", row, name));
+    focusEntry();
   };
 
   const title = <CodedLabel code={field.paperCode} text={cellLabelText(vt.title, locale)} />;
@@ -856,6 +942,7 @@ export function VtWizardProgressiveBooleanTableEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} tinted={false} />
+      {region}
       <div ref={entryRef} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <GuidedNumberBox
           label={cellLabel(labelCell, locale)}
@@ -973,6 +1060,8 @@ export function VtWizardRosterGuidedEntry({
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const adminGroupName = useId();
   const [lastNameError, setLastNameError] = useState(false);
+  const entryRef = useRef<HTMLDivElement>(null);
+  const { announce, focusEntry, region } = useGuidedRowFeedback(entryRef);
 
   const rowFilled = (row: VRow): boolean => {
     const v = data[cellId(row, lastNameCell)];
@@ -1006,14 +1095,19 @@ export function VtWizardRosterGuidedEntry({
       onChange(cellId(row, cell), radioValues[cell.key] ?? null);
     }
     if (adminCell) onChange(cellId(row, adminCell), isAdmin);
+    announce(rowAnnouncement(t, "saved", row, `${trimmed} ${firstName.trim()}`.trim(), "trainer"));
     clearForm();
+    focusEntry();
   };
 
   const handleRemove = (row: VRow) => {
+    const name = `${(data[cellId(row, lastNameCell)] as string) ?? ""} ${(data[cellId(row, firstNameCell)] as string) ?? ""}`.trim();
     for (const cell of vt.cells) {
       onChange(cellId(row, cell), null);
     }
+    announce(rowAnnouncement(t, "removed", row, name, "trainer"));
     if (selectedRow === row) clearForm();
+    focusEntry();
   };
 
   const handleEdit = (row: VRow) => {
@@ -1035,6 +1129,16 @@ export function VtWizardRosterGuidedEntry({
       );
     }
     setLastNameError(false);
+    announce(
+      rowAnnouncement(
+        t,
+        "editing",
+        row,
+        `${(data[cellId(row, lastNameCell)] as string) ?? ""} ${(data[cellId(row, firstNameCell)] as string) ?? ""}`.trim(),
+        "trainer",
+      ),
+    );
+    focusEntry();
   };
 
   const title = <CodedLabel code={field.paperCode} text={cellLabelText(vt.title, locale)} />;
@@ -1048,7 +1152,8 @@ export function VtWizardRosterGuidedEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} />
-      <div style={guidedEntryContainerStyle}>
+      {region}
+      <div ref={entryRef} style={guidedEntryContainerStyle}>
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.addTrainer", { default: "Ajouter un formateur" })}
         </p>
