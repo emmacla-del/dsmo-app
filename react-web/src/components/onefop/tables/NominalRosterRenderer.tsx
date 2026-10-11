@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useId } from "react";
+import React, { useContext, useState, useId } from "react";
+import { TableHeadingShownContext } from "../table-heading-context";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -43,6 +44,8 @@ export function NominalRosterRenderer({
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.roster");
   const baseId = useId();
+  // The screen's heading already names the table (VT Section 8).
+  const headingShown = useContext(TableHeadingShownContext);
 
   // Active records currently present in FormData
   const activeRecords = getRosterActiveRecords(definition, data);
@@ -154,7 +157,12 @@ export function NominalRosterRenderer({
         {announcement}
       </div>
 
-      {/* Header Box */}
+      {/* Header Box — left out where the screen's heading already names the table */}
+      {headingShown ? (
+        definition.caption && (
+          <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: inkSoft }}>{localized(definition.caption, locale)}</p>
+        )
+      ) : (
       <div
         style={{
           borderLeft: `4px solid ${accentGreen}`,
@@ -172,6 +180,7 @@ export function NominalRosterRenderer({
           </p>
         )}
       </div>
+      )}
 
       {/* Form Card (Add / Edit) */}
       <div

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useContext, useState, useEffect, useMemo } from "react";
+import { TableHeadingShownContext } from "../table-heading-context";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -108,6 +109,8 @@ export function AdaptiveStatisticalTable({
 }: AdaptiveStatisticalTableProps) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.adaptive");
+  // The screen's heading already names the table (VT Sections 4 and 8).
+  const headingShown = useContext(TableHeadingShownContext);
 
   // Responsive mobile viewport detection (< 768px)
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
@@ -460,15 +463,17 @@ export function AdaptiveStatisticalTable({
           {/* Row 1: Official Prompt Text + Code Info + Status Badge */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--cam-space-4, 16px)", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flex: 1, minWidth: 260 }}>
-              <span
-                style={{
-                  fontSize: "var(--cam-font-size-lg, 1.125rem)",
-                  color: "var(--cam-text)",
-                  lineHeight: 1.4,
-                }}
-              >
-                <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
-              </span>
+              {!headingShown && (
+                <span
+                  style={{
+                    fontSize: "var(--cam-font-size-lg, 1.125rem)",
+                    color: "var(--cam-text)",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
+                </span>
+              )}
             </div>
 
             <CoherenceChip tableFieldId={tableFieldId} />
@@ -498,17 +503,19 @@ export function AdaptiveStatisticalTable({
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-            <h2
-              style={{
-                fontSize: "var(--cam-font-size-lg, 1.125rem)",
-                fontWeight: 700,
-                color: "var(--cam-text)",
-                margin: 0,
-                lineHeight: 1.35,
-              }}
-            >
-              <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
-            </h2>
+            {!headingShown && (
+              <h2
+                style={{
+                  fontSize: "var(--cam-font-size-lg, 1.125rem)",
+                  fontWeight: 700,
+                  color: "var(--cam-text)",
+                  margin: 0,
+                  lineHeight: 1.35,
+                }}
+              >
+                <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
+              </h2>
+            )}
             <CoherenceChip tableFieldId={tableFieldId} />
           </div>
         </div>
@@ -611,27 +618,12 @@ export function AdaptiveStatisticalTable({
                 color: "var(--cam-text-muted)",
               }}
             >
+              {/* No Previous / Next block buttons: the tabs above switch blocks,
+                  and a second Previous / Next pair beside the wizard's own
+                  made the page's navigation ambiguous. */}
               <span style={{ flex: 1 }}>
                 {t("blockCounter", { current: clampedBlockIdx + 1, total: editableBlocks.length })}
               </span>
-              <button
-                type="button"
-                className="cam-hoverable"
-                disabled={clampedBlockIdx === 0}
-                onClick={() => goToBlock(clampedBlockIdx - 1, true)}
-                style={blockNavButtonStyle(clampedBlockIdx === 0)}
-              >
-                {t("prevBlock")}
-              </button>
-              <button
-                type="button"
-                className="cam-hoverable"
-                disabled={clampedBlockIdx === editableBlocks.length - 1}
-                onClick={() => goToBlock(clampedBlockIdx + 1, true)}
-                style={blockNavButtonStyle(clampedBlockIdx === editableBlocks.length - 1)}
-              >
-                {t("nextBlock")}
-              </button>
             </div>
           )}
         </div>
@@ -648,22 +640,6 @@ export function AdaptiveStatisticalTable({
       )}
     </div>
   );
-}
-
-/** Secondary (outline) style — the wizard keeps a single green primary action. */
-function blockNavButtonStyle(isDisabled: boolean): React.CSSProperties {
-  return {
-    padding: "5px 12px",
-    fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-    fontWeight: 600,
-    fontFamily: "var(--cam-font-sans)",
-    color: "var(--cam-text)",
-    background: "var(--cam-surface)",
-    border: "1px solid var(--cam-border-strong)",
-    borderRadius: "var(--cam-radius-sm)",
-    cursor: isDisabled ? "default" : "pointer",
-    opacity: isDisabled ? 0.4 : 1,
-  };
 }
 
 function BlockTabs({

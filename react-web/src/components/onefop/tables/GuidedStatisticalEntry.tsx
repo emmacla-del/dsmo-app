@@ -405,13 +405,18 @@ export function GuidedStatisticalEntry({
     return null;
   };
 
-  // Focus the first input of the screen after a step (not on first mount).
+  // Focus the first input of the screen after a step (not on first mount);
+  // on the summary, its heading, so focus is not left on a removed input.
   const focusAfterStepRef = useRef(false);
   useEffect(() => {
     if (!focusAfterStepRef.current) return;
     focusAfterStepRef.current = false;
     const root = containerRef.current;
     if (!root) return;
+    if (isReviewStage) {
+      root.querySelector<HTMLElement>("[data-guided-review-heading]")?.focus({ preventScroll: true });
+      return;
+    }
     root.scrollIntoView({ behavior: "smooth", block: "nearest" });
     const input = root.querySelector<HTMLInputElement>("input:not([disabled])");
     if (input) {
@@ -450,6 +455,7 @@ export function GuidedStatisticalEntry({
     if (safeIdx < questions.length - 1) {
       goTo(safeIdx + 1);
     } else {
+      focusAfterStepRef.current = true;
       openReview();
       containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -581,7 +587,7 @@ export function GuidedStatisticalEntry({
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-[var(--cam-text)] m-0">
+            <h3 data-guided-review-heading tabIndex={-1} className="text-base font-bold text-[var(--cam-text)] m-0 outline-none">
               {t("checkAnswers")}
             </h3>
             <p className="text-xs text-[var(--cam-text-muted)] mt-1 mb-0">
@@ -654,6 +660,11 @@ export function GuidedStatisticalEntry({
                         className="text-xs font-semibold text-[var(--cam-green)] underline bg-transparent border-none p-0 cursor-pointer"
                       >
                         {t("change")}
+                        {/* "Change" alone is ambiguous in a list of links. */}
+                        <span className="sr-only">
+                          {" "}
+                          {label === t("number") ? g.title : `${g.title}, ${label}`}
+                        </span>
                       </button>
                     </span>
                   </div>

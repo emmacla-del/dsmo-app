@@ -62,6 +62,7 @@ import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import { EntryModeSwitch } from "./EntryModeSwitch";
 import { buildVtFixedRowGridDefinition, isVtFixedRowTable, withVtFixedRowTotals } from "./tables/vtFixedRowGrid";
 import { useEntryMode } from "@/lib/use-entry-mode";
+import { TableHeadingShownContext } from "./table-heading-context";
 import {
   buildSection41Definition,
   buildVt88TrainerRosterDefinition,
@@ -1260,6 +1261,7 @@ export function VtWizardSectionScreen({
               ) : null;
             })()}
             {groups[activeTab] && (
+              <TableHeadingShownContext.Provider value={true}>
               <FormSection>
                 <VtWizardCardForGroup
                   group={groups[activeTab]}
@@ -1278,6 +1280,7 @@ export function VtWizardSectionScreen({
                   </div>
                 )}
               </FormSection>
+              </TableHeadingShownContext.Provider>
             )}
           </div>
         ) : groups.length > 1 ? (

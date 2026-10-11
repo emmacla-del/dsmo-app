@@ -99,7 +99,7 @@ test("Next on a complete table opens the next table, focuses the heading and ann
   assert.equal(currentTable(), "4.2");
   assert.ok(screen.getByText("Tableau 2 sur 11"));
   assert.equal(document.activeElement, sectionHeading());
-  assert.ok(document.body.textContent?.includes("tableau 2 sur 11"), "the live region names the table");
+  assert.ok(document.body.textContent?.includes("Apprenants, tableau 2 sur 11"), "the live region names the section as its heading does, and the table");
 });
 
 test("Next on an incomplete table stays on it and shows its problems", async () => {
@@ -292,3 +292,28 @@ test("a Section 4 card on the Validation screen opens the table holding the firs
   assert.equal(currentTable(), "4.3");
   assert.ok(screen.getByText(/cellule\(s\) restent à renseigner|Ajoutez au moins une ligne/), "4.3's problem is shown");
 });
+
+// One title per table (audit S4): the table's heading names it; the table
+// itself shows no second title, in either mode.
+for (const mode of ["grid", "guided"] as const) {
+  for (const [shown, sectionId, stepIndex, code] of [
+    [entity, s4.id, 0, "4.1"],
+    [entity, s4.id, 1, "4.2"],
+    [entity, s4.id, 2, "4.3"],
+    [entity8, s8.id, 4, "8.5"],
+    [entity8, s8.id, 7, "8.8"],
+  ] as const) {
+    test(`${code} in ${mode === "grid" ? "Tableau" : "Guidé"} shows one title`, () => {
+      localStorage.setItem("camleap.onefop.entryMode", mode);
+      renderAt(quiz(), { sectionIndex: S4, stepIndex }, shown);
+      assert.equal(currentTable(), code);
+
+      const titles = [...document.querySelectorAll("h1, h2, h3, h4, .cam-qcode")].filter(
+        (el) => el.id !== vtSectionHeadingId(sectionId) && el.textContent?.trim().startsWith(code),
+      );
+      assert.equal(titles.length, 1, titles.map((el) => `${el.tagName}: ${el.textContent}`).join(" | "));
+      assert.equal(titles[0].tagName, "H3");
+      localStorage.removeItem("camleap.onefop.entryMode");
+    });
+  }
+}
