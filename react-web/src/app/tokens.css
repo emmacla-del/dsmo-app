@@ -95,7 +95,6 @@
 
    /* ── Typography ── */
    --cam-font-sans: var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
-   --cam-font-serif: var(--font-zilla-slab), "Zilla Slab", Georgia, "Times New Roman", serif;
    /* Codes/IDs only (NIU, CNPS, row codes). Never use bare `monospace`:
      on Windows it resolves to Courier New, which is thin and blurry at
      small sizes. Numbers in tables use the UI font + tabular-nums. */

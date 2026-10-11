@@ -462,7 +462,6 @@ export function AdaptiveStatisticalTable({
             <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flex: 1, minWidth: 260 }}>
               <span
                 style={{
-                  fontFamily: "var(--cam-font-serif)",
                   fontSize: "var(--cam-font-size-lg, 1.125rem)",
                   color: "var(--cam-text)",
                   lineHeight: 1.4,
@@ -501,7 +500,6 @@ export function AdaptiveStatisticalTable({
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
             <h2
               style={{
-                fontFamily: "var(--cam-font-serif)",
                 fontSize: "var(--cam-font-size-lg, 1.125rem)",
                 fontWeight: 700,
                 color: "var(--cam-text)",
