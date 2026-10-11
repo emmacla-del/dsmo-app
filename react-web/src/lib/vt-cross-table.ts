@@ -23,6 +23,12 @@ import { isVtCentreClosed, missingVtTableCells } from "./vt-quiz";
 export interface VtCrossTableIssue {
   /** The later table, which carries the message. */
   fieldId: string;
+  /**
+   * Both tables the comparison names, in paper order, so the screen can
+   * offer to open either one: the fix may belong to either (the respondent
+   * decides which figure is wrong).
+   */
+  tables: Array<{ code: string; fieldId: string }>;
   fr: string;
   en: string;
 }
@@ -135,8 +141,15 @@ export function vtCrossTableIssues(fields: OnefopField[], data: FormData): VtCro
     if (actualParts.length === 0) continue;
     const join = (parts: Array<{ fr: string; en: string }>, lang: "fr" | "en") =>
       parts.map((p) => p[lang]).join(lang === "fr" ? " et " : " and ");
+    // "4.5 (FI)" names the part of 4.5 compared, which reads wrong on a link
+    // to the table itself ("Open table 4.5").
+    const linkCode = (side: Side) => side.code.replace(/\s*\(.*\)\s*$/, "");
     issues.push({
       fieldId: checked.fieldId,
+      tables: [
+        { code: linkCode(anchor), fieldId: anchor.fieldId },
+        { code: linkCode(checked), fieldId: checked.fieldId },
+      ],
       fr:
         `Le tableau ${checked.code} compte ${join(actualParts, "fr")}, mais le tableau ${anchor.code} en compte ${join(expectedParts, "fr")}. ` +
         `Les deux décrivent les mêmes ${population.fr} : corrigez l'un ou l'autre pour qu'ils concordent.`,
