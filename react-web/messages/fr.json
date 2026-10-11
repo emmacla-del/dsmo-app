@@ -708,7 +708,7 @@
     "removeRowButton": "Supprimer la dernière ligne"
   },
   "vtValidationScreen": {
-    "thankYouTitle": "Merci pour votre participation",
+    "checkAnswersTitle": "Vérifiez vos réponses avant de soumettre",
     "confidentialityTitle": "Secret statistique & Protection des données",
     "confidentialityText": "Conformément à la Loi N° 91/023 du 16 décembre 1991, les renseignements recueillis sont couverts par le secret statistique et ne peuvent être utilisés qu'à des fins statistiques ou de planification nationale.",
     "periodClosedTitle": "Période de déclaration fermée",

@@ -151,7 +151,8 @@ export function VtValidationScreen({
             outline: "none",
           }}
         >
-          {t("vtValidationScreen.thankYouTitle")}
+          {/* Not "Thank you": nothing is submitted yet (audit R1). */}
+          {t("vtValidationScreen.checkAnswersTitle")}
         </h2>
       </div>
 

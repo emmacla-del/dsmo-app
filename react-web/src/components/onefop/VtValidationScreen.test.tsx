@@ -1,7 +1,7 @@
 import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VtValidationScreen } from "./VtValidationScreen";
+import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { schemaEntity, schemaField } from "@/test/schema";
 import { loadMessages } from "@/test/render";
 import type { OnefopEntity } from "@/lib/onefop-schema";
@@ -110,4 +110,13 @@ test("a valid section made only of tables counts as complete, not as never start
   });
   assert.equal(screen.queryByText(fr.vtValidationScreen.incompleteWarning), null);
   assert.ok(screen.getByText(fr.vtValidationScreen.badgeCompleted));
+});
+
+// Audit R1: before submission the screen asks the respondent to check;
+// it never thanks them as if the declaration were already sent.
+test("the review screen's heading asks to check the answers, and thanks no one before submission", () => {
+  renderScreen();
+  const heading = document.getElementById(VT_VALIDATION_HEADING_ID)!;
+  assert.equal(heading.textContent, "Vérifiez vos réponses avant de soumettre");
+  assert.equal(screen.queryByText(/Merci pour votre participation/), null);
 });
