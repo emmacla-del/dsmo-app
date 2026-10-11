@@ -639,7 +639,7 @@ function VtWizardTableField({
   if (!vt.progressiveRows) {
     return <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />;
   }
-  // Add-a-row tables of a specialty and counts (4.3–4.6, 8.4, 8.7): Tableau
+  // Add-a-row tables of a specialty and counts (4.3–4.6, 4.10, 6.3, 8.4, 8.7): Tableau
   // is VtProgressiveRowGrid, Guidé the existing row-by-row entry. Both write
   // the same slots.
   if (isVtProgressiveNumberTable(field)) {

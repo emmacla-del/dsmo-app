@@ -780,6 +780,7 @@
     "summary": "Résumé des lignes saisies",
     "noRows": "Aucune ligne saisie pour le moment.",
     "enterName": "Saisissez un intitulé avant d'enregistrer la ligne.",
+    "labelMissing": "{label} : à renseigner",
     "saveRow": "Enregistrer la ligne",
     "runningTotal": "Total en cours",
     "addTrainer": "Ajouter un formateur",
