@@ -14,7 +14,22 @@ import {
 } from "@/lib/onefop-submission";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { clearDraft } from "@/lib/onefop-drafts";
-import { VtWizardSectionScreen, vtSectionHeadingId, type VtSectionRevealHandle } from "./VtWizardSectionScreen";
+import {
+  VtWizardSectionScreen,
+  vtSectionHeadingId,
+  vtWizardSectionGroups,
+  type VtSectionRevealHandle,
+} from "./VtWizardSectionScreen";
+import {
+  VT_STEPPED_SECTION_IDS,
+  vtFirstStep,
+  vtLastStep,
+  vtNextStep,
+  vtPreviousStep,
+  vtStepForIssue,
+  vtStepIssues,
+  vtStepPosition,
+} from "@/lib/vt-table-steps";
 import { VtWizardSidebar } from "./VtWizardSidebar";
 import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
@@ -146,6 +161,10 @@ export function WizardShell({
   const viewportWidth = useViewportWidth();
 
   const [sectionIndex, setSectionIndex] = useState(0);
+  // Sections 4 and 8, one table per screen (vt-table-steps.ts): the table
+  // shown, or where to land on entering the section — its first table, or
+  // its last when coming back from the next section.
+  const [vtStepTarget, setVtStepTarget] = useState<number | "first" | "last">("first");
   const [isValidationStage, setIsValidationStage] = useState(false);
   // Training centres: the preliminary quiz stage, between Sections 1 and 2.
   const [isVtQuizStage, setIsVtQuizStage] = useState(false);
@@ -317,6 +336,20 @@ export function WizardShell({
 
   const showErrors = attemptedAdvance || attemptedSubmit;
 
+  const vtStepped = isVt && !!currentSection && VT_STEPPED_SECTION_IDS.has(currentSection.id);
+  const vtSteps = useMemo(
+    () => (vtStepped && currentSection ? vtWizardSectionGroups(currentSection, data, formLocale === "en" ? "en" : "fr") : []),
+    [vtStepped, currentSection, data, formLocale],
+  );
+  const vtStepIndex = !vtStepped
+    ? 0
+    : vtStepTarget === "first"
+      ? vtFirstStep(vtSteps, data)
+      : vtStepTarget === "last"
+        ? vtLastStep(vtSteps, data)
+        : Math.min(Math.max(vtStepTarget, 0), Math.max(0, vtSteps.length - 1));
+  const vtStepPos = vtStepped ? vtStepPosition(vtSteps, vtStepIndex, data) : null;
+
   // ── A1: focus, scroll and announcement on every VT step change ──────────
   // (non-VT entities render ModernJobsWizard, which does its own.)
   const vtStepKey = !isVt
@@ -325,7 +358,7 @@ export function WizardShell({
       ? "validation"
       : isVtQuizStage
         ? "quiz"
-        : `section:${currentSection?.id ?? clampedSectionIndex}`;
+        : `section:${currentSection?.id ?? clampedSectionIndex}${vtStepped ? `:${vtStepIndex}` : ""}`;
   const vtHeadingId = !isVt
     ? null
     : isValidationStage
@@ -350,14 +383,24 @@ export function WizardShell({
           ? { kind: "label", label: t("vtWizardSidebar.validationLink") }
           : isVtQuizStage
             ? { kind: "label", label: t("wizardShell.quizAnnouncement") }
-            : currentSection
+            : currentSection && vtStepPos
               ? {
-                  kind: "section",
-                  index: clampedSectionIndex,
-                  total: sections.length,
-                  title: localized(currentSection.title, formLocale) || currentSection.id,
+                  // "Trainees, table 3 of 9"
+                  kind: "label",
+                  label: `${localized(currentSection.title, formLocale) || currentSection.id}, ${
+                    formLocale === "en"
+                      ? `table ${vtStepPos.number} of ${vtStepPos.total}`
+                      : `tableau ${vtStepPos.number} sur ${vtStepPos.total}`
+                  }`,
                 }
-              : { kind: "none" },
+              : currentSection
+                ? {
+                    kind: "section",
+                    index: clampedSectionIndex,
+                    total: sections.length,
+                    title: localized(currentSection.title, formLocale) || currentSection.id,
+                  }
+                : { kind: "none" },
         (values) => t("wizardShell.stepAnnouncement", values),
       );
   // Rendered first in both the section tree and the Validation tree below,
@@ -415,13 +458,23 @@ export function WizardShell({
           ? position.index
           : Math.min(Math.max(stored.sectionIndex, 0), sections.length - 1),
       );
+      // A position stored before tables were steps has none: the first table.
+      setVtStepTarget(
+        position.kind === "section" && position.index === stored.sectionIndex && stored.stepIndex !== undefined
+          ? stored.stepIndex
+          : "first",
+      );
     }
   }
   const vtStoredStage = isValidationStage ? "review" : isVtQuizStage ? "quiz" : "section";
   useEffect(() => {
     if (!isVt || !positionKey || restoredPositionKey !== positionKey || submissionResult) return;
-    writeWizardPosition(positionKey, { stage: vtStoredStage, sectionIndex: clampedSectionIndex });
-  }, [isVt, positionKey, restoredPositionKey, submissionResult, vtStoredStage, clampedSectionIndex]);
+    writeWizardPosition(positionKey, {
+      stage: vtStoredStage,
+      sectionIndex: clampedSectionIndex,
+      ...(vtStepped && vtStoredStage === "section" ? { stepIndex: vtStepIndex } : {}),
+    });
+  }, [isVt, positionKey, restoredPositionKey, submissionResult, vtStoredStage, clampedSectionIndex, vtStepped, vtStepIndex]);
 
   if (!currentSection) return null;
 
@@ -446,6 +499,7 @@ export function WizardShell({
     );
 
     setSectionIndex(nextIndex);
+    setVtStepTarget("first");
     setIsValidationStage(false);
     setIsVtQuizStage(false);
     setAttemptedAdvance(false);
@@ -466,6 +520,24 @@ export function WizardShell({
     const step = gatedStep(vtGateModel, target, vtCurrentStep);
     if (step.kind === "quiz") openVtQuiz();
     else showSection(step.index);
+  }
+
+  /**
+   * A section card on the Validation screen. In Sections 4 and 8 it opens the
+   * table holding the section's first problem, with the problems shown, so
+   * the respondent lands where the fix is rather than on the first table.
+   */
+  function openSectionFromReview(index: number) {
+    goToSection(index);
+    const section = sections[index];
+    if (!isVt || !section || !VT_STEPPED_SECTION_IDS.has(section.id)) return;
+    const step = gatedStep(vtGateModel, { kind: "section", index }, vtCurrentStep);
+    if (step.kind !== "section" || step.index !== index) return;
+    const issues = validateSectionData(section, data, formLocale);
+    if (issues.length === 0) return;
+    const steps = vtWizardSectionGroups(section, data, formLocale === "en" ? "en" : "fr");
+    setVtStepTarget(vtStepForIssue(steps, issues[0].fieldId, data));
+    setAttemptedAdvance(true);
   }
 
   /** The quiz from the rail or the Validation screen, gated like a section. */
@@ -502,24 +574,29 @@ export function WizardShell({
   }
 
   function handleNext() {
-    // VT is section-level pagination. Do not introduce React's generic unit
-    // progression into VT; the Flutter shell delegates the section document's
-    // internal pagination to VtWizardSectionScreen.
+    // VT is section-level pagination, except in Sections 4 and 8, where Next
+    // checks the table on screen only and moves on to the next table
+    // (vt-table-steps.ts). The section check below still runs before leaving
+    // the section, so a table skipped with the table list cannot be passed.
+    if (vtStepped) {
+      const stepIssues = vtStepIssues(vtSteps, vtStepIndex, sectionIssues, data);
+      if (stepIssues.length > 0) {
+        setAttemptedAdvance(true);
+        revealIssue(stepIssues[0].fieldId);
+        return;
+      }
+      const next = vtNextStep(vtSteps, vtStepIndex, data);
+      if (next !== null) {
+        setAttemptedAdvance(false);
+        setVtStepTarget(next);
+        requestStepFocus();
+        return;
+      }
+    }
+
     if (sectionIssues.length > 0) {
       setAttemptedAdvance(true);
-      // Auto-scroll to first invalid field (Gap #9, matching Flutter _scrollToFirstError).
-      // A2: a cell or table-level issue has no element of its own id, and a
-      // tabbed section only mounts its active tab — so show the owning tab
-      // first, then (once rendered) walk the lookup chain down to the
-      // owning table's wrapper.
-      const firstIssue = sectionIssues[0];
-      if (firstIssue?.fieldId) {
-        const owner = findIssueOwner(currentSection?.fields ?? [], firstIssue.fieldId);
-        vtRevealRef.current?.showIssue(firstIssue.fieldId);
-        requestAnimationFrame(() => {
-          revealIssueElement(firstIssue.fieldId, owner?.id);
-        });
-      }
+      revealIssue(sectionIssues[0].fieldId);
       return;
     }
 
@@ -533,6 +610,7 @@ export function WizardShell({
 
     if (clampedSectionIndex < sections.length - 1) {
       setSectionIndex((index) => index + 1);
+      setVtStepTarget("first");
       requestStepFocus();
       return;
     }
@@ -540,8 +618,34 @@ export function WizardShell({
     goToValidation();
   }
 
+  /**
+   * Auto-scroll to the first invalid field (Gap #9, matching Flutter
+   * _scrollToFirstError). A2: a cell or table-level issue has no element of
+   * its own id, and Sections 4 and 8 only mount the table on screen — so show
+   * the owning table first, then (once rendered) walk the lookup chain down
+   * to the owning table's wrapper.
+   */
+  function revealIssue(fieldId: string | undefined) {
+    if (!fieldId) return;
+    const owner = findIssueOwner(currentSection?.fields ?? [], fieldId);
+    vtRevealRef.current?.showIssue(fieldId);
+    requestAnimationFrame(() => {
+      revealIssueElement(fieldId, owner?.id);
+    });
+  }
+
   function handlePrev() {
     setAttemptedAdvance(false);
+
+    // Sections 4 and 8: the previous table first.
+    if (vtStepped) {
+      const previous = vtPreviousStep(vtSteps, vtStepIndex, data);
+      if (previous !== null) {
+        setVtStepTarget(previous);
+        requestStepFocus();
+        return;
+      }
+    }
 
     // Section 2 → back to the preliminary quiz.
     if (vtQuizApplies && clampedSectionIndex === 1) {
@@ -551,6 +655,8 @@ export function WizardShell({
 
     if (clampedSectionIndex > 0) {
       setSectionIndex((index) => index - 1);
+      // Back into Section 4 from Section 5 lands on its last table.
+      setVtStepTarget("last");
       requestStepFocus();
       return;
     }
@@ -839,7 +945,7 @@ export function WizardShell({
                 <VtValidationScreen
                   entity={entity}
                   data={data}
-                  onOpenSection={goToSection}
+                  onOpenSection={openSectionFromReview}
                   onBack={() => goToSection(sections.length - 1)}
                   onPreviewPdf={() => setPreviewModalOpen(true)}
                   isGeneratingPdf={pdfMutation.isPending}
@@ -975,6 +1081,8 @@ export function WizardShell({
                   onSaveAndExit={onSaveNow && onCancel ? async () => { await onSaveNow(); onCancel(); } : undefined}
                   showBottomBar={false}
                   saving={saving}
+                  activeStep={vtStepped ? vtStepIndex : undefined}
+                  onStepChange={(index) => setVtStepTarget(index)}
                 />
               )}
             </div>

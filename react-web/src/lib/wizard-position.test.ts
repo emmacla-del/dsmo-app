@@ -60,6 +60,31 @@ test("malformed stored values are ignored or sanitised", () => {
   });
 });
 
+test("a training centre's table step survives a round trip", () => {
+  const position = { stage: "section" as const, sectionIndex: 4, stepIndex: 6 };
+  assert.deepEqual(parseWizardPosition(serializeWizardPosition(position)), position);
+  // Step 0 is a real step, kept as such.
+  assert.deepEqual(parseWizardPosition(serializeWizardPosition({ stage: "section", sectionIndex: 4, stepIndex: 0 })), {
+    stage: "section",
+    sectionIndex: 4,
+    stepIndex: 0,
+  });
+});
+
+test("a position stored before table steps has none, so the section's first table opens", () => {
+  assert.equal(parseWizardPosition(JSON.stringify({ stage: "section", sectionIndex: 4 }))?.stepIndex, undefined);
+});
+
+test("a malformed table step is dropped", () => {
+  for (const stepIndex of [-1, 2.5, "3", null]) {
+    assert.equal(
+      parseWizardPosition(JSON.stringify({ stage: "section", sectionIndex: 4, stepIndex }))?.stepIndex,
+      undefined,
+      String(stepIndex),
+    );
+  }
+});
+
 test("without storage every helper is a silent no-op", () => {
   writeWizardPosition(KEY, { stage: "section", sectionIndex: 2 });
   writeLegalAck(KEY);

@@ -20,6 +20,12 @@ const LEGAL_ACK_PREFIX = "camleap.onefop.legalAck::";
 export interface StoredWizardPosition extends StoredPositionLike {
   /** ModernJobs only: the table open in the table deck. */
   activeTableId?: string;
+  /**
+   * Training centres, Sections 4 and 8 only: the table shown (vt-table-steps.ts).
+   * Absent in positions stored before tables were steps: the section's first
+   * table opens.
+   */
+  stepIndex?: number;
 }
 
 export function wizardPositionKey(draftKey: string): string {
@@ -45,12 +51,14 @@ export function parseWizardPosition(raw: string | null | undefined): StoredWizar
   const index = typeof v.sectionIndex === "number" && Number.isFinite(v.sectionIndex) ? Math.trunc(v.sectionIndex) : 0;
   const out: StoredWizardPosition = { stage: v.stage, sectionIndex: Math.max(0, index) };
   if (typeof v.activeTableId === "string" && v.activeTableId) out.activeTableId = v.activeTableId;
+  if (typeof v.stepIndex === "number" && Number.isInteger(v.stepIndex) && v.stepIndex >= 0) out.stepIndex = v.stepIndex;
   return out;
 }
 
 export function serializeWizardPosition(position: StoredWizardPosition): string {
   const out: StoredWizardPosition = { stage: position.stage, sectionIndex: position.sectionIndex };
   if (position.activeTableId) out.activeTableId = position.activeTableId;
+  if (position.stepIndex !== undefined) out.stepIndex = position.stepIndex;
   return JSON.stringify(out);
 }
 
