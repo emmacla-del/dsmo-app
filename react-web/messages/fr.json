@@ -745,7 +745,6 @@
     "reviewSubmitButton": "Vérifier & Soumettre",
     "lastSection": "Dernière section",
     "previousStepButton": "Étape précédente",
-    "saveAndExitButton": "Enregistrer et quitter",
     "proceedToValidationButton": "Passer à la Validation",
     "sectionsListLabel": "Liste des sections",
     "saveFailedToast": "Échec de l'enregistrement — réessayez",
@@ -754,7 +753,6 @@
     "quizAnnouncement": "Questionnaire préliminaire",
     "railLockedSection": "Terminez la section {number} d'abord",
     "railLockedQuiz": "Répondez d'abord au questionnaire préliminaire",
-    "sectionCounter": "Section {current} sur {total}",
     "saving": "Enregistrement…"
   },
   "vtWizard": {
@@ -1095,13 +1093,12 @@
         "project": "Projets / Programmes",
         "vt": "Centres de formation professionnelle"
       },
-      "republicLine": "RÉPUBLIQUE DU CAMEROUN • MINEFOP",
       "surveyTitle": "Enquête Emploi & Main-d'œuvre",
+      "vtSurveyTitle": "Recensement formation professionnelle",
       "campaign": "Campagne {code}",
       "saving": "Enregistrement…",
       "savedAt": "Enregistré à {time}",
       "draftSaved": "Brouillon sauvegardé",
-      "save": "Sauvegarder",
       "exit": "Quitter"
     },
     "nav": {

@@ -1,6 +1,9 @@
 "use client";
 
-import { createContext, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState, type MutableRefObject } from "react";
+import { RadioGroup } from "./form/Radio";
+import { VtWizardFieldError } from "./VtWizardFields";
+import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import type { FormData, OnefopEntity, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import {
@@ -24,8 +27,12 @@ interface VtScopeQuizProps {
   onChange: (fieldId: string, value: unknown) => void;
   /** Quiz validated: continue to Section 2. */
   onComplete: () => void;
-  /** Back to Section 1. */
-  onBack: () => void;
+  /** The wizard's bottom bar drives the quiz (Précédent / Suivant, as on
+   *  every section): its Suivant calls the validate held here. With a
+   *  question unanswered, validate marks it and does not continue. */
+  validateRef: MutableRefObject<(() => void) | null>;
+  /** The campaign, named in the intro ("pour le 4e trimestre 2026"). */
+  quarterCode?: string;
   locale: "fr" | "en";
 }
 
@@ -41,9 +48,11 @@ function tableHasData(field: OnefopField | undefined, data: FormData): boolean {
  * it as nothing to report, and erases anything already typed in it. It gates
  * tables only — every ordinary question stays in its section.
  */
-export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale }: VtScopeQuizProps) {
+export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, quarterCode, locale }: VtScopeQuizProps) {
   const isEn = locale === "en";
   const [answers, setAnswers] = useState<VtQuizAnswers>(() => ({ ...(readVtQuiz(data) ?? {}) }));
+  // Suivant was pressed with a question unanswered: mark every gap.
+  const [attempted, setAttempted] = useState(false);
 
   const tableById = useMemo(
     () => new Map(entity.sections.flatMap((s) => s.fields).filter((f) => f.table).map((f) => [f.id, f])),
@@ -71,8 +80,21 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     return off && tableHasData(tableById.get(q.tableId), data);
   });
 
+  // The question each warning sits under: a follow-up switched off by its
+  // parent's Non is no longer shown, so its warning moves to the parent.
+  const erasedUnder = new Set(
+    tablesToErase.map((q) => (q.parent !== undefined && answers[q.parent] === false ? q.parent : q.id)),
+  );
+
   const handleValidate = () => {
-    if (!complete) return;
+    if (!complete) {
+      setAttempted(true);
+      const first = asked.find((q) => typeof answers[q.id] !== "boolean");
+      const group = first ? document.getElementById(`vt-quiz-${first.id}`) : null;
+      group?.scrollIntoView({ behavior: "smooth", block: "center" });
+      group?.focus({ preventScroll: true });
+      return;
+    }
     for (const q of tablesToErase) {
       for (const row of tableById.get(q.tableId)?.table?.matrix ?? []) {
         for (const id of row) if (id in data) onChange(id, undefined);
@@ -86,48 +108,34 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
     onComplete();
   };
 
-  // Each Oui/Non pair is one radio group: a single Tab stop (the chosen
-  // answer, or Oui while unanswered), arrow keys move to and choose the other.
-  const handleGroupKeyDown = (id: VtQuizQuestionId) => (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-    const current = (event.target as HTMLElement).closest<HTMLElement>("[data-choice]")?.dataset.choice;
-    if (!current) return;
-    event.preventDefault();
-    const next = current === "yes" ? "no" : "yes";
-    answer(id, next === "yes");
-    event.currentTarget.querySelector<HTMLElement>(`[data-choice="${next}"]`)?.focus();
-  };
-
-  const choiceStyle = (selected: boolean): React.CSSProperties => ({
-    minWidth: 72,
-    minHeight: "var(--cam-form-field-height, 40px)",
-    padding: "0 18px",
-    borderRadius: "var(--cam-radius-sm)",
-    border: selected ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
-    background: selected ? "var(--cam-green)" : "var(--cam-surface)",
-    color: selected ? "var(--cam-surface)" : "var(--cam-text)",
-    fontSize: "var(--cam-answer-size)",
-    fontWeight: 700,
-    cursor: "pointer",
+  // Hand the current validate (it closes over the latest answers) and its
+  // readiness to the wizard's bottom bar.
+  useEffect(() => {
+    validateRef.current = handleValidate;
   });
+  useEffect(
+    () => () => {
+      validateRef.current = null;
+    },
+    [validateRef],
+  );
+
+  const period = referencePeriodPhrases(quarterCode, locale);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "clamp(16px, 3vw, 28px) 0 48px" }}>
       <header style={{ marginBottom: 24 }}>
-        <p style={{ margin: "0 0 6px", fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--cam-green)" }}>
-          {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
-        </p>
         <h1
           id={VT_QUIZ_HEADING_ID}
           tabIndex={-1}
           style={{ margin: "0 0 8px", fontSize: "clamp(20px, 3vw, 24px)", fontWeight: 800, color: "var(--cam-text)", lineHeight: 1.25, outline: "none" }}
         >
-          {isEn ? "Which tables apply to your centre?" : "Quels tableaux concernent votre centre ?"}
+          {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
         </h1>
         <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: 1.5, maxWidth: 720 }}>
           {isEn
-            ? "Answer each question for the period. Yes opens the table for you to fill; No records it as nothing to report. The other tables always apply."
-            : "Répondez à chaque question pour la période. Oui ouvre le tableau à renseigner ; Non l'enregistre comme « aucun cas à signaler ». Les autres tableaux s'appliquent toujours."}
+            ? `Answer each question ${period?.forPeriod ?? "for the period"}.`
+            : `Répondez à chaque question ${period?.forPeriod ?? "pour la période"}.`}
         </p>
         <p aria-live="polite" style={{ margin: "10px 0 0", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
           {isEn ? `${answeredCount} of ${asked.length} answered` : `${answeredCount} sur ${asked.length} répondues`}
@@ -139,6 +147,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
           const value = answers[q.id];
           const label = localized(q.text, locale);
           const groupId = `vt-quiz-${q.id}`;
+          const missing = attempted && typeof value !== "boolean";
           return (
             <li
               key={q.id}
@@ -148,68 +157,43 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale
                 borderBottom: "1px solid var(--cam-border)",
               }}
             >
-              <div role="radiogroup" aria-labelledby={`${groupId}-label`} onKeyDown={handleGroupKeyDown(q.id)} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
-                <div style={{ flex: "1 1 320px" }}>
-                  <div id={`${groupId}-label`} className="cam-question">
-                    {label}
-                  </div>
-                  <div className="cam-hint" style={{ marginTop: "var(--cam-space-1)" }}>
-                    {value === true
-                      ? isEn ? `Table ${q.tableCode} will be open to fill.` : `Le tableau ${q.tableCode} sera à renseigner.`
-                      : value === false
-                        ? isEn ? `Table ${q.tableCode}: nothing to report.` : `Tableau ${q.tableCode} : aucun cas à signaler.`
-                        : isEn ? `Decides table ${q.tableCode}.` : `Détermine le tableau ${q.tableCode}.`}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button type="button" role="radio" data-choice="yes" aria-checked={value === true} tabIndex={value === false ? -1 : 0} onClick={() => answer(q.id, true)} style={choiceStyle(value === true)}>
-                    {isEn ? "Yes" : "Oui"}
-                  </button>
-                  <button type="button" role="radio" data-choice="no" aria-checked={value === false} tabIndex={value === false ? 0 : -1} onClick={() => answer(q.id, false)} style={choiceStyle(value === false)}>
-                    {isEn ? "No" : "Non"}
-                  </button>
-                </div>
+              <div className="cam-question" aria-hidden="true">
+                {label}
               </div>
+              <div style={{ marginTop: "var(--cam-field-stack-gap)" }}>
+                <RadioGroup
+                  fieldId={groupId}
+                  ariaLabel={label}
+                  options={[
+                    { value: "yes", label: isEn ? "Yes" : "Oui" },
+                    { value: "no", label: isEn ? "No" : "Non" },
+                  ]}
+                  value={value === true ? "yes" : value === false ? "no" : undefined}
+                  onChange={(_, choice) => answer(q.id, choice === "yes")}
+                  layout="horizontal"
+                  invalid={missing}
+                  describedBy={missing ? `${groupId}-error` : undefined}
+                  required
+                />
+              </div>
+              <VtWizardFieldError
+                id={`${groupId}-error`}
+                message={missing ? (isEn ? "Answer this question." : "Répondez à cette question.") : undefined}
+              />
+              {/* Figures already typed that this answer turns off. The
+                  respondent answers about the centre, never about tables,
+                  so the warning names neither a table nor its code. */}
+              {erasedUnder.has(q.id) && (
+                <p role="status" className="cam-hint" style={{ margin: "var(--cam-space-2) 0 0", padding: "var(--cam-space-2) var(--cam-space-3)", borderRadius: "var(--cam-radius-sm)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", color: "var(--cam-text)" }}>
+                  {isEn
+                    ? "You had already entered figures for this question. They will be erased when you click Next."
+                    : "Vous aviez déjà saisi des chiffres pour cette question. Ils seront effacés quand vous cliquerez sur Suivant."}
+                </p>
+              )}
             </li>
           );
         })}
       </ol>
-
-      {tablesToErase.length > 0 && (
-        <p role="status" style={{ margin: "16px 0 0", padding: "10px 12px", borderRadius: "var(--cam-radius-sm)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.5 }}>
-          {isEn
-            ? `The figures already entered in table${tablesToErase.length > 1 ? "s" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} will be erased when you validate.`
-            : `Les chiffres déjà saisis dans le${tablesToErase.length > 1 ? "s" : ""} tableau${tablesToErase.length > 1 ? "x" : ""} ${tablesToErase.map((q) => q.tableCode).join(", ")} seront effacés à la validation.`}
-        </p>
-      )}
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 28 }}>
-        <button
-          type="button"
-          onClick={onBack}
-          style={{ background: "transparent", border: "1px solid var(--cam-border)", borderRadius: "var(--cam-radius-sm)", padding: "10px 20px", fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", cursor: "pointer" }}
-        >
-          {isEn ? "← Back to Section 1" : "← Retour à la Section 1"}
-        </button>
-        <button
-          type="button"
-          onClick={handleValidate}
-          disabled={!complete}
-          aria-disabled={!complete}
-          style={{
-            background: complete ? "var(--cam-green)" : "var(--cam-border-strong)",
-            border: "none",
-            borderRadius: "var(--cam-radius-sm)",
-            padding: "11px 26px",
-            fontSize: "var(--cam-font-size-sm)",
-            fontWeight: 700,
-            color: "var(--cam-surface)",
-            cursor: complete ? "pointer" : "not-allowed",
-          }}
-        >
-          {isEn ? "Validate and continue →" : "Valider et continuer →"}
-        </button>
-      </div>
     </div>
   );
 }
