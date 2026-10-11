@@ -2,7 +2,7 @@ import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { useState } from "react";
-import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot } from "./VtProgressiveRowGrid";
+import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot, vtSpelledOutCellLabel } from "./VtProgressiveRowGrid";
 import { schemaEntity, schemaField } from "@/test/schema";
 import type { FormData } from "@/lib/onefop-schema";
 
@@ -112,4 +112,10 @@ test("next free slot: after the last used, else the first gap", () => {
   assert.equal(vtNextFreeSlot(field, new Set([0, 2])), 3);
   assert.equal(vtNextFreeSlot(field, new Set([0, 11])), 1);
   assert.equal(vtNextFreeSlot(field, new Set(Array.from({ length: 12 }, (_, i) => i))), null);
+});
+
+test("a cell label read on its own spells out the paper abbreviation (Guidé)", () => {
+  assert.equal(vtSpelledOutCellLabel({ fr: "FI — Hommes", en: "IT — Men" }, "en"), "Initial training — Men");
+  assert.equal(vtSpelledOutCellLabel({ fr: "FC — Femmes", en: "CT — Women" }, "fr"), "Formation continue — Femmes");
+  assert.equal(vtSpelledOutCellLabel({ fr: "Spécialité", en: "Specialty" }, "en"), "Specialty");
 });

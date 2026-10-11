@@ -131,3 +131,30 @@ test("a number of women that is not a whole number is kept as typed and the men 
     `women 2, men deduced 3, total 5: ${JSON.stringify(last)}`,
   );
 });
+
+/** Answers every question 0 with the keyboard, as far as the summary. */
+async function answerAllWithZero(user: ReturnType<typeof renderGuided>["user"]) {
+  for (let i = 0; i < 20 && !screen.queryByRole("heading", { name: "Vérifiez vos réponses" }); i++) {
+    await user.click(totalInput());
+    await user.keyboard("0{Enter}");
+  }
+}
+
+test("after the last answer, focus moves to the summary's heading, not to the page", async () => {
+  const { user } = renderGuided();
+  await answerAllWithZero(user);
+
+  const heading = screen.getByRole("heading", { name: "Vérifiez vos réponses" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(document.activeElement, heading);
+});
+
+test("each Change link of the summary names the line it changes", async () => {
+  const { user } = renderGuided();
+  await answerAllWithZero(user);
+
+  const names = screen.getAllByRole("button", { name: /^Modifier/ }).map((b) => b.textContent);
+  assert.ok(names.length > 1);
+  assert.ok(names.includes("Modifier Stage de vacance"), JSON.stringify(names));
+  assert.equal(new Set(names).size, names.length, `every Change reads differently: ${JSON.stringify(names)}`);
+});

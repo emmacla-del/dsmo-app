@@ -31,6 +31,7 @@ import {
   vtStepPosition,
 } from "@/lib/vt-table-steps";
 import { VtWizardSidebar } from "./VtWizardSidebar";
+import { getVtSectionShortLabel } from "./vt-wizard-utils";
 import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
@@ -376,6 +377,11 @@ export function WizardShell({
     contentPaneRef.current?.scrollTo({ top: 0, behavior: "instant" });
     resetScroll(0);
   });
+  // The name the section's heading shows ("Trainers"), not the paper title
+  // in capitals ("SECTION 8. DETAILS ON TRAINERS").
+  const vtSectionName = currentSection
+    ? getVtSectionShortLabel(currentSection.id, formLocale) ?? (localized(currentSection.title, formLocale) || currentSection.id)
+    : "";
   const vtStepAnnouncement = !isVt || submissionResult
     ? ""
     : wizardStepAnnouncement(
@@ -387,7 +393,7 @@ export function WizardShell({
               ? {
                   // "Trainees, table 3 of 9"
                   kind: "label",
-                  label: `${localized(currentSection.title, formLocale) || currentSection.id}, ${
+                  label: `${vtSectionName}, ${
                     formLocale === "en"
                       ? `table ${vtStepPos.number} of ${vtStepPos.total}`
                       : `tableau ${vtStepPos.number} sur ${vtStepPos.total}`
@@ -398,7 +404,7 @@ export function WizardShell({
                     kind: "section",
                     index: clampedSectionIndex,
                     total: sections.length,
-                    title: localized(currentSection.title, formLocale) || currentSection.id,
+                    title: vtSectionName,
                   }
                 : { kind: "none" },
         (values) => t("wizardShell.stepAnnouncement", values),

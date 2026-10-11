@@ -1,11 +1,13 @@
 "use client";
 
-import { memo, useId, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useContext, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef, VtCellOption, VtRowDef, VtTableMeta } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { supportsGuidedEntry } from "./vt-wizard-utils";
+import { vtSpelledOutCellLabel } from "./tables/VtProgressiveRowGrid";
+import { TableHeadingShownContext } from "./table-heading-context";
 
 /** Single-language noun for interpolation into an already-localized sentence
  * — unlike bilingual(), which always shows both languages together for
@@ -103,7 +105,7 @@ const statBoxStyle: CSSProperties = {
 };
 
 function cellLabel(cell: VtCellDef, locale: string): string {
-  return localized(cell.label, locale.startsWith("en") ? "en" : "fr") || cell.key;
+  return vtSpelledOutCellLabel(cell.label, locale.startsWith("en") ? "en" : "fr") || cell.key;
 }
 
 function cellId(row: VRow, cell: VtCellDef): string {
@@ -133,6 +135,9 @@ interface GuidedHeaderBoxProps {
 }
 
 const GuidedHeaderBox = memo(function GuidedHeaderBox({ title, tinted = true }: GuidedHeaderBoxProps) {
+  // The screen's heading already names the table (Sections 4 and 8).
+  const headingShown = useContext(TableHeadingShownContext);
+  if (headingShown) return null;
   if (!tinted) {
     return (
       <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 15, color: ink, margin: 0 }}>
@@ -360,11 +365,8 @@ export function VtWizardFixedRowMultiNumberEntry({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} />
       <div style={guidedEntryContainerStyle}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 4px" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
-        </p>
-        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
-          {cellLabelText(vt.progressNoun, locale) || t("vtWizard.rowsNoun", { default: "Lignes" })}
         </p>
         <div style={{ marginBottom: 12 }}>
           <select
@@ -588,11 +590,8 @@ export function VtWizardProgressiveGuidedTableEntry({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} tinted={false} />
       <div style={guidedEntryContainerStyle}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 4px" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
-        </p>
-        <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "0 0 16px" }}>
-          {cellLabelText(vt.progressNoun, locale) || t("vtWizard.rowsNoun", { default: "Lignes" })}
         </p>
         <GuidedNumberBox
           label={cellLabel(labelCell, locale)}

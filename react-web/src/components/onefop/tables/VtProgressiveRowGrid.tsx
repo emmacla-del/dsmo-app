@@ -65,6 +65,15 @@ export function vtNextFreeSlot(field: OnefopField, used: ReadonlySet<number>): n
   return null;
 }
 
+/**
+ * A cell label with its paper abbreviation spelled out ("IT — Men" →
+ * "Initial training — Men"), for a label read on its own, as in Guidé.
+ */
+export function vtSpelledOutCellLabel(label: LocalizedText | null | undefined, locale: "fr" | "en"): string {
+  const { group, header } = splitHeader(label, locale);
+  return group ? `${group}${GROUP_SEPARATOR}${header}` : header;
+}
+
 function splitHeader(label: LocalizedText | null | undefined, locale: "fr" | "en") {
   const text = label ? localized(label, locale) : "";
   const parts = text.split(GROUP_SEPARATOR);
