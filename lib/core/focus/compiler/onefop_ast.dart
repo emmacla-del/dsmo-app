@@ -5678,8 +5678,8 @@ const section6VocationalTrainingQuestions = <FormQuestionAst>[
     // suivi-post-formation theme, not a new subsection of its own.
     subsection: LocalizedText(
       fr: "6.2 Informations sur le suivi post-formation des sortants des "
-          "centres de formation professionnelles du minefop",
-      en: "6.2 Information on the post-training follow-up of minefop "
+          "centres de formation professionnelles du MINEFOP",
+      en: "6.2 Information on the post-training follow-up of MINEFOP "
           "vocational training center graduates",
     ),
     label: LocalizedText(
@@ -5829,9 +5829,9 @@ const section6VocationalTrainingQuestions = <FormQuestionAst>[
 // ============================================================
 // SECTION 7 - VOCATIONAL TRAINING (VT-2) — cross-cutting themes
 // Confirmed per-field codes only where the design note gives one
-// (7.1/7.1.1/7.1.2/7.1.3/7.2/7.4/7.5/7.6/7.7); ungrouped sub-items
-// (e.g. the three 7.1.1 stigma/harassment sub-questions, the six 7.4
-// syllabus/extracurricular sub-questions) share their parent's code,
+// (7.1/7.1.1/7.1.2/7.1.3/7.2/7.3/7.3.1-7.3.3/7.4/7.5/7.6, in order since
+// 2026-10-11, see VT7_13); ungrouped sub-items (e.g. the three 7.1.1
+// stigma/harassment sub-questions) share their parent's code,
 // matching how Section 1's 1.13/1.15/1.16 sub-fields were handled.
 // ============================================================
 
@@ -6212,11 +6212,15 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     options: _vtYesNoOptions,
     path: "vocationalTraining.addressesIstIssues",
   ),
-  // No 7.3 field — Decision 4 (closed): the code does not exist in the
-  // instrument, numbering jumps 7.2 → 7.4.
+  // Section 7 is numbered in order, without the paper's gaps and repeats
+  // (owner, 2026-10-11: "the rule is chronological numbering"; this replaces
+  // Decision 4, which mirrored the paper's jump 7.2 → 7.4). Paper → here:
+  // 7.4 → 7.3, its three themes (unnumbered on paper beyond 7.4.1-7.4.3)
+  // → 7.3.1-7.3.3, trainers 7.6 → 7.4, "delivered to pupils" (a second
+  // 7.6 on paper) → 7.5, parents' sessions 7.5 → 7.6 (kept in this order).
   FormQuestionAst(
     id: "VT7_13",
-    paperCode: "7.4",
+    paperCode: "7.3",
     label: LocalizedText(
       fr: "Les apprenants de votre établissement ont-ils reçu une "
           "éducation sexuelle et sur le VIH complète axée sur les "
@@ -6240,12 +6244,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   // not just the first). path/options/dependsOn are unchanged.
   FormQuestionAst(
     id: "VT7_14",
-    paperCode: "7.4",
+    paperCode: "7.3.1",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'enseignement des compétences génériques pour la vie "
@@ -6264,12 +6268,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_15",
-    paperCode: "7.4",
+    paperCode: "7.3.1",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'enseignement des compétences génériques pour la vie "
@@ -6288,12 +6292,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_16",
-    paperCode: "7.4",
+    paperCode: "7.3.2",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'éducation à la santé reproductive et sexuelle est-elle "
@@ -6312,12 +6316,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_17",
-    paperCode: "7.4",
+    paperCode: "7.3.2",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'éducation à la santé reproductive et sexuelle est-elle "
@@ -6336,12 +6340,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_18",
-    paperCode: "7.4",
+    paperCode: "7.3.3",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'enseignement sur la transmission et la prévention du VIH "
@@ -6360,12 +6364,12 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_19",
-    paperCode: "7.4",
+    paperCode: "7.3.3",
     subsection: LocalizedText(
-      // PDF-confirmed (p.15, §7.4): this is the printed governing
+      // PDF-confirmed (p.15, printed §7.4, numbered 7.3 here): the governing
       // question shared by all six rows below it, not an invented one.
-      fr: "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-      en: "7.4 If yes, were the following themes discussed?",
+      fr: "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+      en: "7.3 If yes, were the following themes discussed?",
     ),
     label: LocalizedText(
       fr: "L'enseignement sur la transmission et la prévention du VIH "
@@ -6384,7 +6388,7 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_20",
-    paperCode: "7.5",
+    paperCode: "7.4",
     label: LocalizedText(
       fr: "Les formateurs de votre établissement ont-ils reçu et "
           "dispensé une éducation sexuelle et sur le VIH complète "
@@ -6404,7 +6408,7 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   // apply.
   FormQuestionAst(
     id: "VT7_20_DOMAINS",
-    paperCode: "7.6",
+    paperCode: "7.4",
     label: LocalizedText(
       fr: "Si oui, relatif au domaine :",
       en: "If yes, in relation to:",
@@ -6427,7 +6431,7 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_21",
-    paperCode: "7.6",
+    paperCode: "7.5",
     label: LocalizedText(
       fr: "Si oui, ces enseignants ont-ils dispensé les enseignements "
           "reçus aux élèves ?",
@@ -6446,7 +6450,7 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
   ),
   FormQuestionAst(
     id: "VT7_22",
-    paperCode: "7.7",
+    paperCode: "7.6",
     label: LocalizedText(
       fr: "Votre centre a-t-il organisé une ou plusieurs sessions "
           "d'orientation destinées aux parents ou tuteurs d'apprenants "

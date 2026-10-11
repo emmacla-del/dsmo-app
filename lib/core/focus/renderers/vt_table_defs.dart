@@ -56,10 +56,10 @@ const List<MapEntry<String, LocalizedText>> vtProfessionalDiplomaRows = [
 ];
 
 // Roster diploma-picker codes — the academic list is numbered 1-11, the
-// professional list 1-12 on the paper form (12 shared by "Autres" and
-// "Sans diplôme professionnel", printed that way on the source PDF itself
-// — see VT design note §13.3, PDF-confirmed). Kept as two distinct rows
-// with the same printed code, matching the paper form exactly.
+// professional list 1-13. The paper prints 12 twice ("Autres" and "Sans
+// diplôme professionnel", design note §13.3); codes run in order here
+// (owner, 2026-10-11: chronological numbering), so the second is 13. The
+// stored value is the row key, not the code, so saved answers are unchanged.
 List<VtOption> _diplomaOptions(
         List<MapEntry<String, LocalizedText>> rows, List<String> codes) =>
     [
@@ -71,7 +71,7 @@ final List<VtOption> vtAcademicDiplomaOptions = _diplomaOptions(
     vtAcademicDiplomaRows, ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']);
 final List<VtOption> vtProfessionalDiplomaOptions = _diplomaOptions(
     vtProfessionalDiplomaRows,
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '12']);
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']);
 
 const List<VtOption> vtSexOptions = [
   VtOption(value: '1', code: '1', label: LocalizedText(fr: 'Homme', en: 'Man')),
