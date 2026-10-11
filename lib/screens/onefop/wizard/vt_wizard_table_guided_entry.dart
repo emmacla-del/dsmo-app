@@ -1793,6 +1793,22 @@ class _VtWizardRosterGuidedEntryState extends State<VtWizardRosterGuidedEntry> {
                 ],
               ),
               const SizedBox(height: 12),
+              // The band the paper prints over these two (p.19, "Si
+              // formateur/ If teacher" — VtCellDef.group): the
+              // qualifications are a trainer's to give, not a member of the
+              // administrative staff's. Taken from the def, like the labels,
+              // so the three VT views and react-web all say the same thing.
+              if (_diplomaCells.first.group != null) ...[
+                Text(
+                  _diplomaCells.first.group!.of(locale),
+                  style: const TextStyle(
+                      fontFamily: kVtWizardFontFamily,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: kVtWizardInk),
+                ),
+                const SizedBox(height: 8),
+              ],
               for (final cell in _diplomaCells) ...[
                 _GuidedRadioDropdown(
                   label: cell.label.of(locale),

@@ -74,6 +74,18 @@ class VtCellDef {
   /// every other cell (the common case).
   final String? dependsOnKey;
 
+  /// The band the paper prints over this cell and the ones beside it —
+  /// 8.8's "Si formateur/ If teacher" over the two qualification columns,
+  /// which are a trainer's to fill and not a member of the administrative
+  /// staff's. Consecutive cells carrying the same text are headed once:
+  /// the desktop grid spans them with it, the row sheet puts it above the
+  /// first of them. Presentation only — it changes no applicability rule
+  /// and gates nothing, so it is deliberately not serialized into the
+  /// generated schema (test/tools/export_onefop_schema_test.dart), which
+  /// has no consumer for it: react-web carries the same band in its own
+  /// roster definition. Null for every other cell (the common case).
+  final LocalizedText? group;
+
   const VtCellDef({
     required this.key,
     required this.label,
@@ -84,6 +96,7 @@ class VtCellDef {
     this.decodeBoolean,
     this.required = false,
     this.dependsOnKey,
+    this.group,
   });
 }
 

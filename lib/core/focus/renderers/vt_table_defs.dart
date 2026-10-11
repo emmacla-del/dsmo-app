@@ -785,15 +785,21 @@ final VtTableDef vtTrainerRosterTableDef = VtTableDef(
         key: 'isAdminPersonnel',
         label: LocalizedText(fr: 'Personnel administratif', en: 'Administrative staff'),
         kind: VtCellKind.boolean),
+    // The paper (p.19) prints these two under one band, "Si formateur/ If
+    // teacher": the qualifications are a trainer's to give, not a member of
+    // the administrative staff's. The grid spans both columns with it, the
+    // row sheet heads them with it.
     VtCellDef(
         key: 'academicDiploma',
         label: const LocalizedText(fr: 'Diplôme académique', en: 'Academic diploma'),
         kind: VtCellKind.radioCode,
+        group: const LocalizedText(fr: 'Si formateur', en: 'If teacher'),
         options: vtAcademicDiplomaOptions),
     VtCellDef(
         key: 'professionalDiploma',
         label: const LocalizedText(fr: 'Diplôme professionnel', en: 'Vocational diploma'),
         kind: VtCellKind.radioCode,
+        group: const LocalizedText(fr: 'Si formateur', en: 'If teacher'),
         options: vtProfessionalDiplomaOptions),
   ],
 );
