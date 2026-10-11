@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, type KeyboardEvent } from "react";
+import React, { useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -300,27 +300,42 @@ export function StatisticalGridRenderer({
                   >
                     {localized(definition.rowHeaderLabel, locale)}
                   </CornerHeader>
-                  {definition.headerGroups?.map((grp, gIdx) => (
-                    <GroupHeader
-                      key={gIdx}
-                      colSpan={grp.colSpan}
-                      className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
-                    >
-                      {localized(grp.title, locale)}
-                    </GroupHeader>
-                  ))}
-                  {definition.columns
-                    .filter((col) => !col.group)
-                    .map((col) => (
-                      <LeafHeader
-                        key={col.key}
-                        rowSpan={2}
-                        className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
-                      >
-                        {localized(col.header, locale)}
-                        {columnIsRequired(col.key) && <RequiredAsterisk />}
-                      </LeafHeader>
-                    ))}
+                  {/* In column order: a band opens at the first column of its
+                      group (headerGroups are positional, one per run of grouped
+                      columns); an ungrouped column spans both header rows. */}
+                  {(() => {
+                    const cells: ReactNode[] = [];
+                    let groupIdx = 0;
+                    for (let i = 0; i < definition.columns.length; i++) {
+                      const col = definition.columns[i];
+                      if (col.group) {
+                        const grp = definition.headerGroups?.[groupIdx++];
+                        if (!grp) continue;
+                        cells.push(
+                          <GroupHeader
+                            key={`group-${i}`}
+                            colSpan={grp.colSpan}
+                            className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
+                          >
+                            {localized(grp.title, locale)}
+                          </GroupHeader>,
+                        );
+                        i += grp.colSpan - 1;
+                        continue;
+                      }
+                      cells.push(
+                        <LeafHeader
+                          key={col.key}
+                          rowSpan={2}
+                          className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
+                        >
+                          {localized(col.header, locale)}
+                          {columnIsRequired(col.key) && <RequiredAsterisk />}
+                        </LeafHeader>,
+                      );
+                    }
+                    return cells;
+                  })()}
                 </tr>
 
                 {/* Level 2: Sub-columns for Groups */}
