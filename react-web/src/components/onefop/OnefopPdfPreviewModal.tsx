@@ -289,7 +289,7 @@ export function OnefopPdfPreviewModal({
           <p
             style={{
               margin: 0,
-              fontSize: 13,
+              fontSize: "var(--cam-font-size-xs)",
               lineHeight: 1.4,
               color: "var(--cam-text)",
             }}
@@ -312,7 +312,7 @@ export function OnefopPdfPreviewModal({
               padding: "var(--cam-space-3) var(--cam-space-5)",
               background: "var(--cam-success-surface)",
               borderBottom: "1px solid var(--cam-success-border-soft)",
-              fontSize: 13,
+              fontSize: "var(--cam-font-size-xs)",
               color: "var(--cam-success-text-strong)",
               display: "flex",
               flexDirection: "column",
@@ -335,7 +335,7 @@ export function OnefopPdfPreviewModal({
                   background: "transparent",
                   border: "none",
                   color: "var(--cam-success-text-strong)",
-                  fontSize: 12,
+                  fontSize: "var(--cam-font-size-2xs)",
                   fontWeight: 600,
                   textDecoration: "underline",
                   cursor: "pointer",
@@ -349,7 +349,7 @@ export function OnefopPdfPreviewModal({
             </div>
             {showZeroedDetails && (
               <div style={{ background: "var(--cam-surface)", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--cam-success-border-faint)", marginTop: 4 }}>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: "var(--cam-font-size-2xs)" }}>
                   {zeroedTables.map((t: ZeroedTableInfo) => (
                     <li key={t.code} style={{ marginBottom: "var(--cam-space-1)" }}>
                       <strong>{t.code}</strong> — {isFr ? t.nameFr : t.nameEn} (<em>{isFr ? "Certifié néant" : "Certified none"}</em>)
@@ -399,10 +399,10 @@ export function OnefopPdfPreviewModal({
               />
               <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
               <div style={{ textAlign: "center" }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-text)" }}>
+                <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 700, color: "var(--cam-text)" }}>
                   {isFr ? "Génération de l'aperçu PDF officiel..." : "Generating official PDF preview..."}
                 </p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--cam-text-muted)" }}>
+                <p style={{ margin: "4px 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                   {isFr
                     ? "Mise en page réglementaire Handlebars & Puppeteer"
                     : "Official Handlebars & Puppeteer layout rendering"}
@@ -422,10 +422,10 @@ export function OnefopPdfPreviewModal({
                 maxWidth: 440,
               }}
             >
-              <h3 style={{ margin: "var(--cam-space-3) 0 var(--cam-space-2)", fontSize: 15, fontWeight: 700, color: "var(--cam-alert-orange)" }}>
+              <h3 style={{ margin: "var(--cam-space-3) 0 var(--cam-space-2)", fontSize: "var(--cam-font-size-base)", fontWeight: 700, color: "var(--cam-alert-orange)" }}>
                 {isFr ? "Erreur de chargement de l'aperçu" : "Preview Loading Error"}
               </h3>
-              <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
+              <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
                 {loadError}
               </p>
               <button
@@ -437,7 +437,7 @@ export function OnefopPdfPreviewModal({
                   border: "none",
                   borderRadius: "4px",
                   padding: "8px 20px",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
@@ -495,7 +495,7 @@ export function OnefopPdfPreviewModal({
               padding: "var(--cam-space-3) var(--cam-space-5)",
               background: "rgba(217, 83, 15, 0.1)",
               borderTop: "1px solid rgba(217, 83, 15, 0.3)",
-              fontSize: 13,
+              fontSize: "var(--cam-font-size-xs)",
               color: "var(--cam-alert-orange-text)",
             }}
           >
@@ -535,7 +535,7 @@ export function OnefopPdfPreviewModal({
               color: "var(--cam-text)",
               borderRadius: "6px",
               padding: "var(--cam-space-3) var(--cam-space-5)",
-              fontSize: 14,
+              fontSize: "var(--cam-font-size-sm)",
               fontWeight: 600,
               cursor: isSubmitting ? "not-allowed" : "pointer",
               display: "inline-flex",
@@ -559,7 +559,7 @@ export function OnefopPdfPreviewModal({
                 color: "var(--cam-text)",
                 borderRadius: "6px",
                 padding: "var(--cam-space-3) var(--cam-space-5)",
-                fontSize: 14,
+                fontSize: "var(--cam-font-size-sm)",
                 fontWeight: 600,
                 cursor: loading || !blobUrl || isSubmitting ? "not-allowed" : "pointer",
                 opacity: loading || !blobUrl || isSubmitting ? 0.6 : 1,
@@ -585,7 +585,7 @@ export function OnefopPdfPreviewModal({
                   color: "var(--cam-surface)",
                   borderRadius: "6px",
                   padding: "var(--cam-space-3) var(--cam-space-6)",
-                  fontSize: 14,
+                  fontSize: "var(--cam-font-size-sm)",
                   fontWeight: 700,
                   cursor: loading || isSubmitting ? "wait" : (!canSubmit || hasErrors ? "not-allowed" : "pointer"),
                   opacity: loading || isSubmitting || !canSubmit || hasErrors ? 0.65 : 1,

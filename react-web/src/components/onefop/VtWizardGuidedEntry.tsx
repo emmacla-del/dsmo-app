@@ -63,7 +63,7 @@ const numberBoxInputStyle = {
   fontSize: "var(--cam-answer-size)",
   fontVariantNumeric: "tabular-nums",
   color: ink,
-  background: "#ffffff",
+  background: "var(--cam-surface)",
   outline: "none",
   boxSizing: "border-box" as const,
 };
@@ -211,7 +211,7 @@ const GuidedRowOwes = memo(function GuidedRowOwes({ labels }: { labels: string[]
       style={{
         fontFamily: "var(--cam-font-sans)",
         fontWeight: 600,
-        fontSize: 13,
+        fontSize: "var(--cam-font-size-xs)",
         color: "var(--cam-error)",
         margin: "2px 0 0",
       }}
@@ -240,14 +240,14 @@ const GuidedHeaderBox = memo(function GuidedHeaderBox({ title, tinted = true }: 
   if (headingShown) return null;
   if (!tinted) {
     return (
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 15, color: ink, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-base)", color: ink, margin: 0 }}>
         {title}
       </p>
     );
   }
   return (
     <div style={guidedHeaderBoxStyle}>
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 600, fontSize: 14, color: accentGreen, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 600, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
         {title}
       </p>
     </div>
@@ -293,7 +293,7 @@ const GuidedNumberBox = memo(function GuidedNumberBox({
         inputMode={numeric ? "numeric" : "text"}
       />
       {errorText && (
-        <p id={errorId} style={{ fontSize: 11, color: "var(--cam-error)", fontFamily: "var(--cam-font-sans)", margin: 0 }}>
+        <p id={errorId} style={{ fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-error)", fontFamily: "var(--cam-font-sans)", margin: 0 }}>
           {errorText}
         </p>
       )}
@@ -378,10 +378,10 @@ const TotalBar = memo(function TotalBar({
   return (
     <div style={{ width: "100%", padding: 16, backgroundColor: "var(--cam-success-bg)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)" }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 13, color: accentGreen, flex: 1 }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: accentGreen, flex: 1 }}>
           {totalsText}
         </span>
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 11, color: "#ffffff", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-3xs)", color: "#ffffff", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
           {countText}
         </span>
       </div>
@@ -475,7 +475,7 @@ export function VtWizardFixedRowMultiNumberEntry({
       <GuidedHeaderBox title={title} />
       {region}
       <div ref={entryRef} style={guidedEntryContainerStyle}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
         <div style={{ marginBottom: 12 }}>
@@ -498,7 +498,7 @@ export function VtWizardFixedRowMultiNumberEntry({
               }
               setControls(newControls);
             }}
-            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "#ffffff", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "var(--cam-surface)", outline: "none", boxSizing: "border-box" }}
           >
             <option value="">{t("vtWizard.select", { default: "Sélectionner…" })}</option>
             {available.map((row) => (
@@ -547,7 +547,7 @@ export function VtWizardFixedRowMultiNumberEntry({
         </button>
       </div>
 
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
         {t("vtWizard.summary", { default: "Résumé des lignes saisies" })}
       </p>
       <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
@@ -715,7 +715,7 @@ export function VtWizardProgressiveGuidedTableEntry({
       <GuidedHeaderBox title={title} tinted={false} />
       {region}
       <div ref={entryRef} style={guidedEntryContainerStyle}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
         <GuidedNumberBox
@@ -767,7 +767,7 @@ export function VtWizardProgressiveGuidedTableEntry({
         </div>
       </div>
 
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
         {t("vtWizard.summary", { default: "Résumé des lignes saisies" })}
       </p>
       <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
@@ -797,7 +797,7 @@ export function VtWizardProgressiveGuidedTableEntry({
 
       {filledRows.length > 0 && (
         <div>
-          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
+          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
             {t("vtWizard.runningTotal", { default: "Total en cours" })}
           </p>
           <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
@@ -969,7 +969,7 @@ export function VtWizardProgressiveBooleanTableEntry({
           );
         })}
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
-          <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 13, color: accentGreen, flex: 1 }}>
+          <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-xs)", color: accentGreen, flex: 1 }}>
             {t("vtWizard.total", { default: "Total" })}{"   "}
             {t("vtWizard.totalAdded", {
               default: "{count} {noun} ajoutés",
@@ -1154,7 +1154,7 @@ export function VtWizardRosterGuidedEntry({
       <GuidedHeaderBox title={title} />
       {region}
       <div ref={entryRef} style={guidedEntryContainerStyle}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.addTrainer", { default: "Ajouter un formateur" })}
         </p>
         <div style={{ display: "flex", gap: 12 }}>
@@ -1231,7 +1231,7 @@ export function VtWizardRosterGuidedEntry({
         </button>
       </div>
 
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
         {t("vtWizard.registeredTrainers", { default: "Formateurs enregistrés" })}
       </p>
       <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
@@ -1350,7 +1350,7 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
                 color: active ? "#ffffff" : inkSoft,
                 fontFamily: "var(--cam-font-sans)",
                 fontWeight: 600,
-                fontSize: 12,
+                fontSize: "var(--cam-font-size-2xs)",
                 textTransform: "uppercase",
               }}
             >
