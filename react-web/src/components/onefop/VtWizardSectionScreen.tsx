@@ -53,7 +53,7 @@ import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgre
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { vtCrossTableIssues } from "@/lib/vt-cross-table";
 import { VtCrossTableNotice } from "./VtCrossTableNotice";
-import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
+import { isVtCentreClosed, missingVtTableCells, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
@@ -430,12 +430,19 @@ function VtWizardFieldRows({
       // falls back to it (see issueFocusCandidates). The table-level message
       // ("n cellule(s) restent à renseigner…") is shown under the table:
       // without it a blocked Suivant only scrolled here, with no reason given.
+      // While that message is shown, the cells it counts are marked in the
+      // table too (audit R6): a count of what is left to fill does not say
+      // where. The table's own id is not a cell ("Add at least one row").
+      const missingCells = issueByFieldId.has(f.id)
+        ? missingVtTableCells(f, data).filter((id) => id !== f.id)
+        : undefined;
       rows.push(
         <div key={f.id} id={f.id} tabIndex={-1} style={{ minWidth: 0 }}>
           <VtWizardTableField
             field={f}
             data={data}
             onChange={onChange}
+            missingCells={missingCells}
           />
           <VtWizardFieldError id={`${f.id}-error`} message={issueByFieldId.get(f.id)} />
         </div>,
@@ -520,10 +527,13 @@ function VtWizardTableField({
   field,
   data,
   onChange,
+  missingCells,
 }: {
   field: OnefopField;
   data: FormData;
   onChange: (fieldId: string, value: unknown) => void;
+  /** Cells the table's message is counting, marked while it is shown. */
+  missingCells?: string[];
 }) {
   const { openQuiz } = useContext(VtQuizContext);
   const isEn = useLocale().startsWith("en");
@@ -596,6 +606,7 @@ function VtWizardTableField({
           onChange={changeCell}
           mode={entryMode}
           onModeChange={setEntryMode}
+          markMissingFieldKeys={missingCells}
         />
       </>
     );
@@ -608,6 +619,7 @@ function VtWizardTableField({
         definition={definition}
         data={data}
         onChange={changeCell}
+        markMissingFieldKeys={missingCells}
       />
     );
   }
@@ -629,6 +641,7 @@ function VtWizardTableField({
             mode="grid"
             allowToggle={false}
             tableFieldId={field.id}
+            markMissingFieldKeys={missingCells}
           />
         ) : (
           <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />
@@ -653,7 +666,7 @@ function VtWizardTableField({
           <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
         </div>
         {entryMode === "grid" ? (
-          <VtProgressiveRowGrid field={field} data={data} onChange={changeCell} />
+          <VtProgressiveRowGrid field={field} data={data} onChange={changeCell} missingCells={missingCells} />
         ) : isBoolean ? (
           <VtWizardProgressiveBooleanTableEntry field={field} data={data} onChange={changeCell} />
         ) : (
