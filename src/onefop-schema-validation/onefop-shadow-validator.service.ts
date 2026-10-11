@@ -33,6 +33,19 @@ export function isVtSectionWaived(sectionId: string, flat: Record<string, unknow
   return typeof status === 'string' && (status.startsWith('Non-fonctionnelle') || status.startsWith('Fermée'));
 }
 
+/**
+ * The number cells a VT total adds up: those sharing its prefix ("entrant_"
+ * for "entrant_total"), else every number cell of the row. Same rule as
+ * react-web's vtFixedRowGrid.ts, which saves these totals.
+ */
+export function vtTotalSiblingKeys(cells: { key: string; kind: string }[], totalKey: string): string[] {
+  const numbers = cells.filter((c) => c.kind === 'number').map((c) => c.key);
+  const prefix = totalKey.replace(/_?total$/i, '');
+  if (!prefix) return numbers;
+  const grouped = numbers.filter((k) => k.startsWith(`${prefix}_`));
+  return grouped.length > 0 ? grouped : numbers;
+}
+
 @Injectable()
 export class OnefopShadowValidatorService {
   private readonly logger = new Logger(OnefopShadowValidatorService.name);
@@ -319,9 +332,9 @@ export class OnefopShadowValidatorService {
     if (!matrix) return;
 
     vt.rows.forEach((row, i) => {
-      const siblingValues: number[] = [];
-      let computedCellId: string | null = null;
-      let computedActual: number | null = null;
+      // Entered numbers and stored totals of this row, by cell key.
+      const numbers = new Map<string, number>();
+      const computed: { key: string; cellId: string; actual: number }[] = [];
 
       vt.cells.forEach((cell, j) => {
         const cellId = matrix[i]?.[j];
@@ -349,21 +362,24 @@ export class OnefopShadowValidatorService {
             return;
           }
           if (cell.kind === 'computed') {
-            computedCellId = cellId;
-            computedActual = n;
+            computed.push({ key: cell.key, cellId, actual: n });
           } else {
-            siblingValues.push(n);
+            numbers.set(cell.key, n);
           }
         }
       });
 
-      if (computedCellId !== null && computedActual !== null) {
-        const expected = siblingValues.reduce((a, b) => a + b, 0);
-        if (expected !== computedActual) {
+      // Each total adds up its own group: "entrant_total" the "entrant_*"
+      // numbers, a plain "total" every number in the row. A grouped table
+      // (4.8: Incoming / Outgoing / Dropouts) has one total per group, so
+      // comparing every total with the whole row would flag correct totals.
+      for (const { key, cellId, actual } of computed) {
+        const expected = vtTotalSiblingKeys(vt.cells, key).reduce((sum, k) => sum + (numbers.get(k) ?? 0), 0);
+        if (expected !== actual) {
           out.push({
             category: 'formula',
-            fieldId: computedCellId,
-            message: `Computed cell = ${computedActual}, but sum-of-siblings for row "${row.id}" = ${expected}.`,
+            fieldId: cellId,
+            message: `Computed cell = ${actual}, but sum-of-siblings for row "${row.id}" = ${expected}.`,
           });
         }
       }
