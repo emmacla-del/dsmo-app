@@ -708,7 +708,7 @@
     "removeRowButton": "Remove last row"
   },
   "vtValidationScreen": {
-    "thankYouTitle": "Thank you for your participation",
+    "checkAnswersTitle": "Check your answers before submitting",
     "confidentialityTitle": "Statistical Secrecy & Data Protection",
     "confidentialityText": "In accordance with Law No. 91/023 of 16 December 1991, the information collected is protected by statistical confidentiality and will only be used for statistical or national planning purposes.",
     "periodClosedTitle": "Declaration period closed",
