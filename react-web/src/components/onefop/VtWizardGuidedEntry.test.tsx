@@ -208,3 +208,40 @@ test("4.5: Save row fills an empty row, not a started one, then returns to the s
   assert.ok(calls.every(([id]) => id.startsWith("s4q5_row2_")), JSON.stringify(calls));
   assert.equal(document.activeElement, specialty);
 });
+
+// ── A saved row says what it still owes (audit R6) ───────────────────────
+
+test("5.2: a row saved with Oui and no answer to the follow-up says so", () => {
+  const row1 = schemaField("vocationalTraining", Q52).table!.vt!.rows[0].id;
+  render52({ [`${row1}_specialtyText`]: "Menuiserie", [`${row1}_hasCurriculum`]: "true" });
+
+  assert.ok(screen.getByText("À compléter : Le référentiel est-il homologué ?"));
+});
+
+test("5.2: with Non, the follow-up is not owed", () => {
+  const row1 = schemaField("vocationalTraining", Q52).table!.vt!.rows[0].id;
+  render52({ [`${row1}_specialtyText`]: "Menuiserie", [`${row1}_hasCurriculum`]: "false" });
+
+  assert.equal(screen.queryByText(/À compléter/), null);
+});
+
+test("4.10: a row saved with one count of two says which is left", () => {
+  const field = schemaField("vocationalTraining", "VT4_10");
+  const row1 = field.table!.vt!.rows[0].id;
+  renderWithProviders(
+    <VtWizardProgressiveGuidedTableEntry
+      field={field}
+      data={{ [`${row1}_specialtyText`]: "Couture", [`${row1}_male`]: 3 }}
+      onChange={() => {}}
+    />,
+  );
+
+  assert.ok(screen.getByText("À compléter : Femmes"), "and not the calculated total");
+});
+
+test("8.8: a trainer saved without a first name says so", () => {
+  const row1 = schemaField("vocationalTraining", "VT8_8").table!.vt!.rows[0].id;
+  render88({ [`${row1}_lastName`]: "Ndi", [`${row1}_sex`]: "1" });
+
+  assert.ok(screen.getByText(/^À compléter : Prénom/));
+});
