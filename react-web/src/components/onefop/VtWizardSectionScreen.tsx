@@ -44,6 +44,7 @@ import {
 import { Vt713ChannelGrid } from "./Vt713ChannelGrid";
 import { VT85_FIELD_IDS, Vt85StatusTable } from "./Vt85StatusTable";
 import { vt53TotalMismatches } from "@/lib/vt-infrastructure-check";
+import { VtProgressiveRowGrid, isVtProgressiveNumberTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { fieldOwnsIssue } from "@/lib/wizard-navigation";
@@ -616,6 +617,23 @@ function VtWizardTableField({
   }
   if (!vt.progressiveRows) {
     return <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />;
+  }
+  // Add-a-row tables of a specialty and counts (4.3–4.6, 8.4, 8.7): Tableau
+  // is VtProgressiveRowGrid, Guidé the existing row-by-row entry. Both write
+  // the same slots.
+  if (isVtProgressiveNumberTable(field)) {
+    return (
+      <>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
+        </div>
+        {entryMode === "grid" ? (
+          <VtProgressiveRowGrid field={field} data={data} onChange={changeCell} />
+        ) : (
+          <VtWizardProgressiveGuidedTableEntry field={field} data={data} onChange={changeCell} />
+        )}
+      </>
+    );
   }
 
   const isBoolean =

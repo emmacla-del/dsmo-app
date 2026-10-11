@@ -1,0 +1,115 @@
+import { renderWithProviders, screen } from "@/test/render";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { useState } from "react";
+import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot } from "./VtProgressiveRowGrid";
+import { schemaEntity, schemaField } from "@/test/schema";
+import type { FormData } from "@/lib/onefop-schema";
+
+const field = schemaField("vocationalTraining", "VT4_3");
+
+/** Renders 4.3 over a live data object, recording every write. */
+function render43(initial: FormData = {}) {
+  const writes: Array<[string, unknown]> = [];
+  function Harness() {
+    const [data, setData] = useState<FormData>(initial);
+    return (
+      <VtProgressiveRowGrid
+        field={field}
+        data={data}
+        onChange={(key, value) => {
+          writes.push([key, value]);
+          setData((d) => ({ ...d, [key]: value }));
+        }}
+      />
+    );
+  }
+  return { ...renderWithProviders(<Harness />), writes };
+}
+
+const shownSlots = () =>
+  Array.from(document.querySelectorAll<HTMLInputElement>('input[id$="_specialtyText"]')).map((i) =>
+    Number(/_row(\d+)_/.exec(i.id)![1]),
+  );
+
+test("serves the add-a-row tables of a specialty and counts", () => {
+  const ids = schemaEntity("vocationalTraining")
+    .sections.flatMap((s) => s.fields)
+    .filter(isVtProgressiveNumberTable)
+    .map((f) => f.id);
+  assert.deepEqual(ids, ["VT4_3", "VT4_4", "VT4_5", "VT4_6", "VT8_4", "VT8_7"]);
+});
+
+test("an empty table offers its first line, and typing writes that slot", async () => {
+  const { user, writes } = render43();
+  assert.deepEqual(shownSlots(), [1]);
+  await user.type(document.getElementById("cell-input-s4q3_row1_specialtyText")!, "Menuiserie");
+  await user.type(document.getElementById("cell-input-s4q3_row1_fiMale")!, "7");
+  const stored = Object.fromEntries(writes);
+  assert.equal(stored.s4q3_row1_specialtyText, "Menuiserie");
+  assert.equal(stored.s4q3_row1_fiMale, 7);
+});
+
+test("clearing a number stores nothing, never 0", async () => {
+  const { user, writes } = render43({ s4q3_row1_specialtyText: "Menuiserie", s4q3_row1_fiMale: 7 });
+  await user.clear(document.getElementById("cell-input-s4q3_row1_fiMale")!);
+  assert.deepEqual(writes.at(-1), ["s4q3_row1_fiMale", null]);
+});
+
+test("FI / FC are spelled out in the header", () => {
+  render43();
+  const head = document.querySelector("thead")!.textContent ?? "";
+  assert.match(head, /Formation initiale/);
+  assert.match(head, /Formation continue/);
+  assert.doesNotMatch(head, /\bFI\b|\bFC\b/);
+});
+
+test("every started slot is shown, including one with numbers but no specialty", () => {
+  render43({ s4q3_row1_specialtyText: "Menuiserie", s4q3_row3_fcFemale: 2 });
+  assert.deepEqual(shownSlots(), [1, 3]);
+});
+
+test("Add opens the slot after the last one used", async () => {
+  const { user } = render43({ s4q3_row1_specialtyText: "A", s4q3_row3_specialtyText: "C" });
+  await user.click(screen.getByRole("button", { name: "Ajouter une spécialité" }));
+  assert.deepEqual(shownSlots(), [1, 3, 4]);
+  assert.equal(document.activeElement?.id, "cell-input-s4q3_row4_specialtyText");
+});
+
+test("Remove clears every filled cell of its slot", async () => {
+  const { user, writes } = render43({
+    s4q3_row1_specialtyText: "A",
+    s4q3_row2_specialtyText: "Couture",
+    s4q3_row2_fiMale: 1,
+    s4q3_row2_fcFemale: 0,
+  });
+  await user.click(screen.getByRole("button", { name: "Supprimer Couture" }));
+  assert.deepEqual(writes, [
+    ["s4q3_row2_specialtyText", null],
+    ["s4q3_row2_fiMale", null],
+    ["s4q3_row2_fcFemale", null],
+  ]);
+  assert.deepEqual(shownSlots(), [1]);
+});
+
+test("the column total is blank while a shown row is blank", () => {
+  render43({
+    s4q3_row1_specialtyText: "A", s4q3_row1_fiMale: 3, s4q3_row1_fiFemale: 1, s4q3_row1_fcMale: 0, s4q3_row1_fcFemale: 0,
+    s4q3_row2_specialtyText: "B", s4q3_row2_fiMale: 2,
+  });
+  assert.equal(screen.getByLabelText("Total - Formation initiale - Hommes").textContent, "5");
+  assert.equal(screen.getByLabelText("Total - Formation initiale - Femmes").textContent, "—");
+});
+
+test("Add is off once every slot is used", () => {
+  const full: FormData = {};
+  for (let i = 1; i <= 12; i++) full[`s4q3_row${i}_specialtyText`] = `S${i}`;
+  render43(full);
+  assert.equal((screen.getByRole("button", { name: "Ajouter une spécialité" }) as HTMLButtonElement).disabled, true);
+});
+
+test("next free slot: after the last used, else the first gap", () => {
+  assert.equal(vtNextFreeSlot(field, new Set([0, 2])), 3);
+  assert.equal(vtNextFreeSlot(field, new Set([0, 11])), 1);
+  assert.equal(vtNextFreeSlot(field, new Set(Array.from({ length: 12 }, (_, i) => i))), null);
+});
