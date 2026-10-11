@@ -188,21 +188,42 @@ export function missingVtTableCells(field: OnefopField, data: FormData): string[
   const progressive = vt.progressiveRows || vt.isRoster;
   const missing: string[] = [];
   let startedRows = 0;
-  for (const rowIds of matrix) {
-    const started = rowIds.some((id, c) => vt.cells[c]?.kind !== "computed" && isEntered(data[id]));
-    if (progressive && !started) continue;
+  matrix.forEach((_, row) => {
+    if (progressive && !vtRowStarted(field, row, data)) return;
     startedRows++;
-    rowIds.forEach((cellId, c) => {
-      const cell = vt.cells[c];
-      if (!cell || cell.kind === "computed") return;
-      if (vt.isRoster && !["lastName", "firstName", "sex"].includes(cell.key)) return;
-      if (cell.dependsOnKey) {
-        const parentIndex = vt.cells.findIndex((p) => p.key === cell.dependsOnKey);
-        if (parentIndex >= 0 && !isTrue(data[rowIds[parentIndex]])) return;
-      }
-      if (!isEntered(data[cellId])) missing.push(cellId);
-    });
-  }
+    missing.push(...missingVtRowCells(field, row, data));
+  });
   if (progressive && startedRows === 0) return [field.id];
+  return missing;
+}
+
+/** True once any cell of the row holds an answer (a total does not count). */
+export function vtRowStarted(field: OnefopField, row: number, data: FormData): boolean {
+  const vt = field.table?.vt;
+  const rowIds = field.table?.matrix?.[row];
+  if (!vt || !rowIds) return false;
+  return rowIds.some((id, c) => vt.cells[c]?.kind !== "computed" && isEntered(data[id]));
+}
+
+/**
+ * The cells of one row that still owe an answer — the rule above, for a
+ * single row, so a row-by-row entry can say what a saved row is missing
+ * without deriving its own version of it (audit R6).
+ */
+export function missingVtRowCells(field: OnefopField, row: number, data: FormData): string[] {
+  const vt = field.table?.vt;
+  const rowIds = field.table?.matrix?.[row];
+  if (!vt || !rowIds) return [];
+  const missing: string[] = [];
+  rowIds.forEach((cellId, c) => {
+    const cell = vt.cells[c];
+    if (!cell || cell.kind === "computed") return;
+    if (vt.isRoster && !["lastName", "firstName", "sex"].includes(cell.key)) return;
+    if (cell.dependsOnKey) {
+      const parentIndex = vt.cells.findIndex((p) => p.key === cell.dependsOnKey);
+      if (parentIndex >= 0 && !isTrue(data[rowIds[parentIndex]])) return;
+    }
+    if (!isEntered(data[cellId])) missing.push(cellId);
+  });
   return missing;
 }

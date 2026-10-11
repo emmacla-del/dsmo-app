@@ -4,6 +4,7 @@ import { memo, useContext, useId, useRef, useState, type CSSProperties, type Rea
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef, VtCellOption, VtRowDef, VtTableMeta } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
+import { missingVtRowCells } from "@/lib/vt-quiz";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { supportsGuidedEntry } from "./vt-wizard-utils";
 import { vtSpelledOutCellLabel } from "./tables/VtProgressiveRowGrid";
@@ -133,6 +134,39 @@ function rowStarted(vt: VtTableMeta, row: VRow, data: FormData): boolean {
 function getRows(vt: VtTableMeta): VRow[] {
   return vt.rows.map((r, i) => ({ rowDef: r, idx: i }));
 }
+
+/**
+ * The names of the cells a saved row still owes, by validation's own rule
+ * (missingVtRowCells, which gates a dependent answer on its parent). A row
+ * may be saved incomplete — a respondent who does not have a figure yet
+ * should not lose the rest of the row — but the list says so (audit R6).
+ */
+function rowOwes(field: OnefopField, row: VRow, data: FormData, locale: string): string[] {
+  const vt = field.table?.vt;
+  const ids = field.table?.matrix?.[row.idx];
+  if (!vt || !ids) return [];
+  const missing = new Set(missingVtRowCells(field, row.idx, data));
+  return ids.flatMap((id, c) => (missing.has(id) && vt.cells[c] ? [cellLabel(vt.cells[c], locale)] : []));
+}
+
+/** "À compléter : Hommes, Femmes" under a saved row that is not finished. */
+const GuidedRowOwes = memo(function GuidedRowOwes({ labels }: { labels: string[] }) {
+  const t = useTranslations();
+  if (labels.length === 0) return null;
+  return (
+    <p
+      style={{
+        fontFamily: "var(--cam-font-sans)",
+        fontWeight: 600,
+        fontSize: 13,
+        color: "var(--cam-error)",
+        margin: "2px 0 0",
+      }}
+    >
+      {t("vtWizard.rowOwes", { cells: labels.join(", ") })}
+    </p>
+  );
+});
 
 function sumReported(values: (number | null)[]): number | null {
   const reported = values.filter((v) => v != null) as number[];
@@ -675,7 +709,7 @@ export function VtWizardProgressiveGuidedTableEntry({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {entered.map((row) => (
             <ProgressiveSummaryRow
-              key={row.idx} row={row} vt={vt} data={data}
+              key={row.idx} row={row} field={field} vt={vt} data={data}
               numberCells={numberCells} computedCell={computedCell}
               onEdit={handleEdit} onRemove={handleRemove}
             />
@@ -702,9 +736,9 @@ export function VtWizardProgressiveGuidedTableEntry({
 }
 
 function ProgressiveSummaryRow({
-  row, vt, data, numberCells, computedCell, onEdit, onRemove,
+  row, field, vt, data, numberCells, computedCell, onEdit, onRemove,
 }: {
-  row: VRow; vt: VtTableMeta; data: FormData;
+  row: VRow; field: OnefopField; vt: VtTableMeta; data: FormData;
   numberCells: VtCellDef[]; computedCell?: VtCellDef;
   onEdit: (row: VRow) => void; onRemove: (row: VRow) => void;
 }) {
@@ -737,6 +771,7 @@ function ProgressiveSummaryRow({
             {detail}
           </p>
         )}
+        <GuidedRowOwes labels={rowOwes(field, row, data, locale)} />
       </div>
       {computedCell && computedVal != null && (
         <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, minWidth: 60, textAlign: "right" }}>
@@ -894,6 +929,7 @@ export function VtWizardProgressiveBooleanTableEntry({
                       {detailParts.join(" • ")}
                     </p>
                   )}
+                  <GuidedRowOwes labels={rowOwes(field, row, data, locale)} />
                 </div>
                 <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
                 <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
@@ -1128,6 +1164,7 @@ export function VtWizardRosterGuidedEntry({
                       {detailParts.join(" · ")}
                     </p>
                   )}
+                  <GuidedRowOwes labels={rowOwes(field, row, data, locale)} />
                 </div>
                 <IconButton text={t("vtWizard.editShort")} label={rowActionLabel(t, "edit", row, label)} onTap={() => handleEdit(row)} />
                 <IconButton text={t("vtWizard.removeShort")} label={rowActionLabel(t, "remove", row, label)} onTap={() => handleRemove(row)} />
