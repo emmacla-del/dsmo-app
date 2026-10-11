@@ -195,7 +195,7 @@ export function OnefopPdfPreviewModal({
               >
                 {isFr ? "Vérification officielle avant soumission" : "Official Review before Final Submission"}
               </h2>
-              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "var(--cam-space-1)" }}>
                 {establishmentName ? `${establishmentName} • ` : ""}
                 {referencePeriodLabel(quarterCode, activeLocale) || (isFr ? "Période active" : "Active period")}
               </div>
@@ -203,14 +203,14 @@ export function OnefopPdfPreviewModal({
           </div>
 
           {/* Right controls: Language toggle + Close */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
             {/* Language toggle: FR / EN */}
             <div
               style={{
                 display: "inline-flex",
                 background: "var(--cam-bg)",
                 borderRadius: "6px",
-                padding: "2px",
+                padding: "var(--cam-space-1)",
                 border: "1px solid var(--cam-border)",
               }}
             >
@@ -277,7 +277,7 @@ export function OnefopPdfPreviewModal({
         {/* ── LEGAL REVIEW BANNER ── */}
         <div
           style={{
-            padding: "10px 20px",
+            padding: "var(--cam-space-3) var(--cam-space-5)",
             background: "rgba(230, 81, 0, 0.07)",
             borderBottom: "1px solid rgba(230, 81, 0, 0.22)",
             display: "flex",
@@ -309,14 +309,14 @@ export function OnefopPdfPreviewModal({
         {zeroedTables.length > 0 && (
           <div
             style={{
-              padding: "10px 20px",
+              padding: "var(--cam-space-3) var(--cam-space-5)",
               background: "var(--cam-success-surface)",
               borderBottom: "1px solid var(--cam-success-border-soft)",
               fontSize: 13,
               color: "var(--cam-success-text-strong)",
               display: "flex",
               flexDirection: "column",
-              gap: 6,
+              gap: "var(--cam-space-2)",
               flexShrink: 0,
             }}
           >
@@ -351,7 +351,7 @@ export function OnefopPdfPreviewModal({
               <div style={{ background: "var(--cam-surface)", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--cam-success-border-faint)", marginTop: 4 }}>
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
                   {zeroedTables.map((t: ZeroedTableInfo) => (
-                    <li key={t.code} style={{ marginBottom: 2 }}>
+                    <li key={t.code} style={{ marginBottom: "var(--cam-space-1)" }}>
                       <strong>{t.code}</strong> — {isFr ? t.nameFr : t.nameEn} (<em>{isFr ? "Certifié néant" : "Certified none"}</em>)
                     </li>
                   ))}
@@ -383,7 +383,7 @@ export function OnefopPdfPreviewModal({
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 14,
+                gap: "var(--cam-space-4)",
                 zIndex: 10,
               }}
             >
@@ -422,7 +422,7 @@ export function OnefopPdfPreviewModal({
                 maxWidth: 440,
               }}
             >
-              <h3 style={{ margin: "10px 0 6px", fontSize: 15, fontWeight: 700, color: "var(--cam-alert-orange)" }}>
+              <h3 style={{ margin: "var(--cam-space-3) 0 var(--cam-space-2)", fontSize: 15, fontWeight: 700, color: "var(--cam-alert-orange)" }}>
                 {isFr ? "Erreur de chargement de l'aperçu" : "Preview Loading Error"}
               </h3>
               <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 16px" }}>
@@ -492,7 +492,7 @@ export function OnefopPdfPreviewModal({
         {submissionError && !submissionResult && (
           <div
             style={{
-              padding: "10px 20px",
+              padding: "var(--cam-space-3) var(--cam-space-5)",
               background: "rgba(217, 83, 15, 0.1)",
               borderTop: "1px solid rgba(217, 83, 15, 0.3)",
               fontSize: 13,
@@ -534,7 +534,7 @@ export function OnefopPdfPreviewModal({
               border: "1px solid var(--cam-border)",
               color: "var(--cam-text)",
               borderRadius: "6px",
-              padding: "10px 20px",
+              padding: "var(--cam-space-3) var(--cam-space-5)",
               fontSize: 14,
               fontWeight: 600,
               cursor: isSubmitting ? "not-allowed" : "pointer",
@@ -558,7 +558,7 @@ export function OnefopPdfPreviewModal({
                 border: "1px solid var(--cam-border)",
                 color: "var(--cam-text)",
                 borderRadius: "6px",
-                padding: "10px 20px",
+                padding: "var(--cam-space-3) var(--cam-space-5)",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: loading || !blobUrl || isSubmitting ? "not-allowed" : "pointer",
@@ -584,14 +584,14 @@ export function OnefopPdfPreviewModal({
                   border: "none",
                   color: "var(--cam-surface)",
                   borderRadius: "6px",
-                  padding: "10px 28px",
+                  padding: "var(--cam-space-3) var(--cam-space-6)",
                   fontSize: 14,
                   fontWeight: 700,
                   cursor: loading || isSubmitting ? "wait" : (!canSubmit || hasErrors ? "not-allowed" : "pointer"),
                   opacity: loading || isSubmitting || !canSubmit || hasErrors ? 0.65 : 1,
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 10,
+                  gap: "var(--cam-space-3)",
                   boxShadow: !canSubmit || hasErrors ? "none" : "0 2px 6px rgba(30, 107, 58, 0.28)",
                   transition: "background 0.15s ease",
                 }}

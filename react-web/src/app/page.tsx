@@ -340,7 +340,7 @@ export default function LandingPage() {
                 ) : (
                   /* Result card */
                   <div style={{ background: "var(--cam-surface-subtle)", border: "var(--cam-border-width) solid var(--cam-green)", borderRadius: "var(--cam-radius-control)", padding: "var(--cam-space-4)", textAlign: "center" }}>
-                    <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: 6 }}>
+                    <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-2)" }}>
                       {t("loginPage.identifierResultLabel")}
                     </div>
                     <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-green-dark)", letterSpacing: "0.06em", marginBottom: "var(--cam-space-3)" }}>
@@ -357,7 +357,7 @@ export default function LandingPage() {
                       <button
                         type="button"
                         className="btn-primary"
-                        style={{ width: "auto", padding: "10px 18px", fontSize: "var(--cam-font-size-base)" }}
+                        style={{ width: "auto", padding: "var(--cam-space-3) var(--cam-space-4)", fontSize: "var(--cam-font-size-base)" }}
                         onClick={() => { setForgotResult(null); setActiveTab("login"); }}
                       >
                         {t("loginPage.loginButton")}

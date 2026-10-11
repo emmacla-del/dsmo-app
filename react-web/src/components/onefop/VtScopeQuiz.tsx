@@ -137,7 +137,7 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, q
             ? `Answer each question ${period?.forPeriod ?? "for the period"}.`
             : `Répondez à chaque question ${period?.forPeriod ?? "pour la période"}.`}
         </p>
-        <p aria-live="polite" style={{ margin: "10px 0 0", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
+        <p aria-live="polite" style={{ margin: "var(--cam-space-3) 0 0", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
           {isEn ? `${answeredCount} of ${asked.length} answered` : `${answeredCount} sur ${asked.length} répondues`}
         </p>
       </header>
