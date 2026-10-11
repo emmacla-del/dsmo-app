@@ -2,6 +2,7 @@ import { renderWithProviders, screen, within } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  VtWizardFixedRowMultiNumberEntry,
   VtWizardProgressiveBooleanTableEntry,
   VtWizardProgressiveGuidedTableEntry,
   VtWizardRosterGuidedEntry,
@@ -244,4 +245,54 @@ test("8.8: a trainer saved without a first name says so", () => {
   render88({ [`${row1}_lastName`]: "Ndi", [`${row1}_sex`]: "1" });
 
   assert.ok(screen.getByText(/^À compléter : Prénom/));
+});
+
+// ── Row-by-row entry: focus and announcements (audit R7) ─────────────────
+
+test("5.2: saving a row announces it and returns focus to the specialty", async () => {
+  const { user } = render52();
+  const specialty = screen.getByRole("textbox", { name: /Spécialité/ });
+  await user.type(specialty, "Menuiserie");
+  await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+  assert.equal(document.activeElement, specialty, "ready for the next row");
+  assert.ok(screen.getByText("Ligne enregistrée : Menuiserie"));
+});
+
+test("5.2: removing a row announces which one", async () => {
+  const row1 = schemaField("vocationalTraining", Q52).table!.vt!.rows[0].id;
+  const { user } = render52({ [`${row1}_specialtyText`]: "Menuiserie", [`${row1}_hasCurriculum`]: "false" });
+
+  await user.click(screen.getByRole("button", { name: "Supprimer la ligne 1 : Menuiserie" }));
+  assert.ok(screen.getByText("Ligne supprimée : Menuiserie"));
+});
+
+test("4.5: Modifier announces the row and puts focus in the form", async () => {
+  const field = schemaField("vocationalTraining", "VT4_5");
+  const { user } = renderWithProviders(
+    <VtWizardProgressiveGuidedTableEntry
+      field={field}
+      data={{ s4q5_row1_specialtyText: "Couture", s4q5_row1_fiMale: 3 }}
+      onChange={() => {}}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Modifier la ligne 1 : Couture" }));
+  assert.ok(screen.getByText("Modification de la ligne : Couture"));
+  assert.equal(document.activeElement, screen.getByRole("textbox", { name: /Spécialité/ }));
+});
+
+test("8.8: saving a trainer announces the trainer, not a row", async () => {
+  const { user } = render88();
+  await user.type(screen.getByRole("textbox", { name: /^Nom/ }), "Ndi");
+  await user.click(screen.getByRole("button", { name: "Enregistrer le formateur" }));
+
+  assert.ok(screen.getByText("Formateur enregistré : Ndi"));
+});
+
+test("4.2: the row dropdown is named by what it chooses", () => {
+  const field = schemaField("vocationalTraining", "VT4_2");
+  renderWithProviders(<VtWizardFixedRowMultiNumberEntry field={field} data={{}} onChange={() => {}} />);
+
+  assert.ok(screen.getByRole("combobox", { name: "Diplômes" }));
 });
