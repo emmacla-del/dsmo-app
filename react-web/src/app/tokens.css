@@ -380,6 +380,9 @@
    --vt-sidebar-width: var(--cam-side-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
+   /* The wizard pod's inset: the gap between its edge and the
+      declaration inside it. */
+   --cam-wizard-pod-pad: var(--cam-space-5);
    --vt-font: var(--cam-font-sans);
 
    /* ── Respondent tokens recorded from live fallbacks ──
@@ -395,6 +398,17 @@
    --cam-surface-2: #f2f2f2;
    --cam-bg-subtle: #f8f8f8;
    --cam-primary: #1d4ed8;
+   /* The grey a PDF reader puts behind the page, in the live preview pane.
+      Named at its rendered value like the rest of this block; whether a
+      respondent screen should carry a dark field at all belongs with the
+      wizard restyle's UX review. */
+   --cam-viewer-backdrop: #525659;
+   /* The masthead's preview button while the side preview is open. Both are
+      near-misses of --cam-green (#1e6b3a); named at their rendered values so
+      nothing moves, and redirecting them onto the core palette belongs with
+      the same UX review as the rest of this block. */
+   --cam-green-active-wash: #e6f4ea;
+   --cam-green-active-ink: #1e7e34;
    --cam-amber-bg: #fff8e6;
    --cam-amber-border: #fcd34d;
    --cam-amber-badge: #fef3c7;
@@ -460,6 +474,9 @@
    --vt-sidebar-width: var(--cam-side-rail-width);
    --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
    --vt-content-max-wide: 1100px; /* sections holding a statistical table */
+   /* The wizard pod's inset: the gap between its edge and the
+      declaration inside it. */
+   --cam-wizard-pod-pad: var(--cam-space-5);
    --vt-font: var(--cam-font-sans);
    font-family: var(--vt-font);
    color: var(--vt-ink);
