@@ -51,6 +51,8 @@ import { FormSection, FormSubsection } from "./form/FormSection";
 import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import { CodedLabel } from "./ui/QuestionCode";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
+import { EntryModeSwitch } from "./EntryModeSwitch";
+import { useEntryMode } from "@/lib/use-entry-mode";
 import {
   buildSection41Definition,
   buildVt85TrainerStatusDefinition,
@@ -483,6 +485,7 @@ function VtWizardTableField({
 }) {
   const { openQuiz } = useContext(VtQuizContext);
   const isEn = useLocale().startsWith("en");
+  const [entryMode, setEntryMode] = useEntryMode();
   const table = field.table;
   const vt = table?.vt;
   if (!table || !vt) return null;
@@ -536,15 +539,23 @@ function VtWizardTableField({
     onChange(cellId, value);
   };
 
-  // Section 4.1 Pilot: Adaptive Statistical Table (direct Grid on desktop + Guided Cards)
+  // Section 4.1: Adaptive Statistical Table — Tableau or Guidé, following the
+  // respondent's one choice for the declaration (useEntryMode).
   if (field.id === "VT4_1") {
     const definition = buildSection41Definition(field);
     return (
-      <AdaptiveStatisticalTable
-        definition={definition}
-        data={data}
-        onChange={changeCell}
-      />
+      <>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
+        </div>
+        <AdaptiveStatisticalTable
+          definition={definition}
+          data={data}
+          onChange={changeCell}
+          mode={entryMode}
+          onModeChange={setEntryMode}
+        />
+      </>
     );
   }
 
