@@ -13,6 +13,9 @@ globalJsdom(undefined, { url: "http://localhost:3000/" });
 if (!window.HTMLElement.prototype.scrollIntoView) {
   window.HTMLElement.prototype.scrollIntoView = function scrollIntoView() {};
 }
+if (!window.HTMLElement.prototype.scrollTo) {
+  window.HTMLElement.prototype.scrollTo = function scrollTo() {};
+}
 if (!window.matchMedia) {
   window.matchMedia = (query: string): MediaQueryList =>
     ({
