@@ -17,6 +17,11 @@
 //
 // The server's log-only shadow validator checks saved totals by the same
 // group rule (vtTotalSiblingKeys in onefop-shadow-validator.service.ts).
+//
+// The same rule saves the totals of the add-a-row tables with a calculated
+// column, 4.10 and 6.3 (owner, 2026-10-11): the official PDF prints their
+// Total column and the normalized specialty rows store it, from the saved
+// value, which nothing wrote before.
 
 import type { FormData, LocalizedText, OnefopField, VtCellDef } from "@/lib/onefop-schema";
 import type {
@@ -34,6 +39,16 @@ const GROUP_SEPARATOR = " — ";
 export function isVtFixedRowTable(field: OnefopField): boolean {
   const vt = field.table?.vt;
   return Boolean(vt && !vt.progressiveRows && !vt.isRoster && vt.rows.length > 0);
+}
+
+/**
+ * True for the tables whose totals are saved: the fixed-row tables, and the
+ * add-a-row tables with a calculated column (4.10, 6.3).
+ */
+export function hasVtSavedTotals(field: OnefopField): boolean {
+  const vt = field.table?.vt;
+  if (!vt || vt.isRoster || vt.rows.length === 0) return false;
+  return isVtFixedRowTable(field) || vt.cells.some((c) => c.kind === "computed");
 }
 
 function cellFieldKey(field: OnefopField, rowIdx: number, cellIdx: number): string {
