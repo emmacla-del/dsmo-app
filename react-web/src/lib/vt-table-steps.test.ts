@@ -145,3 +145,15 @@ test("each table's Next sees only its own issues", () => {
   const at43 = perStep[indexOf(steps4, "4.3")];
   assert.ok(at43.length > 0 && at43.every((i) => vtStepOwningIssue(steps4, i.fieldId) === indexOf(steps4, "4.3")));
 });
+
+test("the section screen's groups are the same steps: one per paper table", async () => {
+  const { vtWizardSectionGroups } = await import("@/components/onefop/VtWizardSectionScreen");
+  for (const [s, steps] of [[s4, steps4], [s8, steps8]] as const) {
+    const groups = vtWizardSectionGroups(s, quiz(true), "fr");
+    assert.deepEqual(
+      groups.map((g) => g.fields.map((f) => f.id)),
+      steps.map((st) => st.fields.map((f) => f.id)),
+      s.id,
+    );
+  }
+});
