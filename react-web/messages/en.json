@@ -745,7 +745,6 @@
     "reviewSubmitButton": "Review & Submit",
     "lastSection": "Last section",
     "previousStepButton": "Previous",
-    "saveAndExitButton": "Save and exit",
     "proceedToValidationButton": "Proceed to Validation",
     "sectionsListLabel": "Task list",
     "saveFailedToast": "Could not save — please retry",
@@ -754,7 +753,6 @@
     "quizAnnouncement": "Preliminary questionnaire",
     "railLockedSection": "Complete section {number} first",
     "railLockedQuiz": "Answer the preliminary questionnaire first",
-    "sectionCounter": "Section {current} of {total}",
     "saving": "Saving…"
   },
   "vtWizard": {
@@ -1095,13 +1093,12 @@
         "project": "Projects / Programmes",
         "vt": "Vocational training centres"
       },
-      "republicLine": "REPUBLIC OF CAMEROON • MINEFOP",
       "surveyTitle": "National Employment & Labour Survey",
+      "vtSurveyTitle": "Vocational training survey",
       "campaign": "Campaign {code}",
       "saving": "Saving…",
       "savedAt": "Saved at {time}",
       "draftSaved": "Draft saved",
-      "save": "Save",
       "exit": "Exit"
     },
     "nav": {

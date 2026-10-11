@@ -5,38 +5,43 @@ import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { clockTime } from "@/lib/admin-data-state";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
-import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 interface ModernJobsHeaderProps {
   entityType: string;
   establishmentName?: string;
+  /** The establishment's CAM-LEAP number, e.g. VT26000103. */
+  establishmentId?: string;
   quarterCode?: string;
   saving?: boolean;
   lastSavedAt?: Date | null;
-  onSaveNow?: () => void;
   onExit?: () => void;
   onPreviewPdf?: () => void;
   isGeneratingPdf?: boolean;
 }
 
 /**
- * Institutional Masthead & Header for the Modern Jobs Wizard.
- * Reinforces official Cameroon identity, displays live auto-save status,
- * and provides clear "Sauvegarder et reprendre plus tard" for self-respondents.
+ * The sticky masthead of both respondent wizards (Modern Jobs and VT), on
+ * white: the ONEFOP wordmark on the left; the establishment, the survey
+ * and the campaign centred; the auto-save status, PDF preview and exit on
+ * the right. Saving on demand lives in each wizard's footer, and the
+ * language is chosen before the wizard (login page, or the browser's
+ * language), so the masthead carries neither.
  */
 export function ModernJobsHeader({
   entityType,
   establishmentName,
+  establishmentId,
   quarterCode = "",
   saving = false,
   lastSavedAt,
-  onSaveNow,
   onExit,
   onPreviewPdf,
   isGeneratingPdf = false,
 }: ModernJobsHeaderProps) {
   const locale = useLocale();
   const t = useTranslations("modernJobs.header");
+
+  const isVt = ["vt", "vocationaltraining", "vocational_training"].includes(entityType.toLowerCase());
 
   const entityLabel = (() => {
     switch (entityType.toLowerCase()) {
@@ -86,176 +91,100 @@ export function ModernJobsHeader({
     return () => observer.disconnect();
   }, []);
 
+  const isEn = locale.startsWith("en");
+  const campaign =
+    // "Campagne du 4e trimestre 2026"; an unknown code keeps the plain "Campagne <code>".
+    referencePeriodPhrases(quarterCode, asUiLocale(locale))?.campaign ?? t("campaign", { code: quarterCode || "—" });
+
+  const buttonStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 6,
+    padding: "6px 12px",
+    fontSize: "var(--cam-font-size-sm)",
+    fontWeight: 600,
+    color: "var(--cam-text)",
+    whiteSpace: "nowrap",
+  } as const;
+
   return (
     <header
       ref={headerRef}
       style={{
-        background: "var(--cam-green-dark)",
-        borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
-        boxShadow: "0 2px 8px rgba(11, 31, 20, 0.15)",
+        background: "var(--cam-surface)",
+        borderBottom: "1px solid var(--cam-border)",
         position: "sticky",
         top: 0,
         zIndex: 50,
       }}
     >
       <style>{`
+        /* Wordmark | establishment and survey | actions. The two side columns
+           share the leftover width equally, so the centre block sits at the
+           true centre of the bar. */
         .cam-masthead-row {
-          flex-wrap: nowrap;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          grid-template-areas: "brand title actions";
+          align-items: center;
+          gap: 16px;
+          padding: 10px 24px;
         }
-        .cam-masthead-save {
-          min-width: 220px;
-          flex-shrink: 0;
-        }
-        /* Narrow viewports: put the status on its own line so the 220px slot cannot crush the title. */
-        @media (max-width: 1099px) {
+        .cam-masthead-brand { grid-area: brand; justify-self: start; }
+        .cam-masthead-title { grid-area: title; min-width: 0; text-align: center; }
+        .cam-masthead-actions { grid-area: actions; justify-self: end; }
+        /* Narrow viewports: wordmark and actions on the first line, the centre block below. */
+        @media (max-width: 899px) {
           .cam-masthead-row {
-            flex-wrap: wrap;
+            grid-template-columns: auto 1fr;
+            grid-template-areas: "brand actions" "title title";
+            gap: 8px 16px;
+            padding: 8px 16px;
           }
-          .cam-masthead-actions {
-            flex: 1 1 100%;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-          }
-          .cam-masthead-save {
-            flex: 1 0 100%;
-            min-width: 0;
-            justify-content: flex-start;
-          }
+          .cam-masthead-actions { flex-wrap: wrap; justify-content: flex-end; }
         }
       `}</style>
-      <div
-        className="cam-masthead-row"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "10px 24px",
-          gap: 16,
-        }}
-      >
-        {/* Left: Sovereign Identity */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <div>
-            <div
-              style={{
-                fontSize: 9.5,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "rgba(255, 255, 255, 0.75)",
-                lineHeight: 1.2,
-                marginBottom: 2,
-              }}
-            >
-              {t("republicLine")}
+      {/* Three sizes: 18 for who is declaring (and the wordmark), 14 for the
+          survey and the buttons, 13 for the secondary facts. */}
+      <div className="cam-masthead-row">
+        <div className="cam-masthead-brand" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-green-dark)", letterSpacing: "0.02em" }}>
+            ONEFOP
+          </span>
+          <span style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>CamLEAP</span>
+        </div>
+
+        {/* Centre: who is declaring, in which survey, for which round */}
+        <div className="cam-masthead-title" style={{ lineHeight: 1.35 }}>
+          {establishmentName && (
+            <div>
+              <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-text)" }}>{establishmentName}</span>
+              {establishmentId && (
+                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{` · ${establishmentId}`}</span>
+              )}
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-                color: "#ffffff",
-                lineHeight: 1.2,
-              }}
-            >
-              ONEFOP · DSMO
-            </div>
+          )}
+          <div style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
+            {isVt ? t("vtSurveyTitle") : t("surveyTitle")}
+          </div>
+          <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
+            {/* VT's title already names the entity; the other surveys name it here. */}
+            {!isVt && `${entityLabel} · `}
+            {campaign}
           </div>
         </div>
 
-        {/* Center: Survey Mission & Entity Target */}
-        <div
-          style={{
-            textAlign: "center",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "1 1 auto",
-            minWidth: 0,
-            overflow: "hidden",
-          }}
-          className="hidden md:flex"
-        >
-          <div
-            style={{
-              fontSize: 12.5,
-              fontWeight: 800,
-              color: "#ffffff",
-              letterSpacing: "0.03em",
-              textTransform: "uppercase",
-              maxWidth: "100%",
-            }}
-          >
-            {t("surveyTitle")}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexWrap: "wrap",
-              gap: 8,
-              marginTop: 2,
-              maxWidth: "100%",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--cam-gold)",
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-              }}
-            >
-              {entityLabel}
-            </span>
-            <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.4)" }}>•</span>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "rgba(255, 255, 255, 0.85)",
-              }}
-            >
-              {/* "Campagne du 4e trimestre 2026"; an unknown code keeps the plain "Campagne <code>". */}
-              {referencePeriodPhrases(quarterCode, asUiLocale(locale))?.campaign ?? t("campaign", { code: quarterCode || "—" })}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: Actions & Auto-save feedback */}
-        <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          {/* Real-time Draft Save Status */}
-          <div
-            className="cam-masthead-save"
-            style={{
-              fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 6,
-              color: "#ffffff",
-              fontWeight: 500,
-              fontFamily: "var(--cam-font-sans)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span style={{ color: saving ? "var(--cam-gold)" : "var(--cam-success)", fontSize: 12, lineHeight: 1, flexShrink: 0 }}>
-              {saving ? "●" : "✓"}
-            </span>
-            <span style={{ opacity: 0.9 }}>
-              {saving
-                ? t("saving")
-                : formattedSaveTime
-                  ? t("savedAt", { time: formattedSaveTime })
-                  : t("draftSaved")}
-            </span>
+        {/* Right: save status, PDF preview, exit */}
+        <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div role="status" style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", whiteSpace: "nowrap" }}>
+            {saving
+              ? t("saving")
+              : formattedSaveTime
+                ? t("savedAt", { time: formattedSaveTime })
+                : t("draftSaved")}
           </div>
 
-          <LocaleSwitcher variant="masthead" />
-
-          {/* Quick PDF Preview from any section */}
           {onPreviewPdf && (
             <button
               type="button"
@@ -263,69 +192,31 @@ export function ModernJobsHeader({
               disabled={isGeneratingPdf}
               className="cam-hoverable"
               style={{
-                background: "rgba(255, 255, 255, 0.12)",
-                border: "1px solid rgba(255, 255, 255, 0.25)",
-                color: "#ffffff",
-                borderRadius: 6,
-                padding: "5px 12px",
-                fontSize: 12,
-                fontWeight: 600,
+                ...buttonStyle,
+                background: "var(--cam-surface)",
+                border: "1px solid var(--cam-border)",
                 cursor: isGeneratingPdf ? "wait" : "pointer",
                 opacity: isGeneratingPdf ? 0.7 : 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                transition: "all 0.15s ease",
               }}
-              title={locale.startsWith("en") ? "Official PDF Preview" : "Aperçu PDF officiel"}
+              title={isEn ? "Official PDF Preview" : "Aperçu PDF officiel"}
             >
-              <span>{isGeneratingPdf ? (locale.startsWith("en") ? "PDF..." : "PDF...") : (locale.startsWith("en") ? "PDF Preview" : "Aperçu PDF")}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6M8 13h8M8 17h8" />
+              </svg>
+              {isGeneratingPdf ? "PDF..." : isEn ? "PDF Preview" : "Aperçu PDF"}
             </button>
           )}
 
-          {/* Explicit Save Action if passed */}
-          {onSaveNow && (
-            <button
-              type="button"
-              onClick={onSaveNow}
-              disabled={saving}
-              className="cam-hoverable"
-              style={{
-                background: "rgba(255, 255, 255, 0.12)",
-                border: "1px solid rgba(255, 255, 255, 0.25)",
-                color: "#ffffff",
-                borderRadius: 6,
-                padding: "5px 12px",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: saving ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                transition: "all 0.15s ease",
-              }}
-            >
-              <span>{t("save")}</span>
-            </button>
-          )}
-
-          {/* Exit / Return to Dashboard */}
           <button
             type="button"
             onClick={onExit ? onExit : () => window.history.back()}
             className="cam-hoverable"
-            style={{
-              background: "transparent",
-              border: "1px solid rgba(255, 255, 255, 0.35)",
-              color: "#ffffff",
-              borderRadius: 6,
-              padding: "5px 14px",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
+            style={{ ...buttonStyle, background: "transparent", border: "1px solid transparent", cursor: "pointer" }}
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
             {t("exit")}
           </button>
         </div>

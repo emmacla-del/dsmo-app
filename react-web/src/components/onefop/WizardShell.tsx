@@ -19,7 +19,6 @@ import { VtWizardSidebar } from "./VtWizardSidebar";
 import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
-import type { VtWizardSectionOutlineModel } from "./vt-wizard-utils";
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader } from "./ModernJobsHeader";
 import { OnefopPdfPreviewModal } from "./OnefopPdfPreviewModal";
@@ -60,6 +59,8 @@ interface WizardShellProps {
   lastSavedAt?: Date | null;
 
   establishmentName?: string;
+  /** The establishment's CAM-LEAP number (e.g. VT26000103), shown in the masthead. */
+  establishmentId?: string;
   /** The company's real taxpayer number (NIU), or undefined when it has none. */
   niu?: string;
   quarterCode?: string;
@@ -132,6 +133,7 @@ export function WizardShell({
   saveFailed = false,
   lastSavedAt = null,
   establishmentName,
+  establishmentId,
   niu,
   quarterCode,
   formId,
@@ -147,6 +149,8 @@ export function WizardShell({
   const [isValidationStage, setIsValidationStage] = useState(false);
   // Training centres: the preliminary quiz stage, between Sections 1 and 2.
   const [isVtQuizStage, setIsVtQuizStage] = useState(false);
+  // The quiz's validate, for the bottom bar's Suivant.
+  const vtQuizValidateRef = useRef<(() => void) | null>(null);
   const [attemptedAdvance, setAttemptedAdvance] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<string | null>(null);
   // The reference the server returned, passed to the receipt as is rather
@@ -155,8 +159,6 @@ export function WizardShell({
   const [taskListOpen, setTaskListOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [saveToast, setSaveToast] = useState<"saved" | "failed" | null>(null);
-
-  const [vtSectionOutline, setVtSectionOutline] = useState<VtWizardSectionOutlineModel | null>(null);
 
   const entityType = entity.entityType;
 
@@ -448,7 +450,6 @@ export function WizardShell({
     setIsVtQuizStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
-    setVtSectionOutline(null);
     requestStepFocus();
   }
 
@@ -488,7 +489,6 @@ export function WizardShell({
     setIsValidationStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
-    setVtSectionOutline(null);
     requestStepFocus();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "instant" });
   }
@@ -498,7 +498,6 @@ export function WizardShell({
     setIsVtQuizStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
-    setVtSectionOutline(null);
     requestStepFocus();
   }
 
@@ -534,7 +533,6 @@ export function WizardShell({
 
     if (clampedSectionIndex < sections.length - 1) {
       setSectionIndex((index) => index + 1);
-      setVtSectionOutline(null);
       requestStepFocus();
       return;
     }
@@ -553,7 +551,6 @@ export function WizardShell({
 
     if (clampedSectionIndex > 0) {
       setSectionIndex((index) => index - 1);
-      setVtSectionOutline(null);
       requestStepFocus();
       return;
     }
@@ -561,12 +558,6 @@ export function WizardShell({
     // Flutter explicitly exits from Section 1 rather than creating an
     // internal "overview" stage.
     onCancel?.();
-  }
-
-  async function handleSaveAndExit() {
-    if (!onSaveNow || !onCancel) return;
-    await onSaveNow();
-    onCancel();
   }
 
   /** The VT side rail (WizardRail + WizardStepList), beside the form on a
@@ -582,7 +573,6 @@ export function WizardShell({
         sectionLockReason={(index) => vtLockReason({ kind: "section", index })}
         isValidationStage={false}
         onGoToValidation={goToValidation}
-        outline={isVtQuizStage ? null : vtSectionOutline}
         quiz={
           vtQuizApplies
             ? {
@@ -714,6 +704,7 @@ export function WizardShell({
           onPreviewPdf={() => setPreviewModalOpen(true)}
           isGeneratingPdf={pdfMutation.isPending}
           establishmentName={effectiveEstablishment}
+          establishmentId={establishmentId}
           niu={niu}
           quarterCode={effectiveQuarter}
           positionKey={positionKey}
@@ -761,10 +752,10 @@ export function WizardShell({
         <ModernJobsHeader
           entityType={entity.entityType}
           establishmentName={effectiveEstablishment}
+          establishmentId={establishmentId}
           quarterCode={effectiveQuarter}
           saving={saving}
           lastSavedAt={lastSavedAt}
-          onSaveNow={onSaveNow ? () => void onSaveNow() : undefined}
           onExit={onCancel}
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
@@ -787,7 +778,6 @@ export function WizardShell({
               sectionLockReason={(index) => vtLockReason({ kind: "section", index })}
               isValidationStage={true}
               onGoToValidation={goToValidation}
-              outline={null}
             />
           ) : null}
 
@@ -891,7 +881,10 @@ export function WizardShell({
     <div
       className="vt-wizard"
       style={{
-        minHeight: "100%",
+        // The viewport, not 100%: the page wrapper only has a min-height, so
+        // 100% resolved to auto and a short section left the bottom bar
+        // floating under its content instead of at the foot of the screen.
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
         background: "var(--cam-bg)",
@@ -901,10 +894,10 @@ export function WizardShell({
         <ModernJobsHeader
           entityType={entity.entityType}
           establishmentName={effectiveEstablishment}
+          establishmentId={establishmentId}
           quarterCode={effectiveQuarter}
           saving={saving}
           lastSavedAt={lastSavedAt}
-          onSaveNow={onSaveNow ? () => void onSaveNow() : undefined}
           onExit={onCancel}
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
@@ -958,10 +951,11 @@ export function WizardShell({
                   entity={entity}
                   data={data}
                   onChange={onChange}
-                  // The quiz's own Continue / Back: VtScopeQuiz has already
-                  // checked the answers (and they are not in `data` yet).
+                  // The bottom bar's Suivant validates the quiz (VtScopeQuiz
+                  // checks and records the answers, then continues).
                   onComplete={() => showSection(1)}
-                  onBack={() => showSection(0)}
+                  validateRef={vtQuizValidateRef}
+                  quarterCode={effectiveQuarter}
                   locale={formLocale}
                 />
               ) : (
@@ -981,16 +975,13 @@ export function WizardShell({
                   onSaveAndExit={onSaveNow && onCancel ? async () => { await onSaveNow(); onCancel(); } : undefined}
                   showBottomBar={false}
                   saving={saving}
-                  onOutlineChange={setVtSectionOutline}
                 />
               )}
             </div>
           </div>
 
-          {!isVtQuizStage && (
-          <>
-          {/* Fixed bottom navigation bar pinned to the bottom of the shell.
-              Matches Flutter vt_wizard_shell.dart:426-520. */}
+          {/* Bottom navigation bar pinned to the foot of the screen, on every
+              section and on the preliminary quiz. */}
           <div
             style={{
               position: "sticky",
@@ -1002,48 +993,16 @@ export function WizardShell({
               padding: `12px ${contentGutter}px`,
             }}
           >
+            {/* Previous at the left edge, Next at the right edge. Saving is
+                automatic and its status is in the masthead. */}
             <div
               style={{
-                width: "100%",
-                maxWidth: contentMax,
-                margin: "0 auto",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 16,
-                flexWrap: "wrap",
               }}
             >
-              {/* Left: Section Indicator & Save */}
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>
-                  {t("wizardShell.sectionCounter", { current: clampedSectionIndex + 1, total: sections.length })}
-                </span>
-
-                {onSaveNow && onCancel && (
-                  <button
-                    type="button"
-                    className="cam-hoverable"
-                    style={{
-                      padding: "4px 8px",
-                      background: "none",
-                      border: "none",
-                      color: "#0e4d29",
-                      fontWeight: 600,
-                      fontSize: 12,
-                      textDecoration: "underline",
-                      cursor: saving ? "not-allowed" : "pointer",
-                    }}
-                    onClick={handleSaveAndExit}
-                    disabled={saving}
-                  >
-                    {saving ? t("wizardShell.saving") : t("wizardShell.saveAndExitButton")}
-                  </button>
-                )}
-              </div>
-
-              {/* Right: Grouped Navigation Actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <button
                   type="button"
                   className="cam-hoverable"
@@ -1061,11 +1020,12 @@ export function WizardShell({
                     gap: 6,
                     transition: "all 0.15s ease",
                   }}
-                  onClick={handlePrev}
+                  // On the quiz: back to Section 1, as the quiz sits after it.
+                  onClick={isVtQuizStage ? () => showSection(0) : handlePrev}
                 >
                   <span>←</span>
                   <span>
-                    {clampedSectionIndex === 0 && !!onCancel
+                    {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
                       ? t("common.cancel")
                       : t("wizardShell.previousStepButton")}
                   </span>
@@ -1089,20 +1049,19 @@ export function WizardShell({
                     boxShadow: "0 1px 3px rgba(14, 77, 41, 0.2)",
                     transition: "all 0.15s ease",
                   }}
-                  onClick={handleNext}
+                  // On the quiz: validate it. It records the answers and opens
+                  // Section 2, or marks the questions still unanswered.
+                  onClick={isVtQuizStage ? () => vtQuizValidateRef.current?.() : handleNext}
                 >
                   <span>
-                    {clampedSectionIndex === sections.length - 1
+                    {!isVtQuizStage && clampedSectionIndex === sections.length - 1
                       ? t("wizardShell.proceedToValidationButton")
                       : t("wizardShell.nextButton")}
                   </span>
                   <span>→</span>
                 </button>
-              </div>
             </div>
           </div>
-          </>
-          )}
         </main>
         </VtQuizContext.Provider>
       </div>

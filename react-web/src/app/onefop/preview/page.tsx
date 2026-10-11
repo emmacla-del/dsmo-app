@@ -329,6 +329,7 @@ function OnefopDeclarationContent() {
             saveFailed={saveFailed}
             lastSavedAt={lastSavedAt}
             establishmentName={establishmentName}
+            establishmentId={companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : undefined}
             niu={hasRealNiu(companyQuery.data?.taxNumber) ? companyQuery.data?.taxNumber : undefined}
             quarterCode={quarterCode}
             formId={formId}

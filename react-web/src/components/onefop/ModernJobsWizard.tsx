@@ -60,6 +60,8 @@ export interface ModernJobsWizardProps {
   canSubmit?: boolean;
   quarterStatusMessage?: string;
   establishmentName?: string;
+  /** The establishment's CAM-LEAP number, shown in the masthead. */
+  establishmentId?: string;
   /** The company's real taxpayer number (NIU), or undefined when it has none. */
   niu?: string;
   quarterCode?: string;
@@ -99,6 +101,7 @@ export function ModernJobsWizard({
   canSubmit = true,
   quarterStatusMessage,
   establishmentName,
+  establishmentId,
   niu,
   quarterCode,
   positionKey = null,
@@ -627,10 +630,10 @@ export function ModernJobsWizard({
       <ModernJobsHeader
         entityType={entity.entityType}
         establishmentName={establishmentName}
+        establishmentId={establishmentId}
         quarterCode={quarterCode}
         saving={saving}
         lastSavedAt={lastSavedAt}
-        onSaveNow={onSaveNow}
         onExit={onCancel}
         onPreviewPdf={onPreviewPdf ? () => onPreviewPdf(locale) : undefined}
         isGeneratingPdf={isGeneratingPdf}
