@@ -9,7 +9,12 @@ import type {
   StatisticalRowDefinition,
   StatisticalColumnDefinition,
 } from "./StatisticalTableDefinition";
-import { TABLE_LABEL_COL_PX, TABLE_MAX_WIDTH_PX, tableMinWidthPx } from "./tableLayout";
+import {
+  TABLE_LABEL_COL_PX,
+  TABLE_MAX_DATA_COL_PX,
+  TABLE_MAX_WIDTH_PX,
+  tablePreferredWidthPx,
+} from "./tableLayout";
 import { CoherenceTd } from "../coherence/Coherence";
 import {
   Cell,
@@ -278,21 +283,31 @@ export function StatisticalGridRenderer({
     return Boolean(currentGroup && currentGroup !== nextGroup);
   };
 
+  // Each column takes the width its own definition asks for, else the cap.
+  // Both mattered (owner, 2026-10-11): the columns previously carried no
+  // width at all, so they shared the frame's slack equally and a three-digit
+  // count could land in a 268px cell — and the widths these definitions
+  // already declared were being ignored. A non-numeric width cannot be
+  // summed, so it falls back to the cap.
+  const dataColWidths = definition.columns.map((col) =>
+    typeof col.width === "number" ? col.width : TABLE_MAX_DATA_COL_PX,
+  );
+  const preferredTableWidth = tablePreferredWidthPx(dataColWidths);
+
   return (
     <div
-      className={`w-full overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs ${className}`}
-      style={{ maxWidth: TABLE_MAX_WIDTH_PX }}
+      className={`overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs ${className}`}
+      style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
     >
-      {/* Every statistical table fills the same frame width (capped at
-          TABLE_MAX_WIDTH_PX, see tableLayout.ts), so all tables line up
-          whether the window is maximised or narrowed. The table only
-          scrolls inside this frame once its data columns would get
-          narrower than TABLE_MIN_DATA_COL_PX. */}
+      {/* The frame hugs the table's own columns, never exceeding
+          TABLE_MAX_WIDTH_PX (see tableLayout.ts). The table only scrolls
+          inside this frame once the frame is narrower than the columns ask
+          for. */}
       <div className="relative w-full overflow-x-auto">
         <DataTable
           ref={tableRef}
-          className="w-full border-collapse table-fixed"
-          style={{ minWidth: tableMinWidthPx(definition.columns.length) }}
+          className="border-collapse table-fixed"
+          style={{ width: preferredTableWidth }}
         >
           {definition.caption && (
             <caption className="sr-only">
@@ -300,14 +315,12 @@ export function StatisticalGridRenderer({
             </caption>
           )}
 
-          {/* `table-fixed` only takes effect because the table now has an
-              explicit width (`w-full`). The label column is fixed; data
-              columns carry no width so they share the remaining space
-              equally — the same rule for every table. */}
+          {/* `table-fixed` takes its widths from here: the shared label
+              column, then each data column at its own capped width. */}
           <colgroup>
             <col style={{ width: TABLE_LABEL_COL_PX }} />
-            {definition.columns.map((col) => (
-              <col key={col.key} />
+            {definition.columns.map((col, i) => (
+              <col key={col.key} style={{ width: dataColWidths[i] }} />
             ))}
           </colgroup>
 

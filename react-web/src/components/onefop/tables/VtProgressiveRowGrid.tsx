@@ -26,7 +26,12 @@ import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { isTrue } from "@/lib/vt-quiz";
-import { TABLE_MAX_WIDTH_PX, TABLE_MIN_DATA_COL_PX, tableMinWidthPx } from "./tableLayout";
+import {
+  TABLE_LABEL_COL_PX,
+  TABLE_MAX_DATA_COL_PX,
+  TABLE_MAX_WIDTH_PX,
+  tablePreferredWidthPx,
+} from "./tableLayout";
 import {
   Cell,
   CellValue,
@@ -254,11 +259,19 @@ export function VtProgressiveRowGrid({
     return shown.length > 0 ? sum : null;
   };
 
-  // A Yes/No dropdown needs more room than a count before the table starts
-  // scrolling inside its frame; the count tables keep their own width.
-  const minTableWidth =
-    tableMinWidthPx(valueCells.length + 1, 200) +
-    valueCells.reduce((extra, _, j) => extra + (isBoolean(j) ? BOOLEAN_COL_PX - TABLE_MIN_DATA_COL_PX : 0), 0);
+  // Each column asks for exactly what its values need — a count never more
+  // than TABLE_MAX_DATA_COL_PX, a Yes/No dropdown BOOLEAN_COL_PX — and the
+  // frame hugs that total. Letting the columns share the slack equally
+  // stretched a three-digit count across a third of the screen.
+  const dataColWidths = valueCells.map((_, j) =>
+    isBoolean(j) ? BOOLEAN_COL_PX : TABLE_MAX_DATA_COL_PX,
+  );
+  const preferredTableWidth = tablePreferredWidthPx(
+    dataColWidths,
+    TABLE_LABEL_COL_PX,
+    // The trailing Σ total column.
+    TABLE_MAX_DATA_COL_PX,
+  );
 
   const headCls = "px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]";
   const cellBorder = "border-r border-b border-[var(--cam-table-line)]";
@@ -274,22 +287,24 @@ export function VtProgressiveRowGrid({
   return (
     <div>
       <div
-        className="w-full overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
-        style={{ maxWidth: TABLE_MAX_WIDTH_PX }}
+        className="overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
+        style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
       >
-        <div className="w-full overflow-x-auto">
+        <div className="relative w-full overflow-x-auto">
           <DataTable
             ref={tableRef}
-            className="w-full border-collapse table-fixed"
-            style={{ minWidth: minTableWidth }}
+            className="border-collapse table-fixed"
+            style={{ width: preferredTableWidth }}
           >
             {vt.title && <caption className="sr-only">{localized(vt.title, locale)}</caption>}
             <colgroup>
-              <col style={{ width: 200 }} />
-              {valueCells.map((c) => (
-                <col key={c.key} />
+              {/* The shared label width, so the label column lines up with
+                  the fixed-row tables on the same screen. */}
+              <col style={{ width: TABLE_LABEL_COL_PX }} />
+              {valueCells.map((c, j) => (
+                <col key={c.key} style={{ width: dataColWidths[j] }} />
               ))}
-              <col style={{ width: 96 }} />
+              <col style={{ width: TABLE_MAX_DATA_COL_PX }} />
             </colgroup>
             <thead className="bg-[var(--cam-table-head-bg)] border-b-2 border-[var(--cam-table-strong)]">
               <tr>

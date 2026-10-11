@@ -100,7 +100,10 @@ export function VtRosterGrid({
     return entered(pk) ? String(pk) : isEn ? `Row ${index + 1}` : `Ligne ${index + 1}`;
   };
 
-  const minWidth =
+  // The columns already declare their own widths, so this is the width the
+  // table takes, not a floor: until 2026-10-11 the table was also `w-full`,
+  // and `table-fixed` shared the leftover width out over the columns anyway.
+  const tableWidth =
     NUMBER_COL_PX + ACTIONS_COL_PX + definition.fields.reduce((sum, f) => sum + (COLUMN_PX[f.kind] ?? 140), 0);
   const cellBorder = "border-r border-b border-[var(--cam-table-line)]";
   // break-words: on a small screen "Administrative"/"administratif" is wider
@@ -148,11 +151,11 @@ export function VtRosterGrid({
           so the screen-reader caption (absolute) stays inside it; without
           that it widened the whole page. */}
       <div
-        className="w-full overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
-        style={{ maxWidth: TABLE_MAX_WIDTH_PX }}
+        className="overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
+        style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
       >
         <div className="relative w-full overflow-x-auto">
-          <DataTable className="w-full border-collapse table-fixed" style={{ minWidth }}>
+          <DataTable className="border-collapse table-fixed" style={{ width: tableWidth }}>
             <caption className="sr-only">{localized(definition.title, locale)}</caption>
             <colgroup>
               <col style={{ width: NUMBER_COL_PX }} />
