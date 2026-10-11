@@ -706,7 +706,6 @@ export function SectionRenderer({
               tabIndex={-1}
               style={{
                 outline: "none",
-                fontFamily: "var(--cam-font-serif)",
                 fontSize: "var(--cam-font-size-xl, 1.5rem)",
                 fontWeight: 700,
                 color: "var(--cam-text)",

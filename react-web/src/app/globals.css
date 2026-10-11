@@ -2731,7 +2731,7 @@ textarea.sovereign-text-input {
 /* ── Question code badge (S1Q01, S22Q05, …) ──────────────────────────
    Shown in front of every question and table title (CodedLabel). Fixed
    size in rem so it looks identical whether it sits in a 13px field label
-   or an 18px serif table title. */
+   or an 18px table title. */
 .cam-qcode {
   display: inline-block;
   margin-right: 8px;

@@ -86,7 +86,6 @@
    width; the clamp stops it at the ladder's base size and at 80px. */
 .wordmark {
   margin: var(--cam-space-5) 0 0;
-  font-family: var(--cam-font-serif);
   font-size: clamp(2.5rem, 19cqi, var(--landing-wordmark-max));
   font-weight: var(--cam-font-weight-bold);
   line-height: 0.95;
@@ -172,7 +171,6 @@
 
 .notice h3 {
   margin: 0 0 var(--cam-space-1);
-  font-family: var(--cam-font-serif);
   font-size: var(--landing-notice-title);
   font-weight: var(--cam-font-weight-bold);
   line-height: var(--cam-line-height-title);
