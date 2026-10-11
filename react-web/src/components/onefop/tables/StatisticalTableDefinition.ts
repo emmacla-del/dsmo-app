@@ -1,7 +1,7 @@
 // src/components/onefop/tables/StatisticalTableDefinition.ts
 
 import type { FormData, LocalizedText, OnefopField } from "@/lib/onefop-schema";
-import { SEX_COLUMN_LABELS } from "@/lib/onefop-tables";
+import { localized } from "@/lib/onefop-schema";
 
 export type StatisticalTableType =
   | "fixed-matrix"
@@ -388,6 +388,10 @@ export interface RosterFieldDefinition {
   helpText?: LocalizedText;
   min?: number;
   max?: number;
+  /** The band the paper prints over this answer and the ones beside it
+   * (8.8's "Si formateur" over the two qualifications): consecutive fields
+   * sharing it are headed once, by both the grid and the guided form. */
+  group?: LocalizedText;
 }
 
 export interface RosterRowSlot {
@@ -408,7 +412,9 @@ export interface NominalRosterDefinition extends BaseStatisticalTableDefinition 
   emptyStateMessage?: LocalizedText;
   removeConfirmationMessage?: LocalizedText;
   titleBuilder?: (recordValues: Record<string, unknown>) => string;
-  subtitleBuilder?: (recordValues: Record<string, unknown>) => string;
+  /** The line under a saved row's name; takes the locale so the coded
+   * answers it names read in the respondent's own language. */
+  subtitleBuilder?: (recordValues: Record<string, unknown>, locale: "fr" | "en") => string;
   // Backwards compatibility:
   columns?: StatisticalColumnDefinition[];
   idFieldKey?: string;
@@ -849,32 +855,26 @@ export function buildSection41Definition(field: OnefopField): FixedMatrixDefinit
       fr: "Diplôme d'entrée",
       en: "Entry Qualification",
     },
-    headerGroups: [
-      {
-        title: { fr: "Sexe", en: "Sex" },
-        colSpan: 2,
-      },
-    ],
+    // "Hommes / Femmes" with no "Sexe" band, as in 4.2 and 8.1 (audit R16:
+    // one wording for the same columns). Keys unchanged, so data is too.
     columns: [
       {
         key: "male",
-        header: SEX_COLUMN_LABELS.male,
+        header: { fr: "Hommes", en: "Men" },
         kind: "number",
         align: "right",
         width: 130,
-        group: { fr: "Sexe", en: "Sex" },
       },
       {
         key: "female",
-        header: SEX_COLUMN_LABELS.female,
+        header: { fr: "Femmes", en: "Women" },
         kind: "number",
         align: "right",
         width: 130,
-        group: { fr: "Sexe", en: "Sex" },
       },
       {
         key: "total",
-        header: { fr: "Σ Total", en: "Σ Total" },
+        header: { fr: "Total", en: "Total" },
         kind: "computed",
         align: "right",
         width: 130,
@@ -883,8 +883,8 @@ export function buildSection41Definition(field: OnefopField): FixedMatrixDefinit
     rows: rowDefs,
     hasTotalRow: true,
     totalRowLabel: {
-      fr: "TOTAL GÉNÉRAL",
-      en: "GRAND TOTAL",
+      fr: "Total général",
+      en: "Grand total",
     },
     defaultMobileView: "grid", // Section 4.1 is only 3 columns, perfectly usable as a scrollable grid on mobile!
     calculationMode: "materialized",
@@ -1006,21 +1006,21 @@ export function buildVt85TrainerStatusDefinition(
     columns: [
       {
         key: "male",
-        header: SEX_COLUMN_LABELS.male,
+        header: { fr: "Hommes", en: "Men" },
         kind: "number",
         align: "right",
         width: 130,
       },
       {
         key: "female",
-        header: SEX_COLUMN_LABELS.female,
+        header: { fr: "Femmes", en: "Women" },
         kind: "number",
         align: "right",
         width: 130,
       },
       {
         key: "total",
-        header: { fr: "Σ Total", en: "Σ Total" },
+        header: { fr: "Total", en: "Total" },
         kind: "computed",
         align: "right",
         width: 130,
@@ -1029,8 +1029,8 @@ export function buildVt85TrainerStatusDefinition(
     rows,
     hasTotalRow: true,
     totalRowLabel: {
-      fr: "TOTAL",
-      en: "TOTAL",
+      fr: "Total",
+      en: "Total",
     },
     defaultMobileView: "grid",
     calculationMode: "materialized",
@@ -1060,13 +1060,20 @@ export function buildVt88TrainerRosterDefinition(
       key: "firstName",
       label: { fr: "Prénom", en: "First name" },
       kind: "text",
-      required: false,
+      // Required, as the paper prints it and as validation has always read
+      // it: missingVtRowCells (vt-quiz.ts) owes an answer for the name, the
+      // first name and the sex of every row begun, so a "(facultatif)" here
+      // promised what Suivant then refused.
+      required: true,
       placeholder: { fr: "Prénom(s)", en: "First name(s)" },
     },
     {
       key: "sex",
       label: { fr: "Sexe", en: "Sex" },
       kind: "radio",
+      // The third answer validation owes; the status, the administrative
+      // answer and the two qualifications it does not.
+      required: true,
       options: [
         { value: "1", code: "1", label: { fr: "Homme", en: "Man" } },
         { value: "2", code: "2", label: { fr: "Femme", en: "Woman" } },
@@ -1089,6 +1096,11 @@ export function buildVt88TrainerRosterDefinition(
     },
     {
       key: "academicDiploma",
+      // The paper (p.19) prints the two qualifications under one band,
+      // "Si formateur/ If teacher": they are owed by a trainer, not by a
+      // member of the administrative staff. Carried here so the grid and
+      // the guided form both head them with it.
+      group: { fr: "Si formateur", en: "If teacher" },
       label: { fr: "Diplôme académique", en: "Academic diploma" },
       kind: "select",
       options: [
@@ -1107,6 +1119,7 @@ export function buildVt88TrainerRosterDefinition(
     },
     {
       key: "professionalDiploma",
+      group: { fr: "Si formateur", en: "If teacher" },
       label: { fr: "Diplôme professionnel", en: "Vocational diploma" },
       kind: "select",
       options: [
@@ -1122,7 +1135,7 @@ export function buildVt88TrainerRosterDefinition(
         { value: "dqp", code: "10", label: { fr: "DQP/VQD", en: "DQP/VQD" } },
         { value: "cqp", code: "11", label: { fr: "CQP/VQC", en: "CQP/VQC" } },
         { value: "autres_pro", code: "12", label: { fr: "Autres", en: "Others" } },
-        { value: "sans_diplome_professionnel", code: "12", label: { fr: "Sans diplôme professionnel", en: "No vocational qualification" } },
+        { value: "sans_diplome_professionnel", code: "13", label: { fr: "Sans diplôme professionnel", en: "No vocational qualification" } },
       ],
     },
   ];
@@ -1173,14 +1186,23 @@ export function buildVt88TrainerRosterDefinition(
       en: "Are you sure you want to remove this trainer?",
     },
     titleBuilder: (values) => `${(values.lastName as string) ?? ""} ${(values.firstName as string) ?? ""}`.trim(),
-    subtitleBuilder: (values) => {
-      const parts: string[] = [];
-      if (values.sex === "1") parts.push("Homme");
-      else if (values.sex === "2") parts.push("Femme");
-      if (values.trainerStatus === "1") parts.push("Vacataire pro");
-      else if (values.trainerStatus === "2") parts.push("Vacataire non-pro");
-      else if (values.trainerStatus === "3") parts.push("Permanent");
-      if (values.isAdminPersonnel === true || values.isAdminPersonnel === "true") parts.push("Admin");
+    subtitleBuilder: (values, locale) => {
+      // The answers' own option labels, so the line reads in the locale on
+      // screen instead of carrying a second, French-only vocabulary.
+      const optionLabel = (key: string) => {
+        const value = values[key];
+        if (value === undefined || value === null || value === "") return null;
+        const option = fields
+          .find((f) => f.key === key)
+          ?.options?.find((o) => o.value === String(value));
+        return option ? localized(option.label, locale) : null;
+      };
+      const parts = [optionLabel("sex"), optionLabel("trainerStatus")].filter(
+        (p): p is string => p !== null
+      );
+      if (values.isAdminPersonnel === true || values.isAdminPersonnel === "true") {
+        parts.push(localized(fields.find((f) => f.key === "isAdminPersonnel")?.label ?? null, locale));
+      }
       return parts.join(" · ");
     },
     idFieldKey: "lastName",

@@ -747,8 +747,12 @@ body {
 }
 
 /* scrollbar-gutter keeps the root's scrollbar space reserved, so moving
-   from a short section to a long one does not shift the frame sideways. */
-html:has(.cam-auth-page--wizard) {
+   from a short section to a long one does not shift the frame sideways.
+   The questionnaire wizards too (.vt-wizard: VT; ModernJobsHeader sits in
+   both): a short table step widened the column by 15px. */
+html:has(.cam-auth-page--wizard),
+html:has(.vt-wizard),
+html:has(.cam-masthead) {
   scrollbar-gutter: stable;
 }
 
@@ -1991,6 +1995,105 @@ html:has(.cam-auth-page--wizard) {
   animation: onefopPulse 1.4s ease-in-out infinite;
 }
 
+/* ── Questionnaire start page (OnefopLegalAcknowledgment.tsx) ──
+   A plain start page, top-aligned in the wizard's measure: title, who is
+   answering, the confidentiality notice as body text, consent, then one
+   primary action. No card, no tinted box (owner, 2026-10-10). */
+.cam-welcome {
+  min-height: 100vh;
+  background: var(--cam-bg);
+  display: flex;
+  justify-content: center;
+  padding: var(--cam-space-7) var(--cam-space-4);
+  padding-top: calc(var(--cam-space-7) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--cam-space-7) + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+.cam-welcome-splash {
+  align-self: center;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cam-welcome-body {
+  width: 100%;
+  max-width: var(--cam-container-wizard);
+  color: var(--cam-text);
+  transition: opacity 0.3s ease;
+}
+
+.cam-welcome-body.is-exiting {
+  opacity: 0;
+}
+
+.cam-welcome-respondent {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+}
+
+.cam-welcome-title {
+  margin: 0;
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+}
+
+.cam-welcome-time {
+  margin: var(--cam-space-2) 0 0;
+}
+
+.cam-welcome-notice {
+  margin-top: var(--cam-space-6);
+}
+
+.cam-welcome-notice h2 {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-title);
+}
+
+.cam-welcome-notice p {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  line-height: var(--cam-line-height-copy);
+}
+
+.cam-welcome-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-5);
+  line-height: var(--cam-line-height-ui);
+  cursor: pointer;
+}
+
+.cam-welcome-consent input {
+  flex-shrink: 0;
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
+  margin: 0;
+  accent-color: var(--cam-green);
+  cursor: pointer;
+}
+
+.cam-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-5);
+  margin-top: var(--cam-space-6);
+}
+
 /* ── Question, answer, hint (G16) ──
    The three kinds of text on a respondent form. Their sizes live in
    tokens.css (--cam-question-*, --cam-answer-size, --cam-microcopy-*), so
@@ -2141,6 +2244,520 @@ html:has(.cam-auth-page--wizard) {
 
 /* A step with nothing to do on click (the wizard locks it and says why in
    the title) does not pretend to be a link. */
+/* The (i) help button beside a VT label (VtWizardInfoBadge) and its note.
+   24px target (WCAG 2.2, 2.5.8); the note is plain text on white, not a
+   tinted, shadowed bubble. */
+.cam-info-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: var(--cam-space-1);
+  padding: 0;
+  border: none;
+  border-radius: var(--cam-radius-full);
+  background: transparent;
+  color: var(--cam-text-muted);
+  cursor: pointer;
+}
+
+.cam-info-badge:hover,
+.cam-info-badge[aria-expanded="true"] {
+  color: var(--cam-green);
+}
+
+.cam-info-badge:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+}
+
+.cam-info-popover {
+  position: absolute;
+  z-index: 30;
+  width: 280px;
+  max-width: 80vw;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-sm);
+  font-size: var(--cam-microcopy-size);
+  font-weight: var(--cam-font-weight-regular);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+}
+
+/* Suggested values under a VT location field (VtWizardAdminSuggestionChips):
+   a hint line, then one small button per value; the chosen one is filled. */
+.cam-suggest {
+  margin-top: var(--cam-space-2);
+}
+
+.cam-suggest-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2);
+  margin-top: var(--cam-space-1);
+}
+
+.cam-suggest-chip {
+  min-height: 24px;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: inherit;
+  font-size: var(--cam-microcopy-size);
+  font-weight: var(--cam-font-weight-regular);
+  cursor: pointer;
+}
+
+.cam-suggest-chip:hover {
+  border-color: var(--cam-green);
+}
+
+.cam-suggest-chip[aria-pressed="true"] {
+  border-color: var(--cam-green);
+  background: var(--cam-green);
+  color: var(--cam-surface);
+}
+
+/* A wizard screen's title block, the same on every VT screen (section,
+   preliminary quiz): 24px bold title, one muted line, a rule under it.
+   The title is the focus target on a step change, so it draws no ring. */
+.cam-step-head {
+  padding-bottom: var(--cam-space-3);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-step-title {
+  margin: 0;
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+  outline: none;
+}
+
+.cam-step-lede {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+}
+
+/* Number answer with − / + (NumberStepper.tsx): one box, the height and
+   edge of .sovereign-text-input, the buttons divided segments inside it. */
+.cam-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+}
+
+.cam-stepper-box {
+  display: flex;
+  align-items: stretch;
+  height: var(--cam-form-field-height);
+  border: var(--cam-border-width) solid var(--cam-text-muted);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* A count is a few digits: the box says so (GOV.UK sizes a box to its
+   answer). With or without buttons, every number box is the short width,
+   so they line up down the page. */
+.cam-stepper-box.has-buttons,
+.cam-stepper-box.is-plain { width: var(--cam-field-width-short); max-width: 100%; }
+.cam-stepper-box.is-compact { width: 84px; height: 32px; }
+.cam-stepper-box.has-error { border-color: var(--cam-error); }
+.cam-stepper-box.is-disabled { opacity: 0.6; }
+
+.cam-stepper-box:focus-within {
+  border-color: var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
+}
+
+.cam-stepper-box.has-error:focus-within {
+  border-color: var(--cam-error);
+  box-shadow: var(--cam-focus-shadow-error);
+}
+
+.cam-stepper-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--cam-space-3);
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--cam-text);
+  font-family: inherit;
+  font-size: var(--cam-answer-size);
+  font-weight: var(--cam-font-weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+/* No native spinner: − / + are the stepper's own, and the arrows were too
+   small to hit (as in the tables, .cam-dt). */
+.cam-stepper-input::-webkit-inner-spin-button,
+.cam-stepper-input::-webkit-outer-spin-button,
+.sovereign-text-input[type="number"]::-webkit-inner-spin-button,
+.sovereign-text-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cam-stepper-input,
+.sovereign-text-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.cam-stepper-box .vt-stepper-button {
+  flex: 0 0 var(--cam-form-field-height);
+  border: none;
+  border-left: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: inherit;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-regular);
+  cursor: pointer;
+}
+
+.cam-stepper-box .vt-stepper-button:hover:not(:disabled) {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-stepper-box .vt-stepper-button:disabled {
+  color: var(--cam-placeholder);
+  cursor: not-allowed;
+}
+
+.cam-stepper-box .vt-stepper-button:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (max-width: 640px) {
+  .cam-stepper-input {
+    font-size: var(--cam-font-size-input-ios);
+  }
+}
+
+/* The sections drawer below 1024px (WizardShell.tsx): a plain sheet from
+   the bottom over a scrim, titled like the rail it holds. No grab handle
+   (it could not be dragged), no shadow, no large radius. */
+.cam-sheet-opener {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  background: var(--cam-scrim);
+}
+
+.cam-sheet {
+  width: 100%;
+  max-height: 82vh;
+  overflow: auto;
+  padding: var(--cam-space-5) var(--cam-space-4);
+  padding-bottom: calc(var(--cam-space-5) + env(safe-area-inset-bottom, 0px));
+  background: var(--cam-surface);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg) var(--cam-radius-lg) 0 0;
+  outline: none;
+}
+
+.cam-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-sheet-title {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+}
+
+/* 8.8 staff list: Guided (NominalRosterRenderer.tsx) and the foot of the
+   Grid (VtRosterGrid.tsx). One column of questions, no card, a plain ruled
+   list; Save is secondary so Next stays the one green action. */
+.cam-roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+}
+
+.cam-roster-title {
+  margin: 0 0 var(--cam-space-1);
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+}
+
+.cam-roster-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.cam-roster-form.is-editing {
+  padding-left: var(--cam-space-4);
+  border-left: var(--cam-space-1) solid var(--cam-border-strong);
+}
+
+.cam-roster-legend {
+  margin: 0 0 var(--cam-space-1);
+  padding: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+}
+
+/* The questions the paper bands together ("Si formateur" over 8.8's two
+   qualifications): headed once, grouped for a screen reader, no box. */
+.cam-roster-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.cam-roster-band {
+  margin: 0 0 var(--cam-space-1);
+  padding: 0;
+  font-size: var(--cam-question-size);
+  font-weight: var(--cam-question-weight);
+  color: var(--cam-text);
+}
+
+.cam-roster-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-field-stack-gap);
+}
+
+.cam-roster-control {
+  max-width: var(--cam-field-width-medium);
+}
+
+/* A dropdown still showing its prompt reads as a prompt, not an answer. */
+.cam-roster-unset {
+  color: var(--cam-text-muted);
+}
+
+.cam-roster-optional {
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text-muted);
+}
+
+.cam-roster-error {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-error);
+}
+
+.cam-roster-check {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.cam-roster-check input {
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
+  margin: 0;
+  accent-color: var(--cam-green);
+}
+
+.cam-roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-4);
+}
+
+.cam-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-roster-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+}
+
+.cam-roster-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-roster-item {
+  padding: var(--cam-space-3) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-roster-item.is-editing .cam-roster-item-name {
+  color: var(--cam-green);
+}
+
+.cam-roster-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+}
+
+.cam-roster-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cam-roster-item-name {
+  margin: 0;
+  font-size: var(--cam-answer-size);
+  font-weight: var(--cam-font-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-roster-item-actions {
+  display: flex;
+  gap: var(--cam-space-4);
+}
+
+.cam-roster-confirm {
+  margin-top: var(--cam-space-2);
+  padding: var(--cam-space-3);
+  border-left: var(--cam-space-1) solid var(--cam-error);
+  background: var(--cam-error-bg);
+}
+
+.cam-roster-confirm p {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-answer-size);
+}
+
+.cam-roster-grid-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-3);
+}
+
+/* Grid / Guided switch above a statistical table (EntryModeSwitch.tsx). */
+.cam-mode-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+}
+
+.cam-mode-switch button {
+  min-height: 28px;
+  padding: 0 var(--cam-space-3);
+  border: none;
+  border-radius: var(--cam-radius-sm);
+  background: transparent;
+  color: var(--cam-text-muted);
+  font-family: inherit;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+  cursor: pointer;
+}
+
+.cam-mode-switch button:hover {
+  color: var(--cam-text);
+}
+
+.cam-mode-switch button[aria-pressed="true"] {
+  background: var(--cam-border-subtle);
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-mode-switch button:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+}
+
+/* One block of a VT section's questions (FormSection.tsx). No box: a rule
+   and space separate one block from the next. */
+.cam-wizard-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-wizard-block + .cam-wizard-block {
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  padding-top: var(--cam-space-5);
+}
+
+/* The questionnaire wizard's Previous / Next row (WizardShell.tsx): after
+   the last question, in flow, Previous at the left edge and the one primary
+   action at the right. */
+.cam-wizard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+  margin-top: var(--cam-space-6);
+  padding-top: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+/* A 1366x768 laptop leaves about 650px of page under the browser bar: at
+   46px a row, the eleven VT steps outgrow it and the rail grows a second
+   scrollbar beside the page's (CLAUDE.md §13). Tighter rows keep the whole
+   outline in view there; the rail's own scroll stays a last resort. */
+@media (max-height: 760px) {
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+    gap: var(--cam-space-4);
+    padding-top: var(--cam-space-4);
+  }
+
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-button {
+    padding: var(--cam-space-1) 0;
+  }
+
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
+    top: calc(var(--cam-space-1) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+    bottom: calc(var(--cam-space-hairline) - var(--cam-space-1));
+  }
+}
+
 .cam-step-button[data-inert] {
   cursor: not-allowed;
 }
@@ -2369,11 +2986,14 @@ textarea.sovereign-text-input {
   outline: none;
 }
 
-/* Read-only (pre-filled from the registration record): the same visible
-   edge, on the page's tint, so it still reads as an answer box that cannot
-   be edited rather than as plain text. */
+/* Read-only (pre-filled from the registration record): still an answer
+   box, but a light edge on the subtle surface says it cannot be typed in.
+   It used to sit on the page's tint; since the page went pure white
+   (2026-10-10) that tint was white too, and a locked box looked editable. */
 .sovereign-text-input[readonly] {
-  background: var(--cam-bg);
+  background: var(--cam-surface-subtle);
+  border-color: var(--cam-border);
+  cursor: default;
 }
 
 .sovereign-text-input.has-error,
@@ -2728,25 +3348,16 @@ textarea.sovereign-text-input {
   margin: 0;
 }
 
-/* ── Question code badge (S1Q01, S22Q05, …) ──────────────────────────
-   Shown in front of every question and table title (CodedLabel). Fixed
-   size in rem so it looks identical whether it sits in a 13px field label
-   or an 18px table title. */
+/* ── Question number (1.1, S22Q05, …) ──────────────────────────────
+   In front of every question and table title (CodedLabel), as the paper
+   form numbers it: plain muted text in the label's own size and weight
+   class, not a grey box (owner, 2026-10-10: no decoration). */
 .cam-qcode {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 1px 6px;
-  border: 1px solid var(--cam-border);
-  border-radius: 4px;
-  background: var(--cam-surface-subtle);
+  margin-right: var(--cam-space-2);
   color: var(--cam-text-muted);
-  font-family: var(--cam-font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-regular);
   font-style: normal;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  vertical-align: 0.12em;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
