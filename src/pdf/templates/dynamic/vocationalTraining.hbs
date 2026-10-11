@@ -1426,7 +1426,7 @@
                 <td colspan="2">{{yesno transversal.priseEnCompteIST}}</td>
             </tr>
             <tr>
-                <td class="field-num">7.4</td>
+                <td class="field-num">7.3</td>
                 <td class="field-label">Éducation sexuelle et VIH axée sur les compétences pour la vie courante ?</td>
                 <td colspan="2">
                     {{yesno transversal.educationSexuelleVIH.dispensee}}
@@ -1453,7 +1453,7 @@
                 </td>
             </tr>
             <tr>
-                <td class="field-num">7.5</td>
+                <td class="field-num">7.4</td>
                 <td class="field-label">Formateurs formés et ayant dispensé cette éducation ?</td>
                 <td colspan="2">
                     {{yesno transversal.formateursFormesEtDispensent}}
@@ -1463,12 +1463,12 @@
                 </td>
             </tr>
             <tr>
-                <td class="field-num">7.6</td>
+                <td class="field-num">7.5</td>
                 <td class="field-label">Ces formateurs ont-ils dispensé l'enseignement reçu aux élèves ?</td>
                 <td colspan="2">{{yesno transversal.enseignementRetransmis}}</td>
             </tr>
             <tr>
-                <td class="field-num">7.7</td>
+                <td class="field-num">7.6</td>
                 <td class="field-label">Sessions d'orientation organisées pour les parents/tuteurs ?</td>
                 <td colspan="2">{{yesno transversal.sessionsParents}}</td>
             </tr>
@@ -1637,13 +1637,21 @@
         <h3>8.8 État nominatif du personnel formateur et administratif</h3>
         <table class="data-table" style="font-size:8px;">
             <thead>
+                <!-- The band the source prints over the two qualification
+                     columns (p.19: "Si formateur/ If teacher" above
+                     "Qualification"): those two answers are a trainer's to
+                     give, not a member of the administrative staff's. The
+                     two-row header follows 4.5/8.3's pattern above. -->
                 <tr>
-                    <th>ID</th>
-                    <th style="text-align:left;">Nom</th>
-                    <th style="text-align:left;">Prénom</th>
-                    <th>Sexe</th>
-                    <th>Statut</th>
-                    <th>Admin. ?</th>
+                    <th rowspan="2">ID</th>
+                    <th rowspan="2" style="text-align:left;">Nom</th>
+                    <th rowspan="2" style="text-align:left;">Prénom</th>
+                    <th rowspan="2">Sexe</th>
+                    <th rowspan="2">Statut</th>
+                    <th rowspan="2">Admin. ?</th>
+                    <th colspan="2">Si formateur</th>
+                </tr>
+                <tr>
                     <th>Diplôme académique</th>
                     <th>Diplôme professionnel</th>
                 </tr>
