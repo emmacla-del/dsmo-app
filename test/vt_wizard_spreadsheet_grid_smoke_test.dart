@@ -126,11 +126,11 @@ void main() {
     final def = vtTableDefFor('vt_diploma_table', {'prefix': 's4q1'})!;
     final ctrl = await _controller();
     addTearDown(ctrl.dispose);
-    ctrl.onGridCellChanged('s4q1_doctorat_male', 3);
-    ctrl.onGridCellChanged('s4q1_master2_male', 4);
+    ctrl.onGridCellChanged('s4q1_doctorat_male', 10);
+    ctrl.onGridCellChanged('s4q1_master2_male', 20);
     await _pumpAtDesktopWidth(tester, ctrl, def);
 
-    expect(find.text('7'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
     await _settleAutosave(tester);
   });
 
