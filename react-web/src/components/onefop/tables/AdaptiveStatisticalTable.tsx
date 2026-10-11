@@ -75,6 +75,12 @@ export interface AdaptiveStatisticalTableProps {
   onOpenScope?: () => void;
   /** Schema field id of this table (e.g. "S22Q04"), for coherence anomalies. */
   tableFieldId?: string;
+  /**
+   * Cells to mark as missing, when the caller is the authority on them (the
+   * VT wizard, once a blocked Suivant is showing a table's problems). Left
+   * out, the table derives them from the scope quiz instead.
+   */
+  markMissingFieldKeys?: string[];
 }
 
 /**
@@ -106,6 +112,7 @@ export function AdaptiveStatisticalTable({
   autoFocusFirstCell,
   onOpenScope,
   tableFieldId,
+  markMissingFieldKeys,
 }: AdaptiveStatisticalTableProps) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.adaptive");
@@ -374,9 +381,12 @@ export function AdaptiveStatisticalTable({
     responseStatus === "REPORTED" ||
     (!responseStatus && !data._scopeConfig);
 
+  // The training-centre wizard knows its own missing cells (validation's own
+  // list, missingVtTableCells) and passes them once it is showing errors; the
+  // Modern Jobs wizard derives them from the scope quiz.
   const missingFieldKeys = useMemo(
-    () => (isReported ? missingQuizFieldKeys(effectiveDefinition, data) : []),
-    [isReported, effectiveDefinition, data]
+    () => markMissingFieldKeys ?? (isReported ? missingQuizFieldKeys(effectiveDefinition, data) : []),
+    [markMissingFieldKeys, isReported, effectiveDefinition, data]
   );
 
   const handleFocusFirstIncomplete = () => {

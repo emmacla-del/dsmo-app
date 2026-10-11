@@ -464,6 +464,9 @@ export function StatisticalGridRenderer({
                           placeholder="—"
                           aria-label={cellLabel}
                           aria-required={cellDef.required ? "true" : undefined}
+                          // A marked cell says so to assistive technology
+                          // too, not only in colour (audit R6).
+                          aria-invalid={isMissing ? true : undefined}
                           onWheel={(e) => e.currentTarget.blur()}
                           onChange={(e) =>
                             handleCellChange(row, col, e.target.value)

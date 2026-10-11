@@ -372,3 +372,45 @@ test("a listed mismatch is said once, and opens either of its two tables", async
   await flush();
   assert.equal(currentTable(), "4.1");
 });
+
+// ── The cells a table's message counts are marked on it (audit R6) ───────
+
+const marked = () =>
+  Array.from(document.querySelectorAll<HTMLElement>('[aria-invalid="true"]')).map((el) => el.id);
+
+test("a blocked Next marks the cells left to fill, and only those", async () => {
+  // 4.2 with one cell of its first row filled: every other cell is owed.
+  const { user } = renderAt(
+    { ...quiz(), ...filled("VT4_1"), s4q2_cap_male: 3 },
+    { sectionIndex: S4, stepIndex: 1 },
+  );
+  assert.equal(currentTable(), "4.2");
+  assert.deepEqual(marked(), [], "nothing is marked before Suivant is pressed");
+
+  await user.click(next());
+  await flush();
+
+  const ids = marked();
+  assert.ok(ids.length > 0, "the blank cells are marked, not just counted");
+  assert.ok(ids.includes("cell-input-s4q2_cap_female"), "a blank cell of a filled row");
+  assert.equal(ids.includes("cell-input-s4q2_cap_male"), false, "a cell already filled is not marked");
+  assert.equal(ids.some((id) => id.endsWith("_total")), false, "a calculated cell is never owed");
+});
+
+test("the add-a-row tables mark the cells of a started row (4.3)", async () => {
+  const { user } = renderAt(
+    { ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), s4q3_row1_specialtyText: "Couture" },
+    { sectionIndex: S4, stepIndex: 2 },
+  );
+  assert.equal(currentTable(), "4.3");
+
+  await user.click(next());
+  await flush();
+
+  assert.deepEqual(marked(), [
+    "cell-input-s4q3_row1_fiMale",
+    "cell-input-s4q3_row1_fiFemale",
+    "cell-input-s4q3_row1_fcMale",
+    "cell-input-s4q3_row1_fcFemale",
+  ]);
+});
