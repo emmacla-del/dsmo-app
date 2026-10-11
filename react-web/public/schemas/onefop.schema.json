@@ -20080,8 +20080,8 @@
             },
             {
               "title": {
-                "fr": "6.2 Informations sur le suivi post-formation des sortants des centres de formation professionnelles du minefop",
-                "en": "6.2 Information on the post-training follow-up of minefop vocational training center graduates"
+                "fr": "6.2 Informations sur le suivi post-formation des sortants des centres de formation professionnelles du MINEFOP",
+                "en": "6.2 Information on the post-training follow-up of MINEFOP vocational training center graduates"
               },
               "fieldIds": [
                 "VT6_7"
@@ -20753,8 +20753,8 @@
             },
             {
               "title": {
-                "fr": "7.4 Si oui, les thèmes suivants sont-ils abordés ?",
-                "en": "7.4 If yes, were the following themes discussed?"
+                "fr": "7.3 Si oui, les thèmes suivants sont-ils abordés ?",
+                "en": "7.3 If yes, were the following themes discussed?"
               },
               "fieldIds": [
                 "VT7_14",
@@ -21557,7 +21557,7 @@
             },
             {
               "id": "VT7_13",
-              "paperCode": "7.4",
+              "paperCode": "7.3",
               "path": "vocationalTraining.traineesReceivedFullSexEd",
               "type": "radio",
               "required": true,
@@ -21588,7 +21588,7 @@
             },
             {
               "id": "VT7_14",
-              "paperCode": "7.4",
+              "paperCode": "7.3.1",
               "path": "vocationalTraining.genericLifeSkillsInSyllabus",
               "type": "radio",
               "required": true,
@@ -21623,7 +21623,7 @@
             },
             {
               "id": "VT7_15",
-              "paperCode": "7.4",
+              "paperCode": "7.3.1",
               "path": "vocationalTraining.genericLifeSkillsExtracurricular",
               "type": "radio",
               "required": true,
@@ -21658,7 +21658,7 @@
             },
             {
               "id": "VT7_16",
-              "paperCode": "7.4",
+              "paperCode": "7.3.2",
               "path": "vocationalTraining.reproHealthEdInSyllabus",
               "type": "radio",
               "required": true,
@@ -21693,7 +21693,7 @@
             },
             {
               "id": "VT7_17",
-              "paperCode": "7.4",
+              "paperCode": "7.3.2",
               "path": "vocationalTraining.reproHealthEdExtracurricular",
               "type": "radio",
               "required": true,
@@ -21728,7 +21728,7 @@
             },
             {
               "id": "VT7_18",
-              "paperCode": "7.4",
+              "paperCode": "7.3.3",
               "path": "vocationalTraining.hivTransmissionEdInSyllabus",
               "type": "radio",
               "required": true,
@@ -21763,7 +21763,7 @@
             },
             {
               "id": "VT7_19",
-              "paperCode": "7.4",
+              "paperCode": "7.3.3",
               "path": "vocationalTraining.hivTransmissionEdExtracurricular",
               "type": "radio",
               "required": true,
@@ -21798,7 +21798,7 @@
             },
             {
               "id": "VT7_20",
-              "paperCode": "7.5",
+              "paperCode": "7.4",
               "path": "vocationalTraining.trainersDeliveredSexEd",
               "type": "radio",
               "required": true,
@@ -21829,7 +21829,7 @@
             },
             {
               "id": "VT7_20_DOMAINS",
-              "paperCode": "7.6",
+              "paperCode": "7.4",
               "path": "vocationalTraining.trainersSexEdDomains",
               "type": "checkbox",
               "required": true,
@@ -21871,7 +21871,7 @@
             },
             {
               "id": "VT7_21",
-              "paperCode": "7.6",
+              "paperCode": "7.5",
               "path": "vocationalTraining.trainersPassedOnToStudents",
               "type": "radio",
               "required": true,
@@ -21906,7 +21906,7 @@
             },
             {
               "id": "VT7_22",
-              "paperCode": "7.7",
+              "paperCode": "7.6",
               "path": "vocationalTraining.heldParentOrientationSessions",
               "type": "radio",
               "required": true,
@@ -23892,7 +23892,7 @@
                         },
                         {
                           "value": "sans_diplome_professionnel",
-                          "code": "12",
+                          "code": "13",
                           "label": {
                             "fr": "Sans diplôme professionnel",
                             "en": "No vocational qualification"
