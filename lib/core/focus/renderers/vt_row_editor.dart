@@ -524,6 +524,29 @@ class _VtRowSheetState extends State<_VtRowSheet> {
     // (close to full screen height), which would center the sheet's
     // content vertically in the middle of the screen instead of anchoring
     // it at the top, right below the drag handle.
+    // The cells the paper bands together — 8.8's two qualifications, under
+    // "Si formateur/ If teacher" (VtCellDef.group) — are headed once, above
+    // the first of them actually shown, so the sheet says whose answers
+    // they are just as the desktop grid's spanning header does.
+    final fields = <Widget>[];
+    String? openBand;
+    for (final c in def.cells) {
+      if (!_cellVisible(c)) continue;
+      final band = c.group?.of(locale);
+      if (band != null && band != openBand) {
+        fields.add(Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text(
+            band,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600, color: kInk),
+          ),
+        ));
+      }
+      openBand = band;
+      fields.add(_cellField(context, def, row, c, locale));
+    }
+
     return Align(
       alignment: Alignment.topCenter,
       heightFactor: 1.0,
@@ -578,8 +601,7 @@ class _VtRowSheetState extends State<_VtRowSheet> {
                 // identifying text at the top of the sheet.
                 if (row.fixedLabel == null && labelCell != null)
                   const SizedBox.shrink(),
-                for (final c in def.cells)
-                  if (_cellVisible(c)) _cellField(context, def, row, c, locale),
+                ...fields,
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,

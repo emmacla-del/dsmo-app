@@ -317,7 +317,25 @@ class _VtSpreadsheetTableBody extends StatelessWidget {
           .reduce((a, b) => a > b ? a : b);
     });
 
+    // The bands the paper prints over the columns (8.8's "Si formateur"
+    // over the two qualifications, VtCellDef.group). Consecutive cells
+    // sharing one are headed once, spanning them, and keep their own
+    // heading on a second header row; every other column spans both.
+    final bands = <({String? group, List<int> cols})>[];
+    for (final entry in def.cells.asMap().entries) {
+      final group = entry.value.group?.of(locale);
+      final open = bands.isEmpty ? null : bands.last;
+      if (open != null && group != null && open.group == group) {
+        open.cols.add(entry.key);
+      } else {
+        bands.add((group: group, cols: [entry.key]));
+      }
+    }
+    final banded = bands.any((b) => b.group != null);
+    final headerRows = banded ? 2 : 1;
+
     final rowHeights = <double>[
+      if (banded) GridTheme.rowHeight,
       headerHeight,
       for (final row in rows)
         () {
@@ -329,33 +347,51 @@ class _VtSpreadsheetTableBody extends StatelessWidget {
         }(),
     ];
 
-    final cells = <GridCell>[
-      const GridCell(
-        id: 'h_row',
-        row: 0,
-        col: 0,
-        backgroundColor: GridTheme.headerBg,
-        child: SizedBox.shrink(),
-      ),
-      for (final entry in def.cells.asMap().entries)
+    GridCell headerCell(String id, int row, int col, String text,
+            {int rowSpan = 1, int colSpan = 1}) =>
         GridCell(
-          id: 'h_${entry.value.key}',
-          row: 0,
-          col: entry.key + 1,
+          id: id,
+          row: row,
+          col: col,
+          rowSpan: rowSpan,
+          colSpan: colSpan,
           backgroundColor: GridTheme.headerBg,
           child: Padding(
             padding: GridTheme.headerCellPadding,
             child: Text(
-              entry.value.label.of(locale),
+              text,
               textAlign: TextAlign.center,
               style: GridTheme.headerStyle,
             ),
           ),
-        ),
+        );
+
+    final cells = <GridCell>[
+      GridCell(
+        id: 'h_row',
+        row: 0,
+        col: 0,
+        rowSpan: headerRows,
+        backgroundColor: GridTheme.headerBg,
+        child: const SizedBox.shrink(),
+      ),
     ];
 
+    for (final band in bands) {
+      if (band.group != null) {
+        cells.add(headerCell('h_band_${band.cols.first}', 0, band.cols.first + 1, band.group!,
+            colSpan: band.cols.length));
+      }
+      for (final col in band.cols) {
+        final c = def.cells[col];
+        cells.add(band.group == null
+            ? headerCell('h_${c.key}', 0, col + 1, c.label.of(locale), rowSpan: headerRows)
+            : headerCell('h_${c.key}', 1, col + 1, c.label.of(locale)));
+      }
+    }
+
     for (final entry in rows.asMap().entries) {
-      final r = entry.key + 1;
+      final r = entry.key + headerRows;
       final row = entry.value;
       final label = vtRowLabel(ctrl, row, locale);
       final placeholder = row.fixedLabel == null && label.isEmpty;
@@ -394,7 +430,7 @@ class _VtSpreadsheetTableBody extends StatelessWidget {
 
     final grid = GridLayoutEngine(
       cells: cells,
-      rowCount: rows.length + 1,
+      rowCount: rows.length + headerRows,
       colCount: def.cells.length + 1,
       colWidths: colWidths,
       rowHeights: rowHeights,

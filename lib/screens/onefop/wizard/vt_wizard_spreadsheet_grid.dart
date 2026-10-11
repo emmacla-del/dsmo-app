@@ -134,7 +134,20 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
     }
   }
 
-  bool _rowComplete(VtRowDef row) => vtRowStatus(ctrl, def, row) == VtRowStatus.complete;
+  bool _cellFilled(dynamic v) {
+    if (v == null) return false;
+    if (v is String) return v.trim().isNotEmpty;
+    return true;
+  }
+
+  bool _rowComplete(VtRowDef row) {
+    final status = vtRowStatus(ctrl, def, row);
+    if (status == VtRowStatus.complete) return true;
+    final editableCells = def.cells
+        .where((c) => c.kind != VtCellKind.computed && vtCellVisible(ctrl, def, row, c));
+    if (editableCells.isEmpty) return false;
+    return editableCells.every((c) => _cellFilled(ctrl.data[def.cellId(row, c)]));
+  }
 
   Widget _withErrorBorder(Widget child, bool hasError) {
     if (!hasError) return child;
@@ -290,7 +303,27 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
           .reduce((a, b) => a > b ? a : b);
     });
 
+    // The bands the paper prints over the columns (8.8's "Si formateur"
+    // over the two qualifications, VtCellDef.group). Consecutive cells
+    // sharing one are headed once, spanning them, and keep their own
+    // heading on a second header row; every other column spans both. Same
+    // rule as the Excel-mode grid (core/focus/renderers/
+    // vt_spreadsheet_table.dart) and as react-web's own roster grid.
+    final bands = <({String? group, List<int> cols})>[];
+    for (final entry in def.cells.asMap().entries) {
+      final group = entry.value.group?.of(locale);
+      final open = bands.isEmpty ? null : bands.last;
+      if (open != null && group != null && open.group == group) {
+        open.cols.add(entry.key);
+      } else {
+        bands.add((group: group, cols: [entry.key]));
+      }
+    }
+    final banded = bands.any((b) => b.group != null);
+    final headerRows = banded ? 2 : 1;
+
     final rowHeights = <double>[
+      if (banded) GridTheme.rowHeight,
       headerHeight,
       for (final row in rows)
         () {
@@ -301,39 +334,58 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
         }(),
     ];
 
+    GridCell headerCell(String id, int row, int col, String text,
+            {int rowSpan = 1, int colSpan = 1}) =>
+        GridCell(
+          id: id,
+          row: row,
+          col: col,
+          rowSpan: rowSpan,
+          colSpan: colSpan,
+          backgroundColor: kAccent,
+          child: Padding(
+            padding: GridTheme.headerCellPadding,
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GridTheme.polishedHeaderStyle,
+            ),
+          ),
+        );
+
     final cells = <GridCell>[
-      // Row 0: header row (row-number column + blank, then cell headers)
-      const GridCell(
+      // Row 0: header row (row-number column + blank, then cell headers),
+      // plus a band row above the headers where the paper prints one.
+      GridCell(
         id: 'h_rownum',
         row: 0,
         col: 0,
+        rowSpan: headerRows,
         backgroundColor: kAccent,
-        child: SizedBox.shrink(),
+        child: const SizedBox.shrink(),
       ),
       GridCell(
         id: 'h_lbl',
         row: 0,
         col: 1,
+        rowSpan: headerRows,
         backgroundColor: kAccent,
-        child: SizedBox.shrink(),
+        child: const SizedBox.shrink(),
       ),
-      for (final entry in def.cells.asMap().entries)
-        GridCell(
-          id: 'h_${entry.value.key}',
-          row: 0,
-          col: entry.key + 2,
-          backgroundColor: kAccent,
-          child: Padding(
-            padding: GridTheme.headerCellPadding,
-            child: Text(
-              entry.value.label.of(locale),
-              textAlign: TextAlign.center,
-              style: GridTheme.polishedHeaderStyle,
-            ),
-          ),
-        ),
-      // Row 0: Σ TOTAL footer row (numeric columns summed)
     ];
+
+    for (final band in bands) {
+      if (band.group != null) {
+        cells.add(headerCell('h_band_${band.cols.first}', 0, band.cols.first + 2, band.group!,
+            colSpan: band.cols.length));
+      }
+      for (final col in band.cols) {
+        final c = def.cells[col];
+        cells.add(band.group == null
+            ? headerCell('h_${c.key}', 0, col + 2, c.label.of(locale), rowSpan: headerRows)
+            : headerCell('h_${c.key}', 1, col + 2, c.label.of(locale)));
+      }
+    }
 
     // Σ TOTAL footer calculation
     for (final entry in def.cells.asMap().entries) {
@@ -350,7 +402,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
         }
         cells.add(GridCell(
           id: 'total_${c.key}',
-          row: rows.length + 1,
+          row: rows.length + headerRows,
           col: entry.key + 2,
           backgroundColor: kAccentSoft,
           alignment: Alignment.center,
@@ -366,7 +418,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
       } else {
         cells.add(GridCell(
           id: 'total_${c.key}',
-          row: rows.length + 1,
+          row: rows.length + headerRows,
           col: entry.key + 2,
           backgroundColor: kAccentSoft,
           child: SizedBox.shrink(),
@@ -376,7 +428,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
 
     // Data rows
     for (final entry in rows.asMap().entries) {
-      final r = entry.key + 1;
+      final r = entry.key + headerRows;
       final row = entry.value;
       final label = vtRowLabel(ctrl, row, locale);
       final placeholder = row.fixedLabel == null && label.isEmpty;
@@ -421,7 +473,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
                   child: Semantics(
                     label: 'Ligne ${entry.key + 1} terminée',
                     child: const Icon(
-                      Icons.check_circle,
+                      Icons.check_rounded,
                       size: 14,
                       color: kAccent,
                     ),
@@ -460,7 +512,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
     final footerBg = kAccent;
     cells.add(GridCell(
       id: 'summary_label',
-      row: rows.length + 1,
+      row: rows.length + headerRows,
       col: 0,
       backgroundColor: footerBg,
       alignment: Alignment.centerLeft,
@@ -475,7 +527,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
 
     cells.add(GridCell(
       id: 'summary_lbl2',
-      row: rows.length + 1,
+      row: rows.length + headerRows,
       col: 1,
       backgroundColor: footerBg,
       alignment: Alignment.centerLeft,
@@ -491,7 +543,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
     // Σ TOTAL row label cell
     cells.add(GridCell(
       id: 'total_label',
-      row: rows.length + 2,
+      row: rows.length + headerRows + 1,
       col: 0,
       backgroundColor: kVtWizardBackground,
       alignment: Alignment.centerLeft,
@@ -507,7 +559,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
     // Σ TOTAL row label column (col 1) - blank
     cells.add(GridCell(
       id: 'total_lbl2',
-      row: rows.length + 2,
+      row: rows.length + headerRows + 1,
       col: 1,
       backgroundColor: kVtWizardBackground,
       child: SizedBox.shrink(),
@@ -515,7 +567,7 @@ class _VtWizardSpreadsheetGridBody extends StatelessWidget {
 
     final grid = GridLayoutEngine(
       cells: cells,
-      rowCount: rows.length + 3,
+      rowCount: rows.length + headerRows + 2,
       colCount: def.cells.length + 2,
       colWidths: colWidths,
       rowHeights: rowHeights,
