@@ -54,8 +54,12 @@ import {
   getGuidedOnlyTableDefinition,
 } from "./tables/definitions/modernJobsTableDefinitions";
 import { missingQuizFieldKeys } from "./tables/quizRequired";
-import { TableCompletionIndicator } from "./tables/TableCompletionIndicator";
-import { TABLE_LABEL_COL_PX, TABLE_MAX_WIDTH_PX, tableMinWidthPx } from "./tables/tableLayout";
+import {
+  TABLE_LABEL_COL_PX,
+  TABLE_MAX_DATA_COL_PX,
+  TABLE_MAX_WIDTH_PX,
+  tablePreferredWidthPx,
+} from "./tables/tableLayout";
 import { CoherenceChip, CoherenceTd } from "./coherence/Coherence";
 import { useCampaignPeriod } from "./CampaignPeriodContext";
 import { kpiPeriodLabels } from "@/lib/campaign-period";
@@ -80,10 +84,14 @@ interface RowTextColumn {
   onTextChange: (fieldId: string, value: string) => void;
 }
 
-/** Share of the table width given to an editable text label column. */
-const ROW_TEXT_COLUMN_WIDTH = "50%";
-/** Minimum width of that column before the table scrolls in its frame. */
-const ROW_TEXT_COLUMN_MIN_PX = 260;
+/**
+ * Width of an editable text label column. A fixed width, not the "50%" it
+ * was until 2026-10-11: now that the frame hugs its columns rather than
+ * filling the container, a percentage of the table width is circular. 360px
+ * sits between the 260px floor it used to have and the ~512px it reached on
+ * a maximised window.
+ */
+const ROW_TEXT_COLUMN_WIDTH = 360;
 
 const labelStyle: React.CSSProperties = {
   fontSize: "var(--cam-font-size-sm)",
@@ -290,20 +298,22 @@ function GenericGrid({
   // subLabels when there is a single, unlabeled group).
   const leafColumnCount = groupLabels.length * subLabels.length;
 
-  const minTableWidth = rowText
-    ? ROW_TEXT_COLUMN_MIN_PX + tableMinWidthPx(leafColumnCount, 0)
-    : tableMinWidthPx(leafColumnCount);
+  const labelColumnPx = rowText ? ROW_TEXT_COLUMN_WIDTH : TABLE_LABEL_COL_PX;
+  const preferredTableWidth = tablePreferredWidthPx(
+    Array.from({ length: leafColumnCount }, () => TABLE_MAX_DATA_COL_PX),
+    labelColumnPx,
+  );
 
   return (
     // Same sizing rule as StatisticalGridRenderer (see tables/tableLayout.ts):
-    // the frame fills its container up to TABLE_MAX_WIDTH_PX so every table
-    // lines up; the label column is fixed and the data columns share the
-    // rest equally. It only scrolls (inside this frame) once data columns
-    // would drop below TABLE_MIN_DATA_COL_PX.
+    // the frame hugs its own columns and never exceeds TABLE_MAX_WIDTH_PX; the
+    // label column is fixed and each data column is capped at
+    // TABLE_MAX_DATA_COL_PX. It only scrolls (inside this frame) once the
+    // frame is narrower than the columns ask for.
     <div
       style={{
-        width: "100%",
-        maxWidth: TABLE_MAX_WIDTH_PX,
+        width: "fit-content",
+        maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)`,
         overflow: "hidden",
         border: "1px solid var(--cam-table-frame)",
         borderRadius: "var(--cam-radius-sm)",
@@ -312,8 +322,7 @@ function GenericGrid({
       <div style={{ width: "100%", overflowX: "auto" }}>
         <DataTable
           style={{
-            width: "100%",
-            minWidth: minTableWidth,
+            width: preferredTableWidth,
             borderCollapse: "separate",
             borderSpacing: 0,
             tableLayout: "fixed",
@@ -321,9 +330,9 @@ function GenericGrid({
           }}
         >
           <colgroup>
-            <col style={{ width: rowText ? ROW_TEXT_COLUMN_WIDTH : TABLE_LABEL_COL_PX }} />
+            <col style={{ width: labelColumnPx }} />
             {Array.from({ length: leafColumnCount }).map((_, i) => (
-              <col key={i} />
+              <col key={i} style={{ width: TABLE_MAX_DATA_COL_PX }} />
             ))}
           </colgroup>
         <thead>
@@ -650,19 +659,6 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
   );
   const missingKeysSet = useMemo(() => new Set(missingFieldKeys), [missingFieldKeys]);
 
-  const handleFocusFirstIncomplete = () => {
-    if (missingFieldKeys.length === 0) return;
-    const firstKey = missingFieldKeys[0];
-    const el =
-      document.querySelector<HTMLInputElement>(`input[data-field-key="${firstKey}"]`) ||
-      document.getElementById(firstKey);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.focus({ preventScroll: true });
-      (el as HTMLInputElement).select?.();
-    }
-  };
-
   const config: TableConfig | undefined = (() => {
     switch (table?.template) {
       case "csp_gender_age_table": {
@@ -952,13 +948,6 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
           <CodedLabel code={field.paperCode} text={label} />
         </p>
         <CoherenceChip tableFieldId={field.id} style={{ marginBottom: "var(--cam-space-2)" }} />
-        {isReported && missingFieldKeys.length > 0 && (
-          <TableCompletionIndicator
-            missingCount={missingFieldKeys.length}
-            onFocusFirstMissing={handleFocusFirstIncomplete}
-            locale={locale}
-          />
-        )}
         <GenericGrid
           matrix={matrix}
           rowLabels={config.rowLabels}
@@ -1030,13 +1019,6 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
       <p style={labelStyle}>
         <CodedLabel code={field.paperCode} text={label} />
       </p>
-      {isReported && missingFieldKeys.length > 0 && (
-        <TableCompletionIndicator
-          missingCount={missingFieldKeys.length}
-          onFocusFirstMissing={handleFocusFirstIncomplete}
-          locale={locale}
-        />
-      )}
       <ContractGroupedGrid
         matrix={matrix}
         rowKeys={rows}

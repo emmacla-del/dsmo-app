@@ -20,8 +20,12 @@ import { StatisticalGridRenderer } from "./StatisticalGridRenderer";
 import { GuidedStatisticalEntry } from "./GuidedStatisticalEntry";
 import { NominalRosterRenderer } from "./NominalRosterRenderer";
 import { missingQuizFieldKeys } from "./quizRequired";
-import { TableCompletionIndicator } from "./TableCompletionIndicator";
-import { TABLE_BLOCK_TAB_COL_PX, TABLE_LABEL_COL_PX, TABLE_MAX_WIDTH_PX } from "./tableLayout";
+import {
+  TABLE_LABEL_COL_PX,
+  TABLE_MAX_DATA_COL_PX,
+  TABLE_MAX_WIDTH_PX,
+  tablePreferredWidthPx,
+} from "./tableLayout";
 import { CoherenceChip, useCoherence } from "../coherence/Coherence";
 
 /** A run of consecutive columns sharing one header group (e.g. "Licenciement" → H/F/T). */
@@ -190,7 +194,7 @@ export function AdaptiveStatisticalTable({
 
   // ── Block tabs for wide grids ──────────────────────────────────────────
   // When a grouped table (e.g. S3Q01: 5 departure types × H/F/T) cannot fit
-  // its columns in the frame at TABLE_BLOCK_TAB_COL_PX each, the grid shows
+  // its columns in the frame at their own widths, the grid shows
   // one editable block at a time (tabs above the table) plus the calculated
   // block(s) pinned on the right — no horizontal scrolling. Blocks come from
   // the definition's columns, which the scope quiz has already filtered, so
@@ -347,11 +351,22 @@ export function AdaptiveStatisticalTable({
     handleBatchChange({ [fieldKey]: value });
   };
 
-  const totalColumnCount = effectiveDefinition.columns.length;
+  // The width the whole table wants, measured exactly as
+  // StatisticalGridRenderer lays it out. A table that will not fit splits
+  // into its own column groups rather than scrolling sideways (owner,
+  // 2026-10-11): the trigger used to be a 64px-per-column floor, so VT 4.8
+  // only split below a 796px frame although it needs 1021px, and every
+  // frame in between — a 1366px laptop with the rail, among others — showed
+  // all nine columns and scrolled horizontally instead.
+  const preferredTableWidth = tablePreferredWidthPx(
+    effectiveDefinition.columns.map((c) =>
+      typeof c.width === "number" ? c.width : TABLE_MAX_DATA_COL_PX,
+    ),
+  );
   const useBlockTabs =
     viewMode === "grid" &&
     editableBlocks.length > 1 &&
-    TABLE_LABEL_COL_PX + totalColumnCount * TABLE_BLOCK_TAB_COL_PX > frameWidth;
+    preferredTableWidth > frameWidth;
   const activeBlock = useBlockTabs ? editableBlocks[clampedBlockIdx] : undefined;
 
   // The grid receives a column-sliced view of the same definition: rows,
@@ -388,36 +403,6 @@ export function AdaptiveStatisticalTable({
     () => markMissingFieldKeys ?? (isReported ? missingQuizFieldKeys(effectiveDefinition, data) : []),
     [markMissingFieldKeys, isReported, effectiveDefinition, data]
   );
-
-  const handleFocusFirstIncomplete = () => {
-    if (!missingFieldKeys || missingFieldKeys.length === 0) return;
-    const firstKey = missingFieldKeys[0];
-
-    // If table uses block tabs, switch to the block containing firstKey
-    if (useBlockTabs && effectiveDefinition.type === "fixed-matrix") {
-      const colKey = effectiveDefinition.rows
-        .flatMap((row) => Object.entries(row.cells))
-        .find(([, cell]) => cell.fieldKey === firstKey)?.[0];
-      if (colKey) {
-        const blockIdx = editableBlocks.findIndex((b) => b.columns.some((c) => c.key === colKey));
-        if (blockIdx !== -1 && blockIdx !== clampedBlockIdx) {
-          setActiveBlockIdx(blockIdx);
-        }
-      }
-    }
-
-    setTimeout(() => {
-      const target =
-        document.querySelector<HTMLInputElement>(`input[data-field-key="${firstKey}"]`) ||
-        document.getElementById(`cell-input-${firstKey}`) ||
-        (document.getElementById(firstKey) as HTMLInputElement | null);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        target.focus({ preventScroll: true });
-        (target as HTMLInputElement).select?.();
-      }
-    }, 60);
-  };
 
   const blockFillState = (block: ColumnBlock): "empty" | "partial" | "complete" => {
     let total = 0;
@@ -529,15 +514,6 @@ export function AdaptiveStatisticalTable({
             <CoherenceChip tableFieldId={tableFieldId} />
           </div>
         </div>
-      )}
-
-      {/* ── Table Completion Indicator (Phase 4.4: Incomplete REPORTED Matrix Indicator) ── */}
-      {isReported && missingFieldKeys.length > 0 && (
-        <TableCompletionIndicator
-          missingCount={missingFieldKeys.length}
-          onFocusFirstMissing={handleFocusFirstIncomplete}
-          locale={locale}
-        />
       )}
 
       {/* ── Horizontal CSP Selector Tabs (Mode Tableur only; e.g. S22Q03 4D) ── */}
