@@ -36,7 +36,7 @@ import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScre
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
 import { ModernJobsWizard } from "./ModernJobsWizard";
-import { ModernJobsHeader } from "./ModernJobsHeader";
+import { ModernJobsHeader, type ModernJobsHeaderProps } from "./ModernJobsHeader";
 import { OnefopPdfPreviewModal } from "./OnefopPdfPreviewModal";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
 import { findIssueOwner, wizardStepAnnouncement } from "@/lib/wizard-navigation";
@@ -67,12 +67,15 @@ interface WizardShellProps {
    * They are optional so existing non-VT call sites remain source compatible.
    */
   onCancel?: () => void;
-  onSaveNow?: () => Promise<void> | void;
+  /** Saves the draft to the server; false means it did not land. */
+  onSaveNow?: () => Promise<boolean | void> | boolean | void;
 
   /** Persistent save state supplied by the parent/autosave layer. */
   saving?: boolean;
   saveFailed?: boolean;
   lastSavedAt?: Date | null;
+  /** The draft's state on the server, shown in the masthead (audit R2). */
+  serverSave?: ModernJobsHeaderProps["serverSave"];
 
   establishmentName?: string;
   /** The establishment's CAM-LEAP number (e.g. VT26000103), shown in the masthead. */
@@ -148,6 +151,7 @@ export function WizardShell({
   saving = false,
   saveFailed = false,
   lastSavedAt = null,
+  serverSave,
   establishmentName,
   establishmentId,
   niu,
@@ -868,6 +872,7 @@ export function WizardShell({
           quarterCode={effectiveQuarter}
           saving={saving}
           lastSavedAt={lastSavedAt}
+          serverSave={serverSave}
           onExit={onCancel}
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
@@ -1010,6 +1015,7 @@ export function WizardShell({
           quarterCode={effectiveQuarter}
           saving={saving}
           lastSavedAt={lastSavedAt}
+          serverSave={serverSave}
           onExit={onCancel}
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
@@ -1084,7 +1090,11 @@ export function WizardShell({
                   isLast={clampedSectionIndex === sections.length - 1}
                   onBack={handlePrev}
                   onNext={handleNext}
-                  onSaveAndExit={onSaveNow && onCancel ? async () => { await onSaveNow(); onCancel(); } : undefined}
+                  onSaveAndExit={onSaveNow && onCancel ? async () => {
+                    // A failed save keeps the respondent here, with the
+                    // masthead's "Not saved — retry" (audit R2).
+                    if (await onSaveNow() !== false) onCancel();
+                  } : undefined}
                   showBottomBar={false}
                   saving={saving}
                   activeStep={vtStepped ? vtStepIndex : undefined}
