@@ -1110,6 +1110,10 @@
       "saving": "Enregistrement…",
       "savedAt": "Enregistré à {time}",
       "draftSaved": "Brouillon sauvegardé",
+      "savedToAccount": "Enregistré sur votre compte {time}",
+      "savedOnDevice": "Enregistré sur cet appareil",
+      "notSaved": "Non enregistré —",
+      "retrySave": "réessayer",
       "exit": "Quitter"
     },
     "nav": {

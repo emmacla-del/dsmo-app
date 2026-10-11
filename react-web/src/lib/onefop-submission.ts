@@ -86,11 +86,22 @@ export interface SavedDraft {
   updatedAt: string;
 }
 
+/** The browser's cap on a keepalive request body, with room for headers. */
+const KEEPALIVE_MAX_BYTES = 60 * 1024;
+
 export function saveDraftToBackend(
   entityType: string,
   quarterCode: string,
   draftData: FormData,
   entity?: OnefopEntity | null,
+  /**
+   * `keepalive` lets the request finish after the page is gone, for the save
+   * sent when the respondent closes the tab (use-onefop-server-save.ts). The
+   * browser caps a keepalive body at 64 KiB, so a draft above that is sent
+   * as an ordinary request — which survives a tab switch, though not a
+   * close.
+   */
+  options?: { keepalive?: boolean },
 ) {
   // D7 fix: In drafts, preserve working quiz state (_scopeConfig, _scopeCsp, _scopeAge)
   // so remote draft recovery preserves respondent interview answers.
@@ -100,14 +111,14 @@ export function saveDraftToBackend(
   if (draftData._scopeCsp) prepared._scopeCsp = draftData._scopeCsp;
   if (draftData._scopeAge) prepared._scopeAge = draftData._scopeAge;
 
-  return apiFetch<SavedDraft>("/onefop/draft", {
-    method: "POST",
-    body: JSON.stringify({
-      quarterCode,
-      entityType: BACKEND_ENTITY_TYPE[entityType] ?? entityType,
-      draftData: prepared,
-    }),
+  const body = JSON.stringify({
+    quarterCode,
+    entityType: BACKEND_ENTITY_TYPE[entityType] ?? entityType,
+    draftData: prepared,
   });
+  const keepalive = Boolean(options?.keepalive) && body.length <= KEEPALIVE_MAX_BYTES;
+
+  return apiFetch<SavedDraft>("/onefop/draft", { method: "POST", body, keepalive });
 }
 
 /**

@@ -35,3 +35,50 @@ test("other surveys keep the general title and name the entity before the campai
   assert.ok(screen.getByText("Enquête Emploi & Main-d'œuvre"));
   assert.ok(screen.getByText(/Entreprises · .*4e trimestre 2026/));
 });
+
+// ── The save status tells the truth about the account (audit R2) ─────────
+
+function renderStatus(serverSave: Parameters<typeof ModernJobsHeader>[0]["serverSave"]) {
+  return renderWithProviders(
+    <ModernJobsHeader entityType="vocationalTraining" quarterCode="QUARTERLY_2026_T4_001" serverSave={serverSave} />,
+  );
+}
+
+const SAVED_AT = new Date(2026, 9, 11, 14, 32);
+
+test("answers that are only in the browser are not called saved to the account", () => {
+  renderStatus({ state: "idle", savedAt: null, hasUnsavedChanges: true, onRetry: () => {} });
+  assert.ok(screen.getByText("Enregistré sur cet appareil"));
+  assert.equal(screen.queryByText(/votre compte/), null);
+});
+
+test("a save in flight says so, and a landed one names the time it reached the account", () => {
+  const { unmount } = renderStatus({ state: "saving", savedAt: null, hasUnsavedChanges: true, onRetry: () => {} });
+  assert.ok(screen.getByText("Enregistrement…"));
+  unmount();
+
+  renderStatus({ state: "saved", savedAt: SAVED_AT, hasUnsavedChanges: false, onRetry: () => {} });
+  assert.ok(screen.getByText(/Enregistré sur votre compte .*14:32/));
+});
+
+test("answers typed since the last save stop the account claim", () => {
+  renderStatus({ state: "saved", savedAt: SAVED_AT, hasUnsavedChanges: true, onRetry: () => {} });
+  assert.ok(screen.getByText("Enregistré sur cet appareil"));
+  assert.equal(screen.queryByText(/votre compte/), null);
+});
+
+test("a failed save offers the retry, and says nothing was saved", async () => {
+  let retried = 0;
+  const { user } = renderStatus({ state: "failed", savedAt: SAVED_AT, hasUnsavedChanges: true, onRetry: () => { retried++; } });
+
+  assert.ok(screen.getByText(/Non enregistré/));
+  await user.click(screen.getByRole("button", { name: "réessayer" }));
+  assert.equal(retried, 1);
+});
+
+test("without a server state the masthead keeps reporting the local autosave", () => {
+  renderWithProviders(
+    <ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" lastSavedAt={SAVED_AT} />,
+  );
+  assert.ok(screen.getByText(/Enregistré à .*14:32/));
+});

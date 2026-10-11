@@ -5,8 +5,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { clockTime } from "@/lib/admin-data-state";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
+import type { ServerSaveState } from "@/lib/use-onefop-server-save";
 
-interface ModernJobsHeaderProps {
+export interface ModernJobsHeaderProps {
   entityType: string;
   establishmentName?: string;
   /** The establishment's CAM-LEAP number, e.g. VT26000103. */
@@ -14,6 +15,17 @@ interface ModernJobsHeaderProps {
   quarterCode?: string;
   saving?: boolean;
   lastSavedAt?: Date | null;
+  /**
+   * The draft's state on the server (audit R2). Given it, the masthead
+   * reports that — never the local buffer — as saved; without it, it keeps
+   * reporting the local autosave as before.
+   */
+  serverSave?: {
+    state: ServerSaveState;
+    savedAt: Date | null;
+    hasUnsavedChanges: boolean;
+    onRetry: () => void;
+  };
   onExit?: () => void;
   onPreviewPdf?: () => void;
   isGeneratingPdf?: boolean;
@@ -34,6 +46,7 @@ export function ModernJobsHeader({
   quarterCode = "",
   saving = false,
   lastSavedAt,
+  serverSave,
   onExit,
   onPreviewPdf,
   isGeneratingPdf = false,
@@ -70,6 +83,10 @@ export function ModernJobsHeader({
 
   const formattedSaveTime = lastSavedAt
     ? clockTime(lastSavedAt, asUiLocale(locale))
+    : null;
+
+  const serverSavedTime = serverSave?.savedAt
+    ? clockTime(serverSave.savedAt, asUiLocale(locale))
     : null;
 
   // Publish this sticky header's height as --mj-header-h and
@@ -178,11 +195,30 @@ export function ModernJobsHeader({
         {/* Right: save status, PDF preview, exit */}
         <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div role="status" style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", whiteSpace: "nowrap" }}>
-            {saving
-              ? t("saving")
-              : formattedSaveTime
-                ? t("savedAt", { time: formattedSaveTime })
-                : t("draftSaved")}
+            {serverSave ? (
+              serverSave.state === "saving" ? (
+                t("saving")
+              ) : serverSave.state === "failed" ? (
+                <span style={{ color: "var(--cam-error)" }}>
+                  {t("notSaved")}{" "}
+                  <button type="button" className="cam-text-button is-danger" onClick={serverSave.onRetry}>
+                    {t("retrySave")}
+                  </button>
+                </span>
+              ) : serverSave.state === "saved" && !serverSave.hasUnsavedChanges && serverSavedTime ? (
+                t("savedToAccount", { time: serverSavedTime })
+              ) : (
+                // Typed since the last save that landed, or never saved yet:
+                // it is on this device, which is not the same as saved.
+                t("savedOnDevice")
+              )
+            ) : saving ? (
+              t("saving")
+            ) : formattedSaveTime ? (
+              t("savedAt", { time: formattedSaveTime })
+            ) : (
+              t("draftSaved")
+            )}
           </div>
 
           {onPreviewPdf && (

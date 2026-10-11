@@ -1110,6 +1110,10 @@
       "saving": "Saving…",
       "savedAt": "Saved at {time}",
       "draftSaved": "Draft saved",
+      "savedToAccount": "Saved to your account {time}",
+      "savedOnDevice": "Saved on this device",
+      "notSaved": "Not saved —",
+      "retrySave": "retry",
       "exit": "Exit"
     },
     "nav": {

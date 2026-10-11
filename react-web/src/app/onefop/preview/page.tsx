@@ -8,6 +8,7 @@ import { getCachedUser, getToken } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { checkCoherence } from "@/lib/onefop-coherence";
 import { saveDraftToBackend } from "@/lib/onefop-submission";
+import { useOnefopServerSave } from "@/lib/use-onefop-server-save";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { hasRealNiu } from "@/lib/companies-directory";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
@@ -214,10 +215,26 @@ function OnefopDeclarationContent() {
   // VT-S: wire backend draft save so "Save & Exit" is available for all
   // entity types (especially VT, which has multi-session forms with no other
   // recovery path if the respondent clears browser data or switches device).
-  const handleSaveNow = useCallback(async () => {
-    if (!quarterCode) return;
-    await saveDraftToBackend(entityType, quarterCode, formData, entity ?? undefined);
-  }, [entityType, quarterCode, formData, entity]);
+  const handleSaveNow = useCallback(
+    async ({ keepalive }: { keepalive: boolean }) => {
+      if (!quarterCode) throw new Error("no campaign period to save against");
+      await saveDraftToBackend(entityType, quarterCode, formData, entity ?? undefined, { keepalive });
+    },
+    [entityType, quarterCode, formData, entity],
+  );
+
+  // The draft reaches the respondent's account when they leave the page or
+  // ask for it, not on every step (owner, 2026-10-11). The masthead reports
+  // that state; IndexedDB stays the offline buffer behind it.
+  const serverSave = useOnefopServerSave(formData, handleSaveNow);
+
+  // Exit is "closing without saving": send what is not on the server yet,
+  // then leave either way — a respondent who wants out is not held back by
+  // a failing network, and the local buffer still has their answers.
+  const handleExit = useCallback(async () => {
+    if (serverSave.hasUnsavedChanges) await serverSave.saveNow();
+    router.push("/home");
+  }, [serverSave, router]);
 
   // Role guard: only COMPANY accounts may fill ONEFOP questionnaires.
   // Redirect once the user record is resolved — meQuery may still be loading
@@ -333,10 +350,16 @@ function OnefopDeclarationContent() {
             niu={hasRealNiu(companyQuery.data?.taxNumber) ? companyQuery.data?.taxNumber : undefined}
             quarterCode={quarterCode}
             formId={formId}
-            onSaveNow={handleSaveNow}
+            onSaveNow={serverSave.saveNow}
+            serverSave={{
+              state: serverSave.state,
+              savedAt: serverSave.savedAt,
+              hasUnsavedChanges: serverSave.hasUnsavedChanges,
+              onRetry: () => void serverSave.saveNow(),
+            }}
             onSubmitted={clearLocalDraft}
             positionKey={loadedDraftKey}
-            onCancel={() => router.push("/home")}
+            onCancel={handleExit}
           />
           </CoherenceProvider>
           </CampaignPeriodContext.Provider>
