@@ -26,7 +26,6 @@ import {
 } from "./vt-wizard-utils";
 import {
   VT_COMPACT_TOGGLE_SECTION_IDS,
-  VT_TABBED_SECTION_IDS,
   VT_SIGNATURES_SECTION_ID,
   VT_ACCENT,
   VT_CARD_BORDER,
@@ -44,10 +43,16 @@ import {
 import { Vt713ChannelGrid } from "./Vt713ChannelGrid";
 import { VT85_FIELD_IDS, Vt85StatusTable } from "./Vt85StatusTable";
 import { vt53TotalMismatches } from "@/lib/vt-infrastructure-check";
+import {
+  VT_STEPPED_SECTION_IDS,
+  isVtStepApplicable,
+  vtFirstStep,
+  vtStepForIssue,
+  vtStepPosition,
+} from "@/lib/vt-table-steps";
 import { VtProgressiveRowGrid, isVtProgressiveNumberTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
-import { fieldOwnsIssue } from "@/lib/wizard-navigation";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
 import { FormSection, FormSubsection } from "./form/FormSection";
@@ -92,6 +97,12 @@ interface VtWizardSectionScreenProps {
   onOutlineChange?: (outline: VtWizardSectionOutlineModel | null) => void;
   /** See VtSectionRevealHandle. */
   revealRef?: Ref<VtSectionRevealHandle>;
+  /**
+   * Sections 4 and 8 (one table per screen): the table shown, when the shell
+   * drives it. Without it the screen keeps its own choice.
+   */
+  activeStep?: number;
+  onStepChange?: (index: number) => void;
 }
 
 interface VtFieldGroup {
@@ -170,6 +181,15 @@ function vtWizardGroupFields(
     groups.push({ title: cSub ?? null, fieldIds: cFields.map((x) => x.id), fields: cFields });
   }
   return groups;
+}
+
+/**
+ * The groups the screen shows for a section — in Sections 4 and 8, its
+ * tables, one per screen. The shell walks these same steps (vt-table-steps.ts).
+ */
+export function vtWizardSectionGroups(section: OnefopSection, data: FormData, locale: "fr" | "en"): VtFieldGroup[] {
+  const visible = section.fields.filter((f) => isFieldVisible(f, data));
+  return vtWizardGroupFields(section.id, visible, section.subsections, locale);
 }
 
 function _vtWizardConditionalContainer(children: ReactNode, isRevealed: boolean): ReactNode {
@@ -959,57 +979,92 @@ function VtWizardBlockProgress({
   );
 }
 
-function VtWizardCategoryTabs({
+/**
+ * Sections 4 and 8: the section's tables, one line each with its status,
+ * collapsed above the table (plan D1). It replaces the tab bar; the sidebar
+ * keeps listing sections only.
+ */
+function VtWizardStepList({
   groups,
+  summaries,
+  applicable,
   activeIndex,
-  onChange,
+  onSelect,
   sectionId,
+  isEn,
 }: {
   groups: VtFieldGroup[];
+  summaries: VtWizardSectionOutlineItem[];
+  applicable: boolean[];
   activeIndex: number;
-  onChange: (index: number) => void;
+  onSelect: (index: number) => void;
   sectionId: string;
+  isEn: boolean;
 }): ReactNode {
-  const locale = useLocale();
+  const statusText = (i: number): string => {
+    if (!applicable[i]) return isEn ? "Not applicable" : "Sans objet";
+    switch (summaries[i]?.status) {
+      case "complete":
+        return isEn ? "Complete" : "Terminé";
+      case "needsAttention":
+        return isEn ? "To correct" : "À corriger";
+      case "inProgress":
+        return isEn ? "In progress" : "En cours";
+      default:
+        return isEn ? "Not started" : "Non commencé";
+    }
+  };
+  // Closed again once a table is chosen, so the table is what follows.
+  const listRef = useRef<HTMLDetailsElement>(null);
   return (
-    <div
-      style={{
-        width: "100%",
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 4,
-        borderBottom: "1.5px solid var(--cam-border)",
-        marginBottom: 20,
-      }}
-    >
-      {groups.map((g, i) => {
-        const isActive = i === activeIndex;
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onChange(i)}
-            style={{
-              padding: "10px 16px",
-              border: "none",
-              borderBottom: isActive
-                ? "2px solid var(--cam-green)"
-                : "2px solid transparent",
-              marginBottom: -1.5,
-              background: "transparent",
-              cursor: "pointer",
-              fontFamily: "var(--cam-font-sans)",
-              fontWeight: isActive ? 700 : 500,
-              fontSize: 13,
-              color: isActive ? "var(--cam-green)" : "var(--cam-text-muted)",
-              transition: "color 0.15s, border-color 0.15s",
-            }}
-          >
-            {vtWizardTabLabel(sectionId, i, locale) ?? g.fields[0]?.paperCode ?? String(i + 1)}
-          </button>
-        );
-      })}
-    </div>
+    <details ref={listRef} style={{ marginBottom: "var(--cam-space-4)" }}>
+      <summary
+        style={{
+          cursor: "pointer",
+          fontSize: "var(--cam-font-size-sm)",
+          fontWeight: "var(--cam-font-weight-bold)",
+          color: "var(--cam-green)",
+        }}
+      >
+        {isEn ? "Tables in this section" : "Tableaux de cette section"}
+      </summary>
+      <ol style={{ listStyle: "none", margin: "var(--cam-space-2) 0 0", padding: 0 }}>
+        {groups.map((g, i) => {
+          const label = vtWizardTabLabel(sectionId, i, isEn ? "en" : "fr") ?? g.title ?? g.fields[0]?.paperCode ?? String(i + 1);
+          const current = i === activeIndex;
+          return (
+            <li key={i} style={{ borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(i);
+                  if (listRef.current) listRef.current.open = false;
+                }}
+                aria-current={current ? "step" : undefined}
+                style={{
+                  display: "flex",
+                  width: "100%",
+                  justifyContent: "space-between",
+                  gap: "var(--cam-space-3)",
+                  padding: "var(--cam-space-2) 0",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "var(--cam-font-sans)",
+                  fontSize: "var(--cam-font-size-sm)",
+                  fontWeight: current ? "var(--cam-font-weight-bold)" : "var(--cam-font-weight-regular)",
+                  color: applicable[i] ? "var(--cam-text)" : "var(--cam-text-muted)",
+                }}
+              >
+                <span>{label}</span>
+                <span style={{ color: "var(--cam-text-muted)", whiteSpace: "nowrap" }}>{statusText(i)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </details>
   );
 }
 
@@ -1027,6 +1082,8 @@ export function VtWizardSectionScreen({
   saving = false,
   onOutlineChange,
   revealRef,
+  activeStep,
+  onStepChange,
 }: VtWizardSectionScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -1054,20 +1111,26 @@ export function VtWizardSectionScreen({
 
   const rowColumns = vtWizardRowColumnsFor(sectionId);
 
-  const tabbed = VT_TABBED_SECTION_IDS.has(sectionId);
+  // Sections 4 and 8: one table per screen (lib/vt-table-steps.ts).
+  const tabbed = VT_STEPPED_SECTION_IDS.has(sectionId);
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [ownStep, setOwnStep] = useState(() => vtFirstStep(groups, data));
+  const activeTab = Math.min(Math.max(activeStep ?? ownStep, 0), Math.max(0, groups.length - 1));
+  const setActiveTab = (index: number) => {
+    setOwnStep(index);
+    onStepChange?.(index);
+  };
 
   useImperativeHandle(
     revealRef,
     () => ({
       showIssue: (issueFieldId: string) => {
         if (!tabbed || groups.length < 2) return;
-        const idx = groups.findIndex((g) => g.fields.some((f) => fieldOwnsIssue(f, issueFieldId)));
-        if (idx !== -1) setActiveTab(idx);
+        setActiveTab(vtStepForIssue(groups, issueFieldId, data));
       },
     }),
-    [tabbed, groups],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tabbed, groups, data],
   );
 
   const cardFamily = (group: VtFieldGroup): string | null => {
@@ -1171,12 +1234,31 @@ export function VtWizardSectionScreen({
           </p>
         ) : tabbed && groups.length > 1 ? (
           <div>
-            <VtWizardCategoryTabs
+            <VtWizardStepList
               groups={groups}
+              summaries={blockSummaries}
+              applicable={groups.map((g) => isVtStepApplicable(g, data))}
               activeIndex={activeTab}
-              onChange={setActiveTab}
+              onSelect={setActiveTab}
               sectionId={sectionId}
+              isEn={normalizedLocale === "en"}
             />
+            {(() => {
+              const position = vtStepPosition(groups, activeTab, data);
+              return position ? (
+                <p
+                  style={{
+                    margin: "0 0 var(--cam-space-2)",
+                    fontSize: "var(--cam-font-size-sm)",
+                    color: "var(--cam-text-muted)",
+                  }}
+                >
+                  {normalizedLocale === "en"
+                    ? `Table ${position.number} of ${position.total}`
+                    : `Tableau ${position.number} sur ${position.total}`}
+                </p>
+              ) : null;
+            })()}
             {groups[activeTab] && (
               <FormSection>
                 <VtWizardCardForGroup
