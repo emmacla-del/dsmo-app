@@ -52,6 +52,7 @@ import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import { CodedLabel } from "./ui/QuestionCode";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import { EntryModeSwitch } from "./EntryModeSwitch";
+import { buildVtFixedRowGridDefinition, isVtFixedRowTable, withVtFixedRowTotals } from "./tables/vtFixedRowGrid";
 import { useEntryMode } from "@/lib/use-entry-mode";
 import {
   buildSection41Definition,
@@ -579,6 +580,31 @@ function VtWizardTableField({
         data={data}
         onChange={changeCell}
       />
+    );
+  }
+  // Fixed-row tables (4.2, 4.7–4.9, 4.11, 5.3, 5.4, 8.1–8.3, 8.6): Tableau
+  // is a grid built from the schema (vtFixedRowGrid.ts); Guidé is the
+  // existing row-by-row entry. Both write the same cells; totals are saved
+  // for the whole declaration by useVtFixedRowTotals (onefop/preview page).
+  if (isVtFixedRowTable(field)) {
+    return (
+      <>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
+        </div>
+        {entryMode === "grid" ? (
+          <AdaptiveStatisticalTable
+            definition={buildVtFixedRowGridDefinition(field)}
+            data={withVtFixedRowTotals(field, data)}
+            onChange={changeCell}
+            mode="grid"
+            allowToggle={false}
+            tableFieldId={field.id}
+          />
+        ) : (
+          <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />
+        )}
+      </>
     );
   }
   if (!vt.progressiveRows) {
