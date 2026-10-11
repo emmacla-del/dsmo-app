@@ -1,8 +1,8 @@
 # VT wizard — one table per screen in Sections 4 and 8
 
 **Date:** 2026-10-11
-**Status:** approved 2026-10-11, with the recommended option for D1–D4
-(see "Decisions (resolved)"). Phase 1 next.
+**Status:** done 2026-10-11. Approved with the recommended option for
+D1–D4 (see "Decisions (resolved)"); all phases committed (see "Phases").
 **Source:** VT wizard audit, finding R8 and §D1 (`docs/ui-ux/VT_WIZARD_AUDIT.md`).
 
 ## Goal
@@ -133,26 +133,27 @@ your diff review.
 changes of yours. Phases 2–4 edit the first two, so they need to be
 committed first; I will not touch them until then.
 
-**Phase 1 — the step model (pure logic, no UI change).**
+**Phase 1 — the step model (pure logic, no UI change).** Done: `ab82be6d`.
 New `src/lib/vt-table-steps.ts`: the ordered steps of a section, each with
 its applicability (from `vtTableStatus`) and its issues; the next and
 previous applicable step; the step that owns an issue. Unit tests,
 including the cross-table checks landing on the checked table and an
 unowned issue landing on the last step.
 
-**Phase 2 — the section screen shows one step.**
+**Phase 2 — the section screen shows one step.** Done: `4ac8afb7`
+(Phase 4's list included).
 `VtWizardSectionScreen.tsx`: the active step comes from the shell instead
 of the internal tab state; the tab bar goes for Sections 4 and 8; "Table
 3 of 11" and one heading per table. `showIssue` selects a step. Other
 sections unchanged.
 
-**Phase 3 — the shell walks the steps.**
+**Phase 3 — the shell walks the steps.** Done: `723a01e2`.
 `WizardShell.tsx`: Next / Previous per step as above; validation per step
 for Sections 4 and 8; Previous from Section 5 lands on 4.11; step change
 moves focus and announces. `wizard-position.ts`: store the step; read old
 positions.
 
-**Phase 4 — the jump list (per D1).**
+**Phase 4 — the jump list (per D1).** Folded into Phase 2.
 For (a): the collapsible list in the section screen. For (b): sub-steps in
 `VtWizardSidebar.tsx`.
 
@@ -161,6 +162,22 @@ by table in both modes; the §7 mismatches block on the right screen; reload
 returns to the same table; the review screen's links open the right table;
 keyboard and screen-reader pass; phone width (no tab bar, no nested
 scroll).
+
+Done 2026-10-11:
+- `081ad4da`: WizardShell tests for Next / Previous by table (14).
+- Browser pass on the Waltz test draft (VT26000103): Section 8 filled
+  table by table, 8.1–8.3 in Tableau by keyboard, 8.4–8.5 in Guidé; the
+  §7 mismatches blocked on 8.2 and 8.5; reload kept the table and the
+  mode; Section 4 walked both ways with 4.9 and 4.10 skipped; at 375 px
+  no tab bar, no page-level sideways scroll, no nested scroll. The
+  review-screen link was not browser-tested (review stays locked until
+  Sections 8 and 9 are complete); its test is in `081ad4da`.
+- Problems found and fixed: `4b141d81` (one title per table, Guidé
+  focus, Change link names, labels and copy, the block pager's second
+  Previous / Next pair, the announcement's section name) and `bae4f445`
+  (Guidé rows started without a name; Tableau for 4.10 and 6.3).
+- A page that seemed to scroll by itself after Next was someone
+  scrolling the shared pane: with no wheel input it never moved.
 
 ## Risks
 
