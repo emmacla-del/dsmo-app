@@ -15,6 +15,7 @@ import { cleanHiddenDependentFields, normalizeMultiChoiceValues, type FormData }
 import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
+import { useVtFixedRowTotals } from "@/lib/use-vt-fixed-row-totals";
 import { useIsClient } from "@/lib/use-is-client";
 import { hasAnyLegalAck, readLegalAck, writeLegalAck } from "@/lib/wizard-position";
 import { companyToInitialData } from "@/lib/onefop-autofill";
@@ -183,6 +184,9 @@ function OnefopDeclarationContent() {
       pruneHidden,
       normalizeLoaded,
     );
+  // Training centres: the fixed-row tables' totals are saved with the numbers.
+  useVtFixedRowTotals(entity, formData, handleChange);
+
   // The stored acknowledgment of this declaration (same tenant-scoped key as
   // the draft). While the key is still resolving (quarter / company loading)
   // and this session holds an acknowledgment, wait instead of flashing the
