@@ -1,5 +1,5 @@
 import { OnefopSchemaLoaderService } from './onefop-schema-loader.service';
-import { OnefopShadowValidatorService } from './onefop-shadow-validator.service';
+import { OnefopShadowValidatorService, vtTotalSiblingKeys } from './onefop-shadow-validator.service';
 import type { SchemaField, SchemaTable } from './onefop-schema.types';
 
 // Phase 2.6/2.7 of the migration plan: this validator is genuinely new
@@ -211,6 +211,70 @@ describe('OnefopShadowValidatorService', () => {
       );
       // row is unused beyond documenting which row the ids came from
       void row;
+    });
+
+    // 4.8 has one total per group (Incoming / Outgoing / Dropouts), each the
+    // sum of its own Men + Women — not of the whole row.
+    function vt48(): SchemaTable {
+      const table = loader.getFlattenedFields('vocationalTraining').get('VT4_8')?.table;
+      if (!table?.vt || !table.matrix) throw new Error('VT4_8 not found in the generated schema.');
+      return table;
+    }
+    function cellOf(table: SchemaTable, key: string): string {
+      return table.matrix![0][table.vt!.cells.findIndex((c) => c.key === key)];
+    }
+
+    it('accepts per-group totals on a grouped table', () => {
+      const table = vt48();
+      const flat = {
+        [cellOf(table, 'entrant_male')]: 2,
+        [cellOf(table, 'entrant_female')]: 3,
+        [cellOf(table, 'entrant_total')]: 5,
+        [cellOf(table, 'sortant_male')]: 4,
+        [cellOf(table, 'sortant_total')]: 4,
+        [cellOf(table, 'abandon_total')]: 0,
+      };
+      const result = validator.validate('vocationalTraining', flat);
+      expect(result.discrepancies.filter((d) => d.category === 'formula')).toEqual([]);
+    });
+
+    it('flags only the group total that is wrong', () => {
+      const table = vt48();
+      const flat = {
+        [cellOf(table, 'entrant_male')]: 2,
+        [cellOf(table, 'entrant_female')]: 3,
+        [cellOf(table, 'entrant_total')]: 5,
+        [cellOf(table, 'sortant_male')]: 4,
+        [cellOf(table, 'sortant_total')]: 9,
+      };
+      const formula = validator
+        .validate('vocationalTraining', flat)
+        .discrepancies.filter((d) => d.category === 'formula');
+      expect(formula.map((d) => d.fieldId)).toEqual([cellOf(table, 'sortant_total')]);
+    });
+  });
+
+  describe('vtTotalSiblingKeys', () => {
+    const cells = [
+      { key: 'entrant_male', kind: 'number' },
+      { key: 'entrant_female', kind: 'number' },
+      { key: 'entrant_total', kind: 'computed' },
+      { key: 'sortant_male', kind: 'number' },
+      { key: 'sortant_total', kind: 'computed' },
+    ];
+
+    it('groups by the total key prefix', () => {
+      expect(vtTotalSiblingKeys(cells, 'entrant_total')).toEqual(['entrant_male', 'entrant_female']);
+      expect(vtTotalSiblingKeys(cells, 'sortant_total')).toEqual(['sortant_male']);
+    });
+
+    it('a plain total adds every number in the row', () => {
+      const plain = [
+        { key: 'male', kind: 'number' },
+        { key: 'female', kind: 'number' },
+        { key: 'total', kind: 'computed' },
+      ];
+      expect(vtTotalSiblingKeys(plain, 'total')).toEqual(['male', 'female']);
     });
   });
 
