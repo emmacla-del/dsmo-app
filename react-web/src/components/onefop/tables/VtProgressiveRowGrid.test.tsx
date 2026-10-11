@@ -120,7 +120,7 @@ test("a cell label read on its own spells out the paper abbreviation (Guidé)", 
   assert.equal(vtSpelledOutCellLabel({ fr: "Spécialité", en: "Specialty" }, "en"), "Specialty");
 });
 
-test("4.10: each row's calculated total is shown, summed in the footer, and never stored", async () => {
+test("4.10: each row's calculated total is shown and summed in the footer; the grid writes no total itself", async () => {
   const f410 = schemaField("vocationalTraining", "VT4_10");
   const [row1, row2] = f410.table!.matrix!;
   const writes: Array<[string, unknown]> = [];
@@ -133,9 +133,9 @@ test("4.10: each row's calculated total is shown, summed in the footer, and neve
   );
 
   assert.equal(screen.getByRole("cell", { name: "Couture - Σ Total" }).textContent, "7");
-  assert.equal(screen.getByRole("cell", { name: "Soudure - Σ Total" }).textContent, "—", "blank while a count is blank");
-  assert.equal(screen.getByRole("cell", { name: "Total - Σ Total" }).textContent, "—");
-  assert.equal(writes.length, 0);
+  assert.equal(screen.getByRole("cell", { name: "Soudure - Σ Total" }).textContent, "2", "the counts entered so far, as saved");
+  assert.equal(screen.getByRole("cell", { name: "Total - Σ Total" }).textContent, "—", "blank while a column total is blank");
+  assert.equal(writes.length, 0, "useVtFixedRowTotals saves the totals, for the whole declaration");
   assert.equal(document.getElementById(`cell-input-${row1[3]}`), null, "no input for the total");
 });
 

@@ -109,7 +109,8 @@ export function VtProgressiveRowGrid({
   const vt = field.table!.vt!;
   const matrix = field.table!.matrix!;
   // Count columns, and a calculated total (4.10, 6.3) shown as each row's
-  // sum. The total is displayed only, never stored, as in Guidé.
+  // sum. The total is saved for the whole declaration by useVtFixedRowTotals,
+  // by the same rule as shown here.
   const [labelCell, ...numberCells] = vt.cells;
   const isComputed = (j: number) => numberCells[j].kind === "computed";
 
@@ -171,23 +172,38 @@ export function VtProgressiveRowGrid({
     return Number.isFinite(n) ? n : null;
   };
 
-  // A calculated cell: the row's counts summed; blank while any is blank.
+  // A calculated cell: the sum of the row's counts entered so far, blank
+  // while none is (the rule the saved total follows, vtFixedRowGrid.ts).
   const rowTotal = (slot: number): number | null => {
     let sum = 0;
+    let any = false;
     for (let j = 0; j < numberCells.length; j++) {
       if (isComputed(j)) continue;
       const n = countAt(slot, j);
-      if (n === null) return null;
+      if (n === null) continue;
       sum += n;
+      any = true;
     }
-    return sum;
+    return any ? sum : null;
   };
 
   // Column total over the shown rows; blank while any of them is blank.
+  // The calculated column's is the sum of the count columns' totals, so the
+  // footer never disagrees with itself.
   const columnTotal = (j: number): number | null => {
+    if (isComputed(j)) {
+      let sum = 0;
+      for (let k = 0; k < numberCells.length; k++) {
+        if (isComputed(k)) continue;
+        const t = columnTotal(k);
+        if (t === null) return null;
+        sum += t;
+      }
+      return sum;
+    }
     let sum = 0;
     for (const slot of shown) {
-      const n = isComputed(j) ? rowTotal(slot) : countAt(slot, j);
+      const n = countAt(slot, j);
       if (n === null) return null;
       sum += n;
     }
