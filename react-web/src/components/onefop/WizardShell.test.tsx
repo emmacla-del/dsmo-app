@@ -317,3 +317,58 @@ for (const mode of ["grid", "guided"] as const) {
     });
   }
 }
+
+// ── §7 cross-table mismatches, all at once (audit R5) ───────────────────
+
+/** 4.1 counts 25 men, 4.2 counts 20 and 4.5 counts 5: two mismatches. */
+function twoMismatches(): FormData {
+  return {
+    ...quiz(),
+    ...filled("VT4_1"),
+    ...filled("VT4_2"),
+    ...filled("VT4_5"),
+    s4q1_bepc_male: 25,
+    s4q2_cap_male: 20,
+    s4q5_row1_fiMale: 5,
+  };
+}
+
+test("a blocked Next lists every mismatch of the section, not just the one on screen", async () => {
+  const { user } = renderAt(twoMismatches(), { sectionIndex: S4, stepIndex: 1 });
+  assert.equal(currentTable(), "4.2");
+
+  await user.click(next());
+  await flush();
+
+  assert.equal(currentTable(), "4.2", "4.2 cannot be left");
+  assert.ok(screen.getByText("2 totaux à faire concorder"));
+  const shown = tableProblems();
+  assert.match(shown, /Le tableau 4\.2 compte 20 hommes, mais le tableau 4\.1 en compte 25 hommes/);
+  assert.match(
+    shown,
+    /Le tableau 4\.5 compte 5 hommes, mais le tableau 4\.2 en compte 20 hommes/,
+    "the next mismatch is not held back for another Suivant",
+  );
+});
+
+test("a listed mismatch is said once, and opens either of its two tables", async () => {
+  const { user } = renderAt(twoMismatches(), { sectionIndex: S4, stepIndex: 1 });
+  await user.click(next());
+  await flush();
+
+  const sentence = /Le tableau 4\.2 compte 20 hommes/g;
+  assert.equal((tableProblems().match(sentence) ?? []).length, 1, "the table's own inline message is not repeated");
+
+  // 4.2 is named in both mismatches, so each of its links says which.
+  assert.deepEqual(
+    screen.getAllByRole("button", { name: /^Ouvrir le tableau 4\.2/ }).map((b) => b.getAttribute("aria-label")),
+    [
+      "Ouvrir le tableau 4.2 — comparaison des tableaux 4.1 et 4.2",
+      "Ouvrir le tableau 4.2 — comparaison des tableaux 4.2 et 4.5",
+    ],
+  );
+
+  await user.click(screen.getByRole("button", { name: "Ouvrir le tableau 4.1 — comparaison des tableaux 4.1 et 4.2" }));
+  await flush();
+  assert.equal(currentTable(), "4.1");
+});

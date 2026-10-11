@@ -51,6 +51,8 @@ import {
 } from "@/lib/vt-table-steps";
 import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
+import { vtCrossTableIssues } from "@/lib/vt-cross-table";
+import { VtCrossTableNotice } from "./VtCrossTableNotice";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
@@ -1083,6 +1085,33 @@ export function VtWizardSectionScreen({
     onStepChange?.(index);
   };
 
+  // ── §7 cross-table disagreements, all of them at once (audit R5) ────────
+  // The shell passes `issues` only once it is showing errors, so a mismatch
+  // listed here is one the respondent is already being stopped by. Each is
+  // listed with both its tables; the inline message of the table that
+  // carries it is dropped below, so the sentence appears once.
+  const crossTableIssues = useMemo(() => vtCrossTableIssues(section.fields, data), [section.fields, data]);
+  const shownCrossTableIssues = useMemo(
+    () => crossTableIssues.filter((ci) => issues.some((i) => i.fieldId === ci.fieldId)),
+    [crossTableIssues, issues],
+  );
+  // A table compared with another is complete by then (vt-cross-table.ts
+  // waits for both), so it has no other message of its own to lose here.
+  const fieldIssues = useMemo(() => {
+    const listed = new Set(shownCrossTableIssues.map((i) => i.fieldId));
+    return listed.size === 0 ? issues : issues.filter((i) => !listed.has(i.fieldId));
+  }, [issues, shownCrossTableIssues]);
+
+  /** Opens the table holding `fieldId` and puts the respondent on it. */
+  const openTableForField = (fieldId: string) => {
+    if (tabbed && groups.length > 1) setActiveTab(vtStepForIssue(groups, fieldId, data));
+    requestAnimationFrame(() => {
+      const el = document.getElementById(fieldId);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el?.focus?.({ preventScroll: true });
+    });
+  };
+
   useImperativeHandle(
     revealRef,
     () => ({
@@ -1229,7 +1258,7 @@ export function VtWizardSectionScreen({
                   sectionId={sectionId}
                   data={data}
                   onChange={onChange}
-                  issues={issues}
+                  issues={fieldIssues}
                   compact={compact}
                   columns={rowColumns}
                   headingTextOverride={groups[activeTab].title ?? undefined}
@@ -1260,7 +1289,7 @@ export function VtWizardSectionScreen({
                         sectionId={sectionId}
                         data={data}
                         onChange={onChange}
-                        issues={issues}
+                        issues={fieldIssues}
                         compact={compact}
                         columns={rowColumns}
                         headingTextOverride={groupLabels[groupIndex]}
@@ -1287,7 +1316,7 @@ export function VtWizardSectionScreen({
                   sectionId={sectionId}
                   data={data}
                   onChange={onChange}
-                  issues={issues}
+                  issues={fieldIssues}
                   compact={compact}
                   columns={rowColumns}
                   headingTextOverride={group.fields.length > 0 ? groupLabels[i] : undefined}
@@ -1305,6 +1334,13 @@ export function VtWizardSectionScreen({
             ))}
           </div>
         )}
+
+        {/* Every §7 mismatch of the section, under the table on screen. */}
+        <VtCrossTableNotice
+          issues={shownCrossTableIssues}
+          locale={normalizedLocale}
+          onOpenTable={openTableForField}
+        />
       </div>
 
       {showBottomBar && (

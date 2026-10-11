@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanHiddenDependentFields, isFieldVisible, type FormData, type OnefopSchema } from "./onefop-schema";
 import { validateEntityData, validateSectionData } from "./onefop-validation";
+import { vtCrossTableIssues } from "./vt-cross-table";
 
 const root = process.env.REACT_WEB_ROOT ?? process.cwd();
 const schema = JSON.parse(
@@ -193,4 +194,20 @@ test("comparisons of different populations (4.2 against 4.7 entrants) do not blo
   data.s4q5_row1_fiMale = "25"; data.s4q6_row1_year1Male = "25";
   data.s4q7_age_18_entrant_male = "3";
   assert.deepEqual(validateSectionData(section4, data, "fr"), []);
+});
+
+test("each mismatch names both of its tables, so the screen can offer to open either", () => {
+  const data = completeDeclaration();
+  data.s4q1_bepc_male = "25"; data.s4q2_cap_male = "25";
+  data.s4q5_row1_fiMale = "20"; data.s4q5_row1_fcMale = "4";
+  data.s4q6_row1_year1Male = "19";
+  const issues = vtCrossTableIssues(section4.fields, data);
+  assert.deepEqual(
+    issues.map((i) => [i.fieldId, i.tables.map((tb) => `${tb.code}/${tb.fieldId}`)]),
+    [
+      ["VT4_5", ["4.2/VT4_2", "4.5/VT4_5"]],
+      // "4.5 (FI)" names the part compared; a link to the table says 4.5.
+      ["VT4_6", ["4.5/VT4_5", "4.6/VT4_6"]],
+    ],
+  );
 });

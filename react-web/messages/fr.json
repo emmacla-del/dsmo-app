@@ -758,6 +758,9 @@
     "saving": "Enregistrement…"
   },
   "vtWizard": {
+    "crossTableTitle": "{count, plural, one {Un total à faire concorder} other {# totaux à faire concorder}}",
+    "crossTableOpen": "Ouvrir le tableau {code}",
+    "crossTableOpenFull": "Ouvrir le tableau {code} — comparaison des tableaux {tables}",
     "sectionTitle": "Section {section}",
     "noFieldsVisible": "Aucun champ visible pour le moment.",
     "blockFallbackLabel": "Bloc {index}",

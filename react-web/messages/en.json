@@ -758,6 +758,9 @@
     "saving": "Saving…"
   },
   "vtWizard": {
+    "crossTableTitle": "{count, plural, one {One total to reconcile} other {# totals to reconcile}}",
+    "crossTableOpen": "Open table {code}",
+    "crossTableOpenFull": "Open table {code} — comparison of tables {tables}",
     "sectionTitle": "Section {section}",
     "noFieldsVisible": "No fields currently visible.",
     "blockFallbackLabel": "Block {index}",
