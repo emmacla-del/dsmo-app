@@ -42,6 +42,7 @@ import {
   VT_713_FOLDED_IDS,
 } from "./vt-wizard-section-utils";
 import { Vt713ChannelGrid } from "./Vt713ChannelGrid";
+import { VT85_FIELD_IDS, Vt85StatusTable } from "./Vt85StatusTable";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { fieldOwnsIssue } from "@/lib/wizard-navigation";
@@ -56,7 +57,6 @@ import { buildVtFixedRowGridDefinition, isVtFixedRowTable, withVtFixedRowTotals 
 import { useEntryMode } from "@/lib/use-entry-mode";
 import {
   buildSection41Definition,
-  buildVt85TrainerStatusDefinition,
   buildVt88TrainerRosterDefinition,
 } from "./tables/StatisticalTableDefinition";
 
@@ -383,6 +383,23 @@ function VtWizardFieldRows({
       continue;
     }
 
+    // 8.5: the schema's six status × sex number fields, shown as one table.
+    if (f.id === VT85_FIELD_IDS[0]) {
+      const ids = new Set<string>(VT85_FIELD_IDS);
+      rows.push(
+        <Vt85StatusTable
+          key={f.id}
+          data={data}
+          onChange={onChange}
+          issueMessages={new Map([...issueByFieldId].filter(([id]) => ids.has(id)))}
+        />,
+      );
+      visibleFields.forEach((v) => {
+        if (ids.has(v.id)) consumed.add(v.id);
+      });
+      continue;
+    }
+
     if (isVtTableField(f)) {
       // The wrapper carries the table field's id: a table-level validation
       // issue (fieldId = the table's id) is focused here, and a cell issue
@@ -557,18 +574,6 @@ function VtWizardTableField({
           onModeChange={setEntryMode}
         />
       </>
-    );
-  }
-
-  // Section 8.5: Statistical Table (3 official rows: VP, VNP, Permanents)
-  if (field.id === "VT8_5") {
-    const definition = buildVt85TrainerStatusDefinition(field);
-    return (
-      <AdaptiveStatisticalTable
-        definition={definition}
-        data={data}
-        onChange={changeCell}
-      />
     );
   }
 
