@@ -365,11 +365,26 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
         ),
       });
     } else if (missing.length > 0) {
+      // What is missing decides what to advise (audit R6): "enter 0" means
+      // nothing for a specialty to type or a Yes/No to pick, and told a
+      // respondent of 5.2 or 8.8 to do something impossible.
+      const kindOf = new Map<string, string | undefined>();
+      field.table.matrix.forEach((rowIds) => rowIds.forEach((id, c) => kindOf.set(id, vt.cells[c]?.kind)));
+      const counts = missing.filter((id) => kindOf.get(id) === "number").length;
       issues.push({
         fieldId: field.id,
-        message: locale === "en"
-          ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 where nothing occurred.`
-          : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+        message:
+          counts === 0
+            ? locale === "en"
+              ? `${label}: ${missing.length} answer(s) still to fill.`
+              : `${label} : ${missing.length} réponse(s) restent à renseigner.`
+            : counts === missing.length
+              ? locale === "en"
+                ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 where nothing occurred.`
+                : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`
+              : locale === "en"
+                ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 in the counts where nothing occurred.`
+                : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 dans les effectifs lorsqu'il n'y a rien à déclarer.`,
       });
     }
     return issues;

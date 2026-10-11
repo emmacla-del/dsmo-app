@@ -211,3 +211,44 @@ test("each mismatch names both of its tables, so the screen can offer to open ei
     ],
   );
 });
+
+// ── Table messages follow the cells that are missing (audit R6) ──────────
+
+test("a table of Yes/No answers is not told to enter 0 (5.2)", () => {
+  const data = completeDeclaration();
+  // One row started by its specialty: the two Yes/No answers are owed.
+  for (const id of field("VT5_5").table!.matrix!.flat()) delete data[id];
+  data.s5q2_row1_specialtyText = "Couture";
+  const issue = validateSectionData(vt.sections.find((s) => s.id === sectionOf("VT5_5"))!, data, "fr")
+    .find((i) => i.fieldId === "VT5_5");
+  assert.ok(issue);
+  assert.match(issue.message, /1 réponse\(s\) restent à renseigner\.$/, "the second answer waits for the first to be Oui");
+  assert.doesNotMatch(issue.message, /0/, "nothing to count, nothing to enter 0 in");
+});
+
+test("a table of counts still advises entering 0 (4.2)", () => {
+  const data = completeDeclaration();
+  delete data.s4q2_cap_male;
+  const issue = validateSectionData(section4, data, "fr").find((i) => i.fieldId === "VT4_2");
+  assert.ok(issue);
+  assert.match(issue.message, /1 cellule\(s\) restent à renseigner\. Saisissez 0 lorsqu'il n'y a rien à déclarer\.$/);
+});
+
+test("a row owing both a specialty and counts advises 0 for the counts only (4.3)", () => {
+  const data = completeDeclaration();
+  (data._scopeConfig as { vocationalTraining: Record<string, unknown> }).vocationalTraining.unemployedQualified = true;
+  for (const id of field("VT4_3").table!.matrix!.flat()) delete data[id];
+  data.s4q3_row1_fiMale = "2";
+  const issue = validateSectionData(section4, data, "fr").find((i) => i.fieldId === "VT4_3");
+  assert.ok(issue);
+  assert.match(issue.message, /Saisissez 0 dans les effectifs lorsqu'il n'y a rien à déclarer\.$/);
+});
+
+test("the trainers' list asks for answers, not cells to put 0 in (8.8)", () => {
+  const data = completeDeclaration();
+  for (const id of field("VT8_8").table!.matrix!.flat()) delete data[id];
+  data.s8q8_row1_lastName = "Nkolo";
+  const issue = validateSectionData(section8, data, "fr").find((i) => i.fieldId === "VT8_8");
+  assert.ok(issue);
+  assert.match(issue.message, /réponse\(s\) restent à renseigner/);
+});
