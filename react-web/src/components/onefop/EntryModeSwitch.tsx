@@ -17,7 +17,7 @@ export function EntryModeSwitch({
     alignItems: "center",
     gap: 6,
     background: active ? "var(--cam-text)" : "transparent",
-    color: active ? "#ffffff" : "var(--cam-text-muted)",
+    color: active ? "var(--cam-surface)" : "var(--cam-text-muted)",
     border: "none",
     borderRadius: "var(--cam-radius-sm)",
     padding: "5px 12px",
