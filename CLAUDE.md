@@ -211,6 +211,15 @@ Blocking checks currently in force:
   and 4.7/4.10 checks are NOT in this list: they await domain review.
   Server-side, coherence flags are stored as non-blocking warnings
   (`src/questionnaires/coherence-anomaly.ts`).
+- 2026-10-11 — VT table 5.3 (`react-web/src/lib/vt-infrastructure-check.ts`):
+  on each row, "Nombre total de locaux" = Définitif bon état + Définitif
+  mauvais état + Provisoire, once all four cells are filled. Basis: the
+  official ASFOP 2025-2026 form puts the three columns under one heading,
+  "Nombre de locaux selon les matériaux de construction et l'état", and
+  its instructions give every room a construction type and every
+  permanent room a condition. Blocks Suivant and submission in the
+  wizard. The "Espaces temporaires" row follows the same rule only;
+  whether it must be counted entirely as Provisoire awaits MINEFOP.
 
 ---
 

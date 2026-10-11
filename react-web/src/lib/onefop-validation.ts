@@ -24,6 +24,7 @@ import { incompleteQuizQuestions, readQuizScope, withQuizDerivedStatuses } from 
 import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vtQuizQuestionForTable, vtTableStatus } from "./vt-quiz";
 import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
 import { vtCrossTableIssues } from "./vt-cross-table";
+import { vt53Issue } from "./vt-infrastructure-check";
 
 export interface ValidationIssue {
   fieldId: string;
@@ -611,7 +612,15 @@ export function validateSectionData(
   ];
 }
 
-/** VT cross-table disagreements as validation issues (a no-op for other entities). */
+/**
+ * VT totals that must agree, as blocking validation issues (a no-op for other
+ * entities): the cross-table checks, and 5.3's total against its three
+ * conditions (constitution §7).
+ */
 function crossTableIssues(fields: OnefopField[], data: FormData, locale?: ValidationLocale): ValidationIssue[] {
-  return vtCrossTableIssues(fields, data).map((i) => ({ fieldId: i.fieldId, message: msg(i.fr, i.en, locale, " / ") }));
+  const issue53 = vt53Issue(fields, data);
+  return [...vtCrossTableIssues(fields, data), ...(issue53 ? [issue53] : [])].map((i) => ({
+    fieldId: i.fieldId,
+    message: msg(i.fr, i.en, locale, " / "),
+  }));
 }
