@@ -33,6 +33,13 @@ export interface StatisticalColumnDefinition {
   align?: "left" | "center" | "right";
   width?: string | number;
   group?: LocalizedText;
+  /** A heading above this column's `group`, where the paper prints three
+   * header levels — 5.3's "Nombre de locaux selon les matériaux de
+   * construction et l'état" over Définitif (bon / mauvais état) and
+   * Provisoire. Consecutive columns sharing it are headed once. Every
+   * grouped column of a banded table must carry one, so the three levels
+   * stay rectangular. */
+  band?: LocalizedText;
 }
 
 export interface StatisticalRowDefinition {

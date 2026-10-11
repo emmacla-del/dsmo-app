@@ -35,6 +35,32 @@ type VtCell = VtCellDef;
 
 const GROUP_SEPARATOR = " — ";
 
+/**
+ * A third header level, where the paper prints one: 5.3 (p.11) puts
+ * "Définitif (bon / mauvais état)" and "Provisoire" under one heading,
+ * "Nombre de locaux selon les matériaux de construction et l'état", with
+ * "Nombre total de locaux" standing outside it. That heading is what says
+ * the three columns break down the same buildings as the total — the very
+ * thing the blocking check of CLAUDE.md §7 asks of them, which a flat
+ * header left the respondent to guess.
+ *
+ * Keyed by the cells it covers, because a cell label can only carry two
+ * levels ("Group — Header") and lengthening it would make the column
+ * heading unreadable in the Flutter grids, which print the label whole.
+ * It belongs in the canonical AST once the Flutter views read a band of
+ * their own (VtCellDef.group already carries one level there).
+ */
+const COLUMN_BANDS: ReadonlyArray<{ paperCode: string; cells: ReadonlySet<string>; title: LocalizedText }> = [
+  {
+    paperCode: "5.3",
+    cells: new Set(["permanentGoodCount", "permanentBadCount", "temporaryCount"]),
+    title: {
+      fr: "Nombre de locaux selon les matériaux de construction et l'état",
+      en: "Number of buildings according to the building material and its state",
+    },
+  },
+];
+
 /** True for the tables this grid serves. */
 export function isVtFixedRowTable(field: OnefopField): boolean {
   const vt = field.table?.vt;
@@ -67,7 +93,9 @@ function splitLabel(label: LocalizedText | null | undefined): { group: Localized
 
 function computedHeader(header: LocalizedText): LocalizedText {
   const clean = (text: string) => text.replace(/\s*\((computed|calculé)\)\s*$/i, "").replace(/^Σ\s*/, "");
-  return { fr: `Σ ${clean(header.fr)}`, en: `Σ ${clean(header.en)}` };
+  // No "Σ": the tinted column already marks a total, and screen readers
+  // read the symbol out as "sigma".
+  return { fr: clean(header.fr), en: clean(header.en) };
 }
 
 function capitalize(text: string): string {
@@ -91,6 +119,13 @@ export function buildVtFixedRowGridDefinition(field: OnefopField): FixedMatrixDe
   const split = vt.cells.map((c) => splitLabel(c.label));
   const grouped = split.filter(Boolean).length >= 2;
 
+  // The band the paper prints above the groups, if this table has one; it
+  // covers named cells, and a grouped cell it does not cover would leave a
+  // hole in the header, so the band is dropped whole in that case.
+  const bandSpec = COLUMN_BANDS.find((b) => b.paperCode === (vt.paperCode ?? field.paperCode));
+  const band =
+    bandSpec && vt.cells.every((c, j) => !split[j] || bandSpec.cells.has(c.key)) ? bandSpec : undefined;
+
   const columns: StatisticalColumnDefinition[] = vt.cells.map((cell, j) => {
     const parts = grouped ? split[j] : null;
     const header = parts?.header ?? cell.label ?? { fr: cell.key, en: cell.key };
@@ -101,6 +136,7 @@ export function buildVtFixedRowGridDefinition(field: OnefopField): FixedMatrixDe
       kind,
       align: "right",
       ...(parts ? { group: parts.group } : {}),
+      ...(band?.cells.has(cell.key) ? { band: band.title } : {}),
     };
   });
 
