@@ -15,12 +15,12 @@ export function EntryModeSwitch({
   const btn = (active: boolean): React.CSSProperties => ({
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    gap: "var(--cam-space-2)",
     background: active ? "var(--cam-text)" : "transparent",
     color: active ? "var(--cam-surface)" : "var(--cam-text-muted)",
     border: "none",
     borderRadius: "var(--cam-radius-sm)",
-    padding: "5px 12px",
+    padding: "var(--cam-space-1) var(--cam-space-3)",
     fontSize: "var(--cam-font-size-xs, 0.8125rem)",
     fontWeight: 600,
     fontFamily: "var(--cam-font-sans)",
@@ -36,7 +36,7 @@ export function EntryModeSwitch({
         background: "var(--cam-surface)",
         border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-control, 6px)",
-        padding: 2,
+        padding: "var(--cam-space-1)",
       }}
     >
       <button type="button" aria-pressed={mode === "grid"} onClick={() => onChange("grid")} className="cam-hoverable" style={btn(mode === "grid")}>

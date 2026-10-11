@@ -185,7 +185,7 @@ export function VtValidationScreen({
             background: "var(--cam-success-surface)",
             border: "1px solid var(--cam-success-border-soft)",
             borderRadius: "var(--cam-radius-md)",
-            padding: "14px 18px",
+            padding: "var(--cam-space-4)",
             fontSize: "13.5px",
             color: "var(--cam-success-text-strong)",
             marginBottom: "var(--cam-space-4)",
@@ -225,7 +225,7 @@ export function VtValidationScreen({
           {showZeroedDetails && (
             <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: 12, color: "var(--cam-success-text-deep)" }}>
               {zeroedTables.map((t) => (
-                <li key={t.code || t.tableId} style={{ marginTop: 3 }}>
+                <li key={t.code || t.tableId} style={{ marginTop: "var(--cam-space-1)" }}>
                   <strong>{t.code || t.tableId}</strong>: {isFr ? t.nameFr : t.nameEn}
                 </li>
               ))}
@@ -243,7 +243,7 @@ export function VtValidationScreen({
             background: "rgba(192, 57, 43, 0.06)",
             border: "1px solid rgba(192, 57, 43, 0.35)",
             borderRadius: "var(--cam-radius-md)",
-            padding: "14px 18px",
+            padding: "var(--cam-space-4)",
             fontSize: "13.5px",
             color: "var(--cam-text)",
             marginBottom: "var(--cam-space-4)",
@@ -292,7 +292,7 @@ export function VtValidationScreen({
             background: "rgba(230, 81, 0, 0.08)",
             border: "1px solid rgba(230, 81, 0, 0.3)",
             borderRadius: "var(--cam-radius-md)",
-            padding: "14px 18px",
+            padding: "var(--cam-space-4)",
             fontSize: "13.5px",
             color: "var(--cam-text)",
             marginBottom: "var(--cam-space-4)",
@@ -305,7 +305,7 @@ export function VtValidationScreen({
           <div>
             <div style={{ fontWeight: 700 }}>{t("vtValidationScreen.periodClosedTitle")}</div>
             {quarterStatusMessage && (
-              <div style={{ marginTop: "2px", color: "var(--cam-text-muted)" }}>{quarterStatusMessage}</div>
+              <div style={{ marginTop: "var(--cam-space-1)", color: "var(--cam-text-muted)" }}>{quarterStatusMessage}</div>
             )}
           </div>
         </div>
@@ -318,7 +318,7 @@ export function VtValidationScreen({
             background: "rgba(232, 160, 32, 0.08)",
             border: "1px solid var(--cam-gold)",
             borderRadius: "var(--cam-radius-md)",
-            padding: "14px 18px",
+            padding: "var(--cam-space-4)",
             fontSize: "13.5px",
             color: "var(--cam-text)",
             marginBottom: "var(--cam-space-6)",
@@ -348,7 +348,7 @@ export function VtValidationScreen({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
-          gap: "14px",
+          gap: "var(--cam-space-4)",
           marginBottom: "var(--cam-space-6)",
         }}
       >
@@ -374,7 +374,7 @@ export function VtValidationScreen({
                 background: "var(--cam-surface)",
                 border: `1px solid ${borderColor}`,
                 borderRadius: "var(--cam-radius-md)",
-                padding: "14px 16px",
+                padding: "var(--cam-space-4)",
                 cursor: "pointer",
                 boxShadow: "var(--cam-shadow-row)",
                 transition: "all 0.15s ease",
@@ -388,7 +388,7 @@ export function VtValidationScreen({
                 e.currentTarget.style.boxShadow = "var(--cam-shadow-row)";
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: "var(--cam-space-3)" }}>
                 <div>
                   <div
                     style={{
@@ -405,7 +405,7 @@ export function VtValidationScreen({
                       fontSize: "13.5px",
                       fontWeight: 700,
                       color: "var(--cam-text)",
-                      marginTop: "2px",
+                      marginTop: "var(--cam-space-1)",
                       maxWidth: "260px",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -419,7 +419,7 @@ export function VtValidationScreen({
                 {/* Badge */}
                 <span
                   style={{
-                    padding: "3px 8px",
+                    padding: "var(--cam-space-1) var(--cam-space-2)",
                     borderRadius: "var(--cam-radius-sm)",
                     fontSize: "10.5px",
                     fontWeight: 700,
