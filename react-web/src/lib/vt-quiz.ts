@@ -164,7 +164,12 @@ function isEntered(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
 
-function isTrue(value: unknown): boolean {
+/**
+ * A stored Yes, in every shape the questionnaire writes one. Shared with the
+ * Tableau view of 5.2 (VtProgressiveRowGrid), so a dependent Yes/No cell is
+ * asked exactly when validation requires it.
+ */
+export function isTrue(value: unknown): boolean {
   return value === true || value === "true" || value === "Oui/ Yes" || value === "1";
 }
 

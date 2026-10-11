@@ -776,7 +776,12 @@ export function VtWizardProgressiveBooleanTableEntry({
     if (!row) return;
     onChange(cellId(row, labelCell), labelValue.trim(), false);
     for (const cell of boolCells) {
-      const v = boolValues[cell.key];
+      // A dependent answer is stored only while the answer it depends on is
+      // Yes — the question it answers was not asked otherwise — so it cannot
+      // outlive a gate the respondent changed before saving the row. Same
+      // rule in the Tableau view (VtProgressiveRowGrid) and in validation.
+      const gate = cell.dependsOnKey ? boolValues[cell.dependsOnKey] : true;
+      const v = gate ? boolValues[cell.key] : null;
       onChange(cellId(row, cell), v == null ? null : String(v), false);
     }
     setSelectedRow(null);

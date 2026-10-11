@@ -1,23 +1,32 @@
 "use client";
 
 // Tableau view for the VT tables whose rows the respondent adds: a specialty
-// typed in the first column, then counts (4.3–4.6, 8.4, 8.7). The schema
-// gives each table fixed row slots (s4q3_row1_… to s4q3_row12_…); this grid
-// writes exactly the cells the row-by-row entry
-// (VtWizardProgressiveGuidedTableEntry) writes, so the two modes share data.
+// typed in the first column, then counts (4.3–4.6, 4.10, 6.3, 8.4, 8.7) or
+// Yes/No answers (5.2). The schema gives each table fixed row slots
+// (s4q3_row1_… to s4q3_row12_…); this grid writes exactly the cells the
+// row-by-row entry (VtWizardProgressiveGuidedTableEntry, and
+// VtWizardProgressiveBooleanTableEntry for 5.2) writes, so the two modes
+// share data.
 //
 // A slot is shown once any of its cells is filled — the rule
 // missingVtTableCells uses to decide which rows must be complete — so a row
 // typed in either mode is never hidden in the other. "Add a specialty" shows
 // the next free slot; "Remove" clears every cell of its slot (the slot is
 // then free again, as in the row-by-row entry). Unanswered stays unanswered:
-// clearing a number stores nothing, never 0.
+// clearing a number stores nothing, never 0, and a Yes/No cell keeps a
+// "Sans réponse" option of its own, distinct from Non (§9).
+//
+// A Yes/No cell that depends on another (5.2's "Le référentiel est-il
+// homologué ?" on "Existence d'un référentiel") applies only while its
+// parent answer is Yes — the same gate validation applies (isTrue in
+// vt-quiz.ts) — and answering the parent anything else clears it.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocale } from "next-intl";
-import type { FormData, LocalizedText, OnefopField } from "@/lib/onefop-schema";
+import { useLocale, useTranslations } from "next-intl";
+import type { FormData, LocalizedText, OnefopField, VtCellDef } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { TABLE_MAX_WIDTH_PX, tableMinWidthPx } from "./tableLayout";
+import { isTrue } from "@/lib/vt-quiz";
+import { TABLE_MAX_WIDTH_PX, TABLE_MIN_DATA_COL_PX, tableMinWidthPx } from "./tableLayout";
 import {
   Cell,
   CellValue,
@@ -27,10 +36,14 @@ import {
   LeafHeader,
   NumberInput,
   RowHeader,
+  SelectInput,
   TextInput,
 } from "../table/DataTable";
 
 const GROUP_SEPARATOR = " — ";
+
+/** Width a Yes/No column needs before the table scrolls inside its frame. */
+const BOOLEAN_COL_PX = 140;
 
 /** Paper abbreviations used as group names, spelled out for respondents. */
 const GROUP_NAMES: Record<string, LocalizedText> = {
@@ -42,16 +55,17 @@ const GROUP_NAMES: Record<string, LocalizedText> = {
 
 /**
  * True for the add-a-row tables made of one text cell then counts, possibly
- * with a calculated total (4.3–4.6, 4.10, 6.3, 8.4, 8.7).
+ * with a calculated total (4.3–4.6, 4.10, 6.3, 8.4, 8.7), or Yes/No answers
+ * (5.2).
  */
-export function isVtProgressiveNumberTable(field: OnefopField): boolean {
+export function isVtProgressiveRowTable(field: OnefopField): boolean {
   const vt = field.table?.vt;
   if (!vt || !vt.progressiveRows || vt.isRoster || !field.table?.matrix?.length) return false;
   const [first, ...rest] = vt.cells;
   return (
     first?.kind === "text" &&
-    rest.some((c) => c.kind === "number") &&
-    rest.every((c) => c.kind === "number" || c.kind === "computed")
+    rest.some((c) => c.kind === "number" || c.kind === "boolean") &&
+    rest.every((c) => c.kind === "number" || c.kind === "computed" || c.kind === "boolean")
   );
 }
 
@@ -106,13 +120,19 @@ export function VtProgressiveRowGrid({
 }) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const isEn = locale === "en";
+  const t = useTranslations();
   const vt = field.table!.vt!;
   const matrix = field.table!.matrix!;
-  // Count columns, and a calculated total (4.10, 6.3) shown as each row's
-  // sum. The total is saved for the whole declaration by useVtFixedRowTotals,
-  // by the same rule as shown here.
-  const [labelCell, ...numberCells] = vt.cells;
-  const isComputed = (j: number) => numberCells[j].kind === "computed";
+  // Count columns, a calculated total (4.10, 6.3) shown as each row's sum,
+  // and Yes/No columns (5.2). The total is saved for the whole declaration by
+  // useVtFixedRowTotals, by the same rule as shown here.
+  const [labelCell, ...valueCells] = vt.cells;
+  const isComputed = (j: number) => valueCells[j].kind === "computed";
+  const isCount = (j: number) => valueCells[j].kind === "number";
+  const isBoolean = (j: number) => valueCells[j].kind === "boolean";
+  // 5.2 has no count at all, so no Total row; a mixed table would total only
+  // its count columns.
+  const hasTotals = valueCells.some((c) => c.kind === "number" || c.kind === "computed");
 
   // Slots opened with "Add" but not typed in yet (not stored anywhere).
   const [opened, setOpened] = useState<number[]>([]);
@@ -144,7 +164,27 @@ export function VtProgressiveRowGrid({
     setOpened((o) => o.filter((s) => s !== slot));
   };
 
-  const headers = numberCells.map((c) => {
+  // A Yes/No cell applies unless the answer it depends on is not Yes — the
+  // gate missingVtTableCells applies, so the grid never asks for a cell
+  // validation would not require.
+  const boolCellApplies = (cell: VtCellDef, ids: string[]): boolean => {
+    if (!cell.dependsOnKey) return true;
+    const parent = vt.cells.findIndex((p) => p.key === cell.dependsOnKey);
+    return parent < 0 || isTrue(data[ids[parent]]);
+  };
+
+  // Stored as the string "true" / "false", as the row-by-row entry stores it;
+  // "Sans réponse" stores nothing. Answering a gate anything but Yes clears
+  // the answers that depended on it, so no answer outlives its question.
+  const setBoolCell = (cell: VtCellDef, ids: string[], id: string, value: string) => {
+    onChange(id, value === "" ? null : value);
+    if (value === "true") return;
+    vt.cells.forEach((other, k) => {
+      if (other.dependsOnKey === cell.key && entered(data[ids[k]])) onChange(ids[k], null);
+    });
+  };
+
+  const headers = valueCells.map((c) => {
     const h = splitHeader(c.label, locale);
     // "Total (calculé)" → "Σ Total", as the fixed-row grids show it.
     return c.kind === "computed" ? { ...h, header: `Σ ${h.header.replace(/\s*\((computed|calculé)\)\s*$/i, "")}` } : h;
@@ -177,8 +217,8 @@ export function VtProgressiveRowGrid({
   const rowTotal = (slot: number): number | null => {
     let sum = 0;
     let any = false;
-    for (let j = 0; j < numberCells.length; j++) {
-      if (isComputed(j)) continue;
+    for (let j = 0; j < valueCells.length; j++) {
+      if (!isCount(j)) continue;
       const n = countAt(slot, j);
       if (n === null) continue;
       sum += n;
@@ -191,10 +231,11 @@ export function VtProgressiveRowGrid({
   // The calculated column's is the sum of the count columns' totals, so the
   // footer never disagrees with itself.
   const columnTotal = (j: number): number | null => {
+    if (!isCount(j) && !isComputed(j)) return null;
     if (isComputed(j)) {
       let sum = 0;
-      for (let k = 0; k < numberCells.length; k++) {
-        if (isComputed(k)) continue;
+      for (let k = 0; k < valueCells.length; k++) {
+        if (!isCount(k)) continue;
         const t = columnTotal(k);
         if (t === null) return null;
         sum += t;
@@ -209,6 +250,12 @@ export function VtProgressiveRowGrid({
     }
     return shown.length > 0 ? sum : null;
   };
+
+  // A Yes/No dropdown needs more room than a count before the table starts
+  // scrolling inside its frame; the count tables keep their own width.
+  const minTableWidth =
+    tableMinWidthPx(valueCells.length + 1, 200) +
+    valueCells.reduce((extra, _, j) => extra + (isBoolean(j) ? BOOLEAN_COL_PX - TABLE_MIN_DATA_COL_PX : 0), 0);
 
   const headCls = "px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]";
   const cellBorder = "border-r border-b border-[var(--cam-table-line)]";
@@ -227,12 +274,12 @@ export function VtProgressiveRowGrid({
           <DataTable
             ref={tableRef}
             className="w-full border-collapse table-fixed"
-            style={{ minWidth: tableMinWidthPx(numberCells.length + 1, 200) }}
+            style={{ minWidth: minTableWidth }}
           >
             {vt.title && <caption className="sr-only">{localized(vt.title, locale)}</caption>}
             <colgroup>
               <col style={{ width: 200 }} />
-              {numberCells.map((c) => (
+              {valueCells.map((c) => (
                 <col key={c.key} />
               ))}
               <col style={{ width: 96 }} />
@@ -257,7 +304,7 @@ export function VtProgressiveRowGrid({
                           i += b.span - 1;
                         } else {
                           out.push(
-                            <LeafHeader key={numberCells[i].key} rowSpan={2} className={headCls}>
+                            <LeafHeader key={valueCells[i].key} rowSpan={2} className={headCls}>
                               {headers[i].header}
                             </LeafHeader>,
                           );
@@ -266,7 +313,7 @@ export function VtProgressiveRowGrid({
                       return out;
                     })()
                   : headers.map((h, i) => (
-                      <LeafHeader key={numberCells[i].key} className={headCls}>
+                      <LeafHeader key={valueCells[i].key} className={headCls}>
                         {h.header}
                       </LeafHeader>
                     ))}
@@ -278,7 +325,7 @@ export function VtProgressiveRowGrid({
                 <tr>
                   {headers.map((h, i) =>
                     h.group ? (
-                      <LeafHeader key={numberCells[i].key} className={headCls}>
+                      <LeafHeader key={valueCells[i].key} className={headCls}>
                         {h.header}
                       </LeafHeader>
                     ) : null,
@@ -306,7 +353,7 @@ export function VtProgressiveRowGrid({
                         }}
                       />
                     </Cell>
-                    {numberCells.map((c, j) => {
+                    {valueCells.map((c, j) => {
                       const id = ids[j + 1];
                       const raw = data[id];
                       if (isComputed(j)) {
@@ -317,6 +364,40 @@ export function VtProgressiveRowGrid({
                             className={`px-2.5 py-2 bg-[var(--cam-table-readonly-bg)] ${cellBorder}`}
                           >
                             <CellValue value={rowTotal(slot)} computed />
+                          </Cell>
+                        );
+                      }
+                      if (isBoolean(j)) {
+                        const cellName = `${name} - ${headers[j].header}`;
+                        // Applies only while the answer it depends on is Yes
+                        // (5.2's 2nd Yes/No question), the gate validation
+                        // uses — shown as an inert cell rather than hidden,
+                        // so the column keeps its shape.
+                        if (!boolCellApplies(c, ids)) {
+                          return (
+                            <Cell
+                              key={c.key}
+                              aria-label={`${cellName} (${t("vtTableRenderer.booleanNotApplicable")})`}
+                              className={`px-2.5 py-2 bg-[var(--cam-table-readonly-bg)] ${cellBorder}`}
+                            >
+                              <CellValue value={null} />
+                            </Cell>
+                          );
+                        }
+                        return (
+                          <Cell key={c.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
+                            <SelectInput
+                              id={`cell-input-${id}`}
+                              className={inputCls}
+                              aria-label={cellName}
+                              value={entered(raw) ? (isTrue(raw) ? "true" : "false") : ""}
+                              onChange={(e) => setBoolCell(c, ids, id, e.target.value)}
+                            >
+                              {/* Unanswered stays a choice of its own (§9). */}
+                              <option value="">{t("vtTableRenderer.booleanUnanswered")}</option>
+                              <option value="true">{t("vtTableRenderer.booleanYes")}</option>
+                              <option value="false">{t("vtTableRenderer.booleanNo")}</option>
+                            </SelectInput>
                           </Cell>
                         );
                       }
@@ -352,23 +433,25 @@ export function VtProgressiveRowGrid({
                 );
               })}
             </tbody>
-            <tfoot className="bg-[var(--cam-table-readonly-bg)] border-t-2 border-[var(--cam-table-strong)]">
-              <tr>
-                <RowHeader total className="sticky left-0 z-20 bg-[var(--cam-table-readonly-bg)] px-3 py-2.5 border-r border-[var(--cam-table-frame)]">
-                  Total
-                </RowHeader>
-                {numberCells.map((c, j) => (
-                  <Cell
-                    key={c.key}
-                    aria-label={`Total - ${headers[j].group ? `${headers[j].group} - ` : ""}${headers[j].header}`}
-                    className="px-2.5 py-2 border-r border-[var(--cam-table-line)]"
-                  >
-                    <CellValue value={columnTotal(j)} total />
-                  </Cell>
-                ))}
-                <Cell />
-              </tr>
-            </tfoot>
+            {hasTotals && (
+              <tfoot className="bg-[var(--cam-table-readonly-bg)] border-t-2 border-[var(--cam-table-strong)]">
+                <tr>
+                  <RowHeader total className="sticky left-0 z-20 bg-[var(--cam-table-readonly-bg)] px-3 py-2.5 border-r border-[var(--cam-table-frame)]">
+                    Total
+                  </RowHeader>
+                  {valueCells.map((c, j) => (
+                    <Cell
+                      key={c.key}
+                      aria-label={`Total - ${headers[j].group ? `${headers[j].group} - ` : ""}${headers[j].header}`}
+                      className="px-2.5 py-2 border-r border-[var(--cam-table-line)]"
+                    >
+                      <CellValue value={columnTotal(j)} total />
+                    </Cell>
+                  ))}
+                  <Cell />
+                </tr>
+              </tfoot>
+            )}
           </DataTable>
         </div>
       </div>

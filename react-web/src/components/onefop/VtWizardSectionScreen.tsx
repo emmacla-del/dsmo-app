@@ -49,7 +49,7 @@ import {
   vtStepForIssue,
   vtStepPosition,
 } from "@/lib/vt-table-steps";
-import { VtProgressiveRowGrid, isVtProgressiveNumberTable } from "./tables/VtProgressiveRowGrid";
+import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isVtCentreClosed, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { VtQuizContext } from "./VtScopeQuiz";
@@ -637,10 +637,14 @@ function VtWizardTableField({
   if (!vt.progressiveRows) {
     return <VtWizardFixedRowMultiNumberEntry field={field} data={data} onChange={changeCell} />;
   }
-  // Add-a-row tables of a specialty and counts (4.3–4.6, 4.10, 6.3, 8.4, 8.7): Tableau
-  // is VtProgressiveRowGrid, Guidé the existing row-by-row entry. Both write
-  // the same slots.
-  if (isVtProgressiveNumberTable(field)) {
+  const isBoolean =
+    vt.cells.length >= 2 &&
+    vt.cells.slice(1).every((c) => c.kind === "boolean");
+
+  // Add-a-row tables of a specialty and counts (4.3–4.6, 4.10, 6.3, 8.4, 8.7)
+  // or Yes/No answers (5.2): Tableau is VtProgressiveRowGrid, Guidé the
+  // existing row-by-row entry. Both write the same slots.
+  if (isVtProgressiveRowTable(field)) {
     return (
       <>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -648,16 +652,14 @@ function VtWizardTableField({
         </div>
         {entryMode === "grid" ? (
           <VtProgressiveRowGrid field={field} data={data} onChange={changeCell} />
+        ) : isBoolean ? (
+          <VtWizardProgressiveBooleanTableEntry field={field} data={data} onChange={changeCell} />
         ) : (
           <VtWizardProgressiveGuidedTableEntry field={field} data={data} onChange={changeCell} />
         )}
       </>
     );
   }
-
-  const isBoolean =
-    vt.cells.length >= 2 &&
-    vt.cells.slice(1).every((c) => c.kind === "boolean");
 
   return isBoolean
     ? <VtWizardProgressiveBooleanTableEntry field={field} data={data} onChange={changeCell} />
