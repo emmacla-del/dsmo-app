@@ -1000,12 +1000,9 @@ export function buildVt85TrainerStatusDefinition(
       fr: "Statut",
       en: "Status",
     },
-    headerGroups: [
-      {
-        title: { fr: "Effectifs", en: "Numbers" },
-        colSpan: 3,
-      },
-    ],
+    // No header group: the guided entry reads any header group as a set of
+    // motives (resolveGuidedScope), so a lone "Effectifs" band left it with no
+    // men/women to ask. Plain male/female/total columns give total → women.
     columns: [
       {
         key: "male",
