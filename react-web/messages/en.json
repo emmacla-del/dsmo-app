@@ -780,6 +780,7 @@
     "summary": "Summary of entered rows",
     "noRows": "No row entered yet.",
     "enterName": "Enter a name before saving this row.",
+    "labelMissing": "{label}: to be entered",
     "saveRow": "Save row",
     "runningTotal": "Running total",
     "addTrainer": "Add a trainer",

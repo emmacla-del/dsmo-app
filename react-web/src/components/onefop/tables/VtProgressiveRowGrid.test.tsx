@@ -2,7 +2,7 @@ import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { useState } from "react";
-import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot, vtSpelledOutCellLabel } from "./VtProgressiveRowGrid";
+import { VtProgressiveRowGrid, isVtProgressiveNumberTable, vtNextFreeSlot, vtSpelledOutCellLabel, vtStartedSlots } from "./VtProgressiveRowGrid";
 import { schemaEntity, schemaField } from "@/test/schema";
 import type { FormData } from "@/lib/onefop-schema";
 
@@ -37,7 +37,7 @@ test("serves the add-a-row tables of a specialty and counts", () => {
     .sections.flatMap((s) => s.fields)
     .filter(isVtProgressiveNumberTable)
     .map((f) => f.id);
-  assert.deepEqual(ids, ["VT4_3", "VT4_4", "VT4_5", "VT4_6", "VT8_4", "VT8_7"]);
+  assert.deepEqual(ids, ["VT4_3", "VT4_4", "VT4_5", "VT4_6", "VT4_10", "VT6_13", "VT8_4", "VT8_7"]);
 });
 
 test("an empty table offers its first line, and typing writes that slot", async () => {
@@ -118,4 +118,29 @@ test("a cell label read on its own spells out the paper abbreviation (Guidé)", 
   assert.equal(vtSpelledOutCellLabel({ fr: "FI — Hommes", en: "IT — Men" }, "en"), "Initial training — Men");
   assert.equal(vtSpelledOutCellLabel({ fr: "FC — Femmes", en: "CT — Women" }, "fr"), "Formation continue — Femmes");
   assert.equal(vtSpelledOutCellLabel({ fr: "Spécialité", en: "Specialty" }, "en"), "Specialty");
+});
+
+test("4.10: each row's calculated total is shown, summed in the footer, and never stored", async () => {
+  const f410 = schemaField("vocationalTraining", "VT4_10");
+  const [row1, row2] = f410.table!.matrix!;
+  const writes: Array<[string, unknown]> = [];
+  renderWithProviders(
+    <VtProgressiveRowGrid
+      field={f410}
+      data={{ [row1[0]]: "Couture", [row1[1]]: 3, [row1[2]]: 4, [row2[0]]: "Soudure", [row2[1]]: 2 }}
+      onChange={(id, v) => writes.push([id, v])}
+    />,
+  );
+
+  assert.equal(screen.getByRole("cell", { name: "Couture - Σ Total" }).textContent, "7");
+  assert.equal(screen.getByRole("cell", { name: "Soudure - Σ Total" }).textContent, "—", "blank while a count is blank");
+  assert.equal(screen.getByRole("cell", { name: "Total - Σ Total" }).textContent, "—");
+  assert.equal(writes.length, 0);
+  assert.equal(document.getElementById(`cell-input-${row1[3]}`), null, "no input for the total");
+});
+
+test("a stored total alone does not make a row started (validation's rule)", () => {
+  const f410 = schemaField("vocationalTraining", "VT4_10");
+  const [row1, row2] = f410.table!.matrix!;
+  assert.deepEqual(vtStartedSlots(f410, { [row1[3]]: 0, [row2[1]]: 1 }), [1]);
 });

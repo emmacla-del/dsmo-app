@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useContext, useId, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useContext, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText, OnefopField, VtCellDef, VtCellOption, VtRowDef, VtTableMeta } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -115,6 +115,19 @@ function cellId(row: VRow, cell: VtCellDef): string {
 interface VRow {
   rowDef: VtRowDef;
   idx: number;
+}
+
+/**
+ * A row is started once any cell other than a computed total holds a value:
+ * the rule validation counts rows by (missingVtTableCells). A row started in
+ * Tableau without its name is therefore listed here too, to be completed.
+ */
+function rowStarted(vt: VtTableMeta, row: VRow, data: FormData): boolean {
+  return vt.cells.some((c) => {
+    if (c.kind === "computed") return false;
+    const v = data[cellId(row, c)];
+    return v !== undefined && v !== null && v !== "";
+  });
 }
 
 function getRows(vt: VtTableMeta): VRow[] {
@@ -525,15 +538,11 @@ export function VtWizardProgressiveGuidedTableEntry({
   const [labelValue, setLabelValue] = useState("");
   const [controls, setControls] = useState<Record<string, string>>({});
   const [labelError, setLabelError] = useState(false);
+  const entryRef = useRef<HTMLDivElement>(null);
 
-  const rowHasLabel = (row: VRow): boolean => {
-    const v = data[cellId(row, labelCell)];
-    return v !== undefined && v !== "" && v !== null;
-  };
-
-  const filledRows = rows.filter(rowHasLabel);
+  const filledRows = rows.filter((r) => rowStarted(vt, r, data));
   const entered = filledRows.filter((r) => r !== selectedRow);
-  const atCapacity = selectedRow == null && rows.every(rowHasLabel);
+  const atCapacity = selectedRow == null && filledRows.length === rows.length;
 
   const totals = numberCells.map((c) => {
     const vals = filledRows.map((r) => {
@@ -547,7 +556,9 @@ export function VtWizardProgressiveGuidedTableEntry({
 
   const handleAdd = () => {
     if (!labelValue.trim()) { setLabelError(true); return; }
-    const row = selectedRow ?? (rows.find((r) => !rowHasLabel(r)) || rows[rows.length - 1]);
+    // A new row goes into an empty slot, never over a row already started.
+    const row = selectedRow ?? rows.find((r) => !rowStarted(vt, r, data));
+    if (!row) return;
     onChange(cellId(row, labelCell), labelValue.trim(), false);
     for (const cell of numberCells) {
       const val = controls[cell.key];
@@ -557,6 +568,8 @@ export function VtWizardProgressiveGuidedTableEntry({
     setLabelValue("");
     setControls({});
     setLabelError(false);
+    // Back to the first field, ready for the next row.
+    entryRef.current?.querySelector<HTMLInputElement>("input")?.focus();
   };
 
   const handleRemove = (row: VRow) => {
@@ -589,7 +602,7 @@ export function VtWizardProgressiveGuidedTableEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} tinted={false} />
-      <div style={guidedEntryContainerStyle}>
+      <div ref={entryRef} style={guidedEntryContainerStyle}>
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 800, fontSize: 14, color: accentGreen, margin: "0 0 16px" }}>
           {t("vtWizard.stepByStep", { default: "Saisie progressive" })}
         </p>
@@ -698,6 +711,7 @@ function ProgressiveSummaryRow({
   const t = useTranslations();
   const locale = useLocale();
   const label = (data[cellId(row, vt.cells[0])] as string) ?? "";
+  const missingLabel = !label.trim();
   const vals = numberCells.map((c) => {
     const v = data[cellId(row, c)];
     if (v == null || v === "") return null;
@@ -715,8 +729,8 @@ function ProgressiveSummaryRow({
   return (
     <div style={summaryRowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {label}
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: missingLabel ? "var(--cam-error)" : ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {missingLabel ? t("vtWizard.labelMissing", { label: cellLabel(vt.cells[0], locale) }) : label}
         </p>
         {detail && (
           <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
@@ -748,19 +762,18 @@ export function VtWizardProgressiveBooleanTableEntry({
   const [labelValue, setLabelValue] = useState("");
   const [boolValues, setBoolValues] = useState<Record<string, boolean | null>>({});
   const groupIdPrefix = useId();
+  const entryRef = useRef<HTMLDivElement>(null);
 
-  const rowHasLabel = (row: VRow): boolean => {
-    const v = data[cellId(row, labelCell)];
-    return v !== undefined && v !== "" && v !== null;
-  };
-
-  const filledCount = rows.filter(rowHasLabel).length;
-  const entered = rows.filter(rowHasLabel).filter((r) => r !== selectedRow);
-  const atCapacity = selectedRow == null && rows.every(rowHasLabel);
+  const startedRows = rows.filter((r) => rowStarted(vt, r, data));
+  const filledCount = startedRows.length;
+  const entered = startedRows.filter((r) => r !== selectedRow);
+  const atCapacity = selectedRow == null && filledCount === rows.length;
 
   const handleAdd = () => {
     if (!labelValue.trim()) return;
-    const row = selectedRow ?? (rows.find((r) => !rowHasLabel(r)) || rows[rows.length - 1]);
+    // A new row goes into an empty slot, never over a row already started.
+    const row = selectedRow ?? rows.find((r) => !rowStarted(vt, r, data));
+    if (!row) return;
     onChange(cellId(row, labelCell), labelValue.trim(), false);
     for (const cell of boolCells) {
       const v = boolValues[cell.key];
@@ -769,6 +782,8 @@ export function VtWizardProgressiveBooleanTableEntry({
     setSelectedRow(null);
     setLabelValue("");
     setBoolValues({});
+    // Back to the first field, ready for the next row.
+    entryRef.current?.querySelector<HTMLInputElement>("input")?.focus();
   };
 
   const handleRemove = (row: VRow) => {
@@ -801,7 +816,7 @@ export function VtWizardProgressiveBooleanTableEntry({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <GuidedHeaderBox title={title} tinted={false} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div ref={entryRef} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <GuidedNumberBox
           label={cellLabel(labelCell, locale)}
           value={labelValue}
@@ -850,6 +865,7 @@ export function VtWizardProgressiveBooleanTableEntry({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {entered.map((row) => {
             const label = (data[cellId(row, labelCell)] as string) ?? "";
+            const missingLabel = !label.trim();
             // Unanswered cells (null/undefined/"") are left out rather than
             // shown as "Non".
             const detailParts = boolCells
@@ -865,8 +881,8 @@ export function VtWizardProgressiveBooleanTableEntry({
             return (
               <div key={row.idx} style={{ ...summaryRowStyle, justifyContent: "space-between" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {label}
+                  <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: missingLabel ? "var(--cam-error)" : ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {missingLabel ? t("vtWizard.labelMissing", { label: cellLabel(labelCell, locale) }) : label}
                   </p>
                   {detailParts.length > 0 && (
                     <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>

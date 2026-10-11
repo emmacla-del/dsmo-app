@@ -40,20 +40,33 @@ const GROUP_NAMES: Record<string, LocalizedText> = {
   CT: { fr: "Formation continue", en: "Continuing training" },
 };
 
-/** True for the add-a-row tables made of one text cell then number cells only. */
+/**
+ * True for the add-a-row tables made of one text cell then counts, possibly
+ * with a calculated total (4.3–4.6, 4.10, 6.3, 8.4, 8.7).
+ */
 export function isVtProgressiveNumberTable(field: OnefopField): boolean {
   const vt = field.table?.vt;
   if (!vt || !vt.progressiveRows || vt.isRoster || !field.table?.matrix?.length) return false;
   const [first, ...rest] = vt.cells;
-  return first?.kind === "text" && rest.length > 0 && rest.every((c) => c.kind === "number");
+  return (
+    first?.kind === "text" &&
+    rest.some((c) => c.kind === "number") &&
+    rest.every((c) => c.kind === "number" || c.kind === "computed")
+  );
 }
 
 const entered = (v: unknown) => v !== undefined && v !== null && v !== "";
 
-/** Slots with at least one cell filled, in slot order. */
+/**
+ * Slots with at least one cell filled, in slot order. A calculated cell does
+ * not count: the same rule as validation (missingVtTableCells).
+ */
 export function vtStartedSlots(field: OnefopField, data: FormData): number[] {
   const matrix = field.table?.matrix ?? [];
-  return matrix.flatMap((ids, i) => (ids.some((id) => entered(data[id])) ? [i] : []));
+  const cells = field.table?.vt?.cells ?? [];
+  return matrix.flatMap((ids, i) =>
+    ids.some((id, c) => cells[c]?.kind !== "computed" && entered(data[id])) ? [i] : [],
+  );
 }
 
 /** The slot "Add" fills: the first free one after the last used, else the first free gap. */
@@ -95,7 +108,10 @@ export function VtProgressiveRowGrid({
   const isEn = locale === "en";
   const vt = field.table!.vt!;
   const matrix = field.table!.matrix!;
+  // Count columns, and a calculated total (4.10, 6.3) shown as each row's
+  // sum. The total is displayed only, never stored, as in Guidé.
   const [labelCell, ...numberCells] = vt.cells;
+  const isComputed = (j: number) => numberCells[j].kind === "computed";
 
   // Slots opened with "Add" but not typed in yet (not stored anywhere).
   const [opened, setOpened] = useState<number[]>([]);
@@ -127,7 +143,11 @@ export function VtProgressiveRowGrid({
     setOpened((o) => o.filter((s) => s !== slot));
   };
 
-  const headers = numberCells.map((c) => splitHeader(c.label, locale));
+  const headers = numberCells.map((c) => {
+    const h = splitHeader(c.label, locale);
+    // "Total (calculé)" → "Σ Total", as the fixed-row grids show it.
+    return c.kind === "computed" ? { ...h, header: `Σ ${h.header.replace(/\s*\((computed|calculé)\)\s*$/i, "")}` } : h;
+  });
   const grouped = headers.some((h) => h.group);
   const bands = headers.reduce<{ title: string; span: number }[]>((acc, h, i) => {
     if (!h.group) return acc;
@@ -143,14 +163,32 @@ export function VtProgressiveRowGrid({
     return entered(text) ? String(text) : isEn ? `Row ${slot + 1}` : `Ligne ${slot + 1}`;
   };
 
+  // A count cell's value, or null while blank.
+  const countAt = (slot: number, j: number): number | null => {
+    const raw = data[matrix[slot][j + 1]];
+    if (!entered(raw)) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // A calculated cell: the row's counts summed; blank while any is blank.
+  const rowTotal = (slot: number): number | null => {
+    let sum = 0;
+    for (let j = 0; j < numberCells.length; j++) {
+      if (isComputed(j)) continue;
+      const n = countAt(slot, j);
+      if (n === null) return null;
+      sum += n;
+    }
+    return sum;
+  };
+
   // Column total over the shown rows; blank while any of them is blank.
-  const columnTotal = (c: number): number | null => {
+  const columnTotal = (j: number): number | null => {
     let sum = 0;
     for (const slot of shown) {
-      const raw = data[matrix[slot][c + 1]];
-      if (!entered(raw)) return null;
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return null;
+      const n = isComputed(j) ? rowTotal(slot) : countAt(slot, j);
+      if (n === null) return null;
       sum += n;
     }
     return shown.length > 0 ? sum : null;
@@ -255,6 +293,17 @@ export function VtProgressiveRowGrid({
                     {numberCells.map((c, j) => {
                       const id = ids[j + 1];
                       const raw = data[id];
+                      if (isComputed(j)) {
+                        return (
+                          <Cell
+                            key={c.key}
+                            aria-label={`${name} - ${headers[j].header}`}
+                            className={`px-2.5 py-2 bg-[var(--cam-table-readonly-bg)] ${cellBorder}`}
+                          >
+                            <CellValue value={rowTotal(slot)} computed />
+                          </Cell>
+                        );
+                      }
                       return (
                         <Cell key={c.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
                           <NumberInput

@@ -178,3 +178,33 @@ test("8.8 summary and edit: a stored false reads back as Non checked, a stored t
   group = screen.getByRole("group", { name: "Personnel administratif" });
   assert.equal((within(group).getByRole("radio", { name: "Oui" }) as HTMLInputElement).checked, true);
 });
+
+// A row started in Tableau with counts but no specialty is a started row for
+// validation (missingVtTableCells): Guidé lists it to be completed, and a new
+// row never overwrites it.
+test("4.5: a row with counts but no specialty is listed, marked, and can be edited", async () => {
+  const field = schemaField("vocationalTraining", "VT4_5");
+  const { user } = renderWithProviders(
+    <VtWizardProgressiveGuidedTableEntry field={field} data={{ s4q5_row1_fiMale: 3 }} onChange={() => {}} />,
+  );
+
+  assert.ok(screen.getByText("Spécialité : à renseigner"));
+  await user.click(screen.getByRole("button", { name: "Modifier la ligne 1" }));
+  assert.equal((screen.getByLabelText("Formation initiale — Hommes") as HTMLInputElement).value, "3");
+});
+
+test("4.5: Save row fills an empty row, not a started one, then returns to the specialty", async () => {
+  const field = schemaField("vocationalTraining", "VT4_5");
+  const calls: Array<[string, unknown]> = [];
+  const { user } = renderWithProviders(
+    <VtWizardProgressiveGuidedTableEntry field={field} data={{ s4q5_row1_fiMale: 3 }} onChange={(id, v) => calls.push([id, v])} />,
+  );
+
+  const specialty = screen.getByRole("textbox", { name: /Spécialité/ });
+  await user.type(specialty, "Couture");
+  await user.click(screen.getByRole("button", { name: "Enregistrer la ligne" }));
+
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(([id]) => id.startsWith("s4q5_row2_")), JSON.stringify(calls));
+  assert.equal(document.activeElement, specialty);
+});
