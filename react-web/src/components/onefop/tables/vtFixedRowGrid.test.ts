@@ -45,7 +45,7 @@ test("grouped columns get a header per group (4.8: Incoming / Outgoing / Dropout
     ["Outgoing", 3],
     ["Dropouts", 3],
   ]);
-  assert.deepEqual(def.columns.map((c) => c.header.en), ["Men", "Women", "Σ Total", "Men", "Women", "Σ Total", "Men", "Women", "Σ Total"]);
+  assert.deepEqual(def.columns.map((c) => c.header.en), ["Men", "Women", "Total", "Men", "Women", "Total", "Men", "Women", "Total"]);
 });
 
 test("5.3 as on paper: Total | Permanent (Good, Bad) | Temporary", () => {
@@ -120,4 +120,30 @@ test("tables without a total column have nothing to save", () => {
   const field = byId("VT8_3");
   const r = field.table!.matrix![0];
   assert.deepEqual(vtFixedRowTotalsToSave(field, { [r[0]]: 1, [r[1]]: 2 }), {});
+});
+
+// 5.3 is the one table the paper gives three header levels: "Définitif"
+// (bon / mauvais état) and "Provisoire" under one heading that says they
+// break down the same buildings as the total beside them.
+test("5.3 carries the paper's band over the breakdown columns, not over the total", () => {
+  const def = buildVtFixedRowGridDefinition(byId("VT5_6"));
+
+  assert.deepEqual(
+    def.columns.map((c) => [c.key, c.band?.fr ?? null]),
+    [
+      ["totalCount", null],
+      ["permanentGoodCount", "Nombre de locaux selon les matériaux de construction et l'état"],
+      ["permanentBadCount", "Nombre de locaux selon les matériaux de construction et l'état"],
+      ["temporaryCount", "Nombre de locaux selon les matériaux de construction et l'état"],
+    ],
+  );
+  // The band sits above the group, which is unchanged.
+  assert.deepEqual(def.headerGroups?.map((g) => [g.title.fr, g.colSpan]), [["Définitif", 2]]);
+});
+
+test("a table the paper bands no columns on gets none (4.8, 8.1)", () => {
+  for (const id of ["VT4_8", "VT8_1"]) {
+    const def = buildVtFixedRowGridDefinition(byId(id));
+    assert.deepEqual(def.columns.filter((c) => c.band).map((c) => c.key), [], id);
+  }
 });

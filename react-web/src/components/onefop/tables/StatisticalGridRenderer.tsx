@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type { FormData } from "@/lib/onefop-schema";
+import type { FormData, LocalizedText } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import type {
   FixedMatrixDefinition,
@@ -49,6 +49,25 @@ export interface StatisticalGridRendererProps {
  * - Spreadsheet-like arrow and enter keyboard navigation
  * - Visually distinct read-only computed cells and total rows
  */
+/** Consecutive columns sharing one heading, in column order; a column with
+ *  none of its own stands alone, so it can head the rows below it. */
+function headerRuns<T>(
+  columns: T[],
+  of: (col: T) => LocalizedText | undefined,
+): Array<{ value: LocalizedText | undefined; items: T[] }> {
+  const runs: Array<{ value: LocalizedText | undefined; items: T[] }> = [];
+  for (const col of columns) {
+    const value = of(col);
+    const open = runs[runs.length - 1];
+    if (open && value && open.value && open.value.fr === value.fr && open.value.en === value.en) {
+      open.items.push(col);
+    } else {
+      runs.push({ value, items: [col] });
+    }
+  }
+  return runs;
+}
+
 export function StatisticalGridRenderer({
   definition,
   data,
@@ -90,6 +109,10 @@ export function StatisticalGridRenderer({
   const hasHeaderGroups = Boolean(
     definition.headerGroups && definition.headerGroups.length > 0
   );
+  // A third level above the groups, where the paper prints one (5.3). The
+  // columns outside it head all three rows, as "Nombre total de locaux"
+  // does on paper.
+  const hasBands = definition.columns.some((col) => Boolean(col.band));
 
   // Helper to get raw cell value
   const getCellValue = (fieldKey: string): number | null => {
@@ -265,7 +288,7 @@ export function StatisticalGridRenderer({
           whether the window is maximised or narrowed. The table only
           scrolls inside this frame once its data columns would get
           narrower than TABLE_MIN_DATA_COL_PX. */}
-      <div className="w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto">
         <DataTable
           ref={tableRef}
           className="w-full border-collapse table-fixed"
@@ -290,7 +313,99 @@ export function StatisticalGridRenderer({
 
           {/* ── Table Header ── */}
           <thead className="bg-[var(--cam-table-head-bg)] text-[var(--cam-table-text)] border-b-2 border-[var(--cam-table-strong)]">
-            {hasHeaderGroups ? (
+            {hasBands ? (
+              <>
+                {/* Level 1: the band the paper prints over the groups; a
+                    column outside every band heads all three rows. */}
+                <tr>
+                  <CornerHeader
+                    rowSpan={3}
+                    className="sticky left-0 z-20 bg-[var(--cam-table-head-bg)] px-3 py-2.5 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] shadow-[1px_0_0_0_var(--cam-table-frame)]"
+                  >
+                    {localized(definition.rowHeaderLabel, locale)}
+                  </CornerHeader>
+                  {headerRuns(definition.columns, (c) => c.band).map((run, i) =>
+                    run.value ? (
+                      <GroupHeader
+                        key={`band-${i}`}
+                        colSpan={run.items.length}
+                        // break-words: the band is a sentence over three
+                        // narrow number columns, and table-fixed makes it
+                        // wrap inside its span rather than widen them.
+                        className="px-2.5 py-2 break-words hyphens-auto border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
+                      >
+                        {localized(run.value, locale)}
+                      </GroupHeader>
+                    ) : (
+                      run.items.map((col) => (
+                        <LeafHeader
+                          key={col.key}
+                          rowSpan={3}
+                          className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
+                        >
+                          {localized(col.header, locale)}
+                          {columnIsRequired(col.key) && <RequiredAsterisk />}
+                        </LeafHeader>
+                      ))
+                    ),
+                  )}
+                </tr>
+
+                {/* Level 2: the groups inside a band; a banded column with no
+                    group of its own heads the two rows below the band. */}
+                <tr>
+                  {headerRuns(
+                    definition.columns.filter((col) => Boolean(col.band)),
+                    (c) => c.group,
+                  ).map((run, i) =>
+                    run.value ? (
+                      <GroupHeader
+                        key={`group-${i}`}
+                        colSpan={run.items.length}
+                        className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
+                      >
+                        {localized(run.value, locale)}
+                      </GroupHeader>
+                    ) : (
+                      run.items.map((col) => (
+                        <LeafHeader
+                          key={col.key}
+                          rowSpan={2}
+                          className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
+                        >
+                          {localized(col.header, locale)}
+                          {columnIsRequired(col.key) && <RequiredAsterisk />}
+                        </LeafHeader>
+                      ))
+                    ),
+                  )}
+                </tr>
+
+                {/* Level 3: the columns of those groups. */}
+                <tr>
+                  {definition.columns
+                    .filter((col) => Boolean(col.band) && Boolean(col.group))
+                    .map((col) => {
+                      const isBoundary = isGroupBoundary(
+                        definition.columns.findIndex((c) => c.key === col.key),
+                      );
+                      return (
+                        <LeafHeader
+                          key={col.key}
+                          className={`px-2 py-1.5 border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[60px] sm:min-w-[70px] ${
+                            isBoundary
+                              ? "border-r-2 border-r-[var(--cam-table-group-line)]"
+                              : "border-r border-r-[var(--cam-table-frame)] last:border-r-0"
+                          }`}
+                        >
+                          {localized(col.header, locale)}
+                          {columnIsRequired(col.key) && <RequiredAsterisk />}
+                        </LeafHeader>
+                      );
+                    })}
+                </tr>
+              </>
+            ) : hasHeaderGroups ? (
               <>
                 {/* Level 1: Row Header + Group Headers + Ungrouped Headers */}
                 <tr>
@@ -461,7 +576,6 @@ export function StatisticalGridRenderer({
                           data-col-idx={colIdx}
                           disabled={disabled}
                           value={val != null ? val : ""}
-                          placeholder="—"
                           aria-label={cellLabel}
                           aria-required={cellDef.required ? "true" : undefined}
                           // A marked cell says so to assistive technology
