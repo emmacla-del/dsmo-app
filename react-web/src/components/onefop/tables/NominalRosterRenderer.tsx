@@ -1,5 +1,10 @@
 "use client";
 
+// 8.8's Guided mode: add one member of staff at a time, then the list of
+// those added. The grid is VtRosterGrid; both write the same cells. Styled by
+// .cam-roster-* (globals.css): one column of questions like the rest of the
+// wizard, no card, one green action per screen (Next), so Save is secondary.
+
 import React, { useContext, useState, useId } from "react";
 import { TableHeadingShownContext } from "../table-heading-context";
 import { useLocale, useTranslations } from "next-intl";
@@ -8,8 +13,8 @@ import { localized } from "@/lib/onefop-schema";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import {
   type NominalRosterDefinition,
-  type RosterRowSlot,
   type RosterFieldDefinition,
+  type RosterRowSlot,
   getRosterActiveRecords,
   getRosterNextAvailableSlot,
   getRosterCapacityState,
@@ -23,16 +28,6 @@ export interface NominalRosterRendererProps {
   disabled?: boolean;
   className?: string;
 }
-
-// The app's tokens, so this table follows the pure-colour palette
-// (owner, 2026-10-10) instead of keeping its own near-black and tinted greys.
-const accentGreen = "var(--cam-green)";
-const ink = "var(--cam-text)";
-const inkSoft = "var(--cam-text-muted)";
-const borderLight = "var(--cam-border)";
-const bgCard = "var(--cam-surface)";
-const bgMuted = "var(--cam-surface-subtle)";
-const errRed = "var(--cam-error)";
 
 export function NominalRosterRenderer({
   definition,
@@ -54,24 +49,27 @@ export function NominalRosterRenderer({
   // Local state for add/edit form
   const [selectedSlot, setSelectedSlot] = useState<RosterRowSlot | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
-  const [primaryKeyError, setPrimaryKeyError] = useState(false);
+  // The required answers a Save was refused for, so the form says which
+  // ones instead of saving a row Suivant will then stop (audit R6).
+  const [missingRequired, setMissingRequired] = useState<string[]>([]);
   const [confirmDeleteSlot, setConfirmDeleteSlot] = useState<RosterRowSlot | null>(null);
   const [announcement, setAnnouncement] = useState<string>("");
 
   const noun = localized(definition.recordNoun ?? null, locale) || t("recordsNoun");
   const singularNoun = localized(definition.singularRecordNoun ?? null, locale) || t("recordNoun");
+  // The answers a row cannot be saved without — the same ones validation
+  // owes for a row begun (8.8: the name, the first name, the sex).
+  const requiredFields = definition.fields.filter((f) => f.required || f.key === definition.primaryKeyField);
 
   const clearForm = () => {
     setSelectedSlot(null);
     setFormValues({});
-    setPrimaryKeyError(false);
+    setMissingRequired([]);
   };
 
   const handleFieldChange = (fieldKey: string, value: unknown) => {
     setFormValues((prev) => ({ ...prev, [fieldKey]: value }));
-    if (fieldKey === definition.primaryKeyField && primaryKeyError) {
-      setPrimaryKeyError(false);
-    }
+    setMissingRequired((prev) => (prev.includes(fieldKey) ? prev.filter((k) => k !== fieldKey) : prev));
   };
 
   const handleStartEdit = (slot: RosterRowSlot) => {
@@ -82,7 +80,7 @@ export function NominalRosterRenderer({
       initialValues[f.key] = data[slot.cellKeys[f.key]] ?? null;
     }
     setFormValues(initialValues);
-    setPrimaryKeyError(false);
+    setMissingRequired([]);
     setConfirmDeleteSlot(null);
     setAnnouncement(
       t("announceEditing", { name: String(initialValues[definition.primaryKeyField] || singularNoun) })
@@ -91,11 +89,16 @@ export function NominalRosterRenderer({
 
   const handleSave = () => {
     if (disabled) return;
-    const pkVal = formValues[definition.primaryKeyField];
-    const trimmedPk = typeof pkVal === "string" ? pkVal.trim() : pkVal != null ? String(pkVal).trim() : "";
 
-    if (!trimmedPk) {
-      setPrimaryKeyError(true);
+    // Every required answer, not the name alone: a row saved without one of
+    // them blocked Suivant later, on a screen that had said it was saved.
+    const missing = requiredFields.filter((f) => {
+      const value = formValues[f.key];
+      return value === undefined || value === null || String(value).trim() === "";
+    });
+    if (missing.length > 0) {
+      setMissingRequired(missing.map((f) => f.key));
+      setAnnouncement(t("fieldRequired", { field: localized(missing[0].label, locale) }));
       return;
     }
 
@@ -141,351 +144,218 @@ export function NominalRosterRenderer({
 
   const isEditing = selectedSlot !== null;
   const isFull = capacityState.isFull && !isEditing;
+  const optionalText = locale === "en" ? "(optional)" : "(facultatif)";
 
-  return (
-    <div
-      className={`nominal-roster-renderer ${className}`}
-      style={{ display: "flex", flexDirection: "column", gap: 16 }}
-      data-testid="nominal-roster-container"
-    >
-      {/* Live Region for Screen Reader Announcements */}
-      <div
-        role="status"
-        aria-live="polite"
-        style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }}
-      >
-        {announcement}
-      </div>
-
-      {/* Header Box — left out where the screen's heading already names the table */}
-      {headingShown ? (
-        definition.caption && (
-          <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: inkSoft }}>{localized(definition.caption, locale)}</p>
-        )
-      ) : (
-      <div
-        style={{
-          borderLeft: `4px solid ${accentGreen}`,
-          padding: "10px 14px",
-          background: bgMuted,
-          borderRadius: 4,
-        }}
-      >
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: ink }}>
-          <CodedLabel code={definition.paperCode} text={localized(definition.title, locale)} />
-        </h3>
-        {definition.caption && (
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: inkSoft }}>
-            {localized(definition.caption, locale)}
+  const textField = (f: RosterFieldDefinition) => {
+    const hasError = missingRequired.includes(f.key);
+    const inputId = `${baseId}_field_${f.key}`;
+    return (
+      <div key={f.key} className="cam-roster-field">
+        {/* "(optional)" on the optional ones; no asterisk on the required
+            ones (audit R10). */}
+        <label htmlFor={inputId} className="cam-question">
+          {localized(f.label, locale)}
+          {!f.required && <span className="cam-roster-optional"> {optionalText}</span>}
+        </label>
+        <input
+          id={inputId}
+          type="text"
+          disabled={disabled || isFull}
+          value={(formValues[f.key] as string) ?? ""}
+          onChange={(e) => handleFieldChange(f.key, e.target.value)}
+          placeholder={localized(f.placeholder ?? null, locale)}
+          aria-invalid={hasError}
+          aria-describedby={hasError ? `${inputId}_err` : undefined}
+          className={`sovereign-text-input cam-roster-control${hasError ? " has-error" : ""}`}
+        />
+        {hasError && (
+          <p id={`${inputId}_err`} className="cam-roster-error">
+            {t("fieldRequired", { field: localized(f.label, locale) })}
           </p>
         )}
       </div>
+    );
+  };
+
+  const choiceField = (f: RosterFieldDefinition) => {
+    const hasError = missingRequired.includes(f.key);
+    const inputId = `${baseId}_field_${f.key}`;
+    const val = (formValues[f.key] as string) ?? "";
+    return (
+      <div key={f.key} className="cam-roster-field">
+        <label htmlFor={inputId} className="cam-question">
+          {localized(f.label, locale)}
+        </label>
+        <select
+          id={inputId}
+          disabled={disabled || isFull}
+          value={val}
+          onChange={(e) => handleFieldChange(f.key, e.target.value || null)}
+          aria-invalid={hasError}
+          aria-describedby={hasError ? `${inputId}_err` : undefined}
+          className={`sovereign-select cam-roster-control${val ? "" : " cam-roster-unset"}${hasError ? " has-error" : ""}`}
+        >
+          {/* A prompt, not a choice: disabled and hidden from the open
+              list, as in the grid and in FieldControl. */}
+          <option value="" disabled hidden>
+            {t("selectPlaceholder")}
+          </option>
+          {f.options?.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {localized(opt.label, locale)}
+            </option>
+          ))}
+        </select>
+        {hasError && (
+          <p id={`${inputId}_err`} className="cam-roster-error">
+            {t("fieldRequired", { field: localized(f.label, locale) })}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const booleanField = (f: RosterFieldDefinition) => {
+    // Oui and Non, neither of them chosen until the respondent chooses: a
+    // tick box would have made "not answered" look like Non (§9), and the
+    // grid offers the same three states.
+    const val = formValues[f.key];
+    const name = `${baseId}_field_${f.key}`;
+    return (
+      <fieldset key={f.key} className="cam-roster-field">
+        <legend className="cam-question">{localized(f.label, locale)}</legend>
+        {([true, false] as const).map((answer) => (
+          <label key={String(answer)} className="cam-roster-check cam-answer">
+            <input
+              type="radio"
+              name={name}
+              value={String(answer)}
+              disabled={disabled || isFull}
+              checked={val === answer || val === String(answer)}
+              onChange={() => handleFieldChange(f.key, answer)}
+            />
+            <span>{answer ? t("yes") : t("no")}</span>
+          </label>
+        ))}
+      </fieldset>
+    );
+  };
+
+  const renderField = (f: RosterFieldDefinition) =>
+    f.kind === "text" ? textField(f) : f.kind === "boolean" ? booleanField(f) : choiceField(f);
+
+  // The questions in the paper's own order, and the band it prints over
+  // some of them (8.8's "Si formateur" over the two qualifications) as a
+  // heading of their own — the grid heads the same columns with it.
+  const bands: { group: string | null; fields: RosterFieldDefinition[] }[] = [];
+  for (const f of definition.fields) {
+    const group = f.group ? localized(f.group, locale) : null;
+    const open = bands[bands.length - 1];
+    if (open && group !== null && open.group === group) open.fields.push(f);
+    else bands.push({ group, fields: [f] });
+  }
+
+  return (
+    <div className={`nominal-roster-renderer cam-roster ${className}`} data-testid="nominal-roster-container">
+      {/* Live Region for Screen Reader Announcements */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+
+      {/* The caption; the title too where the screen's heading does not
+          already name the table. */}
+      {headingShown ? (
+        definition.caption && <p className="cam-hint">{localized(definition.caption, locale)}</p>
+      ) : (
+        <div>
+          <h3 className="cam-roster-title">
+            <CodedLabel code={definition.paperCode} text={localized(definition.title, locale)} />
+          </h3>
+          {definition.caption && <p className="cam-hint">{localized(definition.caption, locale)}</p>}
+        </div>
       )}
 
-      {/* Form Card (Add / Edit) */}
-      <div
-        style={{
-          background: bgCard,
-          border: `1px solid ${isEditing ? accentGreen : borderLight}`,
-          borderRadius: 8,
-          padding: 16,
-          boxShadow: isEditing ? "0 0 0 1px " + accentGreen : "none",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h4
-            style={{
-              margin: 0,
-              fontSize: 14,
-              fontWeight: 700,
-              color: isEditing ? accentGreen : ink,
-            }}
+      {/* Add / edit: one column of questions, like the rest of the wizard. */}
+      <fieldset className={`cam-roster-form${isEditing ? " is-editing" : ""}`}>
+        <legend className="cam-roster-legend">
+          {isEditing ? t("editHeading", { noun: singularNoun }) : t("addHeading", { noun: singularNoun })}
+        </legend>
+
+        {bands.map((band) =>
+          band.group === null ? (
+            band.fields.map(renderField)
+          ) : (
+            <fieldset key={band.group} className="cam-roster-group">
+              <legend className="cam-roster-band">{band.group}</legend>
+              {band.fields.map(renderField)}
+            </fieldset>
+          ),
+        )}
+
+        {/* Secondary: the screen's one green action stays Next (§11). */}
+        <div className="cam-roster-actions">
+          <button
+            type="button"
+            disabled={disabled || isFull}
+            onClick={handleSave}
+            className="cam-button cam-button-secondary"
           >
-            {isEditing
-              ? t("editHeading", { noun: singularNoun })
-              : t("addHeading", { noun: singularNoun })}
-          </h4>
+            {isEditing ? t("saveChanges") : isFull ? t("capacityReached") : t("saveRecord", { noun: singularNoun })}
+          </button>
           {isEditing && (
-            <button
-              type="button"
-              onClick={clearForm}
-              style={{
-                background: "none",
-                border: "none",
-                color: inkSoft,
-                cursor: "pointer",
-                fontSize: 12,
-                textDecoration: "underline",
-              }}
-            >
-              {t("cancelEdit")}
+            <button type="button" onClick={clearForm} className="cam-text-button">
+              {t("cancel")}
             </button>
           )}
         </div>
+      </fieldset>
 
-        {/* Fields grid */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Text Identity Fields (lastName, firstName) */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            {definition.fields
-              .filter((f) => f.kind === "text")
-              .map((f) => {
-                const isPk = f.key === definition.primaryKeyField;
-                const hasError = isPk && primaryKeyError;
-                const inputId = `${baseId}_field_${f.key}`;
-                return (
-                  <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label
-                      htmlFor={inputId}
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: hasError ? errRed : ink,
-                      }}
-                    >
-                      {localized(f.label, locale)}
-                      {f.required && " *"}
-                    </label>
-                    <input
-                      id={inputId}
-                      type="text"
-                      disabled={disabled || isFull}
-                      value={(formValues[f.key] as string) ?? ""}
-                      onChange={(e) => handleFieldChange(f.key, e.target.value)}
-                      placeholder={localized(f.placeholder ?? null, locale)}
-                      aria-invalid={hasError}
-                      aria-describedby={hasError ? `${inputId}_err` : undefined}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 4,
-                        border: `1px solid ${hasError ? errRed : borderLight}`,
-                        fontSize: 14,
-                        color: ink,
-                        outline: "none",
-                        minHeight: 40,
-                      }}
-                    />
-                    {hasError && (
-                      <span id={`${inputId}_err`} style={{ fontSize: 11, color: errRed }}>
-                        {t("fieldRequired", { field: localized(f.label, locale) })}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-
-          {/* Select and Radio Fields */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-            {definition.fields
-              .filter((f) => f.kind === "select" || f.kind === "radio")
-              .map((f) => {
-                const inputId = `${baseId}_field_${f.key}`;
-                const val = (formValues[f.key] as string) ?? "";
-                return (
-                  <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label
-                      htmlFor={inputId}
-                      style={{ fontSize: 12, fontWeight: 600, color: ink }}
-                    >
-                      {localized(f.label, locale)}
-                    </label>
-                    <select
-                      id={inputId}
-                      disabled={disabled || isFull}
-                      value={val}
-                      onChange={(e) => handleFieldChange(f.key, e.target.value || null)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 4,
-                        border: `1px solid ${borderLight}`,
-                        fontSize: 13,
-                        color: ink,
-                        backgroundColor: bgCard,
-                        minHeight: 40,
-                        cursor: disabled || isFull ? "default" : "pointer",
-                      }}
-                    >
-                      <option value="">
-                        {t("selectPlaceholder")}
-                      </option>
-                      {f.options?.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {localized(opt.label, locale)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-          </div>
-
-          {/* Boolean Fields */}
-          {definition.fields
-            .filter((f) => f.kind === "boolean")
-            .map((f) => {
-              const inputId = `${baseId}_field_${f.key}`;
-              const val = formValues[f.key];
-              const isChecked = val === true || val === "true";
-              return (
-                <div
-                  key={f.key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 0",
-                  }}
-                >
-                  <label
-                    htmlFor={inputId}
-                    style={{ fontSize: 13, fontWeight: 600, color: ink, cursor: "pointer" }}
-                  >
-                    {localized(f.label, locale)}
-                  </label>
-                  <input
-                    id={inputId}
-                    type="checkbox"
-                    disabled={disabled || isFull}
-                    checked={isChecked}
-                    onChange={(e) => handleFieldChange(f.key, e.target.checked)}
-                    style={{ width: 20, height: 20, cursor: disabled || isFull ? "default" : "pointer" }}
-                  />
-                </div>
-              );
-            })}
-
-          {/* Save / Submit Button */}
-          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <button
-              type="button"
-              disabled={disabled || isFull}
-              onClick={handleSave}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                background: accentGreen,
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 6,
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: disabled || isFull ? "not-allowed" : "pointer",
-                opacity: disabled || isFull ? 0.5 : 1,
-                minHeight: 44,
-              }}
-            >
-              {isEditing
-                ? t("saveChanges")
-                : isFull
-                ? t("capacityReached")
-                : t("saveRecord", { noun: singularNoun })}
-            </button>
-            {isEditing && (
-              <button
-                type="button"
-                onClick={clearForm}
-                style={{
-                  padding: "10px 16px",
-                  background: "transparent",
-                  color: inkSoft,
-                  border: `1px solid ${borderLight}`,
-                  borderRadius: 6,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  minHeight: 44,
-                }}
-              >
-                {t("cancel")}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Registered Records Section */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: accentGreen }}>
+      {/* Registered records: a plain ruled list with text actions. */}
+      <section className="cam-roster-list">
+        <div className="cam-roster-list-head">
+          <h4 className="cam-roster-legend">
             {t("registeredHeading", { noun, Noun: noun.charAt(0).toUpperCase() + noun.slice(1) })}
           </h4>
-          <span style={{ fontSize: 12, color: inkSoft }}>
-            {t("countOfCapacity", { count: activeRecords.length, noun, capacity: definition.rosterCapacity })}
+          <span className="cam-hint">
+            {/* One of them is a trainer, not trainers. */}
+            {t("countOfCapacity", {
+              count: activeRecords.length,
+              noun: activeRecords.length === 1 ? singularNoun : noun,
+              capacity: definition.rosterCapacity,
+            })}
           </span>
         </div>
 
         {activeRecords.length === 0 ? (
-          <p style={{ fontSize: 13, color: inkSoft, margin: "4px 0" }}>
-            {localized(definition.emptyStateMessage ?? null, locale) ||
-              t("noRecords")}
-          </p>
+          <p className="cam-hint">{localized(definition.emptyStateMessage ?? null, locale) || t("noRecords")}</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <ul className="cam-roster-items">
             {activeRecords.map(({ slot, values }) => {
               const isSlotEditing = selectedSlot?.rowId === slot.rowId;
               const titleText = definition.titleBuilder
                 ? definition.titleBuilder(values)
-                : `${(values.lastName as string) ?? ""} ${(values.firstName as string) ?? ""}`.trim() ||
-                  slot.rowId;
-              const subtitleText = definition.subtitleBuilder
-                ? definition.subtitleBuilder(values)
-                : "";
+                : `${(values.lastName as string) ?? ""} ${(values.firstName as string) ?? ""}`.trim() || slot.rowId;
+              const subtitleText = definition.subtitleBuilder ? definition.subtitleBuilder(values, locale) : "";
               const isPromptingDelete = confirmDeleteSlot?.rowId === slot.rowId;
 
               return (
-                <div
+                <li
                   key={slot.rowId}
                   data-slot-id={slot.rowId}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    padding: "10px 12px",
-                    background: isSlotEditing ? "#eef6ee" : bgMuted,
-                    border: `1px solid ${isSlotEditing ? accentGreen : borderLight}`,
-                    borderRadius: 6,
-                  }}
+                  className={`cam-roster-item${isSlotEditing ? " is-editing" : ""}`}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 13,
-                          fontWeight: 700,
-                          color: ink,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {titleText}
-                      </p>
-                      {subtitleText && (
-                        <p style={{ margin: "2px 0 0", fontSize: 11, color: inkSoft }}>
-                          {subtitleText}
-                        </p>
-                      )}
+                  <div className="cam-roster-item-row">
+                    <div className="cam-roster-item-text">
+                      <p className="cam-roster-item-name">{titleText}</p>
+                      {subtitleText && <p className="cam-hint">{subtitleText}</p>}
                     </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div className="cam-roster-item-actions">
                       <button
                         type="button"
                         disabled={disabled}
                         onClick={() => handleStartEdit(slot)}
-                        aria-label={
-                          t("editItem", { name: titleText })
-                        }
-                        style={{
-                          background: bgCard,
-                          border: `1px solid ${borderLight}`,
-                          borderRadius: 4,
-                          padding: "6px 10px",
-                          cursor: disabled ? "default" : "pointer",
-                          fontSize: 14,
-                          minHeight: 36,
-                          minWidth: 36,
-                        }}
+                        aria-label={t("editItem", { name: titleText })}
+                        className="cam-text-button"
                       >
                         {t("edit")}
                       </button>
@@ -493,20 +363,8 @@ export function NominalRosterRenderer({
                         type="button"
                         disabled={disabled}
                         onClick={() => setConfirmDeleteSlot(slot)}
-                        aria-label={
-                          t("deleteItem", { name: titleText })
-                        }
-                        style={{
-                          background: bgCard,
-                          border: `1px solid ${borderLight}`,
-                          borderRadius: 4,
-                          padding: "6px 10px",
-                          cursor: disabled ? "default" : "pointer",
-                          fontSize: 14,
-                          minHeight: 36,
-                          minWidth: 36,
-                          color: errRed,
-                        }}
+                        aria-label={t("deleteItem", { name: titleText })}
+                        className="cam-text-button is-danger"
                       >
                         {t("delete")}
                       </button>
@@ -515,67 +373,30 @@ export function NominalRosterRenderer({
 
                   {/* Accessible inline confirmation for deletion */}
                   {isPromptingDelete && (
-                    <div
-                      role="alertdialog"
-                      aria-labelledby={`del_title_${slot.rowId}`}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                        background: "#ffebe9",
-                        border: `1px solid ${errRed}`,
-                        borderRadius: 4,
-                        padding: 10,
-                        marginTop: 4,
-                      }}
-                    >
-                      <span id={`del_title_${slot.rowId}`} style={{ fontSize: 12, fontWeight: 600, color: errRed }}>
-                        {localized(definition.removeConfirmationMessage ?? null, locale) ||
-                          t("removeConfirm")}
-                      </span>
-                      <div style={{ display: "flex", gap: 8 }}>
+                    <div role="alertdialog" aria-labelledby={`del_title_${slot.rowId}`} className="cam-roster-confirm">
+                      <p id={`del_title_${slot.rowId}`}>
+                        {localized(definition.removeConfirmationMessage ?? null, locale) || t("removeConfirm")}
+                      </p>
+                      <div className="cam-roster-actions">
                         <button
                           type="button"
                           onClick={() => handleRemove(slot)}
-                          style={{
-                            background: errRed,
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: 4,
-                            padding: "6px 12px",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            minHeight: 36,
-                          }}
+                          className="cam-button cam-button-danger cam-button-sm"
                         >
                           {t("confirmDelete")}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteSlot(null)}
-                          style={{
-                            background: bgCard,
-                            border: `1px solid ${borderLight}`,
-                            borderRadius: 4,
-                            padding: "6px 12px",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            minHeight: 36,
-                          }}
-                        >
+                        <button type="button" onClick={() => setConfirmDeleteSlot(null)} className="cam-text-button">
                           {t("cancel")}
                         </button>
                       </div>
                     </div>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
     </div>
   );
 }
