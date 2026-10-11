@@ -70,11 +70,14 @@ function computedSiblings(cells: VtCell[], computed: VtCell): VtCell[] {
 
 export function buildVtFixedRowGridDefinition(field: OnefopField): FixedMatrixDefinition {
   const vt = field.table!.vt!;
+  // Bands come from "Group — Header" labels. A cell without one keeps its
+  // whole label on a two-row header: 5.3's "Nombre total de locaux" and
+  // "Provisoire" sit either side of the "Définitif" band, as on paper.
   const split = vt.cells.map((c) => splitLabel(c.label));
-  const grouped = split.every(Boolean);
+  const grouped = split.filter(Boolean).length >= 2;
 
   const columns: StatisticalColumnDefinition[] = vt.cells.map((cell, j) => {
-    const parts = grouped ? split[j]! : null;
+    const parts = grouped ? split[j] : null;
     const header = parts?.header ?? cell.label ?? { fr: cell.key, en: cell.key };
     const kind = cell.kind === "computed" ? "computed" : "number";
     return {
@@ -87,10 +90,12 @@ export function buildVtFixedRowGridDefinition(field: OnefopField): FixedMatrixDe
   });
 
   const headerGroups: HeaderGroupDefinition[] | undefined = grouped
-    ? columns.reduce<HeaderGroupDefinition[]>((acc, col) => {
+    ? columns.reduce<HeaderGroupDefinition[]>((acc, col, j) => {
+        if (!col.group) return acc;
         const last = acc[acc.length - 1];
-        if (last && last.title.fr === col.group!.fr && last.title.en === col.group!.en) last.colSpan += 1;
-        else acc.push({ title: col.group!, colSpan: 1 });
+        const prev = columns[j - 1]?.group;
+        if (last && prev && prev.fr === col.group.fr && prev.en === col.group.en) last.colSpan += 1;
+        else acc.push({ title: col.group, colSpan: 1 });
         return acc;
       }, [])
     : undefined;

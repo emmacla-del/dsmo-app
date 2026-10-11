@@ -48,10 +48,22 @@ test("grouped columns get a header per group (4.8: Incoming / Outgoing / Dropout
   assert.deepEqual(def.columns.map((c) => c.header.en), ["Men", "Women", "Σ Total", "Men", "Women", "Σ Total", "Men", "Women", "Σ Total"]);
 });
 
-test("ungrouped columns keep their full label (5.3 infrastructure)", () => {
+test("5.3 as on paper: Total | Permanent (Good, Bad) | Temporary", () => {
   const def = buildVtFixedRowGridDefinition(byId("VT5_6"));
-  assert.equal(def.headerGroups, undefined);
-  assert.equal(def.columns[0].header.en, "Total number of rooms");
+  assert.deepEqual(def.headerGroups?.map((g) => [g.title.fr, g.colSpan]), [["Définitif", 2]]);
+  assert.deepEqual(
+    def.columns.map((c) => [c.header.fr, c.group?.fr ?? null]),
+    [
+      ["Nombre total de locaux", null],
+      ["Bon état", "Définitif"],
+      ["Mauvais état", "Définitif"],
+      ["Provisoire", null],
+    ],
+  );
+});
+
+test("a table with no grouped label has no header band (8.1)", () => {
+  assert.equal(buildVtFixedRowGridDefinition(byId("VT8_1")).headerGroups, undefined);
 });
 
 test("each total adds up only its own group", () => {

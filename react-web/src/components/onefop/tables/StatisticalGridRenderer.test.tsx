@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { StatisticalGridRenderer } from "./StatisticalGridRenderer";
 import { buildSection41Definition } from "./StatisticalTableDefinition";
+import { buildVtFixedRowGridDefinition } from "./vtFixedRowGrid";
 import { schemaField } from "@/test/schema";
 import type { FormData } from "@/lib/onefop-schema";
 
@@ -40,4 +41,23 @@ test("4.1 TOTAL GÉNÉRAL stays blank for a column with a blank cell (blank is n
   const data = filled({ s4q1_bepc_male: 25, s4q1_licence_female: null });
   renderWithProviders(<StatisticalGridRenderer definition={definition} data={data} onChange={() => {}} />);
   assert.deepEqual(footer(), ["25", "—", "—"]);
+});
+
+// 5.3 has single-level columns either side of a band (Total | Définitif:
+// Bon, Mauvais | Provisoire): the header follows column order, so each
+// heading sits over its own cells.
+test("5.3 header: bands and single-level columns in column order", () => {
+  const def53 = buildVtFixedRowGridDefinition(schemaField("vocationalTraining", "VT5_6"));
+  renderWithProviders(<StatisticalGridRenderer definition={def53} data={{}} onChange={() => {}} />);
+  const [top, sub] = Array.from(document.querySelectorAll("thead tr"));
+  const text = (row: Element) => Array.from(row.children).map((c) => [c.textContent?.replace(/\*$/, "").trim(), Number(c.getAttribute("colspan") ?? 1)]);
+  assert.deepEqual(text(top).slice(1), [
+    ["Nombre total de locaux", 1],
+    ["Définitif", 2],
+    ["Provisoire", 1],
+  ]);
+  assert.deepEqual(text(sub), [
+    ["Bon état", 1],
+    ["Mauvais état", 1],
+  ]);
 });
