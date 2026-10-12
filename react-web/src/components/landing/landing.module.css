@@ -84,16 +84,21 @@
   text-wrap: balance;
 }
 
+/* The other official language's name. Cameroon is bilingual, so both names
+   belong at the front door -- but this one was set in a filled dark-green
+   uppercase band, which made the language the visitor did not choose the
+   loudest thing on the page, louder than the one they did (owner,
+   2026-10-12). Same setting as .name, lighter, so the two read as one name
+   said twice rather than as a banner. */
 .nameOther {
-  margin: var(--cam-space-3) 0 0;
-  padding: var(--cam-space-2) var(--cam-space-3);
-  background: var(--cam-green-dark);
-  color: var(--cam-surface);
-  font-size: var(--cam-font-size-3xs);
-  font-weight: var(--cam-font-weight-bold);
+  margin: var(--cam-space-1) 0 0;
+  max-width: 24em;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-regular);
   line-height: var(--cam-line-height-ui);
-  letter-spacing: 0.13em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--cam-text-muted);
   text-wrap: balance;
 }
 
