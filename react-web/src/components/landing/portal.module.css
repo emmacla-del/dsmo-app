@@ -1,0 +1,290 @@
+/* The front door at "/". Values come from tokens.css; nothing here invents a
+   colour, a spacing scale or a typeface. The page is deliberately plain: a
+   government declaration portal, not a product landing page — so no cards
+   with shadows, no rounded corners beyond the 2px control radius, no hover
+   lifts, no decorative fills. Rules and whitespace do the separating. */
+
+.page {
+  background: var(--cam-bg);
+  color: var(--cam-text);
+}
+
+/* ── Masthead ───────────────────────────────────────────────────────────── */
+
+.masthead {
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-4) 0;
+}
+
+.mastheadInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cam-space-5);
+  flex-wrap: wrap;
+}
+
+.endorsement {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  margin: var(--cam-space-2) 0 0;
+}
+
+.mastheadActions {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-4);
+}
+
+/* ── Shell ──────────────────────────────────────────────────────────────── */
+
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 var(--cam-space-5);
+}
+
+.section {
+  padding: var(--cam-space-7) 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.sectionFirst {
+  border-top: 0;
+}
+
+.eyebrow {
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.title {
+  font-size: var(--cam-font-size-3xl);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 0 var(--cam-space-4);
+}
+
+.heading {
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.35;
+  font-weight: 600;
+  margin: 0 0 var(--cam-space-3);
+}
+
+.lede {
+  font-size: var(--cam-font-size-lg);
+  font-weight: 400;
+  line-height: 1.6;
+  max-width: 68ch;
+  margin: 0 0 var(--cam-space-4);
+}
+
+.intro {
+  color: var(--cam-text-muted);
+  max-width: 68ch;
+  margin: 0 0 var(--cam-space-4);
+}
+
+/* ── Status line ────────────────────────────────────────────────────────── */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  margin: 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dotLive {
+  background: var(--cam-green);
+}
+
+.dotNext {
+  background: var(--cam-gold);
+}
+
+.dotPlanned {
+  background: var(--cam-bg);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+}
+
+.stateLive {
+  color: var(--cam-green);
+}
+
+.stateNext {
+  color: var(--cam-gold-dark);
+}
+
+.statePlanned {
+  color: var(--cam-text-muted);
+}
+
+/* ── The three doors ────────────────────────────────────────────────────── */
+
+.doors {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--cam-space-5);
+  margin-top: var(--cam-space-5);
+}
+
+/* A door is bounded because it is a choice between parallel routes, not
+   decoration: the border is what makes the three read as alternatives. */
+.door {
+  border: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-5);
+  display: flex;
+  flex-direction: column;
+}
+
+.doorBody {
+  flex: 1;
+}
+
+.doorEyebrow {
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.doorTitle {
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  margin: 0 0 var(--cam-space-2);
+}
+
+.doorDesc {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.doorRequirement {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  margin: 0;
+}
+
+.doorAction {
+  margin-top: var(--cam-space-5);
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+
+.notice {
+  border: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface-subtle);
+  padding: var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.55;
+  margin: var(--cam-space-5) 0 0;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.notice p + p {
+  margin-top: var(--cam-space-3);
+}
+
+.noticeLabel {
+  font-weight: 600;
+}
+
+/* ── Roadmap ────────────────────────────────────────────────────────────── */
+
+.roadmap {
+  list-style: none;
+  margin: var(--cam-space-5) 0 0;
+  padding: 0;
+}
+
+.phase {
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-4) 0;
+}
+
+.phase:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.phaseHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--cam-space-4);
+  margin-bottom: var(--cam-space-2);
+  flex-wrap: wrap;
+}
+
+.phaseTitle {
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  margin: 0;
+}
+
+.phaseDesc {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0;
+  max-width: 76ch;
+}
+
+/* ── Help ───────────────────────────────────────────────────────────────── */
+
+.helpChannel {
+  font-size: var(--cam-font-size-sm);
+  margin: 0;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+.footer {
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-6) 0;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--cam-space-5);
+  flex-wrap: wrap;
+}
+
+.footerMinistry {
+  font-size: var(--cam-font-size-xs);
+  margin: var(--cam-space-1) 0 0;
+}
+
+@media (max-width: 900px) {
+  .doors {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: var(--cam-font-size-xl);
+  }
+
+  .mastheadInner {
+    align-items: flex-start;
+  }
+}

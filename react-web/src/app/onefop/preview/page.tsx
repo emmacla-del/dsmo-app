@@ -49,7 +49,7 @@ function useRequireAuth(): AuthState {
   // updating router state while this component's own render is still in
   // flight). Same fix already applied in lib/use-require-auth.ts.
   useEffect(() => {
-    if (authState === "anon") router.replace("/");
+    if (authState === "anon") router.replace("/login");
   }, [authState, router]);
   return authState;
 }

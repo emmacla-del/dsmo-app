@@ -1,13 +1,13 @@
-import { redirect } from "next/navigation";
-
 // The front door, served at "/".
 //
-// Phase 1 of the portal work moved the sign-in form out of here and into
-// /login, which until then was only a redirect back to "/". This route keeps
-// every existing link working by sending "/" on to the form, so the move
-// changes no behaviour on its own.
+// Until phase 1 of this work the sign-in form sat here and /login redirected
+// back. The form now lives at /login and this route is the portal: the three
+// declaration routes first, the programme's phases below them.
 //
-// Phase 2 replaces this redirect with the three-door portal page.
+// The page itself stays a server component; Portal is the client half,
+// because the locale switcher and the lockup read from next-intl.
+import { Portal } from "@/components/landing/Portal";
+
 export default function LandingPage() {
-  redirect("/login");
+  return <Portal />;
 }
