@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import type { FormData } from "@/lib/onefop-schema";
 import { useEntryMode } from "@/lib/use-entry-mode";
-import { EntryModeSwitch } from "./EntryModeSwitch";
+import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import { buildVt85TrainerStatusDefinition } from "./tables/StatisticalTableDefinition";
 
@@ -83,9 +83,7 @@ export function Vt85StatusTable({
     // In Tableau each cell has its own id (cell-input-…); in Guidé this
     // wrapper is what "go to the first problem" finds.
     <div id={`field-${firstIssueId ?? VT85_FIELD_IDS[0]}`} tabIndex={-1} style={{ outline: "none" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
-      </div>
+        <EntryModeSwitchSlot mode={entryMode} onChange={setEntryMode} />
       <AdaptiveStatisticalTable
         definition={definition}
         data={shown}

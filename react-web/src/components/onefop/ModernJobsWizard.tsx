@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { localized, type FormData, type OnefopEntity, type OnefopField } from "@/lib/onefop-schema";
 import { QUIZ_ISSUE_FIELD_ID, type ValidationIssue } from "@/lib/onefop-validation";
 import { ModernJobsHeader } from "./ModernJobsHeader";
+import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
 import { ModernJobsSidebar, getSectionStatus } from "./ModernJobsSidebar";
 import { ModernJobsNavigation } from "./ModernJobsNavigation";
 import { SectionRenderer, type SectionTableNavState } from "./SectionRenderer";
@@ -121,6 +122,9 @@ export function ModernJobsWizard({
     undefined;
 
   const [sectionIndex, setSectionIndex] = useState(0);
+  // The one Tableau/Guidé control, filled by whichever section offers the
+  // choice (see EntryModeSwitch).
+  const entryModeSlot = useEntryModeSlot();
   const [activeTableId, setActiveTableId] = useState<string | undefined>(undefined);
   const [isScopeStage, setIsScopeStage] = useState(false);
   const [isValidationStage, setIsValidationStage] = useState(false);
@@ -617,6 +621,7 @@ export function ModernJobsWizard({
   useDialogFocus(!isDesktop && mobileMenuOpen, drawerSheetRef, closeMobileMenu);
 
   return (
+    <EntryModeSlotProvider element={entryModeSlot.element}>
     <div
       data-mj-root=""
       style={{
@@ -637,6 +642,7 @@ export function ModernJobsWizard({
         onExit={onCancel}
         onPreviewPdf={onPreviewPdf ? () => onPreviewPdf(locale) : undefined}
         isGeneratingPdf={isGeneratingPdf}
+        entryModeSlot={entryModeSlot.row}
       />
 
       <div style={{ flex: 1, display: "flex", alignItems: "stretch", minHeight: 0 }}>
@@ -1348,5 +1354,6 @@ export function ModernJobsWizard({
         );
       })()}
     </div>
+    </EntryModeSlotProvider>
   );
 }

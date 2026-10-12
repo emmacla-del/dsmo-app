@@ -1,9 +1,108 @@
 "use client";
 
-import type React from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 
-/** Tableau / Guidé switch, shared by the Modern Jobs sections and the VT tables. */
+/**
+ * Tableau / Guidé control, shared by the Modern Jobs sections and the VT
+ * tables.
+ *
+ * One control, in the app bar. useEntryMode is a single app-wide store, so
+ * the seven call sites were seven views of one setting, each sitting
+ * between a question and its table (owner, 2026-10-11). The screens still
+ * decide whether the choice applies — that routing lives in
+ * VtWizardSectionScreen and SectionRenderer, and duplicating it in the
+ * chrome would be a second source of truth — so a screen renders
+ * EntryModeSwitchSlot where it used to render the switch.
+ *
+ * A screen can hold several tables, and all of them render the slot. Only
+ * the first to register draws the control; the rest render nothing, or the
+ * app bar would carry one selector per table on the screen.
+ *
+ * It is a select rather than a segmented control: the chosen mode shows,
+ * the other appears on click, and a native control carries its own
+ * keyboard and screen-reader behaviour.
+ */
+
+interface EntryModeSlot {
+  element: HTMLElement | null;
+  /** The only registered slot allowed to draw the control. */
+  claimantId: string | null;
+  register: (id: string) => void;
+  unregister: (id: string) => void;
+}
+
+/**
+ * null means no wizard provides a slot, which is not the same as a
+ * provider whose row has not been measured yet: the first tells the switch
+ * to render where it stands, the second to wait one commit rather than
+ * flash in place and jump.
+ */
+const EntryModeSlotContext = createContext<EntryModeSlot | null>(null);
+
+export function EntryModeSlotProvider({
+  element,
+  children,
+}: {
+  element: HTMLElement | null;
+  children: ReactNode;
+}) {
+  const [ids, setIds] = useState<readonly string[]>([]);
+  const register = useCallback((id: string) => {
+    setIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+  const unregister = useCallback((id: string) => {
+    setIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev));
+  }, []);
+  const value = useMemo<EntryModeSlot>(
+    () => ({ element, claimantId: ids[0] ?? null, register, unregister }),
+    [element, ids, register, unregister],
+  );
+  return <EntryModeSlotContext.Provider value={value}>{children}</EntryModeSlotContext.Provider>;
+}
+
+/**
+ * The app bar's slot: empty, and taking no room, until a screen below
+ * offers the choice. Returns the element to provide and the node to render
+ * in the bar.
+ */
+export function useEntryModeSlot(): { element: HTMLElement | null; row: ReactNode } {
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  return { element, row: <div ref={setElement} className="cam-entry-mode-slot" /> };
+}
+
+/** Puts the one switch in the app bar, or renders in place without a slot. */
+export function EntryModeSwitchSlot(props: {
+  mode: "grid" | "guided";
+  onChange: (mode: "grid" | "guided") => void;
+}) {
+  const slot = useContext(EntryModeSlotContext);
+  const id = useId();
+  const register = slot?.register;
+  const unregister = slot?.unregister;
+
+  useEffect(() => {
+    if (!register || !unregister) return;
+    register(id);
+    return () => unregister(id);
+  }, [register, unregister, id]);
+
+  if (!slot) return <EntryModeSwitch {...props} />;
+  // Not this screen's first table, or the bar has not been measured yet.
+  if (slot.claimantId !== id || !slot.element) return null;
+  return createPortal(<EntryModeSwitch {...props} />, slot.element);
+}
+
 export function EntryModeSwitch({
   mode,
   onChange,
@@ -12,51 +111,18 @@ export function EntryModeSwitch({
   onChange: (mode: "grid" | "guided") => void;
 }) {
   const t = useTranslations("modernJobs.entryMode");
-  const btn = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "var(--cam-space-2)",
-    background: active ? "var(--cam-text)" : "transparent",
-    color: active ? "var(--cam-surface)" : "var(--cam-text-muted)",
-    border: "none",
-    borderRadius: "var(--cam-radius-sm)",
-    padding: "var(--cam-space-1) var(--cam-space-3)",
-    fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-    fontWeight: 600,
-    fontFamily: "var(--cam-font-sans)",
-    cursor: "pointer",
-  });
   return (
-    <div
-      role="group"
-      aria-label={t("ariaLabel")}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        background: "var(--cam-surface)",
-        border: "1px solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-control, 6px)",
-        padding: "var(--cam-space-1)",
-      }}
-    >
-      <button type="button" aria-pressed={mode === "grid"} onClick={() => onChange("grid")} className="cam-hoverable" style={btn(mode === "grid")}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="3" y1="15" x2="21" y2="15" />
-          <line x1="9" y1="3" x2="9" y2="21" />
-          <line x1="15" y1="3" x2="15" y2="21" />
-        </svg>
-        {t("grid")}
-      </button>
-      <button type="button" aria-pressed={mode === "guided"} onClick={() => onChange("guided")} className="cam-hoverable" style={btn(mode === "guided")}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 18h6" />
-          <path d="M10 22h4" />
-          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5" />
-        </svg>
-        {t("guided")}
-      </button>
+    <div className="cam-mode-switch">
+      {/* No visible label: in the app bar it wrapped to three lines beside
+          the control. The name is still on the control itself. */}
+      <select
+        aria-label={t("ariaLabel")}
+        value={mode}
+        onChange={(event) => onChange(event.target.value === "guided" ? "guided" : "grid")}
+      >
+        <option value="grid">{t("grid")}</option>
+        <option value="guided">{t("guided")}</option>
+      </select>
     </div>
   );
 }

@@ -138,9 +138,9 @@ test("4.10: each row's calculated total is shown and summed in the footer; the g
     />,
   );
 
-  assert.equal(screen.getByRole("cell", { name: "Couture - Σ Total" }).textContent, "7");
-  assert.equal(screen.getByRole("cell", { name: "Soudure - Σ Total" }).textContent, "2", "the counts entered so far, as saved");
-  assert.equal(screen.getByRole("cell", { name: "Total - Σ Total" }).textContent, "—", "blank while a column total is blank");
+  assert.equal(screen.getByRole("cell", { name: "Couture - Total" }).textContent, "7");
+  assert.equal(screen.getByRole("cell", { name: "Soudure - Total" }).textContent, "2", "the counts entered so far, as saved");
+  assert.equal(screen.getByRole("cell", { name: "Total - Total" }).textContent, "—", "blank while a column total is blank");
   assert.equal(writes.length, 0, "useVtFixedRowTotals saves the totals, for the whole declaration");
   assert.equal(document.getElementById(`cell-input-${row1[3]}`), null, "no input for the total");
 });
@@ -154,13 +154,24 @@ test("a stored total alone does not make a row started (validation's rule)", () 
 const CURRICULUM = "Couture - Existence d'un référentiel de formation";
 const APPROVED = "Couture - Le référentiel est-il homologué ?";
 
-test("5.2: a Yes/No cell stores the answer as text, and Sans réponse stores nothing", async () => {
+test("5.2: a Yes/No cell stores the answer as text; the empty cell prompts, it does not answer", async () => {
   const { user, writes } = renderGrid(field52, { s5q2_row1_specialtyText: "Couture" });
-  const curriculum = screen.getByLabelText(CURRICULUM);
+  const curriculum = screen.getByLabelText(CURRICULUM) as HTMLSelectElement;
+
+  // Nothing is chosen for the respondent, and nothing is stored, until they
+  // choose: the first entry is a prompt, not Non (§9).
+  const prompt = curriculum.options[0];
+  assert.equal(prompt.value, "");
+  assert.equal(curriculum.value, "", "unanswered shows the prompt");
+  assert.equal(writes.length, 0, "showing the cell stores nothing");
+
   await user.selectOptions(curriculum, "true");
   assert.deepEqual(writes.at(-1), ["s5q2_row1_hasCurriculum", "true"], "as the row-by-row entry stores it");
-  await user.selectOptions(curriculum, "");
-  assert.deepEqual(writes.at(-1), ["s5q2_row1_hasCurriculum", null], "unanswered is not Non");
+
+  // The prompt leaves the list once answered (2026-10-11): an answer can be
+  // changed to the other answer, but not taken back to unanswered.
+  assert.ok(prompt.disabled, "the prompt cannot be chosen");
+  assert.ok(prompt.hidden, "and it is not offered in the open list");
 });
 
 test("5.2: the dependent question is asked only while the first answer is Oui", async () => {

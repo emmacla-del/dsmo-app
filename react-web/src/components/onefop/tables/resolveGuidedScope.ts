@@ -128,6 +128,12 @@ export function getActiveScopeTags(
  * Natural age phrase from an age-band column header ("15 à 24", "25 à 34",
  * "35 et +"), or null when the dimension is not an age band (e.g. a motive).
  */
+/** "Sex"/"Sexe" heads the men/women columns; it is not a category to ask
+ *  about (the step asks the total, then the women among them). */
+function isSexGroup(label: string | undefined): boolean {
+  return !!label && /^\s*sex(e)?\s*$/i.test(label);
+}
+
 function agePhrase(dimLabel: string | undefined, locale: "fr" | "en"): string | null {
   if (!dimLabel) return null;
   const d = dimLabel.replace(/\s+/g, " ").trim();
@@ -413,13 +419,16 @@ function buildConversationalPrompt(
     };
   }
 
-  // Generic fallback
+  // Generic fallback (the VT tables). The column group "Sex"/"Sexe" is not
+  // a category: the step asks the total, then the women among them, so
+  // naming it read as "How many persons for Doctorate/PhD — Sex?".
+  const dim = isSexGroup(dimLabel) ? undefined : dimLabel;
   return {
     contractType,
     prompt:
       locale === "fr"
-        ? `Combien de personnes pour ${rowLabel}${dimLabel ? " — " + dimLabel : ""} ?`
-        : `How many persons for ${rowLabel}${dimLabel ? " — " + dimLabel : ""}?`,
+        ? `Combien de personnes au total pour « ${rowLabel} »${dim ? " — " + dim : ""} ?`
+        : `How many people in total for “${rowLabel}”${dim ? " — " + dim : ""}?`,
     subPrompt:
       locale === "fr"
         ? `Parmi ces ${rowLabel}, combien sont des femmes ?`
@@ -628,7 +637,7 @@ export function resolveGuidedScope(
           rowId: row.id,
           rowLabel: rowLbl,
           categoryTag: rowLbl,
-          dimensionTag: groupTitle,
+          dimensionTag: isSexGroup(groupTitle) ? undefined : groupTitle,
           contractType,
           prompt,
           subPrompt,

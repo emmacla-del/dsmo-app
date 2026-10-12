@@ -56,7 +56,7 @@ import {
 import { missingQuizFieldKeys } from "./tables/quizRequired";
 import {
   TABLE_LABEL_COL_PX,
-  TABLE_MAX_DATA_COL_PX,
+  tableDataColumnWidthPx,
   TABLE_MAX_WIDTH_PX,
   tablePreferredWidthPx,
 } from "./tables/tableLayout";
@@ -299,20 +299,25 @@ function GenericGrid({
   const leafColumnCount = groupLabels.length * subLabels.length;
 
   const labelColumnPx = rowText ? ROW_TEXT_COLUMN_WIDTH : TABLE_LABEL_COL_PX;
-  const preferredTableWidth = tablePreferredWidthPx(
-    Array.from({ length: leafColumnCount }, () => TABLE_MAX_DATA_COL_PX),
-    labelColumnPx,
+  // Every leaf column takes the one width this table's headings call for.
+  const dataColWidth = tableDataColumnWidthPx(
+    subLabels.map((l) => localized(l, locale)),
+    groupLabels.length > 1
+      ? groupLabels.map((g) => ({ heading: localized(g, locale), columns: subLabels.length }))
+      : [],
   );
+  const dataColWidths = Array.from({ length: leafColumnCount }, () => dataColWidth);
+  const preferredTableWidth = tablePreferredWidthPx(dataColWidths, labelColumnPx);
 
   return (
     // Same sizing rule as StatisticalGridRenderer (see tables/tableLayout.ts):
     // the frame hugs its own columns and never exceeds TABLE_MAX_WIDTH_PX; the
-    // label column is fixed and each data column is capped at
-    // TABLE_MAX_DATA_COL_PX. It only scrolls (inside this frame) once the
+    // label column is fixed and each data column takes the table's shared width.
+    // It only scrolls (inside this frame) once the
     // frame is narrower than the columns ask for.
     <div
       style={{
-        width: "fit-content",
+        width: "100%",
         maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)`,
         overflow: "hidden",
         border: "1px solid var(--cam-table-frame)",
@@ -322,7 +327,8 @@ function GenericGrid({
       <div style={{ width: "100%", overflowX: "auto" }}>
         <DataTable
           style={{
-            width: preferredTableWidth,
+            width: "100%",
+            minWidth: preferredTableWidth,
             borderCollapse: "separate",
             borderSpacing: 0,
             tableLayout: "fixed",
@@ -330,9 +336,9 @@ function GenericGrid({
           }}
         >
           <colgroup>
-            <col style={{ width: labelColumnPx }} />
-            {Array.from({ length: leafColumnCount }).map((_, i) => (
-              <col key={i} style={{ width: TABLE_MAX_DATA_COL_PX }} />
+            <col style={{ minWidth: labelColumnPx }} />
+            {dataColWidths.map((w, i) => (
+              <col key={i} style={{ width: w }} />
             ))}
           </colgroup>
         <thead>

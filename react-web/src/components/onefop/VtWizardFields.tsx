@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -29,7 +29,7 @@ function vtLocale(locale: string): "fr" | "en" {
 }
 
 // Every question label, whatever the control: the --cam-question-* tokens
-// every respondent form shares (15px bold), under the subsection title
+// every respondent form shares (15px semibold), under the subsection title
 // (18px) and set apart from the answer (--cam-answer-size, 14px regular).
 // Radio/checkbox questions used to be 16px bold and text inputs 15px, so
 // two questions side by side read as two levels.
@@ -65,7 +65,9 @@ function VtFieldHint({ id, children }: { id?: string; children: ReactNode }) {
 }
 
 // Fields whose answer is a short code: a medium box, not a full line.
-const VT_MEDIUM_WIDTH_IDS = new Set(["VT1_1", "VT1_3"]);
+// Text answers shorter than a line: codes, initials, a PO box, a city, an
+// order number and its date.
+const VT_MEDIUM_WIDTH_IDS = new Set(["VT1_1", "VT1_3", "VT2_11", "VT2_11_CITY", "VT2_16", "VT2_17"]);
 
 const errorStyle: CSSProperties = {
   fontSize: 13,
@@ -89,6 +91,12 @@ export const VtGeographyLockContext = createContext<Record<string, string> | nul
 // code belongs to the question and is shown once, on the question.
 export const VtPaperCodeContext = createContext<ReadonlyMap<string, string | null | undefined> | null>(null);
 
+// Fields that share their number with the field just before them at the
+// same level (2.1.10 PO box then City, 2.1.15 trainees then trainers, the
+// 7.1.1 sub-items): the number is printed once, on the first, as 2.1.7
+// prints "Total" then "of which female". Provided by VtWizardSectionScreen.
+export const VtSharedCodeContext = createContext<ReadonlySet<string> | null>(null);
+
 /** Stable id of a VT field's error message, referenced by the control's
  * aria-describedby (same `${id}-error` convention as FieldRenderer). */
 export function vtFieldErrorId(fieldId: string): string {
@@ -111,6 +119,9 @@ export function VtWizardFieldError({ message, id }: { message?: string; id?: str
  */
 export function VtWizardInfoBadge({ tooltip }: { tooltip: string }) {
   const [open, setOpen] = useState(false);
+  // Opened by a click (or tap) stays open; opened by hover closes when the
+  // pointer leaves. Hover alone used to leave notes open over the questions.
+  const [pinned, setPinned] = useState(false);
   const [align, setAlign] = useState<"left" | "right">("left");
   const wrapperRef = useRef<HTMLSpanElement | null>(null);
   const popoverRef = useRef<HTMLSpanElement | null>(null);
@@ -138,12 +149,14 @@ export function VtWizardInfoBadge({ tooltip }: { tooltip: string }) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setOpen(false);
+        setPinned(false);
         wrapperRef.current?.querySelector("button")?.focus();
       }
     };
     const handlePointerDown = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setPinned(false);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -155,27 +168,25 @@ export function VtWizardInfoBadge({ tooltip }: { tooltip: string }) {
   }, [open]);
 
   return (
-    <span ref={wrapperRef} style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
+    <span
+      ref={wrapperRef}
+      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}
+      onMouseLeave={() => {
+        if (!pinned) setOpen(false);
+      }}
+    >
       <button
         type="button"
         aria-label={tooltip}
         aria-expanded={open}
         aria-controls={open ? popoverId : undefined}
-        onClick={() => setOpen((o) => !o)}
-        onMouseEnter={() => setOpen(true)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 20,
-          height: 20,
-          padding: 0,
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          color: "var(--vt-ink-faint, #7a827f)",
-          borderRadius: "50%",
+        onClick={() => {
+          const next = !pinned;
+          setPinned(next);
+          setOpen(next);
         }}
+        onMouseEnter={() => setOpen(true)}
+        className="cam-info-badge"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="12" cy="12" r="10" />
@@ -188,24 +199,11 @@ export function VtWizardInfoBadge({ tooltip }: { tooltip: string }) {
           ref={popoverRef}
           id={popoverId}
           role="tooltip"
+          className="cam-info-popover"
           style={{
-            position: "absolute",
-            zIndex: 30,
-            top: "calc(100% + 6px)",
+            top: "calc(100% + var(--cam-space-1))",
             left: align === "left" ? 0 : "auto",
             right: align === "right" ? 0 : "auto",
-            width: 280,
-            maxWidth: "80vw",
-            padding: "8px 12px",
-            background: "var(--vt-accent-soft, #eaf3ec)",
-            border: "1px solid rgba(30,107,58,0.25)",
-            borderRadius: 6,
-            fontFamily: "var(--vt-font)",
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--cam-green-dark)",
-            lineHeight: 1.4,
-            boxShadow: "0 4px 12px rgba(0,0,0,.12)",
           }}
         >
           {tooltip}
@@ -312,31 +310,18 @@ function VtWizardAdminSuggestionChips({
   const { header, items } = vtAdminSuggestionsFor(fieldId, data, locale, tree);
   if (items.length === 0) return null;
   return (
-    <div style={{ marginTop: 6 }}>
-      {header && (
-        <div style={{ fontFamily: "var(--cam-font-sans)", fontSize: 11, fontWeight: 600, color: "var(--cam-text-muted)", marginBottom: 4 }}>
-          {header}
-        </div>
-      )}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div className="cam-suggest">
+      {header && <div className="cam-hint">{header}</div>}
+      <div className="cam-suggest-list">
         {items.map((item) => {
           const active = value === item.value;
           return (
             <button
               key={item.value}
               type="button"
+              aria-pressed={active}
               onClick={() => onChange(fieldId, item.value)}
-              style={{
-                padding: "3px 8px",
-                borderRadius: "var(--cam-radius-sm)",
-                border: `1px solid ${active ? "var(--cam-green)" : "var(--cam-border)"}`,
-                background: active ? "var(--cam-green)" : "#ffffff",
-                color: active ? "#ffffff" : "var(--cam-text-muted)",
-                fontFamily: "var(--cam-font-sans)",
-                fontSize: 11,
-                fontWeight: active ? 600 : 500,
-                cursor: "pointer",
-              }}
+              className="cam-suggest-chip"
             >
               {item.label}
             </button>
@@ -360,6 +345,7 @@ export function VtWizardNumberStepper({
   compactBox = false,
   describedBy,
   invalid = false,
+  hasError = false,
   required = false,
 }: {
   field: OnefopField;
@@ -368,6 +354,8 @@ export function VtWizardNumberStepper({
   compactBox?: boolean;
   describedBy?: string;
   invalid?: boolean;
+  /** Red edge and aria-invalid: the box itself is what is wrong. */
+  hasError?: boolean;
   required?: boolean;
 }) {
   return (
@@ -379,6 +367,7 @@ export function VtWizardNumberStepper({
       showButtons={compactBox ? false : !VT_NO_STEPPER_IDS.has(field.id)}
       describedBy={describedBy}
       invalid={invalid}
+      hasError={hasError}
       required={required}
     />
   );
@@ -388,18 +377,34 @@ export function VtWizardInlineCountBox({
   field,
   value,
   onChange,
+  errorMessage,
 }: {
   field: OnefopField;
   value: unknown;
   onChange: (fieldId: string, value: unknown) => void;
+  /** The count's own issue. It was never passed, so a missing count made
+   *  the block say "to fix" with nothing marked on screen. */
+  errorMessage?: string;
 }) {
   const t = useTranslations();
+  const errorId = vtFieldErrorId(field.id);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={labelStyle}>
-        {t("vtWizard.number", { default: "Nombre :" })}
-      </span>
-      <VtWizardNumberStepper field={field} value={value} onChange={onChange} compactBox required={!isOptionalField(field)} />
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
+        <label htmlFor={field.id} style={{ ...labelStyle, marginBottom: 0 }}>
+          {t("vtWizard.number", { default: "Nombre :" })}
+        </label>
+        <VtWizardNumberStepper
+          field={field}
+          value={value}
+          onChange={onChange}
+          compactBox
+          hasError={!!errorMessage}
+          describedBy={errorMessage ? errorId : undefined}
+          required={!isOptionalField(field)}
+        />
+      </div>
+      <VtWizardFieldError id={errorId} message={errorMessage} />
     </div>
   );
 }
@@ -489,10 +494,125 @@ export function VtWizardCheckboxGroup({
         value={current}
         onChange={onChange}
         ariaLabel={localized(field.label, locale)}
-        columns={opts.length > 4 ? 2 : 1}
+        // One column at any length: two columns read across (1 2 / 3 4),
+        // not down in the paper's order, and differed from short lists.
+        columns={1}
         describedBy={describedBy}
         invalid={invalid}
       />
+    </div>
+  );
+}
+
+function VtFiveSlotsField({
+  field,
+  value,
+  onChange,
+  onFieldTouch,
+  labelNode,
+  optionalSuffix,
+  tooltip,
+  hint,
+  hintId,
+  errorId,
+  errorMessage,
+  hasError,
+  locale,
+}: {
+  field: OnefopField;
+  value: unknown;
+  onChange: (fieldId: string, value: unknown) => void;
+  onFieldTouch?: (fieldId: string) => void;
+  labelNode: ReactNode;
+  optionalSuffix: ReactNode;
+  tooltip?: string;
+  hint?: string;
+  hintId?: string;
+  errorId?: string;
+  errorMessage?: string;
+  hasError: boolean;
+  locale: string;
+}) {
+  const isEn = locale.startsWith("en");
+  const isPerspectives = field.id === "VT9_4";
+  const slotPrefix = isPerspectives
+    ? (isEn ? "Prospect" : "Perspective")
+    : (isEn ? "Other" : "Autre");
+
+  const currentArray = useMemo(() => {
+    let arr: string[] = [];
+    if (Array.isArray(value)) {
+      arr = value.map((v) => String(v ?? ""));
+    } else if (typeof value === "string" && value.trim() !== "") {
+      arr = value.split(/\r?\n+/);
+    }
+    while (arr.length < 5) arr.push("");
+    return arr.slice(0, 5);
+  }, [value]);
+
+  const handleSlotChange = (index: number, text: string) => {
+    const next = [...currentArray];
+    next[index] = text;
+    onChange(field.id, next);
+  };
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={questionLabelStyle}>
+        {labelNode}
+        {optionalSuffix}
+        {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
+      </div>
+      {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          marginTop: "8px",
+          maxWidth: "var(--cam-field-width-full)",
+        }}
+      >
+        {[0, 1, 2, 3, 4].map((i) => {
+          const isSlotRequired = isPerspectives && i === 0;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span
+                style={{
+                  minWidth: "115px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--cam-text-muted)",
+                }}
+              >
+                {slotPrefix} {i + 1}
+                {isSlotRequired ? (
+                  <span style={{ color: "var(--cam-error)", marginLeft: "4px" }}>*</span>
+                ) : (
+                  <span style={{ color: "var(--cam-text-muted)", fontWeight: 400, marginLeft: "4px", fontSize: "11px" }}>
+                    ({isEn ? "optional" : "facultatif"})
+                  </span>
+                )}
+              </span>
+              <input
+                type="text"
+                value={currentArray[i] ?? ""}
+                onChange={(e) => handleSlotChange(i, e.target.value)}
+                onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
+                className={`sovereign-text-input ${hasError && isSlotRequired && !currentArray[0]?.trim() ? "has-error" : ""}`}
+                style={{ flex: 1, minHeight: "38px" }}
+                placeholder={
+                  isPerspectives
+                    ? (isEn ? `Key priority #${i + 1}` : `Priorité stratégique #${i + 1}`)
+                    : (isEn ? `Additional difficulty #${i + 1}` : `Difficulté supplémentaire #${i + 1}`)
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
+      <VtWizardFieldError id={errorId} message={errorMessage} />
     </div>
   );
 }
@@ -532,8 +652,11 @@ export function VtWizardField({
   // its parent question's code.
   const paperCodes = useContext(VtPaperCodeContext);
   const parentCode = field.visibility?.dependsOn ? paperCodes?.get(field.visibility.dependsOn) : undefined;
+  const sharedCode = useContext(VtSharedCodeContext);
   const repeatsCode =
-    VT_BLOCK_PAPER_CODES.has(field.paperCode ?? "") || (!!parentCode && parentCode === field.paperCode);
+    VT_BLOCK_PAPER_CODES.has(field.paperCode ?? "") ||
+    (!!parentCode && parentCode === field.paperCode) ||
+    !!sharedCode?.has(field.id);
   const labelNode = <CodedLabel code={repeatsCode ? null : field.paperCode} text={labelText} />;
   const hint = localized(field.hint, vtLocale(locale));
   // Every one-choice question, the Sexe questions included, is a plain radio
@@ -617,10 +740,12 @@ export function VtWizardField({
           id={field.id}
           {...a11yProps}
           type="number"
-          maxLength={4}
           placeholder={locale.startsWith("en") ? "YYYY" : "AAAA"}
           value={(value as string) ?? ""}
+          // maxLength does nothing on a number input; the slice keeps 4 digits.
           onChange={(e) => onChange(field.id, e.target.value.slice(0, 4))}
+          // A wheel over the focused box would change the year silently.
+          onWheel={(e) => e.currentTarget.blur()}
           onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
           style={{ maxWidth: "var(--cam-field-width-short)" }}
@@ -669,6 +794,26 @@ export function VtWizardField({
         </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
       </div>
+    );
+  }
+
+  if (field.id === "VT9_4" || field.id === "VT9_3") {
+    return (
+      <VtFiveSlotsField
+        field={field}
+        value={value}
+        onChange={onChange}
+        onFieldTouch={onFieldTouch}
+        labelNode={labelNode}
+        optionalSuffix={optionalSuffix}
+        tooltip={tooltip}
+        hint={hint}
+        hintId={hintId}
+        errorId={errorId}
+        errorMessage={errorMessage}
+        hasError={hasError}
+        locale={locale}
+      />
     );
   }
 
@@ -721,7 +866,9 @@ export function VtWizardField({
               cursor: "pointer",
             }}
           >
-            <option value="">{t("vtWizard.selectAnOption", { default: "Sélectionner une option" })}</option>
+            <option value="" disabled hidden>
+              {t("vtWizard.select", { default: "Sélectionner…" })}
+            </option>
             {field.options.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {localized(opt.label, vtLocale(locale))}
@@ -809,8 +956,9 @@ export function VtWizardField({
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
         style={VT_MEDIUM_WIDTH_IDS.has(field.id) ? { maxWidth: "var(--cam-field-width-medium)" } : undefined}
       />
-      <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
+      {/* The error right under the box it is about, before the suggestions. */}
       <VtWizardFieldError id={errorId} message={errorMessage} />
+      <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
     </div>
   );
 }

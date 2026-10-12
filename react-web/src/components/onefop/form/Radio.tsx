@@ -148,25 +148,27 @@ export function RadioGroup({
             <span
               aria-hidden="true"
               style={{
-                width: 20,
-                height: 20,
+                // The choice-size token, as the checkbox; the edge is the
+                // input edge (3:1 against white, WCAG 2.2, 1.4.11).
+                width: "var(--cam-choice-size)",
+                height: "var(--cam-choice-size)",
                 borderRadius: "50%",
-                border: `2px solid ${selected ? "var(--vt-accent, #1e6b3a)" : "#d1d6d3"}`,
+                border: `2px solid ${selected ? "var(--cam-green)" : "var(--cam-text-muted)"}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                backgroundColor: "#ffffff",
+                backgroundColor: "var(--cam-surface)",
                 transition: "border-color 0.15s ease",
               }}
             >
               {selected && (
                 <span
                   style={{
-                    width: 10,
-                    height: 10,
+                    width: "var(--cam-space-2)",
+                    height: "var(--cam-space-2)",
                     borderRadius: "50%",
-                    backgroundColor: "var(--vt-accent, #1e6b3a)",
+                    backgroundColor: "var(--cam-green)",
                   }}
                 />
               )}
@@ -176,9 +178,12 @@ export function RadioGroup({
                 style={{
                   display: "block",
                   fontFamily: "var(--vt-font)",
-                  fontWeight: selected ? 600 : 400,
+                  // An option is an answer: black and regular like a typed
+                  // one, chosen or not. The dot shows the choice; a bold
+                  // label pushed the next option sideways.
+                  fontWeight: "var(--cam-font-weight-regular)",
                   fontSize: "var(--cam-answer-size)",
-                  color: selected ? "var(--vt-ink, #1c1f1d)" : "var(--vt-ink-soft, #4e5451)",
+                  color: "var(--cam-text)",
                 }}
               >
                 {opt.label}
@@ -190,7 +195,7 @@ export function RadioGroup({
                     fontFamily: "var(--vt-font)",
                     fontWeight: 400,
                     fontSize: "var(--cam-microcopy-size)",
-                    color: selected ? "var(--vt-ink-soft, #4e5451)" : "var(--vt-ink-faint, #7a827f)",
+                    color: "var(--cam-microcopy-color)",
                     lineHeight: 1.25,
                     marginTop: 2,
                   }}

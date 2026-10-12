@@ -119,7 +119,9 @@ export function parseCountInput(raw: string): CountInput {
 
 function isEmpty(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
-  if (Array.isArray(value) && value.length === 0) return true;
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((item) => String(item ?? "").trim() === "");
+  }
   return false;
 }
 
@@ -191,7 +193,11 @@ function validateField(
   // Required-ness only decides whether an EMPTY answer is an error. Any value
   // that is given — on an optional field too (Téléphone 2, VT2_12 e-mail) —
   // must pass the same format checks below.
-  if (isEmpty(v)) {
+  const empty = field.id === "VT9_4" && Array.isArray(raw)
+    ? String(raw[0] ?? "").trim() === ""
+    : isEmpty(raw !== undefined && raw !== null && typeof raw === "object" ? raw : v);
+
+  if (empty) {
     if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
     return fieldIssue(field, labelled(fieldLabel(field, locale), "Champ obligatoire", "Required field", locale));
   }
@@ -371,20 +377,26 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
       const kindOf = new Map<string, string | undefined>();
       field.table.matrix.forEach((rowIds) => rowIds.forEach((id, c) => kindOf.set(id, vt.cells[c]?.kind)));
       const counts = missing.filter((id) => kindOf.get(id) === "number").length;
+      // Real plurals, not "answer(s)": "1 answer still to fill", "2 cells".
+      const n = missing.length;
+      const answersLeft = locale === "en"
+        ? `${n} ${n === 1 ? "answer" : "answers"} still to fill.`
+        : `${n} ${n === 1 ? "réponse reste" : "réponses restent"} à renseigner.`;
+      const cellsLeft = locale === "en"
+        ? `${n} ${n === 1 ? "cell" : "cells"} still to fill.`
+        : `${n} ${n === 1 ? "cellule reste" : "cellules restent"} à renseigner.`;
       issues.push({
         fieldId: field.id,
         message:
           counts === 0
-            ? locale === "en"
-              ? `${label}: ${missing.length} answer(s) still to fill.`
-              : `${label} : ${missing.length} réponse(s) restent à renseigner.`
+            ? `${label}${locale === "en" ? ":" : " :"} ${answersLeft}`
             : counts === missing.length
               ? locale === "en"
-                ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 where nothing occurred.`
-                : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`
+                ? `${label}: ${cellsLeft} Enter 0 where nothing occurred.`
+                : `${label} : ${cellsLeft} Saisissez 0 lorsqu'il n'y a rien à déclarer.`
               : locale === "en"
-                ? `${label}: ${missing.length} cell(s) still to fill. Enter 0 in the counts where nothing occurred.`
-                : `${label} : ${missing.length} cellule(s) restent à renseigner. Saisissez 0 dans les effectifs lorsqu'il n'y a rien à déclarer.`,
+                ? `${label}: ${cellsLeft} Enter 0 in the counts where nothing occurred.`
+                : `${label} : ${cellsLeft} Saisissez 0 dans les effectifs lorsqu'il n'y a rien à déclarer.`,
       });
     }
     return issues;
@@ -439,9 +451,10 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
       if (missingKeys.length > 0) {
         issues.push({
           fieldId: field.id,
+          // Real plurals and a shorter sentence: what is missing, then what to do.
           message: locale === "en"
-            ? `${label}: Table is reported but contains ${missingKeys.length} missing required cell(s). Every cell must contain an explicit value. Enter 0 if there were no occurrences.`
-            : `${label} : Le tableau est déclaré renseigné mais comporte ${missingKeys.length} cellule(s) ou option(s) obligatoire(s) non renseignée(s). Chaque cellule doit contenir une valeur explicite. Saisissez 0 s'il n'y a eu aucune occurrence.`,
+            ? `${label}: ${missingKeys.length} ${missingKeys.length === 1 ? "cell" : "cells"} still to fill. Enter 0 where there was nothing.`
+            : `${label} : ${missingKeys.length} ${missingKeys.length === 1 ? "cellule reste" : "cellules restent"} à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
         });
       }
       return issues;

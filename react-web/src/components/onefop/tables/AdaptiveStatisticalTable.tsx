@@ -13,16 +13,14 @@ import {
   type StatisticalColumnDefinition,
   type NominalRosterDefinition,
   type TablePresentationMode,
-  getStatisticalTableCompletion,
   resolveAdaptiveStrategy,
 } from "./StatisticalTableDefinition";
-import { StatisticalGridRenderer } from "./StatisticalGridRenderer";
+import { StatisticalGridRenderer, matrixDataColumnWidthsPx } from "./StatisticalGridRenderer";
 import { GuidedStatisticalEntry } from "./GuidedStatisticalEntry";
 import { NominalRosterRenderer } from "./NominalRosterRenderer";
 import { missingQuizFieldKeys } from "./quizRequired";
 import {
   TABLE_LABEL_COL_PX,
-  TABLE_MAX_DATA_COL_PX,
   TABLE_MAX_WIDTH_PX,
   tablePreferredWidthPx,
 } from "./tableLayout";
@@ -275,34 +273,6 @@ export function AdaptiveStatisticalTable({
   const viewMode = decision.mode;
   const canToggle = allowToggle && decision.allowToggle;
 
-  // Real completion state for the status badge below — the shared,
-  // single-source-of-truth check (see StatisticalTableDefinition.ts) so it
-  // can't disagree with the section's step pills / completed-count, which
-  // use the same function.
-  const tableStatus =
-    effectiveDefinition.type === "fixed-matrix"
-      ? getStatisticalTableCompletion(effectiveDefinition, data)
-      : "complete";
-
-  const statusBadge =
-    tableStatus === "complete"
-      ? {
-          background: "var(--cam-success-bg)",
-          color: "var(--cam-success)",
-          border: "1px solid var(--cam-success-border)",
-          icon: "✓",
-          label: t("statusCompleted"),
-        }
-      : tableStatus === "in-progress"
-        ? {
-            background: "var(--cam-surface-subtle)",
-            color: "var(--cam-text-muted)",
-            border: "1px solid var(--cam-border)",
-            icon: "●",
-            label: t("statusInProgress"),
-          }
-        : null;
-
   // Authoritative batch cell change with definition.recalc execution
   const handleBatchChange = (updates: Record<string, unknown>) => {
     // 1. Commit all raw changes to FormData
@@ -359,9 +329,7 @@ export function AdaptiveStatisticalTable({
   // frame in between — a 1366px laptop with the rail, among others — showed
   // all nine columns and scrolled horizontally instead.
   const preferredTableWidth = tablePreferredWidthPx(
-    effectiveDefinition.columns.map((c) =>
-      typeof c.width === "number" ? c.width : TABLE_MAX_DATA_COL_PX,
-    ),
+    matrixDataColumnWidthsPx(effectiveDefinition, locale),
   );
   const useBlockTabs =
     viewMode === "grid" &&
@@ -472,27 +440,6 @@ export function AdaptiveStatisticalTable({
             </div>
 
             <CoherenceChip tableFieldId={tableFieldId} />
-
-            {/* Status Badge — reflects actual fill state, hidden when not started */}
-            {statusBadge && (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  background: statusBadge.background,
-                  color: statusBadge.color,
-                  border: statusBadge.border,
-                  borderRadius: "var(--cam-radius-full, 9999px)",
-                  fontSize: "var(--cam-font-size-2xs)",
-                  fontWeight: 600,
-                  padding: "3px 10px",
-                  fontFamily: "var(--cam-font-sans)",
-                }}
-              >
-                {statusBadge.icon} {statusBadge.label}
-              </span>
-            )}
           </div>
         </div>
       ) : (
@@ -742,7 +689,7 @@ function BlockTabs({
             whiteSpace: "nowrap",
           }}
         >
-          Σ {localized(block.title, locale)} ({t("calculated")})
+          {localized(block.title, locale)} ({t("calculated")})
         </span>
       ))}
     </div>

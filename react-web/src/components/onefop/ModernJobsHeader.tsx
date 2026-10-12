@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
-import { clockTime } from "@/lib/admin-data-state";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import type { ServerSaveState } from "@/lib/use-onefop-server-save";
 
@@ -13,6 +12,8 @@ export interface ModernJobsHeaderProps {
   /** The establishment's CAM-LEAP number, e.g. VT26000103. */
   establishmentId?: string;
   quarterCode?: string;
+  /** Kept for the autosave layer's shape; the bar no longer reports a
+   * save that worked (owner, 2026-10-11). */
   saving?: boolean;
   lastSavedAt?: Date | null;
   /**
@@ -26,9 +27,18 @@ export interface ModernJobsHeaderProps {
     hasUnsavedChanges: boolean;
     onRetry: () => void;
   };
+  /**
+   * The wizard's entry-mode slot (Tableau / Guidé). It lives in the app
+   * bar because the choice is one persisted setting for the whole
+   * declaration, and because the pod below needs its height for the
+   * declaration itself (owner, 2026-10-11). It is empty, and takes no
+   * room, on a screen with no table.
+   */
+  entryModeSlot?: ReactNode;
   onExit?: () => void;
   onPreviewPdf?: () => void;
   isGeneratingPdf?: boolean;
+  isPreviewActive?: boolean;
 }
 
 /**
@@ -44,12 +54,12 @@ export function ModernJobsHeader({
   establishmentName,
   establishmentId,
   quarterCode = "",
-  saving = false,
-  lastSavedAt,
   serverSave,
+  entryModeSlot,
   onExit,
   onPreviewPdf,
   isGeneratingPdf = false,
+  isPreviewActive = false,
 }: ModernJobsHeaderProps) {
   const locale = useLocale();
   const t = useTranslations("modernJobs.header");
@@ -81,31 +91,31 @@ export function ModernJobsHeader({
     }
   })();
 
-  const formattedSaveTime = lastSavedAt
-    ? clockTime(lastSavedAt, asUiLocale(locale))
-    : null;
-
-  const serverSavedTime = serverSave?.savedAt
-    ? clockTime(serverSave.savedAt, asUiLocale(locale))
-    : null;
-
   // Publish this sticky header's height as --mj-header-h and
   // --cam-wizard-rail-top on the wizard root
   // (its parent), so the side rail and the table tab strips pin just below
-  // it. Both wizards render the header there: Modern Jobs and VT.
+  // it. Both wizards render the header there: Modern Jobs and VT. Below
+  // 1024px the header is not pinned (.cam-masthead), so it publishes 0.
   const headerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const header = headerRef.current;
     const root = header?.parentElement;
     if (!header || !root || typeof ResizeObserver === "undefined") return;
     const publish = () => {
-      root.style.setProperty("--mj-header-h", `${header.offsetHeight}px`);
-      root.style.setProperty("--cam-wizard-rail-top", `${header.offsetHeight}px`);
+      const pinned = getComputedStyle(header).position === "sticky";
+      const height = pinned ? header.offsetHeight : 0;
+      root.style.setProperty("--mj-header-h", `${height}px`);
+      root.style.setProperty("--cam-wizard-rail-top", `${height}px`);
     };
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(header);
-    return () => observer.disconnect();
+    const wide = window.matchMedia("(min-width: 1024px)");
+    wide.addEventListener("change", publish);
+    return () => {
+      observer.disconnect();
+      wide.removeEventListener("change", publish);
+    };
   }, []);
 
   const isEn = locale.startsWith("en");
@@ -128,15 +138,20 @@ export function ModernJobsHeader({
   return (
     <header
       ref={headerRef}
+      className="cam-masthead"
       style={{
         background: "var(--cam-surface)",
         borderBottom: "1px solid var(--cam-border)",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
       }}
     >
       <style>{`
+        /* Pinned beside the side rail (1024px and up). Below that there is
+           no rail, and a pinned two-line masthead took a sixth of a tablet
+           screen; it scrolls away with the page. */
+        .cam-masthead { position: sticky; top: 0; z-index: 50; }
+        @media (max-width: 1023px) {
+          .cam-masthead { position: static; }
+        }
         /* Wordmark | establishment and survey | actions. The two side columns
            share the leftover width equally, so the centre block sits at the
            true centre of the bar. */
@@ -163,10 +178,11 @@ export function ModernJobsHeader({
         }
       `}</style>
       {/* Three sizes: 18 for who is declaring (and the wordmark), 14 for the
-          survey and the buttons, 13 for the secondary facts. */}
+          survey and the buttons, 13 for the secondary facts. The name is
+          semibold, not bold: the page's own title is the one bold anchor. */}
       <div className="cam-masthead-row">
         <div className="cam-masthead-brand" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-green-dark)", letterSpacing: "0.02em" }}>
+          <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-green-dark)" }}>
             ONEFOP
           </span>
           <span style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>CamLEAP</span>
@@ -176,7 +192,7 @@ export function ModernJobsHeader({
         <div className="cam-masthead-title" style={{ lineHeight: 1.35 }}>
           {establishmentName && (
             <div>
-              <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-text)" }}>{establishmentName}</span>
+              <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>{establishmentName}</span>
               {establishmentId && (
                 <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{` · ${establishmentId}`}</span>
               )}
@@ -192,32 +208,22 @@ export function ModernJobsHeader({
           </div>
         </div>
 
-        {/* Right: save status, PDF preview, exit */}
+        {/* Right: entry mode, a save that did not land, PDF preview, exit */}
         <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div role="status" style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", whiteSpace: "nowrap" }}>
-            {serverSave ? (
-              serverSave.state === "saving" ? (
-                t("saving")
-              ) : serverSave.state === "failed" ? (
-                <span style={{ color: "var(--cam-error)" }}>
-                  {t("notSaved")}{" "}
-                  <button type="button" className="cam-text-button is-danger" onClick={serverSave.onRetry}>
-                    {t("retrySave")}
-                  </button>
-                </span>
-              ) : serverSave.state === "saved" && !serverSave.hasUnsavedChanges && serverSavedTime ? (
-                t("savedToAccount", { time: serverSavedTime })
-              ) : (
-                // Typed since the last save that landed, or never saved yet:
-                // it is on this device, which is not the same as saved.
-                t("savedOnDevice")
-              )
-            ) : saving ? (
-              t("saving")
-            ) : formattedSaveTime ? (
-              t("savedAt", { time: formattedSaveTime })
-            ) : (
-              t("draftSaved")
+          {entryModeSlot}
+          {/* Saving is automatic and the respondent does not need telling it
+              worked (owner, 2026-10-11) — the PDF preview shows them what
+              the declaration holds. A save that did NOT land still shows,
+              with its retry: it is the only way back from one, and no
+              preview can report it. */}
+          <div role="status" style={{ fontSize: "var(--cam-font-size-xs)", whiteSpace: "nowrap" }}>
+            {serverSave?.state === "failed" && (
+              <span style={{ color: "var(--cam-error)" }}>
+                {t("notSaved")}{" "}
+                <button type="button" className="cam-text-button is-danger" onClick={serverSave.onRetry}>
+                  {t("retrySave")}
+                </button>
+              </span>
             )}
           </div>
 
@@ -229,8 +235,9 @@ export function ModernJobsHeader({
               className="cam-hoverable"
               style={{
                 ...buttonStyle,
-                background: "var(--cam-surface)",
-                border: "1px solid var(--cam-border)",
+                background: isPreviewActive ? "var(--cam-green-active-wash)" : "var(--cam-surface)",
+                borderColor: isPreviewActive ? "var(--cam-green-active-ink)" : "var(--cam-border)",
+                color: isPreviewActive ? "var(--cam-green-active-ink)" : "var(--cam-text)",
                 cursor: isGeneratingPdf ? "wait" : "pointer",
                 opacity: isGeneratingPdf ? 0.7 : 1,
               }}
@@ -240,7 +247,7 @@ export function ModernJobsHeader({
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <path d="M14 2v6h6M8 13h8M8 17h8" />
               </svg>
-              {isGeneratingPdf ? "PDF..." : isEn ? "PDF Preview" : "Aperçu PDF"}
+              {isGeneratingPdf ? "PDF..." : isEn ? (isPreviewActive ? "Hide Preview" : "PDF Preview") : (isPreviewActive ? "Masquer l'aperçu" : "Aperçu PDF")}
             </button>
           )}
 

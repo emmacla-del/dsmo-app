@@ -123,27 +123,23 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, q
   const period = referencePeriodPhrases(quarterCode, locale);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", padding: "clamp(16px, 3vw, 28px) 0 48px" }}>
-      <header style={{ marginBottom: 24 }}>
-        <h1
-          id={VT_QUIZ_HEADING_ID}
-          tabIndex={-1}
-          style={{ margin: "0 0 8px", fontSize: "clamp(20px, 3vw, 24px)", fontWeight: 800, color: "var(--cam-text)", lineHeight: 1.25, outline: "none" }}
-        >
+    <div>
+      <header className="cam-step-head">
+        <h1 id={VT_QUIZ_HEADING_ID} tabIndex={-1} className="cam-step-title">
           {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
         </h1>
-        <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: 1.5, maxWidth: 720 }}>
+        <p className="cam-step-lede">
           {isEn
             ? `Answer each question ${period?.forPeriod ?? "for the period"}.`
             : `Répondez à chaque question ${period?.forPeriod ?? "pour la période"}.`}
         </p>
-        <p aria-live="polite" style={{ margin: "var(--cam-space-3) 0 0", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
+        <p aria-live="polite" className="cam-step-lede">
           {isEn ? `${answeredCount} of ${asked.length} answered` : `${answeredCount} sur ${asked.length} répondues`}
         </p>
       </header>
 
-      <ol style={{ listStyle: "none", margin: 0, padding: 0, borderTop: "1px solid var(--cam-border)" }}>
-        {asked.map((q) => {
+      <ol style={{ listStyle: "none", margin: "var(--cam-space-2) 0 0", padding: 0 }}>
+        {asked.map((q, qIndex) => {
           const value = answers[q.id];
           const label = localized(q.text, locale);
           const groupId = `vt-quiz-${q.id}`;
@@ -152,9 +148,10 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, q
             <li
               key={q.id}
               style={{
-                padding: "16px 0",
-                paddingLeft: q.parent ? 28 : 0,
-                borderBottom: "1px solid var(--cam-border)",
+                padding: "var(--cam-space-4) 0",
+                paddingLeft: q.parent ? "var(--cam-space-6)" : 0,
+                // The last one needs no rule: the actions row draws its own.
+                borderBottom: qIndex < asked.length - 1 ? "var(--cam-border-width) solid var(--cam-border)" : undefined,
               }}
             >
               <div className="cam-question" aria-hidden="true">

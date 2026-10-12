@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
+import { fetchDeclarationPreviewHtml, fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
 import type { OnefopEntity } from "@/lib/onefop-schema";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
 import { getZeroedTablesList, type ZeroedTableInfo } from "@/components/modern-jobs/scope/QuizSemantics";
@@ -53,6 +53,8 @@ export function OnefopPdfPreviewModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const activeBlobRef = useRef<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const isFr = activeLocale === "fr";
 
@@ -69,12 +71,12 @@ export function OnefopPdfPreviewModal({
     }
   }, [isOpen, locale]);
 
-  // Load PDF whenever modal is open or activeLocale changes
-  const loadPdf = useCallback(async (targetLocale: "fr" | "en") => {
+  // Load preview whenever modal is open or activeLocale changes
+  const loadPreview = useCallback(async (targetLocale: "fr" | "en") => {
     setLoading(true);
     setLoadError(null);
     try {
-      const blob = await fetchDeclarationPreviewPdf(
+      const html = await fetchDeclarationPreviewHtml(
         entityType,
         data,
         quarterCode,
@@ -84,12 +86,13 @@ export function OnefopPdfPreviewModal({
       if (activeBlobRef.current) {
         URL.revokeObjectURL(activeBlobRef.current);
       }
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       activeBlobRef.current = url;
       setBlobUrl(url);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setLoadError(msg || (targetLocale === "fr" ? "Erreur lors de la génération du PDF" : "Error generating PDF"));
+      setLoadError(msg || (targetLocale === "fr" ? "Erreur lors de la génération de l'aperçu" : "Error generating preview"));
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,7 @@ export function OnefopPdfPreviewModal({
 
   useEffect(() => {
     if (isOpen) {
-      loadPdf(activeLocale);
+      loadPreview(activeLocale);
     } else {
       if (activeBlobRef.current) {
         URL.revokeObjectURL(activeBlobRef.current);
@@ -105,7 +108,7 @@ export function OnefopPdfPreviewModal({
       }
       setBlobUrl(null);
     }
-  }, [isOpen, activeLocale, loadPdf]);
+  }, [isOpen, activeLocale, loadPreview]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -116,16 +119,43 @@ export function OnefopPdfPreviewModal({
     };
   }, []);
 
-  const handleDownload = () => {
-    if (!blobUrl) return;
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    // The period code names the file; without one the segment is left out
-    // rather than invented (it used to fall back to "T3").
-    a.download = `declaration-${entityType}${quarterCode ? `-${quarterCode}` : ""}-${activeLocale.toUpperCase()}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handlePrint = () => {
+    if (iframeRef.current?.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+        return;
+      } catch (e) {
+        console.warn("iframe print threw, falling back to window.print", e);
+      }
+    }
+    window.print();
+  };
+
+  const handleDownload = async () => {
+    setDownloadingPdf(true);
+    try {
+      const pdfBlob = await fetchDeclarationPreviewPdf(
+        entityType,
+        data,
+        quarterCode,
+        activeLocale,
+        entity,
+      );
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `declaration-${entityType}${quarterCode ? `-${quarterCode}` : ""}-${activeLocale.toUpperCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn("Direct PDF download unavailable, triggering browser print-to-PDF:", err);
+      handlePrint();
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const handleSwitchLocale = (newLocale: "fr" | "en") => {
@@ -400,12 +430,12 @@ export function OnefopPdfPreviewModal({
               <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
               <div style={{ textAlign: "center" }}>
                 <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 700, color: "var(--cam-text)" }}>
-                  {isFr ? "Génération de l'aperçu PDF officiel..." : "Generating official PDF preview..."}
+                  {isFr ? "Génération de l'aperçu officiel..." : "Generating official preview..."}
                 </p>
                 <p style={{ margin: "4px 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                   {isFr
-                    ? "Mise en page réglementaire Handlebars & Puppeteer"
-                    : "Official Handlebars & Puppeteer layout rendering"}
+                    ? "Mise en page réglementaire officielle en direct"
+                    : "Official regulatory layout rendering"}
                 </p>
               </div>
             </div>
@@ -430,7 +460,7 @@ export function OnefopPdfPreviewModal({
               </p>
               <button
                 type="button"
-                onClick={() => loadPdf(activeLocale)}
+                onClick={() => loadPreview(activeLocale)}
                 style={{
                   background: "var(--cam-green)",
                   color: "var(--cam-surface)",
@@ -449,13 +479,15 @@ export function OnefopPdfPreviewModal({
 
           {blobUrl && !loadError && (
             <iframe
-              src={`${blobUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-              title="Official Declaration PDF Preview"
+              ref={iframeRef}
+              src={blobUrl}
+              title="Official Declaration Preview"
               style={{
                 width: "100%",
                 height: "100%",
                 border: "none",
                 display: "block",
+                background: "var(--cam-surface)",
               }}
             />
           )}
@@ -547,11 +579,11 @@ export function OnefopPdfPreviewModal({
             <span>{isFr ? "Modifier les informations" : "Edit information"}</span>
           </button>
 
-          {/* Right actions: Télécharger PDF + Confirmer et soumettre */}
+          {/* Right actions: Imprimer / Enregistrer en PDF + Télécharger PDF + Confirmer et soumettre */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={handlePrint}
               disabled={loading || !blobUrl || isSubmitting}
               style={{
                 background: "var(--cam-surface)",
@@ -567,8 +599,36 @@ export function OnefopPdfPreviewModal({
                 alignItems: "center",
                 gap: 8,
               }}
+              title={isFr ? "Imprimer directement ou enregistrer en PDF via votre navigateur" : "Print directly or save as PDF via your browser"}
             >
-              <span>{isFr ? "Télécharger le PDF" : "Download PDF"}</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              <span>{isFr ? "Imprimer / Enregistrer en PDF" : "Print / Save as PDF"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={loading || !blobUrl || isSubmitting || downloadingPdf}
+              style={{
+                background: "var(--cam-surface)",
+                border: "1px solid var(--cam-border)",
+                color: "var(--cam-text)",
+                borderRadius: "6px",
+                padding: "var(--cam-space-3) var(--cam-space-5)",
+                fontSize: "var(--cam-font-size-sm)",
+                fontWeight: 600,
+                cursor: loading || !blobUrl || isSubmitting || downloadingPdf ? "not-allowed" : "pointer",
+                opacity: loading || !blobUrl || isSubmitting || downloadingPdf ? 0.6 : 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span>{downloadingPdf ? (isFr ? "Téléchargement..." : "Downloading...") : (isFr ? "Télécharger le PDF" : "Download PDF")}</span>
             </button>
 
             {onSubmitFinal && !submissionResult && (

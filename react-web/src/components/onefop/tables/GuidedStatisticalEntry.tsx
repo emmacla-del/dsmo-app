@@ -704,17 +704,19 @@ export function GuidedStatisticalEntry({
 
   const isPermanent = q.contractType === "permanent";
   const isTemporary = q.contractType === "temporary";
+  // State colours from the tokens (UI grammar G1: no Tailwind palette).
   const contractBadgeClass = isPermanent
-    ? "text-emerald-800 bg-emerald-50 border-emerald-200"
-    : "text-amber-800 bg-amber-50 border-amber-200";
+    ? "text-[var(--cam-text)] bg-[var(--cam-success-bg)] border-[var(--cam-success-border)]"
+    : "text-[var(--cam-text)] bg-[var(--cam-warning-bg)] border-[var(--cam-warning-border)]";
   const contractBadgeLabel = isPermanent
     ? t("permanentCdi")
     : isTemporary
       ? t("temporaryCdd")
       : null;
 
+  // An answer box like every other: 40px, regular weight, the answer size.
   const inputBase =
-    "h-14 w-36 px-3.5 text-center font-bold text-2xl tabular-nums text-[var(--cam-text)] bg-white border-2 rounded-[6px] outline-none transition-colors focus:border-[var(--cam-green)] focus:shadow-[0_0_0_3px_rgba(30,107,58,0.15)]";
+    "h-10 w-36 px-3 text-center font-normal text-[length:var(--cam-answer-size)] tabular-nums text-[var(--cam-text)] bg-[var(--cam-surface)] border rounded-[var(--cam-radius-control)] outline-none transition-colors focus:border-[var(--cam-green)] focus:shadow-[var(--cam-focus-shadow)]";
   const inputBorder = (bad: boolean) =>
     bad ? "border-[var(--cam-error)]" : "border-[var(--cam-border-strong)]";
 
@@ -746,17 +748,18 @@ export function GuidedStatisticalEntry({
 
       <div
         id={`guided-q-${definition.id}-${q.id}`}
-        className="flex flex-col gap-5 bg-white border border-[var(--cam-border)] rounded-[8px] p-5 sm:p-7"
+        className="flex flex-col gap-4 border-t border-[var(--cam-border)] pt-5"
       >
-        {/* ── Context: group being asked about ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-[6px] bg-[var(--cam-surface-subtle)] border border-[var(--cam-border-subtle)]">
-          <div className="text-[15px] font-bold text-[var(--cam-text)]">
+        {/* ── Context: group being asked about. A muted line, not a grey
+            box inside a card (owner, 2026-10-10: no decoration). ── */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-[var(--cam-text-muted)]">
             {q.categoryTag || q.rowLabel}
             {q.dimensionTag && <span className="font-semibold"> · {q.dimensionTag}</span>}
           </div>
           <div className="flex items-center gap-3">
             {contractBadgeLabel && (
-              <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-[3px] border ${contractBadgeClass}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-[var(--cam-radius-sm)] border ${contractBadgeClass}`}>
                 {contractBadgeLabel}
               </span>
             )}
@@ -775,7 +778,8 @@ export function GuidedStatisticalEntry({
 
         {/* ── Question ── */}
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-lg sm:text-[21px] font-bold text-[var(--cam-text)] leading-snug tracking-tight m-0">
+          {/* 18px, the block-heading step: under the 24px screen title. */}
+          <h3 className="text-[length:var(--cam-font-size-lg)] font-bold text-[var(--cam-text)] leading-snug m-0">
             {q.prompt}
           </h3>
           <p className="text-xs text-[var(--cam-text-muted)] m-0">
@@ -806,7 +810,7 @@ export function GuidedStatisticalEntry({
                 onChange(q.textField!.fieldKey, e.target.value);
               }}
               onKeyDown={handleKeyDown}
-              className="h-11 w-full max-w-[520px] px-3 text-[15px] text-[var(--cam-text)] bg-white border border-[var(--cam-border-strong)] rounded-[6px] outline-none focus:border-[var(--cam-green)] focus:shadow-[0_0_0_3px_rgba(30,107,58,0.15)]"
+              className="h-10 w-full max-w-[520px] px-3 text-[length:var(--cam-answer-size)] text-[var(--cam-text)] bg-[var(--cam-surface)] border border-[var(--cam-text-muted)] rounded-[var(--cam-radius-control)] outline-none focus:border-[var(--cam-green)] focus:shadow-[var(--cam-focus-shadow)]"
             />
           </div>
         )}
@@ -827,7 +831,6 @@ export function GuidedStatisticalEntry({
               inputMode="numeric"
               autoComplete="off"
               disabled={disabled}
-              placeholder="–"
               value={displayTotal}
               aria-invalid={(Boolean(error) && displayTotal === "") || rejectedInput === "total"}
               aria-describedby={error ? `${baseId}_error` : undefined}
@@ -844,7 +847,7 @@ export function GuidedStatisticalEntry({
                 type="button"
                 disabled={disabled}
                 onClick={() => handleTargetTotalChange(q, "0")}
-                className="px-3.5 py-2 text-[13px] font-semibold bg-white border border-dashed border-[var(--cam-border-strong)] text-[var(--cam-text)] rounded-[4px] hover:border-[var(--cam-green)] hover:text-[var(--cam-green)] cursor-pointer"
+                className="cam-button cam-button-secondary cam-button-sm"
               >
                 {t("none0")}
               </button>
@@ -875,7 +878,6 @@ export function GuidedStatisticalEntry({
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={disabled}
-                placeholder="–"
                 value={splitShown}
                 aria-invalid={Boolean(error) && rejectedInput !== "total"}
                 aria-describedby={error ? `${baseId}_error` : undefined}

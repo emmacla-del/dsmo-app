@@ -7,3 +7,10 @@ import { createContext } from "react";
  * (VT wizard audit, S4). Elsewhere (default false) tables keep their title.
  */
 export const TableHeadingShownContext = createContext(false);
+
+/**
+ * True where the block heading above a table already states the table's
+ * progress (VT Section 5's "✓ Complete" / "1 to fix"). The table then leaves
+ * out its own status pill, so one state is not reported twice in two words.
+ */
+export const TableStatusShownContext = createContext(false);

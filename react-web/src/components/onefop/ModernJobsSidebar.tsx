@@ -272,7 +272,8 @@ export function ModernJobsSidebar({
       sheet={sheet}
       progress={{ done: completedCount, total: sections.length }}
     >
-      <WizardStepList label={tNav("ariaLabel")} steps={steps} editLabel={t("edit")} />
+      {/* No per-step "Edit" word — see VtWizardSidebar. */}
+      <WizardStepList label={tNav("ariaLabel")} steps={steps} />
     </WizardRail>
   );
 }

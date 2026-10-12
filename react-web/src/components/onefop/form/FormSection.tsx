@@ -3,25 +3,12 @@
 import type { ReactNode } from "react";
 
 /**
- * Card/surface wrapper for a wizard section's content. Padding responds to
- * viewport via Tailwind breakpoints instead of a useViewportSize() read.
+ * One block of a wizard section's questions. Not a card: blocks are told
+ * apart by their heading and the rule between them (.cam-wizard-block in
+ * globals.css), not by a box (owner, 2026-10-10; UI grammar G4/G14).
  */
 export function FormSection({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="p-4 md:p-6"
-      style={{
-        width: "100%",
-        backgroundColor: "#ffffff",
-        border: "1px solid var(--vt-card-border, #e5eae7)",
-        borderRadius: "var(--vt-card-radius, 4px)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <section className="cam-wizard-block">{children}</section>;
 }
 
 export type FormSectionVariant = "plain" | "accent";
@@ -63,14 +50,15 @@ export function FormSubsection({
       {title && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* One recipe for both variants: 18px semibold in text colour,
+            {/* One recipe for both variants: 18px bold in text colour,
                 one step under the section title (24px) and over the
-                questions (15px). The accent bar and capitals were
-                decoration (owner, 2026-10-10). */}
+                questions (15px semibold): the block's one bold level (owner,
+                2026-10-11). The accent bar and capitals were decoration
+                (owner, 2026-10-10). */}
             <h3
               style={{
                 fontFamily: "var(--cam-font-sans)",
-                fontWeight: "var(--cam-font-weight-semibold)",
+                fontWeight: "var(--cam-font-weight-bold)",
                 fontSize: "var(--cam-font-size-lg)",
                 lineHeight: "var(--cam-line-height-title)",
                 color: "var(--cam-text)",

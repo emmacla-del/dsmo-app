@@ -151,12 +151,16 @@
    --cam-microcopy-color: var(--cam-text-muted);
    --cam-microcopy-margin-top: 4px;
 
-   /* ── Question and answer (owner, 2026-10-10) ──
+   /* ── Question and answer (owner, 2026-10-10; weight 2026-10-11) ──
      Every respondent form -- registration, Modern Jobs, VT -- draws a
-     question 15px bold and the answer under it 14px regular; the hint is
-     --cam-microcopy-size (12px). One place, so the three cannot drift. */
+     question 15px semibold and the answer under it 14px regular; the hint
+     is --cam-microcopy-size (12px). One place, so the three cannot drift.
+     Semibold, not bold (owner, 2026-10-11): a bold question under an 18px
+     block heading gave two bold levels with no step between them, and
+     medium (500) sat too close to the regular answers. The block heading
+     is the one bold level. */
    --cam-question-size: var(--cam-font-size-base);
-   --cam-question-weight: var(--cam-font-weight-bold);
+   --cam-question-weight: var(--cam-font-weight-semibold);
    --cam-question-line-height: var(--cam-line-height-label);
    --cam-answer-size: var(--cam-font-size-sm);
 

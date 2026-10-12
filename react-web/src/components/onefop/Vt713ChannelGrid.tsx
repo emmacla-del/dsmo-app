@@ -71,7 +71,7 @@ export function Vt713ChannelGrid({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
-      <div className="w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto">
         <DataTable className="w-full border-collapse" style={{ minWidth: 560 }}>
           <caption className="sr-only">{caption}</caption>
           <thead className="bg-[var(--cam-table-head-bg)] text-[var(--cam-table-text)] border-b-2 border-[var(--cam-table-strong)]">

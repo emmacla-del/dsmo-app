@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { computeSubsectionLayout, isFieldVisible, localized } from "@/lib/onefop-schema";
 import type { ValidationIssue } from "@/lib/onefop-validation";
-import { EntryModeSwitch } from "./EntryModeSwitch";
+import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { FieldRenderer } from "./FieldRenderer";
 import { FormGrid, FormCol } from "./ui/FormGrid";
 import { FormSectionCard } from "./ui/FormSectionCard";
@@ -749,15 +749,7 @@ export function SectionRenderer({
           quiz leaves a section with only one table, and the switch must stay
           reachable in every table section. */}
       {!isMultiTableSection && sectionHasAdaptiveTables && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            margin: "calc(-1 * var(--cam-space-3, 12px)) 0 var(--cam-space-3, 12px)",
-          }}
-        >
-          <EntryModeSwitch mode={sectionEntryMode} onChange={setSectionEntryMode} />
-        </div>
+        <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
       )}
 
       {/* Step Pills Row — pinned under the header while the tables scroll
@@ -839,7 +831,7 @@ export function SectionRenderer({
           {/* Right: one Tableau/Guidé switch for the whole section + keyboard help */}
           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flex: "0 0 auto" }}>
             {sectionHasAdaptiveTables && (
-              <EntryModeSwitch mode={sectionEntryMode} onChange={setSectionEntryMode} />
+              <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
             )}
             <button
               type="button"
