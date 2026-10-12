@@ -37,7 +37,7 @@ const inter = localFont({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("authShared");
   return {
-    title: "CAM-LEAP",
+    title: "CAMLEAP",
     description: t("subtitle"),
   };
 }

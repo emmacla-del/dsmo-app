@@ -212,13 +212,13 @@ export function invitationMessage(inv: StaffInvitation, url: string, locale: UiL
   const where = territoryPhrase(inv.region, inv.department);
   if (locale === "en") {
     return (
-      `Hello, you are invited to create your CAM-LEAP account` +
+      `Hello, you are invited to create your CAMLEAP account` +
       ` (${inv.positionTitle}, ${inv.serviceName}${where ? `, ${where}` : ""}).` +
       ` Open this link to set your password. It is valid until ${expires} and works once:\n${url}`
     );
   }
   return (
-    `Bonjour, vous êtes invité(e) à créer votre compte CAM-LEAP` +
+    `Bonjour, vous êtes invité(e) à créer votre compte CAMLEAP` +
     ` (${inv.positionTitle}, ${inv.serviceName}${where ? `, ${where}` : ""}).` +
     ` Ouvrez ce lien pour choisir votre mot de passe. Il est valable jusqu'au ${expires} et ne sert qu'une fois :\n${url}`
   );
@@ -335,13 +335,13 @@ export function groupLinkMessage(link: GroupLink, url: string, locale: UiLocale)
   const where = territoryPhrase(link.region, link.department);
   if (locale === "en") {
     return (
-      `CAM-LEAP account creation — ${link.label}${where ? `, ${where}` : ""}.` +
+      `CAMLEAP account creation — ${link.label}${where ? `, ${where}` : ""}.` +
       ` Open this link, choose your service and post and set your password; an administrator will then validate your account.` +
       ` Valid until ${expires}:\n${url}`
     );
   }
   return (
-    `Création de compte CAM-LEAP — ${link.label}${where ? `, ${where}` : ""}.` +
+    `Création de compte CAMLEAP — ${link.label}${where ? `, ${where}` : ""}.` +
     ` Ouvrez ce lien, choisissez votre service et votre poste, puis votre mot de passe ; un administrateur validera ensuite votre compte.` +
     ` Valable jusqu'au ${expires} :\n${url}`
   );

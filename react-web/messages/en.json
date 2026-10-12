@@ -1,6 +1,6 @@
 {
   "authShared": {
-    "wordmark": "CAM-LEAP",
+    "wordmark": "CAMLEAP",
     "subtitle": "Cameroon Labour and Employment Analytical Platform"
   },
   "common": {
@@ -14,7 +14,7 @@
     "accessDeniedTitle": "Access denied",
     "accessDeniedMessage": "Your account does not have access to this page.",
     "logoutButton": "Log out",
-    "brandName": "CAM-LEAP",
+    "brandName": "CAMLEAP",
     "pageTitle": "Business sectors",
     "categoryFilterLabel": "Filter by category",
     "allCategoriesOption": "All categories",
@@ -62,7 +62,7 @@
     "listsAriaLabel": "Directory lists"
   },
   "homeLayout": {
-    "brandName": "CAM-LEAP",
+    "brandName": "CAMLEAP",
     "newDeclarationButton": "New declaration",
     "logoutButton": "Log out",
     "attestationButton": "My registration certificate",
@@ -226,7 +226,7 @@
     "validateButton": "Confirm",
     "cancelTwoFactorLink": "Cancel and return to sign in",
     "identifierNotFoundError": "Identifier not found. Please check your information.",
-    "brandTitle": "CAM-LEAP",
+    "brandTitle": "CAMLEAP",
     "subtitle": "Cameroon Labour and Employment Analytical Platform",
     "tabLogin": "Sign In",
     "tabForgot": "Recover My ID",
@@ -287,8 +287,8 @@
     "establishmentIdLabel": "Establishment ID: {establishmentId}",
     "signInLink": "Sign in",
     "pendingTitle": "Your registration has been recorded",
-    "receiptSubtitleActive": "Official certificate of registration in the CAM-LEAP national system",
-    "receiptSubtitlePending": "Acknowledgement of your registration request in the CAM-LEAP national system",
+    "receiptSubtitleActive": "Official certificate of registration in the CAMLEAP national system",
+    "receiptSubtitlePending": "Acknowledgement of your registration request in the CAMLEAP national system",
     "receiptCompanyLabel": "Organisation name",
     "receiptEstablishmentIdLabel": "Establishment ID",
     "receiptCopyId": "Copy",
@@ -2419,7 +2419,7 @@
     "overdueDaysHint": "A registration awaiting review for longer than this is flagged \"Overdue\" in the registrations queue.",
     "overdueDaysInvalid": "Enter a whole number of days between {min} and {max}.",
     "rolesTitle": "Regulatory roles & permissions",
-    "rolesSubtitle": "Statutory register of CAM-LEAP/ONEFOP permissions",
+    "rolesSubtitle": "Statutory register of CAMLEAP/ONEFOP permissions",
     "manageAssignments": "Manage assignments →",
     "recentAuditTitle": "Recent audit log",
     "fullLogLink": "View full log",
@@ -2662,7 +2662,7 @@
     "endorsement": "A platform of ONEFOP",
     "otherLanguageName": "Plateforme camerounaise d'analyse de l'emploi et du travail",
     "noticesHeading": "Notices to respondents",
-    "notice1Title": "Welcome to CAM-LEAP",
+    "notice1Title": "Welcome to CAMLEAP",
     "notice1Body": "Cameroon Labour and Employment Analytical Platform. Declare your establishment's workforce online.",
     "notice2Title": "Two declarations",
     "notice2Body": "<b>DSMO Declaration</b>: workforce social declaration. <b>ONEFOP Questionnaire</b>: labor market information.",
@@ -2724,7 +2724,7 @@
   },
   "inscriptionAgentPage": {
     "title": "Create your officer account",
-    "subtitle": "You have been invited to join CAM-LEAP. Check your assignment, then choose your password.",
+    "subtitle": "You have been invited to join CAMLEAP. Check your assignment, then choose your password.",
     "postLabel": "Post",
     "serviceLabel": "Service",
     "territoryLabel": "Territory",

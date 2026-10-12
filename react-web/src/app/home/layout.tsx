@@ -144,7 +144,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <span aria-hidden="true">☰</span>
           <span aria-hidden="true">{t("homeLayout.menuLabel")}</span>
         </button>
-        <span style={{ fontWeight: 800, fontSize: "var(--cam-font-size-sm)" }}>CAM-LEAP · MINEFOP</span>
+        <span style={{ fontWeight: 800, fontSize: "var(--cam-font-size-sm)" }}>CAMLEAP · MINEFOP</span>
       </div>
       <div className="cam-home-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
       <aside
@@ -155,7 +155,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
       >
         <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
+            <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAMLEAP · MINEFOP</div>
             {/* The campaign in words ("Campagne du 4e trimestre 2026"), never the
                 stored code nor the survey's all-caps title (lib/respondent-identity). */}
             <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
