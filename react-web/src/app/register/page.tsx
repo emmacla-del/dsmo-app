@@ -856,6 +856,20 @@ export default function RegisterPage() {
     setSubmitError(null);
   }
 
+  // The portal's two declaration doors link here with the establishment kind
+  // already chosen (/register?type=enterprise, ?type=vocationalTraining), so
+  // step 1 does not ask again for what the visitor has just answered. The
+  // value is read off the URL rather than through useSearchParams: it is
+  // wanted once, after mount, exactly like the draft below, and
+  // useSearchParams would put this whole page behind a Suspense boundary for
+  // something no render reads. An absent or unrecognised value leaves step 1
+  // untouched, so a stale or hand-edited link degrades to the normal flow.
+  function applyEntityTypeFromLink() {
+    const requested = new URLSearchParams(window.location.search).get("type");
+    const match = ENTITY_TYPE_OPTIONS.find((option) => option.type === requested);
+    if (match) applyEntityType(match.type, false);
+  }
+
   // ── Auto-advance ───────────────────────────────────────────────────────
   // The frame moves on by itself only at the frontier: when the section being
   // shown is also the furthest revealed one and it is complete. Going back to
@@ -1004,9 +1018,16 @@ export default function RegisterPage() {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
     const draft = loadStoredDraft();
-    if (!draft) return;
 
     /* eslint-disable react-hooks/set-state-in-effect -- see above */
+    // No draft: a link may still say which kind of establishment this is.
+    // A draft wins over the link — the respondent's own saved answer beats
+    // a URL they followed, which may be a bookmark from another session.
+    if (!draft) {
+      applyEntityTypeFromLink();
+      return;
+    }
+
     setEntityType(draft.entityType);
     setRespondent(draft.respondent);
     setEntityData(draft.entityData);
@@ -1059,6 +1080,10 @@ export default function RegisterPage() {
     // `t` is in the deps because the snackbar text above is translated. It
     // cannot cause a second restore: draftLoadedRef short-circuits the body
     // on every run after the first.
+    // applyEntityTypeFromLink is redeclared every render, so listing it would
+    // reschedule this effect each time; draftLoadedRef already makes the body
+    // run exactly once, and it reads only the URL, which does not change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [t]);
 
   // Serialized once per render and used both as the effect's dependency and

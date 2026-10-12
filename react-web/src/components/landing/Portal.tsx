@@ -114,7 +114,7 @@ export function Portal() {
                 </div>
                 <p className={styles.doorAction}>
                   <Link
-                    href="/register?type=cfp"
+                    href="/register?type=vocationalTraining"
                     className="cam-button cam-button-primary cam-button-block"
                   >
                     {t("portalPage.door2Action")}
