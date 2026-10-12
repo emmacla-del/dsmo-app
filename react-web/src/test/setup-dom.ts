@@ -30,6 +30,26 @@ if (!window.matchMedia) {
     }) as MediaQueryList;
 }
 
+// jsdom parses <dialog> but implements none of its behaviour, so showModal()
+// and close() are missing outright. Enough of them is supplied here for a
+// component that opens a dialog to be testable at all: the `open` property
+// tracks state, and close() fires the `close` event React listens for. The
+// real focus trap, Escape handling and inert background come from the
+// browser and are not modelled — a test can assert that a dialog opened,
+// not that the platform behaved.
+if (!window.HTMLDialogElement.prototype.showModal) {
+  window.HTMLDialogElement.prototype.showModal = function showModal() {
+    this.open = true;
+  };
+}
+if (!window.HTMLDialogElement.prototype.close) {
+  window.HTMLDialogElement.prototype.close = function close(returnValue?: string) {
+    this.open = false;
+    if (returnValue !== undefined) this.returnValue = returnValue;
+    this.dispatchEvent(new window.Event("close"));
+  };
+}
+
 // Component tests never reach the network: a component that fetches without
 // its data being seeded (renderWithProviders' `queryData`) fails loudly.
 globalThis.fetch = ((input: RequestInfo | URL) =>
