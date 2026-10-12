@@ -108,7 +108,11 @@ export function VtWizardSidebar({
 
   return (
     <WizardRail sheet={sheet} progress={{ done: doneCount, total: sections.length }}>
-      <WizardStepList label={tVt("navAriaLabel")} steps={steps} editLabel={t("edit")} />
+      {/* No per-step "Edit" word: it repeated on every finished section
+          (eight of them on a full VT outline) and the step is already a
+          button carrying the section name. The span was aria-hidden, so
+          nothing is lost to a screen reader (owner, 2026-10-11). */}
+      <WizardStepList label={tVt("navAriaLabel")} steps={steps} />
     </WizardRail>
   );
 }

@@ -11,8 +11,9 @@ import type {
 } from "./StatisticalTableDefinition";
 import {
   TABLE_LABEL_COL_PX,
-  TABLE_MAX_DATA_COL_PX,
   TABLE_MAX_WIDTH_PX,
+  spanningHeadingsOf,
+  tableDataColumnWidthPx,
   tablePreferredWidthPx,
 } from "./tableLayout";
 import { CoherenceTd } from "../coherence/Coherence";
@@ -43,6 +44,28 @@ export interface StatisticalGridRendererProps {
   tableFieldId?: string;
   /** Quiz-kept cells the respondent tried to leave blank. */
   missingFieldKeys?: string[];
+}
+
+/**
+ * Each data column's width: what its definition declares, else the one width
+ * the table's headings call for (see tableLayout.ts) — the column headings,
+ * the groups over them and any band over those. AdaptiveStatisticalTable
+ * sizes the table from this too, to decide whether it must split.
+ */
+export function matrixDataColumnWidthsPx(
+  definition: Pick<FixedMatrixDefinition, "columns" | "headerGroups">,
+  locale: "fr" | "en",
+): number[] {
+  const text = (t: LocalizedText | undefined) => (t ? localized(t, locale) : undefined);
+  const groups = definition.headerGroups?.length
+    ? definition.headerGroups.map((g) => ({ heading: localized(g.title, locale), columns: g.colSpan }))
+    : spanningHeadingsOf(definition.columns.map((c) => text(c.group)));
+  const shared = tableDataColumnWidthPx(
+    definition.columns.map((c) => localized(c.header, locale)),
+    [...groups, ...spanningHeadingsOf(definition.columns.map((c) => text(c.band)))],
+  );
+  // A non-numeric declared width cannot be summed, so it takes the shared one.
+  return definition.columns.map((c) => (typeof c.width === "number" ? c.width : shared));
 }
 
 /**
@@ -283,21 +306,18 @@ export function StatisticalGridRenderer({
     return Boolean(currentGroup && currentGroup !== nextGroup);
   };
 
-  // Each column takes the width its own definition asks for, else the cap.
-  // Both mattered (owner, 2026-10-11): the columns previously carried no
-  // width at all, so they shared the frame's slack equally and a three-digit
-  // count could land in a 268px cell — and the widths these definitions
-  // already declared were being ignored. A non-numeric width cannot be
-  // summed, so it falls back to the cap.
-  const dataColWidths = definition.columns.map((col) =>
-    typeof col.width === "number" ? col.width : TABLE_MAX_DATA_COL_PX,
-  );
+  // Each column takes the width its own definition asks for, else the
+  // table's shared one. Both mattered (owner, 2026-10-11): the columns
+  // previously carried no width at all, so they shared the frame's slack
+  // equally and a three-digit count could land in a 268px cell — and the
+  // widths these definitions already declared were being ignored.
+  const dataColWidths = matrixDataColumnWidthsPx(definition, locale);
   const preferredTableWidth = tablePreferredWidthPx(dataColWidths);
 
   return (
     <div
       className={`overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs ${className}`}
-      style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
+      style={{ width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
     >
       {/* The frame hugs the table's own columns, never exceeding
           TABLE_MAX_WIDTH_PX (see tableLayout.ts). The table only scrolls
@@ -307,7 +327,7 @@ export function StatisticalGridRenderer({
         <DataTable
           ref={tableRef}
           className="border-collapse table-fixed"
-          style={{ width: preferredTableWidth }}
+          style={{ width: "100%", minWidth: preferredTableWidth }}
         >
           {definition.caption && (
             <caption className="sr-only">
@@ -318,7 +338,9 @@ export function StatisticalGridRenderer({
           {/* `table-fixed` takes its widths from here: the shared label
               column, then each data column at its own capped width. */}
           <colgroup>
-            <col style={{ width: TABLE_LABEL_COL_PX }} />
+            {/* No width: the label column absorbs whatever the pod leaves over,
+                so the data columns keep theirs. */}
+            <col style={{ minWidth: TABLE_LABEL_COL_PX }} />
             {definition.columns.map((col, i) => (
               <col key={col.key} style={{ width: dataColWidths[i] }} />
             ))}
@@ -342,10 +364,10 @@ export function StatisticalGridRenderer({
                       <GroupHeader
                         key={`band-${i}`}
                         colSpan={run.items.length}
-                        // break-words: the band is a sentence over three
-                        // narrow number columns, and table-fixed makes it
-                        // wrap inside its span rather than widen them.
-                        className="px-2.5 py-2 break-words hyphens-auto border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
+                        // The columns are sized so the band fits on two lines
+                        // between words; break-words only splits a word that
+                        // could not fit its span at all.
+                        className="px-2.5 py-2 break-words border-r border-b border-[var(--cam-table-frame)] text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
                       >
                         {localized(run.value, locale)}
                       </GroupHeader>

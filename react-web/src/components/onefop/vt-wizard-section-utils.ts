@@ -268,22 +268,17 @@ export function vtWizardGetFineGroups(sectionId: string): Record<string, string 
   return FINE_GROUPS_MAP[sectionId] ?? null;
 }
 
-const THREE_COLUMN_SECTION_IDS = new Set([
-  "section1_vocationalTraining",
-  "section2_vocationalTraining",
-]);
-
-/** Sections laid out one question per row, like Sections 0 and 1 of the
- *  other entities' wizards (identification and respondent details). */
-const SINGLE_COLUMN_SECTION_IDS = new Set(["section1_vocationalTraining"]);
-
-export function isVtSingleColumnSection(sectionId: string): boolean {
-  return SINGLE_COLUMN_SECTION_IDS.has(sectionId);
+/** Every VT section is laid out one question per row: the respondent
+ *  wizards are one column at every width (docs/standards/ui-grammar.md,
+ *  "Field slot"). Pairing short questions side by side misaligned their
+ *  controls (a stepper beside Yes/No) and broke the reading line. Kept as
+ *  functions so the call sites read the same. */
+export function isVtSingleColumnSection(): boolean {
+  return true;
 }
 
-export function vtWizardRowColumnsFor(sectionId: string): number {
-  if (SINGLE_COLUMN_SECTION_IDS.has(sectionId)) return 1;
-  return THREE_COLUMN_SECTION_IDS.has(sectionId) ? 3 : 2;
+export function vtWizardRowColumnsFor(): number {
+  return 1;
 }
 
 export function vtSection1IdentificationLocalisation(): string[] {

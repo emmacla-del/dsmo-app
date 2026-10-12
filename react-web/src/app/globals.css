@@ -2724,9 +2724,88 @@ html:has(.cam-masthead) {
   flex-direction: column;
 }
 
-.cam-wizard-block + .cam-wizard-block {
-  border-top: var(--cam-border-width) solid var(--cam-border);
-  padding-top: var(--cam-space-5);
+/* The wizard's pod: the bounded surface the declaration is filled in,
+   centred in the space beside the rail and sized by its own content
+   (see WizardShell's contentMax). It is what sits beside the live PDF
+   preview, so it needs an edge of its own — a hairline, no fill and no
+   shadow, since the page and the surface are both #ffffff (owner,
+   2026-10-11). */
+.cam-wizard-pod {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md, 8px);
+  background: var(--cam-surface);
+  /* So the body's scrollbar and the footer's rule stop at the radius. */
+  overflow: hidden;
+}
+
+/* The pod holds the viewport and its body carries the only scroll, so the
+   masthead, rail and the Previous/Next footer all stay put (owner,
+   2026-10-11). It runs from the app bar to the bottom of the screen and
+   continues the bar rather than floating under it, so it keeps side edges
+   only — every pixel of height belongs to the declaration. */
+.cam-wizard-pod--fixed {
+  flex: 1;
+  min-height: 0;
+  border-top: none;
+  border-radius: 0;
+}
+
+/* Previous and Next below the pod rather than inside it: the pod's room is
+   the declaration's. Smaller than a page's primary pair, because they are
+   chrome here, not the answer to the screen. */
+.cam-wizard-pod-nav {
+  flex: 0 0 auto;
+  padding: var(--cam-space-3) 0 var(--cam-space-4);
+}
+
+.cam-wizard-pod-nav .cam-wizard-actions {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.cam-wizard-pod-nav .cam-button {
+  min-height: 34px;
+  padding: 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-wizard-pod-body {
+  padding: var(--cam-wizard-pod-pad);
+}
+
+.cam-wizard-pod--fixed > .cam-wizard-pod-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* The scroll stops at a heading rather than mid-question where it can. */
+  scroll-padding-block: var(--cam-space-4);
+}
+
+/* On a phone the edge costs width it cannot spare, the page scrolls as it
+   always did, and the pod becomes the page. */
+@media (max-width: 767px) {
+  .cam-wizard-pod {
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .cam-wizard-pod-body {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* The wizard chrome's row for the entry-mode control. It collapses to
+   nothing on a screen that offers no choice, so the question below keeps
+   its place. */
+.cam-entry-mode-slot:not(:empty) {
+  display: flex;
+  align-items: center;
 }
 
 /* The questionnaire wizard's Previous / Next row (WizardShell.tsx): after

@@ -110,7 +110,7 @@ test("Next on an incomplete table stays on it and shows its problems", async () 
   await flush();
 
   assert.equal(currentTable(), "4.2");
-  assert.ok(screen.getByText(/cellule\(s\) restent à renseigner/), "4.2's own problem is shown");
+  assert.ok(screen.getByText(/cellules? (reste|restent) à renseigner/), "4.2's own problem is shown");
 });
 
 test("tables the questionnaire switched off are skipped by Next and Previous", async () => {
@@ -135,7 +135,7 @@ test("Previous on a table goes to the previous table without checking anything",
   await flush();
 
   assert.equal(currentTable(), "4.2");
-  assert.equal(screen.queryByText(/restent à renseigner/), null, "no problem shown on going back");
+  assert.equal(screen.queryByText(/(reste|restent) à renseigner/), null, "no problem shown on going back");
 });
 
 test("Previous on the first table leaves for the previous section", async () => {
@@ -290,7 +290,7 @@ test("a Section 4 card on the Validation screen opens the table holding the firs
   await flush();
 
   assert.equal(currentTable(), "4.3");
-  assert.ok(screen.getByText(/cellule\(s\) restent à renseigner|Ajoutez au moins une ligne/), "4.3's problem is shown");
+  assert.ok(screen.getByText(/cellules? (reste|restent) à renseigner|Ajoutez au moins une ligne/), "4.3's problem is shown");
 });
 
 // One title per table (audit S4): the table's heading names it; the table

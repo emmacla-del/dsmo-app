@@ -63,7 +63,7 @@ const numberBoxInputStyle = {
   fontSize: "var(--cam-answer-size)",
   fontVariantNumeric: "tabular-nums",
   color: ink,
-  background: "var(--cam-surface)",
+  background: "#ffffff",
   outline: "none",
   boxSizing: "border-box" as const,
 };
@@ -498,9 +498,11 @@ export function VtWizardFixedRowMultiNumberEntry({
               }
               setControls(newControls);
             }}
-            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "var(--cam-surface)", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "#ffffff", outline: "none", boxSizing: "border-box" }}
           >
-            <option value="">{t("vtWizard.select", { default: "Sélectionner…" })}</option>
+            <option value="" disabled hidden>
+              {t("vtWizard.select", { default: "Sélectionner…" })}
+            </option>
             {available.map((row) => (
               <option key={row.idx} value={row.idx}>
                 {cellLabelText(row.rowDef.label, locale) || `${row.rowDef.id}`}
@@ -1303,9 +1305,11 @@ const GuidedRadioDropdown = memo(function GuidedRadioDropdown({
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        style={{ ...numberBoxInputStyle, cursor: "pointer" }}
+        style={{ ...numberBoxInputStyle, cursor: "pointer", color: value ? undefined : "var(--cam-text-muted)" }}
       >
-        <option value="">{t("vtWizard.select", { default: "Sélectionner…" })}</option>
+        <option value="" disabled hidden>
+          {t("vtWizard.select", { default: "Sélectionner…" })}
+        </option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {cellLabelText(opt.label, locale)}

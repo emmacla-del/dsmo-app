@@ -29,6 +29,8 @@ import { isTrue } from "@/lib/vt-quiz";
 import {
   TABLE_LABEL_COL_PX,
   TABLE_MAX_DATA_COL_PX,
+  spanningHeadingsOf,
+  tableDataColumnWidthPx,
   TABLE_MAX_WIDTH_PX,
   tablePreferredWidthPx,
 } from "./tableLayout";
@@ -106,10 +108,17 @@ export function vtSpelledOutCellLabel(label: LocalizedText | null | undefined, l
   return group ? `${group}${GROUP_SEPARATOR}${header}` : header;
 }
 
+/** "Initial Training (IT)" / "Formation Initiale (FI)" as a column of its
+ *  own (8.7), worded like the same group elsewhere (8.4): "Initial training". */
+function spelledTrainingType(text: string, locale: "fr" | "en"): string {
+  const abbr = /\((FI|IT|FC|CT)\)\s*$/.exec(text)?.[1];
+  return abbr ? localized(GROUP_NAMES[abbr], locale) : text;
+}
+
 function splitHeader(label: LocalizedText | null | undefined, locale: "fr" | "en") {
   const text = label ? localized(label, locale) : "";
   const parts = text.split(GROUP_SEPARATOR);
-  if (parts.length !== 2) return { group: null, header: text };
+  if (parts.length !== 2) return { group: null, header: spelledTrainingType(text, locale) };
   const name = GROUP_NAMES[parts[0].trim()];
   return { group: name ? localized(name, locale) : parts[0], header: parts[1] };
 }
@@ -194,8 +203,8 @@ export function VtProgressiveRowGrid({
 
   const headers = valueCells.map((c) => {
     const h = splitHeader(c.label, locale);
-    // "Total (calculé)" → "Σ Total", as the fixed-row grids show it.
-    return c.kind === "computed" ? { ...h, header: `Σ ${h.header.replace(/\s*\((computed|calculé)\)\s*$/i, "")}` } : h;
+    // "Total (calculé)" → "Total", as the fixed-row grids show it.
+    return c.kind === "computed" ? { ...h, header: h.header.replace(/\s*\((computed|calculé)\)\s*$/i, "") } : h;
   });
   const grouped = headers.some((h) => h.group);
   const bands = headers.reduce<{ title: string; span: number }[]>((acc, h, i) => {
@@ -259,12 +268,16 @@ export function VtProgressiveRowGrid({
     return shown.length > 0 ? sum : null;
   };
 
-  // Each column asks for exactly what its values need — a count never more
-  // than TABLE_MAX_DATA_COL_PX, a Yes/No dropdown BOOLEAN_COL_PX — and the
-  // frame hugs that total. Letting the columns share the slack equally
-  // stretched a three-digit count across a third of the screen.
+  // Every column takes the one width this table's headings call for (see
+  // tableLayout.ts), a Yes/No dropdown at least BOOLEAN_COL_PX. Letting the
+  // columns share the slack equally stretched a three-digit count across a
+  // third of the screen.
+  const sharedColWidth = tableDataColumnWidthPx(
+    headers.map((h) => h.header),
+    spanningHeadingsOf(headers.map((h) => h.group || undefined)),
+  );
   const dataColWidths = valueCells.map((_, j) =>
-    isBoolean(j) ? BOOLEAN_COL_PX : TABLE_MAX_DATA_COL_PX,
+    isBoolean(j) ? Math.max(BOOLEAN_COL_PX, sharedColWidth) : sharedColWidth,
   );
   const preferredTableWidth = tablePreferredWidthPx(
     dataColWidths,
@@ -288,19 +301,19 @@ export function VtProgressiveRowGrid({
     <div>
       <div
         className="overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
-        style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
+        style={{ width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
       >
         <div className="relative w-full overflow-x-auto">
           <DataTable
             ref={tableRef}
             className="border-collapse table-fixed"
-            style={{ width: preferredTableWidth }}
+            style={{ width: "100%", minWidth: preferredTableWidth }}
           >
             {vt.title && <caption className="sr-only">{localized(vt.title, locale)}</caption>}
             <colgroup>
               {/* The shared label width, so the label column lines up with
                   the fixed-row tables on the same screen. */}
-              <col style={{ width: TABLE_LABEL_COL_PX }} />
+              <col style={{ minWidth: TABLE_LABEL_COL_PX }} />
               {valueCells.map((c, j) => (
                 <col key={c.key} style={{ width: dataColWidths[j] }} />
               ))}
@@ -368,6 +381,9 @@ export function VtProgressiveRowGrid({
                         className={cellCls(ids[0])}
                         aria-invalid={missing.has(ids[0]) ? true : undefined}
                         value={entered(data[ids[0]]) ? String(data[ids[0]]) : ""}
+                        // An empty white cell gave no cue that the name is
+                        // typed here; the counts beside it need none.
+                        placeholder={isEn ? "Type the name" : "Saisir le nom"}
                         aria-label={`${isEn ? `Row ${slot + 1}` : `Ligne ${slot + 1}`} - ${specialtyHeader}`}
                         onChange={(e) => onChange(ids[0], e.target.value === "" ? null : e.target.value)}
                         onBlur={(e) => {
@@ -411,14 +427,19 @@ export function VtProgressiveRowGrid({
                           <Cell key={c.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
                             <SelectInput
                               id={`cell-input-${id}`}
-                              className={cellCls(id)}
+                              className={cellCls(id) + (entered(raw) ? "" : " text-[var(--cam-text-muted)]")}
                               aria-invalid={missing.has(id) ? true : undefined}
                               aria-label={cellName}
                               value={entered(raw) ? (isTrue(raw) ? "true" : "false") : ""}
                               onChange={(e) => setBoolCell(c, ids, id, e.target.value)}
                             >
-                              {/* Unanswered stays a choice of its own (§9). */}
-                              <option value="">{t("vtTableRenderer.booleanUnanswered")}</option>
+                              {/* Unanswered still reads as unanswered and still
+                                  stores nothing (§9), but it is a prompt rather
+                                  than a choice: disabled and hidden from the
+                                  open list, as everywhere else in the wizard. */}
+                              <option value="" disabled hidden>
+                                {t("vtWizard.select")}
+                              </option>
                               <option value="true">{t("vtTableRenderer.booleanYes")}</option>
                               <option value="false">{t("vtTableRenderer.booleanNo")}</option>
                             </SelectInput>
@@ -434,7 +455,6 @@ export function VtProgressiveRowGrid({
                             aria-invalid={missing.has(id) ? true : undefined}
                             min={0}
                             inputMode="numeric"
-                            placeholder="—"
                             value={entered(raw) ? String(raw) : ""}
                             aria-label={`${name} - ${headers[j].group ? `${headers[j].group} - ` : ""}${headers[j].header}`}
                             onWheel={(e) => e.currentTarget.blur()}

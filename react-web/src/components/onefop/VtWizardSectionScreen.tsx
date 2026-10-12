@@ -4,7 +4,7 @@ import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
-import { VtGeographyLockContext, VtPaperCodeContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { VtGeographyLockContext, VtPaperCodeContext, VtSharedCodeContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
 import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
 import {
@@ -60,10 +60,11 @@ import { FormSection, FormSubsection } from "./form/FormSection";
 import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import { CodedLabel } from "./ui/QuestionCode";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
-import { EntryModeSwitch } from "./EntryModeSwitch";
+import { EntryModeSwitchSlot } from "./EntryModeSwitch";
+import { VtRosterGrid } from "./tables/VtRosterGrid";
 import { buildVtFixedRowGridDefinition, isVtFixedRowTable, withVtFixedRowTotals } from "./tables/vtFixedRowGrid";
 import { useEntryMode } from "@/lib/use-entry-mode";
-import { TableHeadingShownContext } from "./table-heading-context";
+import { TableHeadingShownContext, TableStatusShownContext } from "./table-heading-context";
 import {
   buildSection41Definition,
   buildVt88TrainerRosterDefinition,
@@ -137,7 +138,11 @@ function vtWizardGroupFields(
     let cFields: OnefopField[] = [];
     let cSub: string | null = null;
     for (const f of fields) {
-      const sub = headingByFieldId.get(f.id) ?? f.visibility?.dependsOn ?? null;
+      // A field with no heading of its own continues the open block, as on
+      // the paper form. A subsection names only its first field (6.1 lists
+      // VT6_1), so 6.1.2 used to open an untitled block shown as "Block 2",
+      // and a revealed follow-up a block keyed by its parent's id.
+      const sub: string | null = headingByFieldId.get(f.id) ?? (cFields.length > 0 ? cSub : (f.visibility?.dependsOn ?? null));
       const sameGroup = cFields.length > 0 && cSub === sub;
       if (sameGroup) {
         cFields.push(f);
@@ -317,7 +322,12 @@ function VtWizardFieldRows({
           data={data}
           inlineExtra={
             next && isFieldVisible(next, data) ? (
-              <VtWizardInlineCountBox field={next} value={data[next.id]} onChange={onChange} />
+              <VtWizardInlineCountBox
+                field={next}
+                value={data[next.id]}
+                onChange={onChange}
+                errorMessage={issueByFieldId.get(next.id)}
+              />
             ) : null
           }
         />,
@@ -328,7 +338,17 @@ function VtWizardFieldRows({
       continue;
     }
 
-    const dependents = visibleFields.filter((g) => g.visibility?.dependsOn === f.id);
+    // Follow-ups are nested under their question only while they follow it
+    // on the form. One printed after another question keeps its place, as on
+    // the paper: 6.1.3 depends on 6.1.1 but comes after 6.1.2, and 7.1.3
+    // depends on 7.1 but comes after 7.1.2. Nesting them pulled them above.
+    const following = new Set<string>([f.id]);
+    for (let j = i + 1; j < visibleFields.length; j++) {
+      const parentId = visibleFields[j].visibility?.dependsOn;
+      if (!parentId || !following.has(parentId)) break;
+      following.add(visibleFields[j].id);
+    }
+    const dependents = visibleFields.filter((g) => g.visibility?.dependsOn === f.id && following.has(g.id));
     if (dependents.length > 0) {
       rows.push(
         <VtWizardField
@@ -359,7 +379,7 @@ function VtWizardFieldRows({
       const depRows = dependents
         .filter((d) => isFieldVisible(d, data))
         .map((d) => {
-          const subDeps = visibleFields.filter((sub) => sub.visibility?.dependsOn === d.id);
+          const subDeps = visibleFields.filter((sub) => sub.visibility?.dependsOn === d.id && following.has(sub.id));
           subDeps.forEach((sd) => consumed.add(sd.id));
           return (
             <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -597,9 +617,7 @@ function VtWizardTableField({
     const definition = buildSection41Definition(field);
     return (
       <>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
-        </div>
+        <EntryModeSwitchSlot mode={entryMode} onChange={setEntryMode} />
         <AdaptiveStatisticalTable
           definition={definition}
           data={data}
@@ -612,15 +630,25 @@ function VtWizardTableField({
     );
   }
 
+  // 8.8: Tableau is the paper's grid, one row per member of staff
+  // (VtRosterGrid); Guidé the add-one-at-a-time form (NominalRosterRenderer).
+  // Both write the same cells.
   if (vt.isRoster) {
     const definition = buildVt88TrainerRosterDefinition(field);
     return (
-      <AdaptiveStatisticalTable
-        definition={definition}
-        data={data}
-        onChange={changeCell}
-        markMissingFieldKeys={missingCells}
-      />
+      <>
+        <EntryModeSwitchSlot mode={entryMode} onChange={setEntryMode} />
+        {entryMode === "grid" ? (
+          <VtRosterGrid definition={definition} data={data} onChange={changeCell} missingCells={missingCells} />
+        ) : (
+          <AdaptiveStatisticalTable
+            definition={definition}
+            data={data}
+            onChange={changeCell}
+            markMissingFieldKeys={missingCells}
+          />
+        )}
+      </>
     );
   }
   // Fixed-row tables (4.2, 4.7–4.9, 4.11, 5.3, 5.4, 8.1–8.3, 8.6): Tableau
@@ -630,9 +658,7 @@ function VtWizardTableField({
   if (isVtFixedRowTable(field)) {
     return (
       <>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
-        </div>
+        <EntryModeSwitchSlot mode={entryMode} onChange={setEntryMode} />
         {entryMode === "grid" ? (
           <AdaptiveStatisticalTable
             definition={buildVtFixedRowGridDefinition(field)}
@@ -662,9 +688,7 @@ function VtWizardTableField({
   if (isVtProgressiveRowTable(field)) {
     return (
       <>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <EntryModeSwitch mode={entryMode} onChange={setEntryMode} />
-        </div>
+        <EntryModeSwitchSlot mode={entryMode} onChange={setEntryMode} />
         {entryMode === "grid" ? (
           <VtProgressiveRowGrid field={field} data={data} onChange={changeCell} missingCells={missingCells} />
         ) : isBoolean ? (
@@ -791,7 +815,7 @@ function VtWizardFixedRow({
   compact: boolean;
 }): ReactNode {
   const fields = fieldIds.map((id) => fieldById.get(id)).filter((f): f is OnefopField => !!f);
-  const singleColumn = isVtSingleColumnSection(sectionId);
+  const singleColumn = isVtSingleColumnSection();
 
   if (!singleColumn && flexes && flexes.length === fields.length && fields.length === 2) {
     return (
@@ -911,9 +935,23 @@ function VtWizardCardForGroup({
       />
     );
 
+  // A block that is one table, under its own heading (Section 5's 5.2-5.4,
+  // and the like): the heading names the table, so the table leaves out its
+  // own title rather than repeat it (CLAUDE.md §8, duplicated headings).
+  const headingNamesTable =
+    !!headingText &&
+    group.fields.length === 1 &&
+    (group.fields[0].type === "table" || group.fields[0].type === "repeating_table");
+
   return (
     <FormSubsection title={headingText ? displayHeadingText : undefined} variant={plainHeading ? "plain" : "accent"} trailing={headingTrailing}>
-      {content}
+      {headingNamesTable ? (
+        <TableHeadingShownContext.Provider value={true}>
+          <TableStatusShownContext.Provider value={!!headingTrailing}>{content}</TableStatusShownContext.Provider>
+        </TableHeadingShownContext.Provider>
+      ) : (
+        content
+      )}
     </FormSubsection>
   );
 }
@@ -1070,6 +1108,18 @@ export function VtWizardSectionScreen({
   const visibleFields = section.fields.filter((f) => isFieldVisible(f, data));
   const visibleFieldsReordered = visibleFields;
   const paperCodes = useMemo(() => new Map(section.fields.map((f) => [f.id, f.paperCode])), [section.fields]);
+  // A field whose number repeats the one before it at the same level (same
+  // parent question, or none) shows no number of its own.
+  const sharedCodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    const lastCodeAtLevel = new Map<string, string | null | undefined>();
+    for (const f of section.fields) {
+      const level = f.visibility?.dependsOn ?? "";
+      if (f.paperCode && lastCodeAtLevel.get(level) === f.paperCode) ids.add(f.id);
+      lastCodeAtLevel.set(level, f.paperCode);
+    }
+    return ids;
+  }, [section.fields]);
 
   // VT1_4/5/6 are read-only when the server will store the company record's
   // region/department/subdivision instead (see onefop-geography-lock.ts).
@@ -1086,7 +1136,7 @@ export function VtWizardSectionScreen({
     [sectionId, visibleFieldsReordered, section.subsections, normalizedLocale],
   );
 
-  const rowColumns = vtWizardRowColumnsFor(sectionId);
+  const rowColumns = vtWizardRowColumnsFor();
 
   // Sections 4 and 8: one table per screen (lib/vt-table-steps.ts).
   const tabbed = VT_STEPPED_SECTION_IDS.has(sectionId);
@@ -1212,20 +1262,12 @@ export function VtWizardSectionScreen({
   return (
     <VtGeographyLockContext.Provider value={lockedGeography}>
     <VtPaperCodeContext.Provider value={paperCodes}>
+    <VtSharedCodeContext.Provider value={sharedCodeIds}>
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
-      <div
-        style={{
-          borderBottom: "var(--cam-border-width) solid var(--cam-border)",
-          paddingBottom: "var(--cam-space-3)",
-        }}
-      >
+      <div className="cam-step-head">
         {/* Focus target of the shell on every section change (useStepFocus):
             not a Tab stop, and no ring around a title. */}
-        <h2
-          id={vtSectionHeadingId(sectionId)}
-          tabIndex={-1}
-          style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xl)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: 0, outline: "none" }}
-        >
+        <h2 id={vtSectionHeadingId(sectionId)} tabIndex={-1} className="cam-step-title">
           {sectionTitle}
         </h2>
         {groups.length > 0 && <RequiredQuestionsNote />}
@@ -1305,7 +1347,9 @@ export function VtWizardSectionScreen({
                         issues={fieldIssues}
                         compact={compact}
                         columns={rowColumns}
-                        headingTextOverride={groupLabels[groupIndex]}
+                        // An untitled group draws no heading (audit R14); the
+                        // "Block N" fallback names it in the outline only.
+                        headingTextOverride={group.title ? groupLabels[groupIndex] : undefined}
                         headingTrailing={<VtWizardBlockProgress summary={blockSummaries[groupIndex]} t={t} />}
                       />
                     </div>
@@ -1332,7 +1376,7 @@ export function VtWizardSectionScreen({
                   issues={fieldIssues}
                   compact={compact}
                   columns={rowColumns}
-                  headingTextOverride={group.fields.length > 0 ? groupLabels[i] : undefined}
+                  headingTextOverride={group.fields.length > 0 && group.title ? groupLabels[i] : undefined}
                   headingTrailing={
                     group.fields.length > 0 ? <VtWizardBlockProgress summary={blockSummaries[i]} t={t} /> : undefined
                   }
@@ -1439,6 +1483,7 @@ export function VtWizardSectionScreen({
         </div>
       )}
     </div>
+    </VtSharedCodeContext.Provider>
     </VtPaperCodeContext.Provider>
     </VtGeographyLockContext.Provider>
   );

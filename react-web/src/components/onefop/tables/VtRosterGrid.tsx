@@ -152,10 +152,10 @@ export function VtRosterGrid({
           that it widened the whole page. */}
       <div
         className="overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)]"
-        style={{ width: "fit-content", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
+        style={{ width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
       >
         <div className="relative w-full overflow-x-auto">
-          <DataTable className="border-collapse table-fixed" style={{ width: tableWidth }}>
+          <DataTable className="border-collapse table-fixed" style={{ width: "100%", minWidth: tableWidth }}>
             <caption className="sr-only">{localized(definition.title, locale)}</caption>
             <colgroup>
               <col style={{ width: NUMBER_COL_PX }} />

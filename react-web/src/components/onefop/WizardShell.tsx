@@ -37,7 +37,10 @@ import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader, type ModernJobsHeaderProps } from "./ModernJobsHeader";
+import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
+import { TABLE_MAX_WIDTH_PX, widestTableWidthPx } from "./tables/tableLayout";
 import { OnefopPdfPreviewModal } from "./OnefopPdfPreviewModal";
+import { OnefopSidePreviewPanel } from "./OnefopSidePreviewPanel";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
 import { findIssueOwner, wizardStepAnnouncement } from "@/lib/wizard-navigation";
 import { revealIssueElement, useOnStepChange, useStepFocus } from "@/lib/use-step-focus";
@@ -94,30 +97,26 @@ interface WizardShellProps {
   positionKey?: string | null;
 }
 
-const buttonStyle: React.CSSProperties = {
-  minHeight: "var(--cam-form-field-height)",
-  padding: "0 var(--cam-space-5)",
-  borderRadius: "var(--cam-radius-sm)",
-  fontSize: "var(--cam-font-size-base)",
-  fontWeight: 600,
-  cursor: "pointer",
-  border: "var(--cam-border-width) solid var(--cam-border)",
-  background: "var(--cam-surface)",
-  color: "var(--cam-text)",
-};
-
-function useViewportWidth() {
-  const [width, setWidth] = useState<number | null>(null);
+function useViewportSize() {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
-    const update = () => setWidth(window.innerWidth);
+    const update = () => setSize({ width: window.innerWidth, height: window.innerHeight });
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  return width;
+  return size;
 }
+
+/**
+ * Below this the pod stops holding the viewport and the page scrolls
+ * again: the masthead, the pod's footer and its own edges take a fixed
+ * ~150px, so on a shorter screen an inner scroller would show the
+ * declaration through a slit.
+ */
+const POD_MIN_VIEWPORT_HEIGHT = 700;
 
 /**
  * React counterpart of Flutter's VtWizardShell.
@@ -136,8 +135,7 @@ function useViewportWidth() {
  * - Validation is a distinct terminal stage;
  * - the task rail is desktop-only at full width and becomes compact/mobile
  *   navigation at smaller widths;
- * - the section navigation bar is fixed to the bottom of the content pane;
- * - Save & exit is available in that bottom bar when the callbacks exist.
+ * - Previous / Next sit after the section's last question, in flow.
  */
 export function WizardShell({
   entity,
@@ -163,7 +161,10 @@ export function WizardShell({
   const t = useTranslations();
   const locale = useLocale();
   const isVt = entity.entityType === "vocationalTraining";
-  const viewportWidth = useViewportWidth();
+  const viewportSize = useViewportSize();
+  const viewportWidth = viewportSize?.width ?? null;
+  const showFullRail = viewportWidth !== null && viewportWidth >= 1024;
+  const isMobile = viewportWidth !== null && viewportWidth < 1024;
 
   const [sectionIndex, setSectionIndex] = useState(0);
   // Sections 4 and 8, one table per screen (vt-table-steps.ts): the table
@@ -182,7 +183,23 @@ export function WizardShell({
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [taskListOpen, setTaskListOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [sidePreviewOpen, setSidePreviewOpen] = useState(false);
   const [saveToast, setSaveToast] = useState<"saved" | "failed" | null>(null);
+  // The one Tableau/Guidé control, filled by whichever screen offers the
+  // choice (see EntryModeSwitch).
+  const entryModeSlot = useEntryModeSlot();
+  // The pod holds the viewport and scrolls inside itself only where
+  // there is height to spare. On a phone the page scrolls as before:
+  // a short viewport plus a collapsing address bar leaves an inner
+  // scroller almost nothing to show.
+  const podScrolls =
+    showFullRail && (viewportSize?.height ?? 0) >= POD_MIN_VIEWPORT_HEIGHT;
+
+  useEffect(() => {
+    if (isMobile && sidePreviewOpen) {
+      setSidePreviewOpen(false);
+    }
+  }, [isMobile, sidePreviewOpen]);
 
   const entityType = entity.entityType;
 
@@ -217,39 +234,11 @@ export function WizardShell({
     },
   });
 
-  const handlePreviewPdf = async (targetLocale?: "fr" | "en") => {
-    const loc = targetLocale || formLocale;
-    let previewTab: Window | null = null;
-    try {
-      previewTab = window.open("", "_blank");
-      if (previewTab) {
-        previewTab.document.write(
-          `<!DOCTYPE html><html><head><title>${loc === "en" ? "PDF preview..." : "Aperçu PDF..."}</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1e6b3a;"><p style="font-size:16px;font-weight:600;">${loc === "en" ? "Generating official PDF preview..." : "Génération de l'aperçu PDF officiel en cours..."}</p></body></html>`
-        );
-      }
-    } catch {
-      // Ignore if direct window.open was blocked
-    }
-
-    try {
-      const blob = await pdfMutation.mutateAsync(loc);
-      const url = URL.createObjectURL(blob);
-      if (previewTab && !previewTab.closed) {
-        previewTab.location.href = url;
-      } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.target = "_blank";
-        link.download = `declaration-${entityType}-${effectiveQuarter}-${loc.toUpperCase()}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      if (previewTab && !previewTab.closed) {
-        previewTab.close();
-      }
+  const handlePreviewPdf = (_targetLocale?: "fr" | "en") => {
+    if (showFullRail && !isValidationStage) {
+      setSidePreviewOpen((prev) => !prev);
+    } else {
+      setPreviewModalOpen(true);
     }
   };
 
@@ -323,14 +312,6 @@ export function WizardShell({
     Math.max(0, sections.length - 1),
   );
   const currentSection = sections[clampedSectionIndex];
-  // A form section uses the reading measure (--vt-content-max, 760px: 600px
-  // answers plus padding); a section holding a statistical table uses the
-  // wide one, so the table is not squeezed (owner, 2026-10-10). Modern Jobs
-  // makes the same split for its table sections.
-  const contentMax = currentSection?.fields.some((f) => f.type === "table" || f.type === "repeating_table")
-    ? "var(--vt-content-max-wide)"
-    : "var(--vt-content-max)";
-
   const sectionIssues = useMemo(
     () =>
       currentSection
@@ -355,6 +336,27 @@ export function WizardShell({
         : Math.min(Math.max(vtStepTarget, 0), Math.max(0, vtSteps.length - 1));
   const vtStepPos = vtStepped ? vtStepPosition(vtSteps, vtStepIndex, data) : null;
 
+  // The column hugs what is actually on this screen (owner, 2026-10-11):
+  // the reading measure (--vt-content-max, 760px: 600px answers plus
+  // padding) as a floor, growing only as far as the table shown needs now
+  // that tables take their columns' own width, and never past the table
+  // frame's own cap. It used to jump to a flat 1100px for any section
+  // holding a table. Sections 4 and 8 show one table per screen, so this
+  // follows the step rather than the section: sizing section 4 by its
+  // widest table left 4.1's 610px grid in a 1071px pod.
+  const contentMax = useMemo(() => {
+    const visible = vtStepped ? new Set(vtSteps[vtStepIndex]?.fieldIds ?? []) : null;
+    const widest = widestTableWidthPx(
+      (currentSection?.fields ?? [])
+        .filter((f) => f.type === "table" || f.type === "repeating_table")
+        .filter((f) => !visible || visible.has(f.id))
+        .map((f) => f.table?.matrix?.[0]?.length ?? 0),
+    );
+    return widest === 0
+      ? "var(--vt-content-max)"
+      : `clamp(var(--vt-content-max), ${widest}px, ${TABLE_MAX_WIDTH_PX}px)`;
+  }, [currentSection, vtStepped, vtSteps, vtStepIndex]);
+
   // ── A1: focus, scroll and announcement on every VT step change ──────────
   // (non-VT entities render ModernJobsWizard, which does its own.)
   const vtStepKey = !isVt
@@ -374,8 +376,7 @@ export function WizardShell({
           ? vtSectionHeadingId(currentSection.id)
           : null;
   const requestStepFocus = useStepFocus(vtStepKey, vtHeadingId);
-  // The section content scrolls inside its own pane (overflowY: auto), so a
-  // window reset alone would leave a new section opened half-way down.
+  // The document is the only scroller; the pane reset is kept for safety.
   const contentPaneRef = useRef<HTMLDivElement | null>(null);
   useOnStepChange(vtStepKey, () => {
     contentPaneRef.current?.scrollTo({ top: 0, behavior: "instant" });
@@ -488,14 +489,9 @@ export function WizardShell({
 
   if (!currentSection) return null;
 
-  // Same breakpoint as the Modern Jobs wizard and the registration panel:
-  // the side rail from 1024px, the sections drawer below it.
-  const showFullRail = viewportWidth !== null && viewportWidth >= 1024;
-  const isMobile = viewportWidth !== null && viewportWidth < 1024;
 
   // Same 3-step gutter Flutter uses for the content column (16 / 24 / 40),
-  // shared by the scrollable content pane and the fixed bottom bar so their
-  // horizontal padding always lines up.
+  // used by the content pane.
   const contentGutter =
     viewportWidth !== null && viewportWidth < 768 ? 16 : showFullRail ? 40 : 24;
 
@@ -580,6 +576,7 @@ export function WizardShell({
     setIsVtQuizStage(false);
     setAttemptedAdvance(false);
     setTaskListOpen(false);
+    setSidePreviewOpen(false);
     requestStepFocus();
   }
 
@@ -704,7 +701,7 @@ export function WizardShell({
   }
 
   function renderTaskRail() {
-    if (!isVt || isValidationStage || !showFullRail) {
+    if (!isVt || isValidationStage || !showFullRail || sidePreviewOpen) {
       return null;
     }
     return renderVtSidebar(false);
@@ -715,24 +712,14 @@ export function WizardShell({
 
     return (
       <>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: "var(--cam-space-4)",
-          }}
-        >
+        {/* Named as the rail it opens ("Contents"): one name for one list. */}
+        <div className="cam-sheet-opener">
           <button
             type="button"
-            style={{
-              ...buttonStyle,
-              padding: "0 14px",
-              border: "1px solid var(--vt-card-border, #e5eae7)",
-              color: "var(--vt-ink-soft, #4e5451)",
-            }}
+            className="cam-button cam-button-secondary"
             onClick={() => setTaskListOpen(true)}
           >
-            ☰ {t("wizardShell.sectionsListLabel")}
+            {t("wizardRail.title")}
           </button>
         </div>
 
@@ -740,53 +727,24 @@ export function WizardShell({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={t("wizardShell.sectionsListLabel")}
+            aria-labelledby="vt-sheet-title"
             onClick={() => setTaskListOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 100,
-              background: "rgba(0,0,0,.28)",
-              display: "flex",
-              alignItems: "flex-end",
-            }}
+            className="cam-sheet-scrim"
           >
             <div
               ref={taskListSheetRef}
               tabIndex={-1}
               onClick={(event) => event.stopPropagation()}
-              style={{
-                width: "100%",
-                maxHeight: "82vh",
-                overflow: "auto",
-                background: "#ffffff",
-                borderRadius: "18px 18px 0 0",
-                padding: "20px",
-                boxShadow: "0 -8px 30px rgba(0,0,0,.14)",
-                outline: "none",
-              }}
+              className="cam-sheet"
             >
-              <div
-                style={{
-                  width: 42,
-                  height: 4,
-                  borderRadius: 999,
-                  background: "var(--vt-card-border, #e5eae7)",
-                  margin: "0 auto 18px",
-                }}
-              />
-
-              {/* Same title row + close button as ModernJobsWizard's drawer. */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--cam-space-3)" }}>
-                <h3 style={{ margin: 0, fontSize: "var(--cam-font-size-base)", fontWeight: 700 }}>{t("wizardShell.sectionsListLabel")}</h3>
+              <div className="cam-sheet-head">
+                <h2 id="vt-sheet-title" className="cam-sheet-title">{t("wizardRail.title")}</h2>
                 <button
                   type="button"
                   onClick={() => setTaskListOpen(false)}
-                  className="cam-hoverable"
-                  aria-label={t("modernJobs.wizard.close")}
-                  style={{ background: "none", border: "none", fontSize: "var(--cam-font-size-lg)", cursor: "pointer" }}
+                  className="cam-text-button"
                 >
-                  ✕
+                  {t("modernJobs.wizard.close")}
                 </button>
               </div>
 
@@ -995,13 +953,16 @@ export function WizardShell({
   }
 
   return (
+    <EntryModeSlotProvider element={entryModeSlot.element}>
     <div
       className="vt-wizard"
       style={{
-        // The viewport, not 100%: the page wrapper only has a min-height, so
-        // 100% resolved to auto and a short section left the bottom bar
-        // floating under its content instead of at the foot of the screen.
-        minHeight: "100vh",
+        // The viewport, not 100%: the page wrapper only has a min-height.
+        // With a scrolling pod the shell holds the viewport exactly, so the
+        // masthead, rail and footer stay put and only the pod's body moves.
+        ...(podScrolls
+          ? { height: "100dvh", overflow: "hidden" }
+          : { minHeight: "100vh" }),
         display: "flex",
         flexDirection: "column",
         background: "var(--cam-bg)",
@@ -1019,6 +980,8 @@ export function WizardShell({
           onExit={onCancel}
           onPreviewPdf={handlePreviewPdf}
           isGeneratingPdf={pdfMutation.isPending}
+          isPreviewActive={sidePreviewOpen}
+          entryModeSlot={entryModeSlot.row}
         />
       <div
         style={{
@@ -1035,6 +998,7 @@ export function WizardShell({
           style={{
             flex: 1,
             minWidth: 0,
+            minHeight: 0,
             position: "relative",
             display: "flex",
             flexDirection: "column",
@@ -1045,20 +1009,34 @@ export function WizardShell({
             style={{
               flex: 1,
               minWidth: 0,
-              overflowY: "auto",
-              paddingTop: contentGutter,
+              minHeight: 0,
+              // The pod takes the height that is left; the nav under it
+              // takes what it needs.
+              display: "flex",
+              flexDirection: "column",
+              // Flush with the app bar: the pod continues it rather than
+              // floating under it, and the height goes to the declaration.
+              paddingTop: podScrolls ? 0 : contentGutter,
               paddingLeft: contentGutter,
               paddingRight: contentGutter,
-              paddingBottom: "calc(var(--cam-space-6) + 92px)",
+              // A scrolling pod runs to the bottom of the shell, so its
+              // footer sits on the screen's edge and lines up with the
+              // rail; only a scrolling page needs room under the last
+              // question.
+              paddingBottom: podScrolls ? 0 : "var(--cam-space-7)",
             }}
           >
             <div
+              className={`cam-wizard-pod${podScrolls ? " cam-wizard-pod--fixed" : ""}`}
               style={{
                 width: "100%",
-                maxWidth: contentMax,
+                // The body's padding sits inside this, so the content keeps
+                // exactly the measure contentMax asked for.
+                maxWidth: `calc(${contentMax} + 2 * var(--cam-wizard-pod-pad))`,
                 margin: "0 auto",
               }}
             >
+              <div className="cam-wizard-pod-body">
               {renderMobileTaskList()}
 
               {/* VT keeps no top-of-section header or error banner (as in
@@ -1101,93 +1079,68 @@ export function WizardShell({
                   onStepChange={(index) => setVtStepTarget(index)}
                 />
               )}
-            </div>
-          </div>
 
-          {/* Bottom navigation bar pinned to the foot of the screen, on every
-              section and on the preliminary quiz. */}
-          <div
-            style={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 20,
-              background: "#ffffff",
-              borderTop: "1px solid var(--cam-border)",
-              boxShadow: "0 -3px 10px rgba(0,0,0,.08)",
-              padding: `12px ${contentGutter}px`,
-            }}
-          >
-            {/* Previous at the left edge, Next at the right edge. Saving is
-                automatic and its status is in the masthead. */}
+              </div>
+            </div>
+
+            {/* Previous and Next below the pod, not inside it: the pod's
+                space is the declaration's (owner, 2026-10-11). They sit
+                outside the scroll, so they cannot cover the focused field
+                the way a pinned bar did (WCAG 2.2, 2.4.11) and stay
+                reachable without scrolling a long section to its end.
+                Saving is automatic; the PDF preview is the app bar's. */}
             <div
+              className="cam-wizard-pod-nav"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 16,
+                width: "100%",
+                maxWidth: `calc(${contentMax} + 2 * var(--cam-wizard-pod-pad))`,
+                margin: "0 auto",
               }}
             >
+              <div className="cam-wizard-actions">
                 <button
                   type="button"
-                  className="cam-hoverable"
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    color: "#334155",
-                    background: "#ffffff",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    transition: "all 0.15s ease",
-                  }}
+                  className="cam-button cam-button-secondary"
                   // On the quiz: back to Section 1, as the quiz sits after it.
                   onClick={isVtQuizStage ? () => showSection(0) : handlePrev}
                 >
-                  <span>←</span>
-                  <span>
-                    {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
-                      ? t("common.cancel")
-                      : t("wizardShell.previousStepButton")}
-                  </span>
+                  {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
+                    ? t("common.cancel")
+                    : t("wizardShell.previousStepButton")}
                 </button>
-
                 <button
                   type="button"
-                  className="cam-hoverable"
-                  style={{
-                    padding: "10px 24px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "#0e4d29",
-                    color: "#ffffff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    boxShadow: "0 1px 3px rgba(14, 77, 41, 0.2)",
-                    transition: "all 0.15s ease",
-                  }}
+                  className="cam-button cam-button-primary"
                   // On the quiz: validate it. It records the answers and opens
                   // Section 2, or marks the questions still unanswered.
                   onClick={isVtQuizStage ? () => vtQuizValidateRef.current?.() : handleNext}
                 >
-                  <span>
-                    {!isVtQuizStage && clampedSectionIndex === sections.length - 1
-                      ? t("wizardShell.proceedToValidationButton")
-                      : t("wizardShell.nextButton")}
-                  </span>
-                  <span>→</span>
+                  {!isVtQuizStage && clampedSectionIndex === sections.length - 1
+                    ? t("wizardShell.proceedToValidationButton")
+                    : t("wizardShell.nextButton")}
                 </button>
+              </div>
             </div>
           </div>
         </main>
         </VtQuizContext.Provider>
+
+        {sidePreviewOpen && (
+          <OnefopSidePreviewPanel
+            isOpen={sidePreviewOpen}
+            onClose={() => setSidePreviewOpen(false)}
+            onExpandModal={() => {
+              setSidePreviewOpen(false);
+              setPreviewModalOpen(true);
+            }}
+            entityType={entityType}
+            data={data}
+            quarterCode={effectiveQuarter}
+            locale={formLocale}
+            entity={entity}
+            establishmentName={effectiveEstablishment}
+          />
+        )}
       </div>
 
       {saveToast && (
@@ -1238,5 +1191,6 @@ export function WizardShell({
         establishmentName={effectiveEstablishment}
       />
     </div>
+    </EntryModeSlotProvider>
   );
 }

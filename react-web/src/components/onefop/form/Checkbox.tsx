@@ -69,18 +69,19 @@ export function Checkbox({
       <span
         aria-hidden="true"
         style={{
-          width: 18,
-          height: 18,
+          width: "var(--cam-choice-size)",
+          height: "var(--cam-choice-size)",
           flexShrink: 0,
-          borderRadius: 4,
-          border: `1.5px solid ${checked ? "var(--vt-accent, #1e6b3a)" : "#d1d6d3"}`,
-          backgroundColor: checked ? "var(--vt-accent, #1e6b3a)" : "#ffffff",
+          borderRadius: "var(--cam-radius-sm)",
+          // The input edge (3:1 against white, WCAG 2.2, 1.4.11).
+          border: `2px solid ${checked ? "var(--cam-green)" : "var(--cam-text-muted)"}`,
+          backgroundColor: checked ? "var(--cam-green)" : "var(--cam-surface)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#ffffff",
-          fontSize: 12,
-          fontWeight: 800,
+          color: "var(--cam-surface)",
+          fontSize: "var(--cam-font-size-2xs)",
+          fontWeight: "var(--cam-font-weight-bold)",
           lineHeight: 1,
           transition: "all 0.15s ease",
         }}
@@ -91,8 +92,9 @@ export function Checkbox({
         style={{
           fontFamily: "var(--vt-font)",
           fontSize: "var(--cam-answer-size)",
-          fontWeight: checked ? 600 : 400,
-          color: checked ? "var(--vt-ink, #1c1f1d)" : "var(--vt-ink-soft, #4e5451)",
+          // Black and regular, ticked or not: the box shows the choice.
+          fontWeight: "var(--cam-font-weight-regular)",
+          color: "var(--cam-text)",
         }}
       >
         {label}

@@ -15,7 +15,7 @@ import { ConditionalTable } from "@/components/modern-jobs/conditional/Condition
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 
 /** Question text: the --cam-question-* tokens every respondent form shares
- *  (15px bold); answers are --cam-answer-size (14px), hints 12px. */
+ *  (15px semibold); answers are --cam-answer-size (14px), hints 12px. */
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "var(--cam-question-size)",

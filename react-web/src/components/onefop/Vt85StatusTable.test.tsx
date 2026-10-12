@@ -49,7 +49,7 @@ test("Tableau: a cell writes its own field and no total", async () => {
 test("Tableau: row totals are shown from the six fields, blank when a row is empty", () => {
   render85("grid", { VT8_5_VP_M: 3, VT8_5_VP_F: 2 });
   const rowTotal = (row: string) =>
-    screen.getByLabelText(`${row} - Σ Total (Total calculé)`).textContent;
+    screen.getByLabelText(`${row} - Total (Total calculé)`).textContent;
   assert.equal(rowTotal("Formateurs vacataires professionnels"), "5");
   assert.equal(rowTotal("Formateurs Permanents"), "—");
   // No total input: the total column is computed, not typed.

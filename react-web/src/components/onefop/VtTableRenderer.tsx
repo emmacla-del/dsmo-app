@@ -139,12 +139,12 @@ function VtCellInput({
       <SelectInput
         id={cellId}
         aria-label={ariaLabel}
-        style={{ ...cellInputStyle, width: "auto", minWidth: 90 }}
+        style={{ ...cellInputStyle, width: "auto", minWidth: 90, color: value ? undefined : "var(--cam-text-muted)" }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="" disabled>
-          —
+        <option value="" disabled hidden>
+          {t("vtWizard.select")}
         </option>
         {cellDef.options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -160,12 +160,12 @@ function VtCellInput({
       <SelectInput
         id={cellId}
         aria-label={ariaLabel}
-        style={{ ...cellInputStyle, width: "auto", minWidth: 80 }}
+        style={{ ...cellInputStyle, width: "auto", minWidth: 80, color: value ? undefined : "var(--cam-text-muted)" }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="" disabled>
-          —
+        <option value="" disabled hidden>
+          {t("vtWizard.select")}
         </option>
         <option value="true">{t("vtTableRenderer.booleanYes")}</option>
         <option value="false">{t("vtTableRenderer.booleanNo")}</option>

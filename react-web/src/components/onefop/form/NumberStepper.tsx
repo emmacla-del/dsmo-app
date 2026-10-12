@@ -5,25 +5,11 @@ import { useTranslations } from "next-intl";
 
 /**
  * Consolidated numeric stepper: tabular-nums so digits don't jitter as the
- * value changes, clamps to [min, max], 44x44 increment/decrement buttons,
- * and an optional unit label. Replaces the per-field duplicated stepper
- * markup in VtWizardFields.tsx (VtWizardNumberStepper / the inline
- * insertion-stats inputs).
+ * value changes, clamps to [min, max], and an optional unit label. One
+ * control, the same height and edge as every other answer box, with − and +
+ * as divided segments inside it (.cam-stepper* in globals.css). Both are
+ * neutral: a filled green "+" competed with the screen's one primary action.
  */
-/** Both buttons are neutral outlines: a filled green "+" competed with the
- * screen's one primary action. */
-const stepperButtonStyle = {
-  width: 44,
-  height: 44,
-  border: "var(--cam-border-width) solid var(--cam-border-strong)",
-  borderRadius: "var(--cam-radius-sm)",
-  cursor: "pointer",
-  fontWeight: 700,
-  fontSize: "var(--cam-font-size-lg)",
-  background: "var(--cam-surface)",
-  color: "var(--cam-text)",
-} as const;
-
 export function NumberStepper({
   id,
   value,
@@ -88,29 +74,16 @@ export function NumberStepper({
     onChange(id, Number.isFinite(parsed) ? String(clamp(parsed)) : raw);
   };
 
+  const boxClass = [
+    "cam-stepper-box",
+    compact ? "is-compact" : shouldShowButtons ? "has-buttons" : "is-plain",
+    hasError ? "has-error" : "",
+    disabled ? "is-disabled" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: compact ? 0 : 8,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          height: compact ? 32 : shouldShowButtons ? 44 : 40,
-          maxWidth: compact ? 84 : shouldShowButtons ? 180 : "100%",
-          width: compact || shouldShowButtons ? undefined : "100%",
-          padding: compact ? "0 8px" : "0 4px 0 12px",
-          background: "#fff",
-          border: `1px solid ${hasError ? "var(--cam-error)" : "#1B4332"}`,
-          borderRadius: "var(--cam-radius-sm)",
-          boxSizing: "border-box",
-          opacity: disabled ? 0.6 : 1,
-        }}
-      >
+    <div className="cam-stepper">
+      <div className={boxClass}>
         <input
           id={id}
           type="number"
@@ -124,28 +97,19 @@ export function NumberStepper({
           aria-required={required || undefined}
           value={(value as string) ?? ""}
           onChange={(e) => handleTyped(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: "none",
-            outline: "none",
-            fontFamily: "var(--cam-font-sans)",
-            fontWeight: "var(--cam-font-weight-regular)",
-            fontSize: "var(--cam-answer-size)",
-            fontVariantNumeric: "tabular-nums",
-            background: "transparent",
-            color: "var(--cam-text)",
-          }}
+          // A wheel over a focused number box changes the figure without a
+          // word; the grids already guard against it (onWheel blur).
+          onWheel={(e) => e.currentTarget.blur()}
+          className="cam-stepper-input"
         />
         {shouldShowButtons && (
-          <div style={{ display: "flex", gap: 4 }}>
+          <>
             <button
               type="button"
               aria-label={t("decrease")}
               disabled={disabled || (min != null && current <= min)}
               onClick={() => stepBy(-step)}
               className="vt-stepper-button"
-              style={stepperButtonStyle}
             >
               −
             </button>
@@ -155,15 +119,14 @@ export function NumberStepper({
               disabled={disabled || (max != null && current >= max)}
               onClick={() => stepBy(step)}
               className="vt-stepper-button"
-              style={stepperButtonStyle}
             >
               +
             </button>
-          </div>
+          </>
         )}
       </div>
       {unit && (
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontSize: 12, color: "var(--cam-text-muted)", whiteSpace: "nowrap" }}>
+        <span className="cam-hint" style={{ whiteSpace: "nowrap" }}>
           {unit}
         </span>
       )}
