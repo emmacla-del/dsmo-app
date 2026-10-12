@@ -1131,7 +1131,7 @@
       "statusToCorrect": "To correct",
       "statusCompleted": "Completed",
       "statusInProgress": "In progress",
-      "section0Heading": "SECTION 0: RESPONDENT IDENTIFICATION",
+      "section0Heading": "Section 0: Respondent identification",
       "topicsSummary": "{total, plural, one {# topic} other {# topics}} • {completed} completed",
       "tablesSummary": "{total, plural, one {# statistical table} other {# statistical tables}} • {completed} completed",
       "section0Intro": "Information about the person completing this questionnaire on behalf of the establishment.",

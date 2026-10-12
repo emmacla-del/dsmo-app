@@ -711,8 +711,6 @@ export function SectionRenderer({
                 color: "var(--cam-text)",
                 margin: 0,
                 lineHeight: 1.25,
-                textTransform: "uppercase",
-                letterSpacing: "-0.01em",
               }}
             >
               {section.id === "section0"
@@ -934,8 +932,6 @@ export function SectionRenderer({
               fontWeight: 500,
               color: "var(--cam-text-muted)",
               marginBottom: "var(--cam-space-3, 12px)",
-              textTransform: "uppercase",
-              letterSpacing: "0.02em",
             }}
           >
             {t("section0Eyebrow")}

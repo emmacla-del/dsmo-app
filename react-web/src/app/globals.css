@@ -1377,20 +1377,24 @@ html:has(.cam-masthead) {
   }
 }
 
-/* Administrative Subsection Header */
+/* A group heading inside a step (register Step 3): the questionnaires'
+   subsection recipe (FormSubsection.tsx) -- 18px bold in text colour,
+   sentence case, no rule. It ranks between the step title (20px) and the
+   questions (15px semibold); 13px capitals ranked it under its own fields
+   (owner, 2026-10-12). Space, not a line, starts a new group: this margin
+   plus the column's row gap puts 32px above it, against the row gap alone
+   between it and its first field. */
 .cam-auth-page .admin-section-header {
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-lg);
   font-weight: var(--cam-font-weight-bold);
-  color: var(--cam-green-dark);
-  letter-spacing: var(--cam-tracking-kicker);
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--cam-border);
-  padding-bottom: var(--cam-space-2);
-  margin: var(--cam-space-5) 0 var(--cam-space-3);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+  margin: var(--cam-space-4) 0 0;
 }
 
+/* The row gap of the column already separates it from its first field. */
 .cam-auth-page .admin-section-header:first-of-type {
-  margin-top: var(--cam-space-2);
+  margin-top: 0;
 }
 
 /* Official Data Table Grid (Table Matrix) */
