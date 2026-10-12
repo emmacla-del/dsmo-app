@@ -29,7 +29,7 @@ export function useRequireAuth(): AuthState {
   const authState = useAuthState();
 
   useEffect(() => {
-    if (authState === "anon") router.replace("/");
+    if (authState === "anon") router.replace("/login");
   }, [authState, router]);
 
   return authState;
