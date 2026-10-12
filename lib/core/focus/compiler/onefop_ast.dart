@@ -3064,11 +3064,12 @@ const section1VocationalTrainingQuestions = <FormQuestionAst>[
     // ownership/governance status, not an education system in any normal
     // sense; a respondent could not predict the answer choices from the
     // old label. Reworded to name what is actually being classified,
-    // without changing path/options/data.
+    // without changing path/options/data. The English label no longer
+    // lists the options in brackets: the radio buttons already show them,
+    // and the tooltip explains them (owner, 2026-10-12).
     label: LocalizedText(
       fr: "Statut de l'établissement",
-      en: "Type of education provision (Public / Lay private / Private "
-          "denominational)",
+      en: "Type of education provision",
     ),
     sectionId: "section1_vocationalTraining",
     order: 10,

@@ -13101,7 +13101,7 @@
               "required": true,
               "label": {
                 "fr": "Statut de l'établissement",
-                "en": "Type of education provision (Public / Lay private / Private denominational)"
+                "en": "Type of education provision"
               },
               "hint": null,
               "instruction": null,
