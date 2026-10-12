@@ -153,7 +153,29 @@ export class QuestionnairesController {
         });
       }
 
-      // ── STEP 3: Launch browser / generate PDF ─────────────────
+      // ── STEP 3: Render preview (HTML or PDF) ─────────────────
+      const requestedFormat = (body?.format || req?.query?.format || '').toString().toLowerCase();
+      const wantsHtml = requestedFormat === 'html';
+
+      if (wantsHtml) {
+        console.log('⚡ Step 3: Rendering HTML preview (offline / Chrome-free)...');
+        try {
+          const html = this.pdfService.renderHtml({
+            ...mappedData,
+            formType: entityType,
+            locale,
+            lang: locale,
+          });
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.send(html);
+        } catch (e: any) {
+          console.error('❌ Step 3 FAILED — HTML render threw:', e.message);
+          return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+            error: 'HTML preview rendering failed', step: 3, message: e.message,
+          });
+        }
+      }
+
       console.log('🔄 Step 3: Generating PDF...');
       let pdfBuffer: Buffer;
       try {

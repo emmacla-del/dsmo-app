@@ -1,10 +1,10 @@
 // src/pdf/onefop-puppeteer.service.ts
 
 import { Injectable } from '@nestjs/common';
-import * as puppeteer from 'puppeteer';  // ← plain puppeteer, no chromium
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
+import { spawn } from 'child_process';
 
 // Every real call site passes the camelCase dispatch value
 // ('vocationalTraining', matching the .hbs filename and
@@ -12,7 +12,7 @@ import * as path from 'path';
 // questionnaires.controller.ts). Accepts the SCREAMING_SNAKE_CASE Prisma
 // enum spelling too since it costs nothing — exported as a standalone
 // function so the VT-specific footer/margin condition below is directly
-// unit-testable without exercising Puppeteer itself (VT-6 Finding 2).
+// unit-testable without exercising WeasyPrint itself (VT-6 Finding 2).
 export function isVocationalTrainingFormType(formType?: string): boolean {
     return formType === 'vocationalTraining' || formType === 'VOCATIONAL_TRAINING';
 }
@@ -53,82 +53,33 @@ const enDict = loadI18nDict('en.json');
 
 @Injectable()
 export class OnefopPuppeteerService {
-    private browser: any = null;
     private helpersRegistered = false;  // ← guard: prevents "Helper already registered" error
 
-    // The browser is launched with --single-process (see initializeBrowser),
-    // which can't safely juggle many concurrent pages/tabs — an unbounded
-    // burst of preview/submit requests could crash or OOM the one shared
-    // Chrome process, taking down every in-flight PDF generation with it.
-    // Capping concurrent renders makes a burst queue briefly instead.
-    private readonly maxConcurrentRenders = 2;
-    private activeRenders = 0;
-    private renderQueue: (() => void)[] = [];
+    renderHtml(data: any): string {
+        this.registerHelpers();
 
-    private acquireRenderSlot(): Promise<void> {
-        if (this.activeRenders < this.maxConcurrentRenders) {
-            this.activeRenders++;
-            return Promise.resolve();
-        }
-        return new Promise<void>((resolve) => this.renderQueue.push(resolve));
-    }
+        const templatePath = this.getTemplatePath(data.formType);
+        const templateHtml = fs.readFileSync(templatePath, 'utf-8');
+        const template = Handlebars.compile(templateHtml);
 
-    private releaseRenderSlot(): void {
-        // Hand the slot directly to the next waiter rather than decrementing
-        // then letting it re-increment — avoids a race where a slot freed
-        // here is grabbed by a brand-new call before the queued one resumes,
-        // which would let activeRenders exceed maxConcurrentRenders.
-        const next = this.renderQueue.shift();
-        if (next) {
-            next();
-        } else {
-            this.activeRenders--;
-        }
+        const templateData = this.prepareDynamicData(data);
+        return template(templateData);
     }
 
     async generate(data: any): Promise<Buffer> {
-        await this.acquireRenderSlot();
         try {
-            console.log(`📄 Generating PDF for: ${data.formType}`);
+            console.log(`📄 Generating PDF via WeasyPrint for: ${data.formType}`);
 
-            this.registerHelpers();
-
-            const templatePath = this.getTemplatePath(data.formType);
-            console.log(`📁 Template path: ${templatePath}`);
-
-            const templateHtml = fs.readFileSync(templatePath, 'utf-8');
-            const template = Handlebars.compile(templateHtml);
-
+            const html = this.renderHtml(data);
             const templateData = this.prepareDynamicData(data);
 
-            console.log('🗺️  Template data (S0/S1 sample):');
-            console.log(JSON.stringify({
-                respondentName: templateData.respondentName,
-                cooperativeName: templateData.cooperativeName,
-                cooperativeType: templateData.cooperativeType,
-                area: templateData.area,
-                businessSector: templateData.businessSector,
-                yearOfCreation: templateData.yearOfCreation,
-                jobApplicationsRows: templateData.jobApplicationsRows?.length,
-                recruitmentsByDiplomaRows: templateData.recruitmentsByDiplomaRows?.length,
-                internshipsRows: templateData.internshipsRows?.length,
-                // ← DEBUG: reasons / skills / training
-                dismissalReasons: templateData.dismissalReasons,
-                skills: templateData.skills,
-                trainingNeeds: templateData.trainingNeeds,
-            }, null, 2));
-
-            const html = template(templateData);
             const pdf = await this.htmlToPdf(html, data.formType, templateData.lang);
-            console.log(`✅ PDF generated successfully (${pdf.length} bytes)`);
+            console.log(`✅ PDF generated successfully via WeasyPrint (${pdf.length} bytes)`);
 
             return pdf;
-
         } catch (error) {
             console.error('❌ PDF generation error:', error);
             throw error;
-        } finally {
-            this.releaseRenderSlot();
         }
     }
 
@@ -278,135 +229,98 @@ export class OnefopPuppeteerService {
         return path.join(__dirname, 'templates', 'dynamic', `${formType}.hbs`);
     }
 
-    // --single-process Chrome (required in this container's memory-
-    // constrained environment — see maxConcurrentRenders' comment above) has
-    // a confirmed, reproducible failure on the very first render right after
-    // the browser is (re-)launched: "Navigating frame was detached" in
-    // production, "Target closed" in a local Windows repro — different
-    // messages for the same underlying single-process frame-initialization
-    // race, since printToPDF's own architecture doesn't fully expect
-    // single-process mode. Confirmed live in production during the React
-    // migration's PDF-preview work: the first PDF request after any browser
-    // (re-)launch failed with that exact error every time, while every
-    // subsequent request on the same already-launched browser succeeded
-    // reliably. Removing --single-process would fix this outright but risks
-    // reintroducing the OOM/crash concern that flag exists for under
-    // concurrent load, which can't be verified against this host's actual
-    // memory limits from here — so instead of touching that flag, this
-    // retries exactly once, scoped to only the render that itself triggered
-    // a fresh launch (a healthy, already-warm browser never retries), which
-    // matches the confirmed failure window precisely.
     private async htmlToPdf(html: string, formType?: string, locale?: string): Promise<Buffer> {
-        const wasFreshLaunch = !this.browser || !this.browser.isConnected();
-        try {
-            return await this.renderPdf(html, formType, locale);
-        } catch (error) {
-            if (!wasFreshLaunch) throw error;
-            console.warn(
-                '⚠️ PDF render failed on a freshly-launched browser, retrying once:',
-                (error as Error).message,
-            );
-            return this.renderPdf(html, formType, locale);
-        }
+        const isVocationalTraining = isVocationalTrainingFormType(formType);
+        const isEnglish = locale === 'en';
+        const footerBanner = isEnglish
+            ? 'Official ONEFOP Form · Document generated via the CAM-LEAP platform'
+            : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAM-LEAP';
+        const pageText = isEnglish
+            ? '"Page " counter(page) " of " counter(pages)'
+            : `"Page " counter(page) "${isVocationalTraining ? ' sur ' : ' / '}" counter(pages)`;
+
+        const bottomMargin = isVocationalTraining ? '18mm' : '16mm';
+
+        // CSS Paged Media rules natively supported by WeasyPrint
+        const pagedMediaCss = `
+<style>
+@page {
+    size: A4;
+    margin-top: 15mm;
+    margin-bottom: ${bottomMargin};
+    margin-left: 15mm;
+    margin-right: 15mm;
+    @bottom-left {
+        content: "${footerBanner}";
+        font-size: 7pt;
+        color: #555;
+        font-family: 'Arial Narrow', Arial, sans-serif;
     }
-
-    private async renderPdf(html: string, formType?: string, locale?: string): Promise<Buffer> {
-        let page: any;
-        try {
-            if (!this.browser || !this.browser.isConnected()) {
-                await this.initializeBrowser();
-            }
-
-            page = await this.browser.newPage();
-
-            await page.setViewport({
-                width: 1240,
-                height: 1754,
-                deviceScaleFactor: 1,
-            });
-
-            await page.setContent(html, {
-                waitUntil: 'networkidle0',
-                timeout: 30000,
-            });
-
-            // Only vocationalTraining.hbs's source PDF was verified to
-            // print a "Page X sur Y" footer on every page — scoped to that
-            // formType rather than added to all seven templates, since the
-            // other six haven't been checked against their own source PDFs
-            // for this and shouldn't change behavior as a side effect of
-            // the VT work. See isVocationalTrainingFormType above for why
-            // this is a function call rather than an inline comparison
-            // (VT-6 Finding 2 — the old inline check never matched the
-            // real dispatch value).
-            const isVocationalTraining = isVocationalTrainingFormType(formType);
-            const isEnglish = locale === 'en';
-            const footerBanner = isEnglish
-                ? 'Official ONEFOP Form &middot; Document generated via the CAM-LEAP platform'
-                : 'Formulaire officiel ONEFOP &middot; Document g&eacute;n&eacute;r&eacute; via la plateforme CAM-LEAP';
-            const pageText = isEnglish
-                ? 'Page <span class="pageNumber"></span> of <span class="totalPages"></span>'
-                : `Page <span class="pageNumber"></span> ${isVocationalTraining ? 'sur' : '/'} <span class="totalPages"></span>`;
-
-            const pdf = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                    top: '15mm',
-                    bottom: isVocationalTraining ? '18mm' : '16mm',
-                    left: '15mm',
-                    right: '15mm',
-                },
-                displayHeaderFooter: true,
-                headerTemplate: '<span></span>',
-                footerTemplate:
-                    '<div style="width:100%;font-size:7pt;color:#555;font-family:\'Arial Narrow\',Arial,sans-serif;display:flex;justify-content:space-between;padding:0 15mm;box-sizing:border-box;">' +
-                    `<span>${footerBanner}</span>` +
-                    `<span>${pageText}</span>` +
-                    '</div>',
-            });
-
-            await page.close();
-            return Buffer.from(pdf);
-
-        } catch (error) {
-            if (page) {
-                try { await page.close(); } catch (_) { /* ignore */ }
-            }
-            console.error('⚠️ Error during PDF generation:', (error as Error).message);
-            if (this.browser) {
-                try { await this.browser.close(); } catch (_) { /* ignore */ }
-                this.browser = null;
-            }
-            throw error;
-        }
-    }
-
-    private async initializeBrowser(): Promise<void> {
-        console.log('🌐 Launching bundled Chrome...');
-
-        this.browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                ...(process.platform !== 'win32' ? ['--single-process'] : []),
-                '--no-zygote',
-            ],
-        });
-
-        this.browser.on('disconnected', () => {
-            console.warn('⚠️ Browser connection disconnected');
-            this.browser = null;
-        });
-    }
-
-    async onModuleDestroy() {
-        if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
-        }
+    @bottom-right {
+        content: ${pageText};
+        font-size: 7pt;
+        color: #555;
+        font-family: 'Arial Narrow', Arial, sans-serif;
     }
 }
+</style>
+`;
+
+        const styledHtml = html.includes('</head>')
+            ? html.replace('</head>', `${pagedMediaCss}</head>`)
+            : `${pagedMediaCss}${html}`;
+
+        return this.renderWithWeasyprint(styledHtml);
+    }
+
+    private async renderWithWeasyprint(html: string): Promise<Buffer> {
+        const isWin = process.platform === 'win32';
+        const candidates: Array<{ cmd: string; args: string[] }> = [
+            { cmd: 'weasyprint', args: ['-', '-', '--encoding', 'utf-8', '--media-type', 'print'] },
+            ...(isWin ? [{ cmd: 'weasyprint.exe', args: ['-', '-', '--encoding', 'utf-8', '--media-type', 'print'] }] : []),
+            { cmd: 'python3', args: ['-m', 'weasyprint', '-', '-', '--encoding', 'utf-8', '--media-type', 'print'] },
+            { cmd: 'python', args: ['-m', 'weasyprint', '-', '-', '--encoding', 'utf-8', '--media-type', 'print'] },
+        ];
+
+        let lastError: Error | null = null;
+
+        for (const { cmd, args } of candidates) {
+            try {
+                return await new Promise<Buffer>((resolve, reject) => {
+                    const proc = spawn(cmd, args);
+                    const stdoutChunks: Buffer[] = [];
+                    const stderrChunks: Buffer[] = [];
+
+                    proc.stdout.on('data', (d) => stdoutChunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
+                    proc.stderr.on('data', (d) => stderrChunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
+
+                    proc.on('error', (err) => reject(err));
+
+                    proc.on('close', (code) => {
+                        if (code === 0) {
+                            resolve(Buffer.concat(stdoutChunks));
+                        } else {
+                            const errOutput = Buffer.concat(stderrChunks).toString('utf-8');
+                            reject(new Error(`${cmd} exited with code ${code}: ${errOutput}`));
+                        }
+                    });
+
+                    proc.stdin.write(html);
+                    proc.stdin.end();
+                });
+            } catch (err: any) {
+                lastError = err;
+                if (err?.code === 'ENOENT') {
+                    continue;
+                }
+                throw err;
+            }
+        }
+
+        throw new Error(
+            `WeasyPrint could not be executed. Please ensure weasyprint is installed in your environment (e.g. apt-get install weasyprint). Details: ${lastError?.message}`,
+        );
+    }
+}
+
+export { OnefopPuppeteerService as OnefopPdfService };

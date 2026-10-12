@@ -28,3 +28,20 @@ describe('isVocationalTrainingFormType', () => {
     expect(isVocationalTrainingFormType('')).toBe(false);
   });
 });
+
+import { OnefopPuppeteerService } from './onefop-puppeteer.service';
+
+describe('OnefopPuppeteerService.renderHtml', () => {
+  it('renders valid HTML from templates without launching Chrome', () => {
+    const service = new OnefopPuppeteerService();
+    const html = service.renderHtml({
+      formType: 'ctd',
+      surveyYear: 2025,
+      respondentName: 'Test Respondent',
+    });
+
+    expect(typeof html).toBe('string');
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('ONEFOP');
+  });
+});

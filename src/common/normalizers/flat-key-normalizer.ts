@@ -1719,8 +1719,12 @@ function setBool(out: Record<string, unknown>, key: string, value: unknown): voi
  *  and explicitly the §7.1.3 requirement that missing/unselected ticks
  *  produce [] rather than null or an omitted key. */
 function toStrArray(value: unknown): string[] {
-    if (Array.isArray(value)) return value.map((v) => String(v));
-    if (typeof value === 'string' && value.trim() !== '') return [value];
+    if (Array.isArray(value)) {
+        return value.map((v) => String(v ?? '').trim()).filter((v) => v.length > 0);
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+        return value.split(/\r?\n+/).map((s) => s.trim()).filter((s) => s.length > 0);
+    }
     return [];
 }
 

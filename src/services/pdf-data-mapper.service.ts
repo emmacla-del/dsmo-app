@@ -1523,8 +1523,12 @@ function vtBool(f: FlatData, key: string): boolean | undefined {
 
 function vtArr(f: FlatData, key: string): string[] {
     const v = f[key];
-    if (Array.isArray(v)) return v.map(String);
-    if (typeof v === 'string' && v.trim() !== '') return [v];
+    if (Array.isArray(v)) {
+        return v.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
+    }
+    if (typeof v === 'string' && v.trim() !== '') {
+        return v.split(/\r?\n+/).map((s) => s.trim()).filter((s) => s.length > 0);
+    }
     return [];
 }
 
@@ -2211,9 +2215,9 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
                 { categorie: "Conseil d'établissement/ School council", informee: vtArr(f, 'VT7_11').length > 0, modeCommunication: vtCommsChannels(f, 'VT7_11', locale ?? 'fr') },
             ],
             priseEnCompteIST: vtBool(f, 'VT7_12'),
-            // No 7.3 anywhere — the printed instrument's own numbering
-            // jumps 7.2 → 7.4 (design note Decision 4, confirmed against
-            // the PDF directly this session).
+            // Section 7 runs in order, 7.2 → 7.3 (owner, 2026-10-11:
+            // chronological numbering; replaces Decision 4, which kept the
+            // paper's jump 7.2 → 7.4). Numbers are in vocationalTraining.hbs.
             educationSexuelleVIH: {
                 dispensee: vtBool(f, 'VT7_13'),
                 themes: [
