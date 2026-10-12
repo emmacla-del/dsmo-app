@@ -219,13 +219,15 @@ export function ModernJobsHeader({
               )}
             </div>
           )}
-          <div style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-            {isVt ? t("vtSurveyTitle") : t("surveyTitle")}
-          </div>
+          {/* The survey and the round on one line, not two: both answer the
+              same question -- which declaration is this -- and the
+              establishment above is the fact the respondent reads first
+              (owner, 2026-10-12). VT's title already names the entity; the
+              other surveys name it here. */}
           <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-            {/* VT's title already names the entity; the other surveys name it here. */}
-            {!isVt && `${entityLabel} · `}
-            {campaign}
+            {[isVt ? t("vtSurveyTitle") : t("surveyTitle"), isVt ? null : entityLabel, campaign]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
         </div>
 

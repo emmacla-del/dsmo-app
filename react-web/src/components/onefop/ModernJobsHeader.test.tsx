@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ModernJobsHeader } from "./ModernJobsHeader";
 
-test("VT masthead: establishment and its number, the VT survey title, then the campaign", () => {
+test("VT masthead: establishment and its number, then the survey and round on one line", () => {
   renderWithProviders(
     <ModernJobsHeader
       entityType="vocationalTraining"
@@ -15,9 +15,10 @@ test("VT masthead: establishment and its number, the VT survey title, then the c
   );
   assert.ok(screen.getByText("CFP Waltz"));
   assert.ok(screen.getByText(/VT26000103/));
-  assert.ok(screen.getByText("Recensement formation professionnelle"));
-  assert.ok(screen.getByText(/4e trimestre 2026/));
-  // The entity is already in VT's title, so the campaign line does not repeat it.
+  // The survey and the round share one line under the establishment, which
+  // is the fact the respondent reads first (owner, 2026-10-12).
+  assert.ok(screen.getByText(/^Recensement formation professionnelle · .*4e trimestre 2026$/));
+  // The entity is already in VT's title, so that line does not repeat it.
   assert.equal(screen.queryByText(/Centres de formation professionnelle/), null);
   assert.ok(screen.getByRole("button", { name: /Aperçu PDF/ }));
   assert.ok(screen.getByRole("button", { name: /Quitter/ }));
@@ -30,10 +31,9 @@ test("the masthead carries no language switcher and no Save button", () => {
   assert.equal(screen.queryByRole("button", { name: /Sauvegarder/ }), null);
 });
 
-test("other surveys keep the general title and name the entity before the campaign", () => {
+test("other surveys keep the general title and name the entity on the same line", () => {
   renderWithProviders(<ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />);
-  assert.ok(screen.getByText("Enquête Emploi & Main-d'œuvre"));
-  assert.ok(screen.getByText(/Entreprises · .*4e trimestre 2026/));
+  assert.ok(screen.getByText(/^Enquête Emploi & Main-d'œuvre · Entreprises · .*4e trimestre 2026$/));
 });
 
 // ── The bar reports only a save that did NOT land ───────────────────────
