@@ -266,7 +266,6 @@
     "dashboardButton": "‹ Tableau de bord",
     "loadingQuestionnaire": "Chargement du questionnaire…",
     "respondentFallbackName": "Répondant",
-    "respondentFallbackFunction": "Directeur Administratif et Financier",
     "establishmentFallbackName": "CENTRE DE FORMATION PROFESSIONNELLE",
     "vocationalTrainingLabel": "FORMATION PROFESSIONNELLE"
   },
@@ -634,8 +633,10 @@
     "beginButton": "Commencer",
     "estimatedTime": "Durée estimée : 20-30 minutes",
     "goBackButton": "Retour",
+    "declaringAsFor": "Vous déclarez en qualité de {function} pour <b>{establishment}</b>{code}.",
+    "declaringFor": "Vous déclarez pour <b>{establishment}</b>{code}.",
+    "declaringAs": "Vous déclarez en qualité de {function}.",
     "defaultRespondentName": "Responsable",
-    "defaultRespondentFunction": "Directeur / Promoteur",
     "entityLabels": {
       "enterprise": "Entreprise",
       "cooperative": "Coopérative",
@@ -2658,6 +2659,7 @@
   },
   "landingPage": {
     "emblemLabel": "Logo de l'ONEFOP, Observatoire national de l'emploi et de la formation professionnelle",
+    "endorsement": "Une plateforme de l'ONEFOP",
     "otherLanguageName": "Cameroon Labour and Employment Analytical Platform",
     "noticesHeading": "Avis aux déclarants",
     "notice1Title": "Bienvenue sur CAM-LEAP",

@@ -111,14 +111,6 @@ function useViewportSize() {
 }
 
 /**
- * Below this the pod stops holding the viewport and the page scrolls
- * again: the masthead, the pod's footer and its own edges take a fixed
- * ~150px, so on a shorter screen an inner scroller would show the
- * declaration through a slit.
- */
-const POD_MIN_VIEWPORT_HEIGHT = 700;
-
-/**
  * React counterpart of Flutter's VtWizardShell.
  *
  * VT deliberately follows the Flutter shell rather than behaving like the
@@ -188,12 +180,12 @@ export function WizardShell({
   // The one Tableau/Guidé control, filled by whichever screen offers the
   // choice (see EntryModeSwitch).
   const entryModeSlot = useEntryModeSlot();
-  // The pod holds the viewport and scrolls inside itself only where
-  // there is height to spare. On a phone the page scrolls as before:
-  // a short viewport plus a collapsing address bar leaves an inner
-  // scroller almost nothing to show.
-  const podScrolls =
-    showFullRail && (viewportSize?.height ?? 0) >= POD_MIN_VIEWPORT_HEIGHT;
+  // The page is the one scroller at every size: the pod grows with the
+  // declaration instead of holding the viewport and scrolling inside
+  // itself (owner, 2026-10-12; a fixed pod since 2026-10-11). Beside the
+  // rail it continues the app bar, with side edges only, down to the
+  // bottom of the page.
+  const podFlush = showFullRail;
 
   useEffect(() => {
     if (isMobile && sidePreviewOpen) {
@@ -958,11 +950,7 @@ export function WizardShell({
       className="vt-wizard"
       style={{
         // The viewport, not 100%: the page wrapper only has a min-height.
-        // With a scrolling pod the shell holds the viewport exactly, so the
-        // masthead, rail and footer stay put and only the pod's body moves.
-        ...(podScrolls
-          ? { height: "100dvh", overflow: "hidden" }
-          : { minHeight: "100vh" }),
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
         background: "var(--cam-bg)",
@@ -1016,18 +1004,16 @@ export function WizardShell({
               flexDirection: "column",
               // Flush with the app bar: the pod continues it rather than
               // floating under it, and the height goes to the declaration.
-              paddingTop: podScrolls ? 0 : contentGutter,
+              paddingTop: podFlush ? 0 : contentGutter,
               paddingLeft: contentGutter,
               paddingRight: contentGutter,
-              // A scrolling pod runs to the bottom of the shell, so its
-              // footer sits on the screen's edge and lines up with the
-              // rail; only a scrolling page needs room under the last
-              // question.
-              paddingBottom: podScrolls ? 0 : "var(--cam-space-7)",
+              // A flush pod runs to the bottom of the page and carries its
+              // own room under Previous / Next.
+              paddingBottom: podFlush ? 0 : "var(--cam-space-7)",
             }}
           >
             <div
-              className={`cam-wizard-pod${podScrolls ? " cam-wizard-pod--fixed" : ""}`}
+              className={`cam-wizard-pod${podFlush ? " cam-wizard-pod--flush" : ""}`}
               style={{
                 width: "100%",
                 // The body's padding sits inside this, so the content keeps
@@ -1081,44 +1067,35 @@ export function WizardShell({
               )}
 
               </div>
-            </div>
 
-            {/* Previous and Next below the pod, not inside it: the pod's
-                space is the declaration's (owner, 2026-10-11). They sit
-                outside the scroll, so they cannot cover the focused field
-                the way a pinned bar did (WCAG 2.2, 2.4.11) and stay
-                reachable without scrolling a long section to its end.
-                Saving is automatic; the PDF preview is the app bar's. */}
-            <div
-              className="cam-wizard-pod-nav"
-              style={{
-                width: "100%",
-                maxWidth: `calc(${contentMax} + 2 * var(--cam-wizard-pod-pad))`,
-                margin: "0 auto",
-              }}
-            >
-              <div className="cam-wizard-actions">
-                <button
-                  type="button"
-                  className="cam-button cam-button-secondary"
-                  // On the quiz: back to Section 1, as the quiz sits after it.
-                  onClick={isVtQuizStage ? () => showSection(0) : handlePrev}
-                >
-                  {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
-                    ? t("common.cancel")
-                    : t("wizardShell.previousStepButton")}
-                </button>
-                <button
-                  type="button"
-                  className="cam-button cam-button-primary"
-                  // On the quiz: validate it. It records the answers and opens
-                  // Section 2, or marks the questions still unanswered.
-                  onClick={isVtQuizStage ? () => vtQuizValidateRef.current?.() : handleNext}
-                >
-                  {!isVtQuizStage && clampedSectionIndex === sections.length - 1
-                    ? t("wizardShell.proceedToValidationButton")
-                    : t("wizardShell.nextButton")}
-                </button>
+              {/* Previous and Next after the last question, inside the pod
+                  and in the flow of the page (owner, 2026-10-12): Next is
+                  met when the section is done, and the pod's edges run past
+                  it. Saving is automatic; the PDF preview is the app bar's. */}
+              <div className="cam-wizard-pod-nav">
+                <div className="cam-wizard-actions">
+                  <button
+                    type="button"
+                    className="cam-button cam-button-secondary"
+                    // On the quiz: back to Section 1, as the quiz sits after it.
+                    onClick={isVtQuizStage ? () => showSection(0) : handlePrev}
+                  >
+                    {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
+                      ? t("common.cancel")
+                      : t("wizardShell.previousStepButton")}
+                  </button>
+                  <button
+                    type="button"
+                    className="cam-button cam-button-primary"
+                    // On the quiz: validate it. It records the answers and opens
+                    // Section 2, or marks the questions still unanswered.
+                    onClick={isVtQuizStage ? () => vtQuizValidateRef.current?.() : handleNext}
+                  >
+                    {!isVtQuizStage && clampedSectionIndex === sections.length - 1
+                      ? t("wizardShell.proceedToValidationButton")
+                      : t("wizardShell.nextButton")}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

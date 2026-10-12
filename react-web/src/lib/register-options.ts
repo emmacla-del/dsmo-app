@@ -9,11 +9,27 @@
 // answers in both is a dropdown they have to read twice. See register-i18n.ts
 // for why these live in TypeScript beside their `value` rather than in
 // messages/*.json.
-import type { LocalizedText } from "./register-i18n";
+import { localized, type LocalizedText, type UiLocale } from "./register-i18n";
 
 export interface RegisterOption {
   value: string;
   label: LocalizedText;
+}
+
+/**
+ * A stored value shown in the reader's language: the option's label, or the
+ * value itself when no option matches. Falling back to the stored value, not
+ * to an empty string: an answer the option list does not recognise (a role
+ * typed by hand) is still an answer the respondent gave, and must not be
+ * silently dropped.
+ */
+export function registerOptionLabel(
+  options: readonly RegisterOption[],
+  value: string,
+  locale: UiLocale,
+): string {
+  const option = options.find((o) => o.value === value);
+  return option ? localized(option.label, locale) : value;
 }
 
 export const LEGAL_STATUS_OPTIONS: RegisterOption[] = [
@@ -139,7 +155,9 @@ export const SEX_OPTIONS: RegisterOption[] = [
 ];
 
 export const RESPONDENT_FUNCTION_OPTIONS: RegisterOption[] = [
-  { value: "Directeur Général", label: { fr: "Directeur Général", en: "Chief Executive Officer" } },
+  // A DG runs the company: General Manager in English, not CEO, which is
+  // the Président-Directeur Général (owner, 2026-10-12).
+  { value: "Directeur Général", label: { fr: "Directeur Général", en: "General Manager" } },
   {
     value: "Directeur des Ressources Humaines",
     label: { fr: "Directeur des Ressources Humaines", en: "Human Resources Director" },

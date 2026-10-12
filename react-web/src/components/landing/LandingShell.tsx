@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
-import { OfficialLogo } from "./OfficialLogo";
+import { BrandLockup } from "@/components/brand/BrandLockup";
 import styles from "./landing.module.css";
 
 const WHATSAPP_URL = "https://wa.me/237651965905";
@@ -10,14 +10,15 @@ const WHATSAPP_URL = "https://wa.me/237651965905";
 //
 //   official bar      the portal notice and the FR / EN switch
 //   notices           three short notices for respondents
-//   identity          emblem, CAM-LEAP, the name in both languages
+//   identity          the ONEFOP | CAMLEAP lockup, "Une plateforme de
+//                     l'ONEFOP", the name in both languages
 //   children          the sign-in card, passed in by the page
 //
 // On a wide screen these are three columns: notices, identity, sign-in. The
 // DOM order is identity, sign-in, notices, which is also the order on a
 // phone and the tab order, so the sign-in is reached before the notices.
 //
-// `wordmarkAs` sets the heading level of "CAM-LEAP". The sign-in view has no
+// `wordmarkAs` sets the heading level of the CAMLEAP logo. The sign-in view has no
 // other heading, so it passes "h1"; the two-factor view has its own <h1> and
 // leaves the default.
 //
@@ -33,7 +34,6 @@ export function LandingShell({
   const t = useTranslations();
   const locale = useLocale();
   const otherLocale = locale === "fr" ? "en" : "fr";
-  const Wordmark = wordmarkAs;
 
   return (
     <div className={styles.page}>
@@ -44,10 +44,9 @@ export function LandingShell({
 
       <main className={styles.stage}>
         <section className={styles.identity}>
-          <div className={styles.emblem}>
-            <OfficialLogo label={t("landingPage.emblemLabel")} />
-          </div>
-          <Wordmark className={styles.wordmark}>{t("authShared.wordmark")}</Wordmark>
+          {/* Both marks at the front door, as one lockup (brand.md). */}
+          <BrandLockup size="hero" nameAs={wordmarkAs} />
+          <p className="cam-brand-endorsement">{t("landingPage.endorsement")}</p>
           <p className={styles.name}>{t("authShared.subtitle")}</p>
           <p className={styles.nameOther} lang={otherLocale}>
             {t("landingPage.otherLanguageName")}

@@ -276,6 +276,11 @@ body {
   margin-bottom: var(--cam-space-6);
 }
 
+/* The platform's full name under the front-door lockup (AuthHeader). */
+.cam-auth-page .masthead > .brand-sub {
+  margin-top: var(--cam-space-2);
+}
+
 .cam-auth-page .brand-name {
   font-size: var(--cam-font-size-2xl);
   font-weight: var(--cam-font-weight-bold);
@@ -776,7 +781,7 @@ html:has(.cam-masthead) {
    dossier panel that carries it on a wide screen is not shown. */
 .cam-auth-page--wizard .masthead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
   gap: var(--cam-space-2);
   min-width: 0;
@@ -794,7 +799,8 @@ html:has(.cam-masthead) {
 
 /* One line, whatever the width: the subtitle is an identifier, not prose,
    and a second line here is a line the frame does not get. */
-.cam-auth-page--wizard .brand-sub {
+.cam-auth-page--wizard .brand-sub,
+.cam-auth-page--wizard .masthead > .brand-sub {
   min-width: 0;
   margin: 0;
   font-size: var(--cam-font-size-xs);
@@ -885,29 +891,15 @@ html:has(.cam-masthead) {
    frame and step list as the Modern Jobs and VT wizards. This file only
    decides when it shows -- see the min-width rule below. */
 
+/* The ONEFOP | CAMLEAP lockup at panel size, the endorsement under it. */
 .cam-auth-page--wizard .flow-panel-identity {
   display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-}
-
-/* The landing page's emblem, at panel size, on the same soft green disc. */
-.cam-auth-page--wizard .flow-panel-emblem {
-  display: block;
-  flex: none;
-  width: var(--cam-space-7);
-}
-
-.cam-auth-page--wizard .flow-panel-wordmark {
-  font-size: var(--cam-font-size-lg);
-  font-weight: var(--cam-font-weight-bold);
-  letter-spacing: var(--cam-tracking-tight);
-  line-height: var(--cam-line-height-tight);
-  color: var(--cam-text);
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .cam-auth-page--wizard .flow-panel-sub {
-  margin: var(--cam-space-1) 0 0;
+  margin: var(--cam-space-2) 0 0;
   font-size: var(--cam-font-size-2xs);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
@@ -1978,35 +1970,117 @@ html:has(.cam-masthead) {
   background: var(--cam-green);
 }
 
-@keyframes onefopPulse {
-  0% {
-    transform: scale(0.92);
-    box-shadow: 0 0 20px rgba(30, 107, 58, 0.2);
+/* The start page's opening beat: the CAMLEAP wordmark rises into place,
+   then breathes until the notice appears. No glow and no circle: the
+   wordmark carries itself (owner, 2026-10-12; was the ONEFOP emblem
+   pulsing in a glowing circle). */
+@keyframes camleapEnter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--cam-space-2));
   }
 
-  50% {
-    transform: scale(1.06);
-    box-shadow: 0 0 50px rgba(30, 107, 58, 0.45);
-  }
-
-  100% {
-    transform: scale(0.92);
-    box-shadow: 0 0 20px rgba(30, 107, 58, 0.2);
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-.cam-pulsing-logo {
-  animation: onefopPulse 1.4s ease-in-out infinite;
+@keyframes camleapBreathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ── Front-door lockup (components/brand/BrandLockup.tsx) ──
+   ONEFOP emblem | CAMLEAP logo, one unit (docs/standards/brand.md). Three
+   sizes: the landing page's hero, the registration panel, and the one-line
+   header of the other auth pages. The emblem stands about twice the logo's
+   height, which gives the two marks an even weight: the emblem's own
+   lettering is small. */
+.cam-brand-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cam-brand-gap);
+  min-width: 0;
+}
+
+.cam-brand-lockup-emblem {
+  display: block;
+  flex: none;
+  width: var(--cam-brand-emblem);
+  height: auto;
+}
+
+.cam-brand-lockup-rule {
+  flex: none;
+  align-self: stretch;
+  width: var(--cam-border-width);
+  background: var(--cam-border);
+}
+
+.cam-brand-lockup-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  line-height: 0;
+}
+
+.cam-brand-lockup-name img {
+  display: block;
+  width: var(--cam-brand-logo);
+  max-width: 100%;
+  height: auto;
+}
+
+/* Landing page: sized to its identity column (a size container). */
+.cam-brand-lockup--hero {
+  --cam-brand-gap: var(--cam-space-5);
+  --cam-brand-emblem: clamp(64px, 22cqi, 112px);
+  --cam-brand-logo: clamp(150px, 52cqi, 340px);
+}
+
+.cam-brand-lockup--panel {
+  --cam-brand-gap: var(--cam-space-3);
+  --cam-brand-emblem: var(--cam-space-7);
+  --cam-brand-logo: 144px;
+  justify-content: flex-start;
+}
+
+.cam-brand-lockup--compact {
+  --cam-brand-gap: var(--cam-space-2);
+  --cam-brand-emblem: var(--cam-space-6);
+  --cam-brand-logo: 96px;
+  /* Never squeezed below its 16px height (brand.md): beside it, the text
+     gives way instead. */
+  flex: none;
+}
+
+.cam-brand-lockup--compact .cam-brand-lockup-name {
+  flex: none;
+}
+
+/* The endorsement under a lockup: "Une plateforme de l'ONEFOP". */
+.cam-brand-endorsement {
+  margin: var(--cam-space-3) 0 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
 }
 
 /* ── Questionnaire start page (OnefopLegalAcknowledgment.tsx) ──
-   A plain start page, top-aligned in the wizard's measure: title, who is
-   answering, the confidentiality notice as body text, consent, then one
-   primary action. No card, no tinted box (owner, 2026-10-10). */
+   An app's start screen, centred on the page: the issuing authority, then
+   one panel holding the declaration, the confidentiality notice, consent
+   and Begin (owner, 2026-10-12; a plain top-aligned page from 2026-10-10).
+   The panel has a hairline edge and no fill or shadow. Headings are
+   centred; the legal text and the consent stay left-aligned, as centred
+   paragraphs are hard to read past a line or two. */
 .cam-welcome {
   min-height: 100vh;
   background: var(--cam-bg);
   display: flex;
+  align-items: center;
   justify-content: center;
   padding: var(--cam-space-7) var(--cam-space-4);
   padding-top: calc(var(--cam-space-7) + env(safe-area-inset-top, 0px));
@@ -2016,19 +2090,26 @@ html:has(.cam-masthead) {
 
 .cam-welcome-splash {
   align-self: center;
-  width: 120px;
-  height: 120px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  animation:
+    camleapEnter 0.5s ease-out both,
+    camleapBreathe 1.4s ease-in-out 0.5s infinite;
+}
+
+.cam-welcome-splash img {
+  display: block;
+  width: min(240px, 60vw);
+  height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-welcome-splash {
+    animation: none;
+  }
 }
 
 .cam-welcome-body {
   width: 100%;
-  max-width: var(--cam-container-wizard);
+  max-width: 34rem;
   color: var(--cam-text);
   transition: opacity 0.3s ease;
 }
@@ -2037,11 +2118,32 @@ html:has(.cam-masthead) {
   opacity: 0;
 }
 
-.cam-welcome-respondent {
-  margin: 0 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-sm);
+/* The issuing authority over the panel, as on the paper form's letterhead. */
+.cam-welcome-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-5);
+  text-align: center;
+}
+
+.cam-welcome-brand img {
+  object-fit: contain;
+}
+
+.cam-welcome-authority {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
+}
+
+.cam-welcome-panel {
+  padding: var(--cam-space-6);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
 }
 
 .cam-welcome-title {
@@ -2049,24 +2151,69 @@ html:has(.cam-masthead) {
   font-size: var(--cam-font-size-xl);
   font-weight: var(--cam-font-weight-bold);
   line-height: var(--cam-line-height-title);
+  text-align: center;
+}
+
+/* "Bienvenue, …" under the title, then the declaration it is made in:
+   role and establishment, the establishment in bold. */
+.cam-welcome-greeting {
+  margin: var(--cam-space-3) 0 0;
+  font-size: var(--cam-font-size-base);
+  line-height: var(--cam-line-height-ui);
+  text-align: center;
+}
+
+.cam-welcome-respondent {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+  text-align: center;
 }
 
 .cam-welcome-time {
-  margin: var(--cam-space-2) 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cam-space-1);
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-microcopy-size);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
 }
 
+/* The notice between two rules, its title with a lock, the law it rests on
+   cited under it, then the text. */
 .cam-welcome-notice {
-  margin-top: var(--cam-space-6);
+  margin-top: var(--cam-space-5);
+  padding: var(--cam-space-5) 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
 .cam-welcome-notice h2 {
-  margin: 0 0 var(--cam-space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cam-space-2);
+  margin: 0;
   font-size: var(--cam-font-size-lg);
   font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-title);
 }
 
-.cam-welcome-notice p {
+/* The legal basis, cited under the title as a reference line. */
+.cam-welcome-notice-basis {
+  margin: var(--cam-space-1) 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+  text-align: center;
+}
+
+/* Left-aligned, not justified like the paper: justified lines open uneven
+   gaps between words, worst on a phone (WCAG 2.2, 1.4.8). */
+.cam-welcome-notice-text {
   margin: 0;
   font-size: var(--cam-font-size-base);
   line-height: var(--cam-line-height-copy);
@@ -2090,12 +2237,26 @@ html:has(.cam-masthead) {
   cursor: pointer;
 }
 
+/* Begin across the panel, Back under it: one primary action. */
 .cam-welcome-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cam-space-5);
-  margin-top: var(--cam-space-6);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-5);
+  text-align: center;
+}
+
+.cam-welcome-actions .cam-text-button {
+  align-self: center;
+}
+
+/* On a phone the panel's edge costs width it cannot spare. */
+@media (max-width: 480px) {
+  .cam-welcome-panel {
+    padding: 0;
+    border: none;
+  }
 }
 
 /* ── Question, answer, hint (G16) ──
@@ -2737,28 +2898,32 @@ html:has(.cam-masthead) {
   border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-md, 8px);
   background: var(--cam-surface);
-  /* So the body's scrollbar and the footer's rule stop at the radius. */
-  overflow: hidden;
 }
 
-/* The pod holds the viewport and its body carries the only scroll, so the
-   masthead, rail and the Previous/Next footer all stay put (owner,
-   2026-10-11). It runs from the app bar to the bottom of the screen and
-   continues the bar rather than floating under it, so it keeps side edges
-   only — every pixel of height belongs to the declaration. */
-.cam-wizard-pod--fixed {
+/* Beside the rail the pod continues the app bar and runs down the page with
+   side edges only: no top or bottom rule, no radius, and at least the
+   screen's height, so a short section does not end in a box. The page is
+   the one scroller (owner, 2026-10-12; the pod held the viewport and
+   scrolled inside itself from 2026-10-11). */
+.cam-wizard-pod--flush {
   flex: 1;
-  min-height: 0;
   border-top: none;
+  border-bottom: none;
   border-radius: 0;
 }
 
-/* Previous and Next below the pod rather than inside it: the pod's room is
-   the declaration's. Smaller than a page's primary pair, because they are
-   chrome here, not the answer to the screen. */
+/* With the page scrolling under the pinned masthead, a field scrolled to (by
+   focus, by Tab, or by the jump to an error) stops below the masthead, not
+   under it (WCAG 2.2, 2.4.11). --mj-header-h is 0 where it is not pinned. */
+.vt-wizard :is(input, select, textarea, button, [tabindex], h1, h2, h3, h4) {
+  scroll-margin-top: calc(var(--mj-header-h, 0px) + var(--cam-space-4));
+}
+
+/* Previous and Next after the last question, inside the pod. Smaller than a
+   page's primary pair, because they are chrome here, not the answer to the
+   screen. */
 .cam-wizard-pod-nav {
-  flex: 0 0 auto;
-  padding: var(--cam-space-3) 0 var(--cam-space-4);
+  padding: 0 var(--cam-wizard-pod-pad) var(--cam-space-7);
 }
 
 .cam-wizard-pod-nav .cam-wizard-actions {
@@ -2777,12 +2942,17 @@ html:has(.cam-masthead) {
   padding: var(--cam-wizard-pod-pad);
 }
 
-.cam-wizard-pod--fixed > .cam-wizard-pod-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  /* The scroll stops at a heading rather than mid-question where it can. */
-  scroll-padding-block: var(--cam-space-4);
+/* Beside the rail, Previous / Next are the last thing on the page, at its
+   very bottom (owner, 2026-10-12): the body takes the pod's spare height,
+   so on a short section they sit on the bottom edge of the screen, and on a
+   long one they follow the last question. Not pinned, and no rule above
+   them (owner, 2026-10-12). */
+.cam-wizard-pod--flush > .cam-wizard-pod-body {
+  flex: 1 0 auto;
+}
+
+.cam-wizard-pod--flush > .cam-wizard-pod-nav {
+  padding: var(--cam-space-3) var(--cam-wizard-pod-pad) var(--cam-space-4);
 }
 
 /* On a phone the edge costs width it cannot spare, the page scrolls as it
@@ -2794,7 +2964,8 @@ html:has(.cam-masthead) {
     overflow: visible;
   }
 
-  .cam-wizard-pod-body {
+  .cam-wizard-pod-body,
+  .cam-wizard-pod-nav {
     padding-left: 0;
     padding-right: 0;
   }
@@ -3039,7 +3210,7 @@ html:has(.cam-masthead) {
   /* A readable line, not the page width: a box says how long the answer
      is. Fields that expect less (a phone, a code, a year) cap lower at the
      call site with --cam-field-width-short / -medium. */
-  max-width: 37.5rem;
+  max-width: 35rem; /* 560px (was 600px; owner, 2026-10-12) */
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-3);
   /* --cam-text-muted, not --cam-border-strong: an input's edge needs 3:1
