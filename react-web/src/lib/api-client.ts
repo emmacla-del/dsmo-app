@@ -600,6 +600,21 @@ export interface FindIdentifierResult {
   [key: string]: unknown;
 }
 
+// The one campaign fact the anonymous front door may read: which collections
+// are open and when they close (src/campaign/public-campaign.controller.ts).
+// Unauthenticated — apiFetch sends no Authorization header when there is no
+// token. Deliberately thin: the portal needs a date, not a campaign.
+export interface OpenCampaign {
+  collectionType: "ONEFOP" | "DSMO";
+  referenceYear: number | null;
+  /** ISO date, or null for an open-ended collection. */
+  closesOn: string | null;
+}
+
+export function getOpenCampaigns() {
+  return apiFetch<OpenCampaign[]>("/public/campaigns/open");
+}
+
 export function findIdentifier(payload: {
   companyName: string;
   taxNumber: string;

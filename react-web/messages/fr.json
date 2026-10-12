@@ -2692,6 +2692,7 @@
     "title": "Portail de télédéclaration pour l'emploi et la formation",
     "lede": "Dans le cadre de la modernisation de ses circuits de collecte, l'ONEFOP met à disposition des employeurs et des centres de formation professionnelle cette plateforme de télédéclaration en ligne.",
     "phaseStatus": "Phase 1 en service : la collecte numérique est ouverte",
+    "nextDeadline": "Prochaine clôture : {date}",
     "doorsEyebrow": "Accès aux démarches",
     "doorsHeading": "Choisissez votre parcours",
     "doorsIntro": "Sélectionnez l'entrée correspondant à votre établissement pour déposer votre déclaration ou suivre un dossier existant.",

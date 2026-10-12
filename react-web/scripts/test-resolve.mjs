@@ -7,8 +7,8 @@
 //  - .tsx compiled: Node's type stripping does not handle JSX, so .tsx files
 //    are transformed with esbuild (React automatic runtime). .ts files are
 //    left to Node's native type stripping, exactly as before.
-//  - next/navigation replaced by src/test/mocks/next-navigation.ts (the real
-//    module needs the Next app router at runtime).
+//  - next/navigation and next/link replaced by their doubles in
+//    src/test/mocks (the real modules need the Next app router at runtime).
 //  - stylesheet imports turned into empty modules.
 import { registerHooks } from "node:module";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -20,6 +20,7 @@ const srcDir = resolve(fileURLToPath(import.meta.url), "..", "..", "src");
 /** Bare specifiers swapped for a test double under src/test/mocks. */
 const MODULE_MOCKS = {
   "next/navigation": resolve(srcDir, "test", "mocks", "next-navigation.ts"),
+  "next/link": resolve(srcDir, "test", "mocks", "next-link.ts"),
 };
 
 function existingFile(base) {
