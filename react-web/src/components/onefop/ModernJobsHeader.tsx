@@ -63,6 +63,7 @@ export function ModernJobsHeader({
 }: ModernJobsHeaderProps) {
   const locale = useLocale();
   const t = useTranslations("modernJobs.header");
+  const tLanding = useTranslations("landingPage");
 
   const isVt = ["vt", "vocationaltraining", "vocational_training"].includes(entityType.toLowerCase());
 
@@ -163,7 +164,21 @@ export function ModernJobsHeader({
           gap: 16px;
           padding: 10px 24px;
         }
-        .cam-masthead-brand { grid-area: brand; justify-self: start; }
+        .cam-masthead-brand {
+          grid-area: brand;
+          justify-self: start;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--cam-space-1);
+        }
+        .cam-masthead-brand img { display: block; width: 120px; height: auto; }
+        .cam-masthead-brand span {
+          font-size: var(--cam-font-size-2xs);
+          line-height: var(--cam-line-height-ui);
+          color: var(--cam-text-muted);
+          white-space: nowrap;
+        }
         .cam-masthead-title { grid-area: title; min-width: 0; text-align: center; }
         .cam-masthead-actions { grid-area: actions; justify-self: end; }
         /* Narrow viewports: wordmark and actions on the first line, the centre block below. */
@@ -181,11 +196,12 @@ export function ModernJobsHeader({
           survey and the buttons, 13 for the secondary facts. The name is
           semibold, not bold: the page's own title is the one bold anchor. */}
       <div className="cam-masthead-row">
-        <div className="cam-masthead-brand" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-green-dark)" }}>
-            ONEFOP
-          </span>
-          <span style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>CamLEAP</span>
+        {/* A working screen: the CAMLEAP logo alone, ONEFOP as a line of
+            text under it, not a second logo (docs/standards/brand.md). */}
+        <div className="cam-masthead-brand">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/camleap_logo.png" alt="CAMLEAP" width={120} height={20} />
+          <span>{tLanding("endorsement")}</span>
         </div>
 
         {/* Centre: who is declaring, in which survey, for which round */}

@@ -76,7 +76,7 @@ import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { RegistrationStepList } from "@/components/auth/RegistrationStepList";
 import { WizardRail } from "@/components/wizard/WizardRail";
 import { StepHeader } from "@/components/auth/StepHeader";
-import { OfficialLogo } from "@/components/landing/OfficialLogo";
+import { BrandLockup } from "@/components/brand/BrandLockup";
 
 // CAM-LEAP Official Administrative Registration Wizard
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
@@ -1908,13 +1908,9 @@ export default function RegisterPage() {
           className="flow-panel"
           head={
             <div className="flow-panel-identity">
-              <span className="flow-panel-emblem">
-                <OfficialLogo label={t("landingPage.emblemLabel")} />
-              </span>
-              <div>
-                <div className="flow-panel-wordmark">{t("authShared.wordmark")}</div>
-                <p className="flow-panel-sub">{t("authShared.subtitle")}</p>
-              </div>
+              {/* The front door: both marks, as one lockup (brand.md). */}
+              <BrandLockup size="panel" />
+              <p className="flow-panel-sub">{t("landingPage.endorsement")}</p>
             </div>
           }
           foot={<div className="flow-panel-foot">{exitLinks}</div>}

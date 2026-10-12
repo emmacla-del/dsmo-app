@@ -2,16 +2,14 @@
 
    Everything here reads the --cam-* tokens from tokens.css. The four values
    declared on .page are the only ones with no token to read: two display
-   sizes larger than the ladder's top step and the logo's largest size (its
-   native width, so the image is never upscaled).
+   sizes larger than the ladder's top step. The logos' sizes are the
+   front-door lockup's (globals.css, .cam-brand-lockup--hero).
 
    No flag colours on this page: the identity is the official ONEFOP logo. */
 
 .page {
   --landing-gutter: var(--cam-space-4);
-  --landing-wordmark-max: 5rem;        /* 80px */
   --landing-notice-title: 1.25rem;     /* 20px */
-  --landing-emblem-max: 200px;
 
   flex: 1;
   min-height: 100vh;
@@ -63,7 +61,7 @@
   box-sizing: border-box;
 }
 
-/* ── Identity: emblem, wordmark, both names ── */
+/* ── Identity: the ONEFOP | CAMLEAP lockup, the endorsement, both names ── */
 
 .identity {
   grid-area: identity;
@@ -73,25 +71,6 @@
   align-items: center;
   text-align: center;
   min-width: 0;
-}
-
-/* The official logo, plain: no disc, ring or tint behind it. */
-.emblem {
-  --landing-emblem-size: clamp(120px, 40cqi, var(--landing-emblem-max));
-  flex: none;
-  width: var(--landing-emblem-size);
-}
-
-/* 19cqi keeps the eight characters of "CAM-LEAP" inside the column at any
-   width; the clamp stops it at the ladder's base size and at 80px. */
-.wordmark {
-  margin: var(--cam-space-5) 0 0;
-  font-size: clamp(2.5rem, 19cqi, var(--landing-wordmark-max));
-  font-weight: var(--cam-font-weight-bold);
-  line-height: 0.95;
-  letter-spacing: var(--cam-tracking-tight);
-  white-space: nowrap;
-  color: var(--cam-text);
 }
 
 .name {
@@ -222,13 +201,5 @@
   .stage {
     grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1fr) var(--cam-container-compact);
     grid-template-areas: "notices identity auth";
-  }
-
-  .emblem {
-    --landing-emblem-size: clamp(160px, 68cqi, var(--landing-emblem-max));
-  }
-
-  .wordmark {
-    margin-top: var(--cam-space-6);
   }
 }

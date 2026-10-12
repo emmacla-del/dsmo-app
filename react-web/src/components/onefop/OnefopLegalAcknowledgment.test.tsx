@@ -59,3 +59,58 @@ test("any other entity sees the modern-economy jobs title, and unticking the box
   await user.click(box);
   assert.equal(begin.disabled, true);
 });
+
+test("the notice says who declares, in what role, for which establishment", async () => {
+  renderWithProviders(
+    <OnefopLegalAcknowledgment
+      entityType="vocationalTraining"
+      respondentName="Awa Ngono"
+      respondentFunction="Directrice"
+      establishmentName="CFP de Mfou"
+      establishmentId="VT26000103"
+      onAcknowledged={() => {}}
+      onCancel={() => {}}
+    />,
+  );
+  assert.ok(await screen.findByText("Bienvenue, Awa Ngono", {}, CARD_TIMEOUT));
+  const line = screen.getByText(/Vous déclarez en qualité de Directrice pour/);
+  assert.equal(line.textContent, "Vous déclarez en qualité de Directrice pour CFP de Mfou (VT26000103).");
+  assert.equal(line.querySelector("strong")?.textContent, "CFP de Mfou");
+});
+
+test("an unknown role is left out of the notice, never filled with a stand-in", async () => {
+  renderAck("vocationalTraining");
+  assert.ok(await screen.findByText("Bienvenue, Awa Ngono", {}, CARD_TIMEOUT));
+  assert.equal(screen.queryByText(/en qualité de/), null);
+  assert.equal(screen.queryByText(/Directeur/), null);
+});
+
+test("a role picked from the registration list is shown in the reader's language; a typed one as typed", async () => {
+  const { unmount } = renderWithProviders(
+    <OnefopLegalAcknowledgment
+      entityType="vocationalTraining"
+      respondentName="Awa Ngono"
+      respondentFunction="Directeur Général"
+      establishmentName="CFP de Mfou"
+      onAcknowledged={() => {}}
+      onCancel={() => {}}
+    />,
+    { locale: "en" },
+  );
+  const line = await screen.findByText(/You are declaring as/, {}, CARD_TIMEOUT);
+  assert.equal(line.textContent, "You are declaring as General Manager for CFP de Mfou.");
+  unmount();
+
+  renderWithProviders(
+    <OnefopLegalAcknowledgment
+      entityType="vocationalTraining"
+      respondentName="Awa Ngono"
+      respondentFunction="Proviseur adjoint"
+      onAcknowledged={() => {}}
+      onCancel={() => {}}
+    />,
+    { locale: "en" },
+  );
+  const typed = await screen.findByText(/You are declaring as/, {}, CARD_TIMEOUT);
+  assert.equal(typed.textContent, "You are declaring as Proviseur adjoint.");
+});

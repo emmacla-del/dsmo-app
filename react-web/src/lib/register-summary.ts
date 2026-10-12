@@ -25,7 +25,7 @@ import {
   isFieldVisible,
   type RegistrationStepId,
 } from "./register-constants";
-import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, type RegisterOption } from "./register-options";
+import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, registerOptionLabel } from "./register-options";
 import { localized, type UiLocale } from "./register-i18n";
 import type { RegState } from "./register-completeness";
 
@@ -51,18 +51,6 @@ export type TranslateFn = (key: string) => string;
 
 // How many values a collapsed section shows before it stops.
 export const SECTION_SUMMARY_MAX_VALUES = 3;
-
-function optionLabel(
-  options: readonly RegisterOption[],
-  value: string,
-  locale: UiLocale
-): string {
-  const option = options.find((o) => o.value === value);
-  // Falling back to the stored value, not to an empty cell: an answer the
-  // option list no longer recognises is still an answer the respondent gave,
-  // and the review must not silently drop it.
-  return option ? localized(option.label, locale) : value;
-}
 
 function row(label: string, value: string | undefined): SummaryRow | null {
   const trimmed = (value ?? "").trim();
@@ -95,7 +83,7 @@ export function summaryRows(
         row(t("registerPage.summaryFullNameLabel"), fullName),
         row(
           t("registerPage.functionLabel"),
-          r.function ? optionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale) : ""
+          r.function ? registerOptionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale) : ""
         ),
         row(t("registerPage.professionalEmailLabel"), r.email),
         row(t("registerPage.phone1Label"), r.phone1),
@@ -120,7 +108,7 @@ export function summaryRows(
         rows.push(
           row(
             localized(field.label, locale),
-            field.options && raw ? optionLabel(field.options, raw, locale) : raw
+            field.options && raw ? registerOptionLabel(field.options, raw, locale) : raw
           )
         );
       }
@@ -134,7 +122,7 @@ export function summaryRows(
         row(t("registerPage.subdivisionLabel"), state.subdivisionName),
         row(
           t("registerPage.areaLabel"),
-          state.area ? optionLabel(AREA_OPTIONS, state.area, locale) : ""
+          state.area ? registerOptionLabel(AREA_OPTIONS, state.area, locale) : ""
         ),
         row(t("registerPage.sectorLabel"), state.sectorName),
       ]);

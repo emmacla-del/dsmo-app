@@ -17,6 +17,7 @@ import { campaignPeriodFrom, withCampaignPeriod } from "@/lib/campaign-period";
 import { CampaignPeriodContext } from "@/components/onefop/CampaignPeriodContext";
 import { useOnefopDraft } from "@/lib/use-onefop-draft";
 import { useVtFixedRowTotals } from "@/lib/use-vt-fixed-row-totals";
+import { useVtDerivedCommune } from "@/lib/use-vt-derived-commune";
 import { useIsClient } from "@/lib/use-is-client";
 import { hasAnyLegalAck, readLegalAck, writeLegalAck } from "@/lib/wizard-position";
 import { companyToInitialData } from "@/lib/onefop-autofill";
@@ -187,6 +188,8 @@ function OnefopDeclarationContent() {
     );
   // Training centres: the fixed-row tables' totals are saved with the numbers.
   useVtFixedRowTotals(entity, formData, handleChange);
+  // Training centres: the commune follows the arrondissement unless typed.
+  useVtDerivedCommune(entity, formData, handleChange);
 
   // The stored acknowledgment of this declaration (same tenant-scoped key as
   // the draft). While the key is still resolving (quarter / company loading)
@@ -266,6 +269,17 @@ function OnefopDeclarationContent() {
     );
   }
 
+  const establishmentName =
+    companyQuery.data?.name ||
+    (formData["VT1_2"] as string) ||
+    (formData["S1Q02"] as string) ||
+    (formData["COOP_S1Q01"] as string) ||
+    (formData["CTD_S1Q01_NAME"] as string) ||
+    (formData["ONG_S1Q01"] as string) ||
+    (formData["ADMIN_S1Q01"] as string) ||
+    (formData["PP_S1Q02"] as string) ||
+    undefined;
+
   // ── Step 1 & 2: Legal Acknowledgment (Image 2 pulsing logo & Image 3 legal notice) ──
   if (!acknowledged) {
     const respondentName =
@@ -278,34 +292,27 @@ function OnefopDeclarationContent() {
       meQuery.data?.email?.split("@")[0] ||
       t("onefopPreviewPage.respondentFallbackName");
 
-    const respondentFunction: string =
+    // No stand-in title: the notice states the role the respondent
+    // declares in, so an unknown role is left out, not invented.
+    const respondentFunction: string | undefined =
       (formData["S0Q02"] as string) ||
       (formData["VT1_15_FUNCTION"] as string) ||
       (companyQuery.data?.respondentFunction as string | undefined) ||
       (meQuery.data as { positionTitle?: string })?.positionTitle ||
-      (t("onefopPreviewPage.respondentFallbackFunction") as string);
+      undefined;
 
     return (
       <OnefopLegalAcknowledgment
         entityType={entityType}
         respondentName={respondentName}
         respondentFunction={respondentFunction}
+        establishmentName={establishmentName}
+        establishmentId={companyQuery.data?.establishmentId ? String(companyQuery.data.establishmentId) : undefined}
         onAcknowledged={handleAcknowledged}
         onCancel={() => router.push("/home")}
       />
     );
   }
-
-  const establishmentName =
-    companyQuery.data?.name ||
-    (formData["VT1_2"] as string) ||
-    (formData["S1Q02"] as string) ||
-    (formData["COOP_S1Q01"] as string) ||
-    (formData["CTD_S1Q01_NAME"] as string) ||
-    (formData["ONG_S1Q01"] as string) ||
-    (formData["ADMIN_S1Q01"] as string) ||
-    (formData["PP_S1Q02"] as string) ||
-    undefined;
 
   return (
     <main

@@ -266,7 +266,6 @@
     "dashboardButton": "‹ Dashboard",
     "loadingQuestionnaire": "Loading the questionnaire…",
     "respondentFallbackName": "Respondent",
-    "respondentFallbackFunction": "Administrative and Financial Director",
     "establishmentFallbackName": "VOCATIONAL TRAINING CENTER",
     "vocationalTrainingLabel": "VOCATIONAL TRAINING"
   },
@@ -634,8 +633,10 @@
     "beginButton": "Begin",
     "estimatedTime": "Estimated time: 20-30 minutes",
     "goBackButton": "Go back",
+    "declaringAsFor": "You are declaring as {function} for <b>{establishment}</b>{code}.",
+    "declaringFor": "You are declaring for <b>{establishment}</b>{code}.",
+    "declaringAs": "You are declaring as {function}.",
     "defaultRespondentName": "Manager",
-    "defaultRespondentFunction": "Director / Promoter",
     "entityLabels": {
       "enterprise": "Enterprise",
       "cooperative": "Cooperative",
@@ -2658,6 +2659,7 @@
   },
   "landingPage": {
     "emblemLabel": "ONEFOP logo, National Observatory of Employment and Vocational Training",
+    "endorsement": "A platform of ONEFOP",
     "otherLanguageName": "Plateforme camerounaise d'analyse de l'emploi et du travail",
     "noticesHeading": "Notices to respondents",
     "notice1Title": "Welcome to CAM-LEAP",
