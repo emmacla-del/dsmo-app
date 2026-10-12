@@ -41,3 +41,44 @@ export const PORTAL_PHASES: PortalPhase[] = [
   { key: "phase3", state: "planned" },
   { key: "phase4", state: "planned" },
 ];
+
+// The nav tabs, and the band each one points at. The ids live on the sections
+// themselves, so adding a band to the nav means adding it here and giving that
+// section the matching id — there is no third place to keep in step.
+export interface PortalNavItem {
+  /** Message key: portalPage.<key>. */
+  key: "navDoors" | "navTransform" | "navRoadmap" | "navSupport";
+  /** The id of the section it scrolls to. */
+  target: string;
+}
+
+export const PORTAL_NAV: PortalNavItem[] = [
+  { key: "navDoors", target: "parcours" },
+  { key: "navTransform", target: "pourquoi" },
+  { key: "navRoadmap", target: "feuille" },
+  { key: "navSupport", target: "assistance" },
+];
+
+// Where the collection has come from and where it is going: the hero's second
+// column. Three eras, flat — the reference mockup rotates these cards, which
+// is decoration the owner asked to leave out.
+export const PORTAL_STORY = ["story1", "story2", "story3"] as const;
+
+// The four steps of the transformation, each with the state it is in.
+export interface PortalTransformStep {
+  /** Message-key stem: portalPage.<key>Title / Desc / Status. */
+  key: "transform1" | "transform2" | "transform3" | "transform4";
+  state: PortalPhaseState;
+}
+
+export const PORTAL_TRANSFORM: PortalTransformStep[] = [
+  { key: "transform1", state: "live" },
+  { key: "transform2", state: "live" },
+  { key: "transform3", state: "next" },
+  { key: "transform4", state: "planned" },
+];
+
+// What phase 1 actually delivered. Each claim here is one the platform can be
+// held to — see the truth pass in docs/plans/landing-portal.md for what was
+// taken out of the reference mockup and why.
+export const PORTAL_ACHIEVEMENTS = ["achieved1", "achieved2", "achieved3"] as const;

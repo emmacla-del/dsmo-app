@@ -12,7 +12,7 @@ export function PortalDoors() {
   const t = useTranslations();
 
   return (
-    <section className={`${styles.section} ${styles.bandWhite}`}>
+    <section id="parcours" className={`${styles.section} ${styles.bandWhite}`}>
       <div className={styles.wrap}>
         <p className={styles.eyebrow}>{t("portalPage.doorsEyebrow")}</p>
         <h2 className={styles.heading}>{t("portalPage.doorsHeading")}</h2>
