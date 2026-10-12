@@ -187,8 +187,16 @@
      console's dark rail (.cam-admin-rail). One width, so they line up. */
    --cam-side-rail-width: 280px;
    /* The step circle on every wizard rail, wide and phone. The connectors
-     and the outline indent are computed from it. */
-   --cam-step-marker-size: 30px;
+     and the outline indent are computed from it. 24px, not 30px: beside a
+     14px step name a 30px circle read as the loudest thing on the rail, and
+     on a laptop-height screen, where the rows tighten (globals.css,
+     max-height 760px), the circles came within 2px of touching (owner,
+     2026-10-12). The staff rail's icon box keeps 30px of its own below. */
+   --cam-step-marker-size: 24px;
+   /* The staff rail's icon box (.cam-admin-rail-hub-icon): a rounded square
+     around an 18px icon, not a step circle. It borrowed the step-circle size
+     while the two were equal; it keeps 30px now that the circles are 24px. */
+   --cam-admin-rail-icon-size: 30px;
    --cam-wizard-rail-bar-height: 6px;
    --cam-container-form: 640px;
 
