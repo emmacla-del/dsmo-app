@@ -556,3 +556,190 @@
     display: none;
   }
 }
+
+/* ── Nav current band ───────────────────────────────────────────────────── */
+
+.navCurrent {
+  color: var(--cam-text);
+  border-bottom-color: var(--cam-gold);
+}
+
+/* ── Roadmap console ────────────────────────────────────────────────────── */
+
+.roadmapGrid {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: var(--cam-space-7);
+  align-items: start;
+}
+
+.noticeCurrent {
+  border-left-color: var(--cam-green);
+  margin-top: var(--cam-space-5);
+}
+
+.oversight {
+  background: var(--cam-portal-teal-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+  margin-top: var(--cam-space-4);
+}
+
+.console {
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-5);
+}
+
+.filters {
+  display: flex;
+  gap: var(--cam-space-2);
+  flex-wrap: wrap;
+}
+
+.filter {
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-text);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-control, 2px);
+  padding: var(--cam-space-2) var(--cam-space-4);
+  cursor: pointer;
+}
+
+.filter:hover {
+  border-color: var(--cam-border-strong);
+}
+
+/* The pressed filter is filled, not merely outlined: aria-pressed carries the
+   state for assistive technology, and the fill is the same fact drawn. */
+.filter[aria-pressed="true"] {
+  background: var(--cam-text);
+  border-color: var(--cam-text);
+  color: var(--cam-surface);
+}
+
+.filterNote {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  /* Reserved so the band does not jump by a line when the note changes. */
+  min-height: 1.5em;
+  margin: var(--cam-space-3) 0 var(--cam-space-4);
+}
+
+.phaseSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--cam-space-4);
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.phaseSummary::marker,
+.phaseSummary::-webkit-details-marker {
+  content: "";
+}
+
+.phase details[open] .phaseSummary {
+  margin-bottom: var(--cam-space-2);
+}
+
+/* ── Dialog ─────────────────────────────────────────────────────────────── */
+
+.dialog {
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-control, 2px);
+  padding: 0;
+  width: min(92vw, 520px);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--cam-portal-ink) 55%, transparent);
+}
+
+.dialogBody {
+  padding: var(--cam-space-5);
+}
+
+.dialogHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cam-space-4);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  padding-bottom: var(--cam-space-3);
+  margin-bottom: var(--cam-space-4);
+}
+
+.dialogHead .eyebrow {
+  margin: 0;
+}
+
+.dialogTitle {
+  font-size: var(--cam-font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--cam-space-4);
+}
+
+.dialogRow {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-3);
+}
+
+.dialogRow:last-child {
+  margin-bottom: 0;
+}
+
+/* A text action, defined here because .cam-text-button lives in
+   admin-console.css and the landing page does not load it. */
+.detailsButton {
+  font: inherit;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  color: var(--cam-green);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.detailsButton:hover {
+  color: var(--cam-green-dark);
+}
+
+.dialogClose {
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-text);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  padding: var(--cam-space-1) var(--cam-space-3);
+  cursor: pointer;
+}
+
+.dialogClose:hover {
+  background: var(--cam-portal-cream-light);
+}
+
+.doorDetails {
+  margin: var(--cam-space-3) 0 0;
+  text-align: center;
+  font-size: var(--cam-font-size-xs);
+}
+
+@media (max-width: 900px) {
+  .roadmapGrid {
+    grid-template-columns: 1fr;
+  }
+}

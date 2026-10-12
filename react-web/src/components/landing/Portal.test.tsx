@@ -46,19 +46,67 @@ test("the authority statement is on the page, in both its parts", () => {
   );
   assert.ok(screen.getByText(/aucun paiement n'est demandé/i));
   // What the platform actually issues: a PDF with a tracking number. Not a QR
-  // code, which nothing in the backend generates.
-  assert.ok(screen.getByText(/accusé de réception\s+officiel au format PDF/i));
+  // code, which nothing in the backend generates. Scoped to the notice, since
+  // the employer pathway's dialog states the same deliverable — a visitor
+  // never sees both at once, so that is not duplication on the page.
+  const receipt = screen.getByText(/Accusé de réception\s*:/).closest("div");
+  assert.ok(
+    receipt && /officiel au format PDF/i.test(receipt.textContent ?? ""),
+    "the receipt notice must say what the platform actually issues",
+  );
 });
 
-test("the four phases are named with their state", () => {
+test("the four phases are named, each carrying its own state", () => {
   renderWithProviders(<Portal />);
 
-  assert.ok(screen.getByText(/Phase 1 · Numérisation des circuits de collecte/));
-  assert.ok(screen.getByText(/Phase 2 · Couche analytique et diffusion/));
-  assert.ok(screen.getByText(/Phase 3 · Espaces dédiés/));
-  assert.ok(screen.getByText(/Phase 4 · Élargissement des sources/));
-  assert.ok(screen.getByText("En service"));
-  assert.ok(screen.getByText("Prochaine étape"));
+  // Scoped to the phase rather than to the page: the roadmap's filter buttons
+  // are labelled with the same state names on purpose, so "En service" exists
+  // twice over and a bare getByText would be ambiguous.
+  const stateOf = (title: RegExp) => {
+    const phase = screen.getByText(title).closest("li");
+    assert.ok(phase, `phase not found: ${title}`);
+    return phase.textContent ?? "";
+  };
+
+  assert.match(stateOf(/Phase 1 · Numérisation des circuits de collecte/), /En service/);
+  assert.match(stateOf(/Phase 2 · Couche analytique et diffusion/), /Prochaine étape/);
+  assert.match(stateOf(/Phase 3 · Espaces dédiés/), /Planifié/);
+  assert.match(stateOf(/Phase 4 · Élargissement des sources/), /Vision/);
+});
+
+test("a roadmap filter narrows the phases and says so", async () => {
+  const { user } = renderWithProviders(<Portal />);
+
+  assert.equal(screen.getAllByRole("group", { name: "Filtrer les étapes" }).length, 1);
+  await user.click(screen.getByRole("button", { name: "Prochaine étape" }));
+
+  // Only phase 2 is "next", so the other three leave the list.
+  assert.equal(screen.queryByText(/Phase 1 · Numérisation/), null);
+  assert.ok(screen.getByText(/Phase 2 · Couche analytique/));
+  assert.equal(screen.queryByText(/Phase 4 · Élargissement/), null);
+  // Filtering has no visible control state of its own to announce, so the
+  // count goes through a live region.
+  assert.match(screen.getByRole("status").textContent ?? "", /1 étape affichée/);
+});
+
+test("a pathway dialog opens with what that route involves, and closes again", async () => {
+  const { user } = renderWithProviders(<Portal />);
+
+  const dialog = () =>
+    document.querySelector("dialog[aria-labelledby='portal-dialog-door2']") as HTMLDialogElement;
+
+  assert.equal(dialog().open, false, "dialogs start closed");
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Détails du parcours : Centres de formation professionnelle/,
+    }),
+  );
+  assert.equal(dialog().open, true);
+  assert.match(dialog().textContent ?? "", /Référence d'agrément MINEFOP requise/);
+
+  await user.click(screen.getAllByRole("button", { name: "Fermer" })[0]);
+  assert.equal(dialog().open, false);
 });
 
 test("with no campaign data the page says collection is open and names no date", () => {
