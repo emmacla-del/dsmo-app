@@ -240,8 +240,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--cam-step-marker-size);
-  height: var(--cam-step-marker-size);
+  width: var(--cam-admin-rail-icon-size);
+  height: var(--cam-admin-rail-icon-size);
   flex-shrink: 0;
   border-radius: var(--cam-radius-control);
   transition: background-color 0.15s ease;

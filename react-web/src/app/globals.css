@@ -3034,7 +3034,9 @@ html:has(.cam-masthead) {
   border: 2px solid var(--cam-border);
   background: var(--cam-surface);
   color: var(--cam-text-muted);
-  font-size: var(--cam-font-size-xs);
+  /* 11px, not 13px: the number is the step's rank, not its name, and in a
+     24px circle it keeps two digits (VT runs to 11) off the ring. */
+  font-size: var(--cam-font-size-3xs);
   font-weight: var(--cam-font-weight-bold);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
