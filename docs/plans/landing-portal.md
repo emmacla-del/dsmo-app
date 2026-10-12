@@ -1,8 +1,8 @@
 # The landing page — a declaration portal at "/"
 
 **Date:** 2026-10-12
-**Status:** in progress. Phases 1–3 committed; phases 4–8 await the two open
-decisions below.
+**Status:** in progress. Phases 1–3 committed; all decisions settled;
+phases 4–8 to do.
 **Source:** `docs/mockups/landing-camleap-canonical.html` (the owner's
 reference), rendered at full scope in `docs/mockups/landing-portal-full.html`.
 
@@ -65,12 +65,23 @@ That covers five of the nine bands and 51 message keys.
 
 ## Decisions (open)
 
-1. **The hero headline.** Keep the mockup's positioning statement — "Une
-   plateforme. Une vision claire de l'emploi et des compétences" — or state
-   the task, as a service portal usually does. One line either way.
-2. **"Obligatoire" on the employer door.** Whether the modern-sector
-   declaration's mandatory status is established in the texts. It is a legal
-   claim on a public page, so it stays only if it can be cited.
+None. The last two were settled on 2026-10-12:
+
+- **The hero keeps the mockup's headline** — "Une plateforme. Une vision
+  claire de l'emploi et des compétences." The page opens on what CAMLEAP is
+  rather than on the task; the task is one band below, and the status line
+  carries the deadline.
+- **"Obligatoire" comes off the employer door.** The repo cites Loi
+  N° 2020/010 and Loi N° 91/023, but both are about statistical secrecy and
+  confidentiality, not about an obligation to declare — so nothing available
+  here establishes the claim, and a legal assertion does not go on a public
+  page uncited. The tag row goes with it on all three doors: without door
+  one's tag, "MINEFOP" and "ONEFOP" on the other two label nothing useful.
+  Who must file is said factually in the door's own text instead.
+
+  This can be upgraded later: given a citation, the tag returns as
+  "Déclaration obligatoire (arrêté n° …)", which is more use to an employer
+  than the bare word ever was.
 
 ## Claims removed in the truth pass
 
