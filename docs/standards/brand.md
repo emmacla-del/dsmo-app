@@ -24,7 +24,7 @@ This applies to the interface, the browser tab, emails and user-facing documenta
 | Context | Mark | How |
 |---|---|---|
 | **Front door**: landing, sign-in, registration | **Both, as one lockup** | ONEFOP emblem, a thin vertical rule, the CAMLEAP logo, and under them "Une plateforme de l'ONEFOP" / "A platform of ONEFOP". Equal visual weight, read as one unit. |
-| **Working screens**: questionnaire header, respondent home | **CAMLEAP only**, small | The CAMLEAP logo top left, about 20px tall. ONEFOP appears once, as a text line in the footer: "Plateforme de l'ONEFOP · MINEFOP". |
+| **Working screens**: questionnaire header, respondent home | **CAMLEAP only**, small | The CAMLEAP logo top left, 20px tall. ONEFOP appears once, as a line of text: under the logo ("Une plateforme de l'ONEFOP") where the screen has no footer, as in the questionnaire header; otherwise in the footer ("Plateforme de l'ONEFOP · MINEFOP"). |
 | **Official and legal moments**: the questionnaire start notice, submission receipt, emails | **ONEFOP leads** | The ONEFOP emblem heads the notice as the issuing authority. CAMLEAP appears only as the opening beat or as "transmitted via CAMLEAP". |
 | **Staff console** | **CAMLEAP**, "ONEFOP" as its subtitle | The rail is dark, so it uses the reversed (white) CAMLEAP logo. |
 | **Browser tab, favicon** | **CAMLEAP** | Tab title "CAMLEAP". The favicon is a square CAMLEAP mark. |
