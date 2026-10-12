@@ -1464,9 +1464,9 @@ export default function RegisterPage() {
             <div className="form-single-column">
               {entityFieldGroups(entityType, entityData).map((group) => (
                 <Fragment key={group.title.fr}>
-                  <div className="admin-section-header">
+                  <h2 className="admin-section-header">
                     {localized(group.title, locale)}
-                  </div>
+                  </h2>
                   {group.fields.map(renderEntityField)}
                 </Fragment>
               ))}
