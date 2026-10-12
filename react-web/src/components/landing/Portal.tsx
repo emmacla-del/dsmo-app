@@ -87,7 +87,7 @@ export function Portal() {
 
       <main>
         {/* ── What this is ── */}
-        <section className={`${styles.section} ${styles.sectionFirst}`}>
+        <section className={`${styles.section} ${styles.bandCream}`}>
           <div className={styles.wrap}>
             <p className={styles.eyebrow}>{t("portalPage.eyebrow")}</p>
             <h1 className={styles.title}>{t("portalPage.title")}</h1>
@@ -105,7 +105,7 @@ export function Portal() {
         </section>
 
         {/* ── The three doors ── */}
-        <section className={styles.section}>
+        <section className={`${styles.section} ${styles.bandWhite}`}>
           <div className={styles.wrap}>
             <p className={styles.eyebrow}>{t("portalPage.doorsEyebrow")}</p>
             <h2 className={styles.heading}>{t("portalPage.doorsHeading")}</h2>
@@ -164,11 +164,19 @@ export function Portal() {
               </section>
             </div>
 
-            <div className={styles.notice}>
+          </div>
+        </section>
+
+        {/* ── What a declaration commits you to, and what it returns ── */}
+        <section className={`${styles.section} ${styles.bandTeal}`}>
+          <div className={styles.wrap}>
+            <div className={`${styles.notice} ${styles.noticeObligation}`}>
               <p>
                 <span className={styles.noticeLabel}>{t("portalPage.authorityLabel")}</span>{" "}
                 {t("portalPage.authorityBody")}
               </p>
+            </div>
+            <div className={styles.notice}>
               <p>
                 <span className={styles.noticeLabel}>{t("portalPage.receiptLabel")}</span>{" "}
                 {t("portalPage.receiptBody")}
@@ -178,7 +186,7 @@ export function Portal() {
         </section>
 
         {/* ── The programme ── */}
-        <section className={styles.section}>
+        <section className={`${styles.section} ${styles.bandCream}`}>
           <div className={styles.wrap}>
             <p className={styles.eyebrow}>{t("portalPage.roadmapEyebrow")}</p>
             <h2 className={styles.heading}>{t("portalPage.roadmapHeading")}</h2>
@@ -202,7 +210,7 @@ export function Portal() {
         </section>
 
         {/* ── Assistance ── */}
-        <section className={styles.section}>
+        <section className={`${styles.section} ${styles.bandWhite}`}>
           <div className={styles.wrap}>
             <p className={styles.eyebrow}>{t("portalPage.helpEyebrow")}</p>
             <h2 className={styles.heading}>{t("portalPage.helpHeading")}</h2>
