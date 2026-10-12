@@ -21,7 +21,9 @@ import { PortalMasthead } from "./portal/PortalMasthead";
 import { PortalHero } from "./portal/PortalHero";
 import { PortalDoors } from "./portal/PortalDoors";
 import { PortalNotices } from "./portal/PortalNotices";
+import { PortalTransformation } from "./portal/PortalTransformation";
 import { PortalRoadmap } from "./portal/PortalRoadmap";
+import { PortalProgress } from "./portal/PortalProgress";
 import { PortalSupport } from "./portal/PortalSupport";
 import { PortalFooter } from "./portal/PortalFooter";
 import styles from "./portal.module.css";
@@ -34,7 +36,9 @@ export function Portal() {
         <PortalHero />
         <PortalDoors />
         <PortalNotices />
+        <PortalTransformation />
         <PortalRoadmap />
+        <PortalProgress />
         <PortalSupport />
       </main>
       <PortalFooter />

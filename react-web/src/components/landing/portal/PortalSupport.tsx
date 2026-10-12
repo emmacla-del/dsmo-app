@@ -10,7 +10,7 @@ export function PortalSupport() {
   const t = useTranslations();
 
   return (
-    <section className={`${styles.section} ${styles.bandWhite}`}>
+    <section id="assistance" className={`${styles.section} ${styles.bandCream}`}>
       <div className={styles.wrap}>
         <p className={styles.eyebrow}>{t("portalPage.helpEyebrow")}</p>
         <h2 className={styles.heading}>{t("portalPage.helpHeading")}</h2>

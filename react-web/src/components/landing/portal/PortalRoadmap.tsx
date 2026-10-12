@@ -11,7 +11,7 @@ export function PortalRoadmap() {
   const t = useTranslations();
 
   return (
-    <section className={`${styles.section} ${styles.bandCream}`}>
+    <section id="feuille" className={`${styles.section} ${styles.bandWhite}`}>
       <div className={styles.wrap}>
         <p className={styles.eyebrow}>{t("portalPage.roadmapEyebrow")}</p>
         <h2 className={styles.heading}>{t("portalPage.roadmapHeading")}</h2>
