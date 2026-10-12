@@ -2,11 +2,36 @@
    colour, a spacing scale or a typeface. The page is deliberately plain: a
    government declaration portal, not a product landing page — so no cards
    with shadows, no rounded corners beyond the 2px control radius, no hover
-   lifts, no decorative fills. Rules and whitespace do the separating. */
+   lifts, no decorative fills. Rules and whitespace do the separating.
+
+   Colour is the front-door palette (--cam-portal-* in tokens.css), approved
+   for this page alone on 2026-10-12. The mechanism is the block below: the
+   shared tokens are re-pointed on .page, so a .cam-button rendered inside
+   the portal paints teal while the same class in the staff console and the
+   wizards is untouched. Nothing is redefined at :root, so this cannot leak.
+
+   The bands alternate cream, white and teal-surface and the footer sits on
+   ink, following docs/mockups/landing-camleap-canonical.html. Its decoration
+   is not taken: no tricolour stripe, no rotated cards, no shadows, no large
+   radii — and not its typefaces. The app stays on Inter. */
 
 .page {
+  --cam-bg: var(--cam-portal-cream);
+  --cam-text: var(--cam-portal-ink);
+  --cam-border: var(--cam-portal-line);
+  --cam-green: var(--cam-portal-teal);
+  --cam-green-dark: var(--cam-portal-teal-dark);
+  --cam-accent: var(--cam-portal-teal);
+  --cam-success: var(--cam-portal-teal);
+  --cam-gold: var(--cam-portal-yellow);
+  --cam-error: var(--cam-portal-red);
+  /* --cam-focus is left alone on purpose: the palette's yellow is 1.6:1
+     against cream, and a focus ring is not a place to trade contrast for
+     hue. It keeps the gold the rest of the app uses. */
+
   background: var(--cam-bg);
   color: var(--cam-text);
+  min-height: 100vh;
 }
 
 /* ── Masthead ───────────────────────────────────────────────────────────── */
@@ -46,11 +71,21 @@
 
 .section {
   padding: var(--cam-space-7) 0;
-  border-top: var(--cam-border-width) solid var(--cam-border);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
-.sectionFirst {
-  border-top: 0;
+/* The ground is what separates one band from the next; the rule only does
+   the work where two bands of the same colour meet. */
+.bandCream {
+  background: var(--cam-portal-cream);
+}
+
+.bandWhite {
+  background: var(--cam-surface);
+}
+
+.bandTeal {
+  background: var(--cam-portal-teal-surface);
 }
 
 .eyebrow {
@@ -195,21 +230,28 @@
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
 
+/* White cards on the teal band, each opened by a coloured rule — the one
+   piece of the mockup's card treatment that carries meaning rather than
+   decoration: red marks the obligation, teal the receipt. */
 .notice {
   border: var(--cam-border-width) solid var(--cam-border);
-  background: var(--cam-surface-subtle);
+  border-left: 3px solid var(--cam-green);
+  background: var(--cam-surface);
   padding: var(--cam-space-4);
   font-size: var(--cam-font-size-sm);
   line-height: 1.55;
-  margin: var(--cam-space-5) 0 0;
+}
+
+.noticeObligation {
+  border-left-color: var(--cam-error);
+}
+
+.notice + .notice {
+  margin-top: var(--cam-space-4);
 }
 
 .notice p {
   margin: 0;
-}
-
-.notice p + p {
-  margin-top: var(--cam-space-3);
 }
 
 .noticeLabel {
@@ -265,11 +307,20 @@
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 
+/* The only dark ground on the page, and the one place the palette needs its
+   own neutrals: --cam-text-muted is tuned for a light background and all but
+   vanishes here. */
 .footer {
-  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-portal-ink);
+  color: var(--cam-portal-on-ink);
+  border-top: var(--cam-border-width) solid var(--cam-portal-ink-line);
   padding: var(--cam-space-6) 0;
   font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
+}
+
+.footer a,
+.footer a:hover {
+  color: var(--cam-portal-on-ink);
 }
 
 .footerRow {
@@ -282,6 +333,7 @@
 
 .footerMinistry {
   font-size: var(--cam-font-size-xs);
+  color: var(--cam-portal-on-ink-muted);
   margin: var(--cam-space-1) 0 0;
 }
 

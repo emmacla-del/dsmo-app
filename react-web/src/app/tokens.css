@@ -10,6 +10,47 @@
    --cam-gold-dark: #b87c14;
    --cam-accent: var(--cam-green);
 
+   /* ── CAMLEAP logo inks ──
+     The artwork's own four colours, not UI colours: they exist so the
+     inline launch mark (components/brand/CamleapOvalMark.tsx) can paint
+     itself without hex literals. Nothing but the logo uses them — UI green
+     is --cam-green above, which is a different, quieter green. The static
+     asset images/camleap-logo.svg carries the same values literally,
+     because an <img> is never reached by this stylesheet. */
+   --cam-logo-green: #077440;
+   --cam-logo-navy: #021f40;
+   --cam-logo-accent: #0e8445;
+   --cam-logo-accent-light: #58ad3b;
+
+   /* ── Front-door palette ──
+     The landing page at "/" and nothing else. Approved by the owner on
+     2026-10-12, taken from docs/mockups/landing-camleap-canonical.html.
+
+     Deliberately a separate, prefixed set rather than a redefinition of the
+     surface and text tokens above: the staff console, the wizards and the
+     respondent forms keep the pure-colour system. The only file that reads
+     these is components/landing/portal.module.css, which re-points the
+     shared tokens on the portal's own root, so the recolouring cannot leave
+     that subtree.
+
+     Provisional: which of these the platform eventually keeps is a separate
+     decision (docs/plans/landing-portal.md), so nothing else should start
+     consuming them until it is made. */
+   --cam-portal-ink: #112530;
+   --cam-portal-cream: #f7f5ed;
+   --cam-portal-cream-light: #fdfaf4;
+   --cam-portal-teal: #476c59;
+   --cam-portal-teal-dark: #2e4c3c;
+   --cam-portal-teal-surface: #e8f3ef;
+   --cam-portal-line: #cbd7d1;
+   --cam-portal-red: #b74a42;
+   --cam-portal-yellow: #e8bb52;
+   /* On the ink ground: the footer. --cam-text-muted is tuned for a light
+     background and disappears there, so the dark band needs its own pair. */
+   --cam-portal-on-ink: #ffffff;
+   --cam-portal-on-ink-muted: #b9c6cd;
+   --cam-portal-ink-line: #2b3f4b;
+
    /* ── Institutional national tricolor ── */
    --cam-flag-green: #0e5c2b;
    --cam-flag-red: #b3202c;
