@@ -2041,16 +2041,21 @@ html:has(.cam-masthead) {
   --cam-brand-logo: clamp(150px, 52cqi, 340px);
 }
 
+/* The registration rail. The emblem was 48px here and its ring lettering
+   was unreadable; it sits at the legibility floor now (tokens.css,
+   --cam-brand-emblem-min). The 280px rail has the room. */
 .cam-brand-lockup--panel {
   --cam-brand-gap: var(--cam-space-3);
-  --cam-brand-emblem: var(--cam-space-7);
+  --cam-brand-emblem: var(--cam-brand-emblem-min);
   --cam-brand-logo: 144px;
   justify-content: flex-start;
 }
 
+/* The one-line auth header, phone included. No emblem: this line has room
+   for about 32px of it, well under the legibility floor, so BrandLockup
+   leaves it out here and AuthHeader names ONEFOP in words instead. */
 .cam-brand-lockup--compact {
   --cam-brand-gap: var(--cam-space-2);
-  --cam-brand-emblem: var(--cam-space-6);
   --cam-brand-logo: 96px;
   /* Never squeezed below its 16px height (brand.md): beside it, the text
      gives way instead. */

@@ -20,17 +20,26 @@ export function BrandLockup({
   nameAs?: "h1" | "div";
 }) {
   const t = useTranslations();
+  // The emblem is a seal: below --cam-brand-emblem-min its ring lettering is
+  // an illegible smear. The compact header is one line with room for about
+  // 32px, so it leaves the emblem out and names ONEFOP in words instead
+  // (AuthHeader). See docs/standards/brand.md.
+  const showEmblem = size !== "compact";
   return (
     <div className={`cam-brand-lockup cam-brand-lockup--${size}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="cam-brand-lockup-emblem"
-        src="/images/onefop_logo.png"
-        alt={t("landingPage.emblemLabel")}
-        width={218}
-        height={214}
-      />
-      <span className="cam-brand-lockup-rule" aria-hidden="true" />
+      {showEmblem && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="cam-brand-lockup-emblem"
+            src="/images/onefop_logo.png"
+            alt={t("landingPage.emblemLabel")}
+            width={218}
+            height={214}
+          />
+          <span className="cam-brand-lockup-rule" aria-hidden="true" />
+        </>
+      )}
       <Name className="cam-brand-lockup-name">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/images/camleap_logo.png" alt="CAMLEAP" width={858} height={143} />

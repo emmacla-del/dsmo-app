@@ -186,6 +186,13 @@
      (.cam-wizard-rail: registration, Modern Jobs, VT) and the staff
      console's dark rail (.cam-admin-rail). One width, so they line up. */
    --cam-side-rail-width: 280px;
+   /* The smallest the ONEFOP emblem is shown. It is a seal -- ring lettering
+     around a magnifier -- and below this its text is an illegible smear, so
+     a crisp CAMLEAP wordmark beside it reads as amateur, the opposite of
+     what the endorsement is for. Where there is not room for this, the
+     endorsement is carried by the words "ONEFOP" instead of the emblem
+     (owner, 2026-10-12; brand.md said 24px). */
+   --cam-brand-emblem-min: 56px;
    /* The step circle on every wizard rail, wide and phone. The connectors
      and the outline indent are computed from it. 24px, not 30px: beside a
      14px step name a 30px circle read as the loudest thing on the rail, and
