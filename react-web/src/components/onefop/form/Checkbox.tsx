@@ -40,8 +40,9 @@ export function Checkbox({
         display: "flex",
         alignItems: "center",
         gap: 10,
-        minHeight: 44,
-        padding: "8px 6px",
+        // Same rhythm as a radio option (Radio.tsx): 32px row, 4px apart.
+        minHeight: "var(--cam-space-6)",
+        padding: "var(--cam-space-1) 6px",
         cursor: disabled ? "not-allowed" : "pointer",
         userSelect: "none",
         opacity: disabled ? 0.5 : 1,
@@ -146,7 +147,7 @@ export function CheckboxGroup({
       style={{
         display: "grid",
         gridTemplateColumns: columns === 2 ? "repeat(auto-fit, minmax(240px, 1fr))" : "1fr",
-        gap: "2px 24px",
+        gap: "var(--cam-space-1) 24px",
       }}
     >
       {options.map((opt) => (

@@ -65,6 +65,24 @@ test("without an error, the control is described by its hint only and is not ari
   assert.equal(document.getElementById("VT1_15_NAME-hint")?.textContent, "Ex: Jean Dupont");
 });
 
+test("the hint is shown inside the box, as its placeholder (owner, 2026-10-12)", () => {
+  const field = schemaField("vocationalTraining", "VT1_15_TEL1");
+  renderField(field);
+
+  const input = document.getElementById("VT1_15_TEL1");
+  assert.ok(input);
+  assert.equal(input.getAttribute("placeholder"), "Ex: 677123456");
+});
+
+test("a hint on a question without a text box goes in its tooltip", async () => {
+  const { vtHintPlacement } = await import("./VtWizardFields");
+  const radio = schemaField("vocationalTraining", "VT1_9");
+  assert.deepEqual(vtHintPlacement(radio, "Voir la carte", "Urbain ou rural."), {
+    tooltip: "Urbain ou rural. Voir la carte",
+  });
+  assert.deepEqual(vtHintPlacement(radio, "Voir la carte", undefined), { tooltip: "Voir la carte" });
+});
+
 test("an error message is linked to the control with aria-describedby, error first, then the hint", () => {
   const field = schemaField("vocationalTraining", "VT1_15_NAME");
   renderField(field, { errorMessage: "Ce champ est obligatoire" });

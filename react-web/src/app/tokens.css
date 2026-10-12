@@ -160,7 +160,7 @@
      medium (500) sat too close to the regular answers. The block heading
      is the one bold level. */
    --cam-question-size: var(--cam-font-size-base);
-   --cam-question-weight: var(--cam-font-weight-semibold);
+   --cam-question-weight: var(--cam-font-weight-medium); /* 500: lighter than semibold, still above the 400 answers (owner, 2026-10-12) */
    --cam-question-line-height: var(--cam-line-height-label);
    --cam-answer-size: var(--cam-font-size-sm);
 
@@ -174,6 +174,9 @@
    /* ── Density ── */
    --cam-row-height: 40px;
    --cam-form-field-height: 40px;
+   /* Answer boxes on the respondent forms (questionnaires and registration):
+      a little lower than the 40px admin controls (owner, 2026-10-12). */
+   --cam-respondent-field-height: 36px;
    --cam-button-height: 44px;
    --cam-form-gap: var(--cam-space-4);
 
@@ -272,8 +275,8 @@
      registration numbers at 280px; short caps phone, year and counts at
      220px. Admin keeps its minmax grid and does not use these. */
    --cam-field-width-full: 100%;
-   --cam-field-width-medium: 280px;
-   --cam-field-width-short: 220px;
+   --cam-field-width-medium: 240px; /* code, phone, PO box (was 280px; owner, 2026-10-12) */
+   --cam-field-width-short: 180px;  /* year, count (was 220px) */
 
    /* Helper text under an input. Example values live in the control's own
      placeholder, so this carries explanation only. */
@@ -481,10 +484,16 @@
    /* The wizard pod's inset: the gap between its edge and the
       declaration inside it. */
    --cam-wizard-pod-pad: var(--cam-space-5);
+   --cam-form-field-height: var(--cam-respondent-field-height);
    --vt-font: var(--cam-font-sans);
    font-family: var(--vt-font);
    color: var(--vt-ink);
    background: var(--vt-bg);
+}
+
+/* The registration wizard's boxes, the same height as the questionnaires'. */
+.cam-auth-page--wizard {
+   --cam-field-height: var(--cam-respondent-field-height);
 }
 
 /* Phones: every table cell steps down together, never individually. */

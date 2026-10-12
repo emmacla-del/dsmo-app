@@ -112,7 +112,11 @@ export function RadioGroup({
         display: "flex",
         flexDirection: layout === "horizontal" ? "row" : "column",
         flexWrap: layout === "horizontal" ? "wrap" : "nowrap",
-        gap: layout === "horizontal" ? 28 : 6,
+        // 36px from one option to the next: a 32px row and 4px between
+        // (owner, 2026-10-12: 50px left a blank line between options). The
+        // whole row stays clickable, above the 24px target minimum (WCAG
+        // 2.2, 2.5.8).
+        gap: layout === "horizontal" ? 28 : "var(--cam-space-1)",
       }}
     >
       {options.map((opt, index) => {
@@ -133,8 +137,8 @@ export function RadioGroup({
               display: "inline-flex",
               alignItems: "center",
               gap: 10,
-              minHeight: 44,
-              padding: "8px 6px",
+              minHeight: "var(--cam-space-6)",
+              padding: "var(--cam-space-1) 6px",
               border: "none",
               background: "transparent",
               cursor: opt.disabled ? "not-allowed" : "pointer",
