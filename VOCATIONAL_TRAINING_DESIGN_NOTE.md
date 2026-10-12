@@ -262,7 +262,8 @@ model OnefopVocationalTrainingDetail {
   hasInsertionSupportUnit    Boolean?   // 6.2.2
   hasTraineeDatabaseTool     Boolean?   // 6.2.3
   hasJobSearchSupportTool    Boolean?   // 6.2.4
-  // No 7.3 field — Decision 4, the code does not exist in the instrument.
+  // 7.2 is followed by 7.3 (owner, 2026-10-11: chronological numbering;
+  // supersedes Decision 4, which mirrored the paper's jump 7.2 → 7.4).
 
   // §7 — cross-cutting themes
   hasHivAidsRules            Boolean?   // 7.1

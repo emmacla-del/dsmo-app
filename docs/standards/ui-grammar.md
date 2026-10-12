@@ -125,12 +125,13 @@ Every respondent form (registration, Modern Jobs, VT) draws its three kinds of t
 
 | Text | Class | Tokens | Today |
 |---|---|---|---|
-| Question | `.cam-question` | `--cam-question-size`, `--cam-question-weight`, `--cam-question-line-height` | 15px bold, 1.3 |
+| Question | `.cam-question` | `--cam-question-size`, `--cam-question-weight`, `--cam-question-line-height` | 15px semibold, 1.3 |
 | Answer: typed value, option text, Oui/Non | `.cam-answer` | `--cam-answer-size` | 14px regular |
 | Hint: helper line, option caption, note | `.cam-hint` | `--cam-microcopy-size`, `--cam-microcopy-color` | 12px muted |
 
 Use the class, or the token inline where the element already has an inline style. **Never a ladder step (`--cam-font-size-base`, `-sm`, `-2xs`) or a number for these three.** A ladder step would still render the right size today, and silently stop following the setting tomorrow.
 
+- The question is semibold (600), not bold (owner, 2026-10-11). The 18px bold block heading above it is the block's one bold level: a bold question under it left no step between them, and medium (500) sat too close to the regular answers. Not 700, not 16px: 700 and 16px brought the question level with the heading.
 - The gap under a question is `--cam-field-stack-gap` (6px).
 - Phones raise a typed control to `--cam-font-size-input-ios` (16px) so iOS does not zoom. That rule stays; the answer token is the desktop size.
 - A selected option may change its weight to show the selection. The size stays the answer token.

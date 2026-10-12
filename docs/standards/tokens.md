@@ -115,11 +115,11 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-tracking-tight` | `-0.01em` | Letter spacing | Brand name. |
 | `--cam-tracking-label` | `0.02em` | Letter spacing | Badges, table heads, and question codes. |
 | `--cam-tracking-kicker` | `0.03em` | Letter spacing | Uppercase section kickers. |
-| `--cam-microcopy-size` | `var(--cam-font-size-2xs)` | Microcopy | Questionnaire hints, "select all", option captions: 12px (owner, 2026-10-10). Questions are 15px bold, answers 14px. |
+| `--cam-microcopy-size` | `var(--cam-font-size-2xs)` | Microcopy | Questionnaire hints, "select all", option captions: 12px (owner, 2026-10-10). Questions are 15px semibold (owner, 2026-10-11), answers 14px. |
 | `--cam-microcopy-color` | `var(--cam-text-muted)` | Microcopy | Microcopy colour. |
 | `--cam-microcopy-margin-top` | `4px` | Microcopy | Gap above helper text. Matches `--cam-space-1` and stays its own token. |
 | `--cam-question-size` | `var(--cam-font-size-base)` (15px) | Question | Question label on every respondent form: registration, Modern Jobs, VT (owner, 2026-10-10). |
-| `--cam-question-weight` | `var(--cam-font-weight-bold)` | Question | Bold, so the question reads apart from its answer. |
+| `--cam-question-weight` | `var(--cam-font-weight-semibold)` | Question | Semibold (owner, 2026-10-11): clearly apart from its regular answer, a step under the bold 18px block heading. |
 | `--cam-question-line-height` | `var(--cam-line-height-label)` (1.3) | Question | Question label line-height. The gap under it is `--cam-field-stack-gap`. |
 | `--cam-answer-size` | `var(--cam-font-size-sm)` (14px) | Answer | Typed answers and radio/checkbox option text on respondent forms. Phones raise typed controls to `--cam-font-size-input-ios`. |
 | `--cam-radius-sm` | `2px` | Radius | Smallest radius. |
