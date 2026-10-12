@@ -45,23 +45,47 @@ const labelStyle: CSSProperties = {
 
 const questionLabelStyle: CSSProperties = labelStyle;
 
-// The hint ("Ex : DRH", "A ne pas remplir") sits between the question and
-// its box, where it is read before answering, as on government forms; under
-// the box it was read after the answer, or not at all.
+// The hint ("Ex : DRH", "A ne pas remplir") is shown inside its box, as the
+// placeholder, and no longer as a line between the question and the box
+// (owner, 2026-10-12). A placeholder is gone once the box is typed in and is
+// not reliably read out, so the hint is also kept here, invisible, as the
+// control's description. On a question without a text box it goes in the
+// question's tooltip instead (vtHintPlacement).
+const visuallyHidden: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  margin: -1,
+  padding: 0,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
 function VtFieldHint({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <p
-      id={id}
-      style={{
-        fontSize: "var(--cam-microcopy-size)",
-        color: "var(--cam-microcopy-color)",
-        lineHeight: "var(--cam-line-height-ui)",
-        margin: "0 0 var(--cam-space-2)",
-      }}
-    >
+    <span id={id} style={visuallyHidden}>
       {children}
-    </p>
+    </span>
   );
+}
+
+/**
+ * Where a VT question's hint goes: into the box as its placeholder when the
+ * question has one text box, otherwise appended to the question's tooltip.
+ */
+export function vtHintPlacement(
+  field: OnefopField,
+  hint: string | undefined,
+  tooltip: string | undefined,
+): { placeholder?: string; tooltip?: string } {
+  if (!hint) return { tooltip };
+  const textBox =
+    isVtYearField(field) ||
+    (["text", "email", "tel", "textarea"].includes(field.type) && field.id !== "VT9_3" && field.id !== "VT9_4");
+  if (textBox) return { placeholder: hint, tooltip };
+  return { tooltip: tooltip ? `${tooltip} ${hint}` : hint };
 }
 
 // Fields whose answer is a short code: a medium box, not a full line.
@@ -235,8 +259,8 @@ interface VtAdminSuggestions {
 }
 
 /**
- * Cascading Région → Département → Arrondissement → Commune suggestion
- * chips for VT1_4-VT1_7, matching Flutter's VtWizardTextField cascading
+ * Cascading Région → Département → Arrondissement suggestion
+ * chips for VT1_4-VT1_6, matching Flutter's VtWizardTextField cascading
  * logic (vt_wizard_fields.dart:316-354). Flutter's own header strings are
  * French-only there, but this app's chrome switches with the active
  * locale everywhere else, so the headers below do too.
@@ -250,7 +274,6 @@ function vtAdminSuggestionsFor(
   const isEn = locale.startsWith("en");
   const region = (data?.VT1_4 as string | undefined)?.trim();
   const dept = (data?.VT1_5 as string | undefined)?.trim();
-  const subdiv = (data?.VT1_6 as string | undefined)?.trim();
   const plain = (names: string[]): VtAdminSuggestionItem[] => names.map((name) => ({ value: name, label: name }));
 
   if (!tree || tree.length === 0) return { header: null, items: [] };
@@ -277,20 +300,9 @@ function vtAdminSuggestionsFor(
       items: plain(deptObj.subdivisions.map((s) => s.name)),
     };
   }
-  if (fieldId === "VT1_7") {
-    const deptObj = findCameroonDepartment(tree, dept, region);
-    if (subdiv) {
-      const others = deptObj ? deptObj.subdivisions.map((s) => s.name).filter((s) => s !== subdiv) : [];
-      return { header: `Communes (${subdiv})`, items: plain([subdiv, ...others]) };
-    }
-    if (deptObj) {
-      return {
-        header: isEn ? "Communes in this department" : "Communes du département",
-        items: plain(deptObj.subdivisions.map((s) => s.name)),
-      };
-    }
-    return { header: null, items: [] };
-  }
+  // No chips for the commune (VT1_7): it is filled from the arrondissement
+  // (use-vt-derived-commune.ts), and the chips offered the department's
+  // other arrondissements under a "Communes" heading (owner, 2026-10-12).
   return { header: null, items: [] };
 }
 
@@ -563,7 +575,7 @@ function VtFiveSlotsField({
         {optionalSuffix}
         {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
       </div>
-      {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+      {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
 
       <div
         style={{
@@ -665,11 +677,12 @@ export function VtWizardField({
   const isYear = isVtYearField(field);
   const isTel = field.type === "tel";
   const hasError = !!errorMessage;
-  const tooltip = vtFieldTooltip(field.id, locale);
+  const { placeholder: hintPlaceholder, tooltip } = vtHintPlacement(field, hint, vtFieldTooltip(field.id, locale));
   // Associates the error message with the control (or its radio/checkbox
   // group) so screen readers announce it on focus, not only once on render.
   const errorId = hasError ? vtFieldErrorId(field.id) : undefined;
-  const hintId = hint ? `${field.id}-hint` : undefined;
+  // A hint moved into the tooltip is read there, not twice.
+  const hintId = hintPlaceholder ? `${field.id}-hint` : undefined;
   // The error and the hint both describe the control, error first.
   const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
   // Required-ness is said once per section (RequiredQuestionsNote) and on
@@ -690,7 +703,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
       </div>
@@ -705,7 +718,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </div>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
       </div>
@@ -720,7 +733,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} required={required} />
         <VtWizardFieldError id={errorId} message={errorMessage} />
       </div>
@@ -735,12 +748,12 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <input
           id={field.id}
           {...a11yProps}
           type="number"
-          placeholder={locale.startsWith("en") ? "YYYY" : "AAAA"}
+          placeholder={hintPlaceholder ?? (locale.startsWith("en") ? "YYYY" : "AAAA")}
           value={(value as string) ?? ""}
           // maxLength does nothing on a number input; the slice keeps 4 digits.
           onChange={(e) => onChange(field.id, e.target.value.slice(0, 4))}
@@ -763,7 +776,7 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <div
           className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
           style={{ display: "flex", alignItems: "center", maxWidth: "var(--cam-field-width-medium)" }}
@@ -777,7 +790,7 @@ export function VtWizardField({
             {...a11yProps}
             type="tel"
             maxLength={9}
-            placeholder="6XX XX XX XX"
+            placeholder={hintPlaceholder ?? "6XX XX XX XX"}
             value={(value as string) ?? ""}
             onChange={(e) => onChange(field.id, e.target.value.replace(/\D/g, "").slice(0, 9))}
             onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -825,11 +838,12 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
         <textarea
           id={field.id}
           {...a11yProps}
           rows={4}
+          placeholder={hintPlaceholder}
           value={(value as string) ?? ""}
           onChange={(e) => onChange(field.id, e.target.value)}
           onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -849,8 +863,8 @@ export function VtWizardField({
           {optionalSuffix}
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
-        {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <div style={{ position: "relative", maxWidth: "37.5rem" }}>
+        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+        <div style={{ position: "relative", maxWidth: "35rem" }}>
           <select
             id={field.id}
             {...a11yProps}
@@ -896,13 +910,17 @@ export function VtWizardField({
 
   if (lockedValue !== undefined) {
     // Region/department/subdivision come from the company record; shown
-    // read-only but kept in the tab order so they are read out. The one
-    // explanatory line sits under the last of the three (VT1_6).
+    // read-only but kept in the tab order so they are read out. The note
+    // saying where they come from is in the tooltip of the last of the
+    // three (VT1_6), not a line on the page (owner, 2026-10-12); it stays
+    // the three boxes' description for screen readers.
     const noteId = "vt-geography-locked-note";
+    const lockedNote = t("modernJobs.geography.lockedNote");
     return (
       <div style={{ marginBottom: 4 }}>
         <label htmlFor={field.id} style={labelStyle}>
           {labelNode}
+          {field.id === "VT1_6" ? <VtWizardInfoBadge tooltip={lockedNote} /> : null}
         </label>
         <input
           id={field.id}
@@ -913,19 +931,7 @@ export function VtWizardField({
           aria-describedby={noteId}
           className="sovereign-text-input"
         />
-        {field.id === "VT1_6" ? (
-          <p
-            id={noteId}
-            style={{
-              fontSize: "var(--cam-microcopy-size)",
-              color: "var(--cam-microcopy-color)",
-              margin: "var(--cam-microcopy-margin-top) 0 0",
-              lineHeight: 1.4,
-            }}
-          >
-            {t("modernJobs.geography.lockedNote")}
-          </p>
-        ) : null}
+        {field.id === "VT1_6" ? <VtFieldHint id={noteId}>{lockedNote}</VtFieldHint> : null}
       </div>
     );
   }
@@ -942,12 +948,12 @@ export function VtWizardField({
         {optionalSuffix}
         {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
       </label>
-      {hint ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
+      {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
       <input
         id={field.id}
         {...a11yProps}
         type={field.type === "email" ? "email" : "text"}
-        placeholder={field.type === "email" ? "exemple@domaine.cm" : undefined}
+        placeholder={hintPlaceholder ?? (field.type === "email" ? "exemple@domaine.cm" : undefined)}
         value={(value as string) ?? ""}
         readOnly={adminOnly}
         aria-readonly={adminOnly || undefined}
