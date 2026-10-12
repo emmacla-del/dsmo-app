@@ -1,6 +1,6 @@
 {
   "authShared": {
-    "wordmark": "CAM-LEAP",
+    "wordmark": "CAMLEAP",
     "subtitle": "Plateforme camerounaise d'analyse de l'emploi et du travail"
   },
   "common": {
@@ -14,7 +14,7 @@
     "accessDeniedTitle": "Accès refusé",
     "accessDeniedMessage": "Votre compte n'a pas accès à cette page.",
     "logoutButton": "Se déconnecter",
-    "brandName": "CAM-LEAP",
+    "brandName": "CAMLEAP",
     "pageTitle": "Secteurs d'activité",
     "categoryFilterLabel": "Filtrer par catégorie",
     "allCategoriesOption": "Toutes les catégories",
@@ -62,7 +62,7 @@
     "listsAriaLabel": "Listes de l'annuaire"
   },
   "homeLayout": {
-    "brandName": "CAM-LEAP",
+    "brandName": "CAMLEAP",
     "newDeclarationButton": "Nouvelle déclaration",
     "logoutButton": "Se déconnecter",
     "attestationButton": "Mon attestation d'inscription",
@@ -226,7 +226,7 @@
     "validateButton": "Valider",
     "cancelTwoFactorLink": "Annuler et revenir à la connexion",
     "identifierNotFoundError": "Identifiant introuvable. Vérifiez vos informations.",
-    "brandTitle": "CAM-LEAP",
+    "brandTitle": "CAMLEAP",
     "subtitle": "Plateforme camerounaise d'analyse de l'emploi et du travail",
     "tabLogin": "Connexion",
     "tabForgot": "Retrouver mon identifiant",
@@ -287,8 +287,8 @@
     "establishmentIdLabel": "Identifiant établissement : {establishmentId}",
     "signInLink": "Se connecter",
     "pendingTitle": "Votre inscription a été enregistrée",
-    "receiptSubtitleActive": "Attestation officielle d'enregistrement au système national CAM-LEAP",
-    "receiptSubtitlePending": "Accusé de réception de votre demande d'enregistrement au système national CAM-LEAP",
+    "receiptSubtitleActive": "Attestation officielle d'enregistrement au système national CAMLEAP",
+    "receiptSubtitlePending": "Accusé de réception de votre demande d'enregistrement au système national CAMLEAP",
     "receiptCompanyLabel": "Dénomination",
     "receiptEstablishmentIdLabel": "Identifiant d'établissement",
     "receiptCopyId": "Copier",
@@ -2419,7 +2419,7 @@
     "overdueDaysHint": "Une inscription en attente de validation au-delà de ce délai est signalée « En retard » dans la file des inscriptions.",
     "overdueDaysInvalid": "Indiquez un nombre entier de jours entre {min} et {max}.",
     "rolesTitle": "Rôles Réglementaires & Habilitations",
-    "rolesSubtitle": "Nomenclature statutaire des habilitations CAM-LEAP/ONEFOP",
+    "rolesSubtitle": "Nomenclature statutaire des habilitations CAMLEAP/ONEFOP",
     "manageAssignments": "Gérer les affectations →",
     "recentAuditTitle": "Journal d'Audit Récent",
     "fullLogLink": "Voir le journal complet",
@@ -2662,7 +2662,7 @@
     "endorsement": "Une plateforme de l'ONEFOP",
     "otherLanguageName": "Cameroon Labour and Employment Analytical Platform",
     "noticesHeading": "Avis aux déclarants",
-    "notice1Title": "Bienvenue sur CAM-LEAP",
+    "notice1Title": "Bienvenue sur CAMLEAP",
     "notice1Body": "Plateforme camerounaise d'analyse de l'emploi et du travail. Déclarez en ligne la main-d'œuvre de votre établissement.",
     "notice2Title": "Deux déclarations",
     "notice2Body": "<b>Déclaration DSMO</b> : déclaration sociale de la main-d'œuvre. <b>Questionnaire ONEFOP</b> : information sur le marché du travail.",
@@ -2724,7 +2724,7 @@
   },
   "inscriptionAgentPage": {
     "title": "Créer votre compte agent",
-    "subtitle": "Vous avez été invité(e) à rejoindre CAM-LEAP. Vérifiez votre affectation, puis choisissez votre mot de passe.",
+    "subtitle": "Vous avez été invité(e) à rejoindre CAMLEAP. Vérifiez votre affectation, puis choisissez votre mot de passe.",
     "postLabel": "Poste",
     "serviceLabel": "Service",
     "territoryLabel": "Territoire",
