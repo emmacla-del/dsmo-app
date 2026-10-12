@@ -144,7 +144,11 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <span aria-hidden="true">☰</span>
           <span aria-hidden="true">{t("homeLayout.menuLabel")}</span>
         </button>
-        <span style={{ fontWeight: 800, fontSize: "var(--cam-font-size-sm)" }}>CAMLEAP · MINEFOP</span>
+        {/* A working screen: the CAMLEAP logo, 20px tall, and nothing else.
+            ONEFOP is named once, in the rail this bar opens
+            (docs/standards/brand.md). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/images/camleap_logo.png" alt="CAMLEAP" width={120} height={20} style={{ display: "block", width: 120, height: "auto" }} />
       </div>
       <div className="cam-home-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
       <aside
@@ -155,7 +159,14 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
       >
         <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>CAMLEAP · MINEFOP</div>
+            {/* The CAMLEAP logo, with ONEFOP as a line of text under it: this
+                screen has no footer, so the endorsement belongs here
+                (docs/standards/brand.md, working screens). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/camleap_logo.png" alt="CAMLEAP" width={120} height={20} style={{ display: "block", width: 120, height: "auto" }} />
+            <div style={{ marginTop: "var(--cam-space-1)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+              {t("landingPage.endorsement")}
+            </div>
             {/* The campaign in words ("Campagne du 4e trimestre 2026"), never the
                 stored code nor the survey's all-caps title (lib/respondent-identity). */}
             <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
