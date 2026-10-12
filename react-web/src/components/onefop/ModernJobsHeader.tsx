@@ -128,6 +128,11 @@ export function ModernJobsHeader({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
+    // The border is declared here, transparent, so that a button setting
+    // only borderColor below actually paints one: borderColor alone leaves
+    // border-width at 0 and the outline never appears, which is why the PDF
+    // preview and Quitter were reading as the same weight.
+    border: "1px solid transparent",
     borderRadius: 6,
     padding: "6px 12px",
     fontSize: "var(--cam-font-size-sm)",
