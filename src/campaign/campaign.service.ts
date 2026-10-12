@@ -1036,4 +1036,42 @@ export class CampaignService {
         };
         return messages[type] ?? `Veuillez prendre connaissance de la campagne "${campaign.name}".`;
     }
+
+    /**
+     * The open collections, for the anonymous front door.
+     *
+     * "Open" is the same test the rest of this service applies: status ACTIVE
+     * and the effective deadline — extendedDeadline when one was granted,
+     * otherwise deadline — not yet past. _isPastDeadline() states the same
+     * rule for the admin list, so a campaign that has stopped accepting
+     * submissions cannot keep advertising a date here.
+     *
+     * A campaign with no deadline at all is open-ended and still returned,
+     * with closesOn null: the portal then says the collection is open without
+     * naming a date, which is true, rather than hiding it.
+     *
+     * The select list is the contract. Nothing identifying, nothing
+     * admin-authored and nothing about targeting leaves this method — see
+     * PublicCampaignController for why.
+     */
+    async listOpenCampaignsForPublic() {
+        const now = new Date();
+        const campaigns = await this.prisma.dataCampaign.findMany({
+            where: { status: 'ACTIVE' },
+            select: {
+                collectionType: true,
+                referenceYear: true,
+                deadline: true,
+                extendedDeadline: true,
+            },
+        });
+
+        return campaigns
+            .map((campaign) => ({
+                collectionType: campaign.collectionType,
+                referenceYear: campaign.referenceYear,
+                closesOn: campaign.extendedDeadline ?? campaign.deadline,
+            }))
+            .filter((campaign) => !campaign.closesOn || campaign.closesOn.getTime() >= now.getTime());
+    }
 }

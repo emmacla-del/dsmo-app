@@ -2692,6 +2692,7 @@
     "title": "Online declaration portal for employment and vocational training",
     "lede": "As part of modernising its collection pipelines, ONEFOP provides employers and vocational training centres with this online declaration platform.",
     "phaseStatus": "Phase 1 in service: digital collection is open",
+    "nextDeadline": "Next closing date: {date}",
     "doorsEyebrow": "Start a declaration",
     "doorsHeading": "Choose your pathway",
     "doorsIntro": "Select the entry point for your establishment to file a declaration or follow an existing one.",

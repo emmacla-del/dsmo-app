@@ -16,7 +16,10 @@
 // 56px floor and the endorsement wording that docs/standards/brand.md fixes.
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
+import { getOpenCampaigns } from "@/lib/api-client";
+import { nextCampaignDeadline } from "@/lib/portal-campaigns";
 import { BrandLockup } from "@/components/brand/BrandLockup";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import styles from "./portal.module.css";
@@ -44,6 +47,26 @@ const STATE_TEXT: Record<PhaseState, string> = {
 
 export function Portal() {
   const t = useTranslations();
+  const locale = useLocale();
+
+  // The next closing date, from the one public campaign route. The page is
+  // useful without it, so a failure is silent: no retry, and nothing rendered
+  // unless a date actually came back. An anonymous visitor must never meet an
+  // error here, and an API that has not deployed this route yet simply leaves
+  // the line out rather than showing a date that was invented in the copy.
+  const { data: campaigns } = useQuery({
+    queryKey: ["public-campaigns-open"],
+    queryFn: getOpenCampaigns,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const nextDeadline = nextCampaignDeadline(campaigns);
+
+  const nextDeadlineLabel = nextDeadline
+    ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" })
+        .format(new Date(nextDeadline))
+    : null;
 
   return (
     <div className={styles.page}>
@@ -69,13 +92,14 @@ export function Portal() {
             <p className={styles.eyebrow}>{t("portalPage.eyebrow")}</p>
             <h1 className={styles.title}>{t("portalPage.title")}</h1>
             <p className={styles.lede}>{t("portalPage.lede")}</p>
-            {/* The campaign's closing date belongs here. It needs a public
-                endpoint — every route on the campaigns controller is behind
-                JwtAuthGuard today — so phase 3 adds one and fills this in.
-                Until then the line says what is true: the collection is open. */}
             <p className={`${styles.status} ${styles.stateLive}`}>
               <span className={`${styles.dot} ${styles.dotLive}`} aria-hidden="true" />
               {t("portalPage.phaseStatus")}
+              {nextDeadlineLabel ? (
+                <span className={styles.deadline}>
+                  {t("portalPage.nextDeadline", { date: nextDeadlineLabel })}
+                </span>
+              ) : null}
             </p>
           </div>
         </section>

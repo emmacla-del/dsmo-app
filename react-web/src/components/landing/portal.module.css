@@ -100,6 +100,16 @@
   margin: 0;
 }
 
+.deadline {
+  color: var(--cam-text-muted);
+  font-weight: 400;
+}
+
+.deadline::before {
+  content: "·";
+  margin: 0 var(--cam-space-2);
+}
+
 .dot {
   width: 8px;
   height: 8px;
