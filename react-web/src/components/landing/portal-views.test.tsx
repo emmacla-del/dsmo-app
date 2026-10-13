@@ -1,12 +1,18 @@
 // renderWithProviders first: it sets jsdom up for this file, and `screen`
 // must bind to that document rather than to nothing.
-import { renderWithProviders, screen, fireEvent, within } from "@/test/render";
+import { renderWithProviders, screen, fireEvent, within, navigationMock } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PortalHero } from "./portal/PortalHero";
 import { PortalDeclare } from "./portal/PortalDeclare";
 import { PortalNotices } from "./portal/PortalNotices";
 import { PortalRoadmap } from "./portal/PortalRoadmap";
+import { PortalMasthead } from "./portal/PortalMasthead";
+import { PortalFooter } from "./portal/PortalFooter";
+import { PortalStatusBand } from "./portal/PortalStatusBand";
+import { PortalJourney } from "./portal/PortalJourney";
+import { PortalFaq } from "./portal/PortalFaq";
+import { PortalAbout } from "./portal/PortalAbout";
 import type { OpenCampaign } from "@/lib/api-client";
 
 const OPEN_CAMPAIGNS: [unknown[], OpenCampaign[]][] = [
@@ -130,4 +136,127 @@ test("the earliest closing date among the open collections is shown", () => {
 
   // 31 March, not 30 June: the next one to close, whichever collection it is.
   assert.ok(screen.getByText(/Prochaine clôture\s*:\s*31 mars 2026/));
+});
+
+// ── The views the five routes are made of ──────────────────────────────────
+
+test("the masthead marks the route the visitor is on, and no other", () => {
+  // renderWithProviders resets the navigation state, so the pathname is set
+  // after the first render and the masthead is rendered again against it.
+  const { rerender } = renderWithProviders(<PortalMasthead />);
+  navigationMock.pathname = "/declarer";
+  rerender(<PortalMasthead />);
+
+  const nav = within(screen.getByRole("navigation", { name: "Navigation principale" }));
+  // aria-current is read from the pathname, not from a scroll observer: the
+  // views are routes, so "which one am I in" is a fact the router knows.
+  assert.equal(nav.getByRole("link", { name: "Déclarer" }).getAttribute("aria-current"), "page");
+  for (const other of ["Accueil", "Feuille de route", "Assistance"]) {
+    assert.equal(nav.getByRole("link", { name: other }).getAttribute("aria-current"), null);
+  }
+});
+
+test("the masthead's menu opens the same four routes on a narrow viewport", async () => {
+  const { user } = renderWithProviders(<PortalMasthead />);
+
+  // Closed, there is one nav; the toggle says what it will do.
+  assert.equal(screen.getAllByRole("navigation", { name: "Navigation principale" }).length, 1);
+  const toggle = screen.getByRole("button", { name: "Ouvrir le menu" });
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+
+  await user.click(toggle);
+
+  assert.equal(screen.getAllByRole("navigation", { name: "Navigation principale" }).length, 2);
+  assert.equal(screen.getByRole("button", { name: "Fermer le menu" }).getAttribute("aria-expanded"), "true");
+  // The drawer is the same links, not a second navigation with its own ideas.
+  assert.equal(screen.getAllByRole("link", { name: "Feuille de route" }).length, 2);
+});
+
+test("the footer carries every route, including the one the masthead leaves out", () => {
+  renderWithProviders(<PortalFooter />);
+
+  const nav = within(screen.getByRole("navigation", { name: "Navigation principale" }));
+  for (const label of ["Accueil", "Déclarer", "Feuille de route", "Assistance"]) {
+    assert.ok(nav.getByRole("link", { name: label }));
+  }
+  // About is reached from the hero and from here: it explains the programme,
+  // which is not a task a visitor arrives to do.
+  assert.equal(nav.getByRole("link", { name: "À propos" }).getAttribute("href"), "/a-propos");
+});
+
+test("the status band states what phase 1 does, and that there is no public lookup", () => {
+  renderWithProviders(<PortalStatusBand />);
+
+  assert.ok(screen.getByText("La télédéclaration de la phase 1 est en service"));
+  assert.ok(screen.getByText(/Un brouillon peut être enregistré, puis repris/));
+  // The claim the platform is most often asked about: tracking lives inside
+  // the account, because no public endpoint resolves a reference.
+  assert.ok(screen.getByText(/il n'existe aucune recherche publique/));
+});
+
+test("the journey is four numbered steps, in the order a declarant meets them", () => {
+  renderWithProviders(<PortalJourney />);
+
+  const steps = within(screen.getByRole("heading", { name: "Comment déclarer" }).closest("div")!)
+    .getAllByRole("listitem");
+  assert.equal(steps.length, 4);
+  assert.match(steps[0].textContent ?? "", /^01S'inscrire/);
+  assert.match(steps[3].textContent ?? "", /^04Soumettre/);
+  // The band ends on the task itself.
+  assert.equal(
+    screen.getByRole("link", { name: "Choisir votre parcours" }).getAttribute("href"),
+    "/declarer",
+  );
+});
+
+test("the declaration frame ends on the way back and the way to help", () => {
+  renderWithProviders(<PortalDeclare />);
+
+  assert.ok(screen.getByRole("heading", { name: "Choisissez votre parcours" }));
+  assert.equal(screen.getByRole("link", { name: "Retour à l'accueil" }).getAttribute("href"), "/");
+  assert.equal(
+    screen.getByRole("link", { name: "Obtenir de l'aide" }).getAttribute("href"),
+    "/assistance",
+  );
+});
+
+test("the questions are answered, and the answer to the obligatory one is yes", () => {
+  renderWithProviders(<PortalFaq />);
+
+  assert.ok(screen.getByRole("heading", { name: "Questions fréquentes" }));
+  assert.equal(screen.getAllByRole("group").length, 3);
+  // Closed <details> keeps its content in the DOM, so the answer is readable
+  // without opening it — what matters is that it is the true one.
+  assert.match(
+    screen.getByText("L'inscription est-elle obligatoire ?").closest("details")?.textContent ?? "",
+    /Aucune soumission anonyme n'est possible/,
+  );
+});
+
+test("About says collection comes first, and names the three eras", () => {
+  renderWithProviders(<PortalAbout />);
+
+  assert.ok(screen.getByRole("heading", { name: "Du papier à un observatoire numérique" }));
+  // The LMIS/observatory distinction (CLAUDE.md §4): the panel must not read
+  // as a promise of dashboards the collection has not yet fed.
+  const panel = screen.getByRole("heading", { name: "Collecter d'abord, analyser ensuite" }).closest("div");
+  assert.match(panel?.textContent ?? "", /l'observatoire lit ensuite ce qu'il contient/);
+
+  const eras = within(screen.getByRole("heading", { name: "Du papier à la statistique" }).closest("div")!)
+    .getAllByRole("listitem");
+  assert.equal(eras.length, 3);
+  assert.match(eras[1].textContent ?? "", /Dossier numérique \(En service\)/);
+});
+
+test("a filtered phase keeps its own number, not its position in the filtered list", () => {
+  renderWithProviders(<PortalRoadmap />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Planifiées" }));
+
+  const phases = within(screen.getByRole("list", { name: "Phases du programme" })).getAllByRole("listitem");
+  assert.equal(phases.length, 2);
+  // Phases 3 and 4, numbered 03 and 04 — not 01 and 02, which is what a
+  // running index over the filtered list would have printed.
+  assert.match(phases[0].textContent ?? "", /^03Phase 3/);
+  assert.match(phases[1].textContent ?? "", /^04Phase 4/);
 });
