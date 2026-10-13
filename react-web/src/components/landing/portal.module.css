@@ -134,29 +134,33 @@
 .nav {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cam-space-5);
+  gap: var(--cam-space-2);
   margin-inline-start: auto;
   font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-semibold);
 }
 
 .nav a {
-  padding-bottom: var(--cam-space-1);
-  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border-radius: var(--cam-radius-md);
   color: var(--cam-text-muted);
   text-decoration: none;
 }
 
 .nav a:hover {
-  border-bottom-color: var(--cam-gold);
-  color: var(--cam-text);
+  background: var(--cam-portal-teal-surface);
+  color: var(--cam-portal-teal-dark);
 }
 
-/* The current route, not a hover state: the only thing on the page that says
-   which of the five views the visitor is in. */
+/* The current route, the way the reference mockup marks it: a filled tab, not
+   an underline. It is the only thing on the page that says which of the five
+   views the visitor is in, and a 2px rule under one word was the quietest
+   possible way to say it. */
 .nav a.navCurrent {
-  border-bottom-color: var(--cam-green);
-  color: var(--cam-text);
+  background: var(--cam-portal-teal-surface);
+  color: var(--cam-portal-teal-dark);
 }
 
 .mastheadActions {
