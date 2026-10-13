@@ -1,11 +1,129 @@
 # The landing page — a declaration portal at "/"
 
 **Date:** 2026-10-12, reworked 2026-10-13
-**Status:** done. Five routes, their layouts and their tests are
-committed. What remains is listed under §Open.
+**Status:** five routes, their layouts and their tests are committed.
+The shape itself is under review against §Who the front door is for, which
+was written after them; the gaps are listed under §Open.
 **Source:** `docs/mockups/landing-camleap-canonical.html` (the owner's
 reference for the palette), and the owner's second reference mockup of
 2026-10-13 for the layout. Neither is ported as HTML.
+
+## Who the front door is for
+
+Five audiences arrive at "/", for different reasons and at wildly different
+frequencies. **The shape of the page is settled by them, not by a mockup.**
+
+Written on 2026-10-13, after the page had been restructured three times in
+one working session — nine bands, then five routes, then a rethink — each
+pass defensible on its own terms and each one feeling wrong once it existed.
+That is not a layout problem. It is what happens when the boxes move before
+anyone has written down who the page owes something to. A later layout
+question is argued against this section; it does not reopen it.
+
+### 1. The declarant who has no account
+
+An employer in the modern sector, or a vocational training centre, arriving
+from a MINEFOP circular, an email campaign or word of mouth. Typically once a
+year, often near a deadline, frequently not by choice.
+
+**In sixty seconds they must be able to:** tell whether they are concerned at
+all; see which of the two kinds of establishment they are; learn which
+identifier they need (NIU for an employer, MINEFOP accreditation reference
+for a centre); and start registering with that kind already carried into
+step 1 of the form (`/register?type=…`, commit `a2ee0db7`).
+
+**They must not be made to:** read the programme first, guess whether an
+account is needed, or work out for themselves which questionnaire applies.
+
+### 2. The declarant who already has an account
+
+The same people, later: resuming a draft, checking a dossier's status,
+downloading an acknowledgement.
+
+**In sixty seconds:** sign in, from whatever page they happen to land on.
+
+**They must not be made to** look for a public tracking box. There is no
+public lookup — `/home/declarations` is the only place a declaration can be
+seen — and the page must not imply otherwise by offering a reference field or
+a "track my file" affordance.
+
+### 3. Administration staff
+
+Divisional, regional and central agents, ONEFOP administrators, auditors.
+They work in the console at `/admin` and get there by signing in.
+
+**In sixty seconds:** sign in, without wading through copy addressed to
+declarants.
+
+The front door owes them nothing else. Their work begins after
+authentication, and the console is a different surface with its own rules
+(`docs/standards/ui-grammar.md`).
+
+### 4. The institution and its partners
+
+MINEFOP and ONEFOP leadership, partner agencies, funders, journalists. Rare
+and decisive: this is the page that gets opened in a meeting, on a projector,
+by someone deciding whether the programme is real.
+
+**In sixty seconds they must be able to:** say what CAMLEAP is and whose it
+is; separate what is in service today from what is promised; see the four
+phases with the state each is actually in; and find who oversees the
+programme.
+
+**They must not be given** a claim the platform cannot keep. The list of
+claims already struck for this reason is §Claims removed in the truth pass,
+and it is not a historical note — it is the standard this audience is owed.
+
+**Frequency is not weight.** This audience arrives least and matters most per
+visit, so "the programme is in the footer" is the wrong answer even though
+the declarant is the commoner visitor.
+
+### 5. The public and researchers — not served yet
+
+No indicators, no dashboards, no open data: the analytical layer is phase 2
+and does not exist. The page says so plainly rather than implying a
+statistical offering behind a login.
+
+When that layer lands, this is the audience that earns a new public section,
+and that is the moment the site legitimately grows past the shape below.
+Building a multi-tab information architecture now, for content that is one
+page's worth, pays that cost years early.
+
+## What follows from that
+
+Each of these is a consequence of the section above, not a taste:
+
+1. **The task owns the top of "/".** Identification and the way in come
+   before institutional prose, because audiences 1–3 are the ones under time
+   pressure.
+2. **"Who are you" is the first question the page asks**, because the answer
+   is what routes a declarant — and because it is the same question `/home`
+   answers for someone who already has an account. The public page is the
+   authenticated home, one step earlier.
+3. **One institutional destination, not three.** Audience 4's needs fit on a
+   page; three tabs for one page's content leaves the masthead reading as a
+   content menu, which is what a brochure site has and a portal does not.
+4. **That destination is reachable from the masthead**, not only the footer.
+   See "frequency is not weight".
+5. **Support is one click from every page**, at least through the first year
+   of service: NIU and two-factor problems are the commonest way audiences 1
+   and 2 fail, and the authenticated screens already carry the WhatsApp
+   number in eight places.
+6. **Sign-in is reachable from everywhere**, for audiences 2 and 3.
+7. **No surface implies a capability that does not exist** — no public
+   lookup, no published statistics, no QR code, no benchmarking.
+8. **A permalink that has been published is not deleted**, only redirected: a
+   circular may already carry it.
+
+## What this section does not settle
+
+- **Which audience dominates during the pilot.** There is no traffic data.
+  The ordering above is argued from purpose, not measurement; if the pilot
+  turns out to be mostly institutional visits, principle 1 is the first thing
+  to re-examine.
+- **Whether the ministry wants the programme more prominent than one
+  masthead entry.** That is the owner's call, and the only part of the shape
+  that a reading of the code cannot decide.
 
 ## Goal
 
@@ -15,16 +133,12 @@ what is in service and what is still to come.
 
 ## Why
 
-The page has to serve two audiences whose needs pull apart. A declarant
-under a deadline wants one thing — the route to their declaration. The
-ministry, partners and the public need to understand the programme. The
-settled answer was: the task owns the top of the page, the programme sits
-below it, and the sign-in form moves off the landing page entirely.
-
-The 2026-10-13 rework changes the second half of that sentence. The
-programme no longer sits *below* the task — it sits on its own routes
-beside it, because the nav now switches the view rather than scrolling to
-a band.
+Superseded by §Who the front door is for, which states the same argument
+from the audiences rather than from two of them. Kept as a record of how
+the question was framed before that section existed: "the task owns the top
+of the page, the programme sits below it, and the sign-in form moves off
+the landing page entirely" — true as far as it went, and it did not survive
+contact with a masthead that has to carry the programme as well.
 
 ## What is committed
 
@@ -205,6 +319,33 @@ roadmap names the current phase in its own notice, and the copy makes that
 string identical to phase 1's title, so a page-wide query matches both.
 
 ## Open
+
+### The shape, measured against §Who the front door is for
+
+That section was written after the five routes were built, and the built
+shape does not satisfy all of it. Each gap below names the principle it
+misses; none of them is a bug, and none should be fixed piecemeal.
+
+- **"Who are you" is not asked on "/"** (principle 2). It is asked on
+  `/declarer`, one click later, behind a masthead tab named for a task that
+  page cannot perform. Three of that page’s four actions lead to `/login`.
+- **Two institutional destinations, not one** (principle 3): `/a-propos`
+  and `/feuille-de-route` hold between them about one page of content, and
+  take two of the four masthead slots.
+- **Support holds a masthead slot** (principle 5) — that one is satisfied,
+  and should stay satisfied through the first year of service.
+- **If `/declarer` goes, it redirects** (principle 8). A circular or an
+  email may already carry it.
+- **`PORTAL_ACTIONS` sends registration to a bare `/register`**, dropping
+  the `?type=` the two kinds carry (principle 1, and commit `a2ee0db7`).
+  This is in the working tree, not yet committed.
+
+The proposal on the table is: `/` carries the chooser, `/programme` merges
+the two institutional pages, `/assistance` keeps its slot, `/declarer`
+redirects to the chooser. Masthead: **LE PROGRAMME · ASSISTANCE ·
+[Se connecter]**. Not yet decided.
+
+### Other
 
 - **Which colours the platform eventually keeps** is still a separate
   decision. Nothing outside `portal.module.css` reads `--cam-portal-*`.
