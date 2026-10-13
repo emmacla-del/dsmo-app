@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { PORTAL_DOORS } from "./portal-content";
+import { PORTAL_REGISTRATIONS } from "./portal-content";
 import styles from "../portal.module.css";
 
 // The WhatsApp number is the only published support channel — it is the one in
@@ -30,7 +30,7 @@ export function PortalSupport() {
           </p>
 
           <p className={styles.heroActions}>
-            <Link href={PORTAL_DOORS[0].href} className="cam-button cam-button-primary">
+            <Link href={PORTAL_REGISTRATIONS[0].href} className="cam-button cam-button-primary">
               {t("portalPage.door1Action")}
             </Link>
             <Link href="/login" className="cam-button cam-button-secondary">

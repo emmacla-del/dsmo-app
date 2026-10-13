@@ -25,11 +25,17 @@ const OPEN_CAMPAIGNS: [unknown[], OpenCampaign[]][] = [
   ],
 ];
 
-test("the front door offers all three routes, with the declaration kind in the link", () => {
+test("Declare states the prerequisite, then branches on first time vs returning", () => {
   renderWithProviders(<PortalDeclare />);
 
-  // The two declaration doors carry the establishment kind, so step 1 of the
-  // registration does not ask again (src/app/register/page.tsx).
+  // No entity submits without an account, so the page says so before it
+  // offers anything — the reason signing in is not a third pathway here.
+  assert.ok(screen.getByText(/L'inscription et la connexion sont obligatoires/));
+
+  // First time: the two registration routes, each carrying the establishment
+  // kind so step 1 of the registration does not ask again
+  // (src/app/register/page.tsx).
+  assert.ok(screen.getByRole("heading", { name: "Première déclaration ?" }));
   assert.equal(
     screen.getByRole("link", { name: "Télédéclarer mon entreprise" }).getAttribute("href"),
     "/register?type=enterprise",
@@ -38,12 +44,12 @@ test("the front door offers all three routes, with the declaration kind in the l
     screen.getByRole("link", { name: "Déclarer mon établissement" }).getAttribute("href"),
     "/register?type=vocationalTraining",
   );
-  // Tracking lives inside the account; the door says so rather than asking
-  // for a reference no public endpoint can resolve.
-  assert.equal(
-    screen.getByRole("link", { name: "Accéder à mon espace" }).getAttribute("href"),
-    "/login",
-  );
+
+  // Already registered: one line and one secondary action, not a route card
+  // dressed as a third kind of journey.
+  assert.ok(screen.getByRole("heading", { name: "Déjà inscrit ?" }));
+  assert.equal(screen.getByRole("link", { name: "Se connecter" }).getAttribute("href"), "/login");
+  assert.equal(screen.queryByRole("link", { name: "Accéder à mon espace" }), null);
 });
 
 test("the authority statement is on the page, in both its parts", () => {
@@ -197,7 +203,7 @@ test("the status band states what phase 1 does, and that there is no public look
 test("the journey is four numbered steps, in the order a declarant meets them", () => {
   renderWithProviders(<PortalJourney />);
 
-  const steps = within(screen.getByRole("heading", { name: "Comment déclarer" }).closest("div")!)
+  const steps = within(screen.getByRole("heading", { name: "Comment ça marche" }).closest("div")!)
     .getAllByRole("listitem");
   assert.equal(steps.length, 4);
   assert.match(steps[0].textContent ?? "", /^01S'inscrire/);
@@ -212,7 +218,6 @@ test("the journey is four numbered steps, in the order a declarant meets them", 
 test("the declaration frame ends on the way back and the way to help", () => {
   renderWithProviders(<PortalDeclare />);
 
-  assert.ok(screen.getByRole("heading", { name: "Choisissez votre parcours" }));
   assert.equal(screen.getByRole("link", { name: "Retour à l'accueil" }).getAttribute("href"), "/");
   assert.equal(
     screen.getByRole("link", { name: "Obtenir de l'aide" }).getAttribute("href"),

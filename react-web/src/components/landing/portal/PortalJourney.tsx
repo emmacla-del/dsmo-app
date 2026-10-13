@@ -17,7 +17,9 @@ export function PortalJourney() {
   return (
     <section className={`${styles.section} ${styles.bandWhite}`}>
       <div className={styles.wrap}>
-        <p className={styles.eyebrow}>{t("portalPage.journeyEyebrow")}</p>
+        {t("portalPage.journeyEyebrow") ? (
+          <p className={styles.eyebrow}>{t("portalPage.journeyEyebrow")}</p>
+        ) : null}
         <h2 className={styles.heading}>{t("portalPage.journeyHeading")}</h2>
         <p className={styles.intro}>{t("portalPage.journeyIntro")}</p>
 

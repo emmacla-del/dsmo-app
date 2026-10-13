@@ -46,27 +46,27 @@ export const PORTAL_JOURNEY = ["journey1", "journey2", "journey3", "journey4"] a
 
 // ── Declare ───────────────────────────────────────────────────────────────
 
-// The two declaration doors carry the establishment kind, so step 1 of the
-// registration does not ask again for what choosing a door already answered
+// Declaring needs a verified account: nothing in the collection accepts an
+// anonymous submission. So the Declare view is a start page, not a menu of
+// three equal pathways -- it states that prerequisite, then branches. First
+// time: register, which is where these two live. Already registered: sign in,
+// which is one line and the masthead's button, not an entry here.
+//
+// The two registration routes carry the establishment kind, so step 1 of the
+// registration does not ask again for what choosing a route already answered
 // (src/app/register/page.tsx). `vocationalTraining` rather than `cfp`: it is
 // the EntityType value the registration actually reads, and a second set of
 // names would be a mapping table to keep in step.
-//
-// The third door is secondary and goes to /login, because drafts, history and
-// receipts live inside the account — there is no public lookup, so it says so
-// rather than asking for a reference it cannot resolve.
-export interface PortalDoor {
+export interface PortalRegistration {
   /** Message-key stem: portalPage.<key>Title / Desc / Requirement / Action,
       plus <key>Audience / Outcome in the pathway dialog. */
-  key: "door1" | "door2" | "door3";
+  key: "door1" | "door2";
   href: string;
-  variant: "primary" | "secondary";
 }
 
-export const PORTAL_DOORS: PortalDoor[] = [
-  { key: "door1", href: "/register?type=enterprise", variant: "primary" },
-  { key: "door2", href: "/register?type=vocationalTraining", variant: "primary" },
-  { key: "door3", href: "/login", variant: "secondary" },
+export const PORTAL_REGISTRATIONS: PortalRegistration[] = [
+  { key: "door1", href: "/register?type=enterprise" },
+  { key: "door2", href: "/register?type=vocationalTraining" },
 ];
 
 /** The three things people ask before declaring. Message-key stems:
