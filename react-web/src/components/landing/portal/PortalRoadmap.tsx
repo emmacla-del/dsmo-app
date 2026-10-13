@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { PORTAL_PHASES, type PortalPhaseState } from "./portal-content";
@@ -23,6 +25,12 @@ const FILTERS: { value: Filter; labelKey: string }[] = [
   { value: "planned", labelKey: "portalPage.filterPlanned" },
 ];
 
+const STATE_CARDS: { key: string; state: PortalPhaseState }[] = [
+  { key: "stateCard1", state: "live" },
+  { key: "stateCard2", state: "next" },
+  { key: "stateCard3", state: "planned" },
+];
+
 export function PortalRoadmap() {
   const t = useTranslations();
   const [filter, setFilter] = useState<Filter>("all");
@@ -35,7 +43,7 @@ export function PortalRoadmap() {
       <div className={`${styles.wrap} ${styles.roadmapGrid}`}>
         <div>
           <p className={styles.eyebrow}>{t("portalPage.roadmapEyebrow")}</p>
-          <h2 className={styles.heading}>{t("portalPage.roadmapHeading")}</h2>
+          <h1 className={styles.title}>{t("portalPage.roadmapHeading")}</h1>
           <p className={styles.intro}>{t("portalPage.roadmapIntro")}</p>
 
           <div className={`${styles.notice} ${styles.noticeCurrent}`}>
@@ -65,6 +73,17 @@ export function PortalRoadmap() {
             ))}
           </div>
 
+          {/* The three states at a glance, so the console says what the
+              filters are filtering before anything is pressed. */}
+          <div className={styles.stateCards}>
+            {STATE_CARDS.map(({ key, state }) => (
+              <div key={key} className={styles.stateCard}>
+                <PortalStatus state={state}>{t(`portalPage.${key}Title`)}</PortalStatus>
+                <p className={styles.stateCardBody}>{t(`portalPage.${key}Body`)}</p>
+              </div>
+            ))}
+          </div>
+
           <p className={styles.filterNote} role="status">
             {filter === "all"
               ? t("portalPage.filterAllNote")
@@ -74,7 +93,7 @@ export function PortalRoadmap() {
                 })}
           </p>
 
-          <ul className={styles.roadmap}>
+          <ul className={styles.roadmap} aria-label={t("portalPage.roadmapListLabel")}>
             {shown.map(({ key, state }) => (
               <li key={key} className={styles.phase}>
                 <details>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -15,6 +17,12 @@ import styles from "../portal.module.css";
 // a disclosure rather than in the card: a visitor choosing a door needs the
 // title and the action, and everything else competes with them.
 
+const TONE: Record<PortalDoor["tone"], string> = {
+  plain: styles.doorPlain,
+  soft: styles.doorSoft,
+  ink: styles.doorInk,
+};
+
 export function PortalDoors() {
   const t = useTranslations();
   const [openDoor, setOpenDoor] = useState<PortalDoor["key"] | null>(null);
@@ -23,12 +31,12 @@ export function PortalDoors() {
     <section id="parcours" className={`${styles.section} ${styles.bandWhite}`}>
       <div className={styles.wrap}>
         <p className={styles.eyebrow}>{t("portalPage.doorsEyebrow")}</p>
-        <h2 className={styles.heading}>{t("portalPage.doorsHeading")}</h2>
+        <h1 className={styles.title}>{t("portalPage.doorsHeading")}</h1>
         <p className={styles.intro}>{t("portalPage.doorsIntro")}</p>
 
         <div className={styles.doors}>
-          {PORTAL_DOORS.map(({ key, href, variant }) => (
-            <section key={key} className={styles.door}>
+          {PORTAL_DOORS.map(({ key, href, variant, tone }) => (
+            <section key={key} className={`${styles.door} ${TONE[tone]}`}>
               <div className={styles.doorBody}>
                 <p className={styles.doorEyebrow}>{t(`portalPage.${key}Eyebrow`)}</p>
                 <h3 className={styles.doorTitle}>{t(`portalPage.${key}Title`)}</h3>

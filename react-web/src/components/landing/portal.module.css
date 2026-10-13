@@ -1,19 +1,19 @@
-/* The front door at "/". Values come from tokens.css; nothing here invents a
-   colour, a spacing scale or a typeface. The page is deliberately plain: a
-   government declaration portal, not a product landing page — so no cards
-   with shadows, no rounded corners beyond the 2px control radius, no hover
-   lifts, no decorative fills. Rules and whitespace do the separating.
+/* The front door: five routes under one masthead (src/app/(portal)).
+   Values come from tokens.css; nothing here invents a colour, a spacing step,
+   a radius or a typeface.
+
+   Layout follows the owner's reference mockup — masthead, hero beside a
+   paper -> digital figure, a status panel, the four-step journey, the
+   declaration flow panel, the roadmap on ink, support, dark footer — and the
+   mockup's decoration is left out, as settled on 2026-10-12: no tricolour
+   stripe, no rotated cards, no shadows, no hover lifts, no large radii, and
+   not its typefaces. The app stays on Inter.
 
    Colour is the front-door palette (--cam-portal-* in tokens.css), approved
    for this page alone on 2026-10-12. The mechanism is the block below: the
-   shared tokens are re-pointed on .page, so a .cam-button rendered inside
-   the portal paints teal while the same class in the staff console and the
-   wizards is untouched. Nothing is redefined at :root, so this cannot leak.
-
-   The bands alternate cream, white and teal-surface and the footer sits on
-   ink, following docs/mockups/landing-camleap-canonical.html. Its decoration
-   is not taken: no tricolour stripe, no rotated cards, no shadows, no large
-   radii — and not its typefaces. The app stays on Inter. */
+   shared tokens are re-pointed on .page, so a .cam-button rendered inside the
+   portal paints teal while the same class in the staff console and the
+   wizards is untouched. Nothing is redefined at :root, so this cannot leak. */
 
 .page {
   --cam-bg: var(--cam-portal-cream);
@@ -25,57 +25,192 @@
   --cam-success: var(--cam-portal-teal);
   --cam-gold: var(--cam-portal-yellow);
   --cam-error: var(--cam-portal-red);
-  /* --cam-focus is left alone on purpose: the palette's yellow is 1.6:1
-     against cream, and a focus ring is not a place to trade contrast for
-     hue. It keeps the gold the rest of the app uses. */
 
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   background: var(--cam-bg);
   color: var(--cam-text);
-  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+}
+
+/* The masthead is on every route now, so the keyboard path to the content
+   runs past the whole nav on each one. */
+.skipLink {
+  position: absolute;
+  left: var(--cam-space-4);
+  top: var(--cam-sr-offset);
+  z-index: 1;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: none;
+  transform: translateY(-120%);
+}
+
+.skipLink:focus {
+  transform: none;
 }
 
 /* ── Masthead ───────────────────────────────────────────────────────────── */
 
+/* Not sticky: a government portal's header is not a product's. The reference
+   mockup's header scrolls away with the page, and a pinned bar costs a fifth
+   of a phone viewport on a page whose job is reading. */
 .masthead {
   border-bottom: var(--cam-border-width) solid var(--cam-border);
-  padding: var(--cam-space-4) 0;
+  background: var(--cam-portal-cream);
 }
 
 .mastheadInner {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--cam-space-5);
   flex-wrap: wrap;
+  gap: var(--cam-space-4);
+  padding-block: var(--cam-space-3);
+}
+
+/* ── The front-door lockup (docs/standards/brand.md) ──
+   Both marks as one unit: the ONEFOP emblem, a thin rule, the CAMLEAP
+   wordmark, and the endorsement under them. The emblem is never drawn below
+   --cam-brand-emblem-min (56px) — below that its ring lettering is a smear. */
+.mastheadBrand {
+  display: flex;
+  align-items: center;
+}
+
+.brandLockupLink {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.brandEmblem {
+  width: var(--cam-brand-emblem-min);
+  height: var(--cam-brand-emblem-min);
+  flex: none;
+  object-fit: contain;
+}
+
+.brandRule {
+  width: var(--cam-border-width);
+  height: var(--cam-space-6);
+  flex: none;
+  background: var(--cam-border);
+}
+
+.brandMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-hairline);
+}
+
+.brandTitleRow {
+  display: flex;
+  align-items: center;
+}
+
+.brandWordmark {
+  display: block;
+  width: auto;
+  height: 22px;
 }
 
 .endorsement {
-  font-size: var(--cam-font-size-xs);
+  margin: 0;
+  font-size: var(--cam-font-size-2xs);
   color: var(--cam-text-muted);
-  margin: var(--cam-space-2) 0 0;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-5);
+  margin-inline-start: auto;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.nav a {
+  padding-bottom: var(--cam-space-1);
+  border-bottom: 2px solid transparent;
+  color: var(--cam-text-muted);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  border-bottom-color: var(--cam-gold);
+  color: var(--cam-text);
+}
+
+/* The current route, not a hover state: the only thing on the page that says
+   which of the five views the visitor is in. */
+.nav a.navCurrent {
+  border-bottom-color: var(--cam-green);
+  color: var(--cam-text);
 }
 
 .mastheadActions {
   display: flex;
   align-items: center;
-  gap: var(--cam-space-4);
+  gap: var(--cam-space-3);
 }
 
-/* ── Shell ──────────────────────────────────────────────────────────────── */
+.menuToggle {
+  display: none;
+  height: var(--cam-form-field-height);
+  padding-inline: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: transparent;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+
+.menuDrawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  padding-bottom: var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.menuDrawer a {
+  color: var(--cam-text);
+  text-decoration: none;
+}
+
+.menuDrawer a:hover {
+  text-decoration: underline;
+}
+
+/* ── Bands ──────────────────────────────────────────────────────────────── */
 
 .wrap {
-  max-width: 1040px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 0 var(--cam-space-5);
+  padding-inline: var(--cam-space-5);
 }
 
 .section {
-  padding: var(--cam-space-7) 0;
+  padding-block: var(--cam-space-7);
   border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
-/* The ground is what separates one band from the next; the rule only does
-   the work where two bands of the same colour meet. */
+/* The ground separates one band from the next; the rule only does the work
+   where two bands of the same colour meet. */
 .bandCream {
   background: var(--cam-portal-cream);
 }
@@ -88,15 +223,15 @@
   background: var(--cam-portal-teal-surface);
 }
 
-/* The one dark ground in the page body. Text colours are re-pointed rather
-   than set per element, so the band's children keep using the same tokens the
-   light bands do. */
+/* The dark ground. Text colours are re-pointed rather than set per element,
+   so the band's children keep using the tokens the light bands use. */
 .bandInk {
   background: var(--cam-portal-ink);
   border-bottom-color: var(--cam-portal-ink-line);
   --cam-text: var(--cam-portal-on-ink);
   --cam-text-muted: var(--cam-portal-on-ink-muted);
   --cam-border: var(--cam-portal-ink-line);
+  --cam-surface: var(--cam-portal-ink);
   color: var(--cam-text);
 }
 
@@ -104,68 +239,71 @@
   color: var(--cam-portal-on-ink);
 }
 
+/* ── Type ───────────────────────────────────────────────────────────────── */
+
 .eyebrow {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-text-muted);
   margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: var(--cam-tracking-kicker);
+  color: var(--cam-text-muted);
 }
 
 .title {
-  font-size: var(--cam-font-size-3xl);
-  line-height: 1.25;
-  font-weight: 600;
-  letter-spacing: -0.015em;
   margin: 0 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-3xl);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-title);
+  letter-spacing: var(--cam-tracking-tight);
 }
 
 .heading {
-  font-size: var(--cam-font-size-lg);
-  line-height: 1.35;
-  font-weight: 600;
   margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-title);
 }
 
 .lede {
-  font-size: var(--cam-font-size-lg);
-  font-weight: 400;
-  line-height: 1.6;
   max-width: 68ch;
   margin: 0 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-lg);
+  line-height: var(--cam-line-height-copy);
 }
 
 .intro {
-  color: var(--cam-text-muted);
   max-width: 68ch;
   margin: 0 0 var(--cam-space-4);
+  color: var(--cam-text-muted);
+  line-height: var(--cam-line-height-copy);
 }
 
-/* ── Status line ────────────────────────────────────────────────────────── */
+/* ── State, said the same way everywhere ────────────────────────────────── */
 
 .status {
   display: inline-flex;
   align-items: center;
   gap: var(--cam-space-2);
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
   margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
 }
 
 .deadline {
   color: var(--cam-text-muted);
-  font-weight: 400;
+  font-weight: var(--cam-font-weight-regular);
 }
 
 .deadline::before {
   content: "·";
-  margin: 0 var(--cam-space-2);
+  margin-inline: var(--cam-space-2);
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: var(--cam-space-2);
+  height: var(--cam-space-2);
   flex: none;
+  border-radius: var(--cam-radius-full);
 }
 
 .dotLive {
@@ -193,200 +331,12 @@
   color: var(--cam-text-muted);
 }
 
-/* ── The three doors ────────────────────────────────────────────────────── */
-
-.doors {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cam-space-5);
-  margin-top: var(--cam-space-5);
-}
-
-/* A door is bounded because it is a choice between parallel routes, not
-   decoration: the border is what makes the three read as alternatives. */
-.door {
-  border: var(--cam-border-width) solid var(--cam-border);
-  padding: var(--cam-space-5);
-  display: flex;
-  flex-direction: column;
-}
-
-.doorBody {
-  flex: 1;
-}
-
-.doorEyebrow {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-text-muted);
-  margin: 0 0 var(--cam-space-2);
-}
-
-.doorTitle {
-  font-size: var(--cam-font-size-base);
-  font-weight: 600;
-  margin: 0 0 var(--cam-space-2);
-}
-
-.doorDesc {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
-  margin: 0 0 var(--cam-space-2);
-}
-
-.doorRequirement {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-  margin: 0;
-}
-
-.doorAction {
-  margin-top: var(--cam-space-5);
-}
-
-/* ── Notices ────────────────────────────────────────────────────────────── */
-
-/* White cards on the teal band, each opened by a coloured rule — the one
-   piece of the mockup's card treatment that carries meaning rather than
-   decoration: red marks the obligation, teal the receipt. */
-.notice {
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-left: 3px solid var(--cam-green);
-  background: var(--cam-surface);
-  padding: var(--cam-space-4);
-  font-size: var(--cam-font-size-sm);
-  line-height: 1.55;
-}
-
-.noticeObligation {
-  border-left-color: var(--cam-error);
-}
-
-.notice + .notice {
-  margin-top: var(--cam-space-4);
-}
-
-.notice p {
-  margin: 0;
-}
-
-.noticeLabel {
-  font-weight: 600;
-}
-
-/* ── Roadmap ────────────────────────────────────────────────────────────── */
-
-.roadmap {
-  list-style: none;
-  margin: var(--cam-space-5) 0 0;
-  padding: 0;
-}
-
-.phase {
-  border-top: var(--cam-border-width) solid var(--cam-border);
-  padding: var(--cam-space-4) 0;
-}
-
-.phase:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.phaseHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--cam-space-4);
-  margin-bottom: var(--cam-space-2);
-  flex-wrap: wrap;
-}
-
-.phaseTitle {
-  font-size: var(--cam-font-size-base);
-  font-weight: 600;
-  margin: 0;
-}
-
-.phaseDesc {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
-  margin: 0;
-  max-width: 76ch;
-}
-
-/* ── Help ───────────────────────────────────────────────────────────────── */
-
-.helpChannel {
-  font-size: var(--cam-font-size-sm);
-  margin: 0;
-}
-
-/* ── Footer ─────────────────────────────────────────────────────────────── */
-
-/* The only dark ground on the page, and the one place the palette needs its
-   own neutrals: --cam-text-muted is tuned for a light background and all but
-   vanishes here. */
-.footer {
-  background: var(--cam-portal-ink);
-  color: var(--cam-portal-on-ink);
-  border-top: var(--cam-border-width) solid var(--cam-portal-ink-line);
-  padding: var(--cam-space-6) 0;
-  font-size: var(--cam-font-size-sm);
-}
-
-.footer a,
-.footer a:hover {
+.stateAvailable {
   color: var(--cam-portal-on-ink);
 }
 
-.footerRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--cam-space-5);
-  flex-wrap: wrap;
-}
-
-.footerMinistry {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-portal-on-ink-muted);
-  margin: var(--cam-space-1) 0 0;
-}
-
-@media (max-width: 900px) {
-  .doors {
-    grid-template-columns: 1fr;
-  }
-
-  .title {
-    font-size: var(--cam-font-size-xl);
-  }
-
-  .mastheadInner {
-    align-items: flex-start;
-  }
-}
-
-/* ── Masthead navigation ───────────────────────────────────────────────── */
-
-.nav {
-  display: flex;
-  gap: var(--cam-space-5);
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
-  flex-wrap: wrap;
-}
-
-.nav a {
-  color: var(--cam-text-muted);
-  text-decoration: none;
-  padding-bottom: var(--cam-space-1);
-  border-bottom: 2px solid transparent;
-}
-
-.nav a:hover {
-  color: var(--cam-text);
-  border-bottom-color: var(--cam-gold);
+.stateBuilding {
+  color: var(--cam-portal-yellow);
 }
 
 /* ── Hero ───────────────────────────────────────────────────────────────── */
@@ -398,93 +348,269 @@
   align-items: start;
 }
 
+.heroRequirement {
+  margin: 0 0 var(--cam-space-5);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-medium);
+}
+
 .heroActions {
   display: flex;
-  gap: var(--cam-space-3);
   flex-wrap: wrap;
+  gap: var(--cam-space-3);
   margin: 0 0 var(--cam-space-5);
 }
 
-/* The three eras, as one bounded column. No rotation and no shadow: the
-   reference mockup's treatment of these is decoration, and the sequence reads
-   perfectly well as a plain list. */
-.story {
+/* Paper -> digital, as two flat panels and an arrow. It carries its own
+   words rather than being decoration with an aria-label: the two states are
+   the point of the page, and a screen reader should get them. */
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+  max-width: 420px;
+  margin: 0;
+  padding: var(--cam-space-5);
+  background: var(--cam-portal-teal-surface);
   border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+
+.figurePanel {
+  padding: var(--cam-space-4);
   background: var(--cam-surface);
-  list-style: none;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+
+.figurePanelInk {
+  background: var(--cam-portal-ink);
+  border-color: var(--cam-portal-ink);
+  color: var(--cam-portal-on-ink);
+}
+
+.figureStep {
+  margin: 0 0 var(--cam-space-1);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: var(--cam-tracking-kicker);
+  color: var(--cam-text-muted);
+}
+
+.figurePanelInk .figureStep {
+  color: var(--cam-portal-on-ink-muted);
+}
+
+.figureTitle {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.figureArrow {
+  margin: 0;
+  text-align: center;
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+/* ── Status panel: what phase 1 actually does ───────────────────────────── */
+
+.statusPanel {
+  padding: var(--cam-space-5);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-left: var(--cam-space-1) solid var(--cam-green);
+  border-radius: 0 var(--cam-radius-md) var(--cam-radius-md) 0;
+}
+
+.statusList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cam-space-4);
   margin: 0;
   padding: 0;
+  list-style: none;
 }
 
-.storyStep {
-  padding: var(--cam-space-4) var(--cam-space-5);
-  border-top: var(--cam-border-width) solid var(--cam-border);
+.statusItem {
+  padding-inline-start: var(--cam-space-4);
+  border-inline-start: 2px solid var(--cam-border);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
 }
 
-.storyStep:first-child {
-  border-top: 0;
-}
+/* ── The journey: four steps, in order ──────────────────────────────────── */
 
-/* The present is tinted, so the column says at a glance where the platform
-   actually is. */
-.storyStepNow {
-  background: var(--cam-portal-teal-surface);
-}
-
-.storyEra {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-text-muted);
-  margin: 0 0 var(--cam-space-1);
-}
-
-.storyTitle {
-  font-size: var(--cam-font-size-base);
-  font-weight: 600;
-  margin: 0 0 var(--cam-space-1);
-}
-
-.storyDesc {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-  margin: 0;
-}
-
-/* ── Transformation ─────────────────────────────────────────────────────── */
-
-.steps {
+.journey {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--cam-space-5);
-  list-style: none;
   margin: var(--cam-space-5) 0 0;
   padding: 0;
+  list-style: none;
 }
 
-.step {
+/* A rule above each step rather than a card around it: four bordered boxes
+   for four words of label is the decoration CLAUDE.md §8 asks us to drop. */
+.journeyStep {
+  padding-top: var(--cam-space-3);
+  border-top: 2px solid var(--cam-green);
+}
+
+.journeyNumber {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-green);
+}
+
+.journeyTitle {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.journeyDesc {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+.journeyAction {
+  display: flex;
+  margin: var(--cam-space-5) 0 0;
+}
+
+/* ── The declaration routes ─────────────────────────────────────────────── */
+
+.doors {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--cam-space-5);
+  margin-top: var(--cam-space-5);
+}
+
+/* A door is bounded because it is a choice between parallel routes, not
+   decoration: the border is what makes the three read as alternatives. */
+.door {
+  display: flex;
+  flex-direction: column;
+  padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+
+.doorPlain {
+  background: var(--cam-portal-cream);
+}
+
+.doorSoft {
+  background: var(--cam-portal-teal-surface);
+}
+
+.doorInk {
+  background: var(--cam-portal-ink);
+  border-color: var(--cam-portal-ink);
+  --cam-text: var(--cam-portal-on-ink);
+  --cam-text-muted: var(--cam-portal-on-ink-muted);
+  --cam-border: var(--cam-portal-ink-line);
+  color: var(--cam-text);
+}
+
+.doorBody {
+  flex: 1;
+}
+
+.doorEyebrow {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: var(--cam-tracking-kicker);
+  color: var(--cam-text-muted);
+}
+
+.doorTitle {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-title);
+}
+
+.doorDesc {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+.doorRequirement {
+  margin: 0 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.doorAction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.doorDetails {
+  margin: 0;
+  text-align: center;
+}
+
+.detailsButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.detailsButton:hover {
+  color: var(--cam-text);
+}
+
+.doorInk a[class*="cam-button"] {
+  background: var(--cam-portal-on-ink);
+  color: var(--cam-portal-ink);
+}
+
+.doorInk a[class*="cam-button"]:hover {
+  background: var(--cam-portal-on-ink-muted);
+}
+
+.doorInk .detailsButton {
+  color: var(--cam-portal-on-ink-muted);
+}
+
+.doorInk .detailsButton:hover {
+  color: var(--cam-portal-on-ink);
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+
+/* A left rule rather than a box: inside a band, a second bordered rectangle
+   is a second frame. Red marks the obligation, teal the receipt, gold a
+   caveat — the colour carries the meaning, which is why it is there. */
+.notice {
+  padding: var(--cam-space-4);
   background: var(--cam-surface);
   border: var(--cam-border-width) solid var(--cam-border);
-  border-top: 2px solid var(--cam-green);
-  padding: var(--cam-space-4);
+  border-left: 3px solid var(--cam-green);
+  border-radius: 0 var(--cam-radius-md) var(--cam-radius-md) 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
 }
 
-.stepNumber {
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-text-muted);
-  margin: 0 0 var(--cam-space-2);
-}
-
-.stepTitle {
-  font-size: var(--cam-font-size-base);
-  font-weight: 600;
-  margin: 0 0 var(--cam-space-2);
-}
-
-.stepDesc {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-  margin: 0 0 var(--cam-space-3);
+.noticeObligation {
+  border-left-color: var(--cam-error);
 }
 
 .noticeCaveat {
@@ -492,7 +618,217 @@
   margin-top: var(--cam-space-5);
 }
 
-/* ── Progress, on the ink band ──────────────────────────────────────────── */
+.noticeCurrent {
+  margin-bottom: var(--cam-space-4);
+}
+
+.notice + .notice {
+  margin-top: var(--cam-space-4);
+}
+
+.notice p {
+  margin: 0;
+}
+
+.noticeLabel {
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+/* ── Why: the four-step transformation ──────────────────────────────────── */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--cam-space-5);
+  margin: var(--cam-space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  padding-top: var(--cam-space-3);
+  border-top: 2px solid var(--cam-green);
+}
+
+.stepNumber {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-green);
+}
+
+.stepTitle {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.stepDesc {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+/* ── The three eras ─────────────────────────────────────────────────────── */
+
+.story {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--cam-space-5);
+  margin: var(--cam-space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.storyStep {
+  padding-top: var(--cam-space-3);
+  border-top: 2px solid var(--cam-border);
+}
+
+.storyStepNow {
+  border-top-color: var(--cam-green);
+}
+
+.storyEra {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: var(--cam-tracking-kicker);
+  color: var(--cam-text-muted);
+}
+
+.storyTitle {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.storyDesc {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+/* ── Roadmap ────────────────────────────────────────────────────────────── */
+
+.roadmapGrid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: var(--cam-space-7);
+  align-items: start;
+}
+
+.oversight {
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+.console {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2);
+}
+
+.filter {
+  padding: var(--cam-space-2) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  background: transparent;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+
+.filter:hover {
+  color: var(--cam-text);
+}
+
+/* The pressed filter has to differ from the band it sits on, not only from
+   its unpressed siblings: on ink, a chip filled with the band's own colour
+   is invisible — the defect the reference mockup ships. */
+.filter[aria-pressed="true"] {
+  background: var(--cam-green);
+  border-color: var(--cam-green);
+  color: var(--cam-portal-on-ink);
+}
+
+.filterNote {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.stateCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--cam-space-4);
+}
+
+.stateCard {
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+
+.stateCardBody {
+  margin: var(--cam-space-2) 0 0;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.roadmap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cam-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phase {
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+}
+
+.phaseSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+  cursor: pointer;
+}
+
+.phaseSummary::marker,
+.phaseSummary::-webkit-details-marker {
+  content: "";
+  display: none;
+}
+
+.phaseTitle {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-title);
+}
+
+.phaseDesc {
+  margin: var(--cam-space-3) 0 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+/* ── What is done, what is not ──────────────────────────────────────────── */
 
 .progressGrid {
   display: grid;
@@ -502,165 +838,58 @@
 }
 
 .achievement {
-  border-left: 2px solid var(--cam-gold);
-  padding: var(--cam-space-1) 0 var(--cam-space-1) var(--cam-space-4);
   margin-bottom: var(--cam-space-3);
+  padding-inline-start: var(--cam-space-4);
+  border-inline-start: 2px solid var(--cam-portal-yellow);
   font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
 }
 
 .progressCards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--cam-space-4);
 }
 
 .progressCard {
-  border: var(--cam-border-width) solid var(--cam-portal-ink-line);
   padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
 }
 
 .progressCardTitle {
+  margin: var(--cam-space-2) 0;
   font-size: var(--cam-font-size-base);
-  font-weight: 600;
-  margin: var(--cam-space-3) 0 var(--cam-space-2);
+  font-weight: var(--cam-font-weight-semibold);
 }
 
 .progressCardBody {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-portal-on-ink-muted);
-  margin: 0 0 var(--cam-space-4);
-}
-
-/* The two states on the dark ground: the light-background greens and golds
-   lose too much contrast there, so each gets the band's own tone. */
-.stateAvailable {
-  color: var(--cam-portal-teal-surface);
-}
-
-.stateBuilding {
-  color: var(--cam-portal-yellow);
-}
-
-@media (max-width: 900px) {
-  .hero,
-  .progressGrid,
-  .progressCards {
-    grid-template-columns: 1fr;
-  }
-
-  .steps {
-    grid-template-columns: 1fr;
-  }
-
-  .nav {
-    display: none;
-  }
-}
-
-/* ── Nav current band ───────────────────────────────────────────────────── */
-
-.navCurrent {
-  color: var(--cam-text);
-  border-bottom-color: var(--cam-gold);
-}
-
-/* ── Roadmap console ────────────────────────────────────────────────────── */
-
-.roadmapGrid {
-  display: grid;
-  grid-template-columns: 0.85fr 1.15fr;
-  gap: var(--cam-space-7);
-  align-items: start;
-}
-
-.noticeCurrent {
-  border-left-color: var(--cam-green);
-  margin-top: var(--cam-space-5);
-}
-
-.oversight {
-  background: var(--cam-portal-teal-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  padding: var(--cam-space-4);
+  margin: 0 0 var(--cam-space-3);
   font-size: var(--cam-font-size-sm);
-  margin-top: var(--cam-space-4);
-}
-
-.console {
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  padding: var(--cam-space-5);
-}
-
-.filters {
-  display: flex;
-  gap: var(--cam-space-2);
-  flex-wrap: wrap;
-}
-
-.filter {
-  font: inherit;
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
-  color: var(--cam-text);
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-control, 2px);
-  padding: var(--cam-space-2) var(--cam-space-4);
-  cursor: pointer;
-}
-
-.filter:hover {
-  border-color: var(--cam-border-strong);
-}
-
-/* The pressed filter is filled, not merely outlined: aria-pressed carries the
-   state for assistive technology, and the fill is the same fact drawn. */
-.filter[aria-pressed="true"] {
-  background: var(--cam-text);
-  border-color: var(--cam-text);
-  color: var(--cam-surface);
-}
-
-.filterNote {
-  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-copy);
   color: var(--cam-text-muted);
-  /* Reserved so the band does not jump by a line when the note changes. */
-  min-height: 1.5em;
-  margin: var(--cam-space-3) 0 var(--cam-space-4);
 }
 
-.phaseSummary {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--cam-space-4);
-  cursor: pointer;
-  flex-wrap: wrap;
+/* ── Support ────────────────────────────────────────────────────────────── */
+
+.helpChannel {
+  margin: 0 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
 }
 
-.phaseSummary::marker,
-.phaseSummary::-webkit-details-marker {
-  content: "";
-}
-
-.phase details[open] .phaseSummary {
-  margin-bottom: var(--cam-space-2);
-}
-
-/* ── Dialog ─────────────────────────────────────────────────────────────── */
+/* ── Pathway dialog ─────────────────────────────────────────────────────── */
 
 .dialog {
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-control, 2px);
+  max-width: 520px;
   padding: 0;
-  width: min(92vw, 520px);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
   background: var(--cam-surface);
   color: var(--cam-text);
 }
 
 .dialog::backdrop {
-  background: color-mix(in srgb, var(--cam-portal-ink) 55%, transparent);
+  background: var(--cam-scrim);
 }
 
 .dialogBody {
@@ -669,12 +898,9 @@
 
 .dialogHead {
   display: flex;
+  align-items: start;
   justify-content: space-between;
-  align-items: center;
   gap: var(--cam-space-4);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
-  padding-bottom: var(--cam-space-3);
-  margin-bottom: var(--cam-space-4);
 }
 
 .dialogHead .eyebrow {
@@ -682,64 +908,106 @@
 }
 
 .dialogTitle {
+  margin: var(--cam-space-3) 0 var(--cam-space-4);
   font-size: var(--cam-font-size-lg);
-  font-weight: 600;
-  margin: 0 0 var(--cam-space-4);
+  font-weight: var(--cam-font-weight-semibold);
 }
 
 .dialogRow {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
   margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
 }
 
 .dialogRow:last-child {
   margin-bottom: 0;
 }
 
-/* A text action, defined here because .cam-text-button lives in
-   admin-console.css and the landing page does not load it. */
-.detailsButton {
-  font: inherit;
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  color: var(--cam-green);
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.detailsButton:hover {
-  color: var(--cam-green-dark);
-}
-
 .dialogClose {
-  font: inherit;
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
-  color: var(--cam-text);
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border-strong);
-  border-radius: var(--cam-radius-control);
+  flex: none;
   padding: var(--cam-space-1) var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: transparent;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
   cursor: pointer;
 }
 
 .dialogClose:hover {
-  background: var(--cam-portal-cream-light);
+  background: var(--cam-portal-cream);
 }
 
-.doorDetails {
-  margin: var(--cam-space-3) 0 0;
-  text-align: center;
-  font-size: var(--cam-font-size-xs);
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+.footer {
+  padding-block: var(--cam-space-6);
+  background: var(--cam-portal-ink);
+  border-top: var(--cam-border-width) solid var(--cam-portal-ink-line);
+  color: var(--cam-portal-on-ink);
+  font-size: var(--cam-font-size-sm);
 }
+
+.footer a,
+.footer a:hover {
+  color: var(--cam-portal-on-ink);
+}
+
+.footerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cam-space-5);
+}
+
+.footerMinistry {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-portal-on-ink-muted);
+}
+
+.footerNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-4);
+}
+
+.footerNav a {
+  text-decoration: underline;
+}
+
+/* ── Narrow viewports ───────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  .roadmapGrid {
+  .hero,
+  .roadmapGrid,
+  .progressGrid,
+  .doors,
+  .journey,
+  .steps,
+  .story,
+  .roadmap,
+  .statusList,
+  .stateCards {
     grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: var(--cam-font-size-xl);
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .menuToggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .mastheadActions {
+    margin-inline-start: auto;
   }
 }

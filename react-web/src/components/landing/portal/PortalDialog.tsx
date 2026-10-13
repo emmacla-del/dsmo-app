@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import styles from "../portal.module.css";
