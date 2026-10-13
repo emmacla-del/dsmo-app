@@ -331,6 +331,33 @@
   color: var(--cam-text-muted);
 }
 
+/* On ink the notice has no lighter ground to sit on, so its left rule is the
+   only thing marking it. Teal disappears there; white does not. */
+.bandInk .notice {
+  border-left-color: var(--cam-portal-on-ink);
+}
+
+.bandInk .stateLive {
+  color: var(--cam-portal-on-ink);
+}
+
+.bandInk .stateNext {
+  color: var(--cam-portal-yellow);
+}
+
+.bandInk .statePlanned {
+  color: var(--cam-portal-on-ink-muted);
+}
+
+.bandInk .dotLive {
+  background: var(--cam-portal-on-ink);
+}
+
+.bandInk .dotPlanned {
+  background: transparent;
+  border-color: var(--cam-portal-on-ink-muted);
+}
+
 .stateAvailable {
   color: var(--cam-portal-on-ink);
 }
@@ -483,83 +510,76 @@
   margin: var(--cam-space-5) 0 0;
 }
 
-/* ── The declaration routes ─────────────────────────────────────────────── */
+/* ── The declaration flow ───────────────────────────────────────────────
+   One frame, as the reference mockup has it: the view's header, a panel of
+   the routes stacked full width, and the way on at the bottom. Stacked
+   rather than three cards side by side — the routes are not a menu to
+   compare, they are three answers to "which one am I", and the one that
+   applies is read, not weighed. */
 
-.doors {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cam-space-5);
-  margin-top: var(--cam-space-5);
-}
-
-/* A door is bounded because it is a choice between parallel routes, not
-   decoration: the border is what makes the three read as alternatives. */
-.door {
-  display: flex;
-  flex-direction: column;
-  padding: var(--cam-space-5);
+.flowFrame {
+  max-width: 760px;
   border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
 }
 
-.doorPlain {
-  background: var(--cam-portal-cream);
+.flowHeader {
+  padding: var(--cam-space-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
-.doorSoft {
-  background: var(--cam-portal-teal-surface);
+.flowPanel {
+  padding: var(--cam-space-5);
 }
 
-.doorInk {
-  background: var(--cam-portal-ink);
-  border-color: var(--cam-portal-ink);
-  --cam-text: var(--cam-portal-on-ink);
-  --cam-text-muted: var(--cam-portal-on-ink-muted);
-  --cam-border: var(--cam-portal-ink-line);
-  color: var(--cam-text);
-}
-
-.doorBody {
-  flex: 1;
-}
-
-.doorEyebrow {
-  margin: 0 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-2xs);
-  font-weight: var(--cam-font-weight-semibold);
-  letter-spacing: var(--cam-tracking-kicker);
-  color: var(--cam-text-muted);
-}
-
-.doorTitle {
-  margin: 0 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-lg);
-  font-weight: var(--cam-font-weight-semibold);
-  line-height: var(--cam-line-height-title);
-}
-
-.doorDesc {
-  margin: 0 0 var(--cam-space-3);
+.flowHint {
+  margin: 0;
   font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-copy);
   color: var(--cam-text-muted);
 }
 
-.doorRequirement {
-  margin: 0 0 var(--cam-space-4);
+.actionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  margin: var(--cam-space-5) 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A rule between rows, not a box around each: the panel is already the
+   boundary, and a bordered row inside a bordered panel is a second frame. */
+.actionRow + .actionRow {
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.actionRowTitle {
+  margin: 0 0 var(--cam-space-1);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.actionRowDesc {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+.actionRowRequirement {
+  margin: 0 0 var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   font-weight: var(--cam-font-weight-semibold);
 }
 
-.doorAction {
+.actionRowActions {
   display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-2);
-}
-
-.doorDetails {
-  margin: 0;
-  text-align: center;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-4);
 }
 
 .detailsButton {
@@ -577,21 +597,51 @@
   color: var(--cam-text);
 }
 
-.doorInk a[class*="cam-button"] {
-  background: var(--cam-portal-on-ink);
-  color: var(--cam-portal-ink);
+.flowDock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
 }
 
-.doorInk a[class*="cam-button"]:hover {
-  background: var(--cam-portal-on-ink-muted);
+/* ── Questions and answers ──────────────────────────────────────────────── */
+
+.faq {
+  margin: var(--cam-space-5) 0 0;
+  max-width: 760px;
 }
 
-.doorInk .detailsButton {
-  color: var(--cam-portal-on-ink-muted);
+.faqItem {
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
-.doorInk .detailsButton:hover {
-  color: var(--cam-portal-on-ink);
+.faqSummary {
+  padding-block: var(--cam-space-4);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+
+.faqAnswer {
+  margin: 0;
+  padding-bottom: var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text-muted);
+}
+
+/* ── A bordered panel ───────────────────────────────────────────────────── */
+
+/* The one card shape the portal has, for the two places that genuinely hold a
+   block apart from the band around it: the About view's statement of intent
+   and the Support view's contact details. */
+.panel {
+  max-width: 760px;
+  padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
 }
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
@@ -713,11 +763,16 @@
 
 /* ── Roadmap ────────────────────────────────────────────────────────────── */
 
-.roadmapGrid {
+/* The band's own intro: the current phase and who oversees the programme,
+   side by side above the filters rather than in a column beside them — on
+   ink, a narrow column of body text beside a grid of cards reads as a
+   sidebar, and this is not one. */
+.roadmapIntroRow {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: var(--cam-space-7);
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cam-space-5);
   align-items: start;
+  margin-bottom: var(--cam-space-5);
 }
 
 .oversight {
@@ -768,24 +823,6 @@
   color: var(--cam-text-muted);
 }
 
-.stateCards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cam-space-4);
-}
-
-.stateCard {
-  padding: var(--cam-space-4);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-md);
-}
-
-.stateCardBody {
-  margin: var(--cam-space-2) 0 0;
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-}
-
 .roadmap {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -812,6 +849,14 @@
 .phaseSummary::-webkit-details-marker {
   content: "";
   display: none;
+}
+
+.phaseIndex {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: var(--cam-tracking-kicker);
+  color: var(--cam-text-muted);
 }
 
 .phaseTitle {
@@ -982,7 +1027,7 @@
 
 @media (max-width: 900px) {
   .hero,
-  .roadmapGrid,
+  .roadmapIntroRow,
   .progressGrid,
   .doors,
   .journey,

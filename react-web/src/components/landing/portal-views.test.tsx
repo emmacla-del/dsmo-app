@@ -4,7 +4,7 @@ import { renderWithProviders, screen, fireEvent, within } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PortalHero } from "./portal/PortalHero";
-import { PortalDoors } from "./portal/PortalDoors";
+import { PortalDeclare } from "./portal/PortalDeclare";
 import { PortalNotices } from "./portal/PortalNotices";
 import { PortalRoadmap } from "./portal/PortalRoadmap";
 import type { OpenCampaign } from "@/lib/api-client";
@@ -20,7 +20,7 @@ const OPEN_CAMPAIGNS: [unknown[], OpenCampaign[]][] = [
 ];
 
 test("the front door offers all three routes, with the declaration kind in the link", () => {
-  renderWithProviders(<PortalDoors />);
+  renderWithProviders(<PortalDeclare />);
 
   // The two declaration doors carry the establishment kind, so step 1 of the
   // registration does not ask again (src/app/register/page.tsx).
@@ -97,7 +97,7 @@ test("a roadmap filter narrows the phases and says so", () => {
 });
 
 test("a pathway dialog opens with what that route involves, and closes again", async () => {
-  const { user } = renderWithProviders(<PortalDoors />);
+  const { user } = renderWithProviders(<PortalDeclare />);
 
   const dialog = () =>
     document.querySelector("dialog[aria-labelledby='portal-dialog-door2']") as HTMLDialogElement;
