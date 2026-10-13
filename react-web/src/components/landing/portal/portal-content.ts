@@ -56,20 +56,22 @@ export const PORTAL_JOURNEY = ["journey1", "journey2", "journey3", "journey4"] a
 // receipts live inside the account — there is no public lookup, so it says so
 // rather than asking for a reference it cannot resolve.
 export interface PortalDoor {
-  /** Message-key stem: portalPage.<key>Eyebrow / Title / Desc / Requirement / Action. */
+  /** Message-key stem: portalPage.<key>Title / Desc / Requirement / Action,
+      plus <key>Audience / Outcome in the pathway dialog. */
   key: "door1" | "door2" | "door3";
   href: string;
   variant: "primary" | "secondary";
-  /** The ground the card sits on: the three routes are not interchangeable,
-      and the reference mockup separates them by colour rather than by size. */
-  tone: "plain" | "soft" | "ink";
 }
 
 export const PORTAL_DOORS: PortalDoor[] = [
-  { key: "door1", href: "/register?type=enterprise", variant: "primary", tone: "plain" },
-  { key: "door2", href: "/register?type=vocationalTraining", variant: "primary", tone: "soft" },
-  { key: "door3", href: "/login", variant: "secondary", tone: "ink" },
+  { key: "door1", href: "/register?type=enterprise", variant: "primary" },
+  { key: "door2", href: "/register?type=vocationalTraining", variant: "primary" },
+  { key: "door3", href: "/login", variant: "secondary" },
 ];
+
+/** The three things people ask before declaring. Message-key stems:
+    portalPage.<key>Question / Answer. */
+export const PORTAL_FAQ = ["faq1", "faq2", "faq3"] as const;
 
 // ── Roadmap ───────────────────────────────────────────────────────────────
 

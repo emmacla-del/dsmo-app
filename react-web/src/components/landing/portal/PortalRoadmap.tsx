@@ -6,15 +6,16 @@ import { PORTAL_PHASES, type PortalPhaseState } from "./portal-content";
 import { PortalStatus } from "./PortalStatus";
 import styles from "../portal.module.css";
 
-// The programme's four phases, each with the state it is actually in. This
-// sits below the doors on purpose: a declarant under a deadline should not
-// have to scroll past the roadmap to reach their declaration.
+// The programme's four phases, each carrying the state it is actually in, on
+// the one dark ground in the page body — the reference mockup's own treatment
+// for this view.
 //
-// The phases are <details> rather than a plain list so the four titles can be
-// scanned without four paragraphs in the way, and the filter narrows them to
-// one state at a time. Filtering is a visual change with no visible control
-// to announce it, so the count goes through a live region — otherwise a
-// screen-reader user presses "Planifiées" and nothing is said at all.
+// The phases are cards rather than accordions: there are four of them and
+// three lines each, so hiding the text behind a disclosure buys nothing and
+// costs a click. The filter narrows them to one state at a time. Filtering is
+// a visual change with no visible control of its own to announce, so the count
+// goes through a live region — otherwise a screen-reader user presses
+// "Planifiées" and nothing is said at all.
 
 type Filter = "all" | PortalPhaseState;
 
@@ -25,12 +26,6 @@ const FILTERS: { value: Filter; labelKey: string }[] = [
   { value: "planned", labelKey: "portalPage.filterPlanned" },
 ];
 
-const STATE_CARDS: { key: string; state: PortalPhaseState }[] = [
-  { key: "stateCard1", state: "live" },
-  { key: "stateCard2", state: "next" },
-  { key: "stateCard3", state: "planned" },
-];
-
 export function PortalRoadmap() {
   const t = useTranslations();
   const [filter, setFilter] = useState<Filter>("all");
@@ -39,23 +34,23 @@ export function PortalRoadmap() {
   const activeLabel = FILTERS.find((entry) => entry.value === filter)?.labelKey;
 
   return (
-    <section id="feuille" className={`${styles.section} ${styles.bandWhite}`}>
-      <div className={`${styles.wrap} ${styles.roadmapGrid}`}>
-        <div>
-          <p className={styles.eyebrow}>{t("portalPage.roadmapEyebrow")}</p>
-          <h1 className={styles.title}>{t("portalPage.roadmapHeading")}</h1>
-          <p className={styles.intro}>{t("portalPage.roadmapIntro")}</p>
+    <section className={`${styles.section} ${styles.bandInk}`}>
+      <div className={styles.wrap}>
+        <p className={styles.eyebrow}>{t("portalPage.roadmapEyebrow")}</p>
+        <h1 className={styles.title}>{t("portalPage.roadmapHeading")}</h1>
+        <p className={styles.intro}>{t("portalPage.roadmapIntro")}</p>
 
+        <div className={styles.roadmapIntroRow}>
           <div className={`${styles.notice} ${styles.noticeCurrent}`}>
             <p className={styles.eyebrow}>{t("portalPage.roadmapCurrentLabel")}</p>
             <p className={styles.phaseTitle}>{t("portalPage.roadmapCurrentTitle")}</p>
             <p className={styles.phaseDesc}>{t("portalPage.roadmapCurrentBody")}</p>
           </div>
 
-          <div className={styles.oversight}>
+          <p className={styles.oversight}>
             <span className={styles.noticeLabel}>{t("portalPage.roadmapOversightLabel")}</span>{" "}
             {t("portalPage.roadmapOversightBody")}
-          </div>
+          </p>
         </div>
 
         <div className={styles.console}>
@@ -73,17 +68,6 @@ export function PortalRoadmap() {
             ))}
           </div>
 
-          {/* The three states at a glance, so the console says what the
-              filters are filtering before anything is pressed. */}
-          <div className={styles.stateCards}>
-            {STATE_CARDS.map(({ key, state }) => (
-              <div key={key} className={styles.stateCard}>
-                <PortalStatus state={state}>{t(`portalPage.${key}Title`)}</PortalStatus>
-                <p className={styles.stateCardBody}>{t(`portalPage.${key}Body`)}</p>
-              </div>
-            ))}
-          </div>
-
           <p className={styles.filterNote} role="status">
             {filter === "all"
               ? t("portalPage.filterAllNote")
@@ -96,13 +80,12 @@ export function PortalRoadmap() {
           <ul className={styles.roadmap} aria-label={t("portalPage.roadmapListLabel")}>
             {shown.map(({ key, state }) => (
               <li key={key} className={styles.phase}>
-                <details>
-                  <summary className={styles.phaseSummary}>
-                    <span className={styles.phaseTitle}>{t(`portalPage.${key}Title`)}</span>
-                    <PortalStatus state={state}>{t(`portalPage.${key}Status`)}</PortalStatus>
-                  </summary>
-                  <p className={styles.phaseDesc}>{t(`portalPage.${key}Desc`)}</p>
-                </details>
+                <p className={styles.phaseIndex}>
+                  {String(PORTAL_PHASES.findIndex((phase) => phase.key === key) + 1).padStart(2, "0")}
+                </p>
+                <h2 className={styles.phaseTitle}>{t(`portalPage.${key}Title`)}</h2>
+                <p className={styles.phaseDesc}>{t(`portalPage.${key}Desc`)}</p>
+                <PortalStatus state={state}>{t(`portalPage.${key}Status`)}</PortalStatus>
               </li>
             ))}
           </ul>

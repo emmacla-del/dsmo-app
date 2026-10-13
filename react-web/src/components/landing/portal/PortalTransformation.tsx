@@ -18,7 +18,7 @@ export function PortalTransformation() {
     <section id="pourquoi" className={`${styles.section} ${styles.bandCream}`}>
       <div className={styles.wrap}>
         <p className={styles.eyebrow}>{t("portalPage.transformEyebrow")}</p>
-        <h1 className={styles.title}>{t("portalPage.transformHeading")}</h1>
+        <h2 className={styles.heading}>{t("portalPage.transformHeading")}</h2>
         <p className={styles.intro}>{t("portalPage.transformIntro")}</p>
 
         <ol className={styles.steps}>
