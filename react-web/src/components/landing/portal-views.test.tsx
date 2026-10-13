@@ -1,9 +1,12 @@
 // renderWithProviders first: it sets jsdom up for this file, and `screen`
 // must bind to that document rather than to nothing.
-import { renderWithProviders, screen } from "@/test/render";
+import { renderWithProviders, screen, fireEvent, within } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Portal } from "./Portal";
+import { PortalHero } from "./portal/PortalHero";
+import { PortalDoors } from "./portal/PortalDoors";
+import { PortalNotices } from "./portal/PortalNotices";
+import { PortalRoadmap } from "./portal/PortalRoadmap";
 import type { OpenCampaign } from "@/lib/api-client";
 
 const OPEN_CAMPAIGNS: [unknown[], OpenCampaign[]][] = [
@@ -17,7 +20,7 @@ const OPEN_CAMPAIGNS: [unknown[], OpenCampaign[]][] = [
 ];
 
 test("the front door offers all three routes, with the declaration kind in the link", () => {
-  renderWithProviders(<Portal />);
+  renderWithProviders(<PortalDoors />);
 
   // The two declaration doors carry the establishment kind, so step 1 of the
   // registration does not ask again (src/app/register/page.tsx).
@@ -38,7 +41,7 @@ test("the front door offers all three routes, with the declaration kind in the l
 });
 
 test("the authority statement is on the page, in both its parts", () => {
-  renderWithProviders(<Portal />);
+  renderWithProviders(<PortalNotices />);
 
   assert.ok(
     screen.getByText(/seules les déclarations transmises par CAMLEAP/i),
@@ -57,13 +60,14 @@ test("the authority statement is on the page, in both its parts", () => {
 });
 
 test("the four phases are named, each carrying its own state", () => {
-  renderWithProviders(<Portal />);
+  renderWithProviders(<PortalRoadmap />);
 
   // Scoped to the phase rather than to the page: the roadmap's filter buttons
   // are labelled with the same state names on purpose, so "En service" exists
   // twice over and a bare getByText would be ambiguous.
   const stateOf = (title: RegExp) => {
-    const phase = screen.getByText(title).closest("li");
+    const elements = screen.getAllByText(title);
+    const phase = elements.map(el => el.closest("li")).find(Boolean);
     assert.ok(phase, `phase not found: ${title}`);
     return phase.textContent ?? "";
   };
@@ -74,23 +78,26 @@ test("the four phases are named, each carrying its own state", () => {
   assert.match(stateOf(/Phase 4 · Élargissement des sources/), /Vision/);
 });
 
-test("a roadmap filter narrows the phases and says so", async () => {
-  const { user } = renderWithProviders(<Portal />);
+test("a roadmap filter narrows the phases and says so", () => {
+  renderWithProviders(<PortalRoadmap />);
 
   assert.equal(screen.getAllByRole("group", { name: "Filtrer les étapes" }).length, 1);
-  await user.click(screen.getByRole("button", { name: "Prochaine étape" }));
+  fireEvent.click(screen.getByRole("button", { name: "Prochaine étape" }));
 
+  // Scoped to the phase list: the band also names the current phase in its
+  // own notice, which is phase 1 and stays there whatever the filter says.
+  const phases = within(screen.getByRole("list", { name: "Phases du programme" }));
   // Only phase 2 is "next", so the other three leave the list.
-  assert.equal(screen.queryByText(/Phase 1 · Numérisation/), null);
-  assert.ok(screen.getByText(/Phase 2 · Couche analytique/));
-  assert.equal(screen.queryByText(/Phase 4 · Élargissement/), null);
+  assert.equal(phases.queryByText(/Phase 1 · Numérisation/), null);
+  assert.ok(phases.getByText(/Phase 2 · Couche analytique/));
+  assert.equal(phases.queryByText(/Phase 4 · Élargissement/), null);
   // Filtering has no visible control state of its own to announce, so the
   // count goes through a live region.
   assert.match(screen.getByRole("status").textContent ?? "", /1 étape affichée/);
 });
 
 test("a pathway dialog opens with what that route involves, and closes again", async () => {
-  const { user } = renderWithProviders(<Portal />);
+  const { user } = renderWithProviders(<PortalDoors />);
 
   const dialog = () =>
     document.querySelector("dialog[aria-labelledby='portal-dialog-door2']") as HTMLDialogElement;
@@ -110,7 +117,7 @@ test("a pathway dialog opens with what that route involves, and closes again", a
 });
 
 test("with no campaign data the page says collection is open and names no date", () => {
-  renderWithProviders(<Portal />);
+  renderWithProviders(<PortalHero />);
 
   assert.ok(screen.getByText(/la collecte numérique est ouverte/));
   // The endpoint may be unreachable, or not deployed yet. Silence beats a
@@ -119,7 +126,7 @@ test("with no campaign data the page says collection is open and names no date",
 });
 
 test("the earliest closing date among the open collections is shown", () => {
-  renderWithProviders(<Portal />, { queryData: OPEN_CAMPAIGNS });
+  renderWithProviders(<PortalHero />, { queryData: OPEN_CAMPAIGNS });
 
   // 31 March, not 30 June: the next one to close, whichever collection it is.
   assert.ok(screen.getByText(/Prochaine clôture\s*:\s*31 mars 2026/));

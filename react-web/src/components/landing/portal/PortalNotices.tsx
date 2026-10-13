@@ -1,13 +1,12 @@
 import { useTranslations } from "next-intl";
 import styles from "../portal.module.css";
 
-// What a declaration commits you to, and what it returns. Two statements of
-// different kinds, so each is opened by its own rule: red for the obligation,
-// teal for the receipt.
+// The two statements a declarant has to be able to rely on: where a
+// declaration counts as filed, and what the platform gives back for one.
 //
-// Both are deliberately narrow. The receipt is "an official PDF carrying a
-// unique ONEFOP tracking number" and nothing more — no QR code, which nothing
-// in the backend generates (see docs/plans/landing-portal.md).
+// A left rule in the colour that carries the meaning — red for the deposit
+// rule, teal for the receipt — rather than an icon: a shield and a sheet of
+// paper say nothing the label does not, and an emoji is not a design system.
 
 export function PortalNotices() {
   const t = useTranslations();
@@ -21,6 +20,7 @@ export function PortalNotices() {
             {t("portalPage.authorityBody")}
           </p>
         </div>
+
         <div className={styles.notice}>
           <p>
             <span className={styles.noticeLabel}>{t("portalPage.receiptLabel")}</span>{" "}

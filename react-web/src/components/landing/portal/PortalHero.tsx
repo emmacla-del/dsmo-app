@@ -1,10 +1,22 @@
+"use client";
+
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { getOpenCampaigns } from "@/lib/api-client";
 import { nextCampaignDeadline } from "@/lib/portal-campaigns";
-import { PORTAL_STORY } from "./portal-content";
+import { PORTAL_ABOUT } from "./portal-content";
 import { PortalStatus } from "./PortalStatus";
 import styles from "../portal.module.css";
+
+// The first band of the Home view: what CAMLEAP is, what it replaces, and the
+// one thing a declarant has to know before anything else — that declaring
+// needs an account.
+//
+// The figure beside it is the reference mockup's paper -> digital idea, flat:
+// two panels and an arrow, carrying their own words rather than being
+// decoration with an aria-label. Where the collection came from and where it
+// is going at length is the About view's job, not the hero's.
 
 export function PortalHero() {
   const t = useTranslations();
@@ -35,14 +47,15 @@ export function PortalHero() {
           <p className={styles.eyebrow}>{t("portalPage.eyebrow")}</p>
           <h1 className={styles.title}>{t("portalPage.title")}</h1>
           <p className={styles.lede}>{t("portalPage.lede")}</p>
+          <p className={styles.heroRequirement}>{t("portalPage.heroRequirement")}</p>
 
           <p className={styles.heroActions}>
-            <a href="#parcours" className="cam-button cam-button-primary">
+            <Link href="/declarer" className="cam-button cam-button-primary">
               {t("portalPage.heroPrimaryAction")}
-            </a>
-            <a href="#pourquoi" className="cam-button cam-button-secondary">
+            </Link>
+            <Link href={PORTAL_ABOUT.href} className="cam-button cam-button-secondary">
               {t("portalPage.heroSecondaryAction")}
-            </a>
+            </Link>
           </p>
 
           <PortalStatus state="live">
@@ -55,23 +68,19 @@ export function PortalHero() {
           </PortalStatus>
         </div>
 
-        {/* Where the collection has come from and where it is going. Flat:
-            the reference mockup rotates these three cards and drops a shadow
-            behind them, which is the decoration this page leaves out. The
-            middle step carries the tint because it is the one that is true
-            today. */}
-        <ol className={styles.story} aria-label={t("portalPage.storyLabel")}>
-          {PORTAL_STORY.map((key, index) => (
-            <li
-              key={key}
-              className={`${styles.storyStep} ${index === 1 ? styles.storyStepNow : ""}`}
-            >
-              <p className={styles.storyEra}>{t(`portalPage.${key}Era`)}</p>
-              <h2 className={styles.storyTitle}>{t(`portalPage.${key}Title`)}</h2>
-              <p className={styles.storyDesc}>{t(`portalPage.${key}Desc`)}</p>
-            </li>
-          ))}
-        </ol>
+        <figure className={styles.figure}>
+          <div className={styles.figurePanel}>
+            <p className={styles.figureStep}>{t("portalPage.figureBeforeStep")}</p>
+            <p className={styles.figureTitle}>{t("portalPage.figureBeforeTitle")}</p>
+          </div>
+          <p className={styles.figureArrow} aria-hidden="true">
+            ↓
+          </p>
+          <div className={`${styles.figurePanel} ${styles.figurePanelInk}`}>
+            <p className={styles.figureStep}>{t("portalPage.figureAfterStep")}</p>
+            <p className={styles.figureTitle}>{t("portalPage.figureAfterTitle")}</p>
+          </div>
+        </figure>
       </div>
     </section>
   );

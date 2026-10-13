@@ -1,74 +1,101 @@
-import { useEffect, useState } from "react";
+"use client";
+
+// The masthead every portal route shares: the front-door lockup, the four
+// nav tabs, the language switch and the way in.
+//
+// The current tab comes from the pathname, not from a scroll observer: the
+// views are routes now, so "which one am I in" is a fact the router already
+// knows. On a narrow viewport the tabs collapse into a drawer the toggle
+// opens — the same links, not a second navigation.
+
+import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { BrandLockup } from "@/components/brand/BrandLockup";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { PORTAL_NAV } from "./portal-content";
 import styles from "../portal.module.css";
 
-// The lockup is BrandLockup, not a bare <img>: it owns the ONEFOP emblem's
-// 56px floor and the endorsement wording docs/standards/brand.md fixes.
-//
-// The nav marks which band is on screen. aria-current="true" rather than a
-// class alone, so the state is announced and not merely drawn; the underline
-// is what a sighted visitor sees of the same fact.
-
 export function PortalMasthead() {
   const t = useTranslations();
-  const [current, setCurrent] = useState<string | null>(null);
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // The observer is set up once: the bands it watches are rendered by sibling
-  // components, so it runs after the first paint rather than against a tree
-  // that does not exist yet. The band in the middle third of the viewport is
-  // the one considered current — a plain "is it visible" test lights two tabs
-  // at once wherever bands meet.
-  useEffect(() => {
-    const sections = PORTAL_NAV.map(({ target }) => document.getElementById(target)).filter(
-      (element): element is HTMLElement => element !== null,
+  const links = PORTAL_NAV.map(({ key, href }) => {
+    const current = pathname === href;
+    return (
+      <Link
+        key={key}
+        href={href}
+        className={current ? styles.navCurrent : undefined}
+        aria-current={current ? "page" : undefined}
+        onClick={() => setMenuOpen(false)}
+      >
+        {t(`portalPage.${key}`)}
+      </Link>
     );
-    // Without an observer the nav simply never marks a band, which is a
-    // missing nicety rather than a broken page — so no polyfill, and no
-    // throwing in an environment that does not have one (jsdom included).
-    if (sections.length === 0 || typeof IntersectionObserver === "undefined") return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setCurrent(entry.target.id);
-        }
-      },
-      { rootMargin: "-40% 0px -55% 0px" },
-    );
-    for (const section of sections) observer.observe(section);
-    return () => observer.disconnect();
-  }, []);
+  });
 
   return (
     <header className={styles.masthead}>
       <div className={`${styles.wrap} ${styles.mastheadInner}`}>
-        <div>
-          <BrandLockup size="hero" />
-          <p className={styles.endorsement}>{t("landingPage.endorsement")}</p>
+        {/* The front door shows both marks as one lockup: the ONEFOP emblem,
+            a thin rule, the CAMLEAP wordmark, the endorsement in words
+            underneath (docs/standards/brand.md). */}
+        <div className={styles.mastheadBrand}>
+          <Link href="/" className={styles.brandLockupLink}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/onefop_logo.png"
+              alt={t("landingPage.emblemLabel")}
+              width={56}
+              height={56}
+              className={styles.brandEmblem}
+            />
+            <span className={styles.brandRule} aria-hidden="true" />
+            <span className={styles.brandMeta}>
+              <span className={styles.brandTitleRow}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/camleap-logo.svg"
+                  alt="CAMLEAP"
+                  width={156}
+                  height={22}
+                  className={styles.brandWordmark}
+                />
+              </span>
+              <span className={styles.endorsement}>{t("portalPage.footerBody")}</span>
+            </span>
+          </Link>
         </div>
+
         <nav className={styles.nav} aria-label={t("portalPage.navLabel")}>
-          {PORTAL_NAV.map(({ key, target }) => (
-            <a
-              key={key}
-              href={`#${target}`}
-              className={current === target ? styles.navCurrent : undefined}
-              aria-current={current === target ? "true" : undefined}
-            >
-              {t(`portalPage.${key}`)}
-            </a>
-          ))}
+          {links}
         </nav>
+
         <div className={styles.mastheadActions}>
-          <Link href="/login" className="cam-button cam-button-secondary">
+          <Link href="/login" className="cam-button cam-button-primary">
             {t("portalPage.signInAction")}
           </Link>
-          <LocaleSwitcher variant="masthead" />
+          <LocaleSwitcher />
+          <button
+            type="button"
+            className={styles.menuToggle}
+            aria-expanded={menuOpen}
+            aria-controls="portal-menu"
+            aria-label={menuOpen ? t("portalPage.menuCloseLabel") : t("portalPage.menuOpenLabel")}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {t("portalPage.menuLabel")}
+          </button>
         </div>
       </div>
+
+      {menuOpen ? (
+        <nav id="portal-menu" className={`${styles.wrap} ${styles.menuDrawer}`} aria-label={t("portalPage.navLabel")}>
+          {links}
+        </nav>
+      ) : null}
     </header>
   );
 }
