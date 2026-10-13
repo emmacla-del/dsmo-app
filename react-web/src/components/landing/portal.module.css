@@ -33,8 +33,19 @@
   color: var(--cam-text);
 }
 
+/* A short page -- the roadmap filtered to one phase, say -- leaves free space
+   under the last band. The band grows into it rather than the page ground
+   showing through: between an ink band and the ink footer, a strip of cream
+   reads as a seam the page did not intend. flex-grow, not the flex shorthand,
+   so a long page's last band is never shrunk below its content. */
 .main {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+}
+
+.main > :last-child {
+  flex-grow: 1;
 }
 
 /* The masthead is on every route now, so the keyboard path to the content
