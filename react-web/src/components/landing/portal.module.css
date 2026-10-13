@@ -480,11 +480,11 @@
   list-style: none;
 }
 
-/* A rule above each step rather than a card around it: four bordered boxes
-   for four words of label is the decoration CLAUDE.md §8 asks us to drop. */
 .journeyStep {
-  padding-top: var(--cam-space-3);
-  border-top: 2px solid var(--cam-green);
+  padding: var(--cam-space-4);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-panel, 24px);
 }
 
 .journeyNumber {
@@ -495,7 +495,7 @@
 }
 
 .journeyTitle {
-  margin: 0 0 var(--cam-space-2);
+  margin: 0 0 var(--cam-space-1);
   font-size: var(--cam-font-size-base);
   font-weight: var(--cam-font-weight-semibold);
 }
@@ -542,11 +542,27 @@
   color: var(--cam-text-muted);
 }
 
+/* The prerequisite the whole view turns on, said before anything is offered:
+   no entity submits a declaration without an account. */
+.declareRequirement {
+  margin: 0 0 var(--cam-space-5);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+/* First time, or already registered. A rule between the two rather than a box
+   around each: they are two answers to one question, not two products. */
+.branch + .branch {
+  margin-top: var(--cam-space-5);
+  padding-top: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
 .actionList {
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-4);
-  margin: var(--cam-space-5) 0;
+  margin: var(--cam-space-4) 0 0;
   padding: 0;
   list-style: none;
 }
