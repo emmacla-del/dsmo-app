@@ -17,6 +17,8 @@ export function PortalJourney() {
   return (
     <section className={`${styles.section} ${styles.bandWhite}`}>
       <div className={styles.wrap}>
+        {/* The owner emptied this label on 2026-10-13. An empty <p> still
+            draws its bottom margin, so the band would open on a gap. */}
         {t("portalPage.journeyEyebrow") ? (
           <p className={styles.eyebrow}>{t("portalPage.journeyEyebrow")}</p>
         ) : null}
