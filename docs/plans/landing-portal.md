@@ -8,17 +8,70 @@ was written after them; the gaps are listed under §Open.
 reference for the palette), and the owner's second reference mockup of
 2026-10-13 for the layout. Neither is ported as HTML.
 
+## CAMLEAP is two things
+
+This is the sentence the rest of the document rests on, and not having
+written it down is why the front door was restructured three times.
+
+**The platform** is the service that is running now: registration,
+teledeclaration, drafts, validation, acknowledgements, the staff console. It
+has users, a deadline, and a support number. It changes when the service
+changes.
+
+**The programme** is the phased modernisation of ONEFOP's information system,
+of which the platform is phase 1's deliverable. It has phases, states,
+oversight and a direction. It changes when a phase does.
+
+`docs/standards/brand.md` defines the first ("ONEFOP owns the platform.
+CAMLEAP is the platform") and is silent on the second. Both are true at once,
+and the site has to be both: a portal for the people who use the service, and
+the public face of the programme for the people deciding whether it is real.
+Trying to make it only one of the two is what produced nine bands, then five
+routes, then a rethink.
+
+### What follows
+
+- **The two speak differently.** The platform speaks in the present tense and
+  the second person: *you need a NIU*, *a draft can be resumed*, *collection
+  closes on 31 March*. The programme speaks in phases and states: *phase 2 is
+  the next step*, *benchmarking is planned*. A sentence that mixes them —
+  "phase 3 will let you compare your salaries" — is a promise the platform
+  has not made and cannot keep.
+- **Audiences 1–3 come for the platform. Audience 4 comes for the
+  programme.** Audience 5 is waiting for the programme to deliver something
+  the platform can then serve.
+- **Two destinations, therefore, and only two.** Not five, because the
+  programme is one page's worth of content; not one, because a visitor
+  deciding whether to fund or extend the programme is not served by a page
+  whose answer to everything is "sign in".
+- **Neither borrows the other's job.** The portal does not argue the
+  programme's case — it carries at most one line and a link. The programme
+  page does not offer the platform's actions; it links back to the portal
+  once, for the reader who turns out to be a declarant after all.
+- **"Phase 1 is in service" belongs to both**, and is the one sentence that
+  legitimately appears on each: on the portal because it tells a declarant
+  the thing is open, on the programme page because it tells a minister where
+  the work has got to. It is the same fact in two registers, which is why the
+  wording differs between them and should not be unified.
+
+### A naming note
+
+The platform's name is CAMLEAP (`docs/standards/brand.md`). People will also
+say "the CAMLEAP programme", and that is not wrong, but a page should be
+precise about which object it is describing: the roadmap's four phases are
+the **programme's**, not features the **platform** is promising. If
+`brand.md` is ever extended to cover the programme as well as the platform,
+this is the distinction it should carry.
+
 ## Who the front door is for
 
 Five audiences arrive at "/", for different reasons and at wildly different
 frequencies. **The shape of the page is settled by them, not by a mockup.**
 
 Written on 2026-10-13, after the page had been restructured three times in
-one working session — nine bands, then five routes, then a rethink — each
-pass defensible on its own terms and each one feeling wrong once it existed.
-That is not a layout problem. It is what happens when the boxes move before
-anyone has written down who the page owes something to. A later layout
-question is argued against this section; it does not reopen it.
+one working session. The root cause is §CAMLEAP is two things above; this
+section is the same point from the readers’ side. A later layout question is
+argued against the two of them; it does not reopen them.
 
 ### 1. The declarant who has no account
 
