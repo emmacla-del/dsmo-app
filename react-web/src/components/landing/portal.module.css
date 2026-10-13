@@ -245,7 +245,6 @@
   margin: 0 0 var(--cam-space-2);
   font-size: var(--cam-font-size-xs);
   font-weight: var(--cam-font-weight-semibold);
-  letter-spacing: var(--cam-tracking-kicker);
   color: var(--cam-text-muted);
 }
 
@@ -420,7 +419,6 @@
   margin: 0 0 var(--cam-space-1);
   font-size: var(--cam-font-size-2xs);
   font-weight: var(--cam-font-weight-semibold);
-  letter-spacing: var(--cam-tracking-kicker);
   color: var(--cam-text-muted);
 }
 
@@ -744,7 +742,6 @@
   margin: 0 0 var(--cam-space-2);
   font-size: var(--cam-font-size-2xs);
   font-weight: var(--cam-font-weight-semibold);
-  letter-spacing: var(--cam-tracking-kicker);
   color: var(--cam-text-muted);
 }
 
@@ -855,7 +852,6 @@
   margin: 0 0 var(--cam-space-2);
   font-size: var(--cam-font-size-2xs);
   font-weight: var(--cam-font-weight-semibold);
-  letter-spacing: var(--cam-tracking-kicker);
   color: var(--cam-text-muted);
 }
 
