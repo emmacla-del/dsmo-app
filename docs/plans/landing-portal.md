@@ -115,6 +115,65 @@ Each of these is a consequence of the section above, not a taste:
 8. **A permalink that has been published is not deleted**, only redirected: a
    circular may already carry it.
 
+## What the portal offers
+
+The complete set. An action not in this table does not go on the front door
+without a reason written here first — the page has grown a fourth and fifth
+"pathway" twice, and both times they were the same destination relabelled.
+
+| Action | For | Goes to | Weight |
+|---|---|---|---|
+| Je suis une entreprise du secteur moderne | 1 | `/register?type=enterprise` | primary |
+| Je suis un centre de formation professionnelle | 1 | `/register?type=vocationalTraining` | primary |
+| Se connecter | 2, 3 | `/login` | secondary, in the masthead on every page |
+| Le programme | 4 | `/programme` | masthead |
+| Assistance | 1, 2 | `/assistance`, and the WhatsApp number it carries | masthead |
+
+**The two registration actions carry `?type=`.** That is not decoration: the
+registration reads it and skips the establishment-kind question in step 1
+(commit `a2ee0db7`). A bare `/register` makes the respondent answer twice a
+question the front door already asked.
+
+**Everything an account holds is one action, not four.** "Reprendre un
+brouillon", "Voir mes déclarations", "Télécharger un accusé" and "Suivre mon
+dossier" are all `/login` — the drafts, the history and the acknowledgements
+live at `/home/declarations`, behind authentication, and no public endpoint
+resolves any of them. Offering them as separate actions presents one door as
+four, which is the single defect this page has reintroduced most often. They
+belong in a sentence under *Se connecter*, which is what the account gives
+you — never as buttons.
+
+**There is no "submit a declaration" action on the front door**, because an
+anonymous visitor cannot perform one. The nearest true thing is "register" or
+"sign in", and after signing in the declaration starts from `/home`, which
+offers it as that surface's one task. A tab named for a task the page cannot
+perform is how audience 1 ends up at a sign-in form wondering what happened.
+
+## What the programme page carries
+
+What audience 4 is owed, and the order it is owed in:
+
+1. **What CAMLEAP is and whose it is** — the platform of ONEFOP, under
+   MINEFOP oversight, and the LMIS/observatory distinction (CLAUDE.md §4):
+   collection first, analysis after.
+2. **What is in service today, against what is promised** — the sharpest
+   thing on the page for someone deciding whether the programme is real.
+3. **The four phases, each with the state it is actually in**, filterable.
+4. **Who oversees the programme.**
+5. **The caveat on benchmarking**, because it is the most attractive thing
+   here and the furthest from being built.
+
+It does not carry anything in §Claims removed in the truth pass.
+
+**One thing to resolve when the two pages merge.** Between them they tell the
+same story four times: the three eras (paper → digital → analysis), the
+four-step transformation, the four phases, and the two progress cards
+(available / building). That is four framings of "we moved from paper to
+digital and intend to reach analytics". Audience 4 in a meeting needs it
+once, told well. The phases are the version that carries real states and
+cannot be dropped; the other three should become at most one supporting
+narrative, and the merge is the moment to decide which.
+
 ## What this section does not settle
 
 - **Which audience dominates during the pilot.** There is no traffic data.
