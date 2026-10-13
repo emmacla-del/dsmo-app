@@ -89,6 +89,11 @@ a band.
   each gained nothing from a disclosure and cost a click. The three state
   cards went with them: they were a legend for filter buttons carrying the
   same three words.
+- **The micro-labels are sentence case** (owner, 2026-10-13). They were
+  uppercase, the mockups' idiom, which sat against the decision of
+  2026-10-10 to take shouty caps out of the app; that decision wins here
+  too. Fifteen strings a language, separators unchanged, and the kicker
+  letter-spacing went with the capitals it was there to open up.
 - **State on ink is light / yellow / muted** (2026-10-13), not teal. The
   portal's teal is close to invisible on `--cam-portal-ink`; the progress
   band on that same ground had already established the other vocabulary.
@@ -201,10 +206,6 @@ string identical to phase 1's title, so a page-wide query matches both.
 
 ## Open
 
-- **The eyebrows are uppercase** (`01 — ACCÈS AUX DÉMARCHES`). That is the
-  mockups' idiom and the portal is consistent within itself, but it sits
-  against the owner's decision of 2026-10-10 to take shouty caps out of
-  the app. A copy pass should settle which wins on this page.
 - **Which colours the platform eventually keeps** is still a separate
   decision. Nothing outside `portal.module.css` reads `--cam-portal-*`.
 - **`landing.module.css` and `LandingShell`** still serve /login and were
