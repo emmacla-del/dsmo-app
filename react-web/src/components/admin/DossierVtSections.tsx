@@ -52,7 +52,10 @@ function VtSection({ section, defaultOpen }: { section: VtSectionView; defaultOp
         ) : section.items.length === 0 ? (
           <p className="cam-admin-meta">{t("sectionEmpty")}</p>
         ) : (
-          <dl className="cam-dossier-fields">
+          // minmax(0, 1fr): the list's one grid track otherwise grows to the
+          // widest table (4.8, nine columns), stretching every table past the
+          // section, which clips it. Each wide table scrolls in its wrapper.
+          <dl className="cam-dossier-fields" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
             {section.items.map((item, i) => (
               <VtItemRow key={item.kind === "heading" ? `h${i}` : item.id} item={item} />
             ))}
