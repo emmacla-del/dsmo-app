@@ -20966,7 +20966,11 @@
                   }
                 }
               ],
-              "visibility": null,
+              "visibility": {
+                "dependsOn": "VT7_1",
+                "dependsValue": "Oui/ Yes",
+                "dependsOperator": "eq"
+              },
               "table": null
             },
             {

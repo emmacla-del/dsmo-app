@@ -538,6 +538,14 @@ Approved changes on record:
   Every download is recorded in the export history. The data-protection
   review required by design note §9 was signed off by the owner in chat.
   The anonymous dataset still excludes 8.8.
+- 2026-10-15 — VT 7.1.2 asked only when 7.1 = Oui
+  (`lib/core/focus/compiler/onefop_ast.dart`, VT7_6).
+  Issue: 7.1.2 asks about breaching "ces aspects", the 7.1.1 directives,
+  yet was required when 7.1 = Non, when there are no directives. The
+  ASFOP 2025-2026 form (p.14) prints no "Si oui" before 7.1.2, but 7.1.1
+  and 7.1.3 around it already depend on 7.1 = Oui. Fix: VT7_6 depends on
+  VT7_1 = "Oui/ Yes"; when skipped it is unanswered (blank in the export),
+  never "Non". Earlier submissions keep the answer they gave.
 
 ---
 
