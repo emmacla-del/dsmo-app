@@ -10658,11 +10658,13 @@
     },
     "vocationalTraining.difficultyOtherTexts": {
       "variableName": "VT9_3",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v10: the five 9.1 write-in lines are exported as VT9_3_1..VT9_3_5 (listSlot.VT9_3.n)"
     },
     "vocationalTraining.perspectives": {
       "variableName": "VT9_4",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v10: the five 9.2 lines are exported as VT9_4_1..VT9_4_5 (listSlot.VT9_4.n)"
     },
     "period.start": {
       "variableName": "periodStart",
@@ -11377,6 +11379,46 @@
         "0": "Non",
         "1": "Oui"
       }
+    },
+    "listSlot.VT9_3.1": {
+      "variableName": "VT9_3_1",
+      "valueLabels": null
+    },
+    "listSlot.VT9_3.2": {
+      "variableName": "VT9_3_2",
+      "valueLabels": null
+    },
+    "listSlot.VT9_3.3": {
+      "variableName": "VT9_3_3",
+      "valueLabels": null
+    },
+    "listSlot.VT9_3.4": {
+      "variableName": "VT9_3_4",
+      "valueLabels": null
+    },
+    "listSlot.VT9_3.5": {
+      "variableName": "VT9_3_5",
+      "valueLabels": null
+    },
+    "listSlot.VT9_4.1": {
+      "variableName": "VT9_4_1",
+      "valueLabels": null
+    },
+    "listSlot.VT9_4.2": {
+      "variableName": "VT9_4_2",
+      "valueLabels": null
+    },
+    "listSlot.VT9_4.3": {
+      "variableName": "VT9_4_3",
+      "valueLabels": null
+    },
+    "listSlot.VT9_4.4": {
+      "variableName": "VT9_4_4",
+      "valueLabels": null
+    },
+    "listSlot.VT9_4.5": {
+      "variableName": "VT9_4_5",
+      "valueLabels": null
     }
   }
 }

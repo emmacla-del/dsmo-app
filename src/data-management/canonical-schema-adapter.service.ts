@@ -151,8 +151,13 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    <question>_<nn> by option position (their option values are labels),
  *    placed right after the question's own variable, which keeps the
  *    comma-joined list. Existing names and order unchanged.
+ * 10: the write-in lines of 9.1 « Autre » (VT9_3) and 9.2 « Perspectives »
+ *    (VT9_4) are one string variable each, VT9_3_1..VT9_3_5 and
+ *    VT9_4_1..VT9_4_5 (A2000, see LIST_TEXT_SLOTS), in place of VT9_3 and
+ *    VT9_4, which held the five lines comma-joined and are retired (names
+ *    stay reserved). Every other name and the order around them unchanged.
  */
-export const DATASET_SCHEMA_VERSION = 9;
+export const DATASET_SCHEMA_VERSION = 10;
 
 /**
  * Every multiple-choice (checkbox) question with options is also exported as
@@ -180,11 +185,22 @@ function multiResponseSuffix(options: { value: string }[], index: number): strin
  * take 2 bytes) and never fewer than 1,000 — several paragraphs, well beyond
  * the 254 that cut answers before. It also stays under Stata's 2045-byte
  * fixed `str` limit, so a .sav → .dta conversion keeps a plain string, and
- * keeps the per-case cost modest (three such variables, TVET only).
+ * keeps the per-case cost modest (VT3_10 and the ten 9.1/9.2 lines, TVET
+ * only).
  */
 export const SPSS_TEXTAREA_WIDTH = 2000;
 /** Default storage width of any other scalar string variable. */
 export const SPSS_DEFAULT_STRING_WIDTH = 254;
+
+/**
+ * Free-text questions the paper form prints as numbered write-in lines and
+ * the wizard stores as a list, one entry per line (dataset v10): 9.1
+ * « Autre 1..5 » (VT9_3) and 9.2 « Perspective 1..5 » (VT9_4). Each line is
+ * its own string variable, <question>_<n> (VT9_4_1..VT9_4_5), instead of one
+ * comma-joined variable. A2000 like any free text (E8): the lines are not
+ * capped in the wizard.
+ */
+export const LIST_TEXT_SLOTS: Record<string, number> = { VT9_3: 5, VT9_4: 5 };
 
 /**
  * SPSS user-missing codes (E1, dataset v5). Declared on every NUMERIC
@@ -457,6 +473,18 @@ export class CanonicalSchemaAdapterService {
           : null;
       if (!ticked) return undefined;
       return ticked.includes(code) ? 1 : 0;
+    }
+
+    // 5c. One write-in line of a list question (dataset v10, LIST_TEXT_SLOTS):
+    // the n-th entry as the respondent typed it, blank when empty. An older
+    // answer saved as one text is read line by line.
+    if (sp.startsWith('listSlot.')) {
+      const [, fieldId, n] = sp.split('.');
+      const raw = submission.rawData?.[fieldId];
+      const lines = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/\r?\n/) : [];
+      const line = lines[Number(n) - 1];
+      const text = line === undefined || line === null ? '' : String(line).trim();
+      return text === '' ? undefined : text;
     }
 
     // 6. General fallback: rawData by variable ID / sourcePath with nested dot-traversal
@@ -805,6 +833,10 @@ export class CanonicalSchemaAdapterService {
               const tableVars = this.expandTable(field, sec, applicability, usedNames, orderIndex);
               allVars.push(...tableVars);
               orderIndex += tableVars.length;
+            } else if (LIST_TEXT_SLOTS[field.id]) {
+              const slotVars = this.createListSlotVariables(field, sec, applicability, usedNames, orderIndex);
+              allVars.push(...slotVars);
+              orderIndex += slotVars.length;
             } else if (field.type !== 'repeating_table') {
               const scalarVar = this.createScalarVariable(field, sec, applicability, usedNames, orderIndex++);
               allVars.push(scalarVar);
@@ -1138,6 +1170,33 @@ export class CanonicalSchemaAdapterService {
         spssWidth: 1,
         measurementLevel: 'NOMINAL' as MeasurementLevel,
         valueLabels: { '0': 'Non', '1': 'Oui' },
+        sourcePath,
+        orderIndex: startOrder + i,
+      };
+    });
+  }
+
+  private createListSlotVariables(
+    field: SchemaField,
+    sec: SchemaSection,
+    applicability: string[],
+    usedNames: Set<string>,
+    startOrder: number,
+  ): AnalyticalVariableDefinition[] {
+    return Array.from({ length: LIST_TEXT_SLOTS[field.id] }, (_, i) => {
+      const n = i + 1;
+      const sourcePath = `listSlot.${field.id}.${n}`;
+      return {
+        variableName: this.assignVariableName(`${field.id}_${n}`, sourcePath, usedNames),
+        paperCode: field.paperCode ?? field.id,
+        labelFr: `${field.label.fr} — ${n}`,
+        labelEn: `${field.label.en} — ${n}`,
+        sectionId: sec.id,
+        entityApplicability: applicability,
+        spssDataType: 'A' as SpssDataType,
+        spssWidth: SPSS_TEXTAREA_WIDTH,
+        measurementLevel: 'NOMINAL' as MeasurementLevel,
+        valueLabels: undefined,
         sourcePath,
         orderIndex: startOrder + i,
       };

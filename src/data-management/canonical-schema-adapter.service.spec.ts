@@ -5,6 +5,7 @@ import {
   TVET_SCHEMA_ENTITIES,
   CANONICAL_ENTITY_PRIORITY,
   SPSS_TEXTAREA_WIDTH,
+  LIST_TEXT_SLOTS,
 } from './canonical-schema-adapter.service';
 import { DataManagementService } from './data-management.service';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
@@ -790,18 +791,21 @@ describe('E8 (dataset v6): free-text width', () => {
 
     const all = adapter.getAllVariables();
     const wide = all.filter((v) => v.spssDataType !== 'NUMERIC' && v.spssWidth > 254);
-    expect(wide.map((v) => v.variableName).sort()).toEqual([...textareaIds].sort());
+    // A write-in list (LIST_TEXT_SLOTS, dataset v10) is one A2000 variable per line.
+    const expected = [...textareaIds].flatMap((id) =>
+      LIST_TEXT_SLOTS[id] ? Array.from({ length: LIST_TEXT_SLOTS[id] }, (_, i) => `${id}_${i + 1}`) : [id]);
+    expect(wide.map((v) => v.variableName).sort()).toEqual(expected.sort());
     expect(new Set(wide.map((v) => v.spssWidth))).toEqual(new Set([SPSS_TEXTAREA_WIDTH]));
     expect(SPSS_TEXTAREA_WIDTH).toBe(2000);
     // No other string variable is wider than before.
-    expect(all.filter((v) => v.spssDataType !== 'NUMERIC' && !textareaIds.has(v.variableName)).every((v) => v.spssWidth <= 254)).toBe(true);
+    expect(all.filter((v) => v.spssDataType !== 'NUMERIC' && !expected.includes(v.variableName)).every((v) => v.spssWidth <= 254)).toBe(true);
   });
 
   it('the .sps GET DATA reads free text as A2000 so SPSS does not cut it', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
-    for (const name of ['VT3_10', 'VT9_3', 'VT9_4']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 9.');
+    for (const name of ['VT3_10', 'VT9_3_1', 'VT9_4_5']) expect(sps).toContain(`\n  ${name} A2000\n`);
+    expect(sps).toContain('Version du schéma du jeu de données : 10.');
   });
 });
 
@@ -928,3 +932,36 @@ describe('E2: every multiple-choice question has its 0/1 variables (dataset v9)'
   });
 });
 
+
+describe('dataset v10: the 9.1 and 9.2 write-in lines are one variable each', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+  const vars = adapter.getTvetVariables();
+  const names = vars.map((x) => x.variableName);
+  const v = (name: string) => vars.find((x) => x.variableName === name)!;
+  const vt = (rawData: Record<string, unknown>) => ({ formType: 'VOCATIONAL_TRAINING', rawData });
+
+  it('five string variables per question, in line order, in place of the comma-joined one', () => {
+    for (const q of ['VT9_3', 'VT9_4']) {
+      const at = names.indexOf(`${q}_1`);
+      expect(at).toBeGreaterThan(-1);
+      expect(names.slice(at, at + 5)).toEqual([1, 2, 3, 4, 5].map((n) => `${q}_${n}`));
+      expect(names).not.toContain(q);
+      expect(v(`${q}_1`)).toMatchObject({ spssDataType: 'A', spssWidth: 2000 });
+    }
+    expect(names.indexOf('VT9_4_1')).toBeGreaterThan(names.indexOf('VT9_3_5'));
+  });
+
+  // The stored shape of submission b1a1404c (VT E2E run, 2026-10-15).
+  it('each line goes to its own variable; empty lines are blank', () => {
+    const sub = vt({ VT9_4: ['Ouvrir une filiere froid et climatisation', '', '', '', ''] });
+    expect(adapter.exportValue(v('VT9_4_1'), sub)).toBe('Ouvrir une filiere froid et climatisation');
+    expect(adapter.exportValue(v('VT9_4_2'), sub)).toBeUndefined();
+    expect(adapter.exportValue(v('VT9_3_1'), sub)).toBeUndefined();
+  });
+
+  it('an older answer saved as one text is read line by line', () => {
+    const sub = vt({ VT9_3: 'Transport\nLoyer' });
+    expect(adapter.exportValue(v('VT9_3_1'), sub)).toBe('Transport');
+    expect(adapter.exportValue(v('VT9_3_2'), sub)).toBe('Loyer');
+  });
+});
