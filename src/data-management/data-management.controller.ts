@@ -146,4 +146,28 @@ export class DataManagementController {
     this.dataManagementService.logExport(req.user?.id, 'SPSS_SAV', { filters: bodyFilters });
     await this.dataManagementService.streamApprovedOnefopSubmissionsSav(bodyFilters || {}, res, territoryFromUser(req.user));
   }
+
+  // 8.8 named staff list — names people, so central ONEFOP admins only
+  // (approved 2026-10-15, constitution §21). Every download is recorded.
+  @Post('export/vt-roster/manifest')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtRosterManifest() {
+    return this.dataManagementService.buildVtRosterManifest();
+  }
+
+  @Post('export/vt-roster/csv')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtRosterCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
+    this.dataManagementService.logExport(req.user?.id, 'ROSTER_CSV', { filters });
+    await this.dataManagementService.streamVtRosterCsv(filters, res, territoryFromUser(req.user));
+  }
+
+  @Post('export/vt-roster/sav')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtRosterSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
+    this.dataManagementService.logExport(req.user?.id, 'ROSTER_SAV', { filters });
+    await this.dataManagementService.streamVtRosterSav(filters, res, territoryFromUser(req.user));
+  }
 }

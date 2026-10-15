@@ -18,6 +18,13 @@ import {
 } from './spss/export-filters';
 import { Territory, territoryWhere, territoryWhereForDeclaration, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, toSavString, type SavVariable } from './spss/sav-writer';
+import {
+    VT_ROSTER_CONTEXT_VARIABLES,
+    VT_ROSTER_DATASET_VERSION,
+    VT_ROSTER_FILE_LABEL,
+    vtRosterColumns,
+    type VtRosterRecord,
+} from './spss/vt-roster-export';
 import { hasRealNiu } from './niu';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -994,6 +1001,141 @@ export class DataManagementService {
         }
     }
 
+    // ── 8.8 named staff list (spss/vt-roster-export.ts) ──────────────────
+    // One case per staff member. Same selection as the training-centre
+    // statistical export (territory, eligibility, campaign/region/status
+    // filters), so the roster always covers the files of the matching main
+    // export, and the same context variables to join them on.
+
+    private vtRosterLayout(): { variables: AnalyticalVariableDefinition[]; rowsOf: (s: any) => unknown[][] } {
+        if (!this.canonicalAdapter) throw new BadRequestException('Export de la liste nominative indisponible.');
+        const adapter = this.canonicalAdapter;
+        const tvet = adapter.getTvetVariables();
+        const context = VT_ROSTER_CONTEXT_VARIABLES.map((name) => {
+            const v = tvet.find((x) => x.variableName === name);
+            if (!v) throw new Error(`Variable de contexte absente du registre : ${name}`);
+            return v;
+        });
+        const own = vtRosterColumns(adapter.getSchemaLoader());
+        const variables: AnalyticalVariableDefinition[] = [
+            ...context,
+            ...own.map((c, i) => ({
+                variableName: c.variable.name,
+                paperCode: '8.8',
+                labelFr: c.variable.label ?? c.variable.name,
+                labelEn: c.variable.label ?? c.variable.name,
+                sectionId: 'section8_vocationalTraining',
+                entityApplicability: ['vocationalTraining'],
+                spssDataType: c.variable.type === 'numeric' ? ('NUMERIC' as const) : ('A' as const),
+                spssWidth: c.variable.width,
+                measurementLevel: 'NOMINAL' as const,
+                valueLabels: c.variable.valueLabels,
+                sourcePath: `vtRoster.${c.variable.name}`,
+                orderIndex: context.length + i + 1,
+            })),
+        ];
+        const rowsOf = (s: any): unknown[][] => {
+            const contextValues = context.map((v) => adapter.exportValue(v, s));
+            return (s.vtTrainerRoster ?? []).map((r: VtRosterRecord) => [...contextValues, ...own.map((c) => c.value(r))]);
+        };
+        return { variables, rowsOf };
+    }
+
+    private vtRosterWhere(filters: OnefopExportFilters, territory?: Territory): any {
+        return this.buildSpssWhere({ ...filters, entityType: 'VOCATIONAL_TRAINING', partition: undefined }, territory);
+    }
+
+    private vtRosterInclude() {
+        return {
+            company: { select: { name: true, taxNumber: true, region: true, department: true, establishmentId: true } },
+            vtTrainerRoster: { orderBy: { rowIndex: 'asc' as const } },
+        };
+    }
+
+    private readonly vtRosterHeader = {
+        title: 'CONFIDENTIEL — données nominatives (8.8). Liste nominative du personnel, CAM-LEAP / ONEFOP.',
+        version: `Version de la liste nominative : ${VT_ROSTER_DATASET_VERSION}.`,
+    };
+
+    async buildVtRosterManifest(): Promise<{ sps: string; rosterVersion: number }> {
+        const { variables } = this.vtRosterLayout();
+        return {
+            sps: this.canonicalAdapter!.buildSpssSyntax(variables, 'onefop_8-8_liste_nominative.csv', this.vtRosterHeader),
+            rosterVersion: VT_ROSTER_DATASET_VERSION,
+        };
+    }
+
+    async streamVtRosterCsv(filters: OnefopExportFilters, res: Response, territory?: Territory): Promise<void> {
+        const where = this.vtRosterWhere(filters, territory);
+        const { variables, rowsOf } = this.vtRosterLayout();
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="onefop_8-8_liste_nominative.csv"');
+        res.setHeader('X-Roster-Dataset-Version', String(VT_ROSTER_DATASET_VERSION));
+        res.write('﻿' + variables.map((v) => this.csvEscape(v.variableName)).join(',') + '\r\n');
+        const BATCH_SIZE = 250;
+        let cursor: string | undefined;
+        try {
+            for (; ;) {
+                const batch: any[] = await this.prisma.onefopSubmission.findMany({
+                    where,
+                    orderBy: { id: 'asc' },
+                    take: BATCH_SIZE,
+                    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                    include: this.vtRosterInclude(),
+                });
+                if (batch.length === 0) break;
+                let chunk = '';
+                for (const s of batch) {
+                    for (const row of rowsOf(s)) chunk += row.map((value) => this.csvEscape(value)).join(',') + '\r\n';
+                }
+                if (chunk && !res.write(chunk)) await new Promise<void>((resolve) => res.once('drain', resolve));
+                cursor = batch[batch.length - 1].id;
+                if (batch.length < BATCH_SIZE) break;
+            }
+        } catch (err) {
+            console.error('❌ 8.8 roster CSV export failed mid-stream:', err);
+        } finally {
+            res.end();
+        }
+    }
+
+    async streamVtRosterSav(filters: OnefopExportFilters, res: Response, territory?: Territory): Promise<void> {
+        const where = this.vtRosterWhere(filters, territory);
+        const { variables, rowsOf } = this.vtRosterLayout();
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onefop-roster-'));
+        const tmpSav = path.join(tmpDir, 'onefop_8-8_liste_nominative.sav');
+        try {
+            const writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), { fileLabel: VT_ROSTER_FILE_LABEL });
+            await this.writeSavFile(tmpSav, writer, where, (batch) => batch.flatMap(rowsOf), this.vtRosterInclude());
+            res.setHeader('Content-Type', 'application/x-spss-sav');
+            res.setHeader('Content-Disposition', 'attachment; filename="onefop_8-8_liste_nominative.sav"');
+            res.setHeader('X-Roster-Dataset-Version', String(VT_ROSTER_DATASET_VERSION));
+            this.setTruncationHeaders(res, writer.truncatedValues);
+            res.setHeader('Content-Length', String(fs.statSync(tmpSav).size));
+            const fileStream = fs.createReadStream(tmpSav);
+            fileStream.pipe(res);
+            await new Promise<void>((resolve) => {
+                fileStream.on('end', resolve);
+                fileStream.on('error', (err) => {
+                    console.error('❌ Error streaming roster .sav file:', err);
+                    res.destroy(err);
+                    resolve();
+                });
+            });
+        } catch (err) {
+            console.error('❌ 8.8 roster .sav export failed:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ message: 'Erreur lors de la génération de la liste nominative .sav: ' + (err as any)?.message });
+            }
+        } finally {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (cleanupErr) {
+                console.warn('⚠️ Could not remove temp dir:', cleanupErr);
+            }
+        }
+    }
+
     /// Reports values that did not fit their variable's declared width (E8,
     /// dataset v6): X-Export-Truncated-Values = total count (0 when none),
     /// X-Export-Truncated-Variables = "name=count,…" (capped — the server
@@ -1070,6 +1212,7 @@ export class DataManagementService {
         writer: SavWriter,
         where: any,
         rowsOf: (batch: any[]) => unknown[][],
+        include: object = this.approvedOnefopInclude(),
     ): Promise<void> {
         const out = fs.createWriteStream(filePath);
         const closed = new Promise<void>((resolve, reject) => {
@@ -1092,7 +1235,7 @@ export class DataManagementService {
                     orderBy: { id: 'asc' },
                     take: BATCH_SIZE,
                     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-                    include: this.approvedOnefopInclude(),
+                    include,
                 });
                 if (batch.length === 0) break;
                 for (const row of rowsOf(batch)) await write(writer.encodeCase(row));

@@ -229,6 +229,11 @@ export class CanonicalSchemaAdapterService {
 
   constructor(private readonly schemaLoader: OnefopSchemaLoaderService) {}
 
+  /** The schema this registry is built from (the 8.8 roster export reads its cells). */
+  public getSchemaLoader(): OnefopSchemaLoaderService {
+    return this.schemaLoader;
+  }
+
   /**
    * Swaps the frozen-name registry (tests and the registry script) and drops
    * every cached variable list so the next call rebuilds with it.
@@ -648,7 +653,16 @@ export class CanonicalSchemaAdapterService {
   /**
    * Generates SPSS syntax (.sps) from an analytical variable list and target CSV filename.
    */
-  public buildSpssSyntax(variables: AnalyticalVariableDefinition[], csvFilename: string): string {
+  public buildSpssSyntax(
+    variables: AnalyticalVariableDefinition[],
+    csvFilename: string,
+    // A file other than the statistical dataset (the 8.8 roster) names itself
+    // and its own version in place of the two default header lines.
+    header: { title: string; version: string } = {
+      title: 'Généré par DSMO — Registre Analytique Canonique ONEFOP.',
+      version: `Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`,
+    },
+  ): string {
     const varNames = variables.map((v) => v.variableName);
     // Numeric read formats are at least F3.0 so a user-missing code (-98 /
     // -99) is read whole even for a 1-digit Oui/Non variable (E1, v5).
@@ -706,10 +720,10 @@ export class CanonicalSchemaAdapterService {
 
     return [
       '* Encoding: UTF-8.',
-      '* Généré par DSMO — Registre Analytique Canonique ONEFOP.',
+      `* ${header.title}`,
       `* Placez ce fichier dans le même dossier que "${csvFilename}", puis exécutez-le`,
       '* entièrement (Exécuter > Tout) dans SPSS pour charger les données étiquetées.',
-      `* Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`,
+      `* ${header.version}`,
       '*',
       '* Codes de valeurs manquantes (variables numériques, déclarés MISSING VALUES).',
       `*   ${SPSS_MISSING_NOT_APPLICABLE} = Non applicable (type d'établissement) : la question n'est pas posée`,

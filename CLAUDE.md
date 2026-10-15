@@ -526,6 +526,18 @@ Approved changes on record:
   export already uses; an answer matching no option stays unticked. The
   PDF lists must follow the schema order (`pdf-flow.spec.ts` checks it).
   Template and statistical semantics are unchanged.
+- 2026-10-15 — 8.8 named staff list export
+  (`src/data-management/spss/vt-roster-export.ts`,
+  `POST /data-management/export/vt-roster/{sav,csv,manifest}`).
+  Issue: ONEFOP analysts need the staff roster, which the anonymous
+  statistical dataset excludes as personal data (`canonical-exclusions.ts`).
+  Decision: a separate file, one row per person, joined to the main dataset
+  by `submissionId`, with the main export's selection rules (territory,
+  eligibility, filters). Access: SUPER_ADMIN and ADMIN_ONEFOP only,
+  enforced server-side; regional and divisional roles never receive names.
+  Every download is recorded in the export history. The data-protection
+  review required by design note §9 was signed off by the owner in chat.
+  The anonymous dataset still excludes 8.8.
 
 ---
 

@@ -851,6 +851,23 @@ export function downloadSpssSavBlob(filters: Record<string, any> = {}): Promise<
   return downloadExportBlob("/data-management/export/submissions/spss/sav", filters, "SPSS (.sav)");
 }
 
+// 8.8 named staff list (liste nominative): a separate file, one row per
+// person. The server allows SUPER_ADMIN and ADMIN_ONEFOP only and records
+// every download.
+export function downloadVtRosterSavBlob(filters: Record<string, any> = {}): Promise<Blob> {
+  return downloadExportBlob("/data-management/export/vt-roster/sav", filters, "8.8 (.sav)");
+}
+
+export function downloadVtRosterCsvBlob(filters: Record<string, any> = {}): Promise<Blob> {
+  return downloadExportBlob("/data-management/export/vt-roster/csv", filters, "8.8 (.csv)");
+}
+
+export function getVtRosterManifest() {
+  return apiFetch<{ sps: string; rosterVersion: number }>("/data-management/export/vt-roster/manifest", {
+    method: "POST",
+  });
+}
+
 export function downloadExcelWorkbookBlob(filters: Record<string, any> = {}): Promise<Blob> {
   return downloadExportBlob("/data-management/export/submissions/excel", filters, "Excel (.xlsx)");
 }
