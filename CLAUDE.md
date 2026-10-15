@@ -526,6 +526,15 @@ Approved changes on record:
   export already uses; an answer matching no option stays unticked. The
   PDF lists must follow the schema order (`pdf-flow.spec.ts` checks it).
   Template and statistical semantics are unchanged.
+- 2026-10-15 — dataset v10: 9.1 and 9.2 write-in lines as separate
+  variables (`src/data-management/canonical-schema-adapter.service.ts`,
+  `LIST_TEXT_SLOTS`). Issue: the five lines of 9.1 « Autre » (VT9_3) and
+  9.2 « Perspectives » (VT9_4) were exported as one comma-joined string,
+  which analysts could not split. Fix: one A2000 variable per line,
+  VT9_3_1..VT9_3_5 and VT9_4_1..VT9_4_5; VT9_3 and VT9_4 are retired in
+  the frozen registry (names reserved, never reused);
+  DATASET_SCHEMA_VERSION = 10. The questionnaire is unchanged. Analyst
+  note: `docs/reference/jeu-de-donnees-onefop-version-10.md`.
 - 2026-10-15 — 8.8 named staff list export
   (`src/data-management/spss/vt-roster-export.ts`,
   `POST /data-management/export/vt-roster/{sav,csv,manifest}`).
