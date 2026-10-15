@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { OnefopField, OnefopSchema } from "./onefop-schema";
-import { isFieldVisible } from "./onefop-schema";
+import { cleanHiddenDependentFields, isFieldVisible } from "./onefop-schema";
 
 // Visibility parity with the server (onefop-shadow-validator.service.ts
 // isVisible): eq is an exact match; contains is "the selections include the
@@ -82,4 +82,16 @@ test("contains checks the selected values", () => {
   assert.equal(isFieldVisible(f, { P: ["X", "Autres/ Others"] }), true);
   assert.equal(isFieldVisible(f, { P: ["X"] }), false);
   assert.equal(isFieldVisible(f, { P: [] }), false);
+});
+
+// 7.1.2 (VT7_6) is asked only when 7.1 = Oui, like 7.1.1 and 7.1.3
+// (approved 2026-10-15): its "ces aspects" are the 7.1.1 directives.
+test("7.1.2 follows 7.1 = Oui, and its answer is erased when 7.1 becomes Non", () => {
+  const vt = schema.entities.vocationalTraining;
+  const field = vt.sections.flatMap((s) => s.fields).find((f) => f.id === "VT7_6")!;
+  assert.equal(isFieldVisible(field, { VT7_1: "Oui/ Yes" }), true);
+  assert.equal(isFieldVisible(field, { VT7_1: "Non/ No" }), false);
+  assert.equal(isFieldVisible(field, {}), false);
+  const cleaned = cleanHiddenDependentFields(vt, { VT7_1: "Non/ No", VT7_6: "Oui/ Yes" });
+  assert.equal("VT7_6" in cleaned, false);
 });

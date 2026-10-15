@@ -625,6 +625,29 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT2_19', 'VT2_18']));
   });
 
+  // 7.1.2 (VT7_6) is asked only when 7.1 = Oui, like 7.1.1 and 7.1.3
+  // (approved 2026-10-15): its "ces aspects" are the 7.1.1 directives.
+  it('does not require 7.1.2 when 7.1 = Non, and still requires it when 7.1 = Oui', async () => {
+    const prisma = buildMockPrisma();
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+    const followUps = /^VT7_([2-9]|1[01])(_|$)|^VT7_6_INFORMED$/;
+
+    const noDirectives: Record<string, unknown> = { ...completeVtAnswers(), ...respondentFlat, VT7_1: 'Non/ No' };
+    for (const k of Object.keys(noDirectives)) if (followUps.test(k)) delete noDirectives[k];
+    await expect(service.submitQuestionnaire({
+      formId: 'vt-form-71-non', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false, data: noDirectives,
+    } as any)).resolves.toMatchObject({ success: true });
+
+    const withDirectives: Record<string, unknown> = { ...completeVtAnswers(), ...respondentFlat, VT7_1: 'Oui/ Yes' };
+    delete withDirectives.VT7_6;
+    const error = await service.submitQuestionnaire({
+      formId: 'vt-form-71-oui', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: false, data: withDirectives,
+    } as any).catch((e) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse().missingFields).toEqual(expect.arrayContaining(['VT7_6']));
+  });
+
   it('rejects a final VT submission whose answers are not among their options, naming them', async () => {
     const prisma = buildMockPrisma();
     prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);

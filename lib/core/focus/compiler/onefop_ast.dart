@@ -5996,6 +5996,11 @@ const section7VocationalTrainingQuestions = <FormQuestionAst>[
     type: AstFieldType.radio,
     requiredField: true,
     options: _vtYesNoOptions,
+    // Asked only when 7.1 = Oui (approved 2026-10-15). The form prints no
+    // "Si oui" here, but "ces aspects" are the 7.1.1 directives, which exist
+    // only when 7.1 = Oui — the condition 7.1.1 and 7.1.3 already carry.
+    dependsOn: "VT7_1",
+    dependsValue: "Oui/ Yes",
     path: "vocationalTraining.hasDisciplinaryProcedures",
   ),
   // ASFOP 2025-2026 form p.14, 7.1.3: the stakeholder grid is preceded by
