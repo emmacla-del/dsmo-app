@@ -16,8 +16,13 @@ import {
 import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
+import { useOnefopSchema } from "@/lib/use-onefop-schema";
+import { localized } from "@/lib/onefop-schema";
+import { sentenceCaseTitle } from "@/lib/dossier-vt-answers";
+import { parseCoherenceWarning } from "@/lib/coherence-warning-text";
 import {
   NOT_PROVIDED,
   count,
@@ -47,6 +52,11 @@ import {
 function hasFigures(observed: unknown, expected: unknown): boolean {
   return /\d/.test(String(observed ?? "")) || /\d/.test(String(expected ?? ""));
 }
+
+// The 8.8 staff list names people. The server sends it to these two roles
+// only (src/questionnaires/staff-names.ts, §21); the page uses the same list
+// to say why the table is withheld rather than call it empty.
+const STAFF_NAME_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
 
 // Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
 // Axis verdict -> .cam-dossier-pill modifier. `neutral` keeps the base pill
@@ -224,7 +234,9 @@ function SubmissionDetailContent() {
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
   // Central agents consult a dossier; approve, reject and request
   // correction are not offered (and are refused server-side).
-  const readOnly = isReadOnlyRole(useAuthStore((s) => s.user?.role));
+  const role = useAuthStore((s) => s.user?.role);
+  const readOnly = isReadOnlyRole(role);
+  const canSeeStaffNames = typeof role === "string" && STAFF_NAME_ROLES.includes(role);
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id],
@@ -301,6 +313,25 @@ function SubmissionDetailContent() {
   const formType = dossier?.formType ?? "";
   const section1Fr = SECTION1_TITLE_FR[formType] ?? SECTION1_TITLE_FR.ENTREPRISE;
   const section1Title = SECTION1_TITLE_FR[formType] ? t(`section1.${formType}`) : t("section1.ENTREPRISE");
+
+  // A VT file is shown section by section from the schema and the
+  // respondent's data (components/admin/DossierVtSections.tsx). The schema is
+  // a static file, fetched once and cached.
+  const isVt = formType === "VOCATIONAL_TRAINING";
+  const schemaQuery = useOnefopSchema();
+  const vtEntity = schemaQuery.data?.entities.vocationalTraining ?? null;
+  // Correction request: the value is the French title (stored in the
+  // comment sent to the respondent); the label follows the locale.
+  const vtSectionOptions = (vtEntity?.sections ?? []).map((s) => ({
+    value: sentenceCaseTitle(localized(s.title, "fr")),
+    label: sentenceCaseTitle(localized(s.title, locale)),
+  }));
+  /** A coherence warning in the console language; the stored text when it cannot be read. */
+  const warningText = (ruleCode: string | null | undefined, description: string | null | undefined) => {
+    const parts = parseCoherenceWarning(ruleCode, description);
+    if (!parts) return description ?? "";
+    return t(`coherence.${parts.code}`, { first: parts.first, second: parts.second, sex: t(`coherence.${parts.sex}`) });
+  };
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -452,7 +483,10 @@ function SubmissionDetailContent() {
         <AdminPageHeader
           breadcrumb={breadcrumb}
           backHref="/admin/dossiers"
-          title={t("fileTitle", { ref: shortRecordId(id) })}
+          // No number while loading: the URL may hold the database id or the
+          // receipt reference, and the page then showed one number, then
+          // another. The loaded page shows the receipt reference.
+          title={dossierQuery.isLoading ? t("fileTitleLoading") : t("fileTitle", { ref: shortRecordId(id) })}
         />
         <DataState
           state={pageState === "ready" ? "notFound" : pageState}
@@ -605,6 +639,24 @@ function SubmissionDetailContent() {
             the hand-built version did not. One open at a time is preserved
             through `expandedSection`. */}
         <div className="cam-dash-column" style={{ gap: "var(--cam-space-3)" }}>
+          {isVt ? (
+            schemaQuery.data ? (
+              <DossierVtSections
+                schema={schemaQuery.data}
+                data={(dossier.rawData ?? {}) as Record<string, unknown>}
+                canSeeStaffNames={canSeeStaffNames}
+              />
+            ) : (
+              <DataState
+                dense
+                state={schemaQuery.isError ? "error" : "loading"}
+                resource={t("vt.resource")}
+                error={schemaQuery.error}
+                onRetry={() => schemaQuery.refetch()}
+              />
+            )
+          ) : (
+          <>
           <details
             className="cam-dossier-section"
             open={expandedSection === 1}
@@ -669,6 +721,8 @@ function SubmissionDetailContent() {
               </div>
             </details>
           ))}
+          </>
+          )}
 
           {/* Retained quality anomalies and alerts */}
           {diag && diag.blockingAnomalies && diag.blockingAnomalies.length > 0 && (
@@ -679,7 +733,7 @@ function SubmissionDetailContent() {
               <ul className="cam-admin-issues" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.blockingAnomalies.map((ano, idx) => (
                   <li key={idx} title={ano.ruleCode}>
-                    {ano.description}
+                    {warningText(ano.ruleCode, ano.description)}
                     {hasFigures(ano.observedValue, ano.expectedValue) && (
                       <p className="cam-admin-meta" style={{ margin: 0 }}>
                       {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
@@ -699,7 +753,7 @@ function SubmissionDetailContent() {
               <ul className="cam-admin-issues is-warn" style={{ marginTop: "var(--cam-space-4)" }}>
                 {diag.warningAnomalies.map((ano, idx) => (
                   <li key={idx} title={ano.ruleCode}>
-                    {ano.description}
+                    {warningText(ano.ruleCode, ano.description)}
                     {hasFigures(ano.observedValue, ano.expectedValue) && (
                       <p className="cam-admin-meta" style={{ margin: 0 }}>
                       {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
@@ -830,10 +884,18 @@ function SubmissionDetailContent() {
                 {/* The value is the canonical French AST title, because it is
                     stored in the correction comment -- the official record
                     sent to the respondent. Only the label follows the locale. */}
-                <option value={section1Fr}>{section1Title}</option>
-                <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
-                <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
-                <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
+                {isVt ? (
+                  vtSectionOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value={section1Fr}>{section1Title}</option>
+                    <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
+                    <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
+                    <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
+                  </>
+                )}
               </select>
             </div>
 
