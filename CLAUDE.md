@@ -514,6 +514,19 @@ way of resolving a genuine issue:
 An approval covers the change it was given for. It is not a
 standing waiver of the rule.
 
+Approved changes on record:
+
+- 2026-10-15 — official VT PDF ticks radio/checkbox answers
+  (`src/services/pdf-data-mapper.service.ts`, `vtChoiceKeys`).
+  Issue: answers are stored as the schema option value (the bilingual
+  label), but the PDF compared them with short keys, so 1.10, 1.11, 1.13,
+  2.1.2, 2.1.14, 2.2.1, 2.2.2, 2.2.8, 2.2.12, 2.2.13, 3.2, 6.1.1, 6.1.3,
+  6.2.1 and 9.1 never ticked. Fix: map a stored answer to the PDF option
+  at the same position in the schema's option list, the rule the SPSS
+  export already uses; an answer matching no option stays unticked. The
+  PDF lists must follow the schema order (`pdf-flow.spec.ts` checks it).
+  Template and statistical semantics are unchanged.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE

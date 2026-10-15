@@ -11,6 +11,7 @@ import {
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
+import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 
 describe('PDF Flow end-to-end data and template test', () => {
   beforeAll(() => {
@@ -298,5 +299,102 @@ describe('PDF Flow end-to-end data and template test', () => {
 
     const en = mapVocationalTrainingData({ VT7_7: ['07', '96'], VT7_7_OTHER: 'Radio' }, 'QUARTERLY_2026_T4_001', 'en') as any;
     expect(en.transversal.partiesPrenantesInformees[0].modeCommunication).toBe('Email, Other: Radio');
+  });
+
+  // The values below are exactly what the wizard stored for submission
+  // b1a1404c (VT E2E run, 2026-10-15): each radio/checkbox answer is the
+  // schema option value, never a short key.
+  it('ticks radio and checkbox answers stored as schema option values', () => {
+    const mapped = mapVocationalTrainingData(
+      {
+        VT1_10: 'Privé laïc/ Lay private',
+        VT1_11: 'Centre de Formation Professionnelle Privé (CFPP)/ Private Vocational Training Centre (PVTC)',
+        VT2_18: ['Formation Initiale (FI)/ Initial Training (IT)'],
+        VT2_23: 'Oui/ Yes',
+        VT2_25: ['ENEO/ ENEO'],
+        VT2_27: ['CAMWATER/ Tap Water'],
+        VT2_33: 'Oui, entièrement/ Yes, entirely',
+        VT2_38: ["WC avec chasse d'eau/ Flushing toilet"],
+        VT6_2: ['Pendant la formation/ During the training'],
+        VT6_5: ["Orientation d'insertion/ Insertion orientation"],
+        VT6_8: ['Téléphonique/ Telephone'],
+        VT9_1: 'Oui/ Yes',
+        VT9_2: ['Coût de la formation/ Training cost', 'Insécurité/ Insecurity'],
+      },
+      'QUARTERLY_2026_T4_001',
+    ) as any;
+
+    expect(mapped.identification.ordreEnseignement).toBe('prive_laic');
+    expect(mapped.identification.typeCFP).toBe('cfpp');
+    expect(mapped.general.typesFormation).toEqual(['FI']);
+    expect(mapped.general.energie.sources).toEqual(['eneo']);
+    expect(mapped.general.eau.sources).toEqual(['camwater']);
+    expect(mapped.general.cloture).toBe('entierement');
+    expect(mapped.general.latrines.types).toEqual(['wc_chasse']);
+    expect(mapped.orientation.moments).toEqual(['pendant']);
+    expect(mapped.orientation.accompagnements).toEqual(['insertion']);
+    expect(mapped.orientation.suiviPostFormation.mecanismes).toEqual(['telephonique']);
+    expect(mapped.difficultes.types).toEqual(['cout_formation', 'insecurite']);
+
+    const tplPath = path.join(__dirname, '..', 'pdf', 'templates', 'dynamic', 'vocationalTraining.hbs');
+    const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf-8'))(mapped);
+    const ticked = (label: string) => html.includes(`<span class="checkbox checked"></span> ${label}`);
+    expect(ticked('2. Privé laïc/ Lay private')).toBe(true);
+    expect(ticked('1. Public/ Public')).toBe(false);
+    expect(ticked('3. Centre de Formation Professionnelle Privé (CFPP)')).toBe(true);
+    expect(ticked('Formation Initiale (FI)')).toBe(true);
+    expect(ticked('Formation Continue (FC)')).toBe(false);
+    expect(ticked('ENEO')).toBe(true);
+    expect(ticked('Oui, entièrement')).toBe(true);
+    expect(ticked('2. Coût de la formation')).toBe(true);
+  });
+
+  it('leaves an answer that matches no schema option unticked', () => {
+    const mapped = mapVocationalTrainingData(
+      { VT1_10: 'Privé', VT2_25: ['Panneaux'], VT2_33: 'Oui' },
+      'QUARTERLY_2026_T4_001',
+    ) as any;
+    expect(mapped.identification.ordreEnseignement).toBe('');
+    expect(mapped.general.energie.sources).toEqual([]);
+    expect(mapped.general.cloture).toBe('');
+  });
+
+  // vtChoiceKeys maps by position, so each PDF list must follow the schema's
+  // option order. Options are append-only: a new schema option fails this
+  // until the PDF list gains it at the same position.
+  it("keeps each PDF option list in the schema's option order", () => {
+    const fields = new OnefopSchemaLoaderService().getFlattenedFields('vocationalTraining');
+    const mapped = mapVocationalTrainingData({}, 'QUARTERLY_2026_T4_001') as any;
+    const plain = (s: string) =>
+      s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const lists: [string, { label: string }[]][] = [
+      ['VT1_10', mapped.ordreEnseignementOptions],
+      ['VT1_11', mapped.typeCFPOptions],
+      ['VT1_13', mapped.raisonNonFonctionnelleOptions],
+      ['VT2_2', mapped.conventionTypeOptions],
+      ['VT2_25', mapped.energieSourceOptions],
+      ['VT2_27', mapped.eauSourceOptions],
+      ['VT2_38', mapped.latrineTypeOptions],
+      ['VT2_42', mapped.aireJeuxTypeOptions],
+      ['VT3_2', mapped.typeCriseOptions],
+      ['VT6_2', mapped.momentOrientationOptions],
+      ['VT6_5', mapped.accompagnementOptions],
+      ['VT6_8', mapped.mecanismeSuiviOptions],
+      ['VT9_2', mapped.difficulteOptions],
+    ];
+    for (const [fieldId, pdfOptions] of lists) {
+      const schemaOptions = fields.get(fieldId)!.options ?? [];
+      expect([fieldId, pdfOptions.length]).toEqual([fieldId, schemaOptions.length]);
+      schemaOptions.forEach((o, i) => {
+        const french = plain(o.value.split('/')[0]);
+        expect([fieldId, i, plain(pdfOptions[i].label).includes(french)]).toEqual([fieldId, i, true]);
+      });
+    }
+    expect((fields.get('VT2_18')!.options ?? []).map((o) => /\((F[IC])\)/.exec(o.value)?.[1])).toEqual(['FI', 'FC']);
+    expect((fields.get('VT2_33')!.options ?? []).map((o) => plain(o.value.split('/')[0]))).toEqual([
+      'oui, entierement',
+      'oui, partiellement',
+      'non',
+    ]);
   });
 });

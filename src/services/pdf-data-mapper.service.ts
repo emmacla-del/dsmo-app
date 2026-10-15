@@ -1497,18 +1497,14 @@ export function mapProjectProgramData(f: FlatData, quarterCode?: string | null, 
 // a print-form replica should show blank boxes for unanswered rows, not
 // silently omit them.
 //
-// Three fields (1.10 educationSystem, 1.11 cfpType, 1.13
-// nonFunctionalReason) are plain free text in the frozen VT-1 schema —
-// VT-2 deliberately did not make them radio/select because no confirmed
-// option wording existed at the time. The PDF's option lists are known
-// now, but the underlying data is still whatever free text a respondent
-// typed, not a constrained value — so these three are rendered as plain
-// text in the template (see the "texte libre" fallback there), not
-// matched against the option lists that appear here for structural
-// completeness only. 1.9 (area) and 1.12 (functionalStatus) get a
-// best-effort classifier below since their possible answers are a small,
-// guessable set (Urbain/Rural; Fonctionnelle/Non-fonctionnelle/Fermée) —
-// still a heuristic on free text, not a real constraint.
+// Radio and checkbox answers (1.10, 1.11, 1.13, 2.1.2, 2.1.14, 2.2.1,
+// 2.2.2, 2.2.8, 2.2.12, 2.2.13, 3.2, 6.1.1, 6.1.3, 6.2.1, 9.1) are stored as
+// the schema option's own value — the bilingual label, e.g.
+// "Privé laïc/ Lay private". The template ticks short keys (prive_laic), so
+// vtChoiceKeys translates one into the other by the option's position in
+// the schema, the rule the SPSS export already uses (options are
+// append-only, so a position keeps its meaning). 1.9 (area) and 1.12
+// (functionalStatus) still use the best-effort classifiers below.
 // ─────────────────────────────────────────────
 
 function vtBool(f: FlatData, key: string): boolean | undefined {
@@ -1580,15 +1576,30 @@ function vtSituationKey(f: FlatData, key: string): string {
     return '';
 }
 
-function vtClotureKey(f: FlatData, key: string): string {
-    const v = f[key];
-    if (typeof v !== 'string') return '';
-    const lv = v.toLowerCase();
-    if (lv.includes('entier')) return 'entierement';
-    if (lv.includes('partiel')) return 'partiellement';
-    if (lv.includes('non')) return 'non';
-    return '';
+/**
+ * The PDF keys of a radio/checkbox answer. A stored value is matched
+ * exactly (trimmed) against the field's schema options, as the SPSS export
+ * does, and the option at that position in `keys` is returned — so `keys`
+ * must list the PDF options in the schema's order (a spec checks it). A
+ * value already equal to a key is kept; anything else is left unticked,
+ * never guessed.
+ */
+function vtChoiceKeys(f: FlatData, fieldId: string, keys: readonly string[]): string[] {
+    vtSchemaLoader ??= new OnefopSchemaLoaderService();
+    const schemaValues = (vtSchemaLoader.getFlattenedFields('vocationalTraining').get(fieldId)?.options ?? [])
+        .map((o) => o.value.trim());
+    return vtArr(f, fieldId).flatMap((v) => {
+        const i = schemaValues.indexOf(v);
+        if (i >= 0 && i < keys.length) return [keys[i]];
+        return keys.includes(v) ? [v] : [];
+    });
 }
+
+function vtChoiceKey(f: FlatData, fieldId: string, keys: readonly string[]): string {
+    return vtChoiceKeys(f, fieldId, keys)[0] ?? '';
+}
+
+const vtKeys = (options: VtOption[]): string[] => options.map((o) => o.value);
 
 function vtSexKey(f: FlatData, key: string): 'M' | 'F' | '' {
     const v = f[key];
@@ -1805,6 +1816,111 @@ function localizeSlashString(strVal: string, locale?: 'fr' | 'en'): string {
     return locale === 'en' ? parts[parts.length - 1].trim() : parts[0].trim();
 }
 
+// The PDF option lists, in the schema's option order (see vtChoiceKeys).
+interface VtOption { value: string; label: string }
+
+const VT_ORDRE_ENSEIGNEMENT_OPTIONS: VtOption[] = [
+        { value: 'public', label: '1. Public/ Public' },
+        { value: 'prive_laic', label: '2. Privé laïc/ Lay private' },
+        { value: 'prive_confessionnel', label: '3. Privé confessionnel/ Private denominational' },
+];
+
+const VT_TYPE_CFP_OPTIONS: VtOption[] = [
+        { value: 'sar_sm', label: '1. SAR/SM/ RA/HECs' },
+        { value: 'cfpr', label: '2. Centre de Formation Professionnelle Rapide (CFPR)/ Intensive Vocational Training Centre (IVTC)' },
+        { value: 'cfpp', label: '3. Centre de Formation Professionnelle Privé (CFPP)/ Private Vocational Training Centre (PVTC)' },
+        { value: 'cfm', label: '4. Centre de Formation aux Métiers (CFM)/ Trades Training Centre (TTC)' },
+        { value: 'cfpe', label: "5. Centre de Formation Professionnelle d'Excellence (CFPE)/ Advanced Vocational Training Centre (AVTC)" },
+        { value: 'cfps', label: '6. Centre de Formation Professionnelle Sectorielles (CFPS)/ Sectoral Vocational Training Centre (SVTC)' },
+        { value: 'cnffdp', label: '7. Centre National de Formation des Formateurs et de Développement des Programmes (CNFFDP)/ National Institute of Vocational Trainers and Programme Development (NIVTPD)' },
+];
+
+const VT_RAISON_NON_FONCTIONNELLE_OPTIONS: VtOption[] = [
+        { value: 'manque_apprenants', label: "1. Manque d'apprenants/Lack of trainees" },
+        { value: 'manque_formateur', label: '2. Manque de formateur/Lack of trainers' },
+        { value: 'insecurite', label: "3. Raison d'insécurité / Insecurity" },
+        { value: 'agrement_invalide', label: '4. Agrément non valide/ Invalid accreditation' },
+        { value: 'autres', label: '5. Autres (à préciser) / Others (specify)' },
+];
+
+const VT_CONVENTION_TYPE_OPTIONS: VtOption[] = [
+        { value: 'stage_academique', label: '1. Stage académique/ academic internship' },
+        { value: 'stage_professionnel', label: '2. Stage professionnel/ work placement' },
+        { value: 'stage_pre_emploi', label: '3. Stage pré emploi/ pre-employment internship' },
+        { value: 'insertion', label: '4. Insertion/ Insertion' },
+];
+
+const VT_ENERGIE_SOURCE_OPTIONS: VtOption[] = [
+        { value: 'eneo', label: 'ENEO' },
+        { value: 'groupe_electrogene', label: 'Groupe électrogène / Generator' },
+        { value: 'solaire', label: 'Solaire / Solar' },
+];
+
+const VT_EAU_SOURCE_OPTIONS: VtOption[] = [
+        { value: 'camwater', label: 'CAMWATER / Tap Water' },
+        { value: 'puits', label: 'Puits / Well' },
+        { value: 'forage', label: 'Forage / Bore-hole' },
+        { value: 'source_amenagee', label: 'Source aménagée / Spring' },
+        { value: 'marigot', label: 'Marigot / Pool' },
+];
+
+const VT_LATRINE_TYPE_OPTIONS: VtOption[] = [
+        { value: 'wc_chasse', label: "WC avec chasse d'eau / Flushing toilet" },
+        { value: 'latrines_amenagees', label: 'Latrines aménagées / Equipped toilets' },
+        { value: 'latrines_non_amenagees', label: 'Latrines non aménagées / Unequipped toilets' },
+];
+
+const VT_AIRE_JEUX_TYPE_OPTIONS: VtOption[] = [
+        { value: 'football', label: 'Terrain de football / Football' },
+        { value: 'handball', label: 'Terrain de handball / Handball' },
+        { value: 'saut_hauteur', label: 'Plateau de saut en hauteur / High jump' },
+        { value: 'basketball', label: 'Terrain de basketball / Basketball' },
+        { value: 'volleyball', label: 'Terrain de volleyball / Volleyball' },
+];
+
+const VT_TYPE_CRISE_OPTIONS: VtOption[] = [
+        { value: 'attaque_etablissement', label: "Attaque contre l'établissement/Attack on the School" },
+        { value: 'attaque_eleves_personnel', label: 'Attaque contre des élèves et personnels / Attack on students and staff' },
+        { value: 'utilisation_militaire', label: "Utilisation militaire de l'établissement/Military use of the school" },
+        { value: 'mouvements_sociaux', label: 'Mouvements sociaux/ Social movements' },
+        { value: 'endemie_epidemie', label: 'Endémie/épidémie/pandémie/Endemic/epidemic/pandemic' },
+        { value: 'inondation', label: 'Inondation/Flood' },
+        { value: 'secheresse', label: 'Sécheresse / Drought' },
+        { value: 'tempetes', label: 'Tempêtes /Storms' },
+        { value: 'glissement_terrain', label: 'Glissement de Terrain / Landslide' },
+        { value: 'incendies', label: 'Incendies /Fires' },
+];
+
+const VT_MOMENT_ORIENTATION_OPTIONS: VtOption[] = [
+        { value: 'avant', label: '1. Avant la formation/ Before training' },
+        { value: 'pendant', label: '2. Pendant la formation/ During the training' },
+        { value: 'apres', label: '3. Après la formation/ After the training' },
+];
+
+const VT_ACCOMPAGNEMENT_OPTIONS: VtOption[] = [
+        { value: 'impregnation', label: "1. Orientation d'imprégnation/ impregnation orientation" },
+        { value: 'consolidation', label: '2. Orientation de consolidation/ Consolidation orientation' },
+        { value: 'insertion', label: "3. Orientation d'insertion/ Insertion orientation" },
+        { value: 'suivi_post_formation', label: '4. Suivi post-formation/ Post-training follow-up' },
+        { value: 'autres', label: '5. Autres / Others' },
+];
+
+const VT_MECANISME_SUIVI_OPTIONS: VtOption[] = [
+        { value: 'telephonique', label: '1. Téléphonique/ Telephone' },
+        { value: 'email', label: '2. Email/ Email address' },
+        { value: 'contact_direct', label: '3. Contact direct/ Direct contact' },
+        { value: 'autres', label: '4. Autres / Others' },
+];
+
+const VT_DIFFICULTE_OPTIONS: VtOption[] = [
+        { value: 'insuffisance_equipements', label: '1. Insuffisances d\'équipements de formation / Insufficient number of training equipment' },
+        { value: 'cout_formation', label: '2. Coût de la formation / Training cost' },
+        { value: 'difficultes_stage', label: '3. Difficultés de stage pour les apprenants / Internship difficulties faced by trainees' },
+        { value: 'insuffisance_personnel', label: '4. Insuffisance du personnel enseignant / Insufficient number of trainers' },
+        { value: 'faible_effectif', label: "5. Faible effectif d'apprenants / Insufficient number of trainees" },
+        { value: 'insecurite', label: '6. Insécurité/ Insecurty' },
+];
+
 export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     const surveyYear = (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode);
     const isEn = locale === 'en';
@@ -1932,10 +2048,10 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             commune: str(f, 'VT1_7') || str(f, 'commune'),
             villageQuartier: str(f, 'VT1_8') || str(f, 'villageQuartier') || str(f, 'locality'),
             milieu: vtAreaKey(f, 'VT1_9'),
-            ordreEnseignement: str(f, 'VT1_10') || str(f, 'ordreEnseignement'),
-            typeCFP: str(f, 'VT1_11') || str(f, 'typeCFP'),
+            ordreEnseignement: vtChoiceKey(f, 'VT1_10', vtKeys(VT_ORDRE_ENSEIGNEMENT_OPTIONS)),
+            typeCFP: vtChoiceKey(f, 'VT1_11', vtKeys(VT_TYPE_CFP_OPTIONS)),
             situation: vtSituationKey(f, 'VT1_12'),
-            raisonNonFonctionnelle: str(f, 'VT1_13') || str(f, 'raisonNonFonctionnelle'),
+            raisonNonFonctionnelle: vtChoiceKey(f, 'VT1_13', vtKeys(VT_RAISON_NON_FONCTIONNELLE_OPTIONS)),
             raisonAutrePrecision: str(f, 'VT1_13_OTHER'),
             anneeOuverture: str(f, 'VT1_14') || str(f, 'anneeOuverture') || str(f, 'yearOfCreation'),
             respondent: {
@@ -1953,34 +2069,13 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
                 email: str(f, 'VT1_16_EMAIL') || str(f, 'promoterEmail'),
             },
         },
-        // Structural only for 1.10/1.11/1.13 — see the block comment above
-        // this section; the template shows the raw free text for these,
-        // not a checkbox match against these lists.
-        ordreEnseignementOptions: [
-            { value: 'public', label: '1. Public/ Public' },
-            { value: 'prive_laic', label: '2. Privé laïc/ Lay private' },
-            { value: 'prive_confessionnel', label: '3. Privé confessionnel/ Private denominational' },
-        ],
-        typeCFPOptions: [
-            { value: 'sar_sm', label: '1. SAR/SM/ RA/HECs' },
-            { value: 'cfpr', label: '2. Centre de Formation Professionnelle Rapide (CFPR)/ Intensive Vocational Training Centre (IVTC)' },
-            { value: 'cfpp', label: '3. Centre de Formation Professionnelle Privé (CFPP)/ Private Vocational Training Centre (PVTC)' },
-            { value: 'cfm', label: '4. Centre de Formation aux Métiers (CFM)/ Trades Training Centre (TTC)' },
-            { value: 'cfpe', label: "5. Centre de Formation Professionnelle d'Excellence (CFPE)/ Advanced Vocational Training Centre (AVTC)" },
-            { value: 'cfps', label: '6. Centre de Formation Professionnelle Sectorielles (CFPS)/ Sectoral Vocational Training Centre (SVTC)' },
-            { value: 'cnffdp', label: '7. Centre National de Formation des Formateurs et de Développement des Programmes (CNFFDP)/ National Institute of Vocational Trainers and Programme Development (NIVTPD)' },
-        ],
-        raisonNonFonctionnelleOptions: [
-            { value: 'manque_apprenants', label: "1. Manque d'apprenants/Lack of trainees" },
-            { value: 'manque_formateur', label: '2. Manque de formateur/Lack of trainers' },
-            { value: 'insecurite', label: "3. Raison d'insécurité / Insecurity" },
-            { value: 'agrement_invalide', label: '4. Agrément non valide/ Invalid accreditation' },
-            { value: 'autres', label: '5. Autres (à préciser) / Others (specify)' },
-        ],
+        ordreEnseignementOptions: VT_ORDRE_ENSEIGNEMENT_OPTIONS,
+        typeCFPOptions: VT_TYPE_CFP_OPTIONS,
+        raisonNonFonctionnelleOptions: VT_RAISON_NON_FONCTIONNELLE_OPTIONS,
 
         general: {
             conventionEtat: vtBool(f, 'VT2_1'),
-            conventionTypes: vtArr(f, 'VT2_2'),
+            conventionTypes: vtChoiceKeys(f, 'VT2_2', vtKeys(VT_CONVENTION_TYPE_OPTIONS)),
             nombreSites: str(f, 'VT2_3'),
             infrastructureCommune: vtBool(f, 'VT2_4'),
             etablissementPartageNom: str(f, 'VT2_5'),
@@ -1996,29 +2091,29 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             anneeAgrement: str(f, 'VT2_15'),
             arreteNumero: str(f, 'VT2_16'),
             arreteDate: str(f, 'VT2_17'),
-            typesFormation: vtArr(f, 'VT2_18'),
+            typesFormation: vtChoiceKeys(f, 'VT2_18', ['FI', 'FC']),
             totalApprenants: str(f, 'VT2_19'),
             totalFormateurs: str(f, 'VT2_20'),
             apprenantsPremierCycle: str(f, 'VT2_21'),
             apprenantsSecondCycle: str(f, 'VT2_22'),
-            energie: { disponible: vtBool(f, 'VT2_23'), fonctionnelle: vtBool(f, 'VT2_24'), sources: vtArr(f, 'VT2_25') },
-            eau: { disponible: vtBool(f, 'VT2_26'), sources: vtArr(f, 'VT2_27') },
+            energie: { disponible: vtBool(f, 'VT2_23'), fonctionnelle: vtBool(f, 'VT2_24'), sources: vtChoiceKeys(f, 'VT2_25', vtKeys(VT_ENERGIE_SOURCE_OPTIONS)) },
+            eau: { disponible: vtBool(f, 'VT2_26'), sources: vtChoiceKeys(f, 'VT2_27', vtKeys(VT_EAU_SOURCE_OPTIONS)) },
             lavageMains: vtBool(f, 'VT2_28'),
             campagneSante: vtBool(f, 'VT2_29'),
             boitePharmacie: vtBool(f, 'VT2_30'),
             infirmerie: vtBool(f, 'VT2_31'),
             bibliotheque: vtBool(f, 'VT2_32'),
-            cloture: vtClotureKey(f, 'VT2_33'),
+            cloture: vtChoiceKey(f, 'VT2_33', ['entierement', 'partiellement', 'non']),
             conseilEtablissement: vtBool(f, 'VT2_34'),
             conseilNiveau: vtBool(f, 'VT2_35'),
             conseilDiscipline: vtBool(f, 'VT2_36'),
             latrines: {
                 fonctionnelles: vtBool(f, 'VT2_37'),
-                types: vtArr(f, 'VT2_38'),
+                types: vtChoiceKeys(f, 'VT2_38', vtKeys(VT_LATRINE_TYPE_OPTIONS)),
                 blocFillesDistinct: vtBool(f, 'VT2_39'),
                 elevesFormateursSepares: vtBool(f, 'VT2_40'),
             },
-            airesJeux: { disponible: vtBool(f, 'VT2_41'), types: vtArr(f, 'VT2_42') },
+            airesJeux: { disponible: vtBool(f, 'VT2_41'), types: vtChoiceKeys(f, 'VT2_42', vtKeys(VT_AIRE_JEUX_TYPE_OPTIONS)) },
             ict: { disponible: vtBool(f, 'VT2_43'), nombre: str(f, 'VT2_44'), nombreConnecte: str(f, 'VT2_45') },
             formationTIC: { recue: vtBool(f, 'VT2_46'), total: str(f, 'VT2_47'), femmes: str(f, 'VT2_48') },
             formationViolences: vtBool(f, 'VT2_49'),
@@ -2027,41 +2122,16 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             dispositifVBG: vtBool(f, 'VT2_52'),
             cantine: vtBool(f, 'VT2_53'),
         },
-        conventionTypeOptions: [
-            { value: 'stage_academique', label: '1. Stage académique/ academic internship' },
-            { value: 'stage_professionnel', label: '2. Stage professionnel/ work placement' },
-            { value: 'stage_pre_emploi', label: '3. Stage pré emploi/ pre-employment internship' },
-            { value: 'insertion', label: '4. Insertion/ Insertion' },
-        ],
-        energieSourceOptions: [
-            { value: 'eneo', label: 'ENEO' },
-            { value: 'groupe_electrogene', label: 'Groupe électrogène / Generator' },
-            { value: 'solaire', label: 'Solaire / Solar' },
-        ],
-        eauSourceOptions: [
-            { value: 'camwater', label: 'CAMWATER / Tap Water' },
-            { value: 'puits', label: 'Puits / Well' },
-            { value: 'forage', label: 'Forage / Bore-hole' },
-            { value: 'source_amenagee', label: 'Source aménagée / Spring' },
-            { value: 'marigot', label: 'Marigot / Pool' },
-        ],
-        latrineTypeOptions: [
-            { value: 'wc_chasse', label: "WC avec chasse d'eau / Flushing toilet" },
-            { value: 'latrines_amenagees', label: 'Latrines aménagées / Equipped toilets' },
-            { value: 'latrines_non_amenagees', label: 'Latrines non aménagées / Unequipped toilets' },
-        ],
-        aireJeuxTypeOptions: [
-            { value: 'football', label: 'Terrain de football / Football' },
-            { value: 'handball', label: 'Terrain de handball / Handball' },
-            { value: 'saut_hauteur', label: 'Plateau de saut en hauteur / High jump' },
-            { value: 'basketball', label: 'Terrain de basketball / Basketball' },
-            { value: 'volleyball', label: 'Terrain de volleyball / Volleyball' },
-        ],
+        conventionTypeOptions: VT_CONVENTION_TYPE_OPTIONS,
+        energieSourceOptions: VT_ENERGIE_SOURCE_OPTIONS,
+        eauSourceOptions: VT_EAU_SOURCE_OPTIONS,
+        latrineTypeOptions: VT_LATRINE_TYPE_OPTIONS,
+        aireJeuxTypeOptions: VT_AIRE_JEUX_TYPE_OPTIONS,
 
         urgence: {
             crise: {
                 subie: vtBool(f, 'VT3_1'),
-                types: vtArr(f, 'VT3_2'),
+                types: vtChoiceKeys(f, 'VT3_2', vtKeys(VT_TYPE_CRISE_OPTIONS)),
                 fermetureProvisoire: vtBool(f, 'VT3_3'),
                 dureeFermetureSemaines: str(f, 'VT3_4'),
             },
@@ -2072,18 +2142,7 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             planContingence: vtBool(f, 'VT3_29'),
             apprenantsFormesProtection: vtBool(f, 'VT3_30'),
         },
-        typeCriseOptions: [
-            { value: 'attaque_etablissement', label: "Attaque contre l'établissement/Attack on the School" },
-            { value: 'attaque_eleves_personnel', label: 'Attaque contre des élèves et personnels / Attack on students and staff' },
-            { value: 'utilisation_militaire', label: "Utilisation militaire de l'établissement/Military use of the school" },
-            { value: 'mouvements_sociaux', label: 'Mouvements sociaux/ Social movements' },
-            { value: 'endemie_epidemie', label: 'Endémie/épidémie/pandémie/Endemic/epidemic/pandemic' },
-            { value: 'inondation', label: 'Inondation/Flood' },
-            { value: 'secheresse', label: 'Sécheresse / Drought' },
-            { value: 'tempetes', label: 'Tempêtes /Storms' },
-            { value: 'glissement_terrain', label: 'Glissement de Terrain / Landslide' },
-            { value: 'incendies', label: 'Incendies /Fires' },
-        ],
+        typeCriseOptions: VT_TYPE_CRISE_OPTIONS,
         // §3.5-3.9 — five fixed Detail booleans+counts (design note),
         // not a grid; the printed capacities/labels below are copied from
         // the PDF, not invented.
@@ -2160,17 +2219,17 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
 
         orientation: {
             serviceExiste: vtBool(f, 'VT6_1'),
-            moments: vtArr(f, 'VT6_2'),
+            moments: vtChoiceKeys(f, 'VT6_2', vtKeys(VT_MOMENT_ORIENTATION_OPTIONS)),
             // 6.1.2 — two Detail booleans sharing one printed code (design
             // note Decision 4, frozen).
             choixAvecService: vtBool(f, 'VT6_3'),
             collaborationCIOP: vtBool(f, 'VT6_4'),
-            accompagnements: vtArr(f, 'VT6_5'),
+            accompagnements: vtChoiceKeys(f, 'VT6_5', vtKeys(VT_ACCOMPAGNEMENT_OPTIONS)),
             accompagnementAutrePrecision: str(f, 'VT6_6'),
             // 6.2.1 "Autre, précisez" (VT6_9), printed like 6.1.3's VT6_6.
             suiviPostFormation: {
                 effectue: vtBool(f, 'VT6_7'),
-                mecanismes: vtArr(f, 'VT6_8'),
+                mecanismes: vtChoiceKeys(f, 'VT6_8', vtKeys(VT_MECANISME_SUIVI_OPTIONS)),
                 mecanismeAutrePrecision: str(f, 'VT6_9'),
             },
             celluleInsertion: vtBool(f, 'VT6_10'),
@@ -2178,24 +2237,9 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             outilAccompagnementEmploi: vtBool(f, 'VT6_12'),
             sortantsInseresParSpecialite: vtSpecialtyGenderTotalRows(f, 's6q3', 10),
         },
-        momentOrientationOptions: [
-            { value: 'avant', label: '1. Avant la formation/ Before training' },
-            { value: 'pendant', label: '2. Pendant la formation/ During the training' },
-            { value: 'apres', label: '3. Après la formation/ After the training' },
-        ],
-        accompagnementOptions: [
-            { value: 'impregnation', label: "1. Orientation d'imprégnation/ impregnation orientation" },
-            { value: 'consolidation', label: '2. Orientation de consolidation/ Consolidation orientation' },
-            { value: 'insertion', label: "3. Orientation d'insertion/ Insertion orientation" },
-            { value: 'suivi_post_formation', label: '4. Suivi post-formation/ Post-training follow-up' },
-            { value: 'autres', label: '5. Autres / Others' },
-        ],
-        mecanismeSuiviOptions: [
-            { value: 'telephonique', label: '1. Téléphonique/ Telephone' },
-            { value: 'email', label: '2. Email/ Email address' },
-            { value: 'contact_direct', label: '3. Contact direct/ Direct contact' },
-            { value: 'autres', label: '4. Autres / Others' },
-        ],
+        momentOrientationOptions: VT_MOMENT_ORIENTATION_OPTIONS,
+        accompagnementOptions: VT_ACCOMPAGNEMENT_OPTIONS,
+        mecanismeSuiviOptions: VT_MECANISME_SUIVI_OPTIONS,
 
         transversal: {
             reglementVIH: {
@@ -2270,18 +2314,11 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
 
         difficultes: {
             rencontrees: vtBool(f, 'VT9_1'),
-            types: vtArr(f, 'VT9_2'),
+            types: vtChoiceKeys(f, 'VT9_2', vtKeys(VT_DIFFICULTE_OPTIONS)),
             autresPrecisions: vtArr(f, 'VT9_3'),
             perspectives: vtArr(f, 'VT9_4'),
         },
-        difficulteOptions: [
-            { value: 'insuffisance_equipements', label: '1. Insuffisances d\'équipements de formation / Insufficient number of training equipment' },
-            { value: 'cout_formation', label: '2. Coût de la formation / Training cost' },
-            { value: 'difficultes_stage', label: '3. Difficultés de stage pour les apprenants / Internship difficulties faced by trainees' },
-            { value: 'insuffisance_personnel', label: '4. Insuffisance du personnel enseignant / Insufficient number of trainers' },
-            { value: 'faible_effectif', label: "5. Faible effectif d'apprenants / Insufficient number of trainees" },
-            { value: 'insecurite', label: '6. Insécurité/ Insecurty' },
-        ],
+        difficulteOptions: VT_DIFFICULTE_OPTIONS,
     };
 }
 
