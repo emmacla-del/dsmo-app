@@ -266,6 +266,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Année invalide : {0}', en: 'Invalid year: {0}' },
   { fr: 'Le type {0} ne relève pas du questionnaire formation professionnelle.', en: 'Type {0} does not fall under the vocational training questionnaire.' },
   { fr: 'Aucune déclaration approuvée trouvée pour l\'année {0}.', en: 'No approved declaration found for the year {0}.' },
+  { fr: 'Export de la liste nominative indisponible.', en: 'The named staff list export is unavailable.' },
 
   // ── DSMO declarations and notifications ─────────────────────────────
   { fr: 'PDF non disponible — numéro de suivi introuvable.', en: 'PDF not available — tracking number not found.' },

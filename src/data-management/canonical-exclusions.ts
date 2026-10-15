@@ -18,7 +18,10 @@ export const CANONICAL_PII_EXCLUSION_DEFINITIONS: Record<string, CanonicalPiiExc
       'PII — Individual trainer roster contains named persons (last name, first name, birth date, qualifications)',
     policy:
       'Design specification §9: Trainer roster is excluded from the default anonymous statistical export. ' +
-      'Any roster export must be separate, explicitly labelled, and subject to data-protection review.',
+      'Any roster export must be separate, explicitly labelled, and subject to data-protection review. ' +
+      'That export is spss/vt-roster-export.ts (POST /data-management/export/vt-roster/*): ' +
+      'SUPER_ADMIN and ADMIN_ONEFOP only, every download recorded; review signed off by the owner on 2026-10-15 ' +
+      '(constitution §21).',
     affectedData:
       's8q8_row1_lastName … s8q8_row14_professionalDiploma (7 cells × 14 rows = 98 PII cell IDs)',
   },

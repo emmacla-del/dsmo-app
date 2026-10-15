@@ -11,8 +11,11 @@ import {
   downloadSpssSavBlob,
   downloadSpssCsvBlob,
   downloadExcelWorkbookBlob,
+  downloadVtRosterCsvBlob,
+  downloadVtRosterSavBlob,
   getDataManagementStats,
   getExportHistory,
+  getVtRosterManifest,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -106,8 +109,12 @@ function typeLabel(tRoot: Translate, type: string): string {
   return ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
 }
 
-function formatExportFormat(fmt: string): string {
+function formatExportFormat(fmt: string, t: Translate): string {
   switch (fmt?.toUpperCase()) {
+    case "ROSTER_SAV":
+      return t("adminDiffusionPage.rosterHistoryFormat", { ext: ".sav" });
+    case "ROSTER_CSV":
+      return t("adminDiffusionPage.rosterHistoryFormat", { ext: ".csv" });
     case "SPSS_SAV":
       return "SPSS (.sav)";
     case "SPSS_CSV":
@@ -201,6 +208,10 @@ export default function DiffusionPage() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedEntityType, setSelectedEntityType] = useState("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // 8.8 named staff list: its own file and format, same filters.
+  const [rosterFormat, setRosterFormat] = useState<".sav" | ".csv">(".sav");
+  const [isExportingRoster, setIsExportingRoster] = useState(false);
 
   // Download states
   const [isExporting, setIsExporting] = useState(false);
@@ -384,6 +395,34 @@ export default function DiffusionPage() {
       setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  /**
+   * Downloads the 8.8 named staff list (one row per person) for the files the
+   * current filters select. Source: POST /data-management/export/vt-roster/{sav,csv};
+   * a CSV comes with the syntax that reads it (…/vt-roster/manifest). The
+   * server limits it to central ONEFOP admins and records every download.
+   */
+  const handleRosterExport = async () => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const base = `onefop_8-8_liste_nominative_${selectedCampaign}_${timestamp}`;
+    try {
+      setIsExportingRoster(true);
+      setErrorAlert(null);
+      if (rosterFormat === ".sav") {
+        triggerFileDownload(await downloadVtRosterSavBlob(currentFilters), `${base}.sav`);
+      } else {
+        triggerFileDownload(await downloadVtRosterCsvBlob(currentFilters), `${base}.csv`);
+        const manifest = await getVtRosterManifest();
+        if (manifest?.sps) triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), `${base}.sps`);
+      }
+      recordExport();
+      showSuccess(t("rosterDownloaded"));
+    } catch (err: unknown) {
+      setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
+    } finally {
+      setIsExportingRoster(false);
     }
   };
 
@@ -700,6 +739,34 @@ export default function DiffusionPage() {
                 {t("spssCompatible")}
               </p>
             </div>
+
+            {/* 8.8 names people, so it is never in the file above: its own
+                download, same filters (spss/vt-roster-export.ts). */}
+            {selectedQuestionnaire === "TVET" && (
+              <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+                <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("rosterTitle")}</legend>
+                <p className="cam-admin-meta" style={{ margin: 0 }}>{t("rosterHint")}</p>
+                {([".sav", ".csv"] as const).map((fmt) => (
+                  <label key={fmt} className="cam-admin-choice">
+                    <input
+                      type="radio"
+                      name="roster-format"
+                      checked={rosterFormat === fmt}
+                      onChange={() => setRosterFormat(fmt)}
+                    />
+                    <span>{fmt === ".sav" ? t("planSav") : t("planCsv")}</span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  className="cam-button cam-button-secondary"
+                  onClick={handleRosterExport}
+                  disabled={isExportingRoster}
+                >
+                  {isExportingRoster ? t("generating") : t("rosterButton")}
+                </button>
+              </fieldset>
+            )}
           </div>
         </section>
 
@@ -833,7 +900,7 @@ export default function DiffusionPage() {
                         </span>
                       )}
                     </td>
-                    <td style={{ whiteSpace: "nowrap" }}>{formatExportFormat(row.format)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{formatExportFormat(row.format, tRoot)}</td>
                     <td>{formatExportScope(row.filters, tRoot, locale)}</td>
                   </tr>
                 ))}
