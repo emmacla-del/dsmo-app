@@ -3,7 +3,8 @@
 Note à l'intention des analystes qui exploitent les exports SPSS (`.sav`),
 CSV (`.csv` + syntaxe `.sps`) et Excel du questionnaire ONEFOP.
 Rédigée le 10 octobre 2026 ; elle fait suite à la version 6 (textes libres
-non tronqués, A2000).
+non tronqués, A2000). Suite : [version 10](jeu-de-donnees-onefop-version-10.md)
+(lignes de 9.1 et 9.2 en variables séparées).
 
 ## Reconnaître la version d'un fichier
 

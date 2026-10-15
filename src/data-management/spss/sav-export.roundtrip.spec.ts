@@ -88,6 +88,7 @@ function buildSubmission(variables: AnalyticalVariableDefinition[], row: number,
     else if (kind === 'respondent') setPath(sub.rawData, ['respondent', rest[0]], value);
     else if (kind === 'detail') setPath(sub.rawData, [rest[0], rest[1]], value);
     else if (kind === 'matrix') sub.rawData[rest[1]] = value;
+    else if (kind === 'listSlot') (sub.rawData[rest[0]] ??= [])[Number(rest[1]) - 1] = value;
     else if (kind !== 'indexed') sub.rawData[v.variableName] = value;
   });
   sub.formType = formType; // keep the row's real type even if a variable sampled it
@@ -187,7 +188,11 @@ describeIfPy('native .sav export — pyreadstat round trip', () => {
     // E8 (v6): free-text variables are A2000 and their long answers survive whole.
     const wide = variables.filter((v) => v.spssDataType !== 'NUMERIC' && v.spssWidth > 255);
     if (partition === 'TVET') {
-      expect(wide.map((v) => v.variableName).sort()).toEqual(['VT3_10', 'VT9_3', 'VT9_4']);
+      expect(wide.map((v) => v.variableName).sort()).toEqual([
+        'VT3_10',
+        'VT9_3_1', 'VT9_3_2', 'VT9_3_3', 'VT9_3_4', 'VT9_3_5',
+        'VT9_4_1', 'VT9_4_2', 'VT9_4_3', 'VT9_4_4', 'VT9_4_5',
+      ]);
     } else {
       expect(wide).toEqual([]);
     }
