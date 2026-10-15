@@ -29,6 +29,7 @@ import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
+import { withoutStaffNames } from './staff-names';
 import { computeDoualaEndOfDay } from './douala-deadline';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
@@ -3266,9 +3267,15 @@ export class QuestionnairesService {
     // Out-of-territory rows are reported as not found (no existence leak).
     // `id` may also be the submission reference printed on the respondent's
     // receipt (submissionId), so a dossier is found from it too (F12).
+    //
+    // The file page renders the answers from rawData (the respondent's flat
+    // form data, keyed by the schema's own ids; the official PDF is built
+    // from it too), so the 23 statistical child tables are not loaded. No
+    // client read them, and Prisma ran one query per relation, which made
+    // the page take ~25 s through the session-mode pooler.
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true, establishment: { include: { company: { select: { yearOfCreation: true } } } } },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     // The establishment is loaded only for the registered founding year, which
@@ -3276,7 +3283,25 @@ export class QuestionnairesService {
     // It is flattened rather than returned, so the response gains one field
     // and not the establishment row.
     const { establishment, ...rest } = submission;
-    return { ...rest, yearOfCreation: establishment?.company?.yearOfCreation ?? null };
+    return {
+      ...rest,
+      rawData: withoutStaffNames(rest.rawData, territory?.role),
+      yearOfCreation: establishment?.company?.yearOfCreation ?? null,
+    };
+  }
+
+  /**
+   * The fields a review decision needs (status, territory, campaign link),
+   * found under the same territory rule as getById. approve, reject and
+   * request-correction used getById, loading the whole file to read a status.
+   */
+  private async findForDecision(id: string, territory?: Territory) {
+    const submission = await (this.prisma as any).onefopSubmission.findFirst({
+      where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
+      select: { id: true, status: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
+    });
+    if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
+    return submission;
   }
 
   private isViaCentralFallback(territory: Territory | undefined, submission: any): boolean {
@@ -3332,11 +3357,11 @@ export class QuestionnairesService {
 }
 
   async approve(id: string, reviewedBy?: string, territory?: Territory) {
-    const submission = await this.getById(id, territory);
+    const submission = await this.findForDecision(id, territory);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
-    await this.eligibilityEngine!.assertCanApprove(id);
+    await this.eligibilityEngine!.assertCanApprove(submission.id);
     if (reviewedBy) {
       const viaCentralFallback = this.isViaCentralFallback(territory, submission);
       await (this.prisma as any).auditLog.create({
@@ -3344,7 +3369,7 @@ export class QuestionnairesService {
           userId: reviewedBy,
           action: 'AUDIT_APPROVE',
           resourceType: 'OnefopSubmission',
-          resourceId: id,
+          resourceId: submission.id,
           details: {
             campaignId: submission.campaignId ?? null,
             establishmentId: submission.establishmentId ?? null,
@@ -3355,7 +3380,7 @@ export class QuestionnairesService {
         },
       });
     }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the approval.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
     return updated;
@@ -3365,7 +3390,7 @@ export class QuestionnairesService {
     if (!reason || reason.trim().length < 10) {
       throw new BadRequestException('La justification du rejet doit comporter au moins 10 caractères.');
     }
-    const submission = await this.getById(id, territory);
+    const submission = await this.findForDecision(id, territory);
     if (submission.status !== 'PENDING_REVIEW' && submission.status !== 'CORRECTION_REQUESTED') {
       throw new BadRequestException(`Impossible de rejeter un dossier au statut ${submission.status}.`);
     }
@@ -3375,12 +3400,12 @@ export class QuestionnairesService {
           userId: reviewedBy,
           action: 'AUDIT_REJECT',
           resourceType: 'OnefopSubmission',
-          resourceId: id,
+          resourceId: submission.id,
           details: { reason },
         },
       });
     }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the rejection.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'NOT_STARTED');
     return updated;
@@ -3393,7 +3418,7 @@ export class QuestionnairesService {
     if (!comments || comments.trim().length < 10) {
       throw new BadRequestException('La justification de la demande de correction doit comporter au moins 10 caractères.');
     }
-    const submission = await this.getById(id, territory);
+    const submission = await this.findForDecision(id, territory);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible de demander une correction sur un dossier au statut ${submission.status}.`);
     }
@@ -3403,12 +3428,12 @@ export class QuestionnairesService {
           userId: reviewedBy,
           action: 'AUDIT_CORRECTION',
           resourceType: 'OnefopSubmission',
-          resourceId: id,
+          resourceId: submission.id,
           details: { comments, previousStatus: submission.status, certified: true },
         },
       });
     }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the correction request.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;

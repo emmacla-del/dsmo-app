@@ -708,6 +708,12 @@ export interface AdminDossier {
   vocationalTrainingDetail: Record<string, unknown> | null;
   /** Registered founding year (Company.yearOfCreation), reached through the submission's establishment. */
   yearOfCreation?: string | null;
+  /**
+   * The respondent's answers as submitted, keyed by the schema's field ids.
+   * Without the 8.8 staff list (s8q8_*) unless the caller is SUPER_ADMIN or
+   * ADMIN_ONEFOP (server: src/questionnaires/staff-names.ts).
+   */
+  rawData?: Record<string, unknown> | null;
 }
 
 export function getAdminDossier(id: string) {
