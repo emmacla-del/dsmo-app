@@ -25,6 +25,7 @@ import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vt
 import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
 import { vtCrossTableIssues } from "./vt-cross-table";
 import { vt53Issue } from "./vt-infrastructure-check";
+import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY } from "./onefop-activities";
 
 export interface ValidationIssue {
   fieldId: string;
@@ -318,9 +319,66 @@ function validateField(
  *  2. Required table presence (e.g. S21Q01 workforce or mandatory VT tables)
  *  3. Required cells within active rows
  */
+function validateActivitiesTable(
+  field: OnefopField,
+  data: FormData,
+  locale?: ValidationLocale,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const prefix = field.table?.id ?? field.id;
+  const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
+  const label = fieldLabel(field, locale);
+
+  for (let n = 1; n <= rowCount; n++) {
+    const rowCells = ACTIVITIES_TABLE_FIELDS.map((f) => {
+      const cellId = `${prefix}_row${n}_${f.key}`;
+      const val = data[cellId];
+      const isEntered = isEnteredValue(val) && String(val).trim() !== "";
+      return { field: f, cellId, val, isEntered };
+    });
+
+    const hasAny = rowCells.some((c) => c.isEntered);
+    if (!hasAny) continue;
+
+    for (const cell of rowCells) {
+      if (!cell.isEntered) {
+        const fieldName = textIn(cell.field.label, locale);
+        issues.push({
+          fieldId: cell.cellId,
+          message: labelled(
+            label,
+            `Ligne ${n} : le champ « ${fieldName} » est requis`,
+            `Row ${n}: the field "${fieldName}" is required`,
+            locale,
+          ),
+        });
+      } else if (cell.field.key === "duration") {
+        const num = Number(cell.val);
+        if (Number.isNaN(num) || num < 0) {
+          issues.push({
+            fieldId: cell.cellId,
+            message: labelled(
+              label,
+              `Ligne ${n} : la durée doit être un nombre ≥ 0`,
+              `Row ${n}: duration must be a number ≥ 0`,
+              locale,
+            ),
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
 function validateTableField(field: OnefopField, data: FormData, locale?: ValidationLocale): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!isFieldVisible(field, data)) return issues;
+
+  if (field.table?.template === "activities_table") {
+    return validateActivitiesTable(field, data, locale);
+  }
 
   const prefix = field.table?.id ?? field.id;
   const label = fieldLabel(field, locale);
