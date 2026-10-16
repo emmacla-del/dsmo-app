@@ -3,19 +3,13 @@
 import { useCallback, useMemo } from "react";
 import type { FormData } from "@/lib/onefop-schema";
 import { useEntryMode } from "@/lib/use-entry-mode";
+import { VT85_FIELD_IDS } from "@/lib/vt-review-counts";
 import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
 import { buildVt85TrainerStatusDefinition } from "./tables/StatisticalTableDefinition";
 
 /** 8.5's six schema fields: status (part-time vocational, part-time non-vocational, permanent) × sex. */
-export const VT85_FIELD_IDS = [
-  "VT8_5_VP_M",
-  "VT8_5_VP_F",
-  "VT8_5_VNP_M",
-  "VT8_5_VNP_F",
-  "VT8_5_PERM_M",
-  "VT8_5_PERM_F",
-] as const;
+export { VT85_FIELD_IDS };
 
 const SAVED = new Set<string>(VT85_FIELD_IDS);
 
