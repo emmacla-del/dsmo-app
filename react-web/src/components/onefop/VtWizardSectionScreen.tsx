@@ -52,6 +52,8 @@ import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgre
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { vtCrossTableIssues } from "@/lib/vt-cross-table";
 import { VtCrossTableNotice } from "./VtCrossTableNotice";
+import { VtAdvisoryCoherenceNotice } from "./VtAdvisoryCoherenceNotice";
+import type { CoherenceFlag } from "@/lib/onefop-submission";
 import { isVtCentreClosed, missingVtTableCells, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
@@ -105,6 +107,12 @@ interface VtWizardSectionScreenProps {
    */
   activeStep?: number;
   onStepChange?: (index: number) => void;
+  /**
+   * The server's advisory coherence flags (4.2/4.7, 4.2/4.8, 4.7/4.10) for
+   * the answers as they stand; those of the table on screen are shown under
+   * it (VtAdvisoryCoherenceNotice). Never blocking (CLAUDE.md §7).
+   */
+  advisoryFlags?: CoherenceFlag[];
 }
 
 interface VtFieldGroup {
@@ -1098,6 +1106,7 @@ export function VtWizardSectionScreen({
   revealRef,
   activeStep,
   onStepChange,
+  advisoryFlags = [],
 }: VtWizardSectionScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -1375,6 +1384,12 @@ export function VtWizardSectionScreen({
         <VtCrossTableNotice
           issues={shownCrossTableIssues}
           locale={normalizedLocale}
+          onOpenTable={openTableForField}
+        />
+        {/* The advisory ones (§7), after the blocking list and apart from it. */}
+        <VtAdvisoryCoherenceNotice
+          flags={advisoryFlags}
+          tableFieldIds={tabbed && groups.length > 1 ? (groups[activeTab]?.fieldIds ?? []) : groups.flatMap((g) => g.fieldIds)}
           onOpenTable={openTableForField}
         />
       </div>

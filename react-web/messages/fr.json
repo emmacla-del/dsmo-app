@@ -1000,6 +1000,8 @@
   "vtWizard": {
     "crossTableTitle": "{count, plural, one {Un total à faire concorder} other {# totaux à faire concorder}}",
     "crossTableOpen": "Ouvrir le tableau {code}",
+    "advisoryTitle": "{count, plural, one {Un chiffre à vérifier} other {# chiffres à vérifier}}",
+    "advisoryIntro": "Ces tableaux ne comptent pas exactement les mêmes apprenants, un écart peut donc être normal. Corrigez les chiffres s’ils sont faux ; sinon, continuez : cela ne bloque pas votre déclaration.",
     "crossTableOpenFull": "Ouvrir le tableau {code} — comparaison des tableaux {tables}",
     "rowOwes": "À compléter : {cells}",
     "rowNumber": "ligne {index}",

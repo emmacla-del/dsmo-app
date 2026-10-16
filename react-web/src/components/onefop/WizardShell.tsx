@@ -36,6 +36,9 @@ import { getVtSectionShortLabel } from "./vt-wizard-utils";
 import { VT_VALIDATION_HEADING_ID, VtValidationScreen } from "./VtValidationScreen";
 import { VT_QUIZ_HEADING_ID, VtQuizContext, VtScopeQuiz } from "./VtScopeQuiz";
 import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
+import { vtAdvisoryCheckKey } from "@/lib/vt-advisory-coherence";
+import { useVtAdvisoryCoherence } from "@/hooks/useVtAdvisoryCoherence";
+
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader, type ModernJobsHeaderProps } from "./ModernJobsHeader";
 import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
@@ -58,6 +61,9 @@ import {
 } from "@/lib/wizard-rail-gate";
 import { clearWizardSession, readWizardPosition, writeWizardPosition } from "@/lib/wizard-position";
 import { activeQuarterQueryOptions } from "@/lib/shared-queries";
+
+/** The section whose tables the advisory coherence rules compare. */
+const VT_ADVISORY_SECTION_ID = "section4_vocationalTraining";
 
 interface WizardShellProps {
   entity: OnefopEntity;
@@ -392,6 +398,21 @@ export function WizardShell({
       : isVtQuizStage
         ? "quiz"
         : `section:${currentSection?.id ?? clampedSectionIndex}${vtStepped ? `:${vtStepIndex}` : ""}`;
+  // ── Advisory coherence while Section 4 is filled (§7) ───────────────────
+  // The server's 4.2/4.7, 4.2/4.8 and 4.7/4.10 flags, shown under the table
+  // concerned; the review screen keeps its own end-of-wizard panel.
+  const vtAdvisoryKey = useMemo(
+    () =>
+      isVt && !isValidationStage && !isVtQuizStage && currentSection?.id === VT_ADVISORY_SECTION_ID && !isVtCentreClosed(data)
+        ? vtAdvisoryCheckKey(currentSection.fields, data)
+        : null,
+    [isVt, isValidationStage, isVtQuizStage, currentSection, data],
+  );
+  const vtAdvisoryFlags = useVtAdvisoryCoherence({
+    checkKey: vtAdvisoryKey,
+    stepKey: vtStepKey,
+    check: () => previewCoherence(entityType, data, entity),
+  });
   const vtHeadingId = !isVt
     ? null
     : isValidationStage
@@ -1108,6 +1129,7 @@ export function WizardShell({
                   saving={saving}
                   activeStep={vtStepped ? vtStepIndex : undefined}
                   onStepChange={(index) => setVtStepTarget(index)}
+                  advisoryFlags={vtAdvisoryFlags}
                 />
               )}
 
