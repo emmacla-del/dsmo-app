@@ -165,6 +165,29 @@ function handleCompanyNotActive(path: string): void {
   }
 }
 
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setOnUnauthorized(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+function handleUnauthorized(path: string): void {
+  // Do not reset auth state on login/2FA verification failure — wrong credentials are an expected 401
+  const isAuthEndpoint =
+    path === "/auth/login" ||
+    path.startsWith("/auth/login?") ||
+    path === "/auth/2fa/verify" ||
+    path.startsWith("/auth/2fa/verify?");
+  if (isAuthEndpoint) return;
+
+  clearToken();
+  clearCachedUser();
+  if (unauthorizedHandler) {
+    unauthorizedHandler();
+  }
+}
+
 /**
  * The language the API should write its error messages in (X-Locale, read
  * by the backend's LocalizedHttpExceptionFilter; French when absent): the
@@ -227,6 +250,9 @@ export async function apiFetch<T>(
     }
     if (isCompanyNotActive(res.status, body)) {
       handleCompanyNotActive(path);
+    }
+    if (res.status === 401) {
+      handleUnauthorized(path);
     }
     throw new ApiError(res.status, message, body);
   }

@@ -65,3 +65,64 @@ test("without a sign-out, the profile is restored and cached as before", async (
   assert.equal(useAuthStore.getState().status, "authenticated");
   assert.equal(getCachedUser()?.email, "walti@gmail.com");
 });
+
+test("defect 8: 401 response resets in-memory auth store and clears tokens", async () => {
+  setToken("token-valid");
+  useAuthStore.setState({ status: "authenticated", user: USER as any });
+
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ statusCode: 401, message: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const { apiFetch } = await import("./api-client");
+  await assert.rejects(() => apiFetch("/admin/pilotage/queues"), {
+    name: "ApiError",
+    status: 401,
+  });
+
+  assert.equal(getToken(), null, "access token must be cleared on 401");
+  assert.equal(getCachedUser(), null, "cached user must be cleared on 401");
+  assert.equal(useAuthStore.getState().status, "unauthenticated", "auth store status must be unauthenticated");
+  assert.equal(useAuthStore.getState().user, null, "auth store user must be null");
+});
+
+test("defect 8: 403 response does not reset in-memory auth store (401 and 403 distinct)", async () => {
+  setToken("token-valid");
+  useAuthStore.setState({ status: "authenticated", user: USER as any });
+
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ statusCode: 403, message: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const { apiFetch } = await import("./api-client");
+  await assert.rejects(() => apiFetch("/admin/super-secret"), {
+    name: "ApiError",
+    status: 403,
+  });
+
+  assert.equal(getToken(), "token-valid", "access token must NOT be cleared on 403");
+  assert.equal(useAuthStore.getState().status, "authenticated", "auth store must remain authenticated on 403");
+});
+
+test("defect 8: 401 on /auth/login does not trigger logout interceptor", async () => {
+  useAuthStore.setState({ status: "unauthenticated", user: null });
+
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ statusCode: 401, message: "Invalid credentials" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const { login } = await import("./api-client");
+  await assert.rejects(() => login("bad@test.cm", "wrong-password"), {
+    name: "ApiError",
+    status: 401,
+  });
+});

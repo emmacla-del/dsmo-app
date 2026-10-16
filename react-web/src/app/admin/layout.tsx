@@ -35,21 +35,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const locale = asUiLocale(useLocale());
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoading, forbidden, user } = useAdminScreenGuard(ADMIN_ROLES);
+  const { isLoading, forbidden, user, isAuthenticated } = useAdminScreenGuard(ADMIN_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
-    enabled: !isLoading && !forbidden,
+    enabled: !isLoading && !forbidden && isAuthenticated,
     refetchInterval: 30000,
   });
 
   // Pending-registration count for the "Déclarants" badge. Held back until
   // the console guard has resolved; shares its query with the tab badge and
   // the pilotage tile (usePendingRegistrationsCount).
-  const { count: pendingRegistrations } = usePendingRegistrationsCount(!isLoading && !forbidden);
+  const { count: pendingRegistrations } = usePendingRegistrationsCount(!isLoading && !forbidden && isAuthenticated);
 
   // Supervision's badge counts dossiers awaiting a visa. Blocking anomalies
   // are counted once, on "Contrôle Qualité", where they are resolved — they
@@ -70,7 +70,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="cam-admin-empty" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--cam-bg)" }}>
         {t("common.loading")}

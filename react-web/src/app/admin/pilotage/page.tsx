@@ -342,6 +342,9 @@ export default function PilotagePage() {
   const isTerritorial = isRegional || isDivisional;
   const userRegion = user?.region?.trim().toLowerCase();
 
+  const status = useAuthStore((s) => s.status);
+  const isAuthenticated = status === "authenticated";
+
   // These figures move at administrative pace, not every 30s. Each poll of the
   // five queries below opens Prisma connections against Supabase's session-mode
   // pooler, whose ceiling this page was hitting (intermittent EMAXCONNSESSION
@@ -349,6 +352,7 @@ export default function PilotagePage() {
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
+    enabled: isAuthenticated,
     refetchInterval: 120000,
   });
 
@@ -359,12 +363,13 @@ export default function PilotagePage() {
     queryKey: ["admin", "data-management", "stats"],
     queryFn: getDataManagementStats,
     refetchInterval: 120000,
-    enabled: canReadDataStats,
+    enabled: isAuthenticated && canReadDataStats,
   });
 
   const recentQuery = useQuery({
     queryKey: ["admin", "questionnaires", "recent", 8],
     queryFn: () => listAdminQuestionnaires({ limit: 8, offset: 0 }),
+    enabled: isAuthenticated,
     refetchInterval: 120000,
   });
 
@@ -373,6 +378,7 @@ export default function PilotagePage() {
   const qualityQuery = useQuery({
     queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
     queryFn: () => getQualitySummary(activeCampaign?.id),
+    enabled: isAuthenticated,
     refetchInterval: 120000,
   });
 
@@ -381,7 +387,7 @@ export default function PilotagePage() {
   // which reaches this page as the /admin fallback route: left ungated the
   // query would 403 on every poll. Gated off, the count stays null, so the
   // tile renders the honest absence.
-  const { count: inscriptionsPending } = usePendingRegistrationsCount();
+  const { count: inscriptionsPending } = usePendingRegistrationsCount(isAuthenticated);
 
   // Authoritative data only. null until loaded or if query errors.
   const queues = queuesQuery.data ?? null;
