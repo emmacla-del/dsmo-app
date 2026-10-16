@@ -470,4 +470,31 @@ describe('PDF Flow end-to-end data and template test', () => {
     expect(row4Cells[3]).toBe(''); // Sexe: empty, NOT 2
     expect(row4Cells[5]).toBe(''); // Admin: empty, NOT 2
   });
+
+  it('8.8 Admin column reads booleans stored as the strings "true" / "false"', () => {
+    const rawData = {
+      s8q8_row1_lastName: 'Kamga',
+      s8q8_row1_sex: '1',
+      s8q8_row1_isAdminPersonnel: 'true',
+      s8q8_row2_lastName: 'Ngo',
+      s8q8_row2_sex: '2',
+      s8q8_row2_isAdminPersonnel: 'false',
+      s8q8_row3_lastName: 'Bello',
+      s8q8_row3_sex: '2',
+      s8q8_row3_isAdminPersonnel: ' TRUE ',
+    };
+    const mapped = mapVocationalTrainingData(rawData, 'QUARTERLY_2026_T4_001') as any;
+    expect(mapped.formateurs.personnel[0].personnelAdministratif).toBe(true);
+    expect(mapped.formateurs.personnel[1].personnelAdministratif).toBe(false);
+    expect(mapped.formateurs.personnel[2].personnelAdministratif).toBe(true);
+    expect(mapped.formateurs.personnel[3].personnelAdministratif).toBeUndefined();
+
+    const tplPath = path.join(__dirname, '..', 'pdf', 'templates', 'dynamic', 'vocationalTraining.hbs');
+    const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf-8'))(mapped);
+    const rowsHtml = /8\.8\s+État nominatif[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/i.exec(html)![1];
+    const admin = [...rowsHtml.matchAll(/<tr>([\s\S]*?)<\/tr>/g)]
+      .slice(0, 4)
+      .map((r) => [...r[1].matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((m) => m[1].trim())[5]);
+    expect(admin).toEqual(['1', '2', '1', '']);
+  });
 });
