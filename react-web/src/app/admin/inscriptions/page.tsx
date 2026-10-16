@@ -13,7 +13,9 @@ import {
   requestComplements,
   type ApproveUserOptions,
   type CompanyRegistrationItem,
+  type CompanyRegistrationsResult,
 } from "@/lib/user-directory";
+import { applyRegistrationDecision, type RegistrationDecisionStatus } from "@/lib/registration-queue-cache";
 import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel } from "@/lib/display-labels";
@@ -169,8 +171,16 @@ function InscriptionsContent() {
     setMarks({});
   };
 
-  const done = (text: string) => {
-    queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+  // The decided row and the counters change the moment the server confirms,
+  // then the refetch has the last word (defect 20, as defect 9 did for the
+  // file page): in-flight reads are cancelled so an older answer cannot
+  // overwrite the decision.
+  const done = (text: string, id: string, status: RegistrationDecisionStatus) => {
+    const queue = { queryKey: ["auth", "company-registrations"] };
+    void queryClient.cancelQueries(queue).then(() => {
+      queryClient.setQueriesData<CompanyRegistrationsResult>(queue, (page) => applyRegistrationDecision(page, id, status));
+      void queryClient.invalidateQueries(queue);
+    });
     setNotice({ tone: "success", text });
     closeReview();
   };
@@ -179,17 +189,17 @@ function InscriptionsContent() {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, options }: { id: string; options: ApproveUserOptions }) => approveUser(id, options),
-    onSuccess: () => done(t("approvedNotice")),
+    onSuccess: (_data, { id }) => done(t("approvedNotice"), id, "ACTIVE"),
     onError: failed,
   });
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectUser(id, reason),
-    onSuccess: () => done(t("rejectedNotice")),
+    onSuccess: (_data, { id }) => done(t("rejectedNotice"), id, "REJECTED"),
     onError: failed,
   });
   const complementsMutation = useMutation({
     mutationFn: ({ id, message }: { id: string; message: string }) => requestComplements(id, message),
-    onSuccess: () => done(t("complementsNotice")),
+    onSuccess: (_data, { id }) => done(t("complementsNotice"), id, "COMPLEMENTS_REQUESTED"),
     onError: failed,
   });
 
