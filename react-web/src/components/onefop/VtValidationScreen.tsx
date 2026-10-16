@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -9,6 +9,8 @@ import { getVtSectionShortLabel, isVtSectionComplete, vtWizardSectionStats } fro
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
 import { vtSectionTableCounts } from "@/lib/vt-review-counts";
 import { VtSectionAnswers } from "./VtSectionAnswers";
+import { coherenceWarningText } from "@/lib/coherence-warning-text";
+import type { CoherenceFlag } from "@/lib/onefop-submission";
 
 /** The Validation heading, focused by WizardShell when this stage opens. */
 export const VT_VALIDATION_HEADING_ID = "vt-validation-heading";
@@ -32,6 +34,19 @@ interface VtValidationScreenProps {
   quarterStatusMessage?: string;
   /** The preliminary quiz, when it applies (absent for a closed centre). */
   quiz?: { isComplete: boolean; onOpen: () => void };
+  /**
+   * The server's advisory coherence flags for these answers (defect 25).
+   * Asked before the review copy opens; flags are shown with a way to
+   * correct them or to confirm and continue. Never blocking (§7): a failed
+   * check lets the respondent continue.
+   */
+  checkCoherence?: () => Promise<CoherenceFlag[]>;
+}
+
+const COHERENCE_PANEL_ID = "vt-coherence-warnings";
+/** The section a coherence rule sends the respondent back to: 8 for trainers, else 4. */
+function coherenceSectionId(code: string): string {
+  return code.startsWith("VT_TRAINER_") ? "section8_vocationalTraining" : "section4_vocationalTraining";
 }
 
 type SectionState = "notStarted" | "inProgress" | "done";
@@ -95,8 +110,38 @@ export function VtValidationScreen({
   canSubmit = true,
   quarterStatusMessage,
   quiz,
+  checkCoherence,
 }: VtValidationScreenProps) {
   const t = useTranslations();
+  const tDossier = useTranslations("adminDossierPage");
+  // null: not checked for these answers yet; []: checked, nothing to report.
+  const [coherenceFlags, setCoherenceFlags] = useState<CoherenceFlag[] | null>(null);
+  const [checkingCoherence, setCheckingCoherence] = useState(false);
+  const coherencePanelRef = useRef<HTMLDivElement | null>(null);
+  // Answers changed: the flags shown no longer describe them.
+  useEffect(() => setCoherenceFlags(null), [data]);
+  useEffect(() => {
+    if (coherenceFlags && coherenceFlags.length > 0) coherencePanelRef.current?.focus();
+  }, [coherenceFlags]);
+
+  const continueToSubmission = async () => {
+    if (!onSubmitFinal) return;
+    // Flags already shown for these answers: continuing is the confirmation.
+    if (!checkCoherence || coherenceFlags !== null) {
+      onSubmitFinal();
+      return;
+    }
+    setCheckingCoherence(true);
+    const flags = await checkCoherence().catch(() => [] as CoherenceFlag[]);
+    setCheckingCoherence(false);
+    if (flags.length === 0) {
+      setCoherenceFlags([]);
+      onSubmitFinal();
+      return;
+    }
+    setCoherenceFlags(flags);
+  };
+  const showCoherence = !!coherenceFlags && coherenceFlags.length > 0;
   const locale = useLocale();
   const isFr = locale === "fr";
   const sections = entity.sections;
@@ -270,6 +315,38 @@ export function VtValidationScreen({
         </div>
       )}
 
+      {/* Advisory coherence flags (§7): shown, never blocking. */}
+      {showCoherence && (
+        <div
+          id={COHERENCE_PANEL_ID}
+          ref={coherencePanelRef}
+          tabIndex={-1}
+          role="region"
+          aria-labelledby={`${COHERENCE_PANEL_ID}-title`}
+          style={{ ...noticeStyle, background: "var(--cam-notice-surface)", border: "1px solid var(--cam-gold)", outline: "none" }}
+        >
+          <h3 id={`${COHERENCE_PANEL_ID}-title`} style={{ margin: "0 0 var(--cam-space-2)", fontSize: "15px", fontWeight: 600 }}>
+            {t("vtValidationScreen.coherence.title")}
+          </h3>
+          <p style={{ margin: "0 0 var(--cam-space-3)" }}>{t("vtValidationScreen.coherence.intro")}</p>
+          <ul style={{ margin: 0, paddingLeft: "var(--cam-space-5)", display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+            {coherenceFlags!.map((flag, i) => {
+              const sectionIndex = sections.findIndex((sec) => sec.id === coherenceSectionId(flag.code));
+              return (
+                <li key={`${flag.code}-${i}`}>
+                  {coherenceWarningText(tDossier, flag.code, flag.message)}{" "}
+                  {sectionIndex >= 0 && (
+                    <button type="button" onClick={() => onOpenSection(sectionIndex)} style={linkButton}>
+                      {t("vtValidationScreen.coherence.correct")}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* One row per section: name, status, counts, answers, change link. */}
       <ol style={{ listStyle: "none", margin: "0 0 var(--cam-space-6)", padding: 0, borderBottom: "1px solid var(--cam-border)" }}>
         {sectionSummaries.map(({ index, section, stats }) => (
@@ -352,9 +429,9 @@ export function VtValidationScreen({
                   reason?.focus({ preventScroll: true });
                   return;
                 }
-                onSubmitFinal();
+                void continueToSubmission();
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || checkingCoherence}
               aria-disabled={submitBlockedReasonId ? true : undefined}
               aria-describedby={submitBlockedReasonId ?? undefined}
               style={{
@@ -367,7 +444,13 @@ export function VtValidationScreen({
                 opacity: isSubmitting || hasErrors || !canSubmit ? 0.55 : 1,
               }}
             >
-              {isSubmitting ? t("vtValidationScreen.submitting") : t("vtValidationScreen.continueButton")}
+              {isSubmitting
+                ? t("vtValidationScreen.submitting")
+                : checkingCoherence
+                  ? t("vtValidationScreen.coherence.checking")
+                  : showCoherence
+                    ? t("vtValidationScreen.coherence.confirmButton")
+                    : t("vtValidationScreen.continueButton")}
             </button>
           )}
         </div>

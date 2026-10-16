@@ -9,6 +9,7 @@ import { validateSectionData, vtSubsetIssues } from "@/lib/onefop-validation";
 import {
   fetchDeclarationPreviewPdf,
   formatSubmissionError,
+  previewCoherence,
   submitDeclaration,
   supportsBackendSubmission,
 } from "@/lib/onefop-submission";
@@ -960,6 +961,7 @@ export function WizardShell({
                   canSubmit={canSubmit}
                   quarterStatusMessage={quarterStatusMessage}
                   quiz={vtQuizApplies ? { isComplete: vtQuizComplete, onOpen: selectVtQuiz } : undefined}
+                  checkCoherence={() => previewCoherence(entityType, data, entity)}
                 />
               </>
             )}

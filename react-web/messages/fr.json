@@ -960,7 +960,14 @@
     "saveDraftButton": "Sauvegarder Brouillon",
     "submitting": "Envoi en cours…",
     "submitButton": "Soumettre définitivement",
-    "continueButton": "Continuer vers la soumission"
+    "continueButton": "Continuer vers la soumission",
+    "coherence": {
+      "title": "Vérifiez ces chiffres avant de soumettre",
+      "intro": "Certains totaux qui comptent les mêmes apprenants ou formateurs ne concordent pas. Cela n'empêche pas la soumission : corrigez les chiffres s'ils sont faux, ou confirmez qu'ils sont justes.",
+      "correct": "Corriger cette section",
+      "checking": "Vérification des chiffres…",
+      "confirmButton": "Les chiffres sont justes, continuer vers la soumission"
+    }
   },
   "vtWizardSidebar": {
     "navAriaLabel": "Navigation du questionnaire VT",
