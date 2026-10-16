@@ -555,6 +555,24 @@ Approved changes on record:
   and 7.1.3 around it already depend on 7.1 = Oui. Fix: VT7_6 depends on
   VT7_1 = "Oui/ Yes"; when skipped it is unanswered (blank in the export),
   never "Non". Earlier submissions keep the answer they gave.
+- 2026-10-16 — official VT PDF 8.8 sex code mapping & empty row rendering (Defect 1)
+  (`src/services/pdf-data-mapper.service.ts`, `vtSexKey`, and
+  `src/pdf/templates/dynamic/vocationalTraining.hbs`).
+  Issue: stored codes "1" (Male) and "2" (Female) were not recognized by
+  vtSexKey, and the template defaulted blank/unknown sex to 2, causing empty
+  roster rows to print "2 / 2" and men to print as women (sex 2). Fix:
+  vtSexKey accepts stored codes "1" and "2", and the template renders blank
+  when sex or administrative role is not present. §21 approval granted and
+  confirmed on 2026-10-16.
+- 2026-10-16 — personal contact data moved to restricted export alongside 8.8 (Defect 3)
+  (`src/data-management/canonical-exclusions.ts`,
+  `src/data-management/spss/vt-contact-export.ts`, `data-management.controller.ts`).
+  Issue: anonymous statistical research dataset included named contact PII
+  (VT1_15_NAME, VT1_15_TEL1, VT1_15_EMAIL, VT1_16_NAME, VT1_16_TEL1,
+  VT1_16_EMAIL, VT2_12). Decision: Option B applied under §21 approval.
+  Fields are excluded from the canonical anonymous dataset and moved to a
+  restricted contact export file alongside 8.8, accessible only to
+  SUPER_ADMIN and ADMIN_ONEFOP. Statistical semantics preserved.
 
 ---
 
