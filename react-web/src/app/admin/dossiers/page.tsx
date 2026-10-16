@@ -42,7 +42,7 @@ interface DossierItem {
   region: string | null;
   department: string | null;
   formType: string | null;
-  adminStatus: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | null;
+  adminStatus: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | "SUPERSEDED" | null;
   blockingCount: number;
   warningCount: number;
   submittedAt: string | null;
@@ -83,6 +83,8 @@ const STATUS_VIEWS: Array<{ status: DossierStatus | ""; labelKey: string; noteKe
   { status: "CORRECTION_REQUESTED", labelKey: "statusCorrections", noteKey: "statusCorrectionsNote" },
   { status: "APPROVED", labelKey: "statusEndorsed" },
   { status: "REJECTED", labelKey: "statusRejected" },
+  // Closed files, kept for the record; not in "All" nor in any count.
+  { status: "SUPERSEDED", labelKey: "statusSuperseded", noteKey: "statusSupersededNote" },
 ];
 
 // Suspense because useSearchParams() requires it in the app router.
@@ -432,7 +434,13 @@ function DossiersContent() {
           key: view.status || "ALL",
           label: t(view.labelKey),
           active: statusFilter === view.status,
-          count: queues ? (view.status ? queues.statusCounts[view.status] : queues.totalSubmissionsCount) : null,
+          count: !queues
+            ? null
+            : !view.status
+              ? queues.totalSubmissionsCount
+              : view.status in queues.statusCounts
+                ? queues.statusCounts[view.status as keyof typeof queues.statusCounts]
+                : null,
           onClick: () => changeFilter(() => setStatus(view.status)),
         }))}
       />
@@ -618,6 +626,7 @@ function DossiersContent() {
                 d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } :
                 d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } :
                 d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } :
+                d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } :
                 // An item with no stored status is reported as such rather
                 // than defaulted into the pending queue.
                 { label: t("badgeNoStatus"), tone: "neutral" };

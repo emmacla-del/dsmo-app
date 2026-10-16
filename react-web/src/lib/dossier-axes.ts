@@ -36,6 +36,7 @@ export const EXCLUSION_REASONS = [
   "EXCL_CORRECTION_PENDING",
   "EXCL_REJECTED",
   "EXCL_DRAFT_ONLY",
+  "EXCL_SUPERSEDED",
 ] as const;
 
 const EXCLUSION_TONE: Record<(typeof EXCLUSION_REASONS)[number], AxisTone> = {
@@ -44,6 +45,7 @@ const EXCLUSION_TONE: Record<(typeof EXCLUSION_REASONS)[number], AxisTone> = {
   EXCL_WAITING_NAT_VISA: "warning",
   EXCL_CORRECTION_PENDING: "warning",
   EXCL_DRAFT_ONLY: "neutral",
+  EXCL_SUPERSEDED: "neutral",
 };
 
 const STATUS_AXIS: Record<string, AxisBadge> = {
@@ -51,6 +53,8 @@ const STATUS_AXIS: Record<string, AxisBadge> = {
   APPROVED: { key: "statusEndorsed", tone: "success" },
   CORRECTION_REQUESTED: { key: "statusCorrection", tone: "warning" },
   REJECTED: { key: "statusRejected", tone: "error" },
+  // Closed by a newer submission for the same period: nothing to decide.
+  SUPERSEDED: { key: "statusSuperseded", tone: "neutral" },
 };
 
 /** Where the diagnostic request stands; only "ready" carries data. */

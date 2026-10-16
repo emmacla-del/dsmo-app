@@ -40,6 +40,7 @@ const SUBMISSION_STATUS_KEYS: Record<string, string> = {
   APPROVED: "adminDossierPage.statusEndorsed",
   CORRECTION_REQUESTED: "adminDossierPage.statusCorrection",
   REJECTED: "adminDossierPage.statusRejected",
+  SUPERSEDED: "adminDossierPage.statusSuperseded",
 };
 
 // The stored submission status decides the badge class; anything else is neutral.

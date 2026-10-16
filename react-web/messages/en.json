@@ -1727,6 +1727,8 @@
     "statusCorrectionsNote": "These declarations were sent back to employers with a non-compliance reason. They return to the queue as soon as they are resubmitted.",
     "statusEndorsed": "Endorsed",
     "statusRejected": "Rejected",
+    "statusSuperseded": "Replaced",
+    "statusSupersededNote": "Files closed because the respondent submitted a corrected version for the same period. They are kept for the record and are not counted anywhere.",
     "scopeRegional": "Regional — {region}",
     "scopeRegionalUnassigned": "Regional — no territory assigned",
     "scopeDepartmental": "Departmental — {department}",
@@ -1771,6 +1773,7 @@
     "badgeRejected": "Rejected",
     "badgePending": "Pending",
     "badgeNoStatus": "Status not recorded",
+    "badgeSuperseded": "Replaced",
     "blockingAnomalies": "{count, plural, one {# blocking anomaly} other {# blocking anomalies}}",
     "warnings": "{count, plural, one {# warning} other {# warnings}}",
     "noAnomaly": "No anomaly recorded",
@@ -1819,6 +1822,9 @@
     "statusEndorsed": "Endorsed",
     "statusCorrection": "Correction requested",
     "statusRejected": "Rejected",
+    "statusSuperseded": "Replaced",
+    "supersededLine": "Replaced by a newer file for the same period",
+    "openReplacingFile": "Open the file that replaced it",
     "statusNotRecorded": "Status not recorded",
     "section1": {
       "ENTREPRISE": "Section 1. Company details",
@@ -2011,7 +2017,8 @@
       "EXCL_WAITING_NAT_VISA": "Awaiting endorsement",
       "EXCL_CORRECTION_PENDING": "Correction pending",
       "EXCL_REJECTED": "Rejected",
-      "EXCL_DRAFT_ONLY": "Draft"
+      "EXCL_DRAFT_ONLY": "Draft",
+      "EXCL_SUPERSEDED": "Replaced by a newer file"
     }
   },
   "adminEquipePage": {

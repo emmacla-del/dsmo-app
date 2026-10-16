@@ -33,8 +33,8 @@ test("hrefWith encodes values instead of concatenating them", () => {
   assert.equal(hrefWith("/admin/annuaire", "", { tab: "users&x=1" }), "/admin/annuaire?tab=users%26x%3D1");
 });
 
-test("dossier status: the four statuses, else every status", () => {
-  for (const s of ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED"]) {
+test("dossier status: the five statuses (replaced files included), else every status", () => {
+  for (const s of ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED", "SUPERSEDED"]) {
     assert.equal(parseDossierStatus(s), s);
   }
   for (const s of [null, "", "pending_review", "ALL", "DRAFT"]) {

@@ -762,6 +762,8 @@ export interface AdminDossier {
   submissionDate: string;
   reviewedAt: string | null;
   rejectionReason: string | null;
+  /** With status SUPERSEDED: the id of the file that replaced this one. */
+  supersededById?: string | null;
   quarterCode: string | null;
   taxNumber: string | null;
   cnpsNumber: string | null;

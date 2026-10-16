@@ -16,6 +16,9 @@ export enum StatisticalExclusionReason {
 
   /** Entity has only saved a local draft; not officially submitted */
   EXCL_DRAFT_ONLY = 'EXCL_DRAFT_ONLY',
+
+  /** Closed: a newer submission for the same period replaced it (SUPERSEDED) */
+  EXCL_SUPERSEDED = 'EXCL_SUPERSEDED',
 }
 
 export interface AnomalySummary {
