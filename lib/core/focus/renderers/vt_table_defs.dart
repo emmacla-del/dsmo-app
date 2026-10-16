@@ -994,7 +994,7 @@ VtTableDef? vtTableDefFor(String template, Map<String, dynamic> spec) {
             paperCode: '4.3',
             title: const LocalizedText(
                 fr: 'Apprenants non occupés par spécialité',
-                en: 'Not-working-age trainees by specialty'),
+                en: 'Unemployed working-age trainees by specialty'),
           );
         case 's4q4':
           return vtSpecialtyFiFcTableDef(
