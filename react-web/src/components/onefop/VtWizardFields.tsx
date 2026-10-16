@@ -617,7 +617,7 @@ function VtFiveSlotsField({
                 htmlFor={slotId}
                 style={{
                   minWidth: "115px",
-                  fontSize: "13px",
+                  fontSize: "var(--cam-answer-size)",
                   fontWeight: 600,
                   color: "var(--cam-text-muted)",
                 }}
