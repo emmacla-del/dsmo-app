@@ -564,15 +564,22 @@ Approved changes on record:
   vtSexKey accepts stored codes "1" and "2", and the template renders blank
   when sex or administrative role is not present. §21 approval granted and
   confirmed on 2026-10-16.
-- 2026-10-16 — personal contact data moved to restricted export alongside 8.8 (Defect 3)
-  (`src/data-management/canonical-exclusions.ts`,
-  `src/data-management/spss/vt-contact-export.ts`, `data-management.controller.ts`).
-  Issue: anonymous statistical research dataset included named contact PII
-  (VT1_15_NAME, VT1_15_TEL1, VT1_15_EMAIL, VT1_16_NAME, VT1_16_TEL1,
-  VT1_16_EMAIL, VT2_12). Decision: Option B applied under §21 approval.
-  Fields are excluded from the canonical anonymous dataset and moved to a
-  restricted contact export file alongside 8.8, accessible only to
-  SUPER_ADMIN and ADMIN_ONEFOP. Statistical semantics preserved.
+- 2026-10-16 — dataset v11: VT contact details moved to a restricted
+  contact file (Defect 3) (`src/data-management/canonical-exclusions.ts`,
+  `src/data-management/spss/vt-contact-export.ts`,
+  `POST /data-management/export/vt-contact/{sav,csv,manifest}`).
+  Issue: the anonymous statistical dataset carried the names, phones and
+  emails of 1.15, 1.16 and 2.1.12. Fix: nine variables (VT1_15_NAME,
+  VT1_15_TEL1, VT1_15_TEL2, VT1_15_EMAIL, VT1_16_NAME, VT1_16_TEL1,
+  VT1_16_TEL2, VT1_16_EMAIL, VT2_12) are excluded from it and retired in
+  the frozen registry (names reserved, never reused);
+  DATASET_SCHEMA_VERSION = 11. They are exported in a separate file, one
+  row per submission, joined by `submissionId`, with the main export's
+  selection rules. Access: SUPER_ADMIN and ADMIN_ONEFOP only, enforced
+  server-side; every download is recorded. VT1_15_FUNCTION and the sex
+  variables stay in the anonymous dataset. Approved by the owner in chat,
+  2026-10-16. The questionnaire is unchanged. Analyst note:
+  `docs/reference/jeu-de-donnees-onefop-version-11.md`.
 
 ---
 
