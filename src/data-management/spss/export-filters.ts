@@ -43,7 +43,9 @@ export function safeCsvFilename(raw: unknown, fallback: string): string {
   return typeof raw === 'string' && /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,150}\.csv$/.test(raw) ? raw : fallback;
 }
 
-const KNOWN_STATUSES = new Set<string>(Object.values(OnefopStatus));
+// A replaced file (SUPERSEDED) is never exported: the file that replaced it
+// carries the establishment's figures. Asking for it is an unknown status.
+const KNOWN_STATUSES = new Set<string>(Object.values(OnefopStatus).filter((s) => s !== OnefopStatus.SUPERSEDED));
 const KNOWN_ENTITY_TYPES = new Set<string>(Object.values(OnefopEntityType));
 export const DEMAND_FORM_TYPES: string[] = DEMAND_SCHEMA_ENTITIES.map((e) => SCHEMA_TO_PRISMA_ENTITY[e]);
 export const TVET_FORM_TYPE = 'VOCATIONAL_TRAINING';

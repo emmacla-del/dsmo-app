@@ -7,6 +7,8 @@ import { OnefopService } from './onefop.service';
  */
 describe('OnefopService.getSubmissions territory scope', () => {
   const NO_ROWS = { id: { in: [] } };
+  // Replaced files are listed only when asked for by their status.
+  const NOT_REPLACED = { not: 'SUPERSEDED' };
 
   let prisma: any;
   let service: OnefopService;
@@ -44,7 +46,7 @@ describe('OnefopService.getSubmissions territory scope', () => {
 
   it('REGIONAL_ADMIN with a region is scoped to it, case-insensitively', async () => {
     await service.getSubmissions({ id: 'u1', role: 'REGIONAL_ADMIN', region: 'Littoral' }, {});
-    expect(lastWhere()).toEqual({ region: { equals: 'Littoral', mode: 'insensitive' } });
+    expect(lastWhere()).toEqual({ status: NOT_REPLACED, region: { equals: 'Littoral', mode: 'insensitive' } });
   });
 
   it('DIVISIONAL_ADMIN is scoped to region AND department', async () => {
@@ -53,6 +55,7 @@ describe('OnefopService.getSubmissions territory scope', () => {
       {},
     );
     expect(lastWhere()).toEqual({
+      status: NOT_REPLACED,
       region: { equals: 'Littoral', mode: 'insensitive' },
       department: { equals: 'Wouri', mode: 'insensitive' },
     });
@@ -66,6 +69,7 @@ describe('OnefopService.getSubmissions territory scope', () => {
     // Both conditions must hold, so another region yields no rows rather
     // than widening the caller's scope.
     expect(lastWhere()).toEqual({
+      status: NOT_REPLACED,
       region: { equals: 'Littoral', mode: 'insensitive' },
       AND: [{ region: { equals: 'Centre', mode: 'insensitive' } }],
     });
@@ -83,13 +87,18 @@ describe('OnefopService.getSubmissions territory scope', () => {
 
   it('a national role can narrow by region', async () => {
     await service.getSubmissions({ id: 'u1', role: 'ADMIN_ONEFOP' }, { region: 'Centre' });
-    expect(lastWhere()).toEqual({ AND: [{ region: { equals: 'Centre', mode: 'insensitive' } }] });
+    expect(lastWhere()).toEqual({ status: NOT_REPLACED, AND: [{ region: { equals: 'Centre', mode: 'insensitive' } }] });
   });
 
   it('COMPANY keeps its own-company scope', async () => {
     await service.getSubmissions({ id: 'u-co', role: 'COMPANY' }, {});
     expect(prisma.company.findFirst).toHaveBeenCalledWith({ where: { userId: 'u-co' } });
-    expect(lastWhere()).toEqual({ companyId: 'c1' });
+    expect(lastWhere()).toEqual({ status: NOT_REPLACED, companyId: 'c1' });
+  });
+
+  it('a replaced file (SUPERSEDED) is listed only when asked for by its status', async () => {
+    await service.getSubmissions({ id: 'u-co', role: 'COMPANY' }, { status: 'SUPERSEDED' });
+    expect(lastWhere()).toEqual({ status: 'SUPERSEDED', companyId: 'c1' });
   });
 
   it('COMPANY without a company profile gets an empty list without querying', async () => {

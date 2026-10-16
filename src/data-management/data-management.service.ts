@@ -597,7 +597,11 @@ export class DataManagementService {
         // `division`, so it gets the narrowed builder. Typed rather than
         // `any` so a future key mismatch fails the build instead of 500-ing.
         const companyWhere = territoryWhere(territory) as Prisma.CompanyWhereInput;
-        const onefopWhere = territoryWhere(territory) as Prisma.OnefopSubmissionWhereInput;
+        // A replaced file (SUPERSEDED) is counted once, as the file that replaced it.
+        const onefopWhere = {
+            ...(territoryWhere(territory) as Prisma.OnefopSubmissionWhereInput),
+            status: { not: 'SUPERSEDED' },
+        } as Prisma.OnefopSubmissionWhereInput;
         const declarationWhere: Prisma.DeclarationWhereInput = territoryWhereForDeclaration(territory);
         // Four queries, at most two in flight (was seven in one Promise.all).
         // The pooler runs in session mode with a tenant pool of 15 and Prisma
