@@ -26,6 +26,12 @@ import {
     vtRosterColumns,
     type VtRosterRecord,
 } from './spss/vt-roster-export';
+import {
+    VT_CONTACT_CONTEXT_VARIABLES,
+    VT_CONTACT_DATASET_VERSION,
+    VT_CONTACT_FILE_LABEL,
+    vtContactColumns,
+} from './spss/vt-contact-export';
 import { hasRealNiu } from './niu';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -1148,6 +1154,140 @@ export class DataManagementService {
             console.error('❌ 8.8 roster .sav export failed:', err);
             if (!res.headersSent) {
                 res.status(500).json({ message: 'Erreur lors de la génération de la liste nominative .sav: ' + (err as any)?.message });
+            }
+        } finally {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (cleanupErr) {
+                console.warn('⚠️ Could not remove temp dir:', cleanupErr);
+            }
+        }
+    }
+
+    // ── Restricted VT contacts (Decision 2 Option B) ───────────────────────
+    private vtContactLayout(): { variables: AnalyticalVariableDefinition[]; rowsOf: (s: any) => unknown[][] } {
+        if (!this.canonicalAdapter) throw new BadRequestException('Export du fichier des contacts indisponible.');
+        const adapter = this.canonicalAdapter;
+        const tvet = adapter.getTvetVariables();
+        const context = VT_CONTACT_CONTEXT_VARIABLES.map((name) => {
+            const v = tvet.find((x) => x.variableName === name);
+            if (!v) throw new Error(`Variable de contexte absente du registre : ${name}`);
+            return v;
+        });
+        const own = vtContactColumns();
+        const variables: AnalyticalVariableDefinition[] = [
+            ...context,
+            ...own.map((c, i) => ({
+                variableName: c.variable.name,
+                paperCode: c.variable.name.startsWith('VT1_15') ? '1.15' : c.variable.name.startsWith('VT1_16') ? '1.16' : '2.1.12',
+                labelFr: c.variable.label ?? c.variable.name,
+                labelEn: c.variable.label ?? c.variable.name,
+                sectionId: c.variable.name.startsWith('VT2') ? 'section2_vocationalTraining' : 'section1_vocationalTraining',
+                entityApplicability: ['vocationalTraining'],
+                spssDataType: 'A' as const,
+                spssWidth: c.variable.width,
+                measurementLevel: 'NOMINAL' as const,
+                sourcePath: `vtContact.${c.variable.name}`,
+                orderIndex: context.length + i + 1,
+            })),
+        ];
+        const rowsOf = (s: any): unknown[][] => {
+            const contextValues = context.map((v) => adapter.exportValue(v, s));
+            return [[...contextValues, ...own.map((c) => c.value(s))]];
+        };
+        return { variables, rowsOf };
+    }
+
+    private vtContactWhere(filters: OnefopExportFilters, territory?: Territory): any {
+        return this.buildSpssWhere({ ...filters, entityType: 'VOCATIONAL_TRAINING', partition: undefined }, territory);
+    }
+
+    private vtContactInclude() {
+        return {
+            company: { select: { name: true, taxNumber: true, region: true, department: true, establishmentId: true } },
+            respondent: true,
+            vocationalTrainingDetail: true,
+        };
+    }
+
+    private readonly vtContactHeader = {
+        title: 'CONFIDENTIEL — coordonnées et personnes de contact. CAM-LEAP / ONEFOP.',
+        version: `Version du fichier contacts : ${VT_CONTACT_DATASET_VERSION}.`,
+    };
+
+    async buildVtContactManifest(csvFilename?: unknown): Promise<{ sps: string; contactVersion: number }> {
+        const { variables } = this.vtContactLayout();
+        return {
+            sps: this.canonicalAdapter!.buildSpssSyntax(
+                variables,
+                safeCsvFilename(csvFilename, 'onefop_vt_contacts_restreints.csv'),
+                this.vtContactHeader,
+            ),
+            contactVersion: VT_CONTACT_DATASET_VERSION,
+        };
+    }
+
+    async streamVtContactCsv(filters: OnefopExportFilters, res: Response, territory?: Territory): Promise<void> {
+        const where = this.vtContactWhere(filters, territory);
+        const { variables, rowsOf } = this.vtContactLayout();
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="onefop_vt_contacts_restreints.csv"');
+        res.setHeader('X-Contact-Dataset-Version', String(VT_CONTACT_DATASET_VERSION));
+        res.write('﻿' + variables.map((v) => this.csvEscape(v.variableName)).join(',') + '\r\n');
+        const BATCH_SIZE = 250;
+        let cursor: string | undefined;
+        try {
+            for (; ;) {
+                const batch: any[] = await this.prisma.onefopSubmission.findMany({
+                    where,
+                    orderBy: { id: 'asc' },
+                    take: BATCH_SIZE,
+                    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                    include: this.vtContactInclude(),
+                });
+                if (batch.length === 0) break;
+                let chunk = '';
+                for (const s of batch) {
+                    for (const row of rowsOf(s)) chunk += row.map((value) => this.csvEscape(value)).join(',') + '\r\n';
+                }
+                if (chunk && !res.write(chunk)) await new Promise<void>((resolve) => res.once('drain', resolve));
+                cursor = batch[batch.length - 1].id;
+                if (batch.length < BATCH_SIZE) break;
+            }
+        } catch (err) {
+            console.error('❌ VT contact CSV export failed mid-stream:', err);
+        } finally {
+            res.end();
+        }
+    }
+
+    async streamVtContactSav(filters: OnefopExportFilters, res: Response, territory?: Territory): Promise<void> {
+        const where = this.vtContactWhere(filters, territory);
+        const { variables, rowsOf } = this.vtContactLayout();
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onefop-contact-'));
+        const tmpSav = path.join(tmpDir, 'onefop_vt_contacts_restreints.sav');
+        try {
+            const writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), { fileLabel: VT_CONTACT_FILE_LABEL });
+            await this.writeSavFile(tmpSav, writer, where, (batch) => batch.flatMap(rowsOf), this.vtContactInclude());
+            res.setHeader('Content-Type', 'application/x-spss-sav');
+            res.setHeader('Content-Disposition', 'attachment; filename="onefop_vt_contacts_restreints.sav"');
+            res.setHeader('X-Contact-Dataset-Version', String(VT_CONTACT_DATASET_VERSION));
+            this.setTruncationHeaders(res, writer.truncatedValues);
+            res.setHeader('Content-Length', String(fs.statSync(tmpSav).size));
+            const fileStream = fs.createReadStream(tmpSav);
+            fileStream.pipe(res);
+            await new Promise<void>((resolve) => {
+                fileStream.on('end', resolve);
+                fileStream.on('error', (err) => {
+                    console.error('❌ Error streaming contact .sav file:', err);
+                    res.destroy(err);
+                    resolve();
+                });
+            });
+        } catch (err) {
+            console.error('❌ VT contact .sav export failed:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ message: 'Erreur lors de la génération du fichier de contact .sav: ' + (err as any)?.message });
             }
         } finally {
             try {
