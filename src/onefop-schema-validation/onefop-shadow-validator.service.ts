@@ -16,6 +16,7 @@
 // never affect whether a submission is accepted.
 import { Injectable, Logger } from '@nestjs/common';
 import { OnefopSchemaLoaderService } from './onefop-schema-loader.service';
+import { LIST_TEXT_SLOTS } from '../data-management/canonical-schema-adapter.service';
 import type { SchemaEntityType, SchemaField, SchemaTable } from './onefop-schema.types';
 import type { DiscrepancyCategory, ShadowDiscrepancy, ShadowValidationResult } from './onefop-shadow-validator.types';
 
@@ -279,6 +280,16 @@ export class OnefopShadowValidatorService {
       case 'text':
       case 'textarea':
       case 'tel':
+        // A list question (9.1 « Autre », 9.2 « Perspectives ») is stored as
+        // its write-in lines, one string each (dataset v10). It was reported
+        // as a type discrepancy on every VT submission.
+        if (Array.isArray(raw) && LIST_TEXT_SLOTS[field.id]) {
+          const slots = LIST_TEXT_SLOTS[field.id];
+          if (raw.length > slots) return `Expected at most ${slots} lines, got ${raw.length}.`;
+          return raw.every((line) => line == null || typeof line === 'string' || typeof line === 'number')
+            ? null
+            : 'Expected lines of text.';
+        }
         return typeof raw === 'string' || typeof raw === 'number'
           ? null
           : `Expected text, got ${typeof raw}.`;

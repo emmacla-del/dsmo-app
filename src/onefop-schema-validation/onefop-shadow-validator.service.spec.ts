@@ -285,6 +285,18 @@ describe('OnefopShadowValidatorService', () => {
     expect(() => validator.validate('enterprise', {})).not.toThrow();
   });
 
+  // 2026-10-16 re-test: every VT submission logged "type:VT9_3, type:VT9_4".
+  it('9.1 and 9.2 stored as their write-in lines are not a type discrepancy', () => {
+    const typeIssues = (flat: Record<string, unknown>) =>
+      validator
+        .validate('vocationalTraining', { VT9_1: 'Oui/ Yes', VT9_2: 'Oui/ Yes', ...flat })
+        .discrepancies.filter((d) => d.category === 'type' && (d.fieldId === 'VT9_3' || d.fieldId === 'VT9_4'));
+    expect(typeIssues({ VT9_3: ['Manque de locaux', '', '', '', ''], VT9_4: ['Ouvrir une filière', 'Former'] })).toEqual([]);
+    expect(typeIssues({ VT9_3: 'Une seule ligne' })).toEqual([]);
+    expect(typeIssues({ VT9_3: ['1', '2', '3', '4', '5', '6'] }).map((d) => d.fieldId)).toEqual(['VT9_3']);
+    expect(typeIssues({ VT9_4: [{ nested: true }] }).map((d) => d.fieldId)).toEqual(['VT9_4']);
+  });
+
   it('validateAndLog never throws, even for a garbage payload', () => {
     expect(() => validator.validateAndLog('ctd', { S0Q01: { nested: 'object' } }, 'test-submission')).not.toThrow();
     expect(() => validator.validateAndLog('not-a-real-entity-type', {}, undefined)).not.toThrow();
