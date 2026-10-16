@@ -246,7 +246,7 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
     administration: {
       name: 'MINEFOP', area: 1, region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1',
       locality: 'Centre-ville', phone1: '699999999', sector: 1, mainMission: 'Emploi',
-      hasProject: 1, hasSupervisedStructures: 2,
+      hasProject: 1, projectCount: 2, hasSupervisedStructures: 2,
     },
   };
 
@@ -309,6 +309,51 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
       projectProgram: { ...projectProgramData.projectProgram, name: '' },
     };
     expect(() => callEnforce(incompleteData, flat, 'projectProgram')).toThrow(BadRequestException);
+  });
+
+  it('Administration: requires projectCount when hasProject is 1', () => {
+    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS);
+    const incompleteData = {
+      respondent: validRespondent,
+      administration: { ...administrationData.administration, projectCount: undefined },
+    };
+    try {
+      callEnforce(incompleteData, flat, 'administration');
+      fail('expected BadRequestException');
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      expect(e.getResponse().missingFields).toContain('administration.projectCount');
+    }
+  });
+
+  it('Administration: requires supervisedStructureCount when hasSupervisedStructures is 1', () => {
+    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS);
+    const incompleteData = {
+      respondent: validRespondent,
+      administration: { ...administrationData.administration, hasSupervisedStructures: 1, supervisedStructureCount: undefined },
+    };
+    try {
+      callEnforce(incompleteData, flat, 'administration');
+      fail('expected BadRequestException');
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      expect(e.getResponse().missingFields).toContain('administration.supervisedStructureCount');
+    }
+  });
+
+  it('Projects & Programs: requires stopReason when status is 1 (Arrêté)', () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    const incompleteData = {
+      respondent: validRespondent,
+      projectProgram: { ...projectProgramData.projectProgram, status: 1, stopReason: undefined },
+    };
+    try {
+      callEnforce(incompleteData, flat, 'projectProgram');
+      fail('expected BadRequestException');
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      expect(e.getResponse().missingFields).toContain('projectProgram.stopReason');
+    }
   });
 });
 

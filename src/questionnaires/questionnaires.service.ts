@@ -211,8 +211,11 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'administration.sector': "Secteur d'activité / Business sector",
   'administration.mainMission': 'Mission principale / Main mission',
   'administration.hasProject': 'Existence de projet / Existence of a project',
+  'administration.projectCount': 'Combien de projets / Number of projects',
   'administration.hasSupervisedStructures':
     'Existence de structures sous tutelle / Existence of supervised structures',
+  'administration.supervisedStructureCount':
+    'Combien de structures sous tutelle / Number of supervised structures',
   'projectProgram.nature': 'Nature de la structure / Nature of the structure',
   'projectProgram.name': 'Nom / Name',
   'projectProgram.personInCharge': 'Nom du Responsable / Name of the person in charge',
@@ -229,6 +232,7 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'projectProgram.headOffice': 'Siège social / Head office',
   'projectProgram.supervisingMinistry': 'Ministère tutelle / Supervising ministry',
   'projectProgram.status': 'Situation du Projet / Programme / Project / Programme Status',
+  'projectProgram.stopReason': "Motif d'arrêt / Reason for stopping",
   'projectProgram.permanentWorkers': 'Employés permanents / Permanent workers',
   'projectProgram.vacancies': 'Postes vacants / Vacancies',
   'S21Q01_RESPONSE_STATUS': 'Demandes d\'emploi — statut / Job applications — status',
@@ -1972,6 +1976,27 @@ export class QuestionnairesService {
     }
     if (entityType === 'cooperative' && entityData?.type === 3 && !entityData?.typeOther) {
       missingFields.push('cooperative.typeOther');
+    }
+    if (
+      entityType === 'administration' &&
+      entityData?.hasProject === 1 &&
+      (entityData?.projectCount === undefined || entityData?.projectCount === null || entityData?.projectCount === '')
+    ) {
+      missingFields.push('administration.projectCount');
+    }
+    if (
+      entityType === 'administration' &&
+      entityData?.hasSupervisedStructures === 1 &&
+      (entityData?.supervisedStructureCount === undefined || entityData?.supervisedStructureCount === null || entityData?.supervisedStructureCount === '')
+    ) {
+      missingFields.push('administration.supervisedStructureCount');
+    }
+    if (
+      entityType === 'projectProgram' &&
+      entityData?.status === 1 &&
+      (entityData?.stopReason === undefined || entityData?.stopReason === null || entityData?.stopReason === '')
+    ) {
+      missingFields.push('projectProgram.stopReason');
     }
     // Training centres: every question the questionnaire marks required and
     // currently shows must be answered — the same rule the web form applies,
