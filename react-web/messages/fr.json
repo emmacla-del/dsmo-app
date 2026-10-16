@@ -62,6 +62,7 @@
     "listsAriaLabel": "Listes de l'annuaire"
   },
   "homeLayout": {
+    "pendingNavHint": "Les autres pages s'ouvrent dès que l'ONEFOP a approuvé votre inscription.",
     "brandName": "CAMLEAP",
     "newDeclarationButton": "Nouvelle déclaration",
     "logoutButton": "Se déconnecter",
@@ -2690,6 +2691,7 @@
       "CENTRAL_AGENT": "Agent central · MINEFOP"
     },
     "item": {
+      "registrationStatus": "Statut de l'inscription",
       "home": "Accueil",
       "declarations": "Déclarations",
       "analytics": "Analytique",

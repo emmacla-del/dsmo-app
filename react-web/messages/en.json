@@ -62,6 +62,7 @@
     "listsAriaLabel": "Directory lists"
   },
   "homeLayout": {
+    "pendingNavHint": "The other pages open once ONEFOP approves your registration.",
     "brandName": "CAMLEAP",
     "newDeclarationButton": "New declaration",
     "logoutButton": "Log out",
@@ -2690,6 +2691,7 @@
       "CENTRAL_AGENT": "Central officer · MINEFOP"
     },
     "item": {
+      "registrationStatus": "Registration status",
       "home": "Home",
       "declarations": "Declarations",
       "analytics": "Analytics",
