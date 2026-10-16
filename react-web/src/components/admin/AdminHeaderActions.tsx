@@ -25,7 +25,11 @@ export function useActiveCampaign() {
     queryFn: () => listCampaigns("ACTIVE"),
     enabled: canReadCampaigns,
   });
-  return { canReadCampaigns, activeCampaign: query.data?.[0], isLoading: query.isLoading };
+  // Loading until the user is known and the request has answered. Query
+  // isLoading is false before the request starts (the user still loading),
+  // so callers said "no active campaign" while one was active (defect 24
+  // of the 2026-10-16 VT run).
+  return { canReadCampaigns, activeCampaign: query.data?.[0], isLoading: !user || (canReadCampaigns && query.isPending) };
 }
 
 /**
@@ -77,7 +81,7 @@ export function AdminHeaderActions({
         <Link
           href="/admin/campagnes"
           className="cam-admin-campaign-pill"
-          title={activeCampaign ? `${rawCampaignName} (${activeCampaign.code})` : t("noActiveCampaign")}
+          title={activeCampaign ? `${rawCampaignName} (${activeCampaign.code})` : campaignLoading ? undefined : t("noActiveCampaign")}
         >
           <span className={`cam-admin-campaign-pill-dot${activeCampaign ? " is-active" : ""}`} aria-hidden="true" />
           <span>
