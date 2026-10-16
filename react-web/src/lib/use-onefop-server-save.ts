@@ -33,6 +33,21 @@ export interface OnefopServerSave {
   saveNow: () => Promise<boolean>;
 }
 
+export interface ServerSaveOptions {
+  /**
+   * The answers as loaded (useOnefopDraft's `loadedData`): already on the
+   * account, so opening the wizard and leaving it unchanged sends nothing.
+   * Opening it used to write the draft back on every visit.
+   */
+  baseline?: unknown;
+  /**
+   * False once the declaration is submitted, or when the period's
+   * declaration is awaiting review or endorsed: nothing is sent, on leaving
+   * or on request (the server refuses those writes too).
+   */
+  enabled?: boolean;
+}
+
 /**
  * Tracks the draft's server state. `data` is the wizard's current answers:
  * its identity is what tells saved apart from changed-since-saved, so the
@@ -42,6 +57,7 @@ export interface OnefopServerSave {
 export function useOnefopServerSave(
   data: unknown,
   save: (options: { keepalive: boolean }) => Promise<unknown>,
+  { baseline, enabled = true }: ServerSaveOptions = {},
 ): OnefopServerSave {
   const [state, setState] = useState<ServerSaveState>("idle");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -49,14 +65,17 @@ export function useOnefopServerSave(
   const saveRef = useRef(save);
   const dataRef = useRef(data);
   const runningRef = useRef<Promise<boolean> | null>(null);
+  const enabledRef = useRef(enabled);
   const againRef = useRef(false);
 
   useEffect(() => {
     saveRef.current = save;
     dataRef.current = data;
+    enabledRef.current = enabled;
   });
 
   const run = useCallback(async (keepalive: boolean): Promise<boolean> => {
+    if (!enabledRef.current) return false;
     const running = runningRef.current;
     if (running) {
       // Fold into the save in flight; the loop below then runs once more
@@ -91,7 +110,8 @@ export function useOnefopServerSave(
   const saveNow = useCallback(() => run(false), [run]);
 
   // Everything typed since the last save that landed is on this device only.
-  const hasUnsavedChanges = savedData !== data;
+  // Before the first save, the loaded answers are what the account holds.
+  const hasUnsavedChanges = enabled && (savedData === undefined ? baseline === undefined || baseline !== data : savedData !== data);
 
   useSaveOnLeave(hasUnsavedChanges, () => void run(true).catch(() => {}));
 

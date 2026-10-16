@@ -320,6 +320,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     also: ['Une déclaration est déjà en cours pour ce trimestre. / A declaration already exists for this quarter.'],
   },
   {
+    fr: 'Cette déclaration a été soumise : elle ne peut plus être modifiée.',
+    en: 'This declaration has been submitted: it can no longer be changed.',
+  },
+  {
     fr: 'Votre établissement n\'a pas encore d\'identifiant (code site). Impossible d\'enregistrer un brouillon avant son attribution.',
     en: 'Your establishment does not have an identifier (site code) yet. A draft cannot be saved before it is assigned.',
   },

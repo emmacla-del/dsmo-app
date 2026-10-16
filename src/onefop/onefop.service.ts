@@ -13,6 +13,18 @@ import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { territoryFromUser, territoryWhere } from '../auth/territory';
 import { formatDoualaDateFr } from '../common/utils/douala-date';
 
+/**
+ * The codes a period's draft and submission may carry: the code itself and,
+ * for a quarterly campaign code ("QUARTERLY_2026_T4_001"), the "<year>-T<n>"
+ * code used before the campaign opened (react-web onefop-period-label.ts,
+ * fallbackPeriodCode).
+ */
+export function samePeriodCodes(code: string | null | undefined): string[] {
+    if (!code) return [];
+    const quarter = /^QUARTERLY_(\d{4})_T([1-4])(?:_\d+)?$/.exec(code);
+    return quarter ? [code, `${quarter[1]}-T${quarter[2]}`] : [code];
+}
+
 @Injectable()
 export class OnefopService {
     constructor(
@@ -140,6 +152,24 @@ export class OnefopService {
         const establishmentId = company.establishmentId;
 
         const { quarterCode, entityType, draftData } = params;
+
+        // A declaration that is awaiting review or endorsed is no longer the
+        // respondent's to change: the wizard used to reopen it from this
+        // draft and write it back on every visit. Same "live" statuses as the
+        // submit guard (QuestionnairesService.submit); a file returned for
+        // correction, or rejected, stays editable from its draft.
+        const live = await this.prisma.onefopSubmission.findFirst({
+            where: {
+                companyId: company.id,
+                quarterCode: { in: samePeriodCodes(quarterCode) },
+                status: { in: ['PENDING_REVIEW', 'APPROVED'] },
+            },
+            select: { id: true },
+        });
+        if (live) {
+            throw new ConflictException('Cette déclaration a été soumise : elle ne peut plus être modifiée.');
+        }
+
         return this.prisma.submissionDraft.upsert({
             where: { establishmentId_quarterCode: { establishmentId, quarterCode } },
             update: { entityType: entityType?.toUpperCase() as any, draftData, lastSavedAt: new Date(), savedByUserId: userId },

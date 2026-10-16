@@ -9,6 +9,9 @@ import { useAuthStore } from "@/lib/auth-store";
 import { checkCoherence } from "@/lib/onefop-coherence";
 import { saveDraftToBackend } from "@/lib/onefop-submission";
 import { useOnefopServerSave } from "@/lib/use-onefop-server-save";
+import { getMyOnefopSubmissions } from "@/lib/api-client";
+import { liveSubmissionFor } from "@/lib/onefop-submitted-lock";
+import { OnefopSubmittedNotice } from "@/components/onefop/OnefopSubmittedNotice";
 import { validateEntityData } from "@/lib/onefop-validation";
 import { hasRealNiu } from "@/lib/companies-directory";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
@@ -176,6 +179,7 @@ function OnefopDeclarationContent() {
     clearLocalDraft,
     draftKey,
     loadedDraftKey,
+    loadedData,
   } =
     useOnefopDraft(
       entityType,
@@ -229,7 +233,33 @@ function OnefopDeclarationContent() {
   // The draft reaches the respondent's account when they leave the page or
   // ask for it, not on every step (owner, 2026-10-11). The masthead reports
   // that state; IndexedDB stays the offline buffer behind it.
-  const serverSave = useOnefopServerSave(formData, handleSaveNow);
+  // A declaration awaiting review or endorsed is no longer the
+  // respondent's to change (defect 1, 2026-10-16): the wizard is not shown
+  // and nothing is written back. Read fresh on every visit, not from the
+  // home page's cache, which can predate the submission.
+  const submissionsQuery = useQuery({
+    queryKey: ["onefop", "my-submissions", "lock"],
+    queryFn: getMyOnefopSubmissions,
+    enabled: authState === "authed",
+    staleTime: 0,
+  });
+  const liveSubmission = liveSubmissionFor(submissionsQuery.data, quarterCode);
+  // Submitted in this visit: the receipt stays on screen, and nothing more
+  // is sent to the account.
+  const [submittedHere, setSubmittedHere] = useState(false);
+  const handleSubmitted = useCallback(async () => {
+    setSubmittedHere(true);
+    await clearLocalDraft();
+  }, [clearLocalDraft]);
+  // The period cannot be matched until it is known, so the wizard waits
+  // for both. A failed read lets the wizard open: the server refuses a
+  // write to a submitted declaration either way.
+  const checkingSubmitted = submissionsQuery.isPending || quarterQuery.isPending;
+
+  const serverSave = useOnefopServerSave(formData, handleSaveNow, {
+    baseline: loadedData,
+    enabled: !liveSubmission && !submittedHere,
+  });
 
   // Exit is "closing without saving": send what is not on the server yet,
   // then leave either way — a respondent who wants out is not held back by
@@ -261,7 +291,7 @@ function OnefopDeclarationContent() {
     return null;
   }
 
-  if (resolvingAcknowledgment) {
+  if (resolvingAcknowledgment || checkingSubmitted) {
     return (
       <div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>
         {t("common.loading")}
@@ -279,6 +309,10 @@ function OnefopDeclarationContent() {
     (formData["ADMIN_S1Q01"] as string) ||
     (formData["PP_S1Q02"] as string) ||
     undefined;
+
+  if (liveSubmission && !submittedHere) {
+    return <OnefopSubmittedNotice submission={liveSubmission} />;
+  }
 
   // ── Step 1 & 2: Legal Acknowledgment (Image 2 pulsing logo & Image 3 legal notice) ──
   if (!acknowledged) {
@@ -364,7 +398,7 @@ function OnefopDeclarationContent() {
               hasUnsavedChanges: serverSave.hasUnsavedChanges,
               onRetry: () => void serverSave.saveNow(),
             }}
-            onSubmitted={clearLocalDraft}
+            onSubmitted={handleSubmitted}
             positionKey={loadedDraftKey}
             onCancel={handleExit}
           />

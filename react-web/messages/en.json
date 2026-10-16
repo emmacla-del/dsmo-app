@@ -254,6 +254,15 @@
     "copiedLabel": "Copied ✓",
     "copyButton": "Copy"
   },
+  "onefopSubmittedLock": {
+    "title": "Your declaration has been submitted",
+    "submitted": "Your declaration for {period} was submitted on {date}. Its reference is #{ref}.",
+    "pending": "It is awaiting review by ONEFOP.",
+    "approved": "It has been endorsed by ONEFOP.",
+    "locked": "It can no longer be changed. If ONEFOP asks for a correction, you will be able to edit it again here.",
+    "home": "Back to home",
+    "declarations": "See my declarations"
+  },
   "onefopPreviewPage": {
     "savingStatus": "Saving…",
     "savedAtPlaceholder": "Saved at 07:49",
