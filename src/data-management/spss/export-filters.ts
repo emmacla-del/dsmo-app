@@ -25,6 +25,22 @@ export interface OnefopExportFilters {
   statuses?: string | string[];
   /** DataCampaign.id — narrows the export to one collection campaign. */
   campaignId?: string;
+  /**
+   * Manifest only: the name the CSV is saved under, which the .sps opens
+   * (GET DATA /FILE). Not a row filter. See safeCsvFilename.
+   */
+  csvFilename?: string;
+}
+
+/**
+ * The CSV name written into a .sps GET DATA. The page saves the CSV as
+ * onefop_export_<campaign>_<date>.csv while the syntax opened a fixed
+ * 'onefop_submissions.csv', so the pair did not run as downloaded. Only a
+ * plain file name is taken (letters, digits, dot, dash, underscore; ends in
+ * .csv); anything else keeps the default, since it ends up inside SPSS syntax.
+ */
+export function safeCsvFilename(raw: unknown, fallback: string): string {
+  return typeof raw === 'string' && /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,150}\.csv$/.test(raw) ? raw : fallback;
 }
 
 const KNOWN_STATUSES = new Set<string>(Object.values(OnefopStatus));

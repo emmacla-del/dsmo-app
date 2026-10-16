@@ -868,9 +868,23 @@ export function downloadVtRosterCsvBlob(filters: Record<string, any> = {}): Prom
   return downloadExportBlob("/data-management/export/vt-roster/csv", filters, "8.8 (.csv)");
 }
 
-export function getVtRosterManifest() {
+/** `csvFilename`: the name the CSV is saved under, which the .sps opens. */
+export function getVtRosterManifest(csvFilename?: string) {
   return apiFetch<{ sps: string; rosterVersion: number }>("/data-management/export/vt-roster/manifest", {
     method: "POST",
+    body: JSON.stringify(csvFilename ? { csvFilename } : {}),
+  });
+}
+
+/**
+ * How many files an export with these filters holds, in total and per
+ * questionnaire type: the export's own selection (filters, statistical
+ * eligibility, territory). POST /data-management/export/submissions/count.
+ */
+export function countExport(filters: Record<string, unknown> = {}) {
+  return apiFetch<{ total: number; byFormType: Record<string, number> }>("/data-management/export/submissions/count", {
+    method: "POST",
+    body: JSON.stringify(filters),
   });
 }
 

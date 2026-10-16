@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { submissionStatusLabel } from "@/lib/audit-log";
@@ -16,6 +16,7 @@ import {
   getDataManagementStats,
   getExportHistory,
   getVtRosterManifest,
+  countExport,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -27,13 +28,17 @@ import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
-import { listAdminQuestionnaires } from "@/lib/api-client";
 import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import {
+  ALL_EXPORT_STATUSES,
   buildExportFilters,
+  csvExportNames,
+  defaultQuestionnaire,
   DEMAND_ENTITY_TYPES,
   EXPORT_QUESTIONNAIRES,
+  repositoryCounts,
+  TVET_ENTITY_TYPE,
   type ExportQuestionnaire,
   type ExportStatusChoice,
 } from "@/lib/diffusion-export-filters";
@@ -46,41 +51,6 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
-
-// Mirrors ADMIN_LIST_FORM_TYPES on the backend (src/questionnaires/
-// admin-list-filter.ts); each one is counted with its own scoped query.
-const BREAKDOWN_FORM_TYPES = [
-  "ENTREPRISE",
-  "COOPERATIVE",
-  "ADMINISTRATION",
-  "PROJECT_PROGRAM",
-  "CTD",
-  "ONG",
-  "VOCATIONAL_TRAINING",
-] as const;
-
-// The breakdown is a group-by over stored statuses, which omits a status
-// with no records: once the breakdown is present, a missing status is 0, not
-// "unknown". Only a missing breakdown is null (shown as "—").
-function getStatusCount(
-  source: Record<string, number> | { status: string; _count: number }[] | undefined | null,
-  statuses: string[],
-): number | null {
-  if (!source) return null;
-  if (Array.isArray(source)) {
-    const item = source.find((s) => statuses.includes(s.status));
-    return item ? item._count : 0;
-  }
-  if (typeof source === "object") {
-    for (const st of statuses) {
-      if (typeof (source as Record<string, number>)[st] === "number") {
-        return (source as Record<string, number>)[st];
-      }
-    }
-    return 0;
-  }
-  return null;
-}
 
 // Labels: adminDiffusionPage.status.<value>.
 const STATUS_VALUES: ExportStatusChoice[] = ["APPROVED", "ALL", "PENDING_REVIEW", "REJECTED"];
@@ -201,8 +171,15 @@ export default function DiffusionPage() {
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState<ExportStatusChoice>("APPROVED");
   // The questionnaire decides the SPSS file's variables: employers (1–6) or
-  // training centres. The default keeps the employer file.
-  const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<ExportQuestionnaire>("DEMAND");
+  // training centres. Until the user picks one, the one with more files in
+  // the register (defaultQuestionnaire); it was always the employer one.
+  const registerCountQuery = useQuery({
+    queryKey: ["admin", "export-count", "register"],
+    queryFn: () => countExport({ partition: "ALL", statuses: ALL_EXPORT_STATUSES }),
+    enabled: !isLoading && !forbidden,
+  });
+  const [questionnaireChoice, setQuestionnaireChoice] = useState<ExportQuestionnaire | null>(null);
+  const selectedQuestionnaire = questionnaireChoice ?? defaultQuestionnaire(registerCountQuery.data?.byFormType);
 
   // Additional granular filters (preserved so no capabilities are dropped)
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -229,62 +206,22 @@ export default function DiffusionPage() {
   /**
    * Repository KPIs.
    *
-   * Source: GET /data-management/stats (DataManagementService.getDataStats).
-   * Fields: totals.onefopSubmissions, onefopByStatus[APPROVED |
-   * PENDING_REVIEW | REJECTED].
-   *
-   * That endpoint applies no territorial filter. It is only truthful here
-   * because this screen is guarded to NATIONAL_ROLES (SUPER_ADMIN, ADMIN_ONEFOP)
-   * - all national-scope roles. Do not reuse it on a screen reachable by
+   * Source: GET /data-management/stats (DataManagementService.getDataStats),
+   * onefopByStatus. That endpoint applies no territorial filter. It is only
+   * truthful here because this screen is guarded to NATIONAL_ROLES
+   * (SUPER_ADMIN, ADMIN_ONEFOP). Do not reuse it on a screen reachable by
    * REGIONAL_ADMIN or DIVISIONAL_ADMIN.
    *
-   * `null` means "not retrieved" and renders as an em dash. It is never
-   * replaced by a stand-in, and 0 is reported as 0.
+   * The total is the four submitted statuses added up (repositoryCounts), so
+   * the figures add up; "returned for correction" was missing, and the total
+   * counted drafts. `null` means "not retrieved" and renders as an em dash.
    */
-  const totalSubmissions: number | null =
-    stats?.totals?.onefopSubmissions ?? stats?.totalOnefopSubmissions ?? null;
-
-  const approvedCount = getStatusCount(stats?.onefopByStatus, ["APPROVED"]);
-  const pendingCount = getStatusCount(stats?.onefopByStatus, ["PENDING_REVIEW"]);
-  const rejectedCount = getStatusCount(stats?.onefopByStatus, ["REJECTED"]);
-
-  // One scoped count per employer type. `total` from each response is the
-  // count of the whole filtered query, so summing them counts real dossiers,
-  // not the rows that happen to be on a page.
-  const typeTotals = useQueries({
-    queries: BREAKDOWN_FORM_TYPES.map((formType) => ({
-      queryKey: ["admin", "questionnaires", "total", formType],
-      queryFn: () => listAdminQuestionnaires({ formType, limit: 1 }),
-      enabled: !isLoading && !forbidden,
-    })),
-  });
-
-  const typeBreakdownState = resolveDataState({
-    isLoading: typeTotals.some((q) => q.isLoading),
-    isError: typeTotals.some((q) => q.isError),
-    error: typeTotals.find((q) => q.isError)?.error,
-  });
-
-  const typeTotalsKey = typeTotals.map((q) => q.data?.total ?? "").join("|");
-  const typeBreakdown = useMemo(() => {
-    const rows = BREAKDOWN_FORM_TYPES.map((formType, i) => ({
-      formType,
-      label: typeLabel(tRoot, formType),
-      total: typeTotals[i].data?.total ?? null,
-    }));
-    const sum = rows.reduce((acc, r) => acc + (r.total ?? 0), 0);
-    return rows
-      .map((r) => ({ ...r, share: rate(r.total, sum) }))
-      .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeTotalsKey, locale]);
-
-  // Derived exclusively from the two backend values above, over the same
-  // server-side scope. null whenever either operand is missing or the
-  // denominator is 0 - the UI then renders an em dash, never an estimate.
-  const approvedRate = rate(approvedCount, totalSubmissions);
-  const pendingRate = rate(pendingCount, totalSubmissions);
-  const rejectedRate = rate(rejectedCount, totalSubmissions);
+  const repository = repositoryCounts(stats?.onefopByStatus);
+  const totalSubmissions = repository.total;
+  const approvedRate = rate(repository.approved, totalSubmissions);
+  const pendingRate = rate(repository.pending, totalSubmissions);
+  const correctionRate = rate(repository.correction, totalSubmissions);
+  const rejectedRate = rate(repository.rejected, totalSubmissions);
 
   const { regions: territoryRegions } = useTerritoryRegions();
   const CAMEROON_REGIONS = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
@@ -310,6 +247,37 @@ export default function DiffusionPage() {
       }),
     [selectedQuestionnaire, selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedCampaignId, selectedStatus],
   );
+
+  /**
+   * What the export will hold with the current filters: the export's own
+   * selection (filters, statistical eligibility, territory), counted by the
+   * server. POST /data-management/export/submissions/count. The summary used
+   * per-type counts of the whole register, which ignored every filter.
+   */
+  const exportCountQuery = useQuery({
+    queryKey: ["admin", "export-count", currentFilters],
+    queryFn: () => countExport(currentFilters),
+    enabled: !isLoading && !forbidden,
+  });
+  const exportTotal = exportCountQuery.data?.total ?? null;
+  const typeBreakdownState = resolveDataState({
+    isLoading: exportCountQuery.isLoading,
+    isError: exportCountQuery.isError,
+    error: exportCountQuery.error,
+  });
+  // The types this export can hold, each with its share of the export.
+  const breakdownTypes =
+    selectedQuestionnaire === "TVET"
+      ? [TVET_ENTITY_TYPE]
+      : selectedEntityType
+        ? [selectedEntityType]
+        : DEMAND_ENTITY_TYPES;
+  const typeBreakdown = breakdownTypes
+    .map((formType) => {
+      const total = exportCountQuery.data?.byFormType[formType] ?? 0;
+      return { formType, label: typeLabel(tRoot, formType), total, share: rate(total, exportTotal) };
+    })
+    .sort((a, b) => b.total - a.total);
 
   const triggerFileDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -348,8 +316,9 @@ export default function DiffusionPage() {
    * never substituted: a hand-written codebook would mislabel the data it
    * claims to describe.
    */
-  const downloadCodebook = async (filename: string) => {
-    const manifest = await getSpssManifest(currentFilters);
+  const downloadCodebook = async (filename: string, csvFilename?: string) => {
+    // csvFilename: the CSV this syntax opens, as it was saved.
+    const manifest = await getSpssManifest(csvFilename ? { ...currentFilters, csvFilename } : currentFilters);
     if (!manifest?.sps) {
       setErrorAlert(t("noSpssSyntax"));
       return;
@@ -383,13 +352,18 @@ export default function DiffusionPage() {
         return;
       }
 
-      const filename = `onefop_export_${selectedCampaign}_${timestamp}.${plan.ext}`;
-      triggerFileDownload(blob, filename);
+      const base = `onefop_export_${selectedCampaign}_${timestamp}`;
+      triggerFileDownload(blob, `${base}.${plan.ext}`);
       recordExport();
       showSuccess(t("downloaded", { label: plan.label }));
 
-      if (includeCodebook && selectedFormat === ".sav") {
-        await downloadCodebook(`onefop_codebook_${selectedCampaign}_${timestamp}.sps`);
+      // The .sps loads a CSV (GET DATA) and labels it: it goes with the CSV,
+      // under the same name, and opens that file. A .sav already carries its
+      // labels; the syntax used to come with it, opening a CSV that was not
+      // there.
+      if (includeCodebook && selectedFormat === ".csv") {
+        const names = csvExportNames(base);
+        await downloadCodebook(names.sps, names.csv);
       }
     } catch (err: unknown) {
       setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
@@ -413,9 +387,11 @@ export default function DiffusionPage() {
       if (rosterFormat === ".sav") {
         triggerFileDownload(await downloadVtRosterSavBlob(currentFilters), `${base}.sav`);
       } else {
-        triggerFileDownload(await downloadVtRosterCsvBlob(currentFilters), `${base}.csv`);
-        const manifest = await getVtRosterManifest();
-        if (manifest?.sps) triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), `${base}.sps`);
+        // The .sps opens the CSV under the name it is saved as.
+        const names = csvExportNames(base);
+        triggerFileDownload(await downloadVtRosterCsvBlob(currentFilters), names.csv);
+        const manifest = await getVtRosterManifest(names.csv);
+        if (manifest?.sps) triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), names.sps);
       }
       recordExport();
       showSuccess(t("rosterDownloaded"));
@@ -479,9 +455,10 @@ export default function DiffusionPage() {
   // snapshot with no prior period to compare against.
   const repositoryKpis = [
     { key: "total", label: t("kpiTotal"), value: totalSubmissions, hint: t("kpiTotalHint") },
-    { key: "approved", label: t("kpiValidated"), value: approvedCount, hint: t("kpiValidatedRate", { rate: percent(approvedRate, 0, locale) }) },
-    { key: "pending", label: t("kpiPending"), value: pendingCount, hint: t("kpiPendingRate", { rate: percent(pendingRate, 0, locale) }) },
-    { key: "rejected", label: t("kpiRejected"), value: rejectedCount, hint: t("kpiRejectedRate", { rate: percent(rejectedRate, 0, locale) }) },
+    { key: "approved", label: t("kpiValidated"), value: repository.approved, hint: t("kpiValidatedRate", { rate: percent(approvedRate, 0, locale) }) },
+    { key: "pending", label: t("kpiPending"), value: repository.pending, hint: t("kpiPendingRate", { rate: percent(pendingRate, 0, locale) }) },
+    { key: "correction", label: t("kpiCorrection"), value: repository.correction, hint: t("kpiCorrectionRate", { rate: percent(correctionRate, 0, locale) }) },
+    { key: "rejected", label: t("kpiRejected"), value: repository.rejected, hint: t("kpiRejectedRate", { rate: percent(rejectedRate, 0, locale) }) },
   ];
 
   // Volume and structure of the dataset.
@@ -492,7 +469,7 @@ export default function DiffusionPage() {
   // "Taille estimée" is not shown: nothing computes the byte size of an
   // extract before it is generated.
   const datasetFigures = [
-    { key: "records", label: t("totalRecords"), loading: statsQuery.isLoading, value: totalSubmissions },
+    { key: "records", label: t("exportRecords"), loading: exportCountQuery.isLoading, value: exportTotal },
     { key: "variables", label: t("schemaVariables"), loading: schemaQuery.isLoading, value: schemaQuery.data?.astTotals.questions ?? null },
     { key: "sections", label: t("schemaSections"), loading: schemaQuery.isLoading, value: schemaQuery.data?.astTotals.sections ?? null },
   ];
@@ -560,6 +537,8 @@ export default function DiffusionPage() {
               ))}
             </fieldset>
 
+            {/* The syntax opens a CSV: offered with the CSV only. */}
+            {selectedFormat === ".csv" && (
             <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
               <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>{t("codebookTitle")}</legend>
               <label className="cam-admin-choice">
@@ -574,6 +553,7 @@ export default function DiffusionPage() {
                 </span>
               </label>
             </fieldset>
+            )}
 
             <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
               <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>{t("scopeTitle")}</legend>
@@ -643,7 +623,7 @@ export default function DiffusionPage() {
                   className="cam-select"
                   value={selectedQuestionnaire}
                   onChange={(e) => {
-                    setSelectedQuestionnaire(e.target.value as ExportQuestionnaire);
+                    setQuestionnaireChoice(e.target.value as ExportQuestionnaire);
                     setSelectedEntityType("");
                   }}
                 >
@@ -790,13 +770,8 @@ export default function DiffusionPage() {
                 ))}
               </dl>
 
-              {/* Breakdown by employer type.
-                  Source: GET /admin/questionnaires?formType=<T>&limit=1 per
-                  type — `total` is the count of the whole filtered query under
-                  the caller's server-side scope, not of the returned page.
-                  Share = that type's total / the sum of the retrieved totals,
-                  rendered only once every query has answered, so a partial load
-                  can never produce a wrong share. */}
+              {/* Breakdown by type of the files this export holds, from the
+                  same server count as the total above. */}
               <div>
                 <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-3)" }}>{t("breakdownTitle")}</h3>
                 {typeBreakdownState !== "ready" ? (
@@ -804,7 +779,7 @@ export default function DiffusionPage() {
                     dense
                     state={typeBreakdownState}
                     resource={t("breakdownResource")}
-                    error={typeTotals.find((q) => q.isError)?.error}
+                    error={exportCountQuery.error}
                   />
                 ) : (
                   <ul className="cam-admin-bars">
