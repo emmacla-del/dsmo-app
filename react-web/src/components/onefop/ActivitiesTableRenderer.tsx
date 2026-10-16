@@ -104,6 +104,7 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                     <Cell key={f.key} style={tdStyle}>
                       {f.options ? (
                         <SelectInput
+                          id={`cell-input-${cellId}`}
                           aria-label={cellLabel}
                           style={controlStyle}
                           value={value}
@@ -120,6 +121,7 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                         </SelectInput>
                       ) : (
                         <TextInput
+                          id={`cell-input-${cellId}`}
                           short={f.key !== "description"}
                           type={f.key === "duration" ? "number" : "text"}
                           aria-label={cellLabel}
