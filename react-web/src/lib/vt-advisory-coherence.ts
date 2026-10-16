@@ -1,27 +1,83 @@
 // Training-centre (VT) advisory coherence, shown while the tables are filled.
 //
 // The server compares 4.2 with the entrants of 4.7 and of 4.8, and the
-// leavers of 4.7 with 4.10 (checkVtCoherence,
+// leavers of 4.7 with 4.10 (rules 4–6 of checkVtCoherence,
 // src/questionnaires/questionnaires.service.ts). Those comparisons set
 // different populations or reference periods side by side and await domain
 // review, so they stay ADVISORY (CLAUDE.md §7): never a blocking error, and
 // never mixed with the blocking same-population checks of vt-cross-table.ts.
 //
-// The rules stay on the server, the one source: the wizard asks
-// POST /onefop/coherence-preview (previewCoherence) and only decides here
-// which flag belongs on which table screen, and when asking is worth it.
+// They are computed here as well as on the server so the respondent sees
+// them the moment the figures disagree, not a round trip later, when they
+// may already have pressed Next (owner, 2026-10-16). The server stays the
+// reference: it computes and stores its own flags at submission, and the
+// review screen asks it (POST /onefop/coherence-preview).
+// vt-advisory-coherence.test.ts reads the server's row lists so the two
+// copies cannot drift apart unnoticed.
+//
+// Same arithmetic as the server: per sex, the sum of each side; a blank or
+// unreadable cell counts 0; flagged when the sums differ and one is not 0.
+// Like vt-cross-table.ts, a comparison waits until both of its tables are
+// complete: while a table still has cells to fill, its total is unfinished.
 import type { FormData, OnefopField } from "./onefop-schema";
-import type { CoherenceFlag } from "./onefop-submission";
 import { missingVtTableCells } from "./vt-quiz";
 
-/** The two tables each advisory rule compares, in paper order. */
-export const VT_ADVISORY_COHERENCE_TABLES: Readonly<Record<string, readonly [string, string]>> = {
-  VT_TRAINEE_AGE_ENTRANT_MISMATCH: ["VT4_2", "VT4_7"],
-  VT_TRAINEE_EDU_LEVEL_ENTRANT_MISMATCH: ["VT4_2", "VT4_8"],
-  VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH: ["VT4_7", "VT4_10"],
-};
+type Sex = "male" | "female";
+type Text = { fr: string; en: string };
 
-/** The paper number of each table taking part. */
+interface Side {
+  fieldId: string;
+  /** How the figure is named in the line: "4.7 entrants". */
+  label: Text;
+  /** The cells counted for each sex, by the end of their key. */
+  suffix: Record<Sex, string>;
+}
+
+interface Rule {
+  /** The server's rule code (checkVtCoherence). */
+  code: string;
+  first: Side;
+  second: Side;
+  /** What "Pourquoi ?" explains. */
+  why: Text;
+}
+
+const ALL = { male: "_male", female: "_female" };
+const ENTRANTS = { male: "_entrant_male", female: "_entrant_female" };
+const LEAVERS = { male: "_sortant_male", female: "_sortant_female" };
+const T42: Side = { fieldId: "VT4_2", label: { fr: "4.2", en: "4.2" }, suffix: ALL };
+
+export const VT_ADVISORY_RULES: readonly Rule[] = [
+  {
+    code: "VT_TRAINEE_AGE_ENTRANT_MISMATCH",
+    first: T42,
+    second: { fieldId: "VT4_7", label: { fr: "4.7 entrants", en: "4.7 incoming" }, suffix: ENTRANTS },
+    why: {
+      fr: "Le tableau 4.2 compte les apprenants par diplôme professionnel, le tableau 4.7 les entrants par tranche d'âge. Ces totaux devraient normalement concorder : vérifiez vos chiffres. Si l'écart est réel, vous pouvez continuer, cela ne bloque pas votre déclaration.",
+      en: "Table 4.2 counts trainees by vocational diploma, table 4.7 incoming trainees by age group. These totals should normally agree: check your figures. If the difference is real, you can carry on; it does not stop your declaration.",
+    },
+  },
+  {
+    code: "VT_TRAINEE_EDU_LEVEL_ENTRANT_MISMATCH",
+    first: T42,
+    second: { fieldId: "VT4_8", label: { fr: "4.8 entrants", en: "4.8 incoming" }, suffix: ENTRANTS },
+    why: {
+      fr: "Le tableau 4.2 compte les apprenants par diplôme professionnel, le tableau 4.8 les entrants par niveau d'études. Ces totaux devraient normalement concorder : vérifiez vos chiffres. Si l'écart est réel, vous pouvez continuer, cela ne bloque pas votre déclaration.",
+      en: "Table 4.2 counts trainees by vocational diploma, table 4.8 incoming trainees by level of education. These totals should normally agree: check your figures. If the difference is real, you can carry on; it does not stop your declaration.",
+    },
+  },
+  {
+    code: "VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH",
+    first: { fieldId: "VT4_7", label: { fr: "4.7 sortants", en: "4.7 outgoing" }, suffix: LEAVERS },
+    second: { fieldId: "VT4_10", label: { fr: "4.10", en: "4.10" }, suffix: ALL },
+    why: {
+      fr: "Le tableau 4.7 compte les sortants par tranche d'âge, le tableau 4.10 les sortants par spécialité. Ces totaux devraient normalement concorder : vérifiez vos chiffres. Si l'écart est réel, vous pouvez continuer, cela ne bloque pas votre déclaration.",
+      en: "Table 4.7 counts outgoing trainees by age group, table 4.10 outgoing trainees by specialty. These totals should normally agree: check your figures. If the difference is real, you can carry on; it does not stop your declaration.",
+    },
+  },
+];
+
+/** The paper number of each table taking part, for "Open table 4.2". */
 export const VT_ADVISORY_TABLE_CODES: Readonly<Record<string, string>> = {
   VT4_2: "4.2",
   VT4_7: "4.7",
@@ -29,63 +85,55 @@ export const VT_ADVISORY_TABLE_CODES: Readonly<Record<string, string>> = {
   VT4_10: "4.10",
 };
 
-/**
- * The server's flags the wizard shows on the table screens: the advisory
- * rules only. The server also returns the same-population rules (4.1/4.2,
- * 8.1/8.2…), which the wizard already blocks on itself (vt-cross-table.ts):
- * saying them again in amber would contradict the red message.
- */
-export function vtAdvisoryFlags(flags: readonly CoherenceFlag[]): CoherenceFlag[] {
-  return flags.filter((f) => f.code in VT_ADVISORY_COHERENCE_TABLES);
+export interface VtAdvisoryIssue {
+  code: string;
+  /** The two tables compared, in paper order. */
+  tables: [string, string];
+  labels: [Text, Text];
+  /** One entry per sex whose figures disagree (men first). */
+  bySex: Array<{ sex: Sex; first: number; second: number }>;
+  why: Text;
 }
 
-/**
- * What the advisory check reads, as one string that changes exactly when a
- * cell of 4.2, 4.7, 4.8 or 4.10 changes; null while no compared pair is
- * complete. Like vt-cross-table.ts, a comparison waits for both of its
- * tables: while a table still has cells to fill, asking would only report
- * a total the respondent has not finished typing.
- */
-export function vtAdvisoryCheckKey(fields: readonly OnefopField[], data: FormData): string | null {
-  const tables = new Map<string, OnefopField>();
-  for (const f of fields) if (f.id in VT_ADVISORY_TABLE_CODES) tables.set(f.id, f);
-  const complete = (id: string) => {
-    const field = tables.get(id);
-    return !!field && missingVtTableCells(field, data).length === 0;
-  };
-  const anyPairComplete = Object.values(VT_ADVISORY_COHERENCE_TABLES).some(([a, b]) => complete(a) && complete(b));
-  if (!anyPairComplete) return null;
-  const values: unknown[] = [];
-  for (const id of Object.keys(VT_ADVISORY_TABLE_CODES)) {
-    for (const row of tables.get(id)?.table?.matrix ?? []) {
-      for (const cell of row) values.push(data[cell] ?? null);
+/** The server's reading of a cell (flatInt): blank or unreadable counts 0. */
+function cellInt(value: unknown): number {
+  if (value === undefined || value === null || value === "") return 0;
+  const n = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+function sideSum(field: OnefopField, suffix: string, data: FormData): number {
+  let sum = 0;
+  for (const row of field.table?.matrix ?? []) {
+    for (const cell of row) if (cell.endsWith(suffix)) sum += cellInt(data[cell]);
+  }
+  return sum;
+}
+
+/** Every advisory disagreement between complete tables of the section's fields. */
+export function vtAdvisoryIssues(fields: readonly OnefopField[], data: FormData): VtAdvisoryIssue[] {
+  const byId = new Map(fields.map((f) => [f.id, f]));
+  const complete = (f: OnefopField | undefined): f is OnefopField => !!f && missingVtTableCells(f, data).length === 0;
+  const issues: VtAdvisoryIssue[] = [];
+  for (const rule of VT_ADVISORY_RULES) {
+    const a = byId.get(rule.first.fieldId);
+    const b = byId.get(rule.second.fieldId);
+    if (!complete(a) || !complete(b)) continue;
+    const bySex: VtAdvisoryIssue["bySex"] = [];
+    for (const sex of ["male", "female"] as const) {
+      const first = sideSum(a, rule.first.suffix[sex], data);
+      const second = sideSum(b, rule.second.suffix[sex], data);
+      if (first !== second && (first > 0 || second > 0)) bySex.push({ sex, first, second });
+    }
+    if (bySex.length > 0) {
+      issues.push({
+        code: rule.code,
+        tables: [rule.first.fieldId, rule.second.fieldId],
+        labels: [rule.first.label, rule.second.label],
+        bySex,
+        why: rule.why,
+      });
     }
   }
-  return JSON.stringify(values);
-}
-
-export interface VtAdvisoryItem {
-  flag: CoherenceFlag;
-  /** The compared table(s) not on screen, to open from the notice. */
-  otherTables: Array<{ code: string; fieldId: string }>;
-}
-
-/** The advisory flags that concern a table on screen, each with the other table it names. */
-export function vtAdvisoryItemsForTables(
-  flags: readonly CoherenceFlag[],
-  onScreenFieldIds: readonly string[],
-): VtAdvisoryItem[] {
-  const onScreen = new Set(onScreenFieldIds);
-  const items: VtAdvisoryItem[] = [];
-  for (const flag of flags) {
-    const pair = VT_ADVISORY_COHERENCE_TABLES[flag.code];
-    if (!pair || !pair.some((id) => onScreen.has(id))) continue;
-    items.push({
-      flag,
-      otherTables: pair
-        .filter((id) => !onScreen.has(id))
-        .map((fieldId) => ({ code: VT_ADVISORY_TABLE_CODES[fieldId], fieldId })),
-    });
-  }
-  return items;
+  return issues;
 }

@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { schemaEntity } from "@/test/schema";
 import type { FormData, OnefopField } from "./onefop-schema";
-import { vtAdvisoryCheckKey, vtAdvisoryFlags, vtAdvisoryItemsForTables } from "./vt-advisory-coherence";
+import { VT_ADVISORY_RULES, vtAdvisoryIssues } from "./vt-advisory-coherence";
 
-// The advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 flags on the table screens
-// (CLAUDE.md §7: advisory until domain review).
+// The advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 checks, computed in the
+// browser so they show at once (CLAUDE.md §7: advisory until domain review).
 
 const s4 = schemaEntity("vocationalTraining").sections.find((s) => s.id === "section4_vocationalTraining")!;
 const field = (id: string) => s4.fields.find((f) => f.id === id) as OnefopField;
@@ -25,48 +27,81 @@ function filled(fieldId: string): FormData {
   }
   return out;
 }
+const all = (...ids: string[]) => Object.assign({}, ...ids.map(filled)) as FormData;
 
-const AGE = { code: "VT_TRAINEE_AGE_ENTRANT_MISMATCH", message: "(4.2: 10, hommes) … (4.7 entrants: 8, hommes)." };
-const EDU = { code: "VT_TRAINEE_EDU_LEVEL_ENTRANT_MISMATCH", message: "(4.2: 10, femmes) … (4.8 entrants: 9, femmes)." };
-const OUT = { code: "VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH", message: "(4.7 sortants: 3, hommes) … (4.10: 5, hommes)." };
-const BLOCKING = { code: "VT_DIPLOMA_ACADEMIC_PRO_MISMATCH", message: "(4.1: 12, hommes) … (4.2: 10, hommes)." };
-
-test("only the advisory rules are kept: the same-population ones already block in the wizard", () => {
-  assert.deepEqual(vtAdvisoryFlags([BLOCKING, AGE, { code: "S22Q03_DIPLOMA_MISMATCH", message: "" }, OUT]), [AGE, OUT]);
+test("4.2 against the 4.7 entrants, by sex, with the server's figures", () => {
+  const data = { ...all("VT4_2", "VT4_7"), s4q2_cap_male: 10, s4q2_cap_female: 7, s4q7_age_18_entrant_male: 8, s4q7_age_19_entrant_female: "7" };
+  const issues = vtAdvisoryIssues(s4.fields, data);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].code, "VT_TRAINEE_AGE_ENTRANT_MISMATCH");
+  assert.deepEqual(issues[0].tables, ["VT4_2", "VT4_7"]);
+  assert.deepEqual(issues[0].bySex, [{ sex: "male", first: 10, second: 8 }], "women agree (7 = 7), so only men are listed");
 });
 
-test("each flag shows on both of its tables, and points to the one not on screen", () => {
-  const flags = [AGE, EDU, OUT];
+test("leavers and dropouts of 4.7 are not counted as entrants, and 4.7 leavers are compared with 4.10", () => {
+  const data = {
+    ...all("VT4_2", "VT4_7", "VT4_10"),
+    s4q2_cap_male: 5,
+    s4q7_age_18_entrant_male: 5,
+    s4q7_age_18_sortant_male: 3,
+    s4q7_age_18_abandon_male: 9,
+    s4q10_row1_male: 4,
+  };
+  const issues = vtAdvisoryIssues(s4.fields, data);
   assert.deepEqual(
-    vtAdvisoryItemsForTables(flags, ["VT4_7"]).map((i) => [i.flag.code, i.otherTables.map((t) => t.code)]),
-    [
-      ["VT_TRAINEE_AGE_ENTRANT_MISMATCH", ["4.2"]],
-      ["VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH", ["4.10"]],
-    ],
+    issues.map((i) => [i.code, i.bySex]),
+    [["VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH", [{ sex: "male", first: 3, second: 4 }]]],
   );
-  assert.deepEqual(
-    vtAdvisoryItemsForTables(flags, ["VT4_2"]).map((i) => i.otherTables.map((t) => t.fieldId)),
-    [["VT4_7"], ["VT4_8"]],
-  );
-  assert.deepEqual(vtAdvisoryItemsForTables(flags, ["VT4_1"]), [], "a table the rules do not compare shows nothing");
-  assert.deepEqual(vtAdvisoryItemsForTables([], ["VT4_7"]), []);
 });
 
-test("nothing is asked until both tables of a compared pair are complete", () => {
-  assert.equal(vtAdvisoryCheckKey(s4.fields, {}), null);
-  assert.equal(vtAdvisoryCheckKey(s4.fields, filled("VT4_2")), null, "4.2 alone");
-  assert.equal(vtAdvisoryCheckKey(s4.fields, { ...filled("VT4_2"), ...filled("VT4_10") }), null, "4.2 and 4.10 are not compared");
+test("all zeros, or equal totals, raise nothing", () => {
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, all("VT4_2", "VT4_7", "VT4_8", "VT4_10")), []);
+  const data = { ...all("VT4_2", "VT4_8"), s4q2_cap_female: 4, s4q8_primaire_entrant_female: 4 };
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, data), []);
+});
+
+test("nothing is said until both tables of a pair are complete", () => {
   const partial47 = Object.fromEntries(Object.entries(filled("VT4_7")).slice(1));
-  assert.equal(vtAdvisoryCheckKey(s4.fields, { ...filled("VT4_2"), ...partial47 }), null, "4.7 still has a cell to fill");
-  assert.notEqual(vtAdvisoryCheckKey(s4.fields, { ...filled("VT4_2"), ...filled("VT4_7") }), null);
-  assert.notEqual(vtAdvisoryCheckKey(s4.fields, { ...filled("VT4_2"), ...filled("VT4_8") }), null);
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, { ...filled("VT4_2"), ...partial47, s4q2_cap_male: 3 }), []);
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, { ...filled("VT4_2"), s4q2_cap_male: 3 }), []);
+  assert.equal(vtAdvisoryIssues(s4.fields, { ...all("VT4_2", "VT4_7"), s4q2_cap_male: 3 }).length, 1);
 });
 
-test("the key changes with a compared cell, and only with one", () => {
-  const data = { ...filled("VT4_2"), ...filled("VT4_7") };
-  const key = vtAdvisoryCheckKey(s4.fields, data);
-  const cell47 = Object.keys(filled("VT4_7"))[0];
-  assert.notEqual(vtAdvisoryCheckKey(s4.fields, { ...data, [cell47]: 4 }), key);
-  const cell41 = Object.keys(filled("VT4_1"))[0];
-  assert.equal(vtAdvisoryCheckKey(s4.fields, { ...data, [cell41]: 4 }), key, "4.1 is not read by these rules");
+test("a blank or unreadable cell counts 0, as on the server", () => {
+  const data = { ...all("VT4_2", "VT4_8"), s4q2_cap_male: "abc", s4q8_primaire_entrant_male: 2 };
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, data)[0].bySex, [{ sex: "male", first: 0, second: 2 }]);
+});
+
+// ── The browser copy must match the server's rules (checkVtCoherence) ──
+// The server sums fixed row lists; the browser sums the schema's cells.
+// If either side changes its rows, keys or codes, this fails.
+
+const servicePath = join(process.cwd(), "..", "src", "questionnaires", "questionnaires.service.ts");
+
+test("the server sums the same rows and cells, under the same codes", { skip: !existsSync(servicePath) && "backend not checked out" }, () => {
+  const src = readFileSync(servicePath, "utf-8");
+  const list = (name: string) => {
+    const m = src.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`));
+    assert.ok(m, `${name} not found in questionnaires.service.ts`);
+    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  };
+  const schemaRows = (id: string, re: RegExp) =>
+    field(id).table!.matrix!.flat().map((c) => c.match(re)?.[1]).filter((x): x is string => !!x);
+
+  assert.deepEqual(schemaRows("VT4_2", /^s4q2_(.+)_male$/), list("proDiplomaRows"));
+  assert.deepEqual(schemaRows("VT4_7", /^s4q7_(.+)_entrant_male$/), list("ageBandRows"));
+  assert.deepEqual(schemaRows("VT4_7", /^s4q7_(.+)_sortant_male$/), list("ageBandRows"));
+  assert.deepEqual(schemaRows("VT4_8", /^s4q8_(.+)_entrant_male$/), list("eduLevelRows"));
+  assert.equal(field("VT4_10").table!.matrix!.length, 10);
+  assert.match(src, /for \(let i = 1; i <= 10; i\+\+\) \{\s*s410_m \+= n\(`s4q10_row\$\{i\}_male`\);/);
+
+  for (const key of [
+    "s4q2_${d}_male",
+    "s4q7_${a}_entrant_male",
+    "s4q8_${l}_entrant_male",
+    "s4q7_${a}_sortant_male",
+  ]) {
+    assert.ok(src.includes("`" + key + "`"), `server key ${key}`);
+  }
+  for (const rule of VT_ADVISORY_RULES) assert.ok(src.includes(`code: '${rule.code}'`), rule.code);
 });

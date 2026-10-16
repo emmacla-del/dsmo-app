@@ -1,53 +1,52 @@
 "use client";
 
-// The server's advisory coherence flags for the table on screen
-// (4.2/4.7, 4.2/4.8, 4.7/4.10: lib/vt-advisory-coherence.ts), shown while
-// the respondent fills Section 4 rather than only on the review screen.
+// The advisory disagreements of the table on screen (4.2/4.7, 4.2/4.8,
+// 4.7/4.10: lib/vt-advisory-coherence.ts), shown the moment both tables of
+// a pair are complete, while the respondent is still on the table.
 //
 // Advisory (CLAUDE.md §7): it never blocks Next or submission, so it must
 // not look like the blocking cross-table list above it (VtCrossTableNotice,
-// red, role="alert"). It is an amber left rule — the wizard's
-// .section-notice shape, no box and no fill — with role="status", a
-// sentence that says it does not stop the respondent, and one link to the
-// other table compared.
+// red, role="alert"). It is an amber left rule, the wizard's
+// .section-notice shape, with no box and no fill, and role="status". Each
+// disagreement is one short line with the figures and a link to the other
+// table; "Pourquoi ?" opens the explanation in place (a disclosure rather
+// than a hover tooltip, which a finger or a keyboard cannot reach).
 
-import { useId } from "react";
-import { useTranslations } from "next-intl";
-import type { CoherenceFlag } from "@/lib/onefop-submission";
-import { coherenceWarningText } from "@/lib/coherence-warning-text";
-import { vtAdvisoryItemsForTables } from "@/lib/vt-advisory-coherence";
+import { useLocale, useTranslations } from "next-intl";
+import type { VtAdvisoryIssue } from "@/lib/vt-advisory-coherence";
+import { VT_ADVISORY_TABLE_CODES } from "@/lib/vt-advisory-coherence";
 
 export const VT_ADVISORY_NOTICE_ATTR = "data-vt-advisory-coherence";
 
 export function VtAdvisoryCoherenceNotice({
-  flags,
+  issues,
   tableFieldIds,
   onOpenTable,
 }: {
-  /** The advisory flags of the answers as they stand (useVtAdvisoryCoherence). */
-  flags: CoherenceFlag[];
-  /** The tables on screen: only their flags are shown. */
+  /** Every advisory disagreement of the section (vtAdvisoryIssues). */
+  issues: VtAdvisoryIssue[];
+  /** The tables on screen: only their disagreements are shown. */
   tableFieldIds: string[];
   /** Opens the table with this field id (its step, in Section 4). */
   onOpenTable: (fieldId: string) => void;
 }) {
-  const t = useTranslations();
-  const tDossier = useTranslations("adminDossierPage");
-  const headingId = useId();
-  const items = vtAdvisoryItemsForTables(flags, tableFieldIds);
-  if (items.length === 0) return null;
+  const t = useTranslations("vtWizard");
+  const lang = useLocale().startsWith("en") ? "en" : "fr";
+  const onScreen = new Set(tableFieldIds);
+  const shown = issues.filter((issue) => issue.tables.some((id) => onScreen.has(id)));
+  if (shown.length === 0) return null;
 
   return (
-    <section
+    <ul
       {...{ [VT_ADVISORY_NOTICE_ATTR]: "" }}
-      aria-labelledby={headingId}
       role="status"
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "var(--cam-space-2)",
-        marginTop: "var(--cam-space-4)",
+        gap: "var(--cam-space-3)",
+        margin: "var(--cam-space-4) 0 0",
         padding: "var(--cam-space-1) 0 var(--cam-space-1) var(--cam-space-3)",
+        listStyle: "none",
         borderLeft: "4px solid var(--cam-warning)",
         fontFamily: "var(--cam-font-sans)",
         fontSize: "var(--cam-font-size-xs)",
@@ -55,26 +54,43 @@ export function VtAdvisoryCoherenceNotice({
         color: "var(--cam-text)",
       }}
     >
-      <h3 id={headingId} style={{ margin: 0, fontSize: "inherit", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-warning)" }}>
-        {t("vtWizard.advisoryTitle", { count: items.length })}
-      </h3>
-      <p style={{ margin: 0, color: "var(--cam-text-muted)" }}>{t("vtWizard.advisoryIntro")}</p>
-      <ul style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)", margin: 0, padding: 0, listStyle: "none" }}>
-        {items.map(({ flag, otherTables }, i) => (
-          <li key={`${flag.code}-${i}`}>
-            <p style={{ margin: 0 }}>{coherenceWarningText(tDossier, flag.code, flag.message)}</p>
-            {otherTables.length > 0 && (
-              <p style={{ margin: "var(--cam-space-1) 0 0", display: "flex", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
-                {otherTables.map((tb) => (
-                  <button key={tb.fieldId} type="button" className="cam-text-button" onClick={() => onOpenTable(tb.fieldId)}>
-                    {t("vtWizard.crossTableOpen", { code: tb.code })}
+      {shown.map((issue) => {
+        const figures = issue.bySex
+          .map((s) =>
+            t("advisoryFigures", {
+              sex: t(s.sex === "male" ? "advisoryMen" : "advisoryWomen"),
+              first: issue.labels[0][lang],
+              firstValue: s.first,
+              second: issue.labels[1][lang],
+              secondValue: s.second,
+            }),
+          )
+          .join(lang === "fr" ? " ; " : "; ");
+        const other = issue.tables.find((id) => !onScreen.has(id));
+        return (
+          <li key={issue.code}>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: "var(--cam-warning)" }}>{t("advisoryTitle")}</strong>
+              {lang === "fr" ? " : " : ": "}
+              {figures}
+              {other && (
+                <>
+                  {" "}
+                  <button type="button" className="cam-text-button" onClick={() => onOpenTable(other)}>
+                    {t("crossTableOpen", { code: VT_ADVISORY_TABLE_CODES[other] })}
                   </button>
-                ))}
-              </p>
-            )}
+                </>
+              )}
+            </p>
+            <details>
+              <summary className="cam-text-button" style={{ cursor: "pointer", width: "fit-content" }}>
+                {t("advisoryWhy")}
+              </summary>
+              <p style={{ margin: "var(--cam-space-1) 0 0", color: "var(--cam-text-muted)" }}>{issue.why[lang]}</p>
+            </details>
           </li>
-        ))}
-      </ul>
-    </section>
+        );
+      })}
+    </ul>
   );
 }

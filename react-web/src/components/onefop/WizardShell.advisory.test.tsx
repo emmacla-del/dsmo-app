@@ -6,11 +6,11 @@ import { schemaEntity, schemaField } from "@/test/schema";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { VT_QUIZ_QUESTIONS } from "@/lib/vt-quiz";
 import { writeWizardPosition } from "@/lib/wizard-position";
-import { VT_ADVISORY_DEBOUNCE_MS } from "@/hooks/useVtAdvisoryCoherence";
 
-// The server's advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 flags, shown under the
-// table while Section 4 is filled rather than only on the review screen.
-// Advisory (CLAUDE.md §7): they never block Next.
+// The advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 disagreements, shown under the
+// table the moment both tables of a pair are complete, while Section 4 is
+// filled rather than only on the review screen. Advisory (CLAUDE.md §7):
+// they never block Next.
 
 const vt = schemaEntity("vocationalTraining");
 const s4 = vt.sections.find((s) => s.id === "section4_vocationalTraining")!;
@@ -46,134 +46,94 @@ function filled(fieldId: string): FormData {
   return out;
 }
 
-const AGE_FLAG = {
-  code: "VT_TRAINEE_AGE_ENTRANT_MISMATCH",
-  message:
-    "Effectif total des apprenants par diplôme professionnel (4.2: 10, hommes) " +
-    "ne correspond pas au total des entrants par tranche d'âge (4.7 entrants: 8, hommes).",
-};
-// A same-population rule: the wizard blocks on it itself, so it is not said again in amber.
-const BLOCKING_FLAG = {
-  code: "VT_DIPLOMA_ACADEMIC_PRO_MISMATCH",
-  message: "Effectif total des apprenants par diplôme académique (4.1: 12, hommes) ne correspond pas au total par diplôme professionnel (4.2: 10, hommes).",
-};
-
-// The server, as far as these tests need it: coherence-preview answers with
-// `answer`; anything else fails as in every component test.
+// Count any request to the server's preview: the table screens no longer ask it.
 const realFetch = globalThis.fetch;
 let previewCalls = 0;
-function serveCoherence(answer: () => Promise<unknown>) {
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).endsWith("/onefop/coherence-preview")) {
-      previewCalls++;
-      return answer().then((body) => ({ ok: true, status: 200, text: async () => JSON.stringify(body) }) as Response);
-    }
-    return realFetch(input, init);
-  }) as typeof fetch;
-}
-
 beforeEach(() => {
   sessionStorage.clear();
   previewCalls = 0;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes("coherence-preview")) previewCalls++;
+    return realFetch(input, init);
+  }) as typeof fetch;
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+function shell(data: FormData) {
+  return <WizardShell entity={entity} data={data} onChange={() => {}} positionKey={KEY} />;
+}
 function renderAt(data: FormData, stepIndex: number) {
   writeWizardPosition(KEY, { stage: "section", sectionIndex: S4, stepIndex });
-  return renderWithProviders(<WizardShell entity={entity} data={data} onChange={() => {}} positionKey={KEY} />, {
+  return renderWithProviders(shell(data), {
     queryData: [[["onefop", "active-quarter"], { code: "2026-T1", isOpen: true }]],
   });
 }
 
 const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
-const quietTime = () => wait(VT_ADVISORY_DEBOUNCE_MS + 100);
 const next = () => screen.getByRole("button", { name: /Suivant|Passer à la Validation/ });
 const currentTable = () => {
   const list = screen.getByText("Tableaux de cette section").closest("details") as HTMLElement;
   const current = within(list).getAllByRole("button").find((b) => b.getAttribute("aria-current") === "step");
   return current?.textContent?.match(/^\d+\.\d+/)?.[0] ?? null;
 };
-const advisoryNotice = () => document.querySelector("[data-vt-advisory-coherence]");
-const complete = () => ({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), ...filled("VT4_7") });
+const advisoryNotice = () => document.querySelector("[data-vt-advisory-coherence]") as HTMLElement | null;
+/** 4.1, 4.2 and 4.7 complete; 4.2 counts 10 men, 4.7 counts 8 entering men. */
+const mismatched = (): FormData => ({
+  ...quiz(),
+  ...filled("VT4_1"),
+  ...filled("VT4_2"),
+  ...filled("VT4_7"),
+  s4q1_cap_male: 10,
+  s4q2_cap_male: 10,
+  s4q7_age_18_entrant_male: 8,
+});
 
-test("4.7 complete: the 4.2/4.7 flag is shown under 4.7, amber, with a link to 4.2, and Next still goes on", async () => {
-  serveCoherence(async () => ({ flags: [BLOCKING_FLAG, AGE_FLAG] }));
-  const { user } = renderAt(complete(), STEP_4_7);
+test("4.7 complete and off from 4.2: the line is there at once, amber, with a link to 4.2, and Next still goes on", async () => {
+  const { user } = renderAt(mismatched(), STEP_4_7);
   assert.equal(currentTable(), "4.7");
-  assert.equal(advisoryNotice(), null, "nothing before the quiet time");
-
-  await quietTime();
-  const notice = advisoryNotice() as HTMLElement;
-  assert.ok(notice, "the notice is shown");
-  assert.equal(previewCalls, 1);
+  const notice = advisoryNotice();
+  assert.ok(notice, "shown on the first render, with no wait");
   assert.equal(notice.getAttribute("role"), "status");
-  assert.match(notice.textContent ?? "", /\(4\.2 : 10, hommes\).*\(4\.7 entrants : 8, hommes\)|4\.2.*10.*4\.7.*8/);
+  assert.match(notice.textContent ?? "", /Entrées incohérentes : hommes : 4\.2 = 10, 4\.7 entrants = 8/);
   assert.ok(within(notice).getByRole("button", { name: "Ouvrir le tableau 4.2" }));
-  assert.doesNotMatch(notice.textContent ?? "", /4\.1/, "the blocking 4.1/4.2 rule is not repeated in amber");
+  assert.equal(screen.queryByRole("alert"), null, "nothing red");
 
   await user.click(next());
   await wait(20);
-  assert.equal(currentTable(), "4.8", "the advisory flag does not stop Next");
+  assert.equal(currentTable(), "4.8", "the advisory line does not stop Next");
+  assert.equal(previewCalls, 0, "no server request while the tables are filled");
 });
 
-test("the link opens table 4.2, where the same flag is shown with a link back to 4.7", async () => {
-  serveCoherence(async () => ({ flags: [AGE_FLAG] }));
-  const { user } = renderAt(complete(), STEP_4_7);
-  await quietTime();
+test("the link opens table 4.2, where the same line points back to 4.7", async () => {
+  const { user } = renderAt(mismatched(), STEP_4_7);
   await user.click(screen.getByRole("button", { name: "Ouvrir le tableau 4.2" }));
   await wait(20);
   assert.equal(currentTable(), "4.2");
-  assert.ok(within(advisoryNotice() as HTMLElement).getByRole("button", { name: "Ouvrir le tableau 4.7" }));
-  assert.equal(previewCalls, 1, "moving between tables does not ask again for the same answers");
+  assert.ok(within(advisoryNotice()!).getByRole("button", { name: "Ouvrir le tableau 4.7" }));
 });
 
-test("a failed check shows nothing and blocks nothing", async () => {
-  serveCoherence(async () => {
-    throw new Error("offline");
-  });
-  const { user } = renderAt(complete(), STEP_4_7);
-  await quietTime();
-  assert.equal(previewCalls, 1);
-  assert.equal(advisoryNotice(), null);
-  await user.click(next());
-  await wait(20);
-  assert.equal(currentTable(), "4.8");
-});
-
-test("no flag: no notice", async () => {
-  serveCoherence(async () => ({ flags: [] }));
-  renderAt(complete(), STEP_4_7);
-  await quietTime();
-  assert.equal(previewCalls, 1);
-  assert.equal(advisoryNotice(), null);
-});
-
-test("nothing is asked while a compared pair is incomplete", async () => {
-  serveCoherence(async () => ({ flags: [AGE_FLAG] }));
-  renderAt({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2") }, STEP_4_7);
-  await quietTime();
-  assert.equal(previewCalls, 0);
-  assert.equal(advisoryNotice(), null);
-});
-
-test("figures typed in quick succession are checked once, and the old flags hide as soon as a figure changes", async () => {
-  serveCoherence(async () => ({ flags: [AGE_FLAG] }));
-  const data = complete();
+test("the line follows the figures as they are typed", () => {
+  const data = mismatched();
   const { rerender } = renderAt(data, STEP_4_7);
-  await quietTime();
   assert.ok(advisoryNotice());
-  assert.equal(previewCalls, 1);
+  rerender(shell({ ...data, s4q7_age_19_entrant_male: 2 }));
+  assert.equal(advisoryNotice(), null, "8 + 2 = 10: gone as soon as the totals agree");
+  rerender(shell({ ...data, s4q7_age_19_entrant_male: 3 }));
+  assert.match(advisoryNotice()?.textContent ?? "", /4\.7 entrants = 11/);
+});
 
-  const cell = Object.keys(filled("VT4_7"))[0];
-  for (const value of [1, 12, 123]) {
-    rerender(<WizardShell entity={entity} data={{ ...data, [cell]: value }} onChange={() => {}} positionKey={KEY} />);
-    assert.equal(advisoryNotice(), null, "flags of the old figures are hidden");
-    await wait(50);
-  }
-  assert.equal(previewCalls, 1, "no request per keystroke");
-  await quietTime();
-  assert.equal(previewCalls, 2);
-  assert.ok(advisoryNotice());
+test("nothing while a compared table is incomplete, or when the totals agree", () => {
+  const { unmount } = renderAt({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), s4q1_cap_male: 10, s4q2_cap_male: 10 }, STEP_4_7);
+  assert.equal(advisoryNotice(), null);
+  unmount();
+  renderAt({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), ...filled("VT4_7") }, STEP_4_7);
+  assert.equal(advisoryNotice(), null);
+});
+
+test("a table the rules do not compare shows nothing", () => {
+  renderAt(mismatched(), 0);
+  assert.equal(currentTable(), "4.1");
+  assert.equal(advisoryNotice(), null);
 });
