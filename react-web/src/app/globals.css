@@ -3697,7 +3697,12 @@ textarea.sovereign-text-input {
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text-muted);
   text-align: left;
-  white-space: nowrap;
+  /* Between words, never inside one (defect 6, 2026-10-16). One-line
+     headings and organisation names (row headers) made the registration
+     queue and the file list wider than the content column at 1280px, which
+     pushed the Action column out of view. A wide screen still shows them
+     on one line; dates and figures keep their own nowrap. */
+  white-space: normal;
   user-select: none;
 }
 
@@ -3786,6 +3791,13 @@ textarea.sovereign-text-input {
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+/* In an admin table a long status ("Correction requested", "No anomaly
+   recorded") may take two lines rather than push the last column out of
+   view at 1280px (defect 6, 2026-10-16). Elsewhere a badge stays on one. */
+.cam-table td .cam-badge {
+  white-space: normal;
 }
 
 .cam-badge-success {

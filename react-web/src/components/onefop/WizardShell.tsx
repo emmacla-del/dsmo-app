@@ -38,7 +38,9 @@ import { isVtCentreClosed, isVtQuizComplete, readVtQuiz } from "@/lib/vt-quiz";
 import { ModernJobsWizard } from "./ModernJobsWizard";
 import { ModernJobsHeader, type ModernJobsHeaderProps } from "./ModernJobsHeader";
 import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
-import { TABLE_MAX_WIDTH_PX, widestTableWidthPx } from "./tables/tableLayout";
+import { TABLE_MAX_DATA_COL_PX, TABLE_MAX_WIDTH_PX, widestTableFromColumnWidthsPx } from "./tables/tableLayout";
+import { buildVtFixedRowGridDefinition, isVtFixedRowTable } from "./tables/vtFixedRowGrid";
+import { matrixDataColumnWidthsPx } from "./tables/StatisticalGridRenderer";
 import { OnefopPdfPreviewModal } from "./OnefopPdfPreviewModal";
 import { OnefopSidePreviewPanel } from "./OnefopSidePreviewPanel";
 import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
@@ -346,16 +348,24 @@ export function WizardShell({
   // widest table left 4.1's 610px grid in a 1071px pod.
   const contentMax = useMemo(() => {
     const visible = vtStepped ? new Set(vtSteps[vtStepIndex]?.fieldIds ?? []) : null;
-    const widest = widestTableWidthPx(
+    // Each table at its real column widths, the renderer's own rule: a
+    // fixed-row grid sizes its columns from its headings (5.3: 142px a
+    // column in English). Assuming 89px a column left 5.3 scrolling inside
+    // a 760px column at 1280px (defect 6, 2026-10-16).
+    const widest = widestTableFromColumnWidthsPx(
       (currentSection?.fields ?? [])
         .filter((f) => f.type === "table" || f.type === "repeating_table")
         .filter((f) => !visible || visible.has(f.id))
-        .map((f) => f.table?.matrix?.[0]?.length ?? 0),
+        .map((f) =>
+          isVtFixedRowTable(f)
+            ? matrixDataColumnWidthsPx(buildVtFixedRowGridDefinition(f), formLocale)
+            : Array.from({ length: f.table?.matrix?.[0]?.length ?? 0 }, () => TABLE_MAX_DATA_COL_PX),
+        ),
     );
     return widest === 0
       ? "var(--vt-content-max)"
       : `clamp(var(--vt-content-max), ${widest}px, ${TABLE_MAX_WIDTH_PX}px)`;
-  }, [currentSection, vtStepped, vtSteps, vtStepIndex]);
+  }, [currentSection, vtStepped, vtSteps, vtStepIndex, formLocale]);
 
   // ── A1: focus, scroll and announcement on every VT step change ──────────
   // (non-VT entities render ModernJobsWizard, which does its own.)
