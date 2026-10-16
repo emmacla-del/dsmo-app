@@ -2,6 +2,7 @@ import type { FormData, OnefopField, OnefopSection, VtTableMeta } from "@/lib/on
 import { isFieldVisible, isVtSectionWaived } from "@/lib/onefop-schema";
 import { isOptionalField, validateSectionData } from "@/lib/onefop-validation";
 import { isVtCentreClosed, missingVtTableCells, vtTableStatus } from "@/lib/vt-quiz";
+import { isVt85Field, VT85_FIELD_IDS } from "@/lib/vt-review-counts";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
 /** The two Sexe questions: short two-option radios, laid out like Yes/No. */
@@ -88,13 +89,15 @@ export interface VtWizardSectionStats {
 /// they're excluded here and are instead reflected only by the real
 /// validator (validateSectionData) — this is a supplementary "how much is
 /// left" estimate, not a second source of truth for whether a section is
-/// done.
+/// done. 8.5's six fields are one table on screen, so they are left out here
+/// and counted as a table (vtSectionTableCounts).
 export function vtWizardGroupStats(fields: OnefopField[], data: FormData): VtWizardSectionStats {
   let filled = 0;
   let total = 0;
   for (const f of fields) {
     if (!isFieldVisible(f, data)) continue;
     if (f.type === "table" || f.type === "repeating_table") continue;
+    if (isVt85Field(f.id)) continue;
     if (!f.required) continue;
     total++;
     const v = data[f.id];
@@ -156,6 +159,13 @@ export function vtWizardBlockRequiredStats(fields: OnefopField[], data: FormData
       if (status === "NONE") continue;
       total++;
       if (status === "REPORTED" && missingVtTableCells(f, data).length === 0) filled++;
+      continue;
+    }
+    // 8.5: one table on screen, counted once, answered when all six cells are.
+    if (isVt85Field(f.id)) {
+      if (f.id !== VT85_FIELD_IDS[0]) continue;
+      total++;
+      if (VT85_FIELD_IDS.every((id) => isAnswered(data[id]))) filled++;
       continue;
     }
     if (isOptionalField(f)) continue;
