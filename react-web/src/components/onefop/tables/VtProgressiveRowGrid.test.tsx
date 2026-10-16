@@ -82,6 +82,14 @@ test("Add opens the slot after the last one used", async () => {
   assert.equal(document.activeElement?.id, "cell-input-s4q3_row4_specialtyText");
 });
 
+test("defect 4: clicking Add on an empty progressive grid keeps slot 0 and opens slot 1", async () => {
+  const { user } = render43();
+  assert.deepEqual(shownSlots(), [1]);
+  await user.click(screen.getByRole("button", { name: "Ajouter une spécialité" }));
+  assert.deepEqual(shownSlots(), [1, 2]);
+  assert.equal(document.activeElement?.id, "cell-input-s4q3_row2_specialtyText");
+});
+
 test("Remove clears every filled cell of its slot", async () => {
   const { user, writes } = render43({
     s4q3_row1_specialtyText: "A",

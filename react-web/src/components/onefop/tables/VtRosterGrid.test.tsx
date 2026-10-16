@@ -43,3 +43,20 @@ test("the band reads in English too, and every other column heads both rows", ()
     }
   });
 });
+
+test("defect 4: clicking Add on an empty roster grid keeps slot 0 and opens slot 1", async () => {
+  const { user } = renderWithProviders(
+    <VtRosterGrid definition={definition} data={{}} onChange={() => {}} />,
+  );
+  // Initially, only row 1 input exists
+  assert.ok(document.getElementById("cell-input-s8q8_row1_lastName"));
+  assert.equal(document.getElementById("cell-input-s8q8_row2_lastName"), null);
+
+  // Click Add
+  await user.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+
+  // Both row 1 (slot 0) and row 2 (slot 1) must exist
+  assert.ok(document.getElementById("cell-input-s8q8_row1_lastName"), "row 1 must remain intact");
+  assert.ok(document.getElementById("cell-input-s8q8_row2_lastName"), "row 2 must be added");
+});
+
