@@ -542,9 +542,9 @@ export class AdministrationIdentificationDto {
   @ToString()
   name!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  sigle?: string;
+  sigle!: string;
 
   @IsIn([1, 2]) area!: number;
 
@@ -572,15 +572,15 @@ export class AdministrationIdentificationDto {
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  poBox?: string;
+  poBox!: string;
 
   @IsIn([1, 2, 3]) sector!: number;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  branch?: string;
+  branch!: string;
 
   @IsString() @IsNotEmpty()
   @ToString()
@@ -612,9 +612,9 @@ export class ProjectProgramIdentificationDto {
   @ToString()
   name!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  sigle?: string;
+  sigle!: string;
 
   @IsString() @IsNotEmpty()
   @ToString()
