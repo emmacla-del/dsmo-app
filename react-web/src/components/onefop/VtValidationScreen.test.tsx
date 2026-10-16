@@ -33,7 +33,7 @@ function renderScreen(props: Partial<Parameters<typeof VtValidationScreen>[0]> =
   return { ...result, submittedCount: () => submitted };
 }
 
-const submitButton = () => screen.getByRole("button", { name: /Vérifier & Soumettre/ });
+const submitButton = () => screen.getByRole("button", { name: /Continuer vers la soumission/ });
 
 test("with validation errors, Submit stays focusable but aria-disabled and is described by the reason", () => {
   renderScreen();
@@ -152,4 +152,17 @@ test("the confidentiality notice cites Law 2020/010, as the paper form does, in 
     assert.match(text, /2020\/010/);
     assert.doesNotMatch(text, /91\/023/);
   }
+});
+
+// Defect 15 (2026-10-16 run): no eyebrows or duplicate actions on the review.
+test("the review has one primary action and no duplicate or decorative controls", () => {
+  const { container } = renderScreen({ onSaveDraft: () => {} });
+  const names = screen.getAllByRole("button").map((b) => b.textContent?.trim() ?? "");
+  assert.ok(names.includes("Continuer vers la soumission"));
+  assert.ok(names.includes(fr.vtValidationScreen.saveDraftButton));
+  assert.equal(names.filter((n) => n === "Corriger" || /copie de vérification/.test(n)).length, 0);
+  assert.equal(screen.getAllByRole("button", { name: "Modifier cette section" }).length, vt.sections.length);
+  const text = container.textContent ?? "";
+  assert.doesNotMatch(text, /SECTION \d|Récapitulatif des 9 sections/);
+  assert.ok(screen.getByRole("heading", { level: 3, name: "Section 1 : Identification" }));
 });

@@ -66,7 +66,7 @@ test("a successful submission closes the review window and shows the receipt on 
   );
 
   // The final screen's submit opens the review window, whose confirm submits.
-  const openReview = screen.getAllByRole("button").find((b) => /submit/i.test(b.textContent ?? "") && !b.hasAttribute("disabled"));
+  const openReview = screen.queryByRole("button", { name: "Continue to submission" });
   assert.ok(openReview, "a submit button on the final screen");
   await user.click(openReview!);
   assert.ok(screen.getByText("Official Review before Final Submission"));

@@ -937,8 +937,7 @@
     "periodClosedTitle": "Declaration period closed",
     "errorsBlockingSubmit": "Validation errors are blocking submission. Click the affected sections below to correct them.",
     "incompleteWarning": "Note: some sections are not yet complete. You can click any section below to review and complete it before final submission.",
-    "summaryHeader": "Summary of the 9 sections",
-    "sectionLabel": "SECTION {number}",
+    "sectionLabel": "Section {number}: {name}",
     "badgeCompleted": "Completed",
     "badgeInProgress": "In progress",
     "badgeNotStarted": "Not started",
@@ -958,16 +957,16 @@
     },
     "issuesCount": "{count} issue(s)",
     "backButton": "Back to Section 9",
-    "previewPdfButton": "Open review copy (PDF)",
     "saveDraftButton": "Save Draft",
     "submitting": "Submitting…",
-    "submitButton": "Final Submission"
+    "submitButton": "Final Submission",
+    "continueButton": "Continue to submission"
   },
   "vtWizardSidebar": {
     "navAriaLabel": "VT questionnaire navigation",
     "masthead": "MINEFOP / ONEFOP",
     "censusSubtitle": "ANNUAL CENTER CENSUS (VT)",
-    "validationLink": "Validation & Summary",
+    "validationLink": "Check your answers",
     "progressFooter": "{done} of {total} sections completed"
   },
   "wizardShell": {
