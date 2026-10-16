@@ -120,3 +120,36 @@ test("the review screen's heading asks to check the answers, and thanks no one b
   assert.equal(heading.textContent, "Vérifiez vos réponses avant de soumettre");
   assert.equal(screen.queryByText(/Merci pour votre participation/), null);
 });
+
+// Defect 3 of the 2026-10-15 VT run: counts, answers, and the law cited.
+
+test("Section 4 is counted in tables, never '0 / 0'", () => {
+  const { container } = renderScreen();
+  const text = container.textContent ?? "";
+  assert.doesNotMatch(text, /0 \/ 0 /);
+  assert.match(text, /0 \/ \d+ tableaux/);
+});
+
+test("each section shows its answers, 'Sans réponse' apart from No, and opens for a change", async () => {
+  const opened: number[] = [];
+  const { container, user } = renderScreen({
+    data: { VT1_2: "CFP Test E2E Douala", VT2_1: "Non/ No" },
+    onOpenSection: (i) => opened.push(i),
+  });
+  const details = container.querySelectorAll("details");
+  assert.equal(details.length, vt.sections.length);
+  await user.click(details[0].querySelector("summary")!);
+  assert.match(details[0].textContent ?? "", /CFP Test E2E Douala/);
+  assert.match(details[0].textContent ?? "", /Sans réponse/);
+  assert.match(details[1].textContent ?? "", /convention avec l'Etat \?Non2\.1\.3/, "2.1.1 answered Non");
+  await user.click(screen.getAllByRole("button", { name: "Modifier cette section" })[1]);
+  assert.deepEqual(opened, [1]);
+});
+
+test("the confidentiality notice cites Law 2020/010, as the paper form does, in both languages", () => {
+  for (const locale of ["fr", "en"] as const) {
+    const text = (loadMessages(locale) as { vtValidationScreen: Record<string, string> }).vtValidationScreen.confidentialityText;
+    assert.match(text, /2020\/010/);
+    assert.doesNotMatch(text, /91\/023/);
+  }
+});

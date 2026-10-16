@@ -852,6 +852,18 @@ export function WizardShell({
               sectionLockReason={(index) => vtLockReason({ kind: "section", index })}
               isValidationStage={true}
               onGoToValidation={goToValidation}
+              // Listed here as on every other step: the review step used to
+              // drop "Preliminary questionnaire" from the list (defect 3).
+              quiz={
+                vtQuizApplies
+                  ? {
+                      isCurrent: false,
+                      isComplete: vtQuizComplete,
+                      onOpen: selectVtQuiz,
+                      lockReason: vtLockReason({ kind: "quiz" }),
+                    }
+                  : undefined
+              }
             />
           ) : null}
 

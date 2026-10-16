@@ -7,6 +7,8 @@ import { localized } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
 import { getVtSectionShortLabel, isVtSectionComplete, vtWizardSectionStats } from "./vt-wizard-utils";
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
+import { vtSectionTableCounts } from "@/lib/vt-review-counts";
+import { VtSectionAnswers } from "./VtSectionAnswers";
 
 /** The Validation heading, focused by WizardShell when this stage opens. */
 export const VT_VALIDATION_HEADING_ID = "vt-validation-heading";
@@ -49,10 +51,12 @@ function sectionHasTableData(section: OnefopSection, data: FormData): boolean {
 // non-table questions; tables are covered by the validator. A section a
 // closed or non-functional centre does not answer counts as done, and so
 // does a valid section made only of tables (Section 4: 0 questions) —
-// isVtSectionComplete, the sidebar's own rule.
+// isVtSectionComplete, the sidebar's own rule. Tables are counted apart
+// (vtSectionTableCounts): counting questions only, Section 4 read "0 / 0".
 function getSectionStats(section: OnefopSection, data: FormData) {
   const { filled, total } = vtWizardSectionStats(section, data);
   const issues = validateSectionData(section, data);
+  const tables = vtSectionTableCounts(section, data, issues);
 
   let state: SectionState = "notStarted";
   if (isVtSectionComplete(section, data)) {
@@ -64,7 +68,8 @@ function getSectionStats(section: OnefopSection, data: FormData) {
   return {
     filled,
     total,
-    fraction: total > 0 ? filled / total : 0,
+    tables,
+    fraction: total + tables.total > 0 ? (filled + tables.complete) / (total + tables.total) : 0,
     state,
     issuesCount: issues.length,
   };
@@ -111,6 +116,16 @@ export function VtValidationScreen({
   }, [sections, data]);
 
   const hasIncomplete = sectionSummaries.some((s) => s.stats.state !== "done");
+  /** "12 / 14 questions · 8 / 11 tables", leaving out a part the section does not have. */
+  const progressLine = (stats: ReturnType<typeof getSectionStats>) =>
+    [
+      stats.total > 0 ? t("vtValidationScreen.questionsProgress", { filled: stats.filled, total: stats.total }) : null,
+      stats.tables.total > 0
+        ? t("vtValidationScreen.tablesProgress", { complete: stats.tables.complete, total: stats.tables.total })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
   // W1 fix: task-rail navigation can bypass sections entirely (goToSection has
   // no validation gate). Block final submission when any section still has
   // outstanding validation errors — this includes never-visited sections
@@ -363,8 +378,8 @@ export function VtValidationScreen({
                 : "var(--cam-border)";
 
           return (
+            <div key={section.id} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
             <button
-              key={section.id}
               type="button"
               onClick={() => onOpenSection(index - 1)}
               style={{
@@ -458,7 +473,7 @@ export function VtValidationScreen({
                   }}
                 >
                   <span>
-                    {t("vtValidationScreen.fieldsProgress", { filled: stats.filled, total: stats.total })}
+                    {progressLine(stats)}
                   </span>
                   {stats.issuesCount > 0 && (
                     <span style={{ color: "var(--cam-error)", fontWeight: 600 }}>
@@ -486,6 +501,25 @@ export function VtValidationScreen({
                 </div>
               </div>
             </button>
+            {/* The answers themselves, read-only: the cards only said how
+                far each section was, and the PDF copy was the only way to
+                read them back (defect 3). */}
+            <details>
+              <summary style={{ cursor: "pointer", color: "var(--cam-green-dark)" }}>
+                {t("vtValidationScreen.answers.show")}
+              </summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)", paddingTop: "var(--cam-space-3)" }}>
+                <VtSectionAnswers entity={entity} section={section} data={data} />
+                <button
+                  type="button"
+                  onClick={() => onOpenSection(index - 1)}
+                  style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, color: "var(--cam-green-dark)", textDecoration: "underline", cursor: "pointer" }}
+                >
+                  {t("vtValidationScreen.answers.change")}
+                </button>
+              </div>
+            </details>
+            </div>
           );
         })}
       </div>
