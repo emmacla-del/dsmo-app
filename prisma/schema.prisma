@@ -871,6 +871,7 @@ model OnefopSubmission {
   effectiveDeadlineSnapshot DateTime?
   registrationNumber    String?
   metaJson              Json?
+  supersededById        String?
   administrationDetail  OnefopAdministrationDetail?
   projectProgramDetail  OnefopProjectProgramDetail?
   projectProgramActivities ProjectProgramActivity[]
@@ -908,6 +909,9 @@ model OnefopSubmission {
   company               Company?                      @relation(fields: [companyId], references: [id])
   establishment         Establishment                 @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
   campaign              DataCampaign?                 @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  // Set with status SUPERSEDED: the submission that replaced this one.
+  supersededBy          OnefopSubmission?             @relation("OnefopSupersession", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes            OnefopSubmission[]            @relation("OnefopSupersession")
   departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
   subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
@@ -2042,6 +2046,11 @@ enum OnefopStatus {
   APPROVED
   REJECTED
   CORRECTION_REQUESTED
+  // A correction request the respondent answered with a newer submission for
+  // the same company and period: closed, kept for the record, out of every
+  // queue, count and export. supersededById names the submission that
+  // replaced it (owner, §21, 2026-10-16).
+  SUPERSEDED
 }
 
 enum NotificationStatus {
