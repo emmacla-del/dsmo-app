@@ -64,6 +64,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   AUDIT_REJECT:            { label: "Dossier rejeté", tone: "error" },
   AUDIT_CORRECTION:        { label: "Retour pour correction", tone: "warning" },
   AUDIT_REOPEN:            { label: "Visa retiré, retour pour correction", tone: "warning" },
+  AUDIT_SUPERSEDED:        { label: "Dossier remplacé par une nouvelle soumission", tone: "neutral" },
   AUDIT_LIST_EXPORT:       { label: "Export de la liste des dossiers", tone: "neutral" },
   ANOMALY_RESOLVED:        { label: "Anomalie résolue", tone: "success" },
   ANOMALY_WAIVED:          { label: "Anomalie dérogée", tone: "warning" },
@@ -114,6 +115,7 @@ const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
   AUDIT_REJECT: "File rejected",
   AUDIT_CORRECTION: "Returned for correction",
   AUDIT_REOPEN: "Endorsement withdrawn, returned for correction",
+  AUDIT_SUPERSEDED: "File replaced by a new submission",
   AUDIT_LIST_EXPORT: "File list export",
   ANOMALY_RESOLVED: "Anomaly resolved",
   ANOMALY_WAIVED: "Anomaly waived",
@@ -264,12 +266,14 @@ const SUBMISSION_STATUS_LABELS: Record<UiLocale, Record<string, string>> = {
     APPROVED: "Visé",
     REJECTED: "Rejeté",
     CORRECTION_REQUESTED: "Correction demandée",
+    SUPERSEDED: "Remplacé",
   },
   en: {
     PENDING_REVIEW: "Pending",
     APPROVED: "Endorsed",
     REJECTED: "Rejected",
     CORRECTION_REQUESTED: "Correction requested",
+    SUPERSEDED: "Replaced",
   },
 };
 
@@ -291,6 +295,9 @@ export function auditTransition(e: AuditLogEntry, locale: UiLocale = "fr"): stri
   }
   if ((e.action === "AUDIT_CORRECTION" || e.action === "AUDIT_REOPEN") && text(d.previousStatus)) {
     return `${statusLabel(String(d.previousStatus))} → ${statusLabel("CORRECTION_REQUESTED")}`;
+  }
+  if (e.action === "AUDIT_SUPERSEDED" && text(d.previousStatus)) {
+    return `${statusLabel(String(d.previousStatus))} → ${statusLabel("SUPERSEDED")}`;
   }
   return null;
 }

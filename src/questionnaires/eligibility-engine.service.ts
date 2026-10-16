@@ -139,6 +139,21 @@ export class EligibilityEngineService {
       };
     }
 
+    // Replaced by a newer submission: its replacement is the one that counts.
+    // It used to fall through to EXCL_REJECTED below, which it is not.
+    if (submission.status === OnefopStatus.SUPERSEDED) {
+      return {
+        submissionId: submission.id,
+        axis1Status: submission.status,
+        axis2BlockingCount: 0,
+        axis2WarningCount: warningAnomalies.length,
+        axis3Eligibility: 'EXCLUDED',
+        exclusionReason: StatisticalExclusionReason.EXCL_SUPERSEDED,
+        blockingAnomalies: [],
+        warningAnomalies,
+      };
+    }
+
     if (submission.status === OnefopStatus.APPROVED) {
       // Both Axis 1 (Approved) AND Axis 2 (0 blocking anomalies) are satisfied
       return {

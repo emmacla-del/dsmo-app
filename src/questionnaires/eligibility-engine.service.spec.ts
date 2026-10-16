@@ -54,6 +54,14 @@ describe('EligibilityEngineService', () => {
       expect(service.isStatisticallyEligible({ status: OnefopStatus.APPROVED, anomalies: [] })).toBe(true);
     });
 
+    it('a replaced file (SUPERSEDED) is excluded as replaced, not as rejected', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({ id: 'sub-old', status: OnefopStatus.SUPERSEDED, anomalies: [] });
+      const result = await service.evaluateDossier('sub-old');
+      expect(result.axis3Eligibility).toBe('EXCLUDED');
+      expect(result.exclusionReason).toBe(StatisticalExclusionReason.EXCL_SUPERSEDED);
+      expect(service.isStatisticallyEligible({ status: OnefopStatus.SUPERSEDED, anomalies: [] })).toBe(false);
+    });
+
     // Case B: APPROVED + OPEN blocking anomaly -> NOT statistically eligible
     it('Case B: returns EXCLUDED with EXCL_BLOCKING_ANOMALY_OPEN if APPROVED with open blocking anomaly', async () => {
       const blockingAnomaly = {

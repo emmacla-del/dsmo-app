@@ -87,3 +87,19 @@ test("only SUPER_ADMIN and ADMIN_ONEFOP may reopen an endorsed file", async () =
     assert.equal(canReopenForCorrection(status, "SUPER_ADMIN"), false, String(status));
   }
 });
+
+// A file a newer submission replaced (SUPERSEDED, owner 2026-10-16): its
+// own label, no decision, and excluded as replaced rather than as rejected.
+test("a replaced file reads as replaced on every axis and offers no decision", () => {
+  assert.deepEqual(endorsementAxis("SUPERSEDED"), { key: "statusSuperseded", tone: "neutral" });
+  assert.deepEqual(
+    eligibilityAxis("ready", diagnostic({ axis1Status: "SUPERSEDED", axis3Eligibility: "EXCLUDED", exclusionReason: "EXCL_SUPERSEDED" })),
+    { key: "exclusion.EXCL_SUPERSEDED", tone: "neutral" },
+  );
+  assert.deepEqual(allowedDecisions("SUPERSEDED"), { approve: false, reject: false, requestCorrection: false });
+  for (const locale of ["fr", "en"]) {
+    const page = JSON.parse(readFileSync(join(process.cwd(), "messages", `${locale}.json`), "utf-8")).adminDossierPage;
+    assert.ok(page.statusSuperseded && page.supersededLine && page.openReplacingFile, locale);
+    assert.ok(page.exclusion.EXCL_SUPERSEDED, locale);
+  }
+});

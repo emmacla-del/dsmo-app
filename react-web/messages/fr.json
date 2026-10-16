@@ -1727,6 +1727,8 @@
     "statusCorrectionsNote": "Ces déclarations ont été renvoyées aux employeurs avec un motif de non-conformité. Elles reviennent dans la file dès leur nouvelle soumission.",
     "statusEndorsed": "Visés",
     "statusRejected": "Rejetés",
+    "statusSuperseded": "Remplacés",
+    "statusSupersededNote": "Dossiers clos parce que le déclarant a soumis une version corrigée pour la même période. Ils sont conservés pour mémoire et ne sont comptés nulle part.",
     "scopeRegional": "Régional — {region}",
     "scopeRegionalUnassigned": "Régional — ressort non affecté",
     "scopeDepartmental": "Départemental — {department}",
@@ -1771,6 +1773,7 @@
     "badgeRejected": "Rejeté",
     "badgePending": "En instance",
     "badgeNoStatus": "Statut non renseigné",
+    "badgeSuperseded": "Remplacé",
     "blockingAnomalies": "{count, plural, one {# anomalie bloquante} other {# anomalies bloquantes}}",
     "warnings": "{count, plural, one {# avertissement} other {# avertissements}}",
     "noAnomaly": "Aucune anomalie enregistrée",
@@ -1819,6 +1822,9 @@
     "statusEndorsed": "Visé",
     "statusCorrection": "Correction demandée",
     "statusRejected": "Rejeté",
+    "statusSuperseded": "Remplacé",
+    "supersededLine": "Remplacé par un dossier plus récent pour la même période",
+    "openReplacingFile": "Ouvrir le dossier qui le remplace",
     "statusNotRecorded": "Statut non renseigné",
     "section1": {
       "ENTREPRISE": "Section 1. Identification de l'entreprise",
@@ -2011,7 +2017,8 @@
       "EXCL_WAITING_NAT_VISA": "En attente de visa",
       "EXCL_CORRECTION_PENDING": "Correction en attente",
       "EXCL_REJECTED": "Rejeté",
-      "EXCL_DRAFT_ONLY": "Brouillon"
+      "EXCL_DRAFT_ONLY": "Brouillon",
+      "EXCL_SUPERSEDED": "Remplacé par un dossier plus récent"
     }
   },
   "adminEquipePage": {

@@ -24,7 +24,8 @@ export function hrefWith(pathname: string, current: string, changes: Record<stri
 
 // ── /admin/dossiers ─────────────────────────────────────────────────────────
 
-export const DOSSIER_STATUSES = ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED"] as const;
+// SUPERSEDED: files a newer submission replaced; listed only on request.
+export const DOSSIER_STATUSES = ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED", "SUPERSEDED"] as const;
 export type DossierStatus = (typeof DOSSIER_STATUSES)[number];
 
 /** ?status= on /admin/dossiers; "" (every status) for absent or unknown values. */

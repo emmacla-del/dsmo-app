@@ -90,6 +90,28 @@ const STATUS_BADGES: Record<string, { labelKey: string; variant: "pending" | "va
 };
 
 /**
+ * A file replaced by a newer submission (SUPERSEDED, owner 2026-10-16) is
+ * closed: no decision is offered, and the header says so with a link to the
+ * file that replaced it, whatever the reader's role.
+ */
+function supersededNotice(dossier: AdminDossier, t: (key: string) => string) {
+  if (dossier.status !== "SUPERSEDED") return null;
+  return (
+    <>
+      <span className="cam-admin-meta">{t("supersededLine")}</span>
+      {dossier.supersededById && (
+        <Link
+          href={`/admin/dossiers/${encodeURIComponent(dossier.supersededById)}`}
+          className="cam-button cam-button-secondary cam-button-sm"
+        >
+          {t("openReplacingFile")}
+        </Link>
+      )}
+    </>
+  );
+}
+
+/**
  * Questionnaire sections whose figures this screen cannot show.
  *
  * GET /admin/questionnaires/:id does return the statistical tables
@@ -605,11 +627,16 @@ function SubmissionDetailContent() {
         statusBadge={{
           // A record with no stored status says so, in its own neutral tone,
           // rather than defaulting into "en attente".
-          label: statusBadge ? t(statusBadge.labelKey) : t("statusNotRecorded"),
+          label: statusBadge
+            ? t(statusBadge.labelKey)
+            : dossier.status === "SUPERSEDED"
+              ? t("statusSuperseded")
+              : t("statusNotRecorded"),
           variant: statusBadge ? statusBadge.variant : "neutral",
         }}
-        actions={readOnly ? undefined : (
+        actions={readOnly ? supersededNotice(dossier, t) ?? undefined : (
           <>
+            {supersededNotice(dossier, t)}
             {/* A final decision is final: APPROVED and REJECTED offer no
                 decision, and a dossier awaiting the respondent's correction
                 can only be rejected. allowedDecisions mirrors the server's

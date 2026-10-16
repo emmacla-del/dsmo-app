@@ -103,3 +103,12 @@ test("every action the backend writes has a French and an English label", { skip
     assert.notEqual(auditActionLabel(action, "en"), action, `${action} has no English label`);
   }
 });
+
+test("a file closed by a newer submission reads as replaced, with its transition", async () => {
+  const { auditTransition } = await import("./audit-log");
+  assert.equal(auditActionLabel("AUDIT_SUPERSEDED"), "Dossier remplacé par une nouvelle soumission");
+  assert.equal(auditActionLabel("AUDIT_SUPERSEDED", "en"), "File replaced by a new submission");
+  const e = entry("AUDIT_SUPERSEDED", { previousStatus: "CORRECTION_REQUESTED", newStatus: "SUPERSEDED", supersededById: "new" });
+  assert.equal(auditTransition(e), "Correction demandée → Remplacé");
+  assert.equal(auditTransition(e, "en"), "Correction requested → Replaced");
+});
