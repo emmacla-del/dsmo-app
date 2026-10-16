@@ -148,6 +148,9 @@ describe('8.8 named staff list export', () => {
     expect(sps).not.toContain('Version du schéma du jeu de données');
     expect(sps).toContain("/FILE='onefop_8-8_liste_nominative.csv'");
     expect(sps).toContain('VALUE LABELS professionalDiploma');
+    // Defect 21: the roster has no formType variable, so its header does not
+    // send the analyst to one.
+    expect(sps).not.toContain('formType');
   });
 });
 

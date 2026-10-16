@@ -216,6 +216,21 @@ export const SPSS_MISSING_NOT_APPLICABLE = -98;
 export const SPSS_MISSING_NOT_ANSWERED = -99;
 export const SPSS_USER_MISSING_CODES: number[] = [SPSS_MISSING_NOT_APPLICABLE, SPSS_MISSING_NOT_ANSWERED];
 
+/** Region value labels: each stored region name, labelled by itself. */
+export const REGION_NAMES = [
+  'Adamaoua',
+  'Centre',
+  'Est',
+  'Extrême-Nord',
+  'Littoral',
+  'Nord',
+  'Nord-Ouest',
+  'Ouest',
+  'Sud',
+  'Sud-Ouest',
+] as const;
+const REGION_VALUE_LABELS: Record<string, string> = Object.fromEntries(REGION_NAMES.map((n) => [n, n]));
+
 @Injectable()
 export class CanonicalSchemaAdapterService {
   private readonly logger = new Logger(CanonicalSchemaAdapterService.name);
@@ -664,11 +679,12 @@ export class CanonicalSchemaAdapterService {
     // A file other than the statistical dataset (the 8.8 roster) names itself
     // and its own version in place of the two default header lines.
     header: { title: string; version: string } = {
-      title: 'Généré par DSMO — Registre Analytique Canonique ONEFOP.',
+      title: 'Généré par CAMLEAP — Registre analytique canonique ONEFOP.',
       version: `Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`,
     },
   ): string {
     const varNames = variables.map((v) => v.variableName);
+    const hasFormType = varNames.includes('formType');
     // Numeric read formats are at least F3.0 so a user-missing code (-98 /
     // -99) is read whole even for a 1-digit Oui/Non variable (E1, v5).
     const formats = variables.map((v) =>
@@ -732,7 +748,9 @@ export class CanonicalSchemaAdapterService {
       '*',
       '* Codes de valeurs manquantes (variables numériques, déclarés MISSING VALUES).',
       `*   ${SPSS_MISSING_NOT_APPLICABLE} = Non applicable (type d'établissement) : la question n'est pas posée`,
-      "*         à ce type d'établissement (voir la variable formType).",
+      hasFormType
+        ? "*         à ce type d'établissement (voir la variable formType)."
+        : "*         à ce type d'établissement.",
       `*   ${SPSS_MISSING_NOT_ANSWERED} = Non renseigné (réservé, pas encore produit).`,
       '*   vide = valeur manquante système : question applicable mais sans réponse.',
       "*   Les variables texte restent vides lorsqu'elles ne sont pas applicables.",
@@ -1069,18 +1087,11 @@ export class CanonicalSchemaAdapterService {
         spssDataType: 'A',
         spssWidth: 20,
         measurementLevel: 'NOMINAL',
-        valueLabels: {
-          ADAMAOUA: 'Adamaoua',
-          CENTRE: 'Centre',
-          EST: 'Est',
-          EXTREME_NORD: 'Extrême-Nord',
-          LITTORAL: 'Littoral',
-          NORD: 'Nord',
-          NORD_OUEST: 'Nord-Ouest',
-          OUEST: 'Ouest',
-          SUD: 'Sud',
-          SUD_OUEST: 'Sud-Ouest',
-        },
+        // Keyed by what the variable holds: the region's name as seeded
+        // ("Littoral", "Extrême-Nord"), the value submissions store. The codes
+        // these labels used to be keyed by ("LITTORAL") never matched a
+        // record, so SPSS applied none (defect 21 of the 2026-10-16 VT run).
+        valueLabels: REGION_VALUE_LABELS,
         sourcePath: 'submission.region',
       },
       {
@@ -1289,8 +1300,8 @@ export class CanonicalSchemaAdapterService {
         const varName = this.assignVariableName(cellId, `matrix.${field.id}.${cellId}`, usedNames);
         const applicability = this.findMatrixCellApplicability(field.id, cellId, root);
 
-        let cellLabelFr = `${field.label.fr} [${cellId}]`;
-        let cellLabelEn = `${field.label.en} [${cellId}]`;
+        let cellLabelFr = `${field.label.fr} — Ligne ${r + 1} — Colonne ${c + 1}`;
+        let cellLabelEn = `${field.label.en} — Row ${r + 1} — Column ${c + 1}`;
 
         let spssDataType: SpssDataType = 'NUMERIC';
         let spssWidth = 10;
@@ -1302,10 +1313,10 @@ export class CanonicalSchemaAdapterService {
           const vtRow = table.vt.rows[r];
           const vtCell = table.vt.cells[c];
           if (vtRow && vtCell) {
-            const rowLabelFr = vtRow.label?.fr ?? vtRow.id ?? `Ligne ${r + 1}`;
-            const rowLabelEn = vtRow.label?.en ?? vtRow.id ?? `Row ${r + 1}`;
-            const cellLabelTextFr = vtCell.label?.fr ?? vtCell.key ?? `Col ${c + 1}`;
-            const cellLabelTextEn = vtCell.label?.en ?? vtCell.key ?? `Col ${c + 1}`;
+            const rowLabelFr = vtRow.label?.fr ?? `Ligne ${r + 1}`;
+            const rowLabelEn = vtRow.label?.en ?? `Row ${r + 1}`;
+            const cellLabelTextFr = vtCell.label?.fr ?? `Colonne ${c + 1}`;
+            const cellLabelTextEn = vtCell.label?.en ?? `Column ${c + 1}`;
             const titleFr = table.vt.title?.fr ?? field.label.fr;
             const titleEn = table.vt.title?.en ?? field.label.en;
             cellLabelFr = `${titleFr} — ${rowLabelFr} — ${cellLabelTextFr}`;
@@ -1372,8 +1383,8 @@ export class CanonicalSchemaAdapterService {
           const cellId = row[c];
           const varName = this.assignVariableName(cellId, `matrix.${field.id}.${cellId}`, usedNames);
 
-          let cellLabelFr = `${field.label.fr} [${cellId}]`;
-          let cellLabelEn = `${field.label.en} [${cellId}]`;
+          let cellLabelFr = `${field.label.fr} — Ligne ${r + 1} — Colonne ${c + 1}`;
+          let cellLabelEn = `${field.label.en} — Row ${r + 1} — Column ${c + 1}`;
 
           let spssDataType: SpssDataType = 'NUMERIC';
           let spssWidth = 10;
@@ -1385,10 +1396,10 @@ export class CanonicalSchemaAdapterService {
             const vtRow = table.vt.rows[r];
             const vtCell = table.vt.cells[c];
             if (vtRow && vtCell) {
-              const rowLabelFr = vtRow.label?.fr ?? vtRow.id ?? `Ligne ${r + 1}`;
-              const rowLabelEn = vtRow.label?.en ?? vtRow.id ?? `Row ${r + 1}`;
-              const cellLabelTextFr = vtCell.label?.fr ?? vtCell.key ?? `Col ${c + 1}`;
-              const cellLabelTextEn = vtCell.label?.en ?? vtCell.key ?? `Col ${c + 1}`;
+              const rowLabelFr = vtRow.label?.fr ?? `Ligne ${r + 1}`;
+              const rowLabelEn = vtRow.label?.en ?? `Row ${r + 1}`;
+              const cellLabelTextFr = vtCell.label?.fr ?? `Colonne ${c + 1}`;
+              const cellLabelTextEn = vtCell.label?.en ?? `Column ${c + 1}`;
               const titleFr = table.vt.title?.fr ?? field.label.fr;
               const titleEn = table.vt.title?.en ?? field.label.en;
               cellLabelFr = `${titleFr} — ${rowLabelFr} — ${cellLabelTextFr}`;
