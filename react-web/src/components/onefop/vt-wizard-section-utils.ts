@@ -8,8 +8,6 @@ export const VT_TABBED_SECTION_IDS = new Set([
   "section8_vocationalTraining",
 ]);
 
-export const VT_SIGNATURES_SECTION_ID = "section9_vocationalTraining";
-
 export const VT_713_FOLDED_IDS = new Set(["VT7_7", "VT7_8", "VT7_9", "VT7_10", "VT7_11"]);
 
 export const VT_SECTION_713_TABLE_ID = "VT7_7_table";
