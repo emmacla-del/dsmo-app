@@ -400,7 +400,7 @@ export class AuthService {
       await this.notificationService.sendTwoFactorCodeEmail(user.email, code);
     } catch (error) {
       this.logger.error(
-        `Failed to send 2FA code to ${user.email}: ${(error as Error).message}`,
+        `Failed to send 2FA code to user ${user.id}: ${(error as Error).message}`,
       );
       throw new BadRequestException(
         "Impossible d'envoyer le code de vérification pour le moment. Réessayez.",
@@ -813,7 +813,7 @@ export class AuthService {
       // registration response (the account is already created at this point).
       this.notificationService.sendEmailVerificationEmail(user.email, verifyLink).catch((error) => {
         this.logger.error(
-          `Failed to send verification email to ${user.email}: ${(error as Error).message}`,
+          `Failed to send verification email to user ${user.id}: ${(error as Error).message}`,
         );
       });
 
@@ -936,7 +936,7 @@ export class AuthService {
       // The registration itself succeeded; losing its journal entry must not
       // undo it or fail the admin's request.
       this.logger.error(
-        `Failed to audit assisted registration of ${email}: ${(error as Error).message}`,
+        `Failed to audit assisted registration of user ${created.user.id}: ${(error as Error).message}`,
       );
     });
 
@@ -2296,7 +2296,7 @@ export class AuthService {
     // (we never reveal whether the account exists), so don't block on SMTP.
     this.notificationService.sendPasswordResetEmail(user.email, resetLink).catch((error) => {
       this.logger.error(
-        `Failed to send password reset email to ${user.email}: ${(error as Error).message}`,
+        `Failed to send password reset email to user ${user.id}: ${(error as Error).message}`,
       );
     });
 
@@ -2540,7 +2540,7 @@ export class AuthService {
       await this.notificationService.sendEmailVerificationEmail(user.email, verifyLink);
     } catch (error) {
       this.logger.error(
-        `Failed to resend verification email to ${user.email}: ${(error as Error).message}`,
+        `Failed to resend verification email to user ${user.id}: ${(error as Error).message}`,
       );
       throw new BadRequestException(
         "Impossible d'envoyer l'e-mail pour le moment. Réessayez plus tard.",

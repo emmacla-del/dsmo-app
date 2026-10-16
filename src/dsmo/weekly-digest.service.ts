@@ -42,7 +42,7 @@ export class WeeklyDigestService {
       } catch (error) {
         failed++;
         this.logger.warn(
-          `Failed to send weekly digest to ${user.email}: ${(error as Error).message}`,
+          `Failed to send weekly digest to user ${user.id}: ${(error as Error).message}`,
         );
       }
     }

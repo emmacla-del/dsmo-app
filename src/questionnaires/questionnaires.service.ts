@@ -16,7 +16,7 @@ import {
   VocationalTrainingQuestionnaireDto,
 } from '../dto/onefop-questionnaire.dto';
 import { plainToClass } from 'class-transformer';
-import { validate } from 'class-validator';
+import { validate, ValidationError } from 'class-validator';
 import { randomUUID } from 'crypto';
 import {
   normalizeFlatKeys,
@@ -380,26 +380,12 @@ function normalizeEntityType(type: string): string {
   throw new BadRequestException(`Unsupported entity type: ${type}`);
 }
 
-function debugLog(label: string, value: any, maxChars = 2000): void {
-  try {
-    if (value === undefined || value === null) {
-      console.log(`\n${label}\n(no data)`);
-      return;
-    }
-    let str: string;
-    if (typeof value === 'string') {
-      str = value;
-    } else {
-      try { str = JSON.stringify(value, null, 2); } catch { str = String(value); }
-    }
-    if (str && str.length > 0) {
-      console.log(`\n${label}\n${str.substring(0, maxChars)}${str.length > maxChars ? '\n… (truncated)' : ''}`);
-    } else {
-      console.log(`\n${label}\n(empty)`);
-    }
-  } catch (error) {
-    console.log(`\n${label}\n(debug error: ${error})`);
-  }
+/** Dotted paths of the failing leaf properties, e.g. "respondent.email". */
+export function validationErrorPaths(errors: ValidationError[], prefix = ''): string[] {
+  return errors.flatMap((err) => {
+    const path = prefix ? `${prefix}.${err.property}` : err.property;
+    return err.children?.length ? validationErrorPaths(err.children, path) : [path];
+  });
 }
 
 @Injectable()
@@ -628,27 +614,6 @@ export class QuestionnairesService {
       }
     }
 
-    // Verbose per-submission dumps (several JSON.stringify calls over full
-    // nested payloads) are dev-only: Node writes console.log synchronously
-    // when stdout is piped rather than a TTY, which is exactly how Render
-    // captures logs — so this was blocking the event loop on every single
-    // submission in production for output nobody was reading.
-    const debugSubmit = process.env.NODE_ENV !== 'production';
-    if (debugSubmit) {
-      console.log('\n╔══════════════════════════════════════════════════╗');
-      console.log('║         ONEFOP SUBMIT — DEBUG                    ║');
-      console.log('╚══════════════════════════════════════════════════╝');
-      console.log('entityType (original) :', dto.entityType);
-      console.log('entityType (normalized):', normalizedEntityType);
-      console.log('isDraft    :', isDraft);
-      console.log('userId     :', dto.userId);
-      console.log('companyId (resolved):', resolvedCompanyId);
-      console.log('establishmentId (resolved):', resolvedEstablishmentId);
-      console.log('formId     :', dto.formId);
-      console.log('data keys  :', Object.keys(dto.data).length);
-      debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
-    }
-
     const normalized = normalizeFlatKeys(dto.data, toLowerEntityType(normalizedEntityType));
 
     // Phase 2.7 shadow mode: log-only, never affects acceptance. Final
@@ -665,26 +630,7 @@ export class QuestionnairesService {
       );
     }
 
-    if (debugSubmit) {
-      debugLog('🔄 Normalized keys sample (S0/S1):', {
-        S0Q01: normalized['S0Q01'],
-        S0Q02: normalized['S0Q02'],
-        COOP_S1Q01: normalized['COOP_S1Q01'],
-        COOP_S1Q10: normalized['COOP_S1Q10'],
-        COOP_S1Q11: normalized['COOP_S1Q11'],
-        COOP_S1Q12: normalized['COOP_S1Q12'],
-      });
-    }
-
     const nestedData = buildNestedDto(normalized, toLowerEntityType(normalizedEntityType));
-
-    if (debugSubmit) {
-      debugLog('🔄 respondent :', nestedData['respondent']);
-      debugLog('🔄 cooperative:', nestedData['cooperative']);
-      debugLog('🔄 enterprise :', nestedData['enterprise']);
-      debugLog('🔄 ctd        :', nestedData['ctd']);
-      debugLog('🔄 ong        :', nestedData['ong']);
-    }
 
     let questionnaireData: AnyQuestionnaireDto;
     switch (normalizedEntityType) {
@@ -718,23 +664,14 @@ export class QuestionnairesService {
     });
 
     if (dataErrors.length > 0) {
-      console.log('\n── ❌ Validation errors ────────────────────────────');
-      dataErrors.forEach((err, i) => {
-        console.log(`  [${i + 1}] property: ${err.property}`);
-        console.log(`       value   : ${JSON.stringify(err.value)}`);
-        console.log(`       constraints: ${JSON.stringify(err.constraints)}`);
-        if (err.children?.length) {
-          console.log(`       children: ${JSON.stringify(err.children, null, 2).substring(0, 500)}`);
-        }
-      });
-      console.log('────────────────────────────────────────────────────\n');
+      // Property paths only: a ValidationError's value is what the respondent
+      // typed — the whole respondent object (name, phones, email) when that
+      // section fails — so it never goes to the log.
+      this.logger.warn(
+        `Validation failed for ${normalizedEntityType} ${isDraft ? 'draft' : 'submission'} ` +
+        `(user ${dto.userId}, form ${dto.formId ?? '-'}): ${validationErrorPaths(dataErrors).join(', ')}`,
+      );
       throw new BadRequestException(dataErrors);
-    } else if (debugSubmit) {
-      // Gated like the other debug output above — Node's console.log is
-      // synchronous when stdout is piped (Render's log capture), so an
-      // ungated line here was blocking the event loop on every single
-      // successful submission in production, not just failed ones.
-      console.log('\n── ✅ Validation passed ───────────────────────────\n');
     }
 
     // VT-8: enforceFinalRequiredFields now runs for VOCATIONAL_TRAINING too

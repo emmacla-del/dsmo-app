@@ -243,10 +243,12 @@ export class OnefopShadowValidatorService {
       for (const d of result.discrepancies) {
         byCategory[d.category] = (byCategory[d.category] ?? 0) + 1;
       }
+      // Category and field id only: a discrepancy's message quotes the raw
+      // value the respondent typed, which must not reach the log.
       this.logger.warn(
         `[shadow] ${schemaEntityType} submission ${submissionRef ?? '(draft)'}: ` +
           `${result.discrepancies.length} discrepancies ${JSON.stringify(byCategory)} — ` +
-          JSON.stringify(result.discrepancies.slice(0, 20)),
+          result.discrepancies.slice(0, 20).map((d) => `${d.category}:${d.fieldId}`).join(', '),
       );
     } catch (e) {
       this.logger.warn(`[shadow] validator crashed, ignoring (never blocks submission): ${(e as Error).message}`);

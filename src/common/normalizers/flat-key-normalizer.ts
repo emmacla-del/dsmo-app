@@ -437,10 +437,6 @@ function buildCooperativeDto(n: Record<string, unknown>): Record<string, unknown
 }
 
 function buildEnterpriseDto(n: Record<string, unknown>): Record<string, unknown> {
-    console.log('🔍 buildEnterpriseDto called');
-    console.log('  S1Q01:', n['S1Q01']);
-    console.log('  S1Q02:', n['S1Q02']);
-    console.log('  S1Q04_REGION:', n['S1Q04_REGION']);
     const r: Record<string, unknown> = {};
     setNum(r, 'legalStatus', n['S1Q01'], mapLegalStatus);
     setIfPresent(r, 'name', n['S1Q02']);
