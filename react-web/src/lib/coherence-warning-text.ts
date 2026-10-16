@@ -43,3 +43,21 @@ export function parseCoherenceWarning(ruleCode: string | null | undefined, descr
     sex: figures[0][3] === "hommes" ? "male" : "female",
   };
 }
+
+/** A translator scoped to adminDossierPage, where the coherence sentences live. */
+export type CoherenceTranslate = (key: string, values?: Record<string, string | number>) => string;
+
+/**
+ * A coherence warning in the reader's language: the catalogue sentence with
+ * the stored figures, or the stored text when it cannot be read. Shared by
+ * the file page and the quality centre.
+ */
+export function coherenceWarningText(
+  t: CoherenceTranslate,
+  ruleCode: string | null | undefined,
+  description: string | null | undefined,
+): string {
+  const parts = parseCoherenceWarning(ruleCode, description);
+  if (!parts) return description ?? "";
+  return t(`coherence.${parts.code}`, { first: parts.first, second: parts.second, sex: t(`coherence.${parts.sex}`) });
+}

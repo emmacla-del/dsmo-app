@@ -36,3 +36,17 @@ test("every VT rule has a sentence in both catalogues", () => {
     assert.ok(coherence.male && coherence.female);
   }
 });
+
+test("coherenceWarningText puts the stored figures in the catalogue sentence, or keeps the stored text", async () => {
+  const { coherenceWarningText } = await import("./coherence-warning-text");
+  const en = JSON.parse(readFileSync(join(process.cwd(), "messages", "en.json"), "utf-8")).adminDossierPage;
+  const t = (key: string, values: Record<string, string | number> = {}) => {
+    const template = key.split(".").reduce((o: any, k) => o?.[k], en) as string;
+    return template.replace(/\{(\w+)\}/g, (_, k) => String(values[k]));
+  };
+  assert.equal(
+    coherenceWarningText(t, "VT_DIPLOMA_ACADEMIC_PRO_MISMATCH", STORED),
+    "Trainees by academic diploma (4.1: 12, men) do not match trainees by vocational diploma (4.2: 10, men).",
+  );
+  assert.equal(coherenceWarningText(t, "S22Q03_MISMATCH", "Texte stocké"), "Texte stocké");
+});

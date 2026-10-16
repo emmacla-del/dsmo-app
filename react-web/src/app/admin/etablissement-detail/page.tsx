@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel, hasRealNiu, listCompanies, type Company } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
+import { respondentFunctionLabel, sectorLabel } from "@/lib/display-labels";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import {
   auditActionLabel,
@@ -335,7 +336,7 @@ function EtablissementDetail() {
               <Field label={t("field.legalStatus")} value={company.legalStatus} />
               <Field label={t("field.size")} value={company.enterpriseSize} />
               <Field label={t("field.mainActivity")} value={company.mainActivity} />
-              <Field label={t("field.sector")} value={company.sector?.name} />
+              <Field label={t("field.sector")} value={sectorLabel(company.sector, locale)} />
               <Field label={t("field.phone")} value={company.phone} />
               <Field label={t("field.address")} value={company.address} />
               <Field label={t("field.region")} value={company.region} />
@@ -343,7 +344,7 @@ function EtablissementDetail() {
               <Field label={t("field.subdivision")} value={company.subdivision} />
               <Field
                 label={t("field.contactPerson")}
-                value={respondent ? `${respondent}${company.respondentFunction ? ` — ${company.respondentFunction}` : ""}` : null}
+                value={respondent ? `${respondent}${company.respondentFunction ? ` — ${respondentFunctionLabel(company.respondentFunction, locale)}` : ""}` : null}
               />
               <Field label={t("field.contactPhone")} value={company.respondentPhone} />
             </dl>
