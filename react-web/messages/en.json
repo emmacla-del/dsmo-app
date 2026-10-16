@@ -1000,8 +1000,11 @@
   "vtWizard": {
     "crossTableTitle": "{count, plural, one {One total to reconcile} other {# totals to reconcile}}",
     "crossTableOpen": "Open table {code}",
-    "advisoryTitle": "{count, plural, one {One figure to check} other {# figures to check}}",
-    "advisoryIntro": "These tables do not count exactly the same trainees, so a difference can be normal. Correct the figures if they are wrong; otherwise carry on: this does not stop your declaration.",
+    "advisoryTitle": "Inconsistent entries",
+    "advisoryFigures": "{sex}: {first} = {firstValue}, {second} = {secondValue}",
+    "advisoryMen": "men",
+    "advisoryWomen": "women",
+    "advisoryWhy": "Why?",
     "crossTableOpenFull": "Open table {code} — comparison of tables {tables}",
     "rowOwes": "Still to fill: {cells}",
     "rowNumber": "row {index}",

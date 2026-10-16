@@ -53,7 +53,7 @@ import type { ValidationIssue } from "@/lib/onefop-validation";
 import { vtCrossTableIssues } from "@/lib/vt-cross-table";
 import { VtCrossTableNotice } from "./VtCrossTableNotice";
 import { VtAdvisoryCoherenceNotice } from "./VtAdvisoryCoherenceNotice";
-import type { CoherenceFlag } from "@/lib/onefop-submission";
+import { vtAdvisoryIssues } from "@/lib/vt-advisory-coherence";
 import { isVtCentreClosed, missingVtTableCells, vtQuizQuestionForTable, vtTableStatus } from "@/lib/vt-quiz";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { FormGrid, FormCol } from "./form/FormGrid";
@@ -107,12 +107,6 @@ interface VtWizardSectionScreenProps {
    */
   activeStep?: number;
   onStepChange?: (index: number) => void;
-  /**
-   * The server's advisory coherence flags (4.2/4.7, 4.2/4.8, 4.7/4.10) for
-   * the answers as they stand; those of the table on screen are shown under
-   * it (VtAdvisoryCoherenceNotice). Never blocking (CLAUDE.md §7).
-   */
-  advisoryFlags?: CoherenceFlag[];
 }
 
 interface VtFieldGroup {
@@ -1106,7 +1100,6 @@ export function VtWizardSectionScreen({
   revealRef,
   activeStep,
   onStepChange,
-  advisoryFlags = [],
 }: VtWizardSectionScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -1166,6 +1159,9 @@ export function VtWizardSectionScreen({
     () => crossTableIssues.filter((ci) => issues.some((i) => i.fieldId === ci.fieldId)),
     [crossTableIssues, issues],
   );
+  // The advisory ones (§7): shown as soon as both tables of a pair are
+  // complete, whether or not the respondent has pressed Next.
+  const advisoryIssues = useMemo(() => vtAdvisoryIssues(section.fields, data), [section.fields, data]);
   // A table compared with another is complete by then (vt-cross-table.ts
   // waits for both), so it has no other message of its own to lose here.
   const fieldIssues = useMemo(() => {
@@ -1388,7 +1384,7 @@ export function VtWizardSectionScreen({
         />
         {/* The advisory ones (§7), after the blocking list and apart from it. */}
         <VtAdvisoryCoherenceNotice
-          flags={advisoryFlags}
+          issues={advisoryIssues}
           tableFieldIds={tabbed && groups.length > 1 ? (groups[activeTab]?.fieldIds ?? []) : groups.flatMap((g) => g.fieldIds)}
           onOpenTable={openTableForField}
         />
