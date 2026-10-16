@@ -110,3 +110,14 @@ test("8.8 names show for a central role and are withheld otherwise", () => {
   assert.equal(closed.restricted, true);
   assert.deepEqual(closed.rows, []);
 });
+
+// Defect 18 (2026-10-16 run): 1.15 "Qualité du répondant" holds the French
+// registration option; review and admin screens show it in the reader's
+// language, and the stored text is untouched.
+test("1.15's stored French function reads in English on English screens", () => {
+  const data: FormData = { VT1_15_FUNCTION: "Responsable RH" };
+  assert.deepEqual(answer(data, "VT1_15_FUNCTION", "en")?.values, ["HR Manager"]);
+  assert.deepEqual(answer(data, "VT1_15_FUNCTION", "fr")?.values, ["Responsable RH"]);
+  assert.deepEqual(answer({ VT1_15_FUNCTION: "Censeur" }, "VT1_15_FUNCTION", "en")?.values, ["Censeur"], "typed text as typed");
+  assert.equal(data.VT1_15_FUNCTION, "Responsable RH");
+});

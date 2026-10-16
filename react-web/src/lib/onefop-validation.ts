@@ -158,6 +158,23 @@ function isValidEmail(v: string): boolean {
   return EMAIL_RE.test(v);
 }
 
+/**
+ * 2.1.13 "Date de l'arrêté d'accréditation" (VT2_17): a text answer stored as
+ * DD/MM/YYYY ("15/03/2019"). The format is checked, the storage unchanged.
+ */
+export const VT_DATE_FIELD_ID = "VT2_17";
+const DMY_RE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+/** A real calendar date written DD/MM/YYYY, from 1900 to today. */
+export function isValidDayMonthYear(v: string, today: Date = new Date()): boolean {
+  const m = DMY_RE.exec(v);
+  if (!m) return false;
+  const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return false;
+  return year >= 1900 && date.getTime() <= today.getTime();
+}
+
 /** The one wording of the whole-number error, for fields, cells and inputs. */
 const WHOLE_NUMBER_FR = "Saisissez un nombre entier";
 const WHOLE_NUMBER_EN = "Enter a whole number";
@@ -242,6 +259,12 @@ function validateField(
       labelled(fieldLabel(field, locale), "Veuillez entrer une adresse e-mail valide", "Please enter a valid email address", locale),
       cleanMsg,
     );
+  }
+
+  if (field.id === VT_DATE_FIELD_ID && !isValidDayMonthYear(v)) {
+    const fr = "Saisissez une date réelle au format JJ/MM/AAAA, pas dans le futur (ex. 15/03/2019)";
+    const en = "Enter a real date as DD/MM/YYYY, not in the future (e.g. 15/03/2019)";
+    return fieldIssue(field, labelled(fieldLabel(field, locale), fr, en, locale), msg(fr, en, locale));
   }
 
   if (field.type === "number" && isYearField(field)) {
