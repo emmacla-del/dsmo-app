@@ -1,18 +1,7 @@
-// About: what the platform is for, where the collection has come from, how it
-// is being modernised, and what phase 1 has actually delivered.
-import { PortalAbout } from "@/components/landing/portal/PortalAbout";
-import { PortalTransformation } from "@/components/landing/portal/PortalTransformation";
-import { PortalProgress } from "@/components/landing/portal/PortalProgress";
-import { portalMetadata } from "@/components/landing/portal/portal-metadata";
+import { redirect } from "next/navigation";
 
-export const generateMetadata = () => portalMetadata("navAbout", "aboutBody");
-
-export default function PortalAboutPage() {
-  return (
-    <>
-      <PortalAbout />
-      <PortalTransformation />
-      <PortalProgress />
-    </>
-  );
+// Merged into Le programme (2026-10-14): the roadmap is its "Les phases"
+// section. Kept as a redirect so links already shared keep working.
+export default function PortalProgrammeRedirect() {
+  redirect("/programme");
 }

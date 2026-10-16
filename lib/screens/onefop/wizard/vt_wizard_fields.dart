@@ -120,28 +120,55 @@ class _VtWizardQuestionLabel extends StatelessWidget {
   }
 }
 
-/// Field label in the app's active locale — human-readable text only
-/// (e.g. "Nom du CFP"), never prefixed with the codebook number
-/// (field.paperCode) — a government-form field-design requirement: a
-/// respondent should read the question, not a form code. paperCode stays
-/// on the model for anything that still needs it (PDF, exports) but is
-/// never rendered here.
+/// Field label in the app's active locale:
+/// Displays the official paper code (e.g. 1.12, 4.5) as a subtle, muted
+/// badge prefix, deduplicated on follow-up sub-questions (matching
+/// React-Web's CodedLabel model).
 class _VtWizardFieldLabel extends StatelessWidget {
   final FieldSchema field;
   const _VtWizardFieldLabel({required this.field});
 
   @override
   Widget build(BuildContext context) {
-    final text = field.label?.of(context.loc) ?? field.id;
+    final rawText = field.label?.of(context.loc) ?? field.id;
     final requiredLabel = const LocalizedText(
       fr: ' (obligatoire)',
       en: ' (required)',
     ).of(context.loc);
     final tooltip = kFieldTooltips[field.id]?.of(context.loc);
+
+    // Deduplicate: show paperCode only if present and this question is not a follow-up sub-question
+    final showCode = field.paperCode != null &&
+        field.paperCode!.trim().isNotEmpty &&
+        field.dependsOn == null;
+
+    String cleanText = rawText.trim();
+    if (showCode && cleanText.toUpperCase().startsWith(field.paperCode!.toUpperCase())) {
+      cleanText = cleanText.substring(field.paperCode!.length).replaceFirst(RegExp(r'^[\s\xa0]*[-–—:.]?[\s\xa0]*'), '');
+    }
+
     final labelWidget = Text.rich(
       TextSpan(
-        text: text,
         children: [
+          if (showCode)
+            TextSpan(
+              text: '${field.paperCode}  ',
+              style: const TextStyle(
+                fontFamily: kVtWizardFontFamily,
+                fontWeight: FontWeight.w400,
+                fontSize: 14,
+                color: kVtWizardInkSoft,
+              ),
+            ),
+          TextSpan(
+            text: cleanText,
+            style: const TextStyle(
+              fontFamily: kVtWizardFontFamily,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: kVtWizardInk,
+            ),
+          ),
           if (field.required)
             TextSpan(
               text: requiredLabel,
@@ -152,12 +179,6 @@ class _VtWizardFieldLabel extends StatelessWidget {
               ),
             ),
         ],
-      ),
-      style: const TextStyle(
-        fontFamily: kVtWizardFontFamily,
-        fontWeight: FontWeight.w700,
-        fontSize: 15,
-        color: kVtWizardInk,
       ),
     );
     if (tooltip == null) return labelWidget;
@@ -298,6 +319,155 @@ class _CameroonFlagBadge extends StatelessWidget {
   }
 }
 
+class _VtWizardFiveSlotsField extends StatefulWidget {
+  final OnefopFormController ctrl;
+  final FieldSchema field;
+  const _VtWizardFiveSlotsField({required this.ctrl, required this.field});
+
+  @override
+  State<_VtWizardFiveSlotsField> createState() => _VtWizardFiveSlotsFieldState();
+}
+
+class _VtWizardFiveSlotsFieldState extends State<_VtWizardFiveSlotsField> {
+  late final List<TextEditingController> _controllers;
+  late final List<FocusNode> _focusNodes;
+
+  @override
+  void initState() {
+    super.initState();
+    final raw = widget.ctrl.data[widget.field.id];
+    List<String> initial = [];
+    if (raw is List) {
+      initial = raw.map((e) => e?.toString() ?? '').toList();
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      initial = raw.split('\n');
+    }
+    _controllers = List.generate(5, (i) {
+      final text = i < initial.length ? initial[i] : '';
+      return TextEditingController(text: text);
+    });
+    _focusNodes = List.generate(5, (_) => FocusNode());
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final fn in _focusNodes) {
+      fn.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onChanged() {
+    final values = _controllers.map((c) => c.text).toList();
+    widget.ctrl.setRawValue(widget.field.id, values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEn = context.loc.languageCode == 'en';
+    final isPerspectives = widget.field.id == 'VT9_4';
+    final slotPrefix = isPerspectives
+        ? (isEn ? 'Prospect' : 'Perspective')
+        : (isEn ? 'Other' : 'Autre');
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([widget.ctrl, ..._focusNodes]),
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _VtWizardFieldLabel(field: widget.field),
+          const SizedBox(height: 8),
+          for (var i = 0; i < 5; i++) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 120,
+                    child: Text.rich(
+                      TextSpan(
+                        text: '$slotPrefix ${i + 1}',
+                        style: const TextStyle(
+                          fontFamily: kVtWizardFontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kVtWizardInkSoft,
+                        ),
+                        children: [
+                          if (isPerspectives && i == 0)
+                            const TextSpan(
+                              text: ' *',
+                              style: TextStyle(
+                                color: kVtWizardRed,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          else
+                            TextSpan(
+                              text: isEn ? ' (opt.)' : ' (fac.)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: kVtWizardInkFaint,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      decoration: _vtWizardInputBox(
+                        muted: widget.field.readOnly,
+                        focused: _focusNodes[i].hasFocus,
+                        error: isPerspectives &&
+                            i == 0 &&
+                            widget.ctrl.hasError(widget.field) &&
+                            _controllers[0].text.trim().isEmpty,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      child: TextField(
+                        controller: _controllers[i],
+                        focusNode: _focusNodes[i],
+                        readOnly: widget.field.readOnly,
+                        style: TextStyle(
+                          fontFamily: kVtWizardFontFamily,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: widget.field.readOnly ? kVtWizardInkFaint : kVtWizardInk,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                          hintText: isPerspectives
+                              ? (isEn ? 'Key priority #${i + 1}' : 'Priorité stratégique #${i + 1}')
+                              : (isEn ? 'Additional difficulty #${i + 1}' : 'Difficulté supplémentaire #${i + 1}'),
+                          hintStyle: const TextStyle(
+                            fontFamily: kVtWizardFontFamily,
+                            fontSize: 13,
+                            color: kVtWizardInkFaint,
+                          ),
+                        ),
+                        onChanged: (_) => _onChanged(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class VtWizardTextField extends StatelessWidget {
   final OnefopFormController ctrl;
   final FieldSchema field;
@@ -305,6 +475,9 @@ class VtWizardTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (field.id == 'VT9_4' || field.id == 'VT9_3') {
+      return _VtWizardFiveSlotsField(ctrl: ctrl, field: field);
+    }
     final c = ctrl.ctrl[field.id]!;
     final fn = ctrl.fm.getNode(field.id);
     final isTel = field.type == 'tel';

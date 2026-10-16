@@ -29,7 +29,7 @@ export function SkipLogicBanner({
       className={className}
       style={{
         background: "var(--cam-surface)",
-        border: "1px solid var(--vt-accent-soft, #c6e3d0)",
+        border: "1px solid var(--vt-accent-soft)",
         borderRadius: "var(--cam-radius-md)",
         padding: "var(--cam-space-4, 16px)",
         marginBottom: "var(--cam-space-4, 16px)",
@@ -46,7 +46,7 @@ export function SkipLogicBanner({
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: "var(--vt-accent-soft, #eaf3ec)",
+          background: "var(--vt-accent-soft)",
           color: "var(--cam-green)",
           display: "grid",
           placeItems: "center",
@@ -94,7 +94,7 @@ export function SkipLogicBanner({
               background: "var(--cam-success-bg)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
-              fontSize: 11,
+              fontSize: "var(--cam-font-size-3xs)",
               fontWeight: 700,
             }}
           >

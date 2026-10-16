@@ -143,6 +143,19 @@ function ResetPasswordForm() {
             {t("loginPage.whatsappLink")}
           </a>
         </p>
+
+        <div style={{ textAlign: "center", marginTop: "var(--cam-space-4)" }}>
+          <Link
+            href="/"
+            style={{
+              fontSize: "var(--cam-font-size-xs)",
+              color: "var(--cam-text-muted)",
+              textDecoration: "underline",
+            }}
+          >
+            {t("common.backToPortal")}
+          </Link>
+        </div>
       </div>
     </main>
   );

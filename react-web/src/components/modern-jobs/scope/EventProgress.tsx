@@ -45,7 +45,7 @@ export function EventProgress({
         paddingBottom: inCard ? "var(--cam-space-3, 12px)" : 14,
         marginBottom: inCard ? "var(--cam-space-3, 12px)" : 20,
         borderBottom: "1px solid var(--cam-border)",
-        fontSize: 13,
+        fontSize: "var(--cam-font-size-xs)",
         ...style,
       }}
     >
@@ -63,7 +63,7 @@ export function EventProgress({
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 13 }} aria-hidden="true">
+        <span style={{ fontSize: "var(--cam-font-size-xs)" }} aria-hidden="true">
           📋
         </span>
         <span>{rootLabel}</span>

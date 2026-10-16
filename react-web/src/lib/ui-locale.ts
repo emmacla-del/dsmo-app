@@ -12,7 +12,26 @@ import { asUiLocale, type UiLocale } from "./register-i18n";
 export function currentUiLocale(): UiLocale {
   if (typeof document === "undefined") return "fr";
   const prefix = `${localeCookieName}=`;
-  const entry = document.cookie.split("; ").find((part) => part.startsWith(prefix));
+  const entry = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
   if (entry) return asUiLocale(decodeURIComponent(entry.slice(prefix.length)));
+  try {
+    const stored = localStorage.getItem(localeCookieName);
+    if (stored) return asUiLocale(stored);
+  } catch {}
   return preferredLocale(typeof navigator === "undefined" ? null : navigator.languages);
+}
+
+export function setClientLocaleCookie(next: string) {
+  if (typeof document !== "undefined") {
+    document.cookie = `${localeCookieName}=${next}; path=/; max-age=31536000; SameSite=Lax`;
+    document.documentElement.lang = next;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(localeCookieName, next);
+    } catch {}
+  }
 }

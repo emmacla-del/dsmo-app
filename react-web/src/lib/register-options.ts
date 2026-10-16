@@ -154,6 +154,10 @@ export const SEX_OPTIONS: RegisterOption[] = [
   { value: "Féminin", label: { fr: "Femme", en: "Female" } },
 ];
 
+// Choosing this value asks for the real job in a following field. The payload
+// sends that text, not this word.
+export const RESPONDENT_FUNCTION_OTHER = "Autre";
+
 export const RESPONDENT_FUNCTION_OPTIONS: RegisterOption[] = [
   // A DG runs the company: General Manager in English, not CEO, which is
   // the Président-Directeur Général (owner, 2026-10-12).
@@ -177,5 +181,5 @@ export const RESPONDENT_FUNCTION_OPTIONS: RegisterOption[] = [
     value: "Président du Conseil d'Administration",
     label: { fr: "Président du Conseil d'Administration", en: "Chairman of the Board" },
   },
-  { value: "Autre", label: { fr: "Autre", en: "Other" } },
+  { value: RESPONDENT_FUNCTION_OTHER, label: { fr: "Autre", en: "Other" } },
 ];

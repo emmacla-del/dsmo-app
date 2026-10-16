@@ -134,7 +134,7 @@ export function ModernJobsNavigation({
               style={{
                 background: "var(--cam-green)",
                 border: "none",
-                color: "#ffffff",
+                color: "var(--cam-white)",
                 borderRadius: "var(--cam-radius-control, 6px)",
                 height: "var(--cam-button-height, 44px)",
                 padding: "0 24px",

@@ -198,10 +198,25 @@ test("cnpsNumber is required for the five CNPS-affiliated types, absent for the 
   }
 });
 
-test("every type's entity phone is labelled Téléphone / WhatsApp", () => {
+test("every type's entity phone is the establishment's phone", () => {
   for (const type of Object.keys(ENTITY_CONFIGS) as EntityType[]) {
     const field = ENTITY_CONFIGS[type].fields.find((f) => f.key === "phone");
     assert.ok(field, `${type}: no phone field`);
-    assert.deepEqual(field.label, { fr: "Téléphone / WhatsApp", en: "Phone / WhatsApp" }, `${type}: phone label`);
+    assert.deepEqual(
+      field.label,
+      { fr: "Téléphone de l'établissement", en: "Establishment phone" },
+      `${type}: phone label`
+    );
+  }
+});
+
+test("the NIU and the CNPS number say where to find them and that they are required", () => {
+  const tax = ENTITY_CONFIGS.enterprise.fields.find((f) => f.key === "taxNumber");
+  const cnps = ENTITY_CONFIGS.enterprise.fields.find((f) => f.key === "cnpsNumber");
+  assert.ok(tax?.hint && cnps?.hint);
+  for (const hint of [tax.hint, cnps.hint]) {
+    assert.match(hint.fr, /Obligatoire/);
+    assert.match(hint.en, /Required/);
+    assert.doesNotMatch(`${hint.fr} ${hint.en}`, /cas échéant|if applicable/i);
   }
 });

@@ -25,6 +25,7 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       firstName: "Emmanuel",
       lastName: "Biya",
       function: "DRH",
+      functionOther: "",
       email: "contact@organisation.cm",
       phone1: "655000000",
       phone2: "",
@@ -54,7 +55,7 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
 const emptyState = (): RegState =>
   baseState({
     entityType: null,
-    respondent: { firstName: "", lastName: "", function: "", email: "", phone1: "", phone2: "" },
+    respondent: { firstName: "", lastName: "", function: "", functionOther: "", email: "", phone1: "", phone2: "" },
     emailAvailable: null,
     entityData: {},
     regionId: "",
@@ -124,6 +125,7 @@ test("parseDraft clamps a stored step into range and survives missing fields", (
     firstName: "",
     lastName: "",
     function: "",
+    functionOther: "",
     email: "",
     phone1: "",
     phone2: "",
@@ -180,7 +182,7 @@ test("draftHasData is false only on a pristine wizard", () => {
 test("draftHasData notices each kind of answer on its own", () => {
   const cases: Partial<RegState>[] = [
     { entityType: "ong" },
-    { respondent: { firstName: "A", lastName: "", function: "", email: "", phone1: "", phone2: "" } },
+    { respondent: { firstName: "A", lastName: "", function: "", functionOther: "", email: "", phone1: "", phone2: "" } },
     { entityData: { companyName: "X" } },
     { regionId: "r1" },
     { departmentId: "d1" },
@@ -203,7 +205,7 @@ test("draftHasData notices each kind of answer on its own", () => {
 test("draftHasData ignores whitespace-only answers", () => {
   const state = {
     ...emptyState(),
-    respondent: { firstName: "   ", lastName: "", function: "", email: "", phone1: "", phone2: "" },
+    respondent: { firstName: "   ", lastName: "", function: "", functionOther: "", email: "", phone1: "", phone2: "" },
   };
   assert.equal(draftHasData(state), false);
 });

@@ -8,8 +8,7 @@
 // the registration receipt, the password and email pages, and any bookmark.
 //
 // Port of lib/screens/login_portal_screen.dart.
-// The sign-in card sits inside LandingShell, which adds the official bar, the
-// CAM-LEAP identity (emblem, wordmark, both names) and the notices around it.
+// Standard focused administrative authentication card using AuthHeader and cam-auth-page.
 // Two-tab layout: "Connexion" (sign in) | "Retrouver mon identifiant" (Forgot ID).
 // Also adds "Pas de compte ? Créer un compte →" link matching Flutter's register prompt.
 
@@ -20,7 +19,7 @@ import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { findIdentifier } from "@/lib/api-client";
 import { takeLoginIdentifier } from "@/lib/login-handoff";
-import { LandingShell } from "@/components/landing/LandingShell";
+import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 
@@ -53,6 +52,17 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotResult, setForgotResult] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const target = params.get("returnTo") || params.get("redirect");
+      if (target && target.startsWith("/") && !target.startsWith("//") && !target.includes(":")) {
+        setReturnTo(target);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -64,10 +74,10 @@ export default function LoginPage() {
       ) {
         router.replace("/home/inscription-en-attente");
       } else {
-        router.replace("/home");
+        router.replace(returnTo || "/home");
       }
     }
-  }, [status, user, router]);
+  }, [status, user, router, returnTo]);
 
   // Arriving from the registration receipt: the email just registered is
   // waiting in sessionStorage (see login-handoff.ts). Read after mount
@@ -90,8 +100,9 @@ export default function LoginPage() {
   // ── 2FA step ────────────────────────────────────────────────────────────────
   if (twoFactorChallengeToken) {
     return (
-      <LandingShell>
+      <main className="cam-auth-page">
         <div className="wrap">
+          <AuthHeader wordmarkAs="h1" showEndorsement={false} />
           <div className="card">
             <div className="card-body">
               <h1 className="brand-name" style={{ fontSize: "var(--cam-font-size-lg)", marginBottom: "var(--cam-space-2)", textAlign: "center" }}>
@@ -151,7 +162,7 @@ export default function LoginPage() {
             </a>
           </p>
         </div>
-      </LandingShell>
+      </main>
     );
   }
 
@@ -188,8 +199,9 @@ export default function LoginPage() {
   }
 
   return (
-    <LandingShell wordmarkAs="h1">
+    <main className="cam-auth-page">
       <div className="wrap">
+        <AuthHeader wordmarkAs="h1" title={t("loginPage.portalHeading")} showEndorsement={false} />
         <div className="card">
           <div className="card-body">
             {/* Tab bar */}
@@ -228,7 +240,6 @@ export default function LoginPage() {
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
-                      placeholder={t("loginPage.identifierPlaceholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -376,7 +387,9 @@ export default function LoginPage() {
           <div className="card-footer">
             <span className="create-account">
               {t("loginPage.noAccountText")}{" "}
-              <Link href="/register">{t("loginPage.createAccountLink")}</Link>
+              <Link href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register"}>
+                {t("loginPage.createAccountLink")}
+              </Link>
             </span>
           </div>
         </div>
@@ -391,7 +404,20 @@ export default function LoginPage() {
             {t("loginPage.whatsappLink")}
           </a>
         </p>
+
+        <div style={{ textAlign: "center", marginTop: "var(--cam-space-4)" }}>
+          <Link
+            href="/"
+            style={{
+              fontSize: "var(--cam-font-size-xs)",
+              color: "var(--cam-text-muted)",
+              textDecoration: "underline",
+            }}
+          >
+            {t("loginPage.backToPortalLink")}
+          </Link>
+        </div>
       </div>
-    </LandingShell>
+    </main>
   );
 }

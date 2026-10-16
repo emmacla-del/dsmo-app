@@ -719,7 +719,7 @@ export class AuthService {
           userId: user.id,
           name: companyData.name,
           parentCompany: companyData.parentCompany,
-          mainActivity: companyData.mainActivity,
+          mainActivity: companyData.mainActivity || companyData.mainMission || (companyData.entityType === 'VOCATIONAL_TRAINING' ? 'Formation professionnelle' : 'Non renseignée'),
           secondaryActivity: companyData.secondaryActivity,
           region: resolvedTerritory.region,
           department: resolvedTerritory.department,

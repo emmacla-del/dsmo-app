@@ -6,9 +6,9 @@
 // together is the point:
 //
 //   isSectionComplete() (register-completeness.ts) answers "may the next
-//   section open?" with a boolean. It has always counted required, visible
-//   fields only -- phone2, the CNPS number and the activity sector were never
-//   part of it.
+//   section open?" with a boolean. It counts required, visible fields only.
+//   phone2 and the activity sector are optional and are not part of it. The
+//   CNPS number is required for the five types that collect it.
 //
 //   missingRequiredFields() answers "and WHICH ones are missing?", for the
 //   prompt that fires when the respondent tries to leave a section early. If
@@ -29,6 +29,7 @@ import {
 } from "./register-constants";
 import type { RegState } from "./register-completeness";
 import { lastEntityFieldKey } from "./register-entity-sections";
+import { RESPONDENT_FUNCTION_OTHER } from "./register-options";
 
 export interface RequiredFieldRef {
   // The control's DOM id. Doubles as the key the "which fields have been
@@ -68,8 +69,8 @@ function entityTypeRef(state: RegState, t: NameResolvers["t"]): RequiredFieldRef
 // This is the field whose change arms auto-advance and whose blur or Enter
 // fires the missing-fields prompt: "the respondent has reached the bottom of
 // this section" is one event, so it has one definition. For section 3 it is
-// data-driven -- entityFieldGroups owns the render order, so the last field
-// here is by construction the last one on screen.
+// data-driven -- required groups render first and the optional disclosure
+// after them, so the last field here is by construction the last one on screen.
 export function lastFieldId(
   step: RegistrationStepId,
   entityType: EntityType | null,
@@ -122,6 +123,11 @@ export function requiredFieldsFor(
         ref("reg-first-name", t("registerPage.firstNameLabel"), r.firstName),
         ref("reg-last-name", t("registerPage.lastNameLabel"), r.lastName),
         ref("reg-function", t("registerPage.functionLabel"), r.function),
+        // The free-text job exists only once Autre is chosen, the same way a
+        // gated entity field exists only once its parent is answered.
+        ...(r.function === RESPONDENT_FUNCTION_OTHER
+          ? [ref("reg-function-other", t("registerPage.functionOtherLabel"), r.functionOther)]
+          : []),
         ref("reg-email", t("registerPage.professionalEmailLabel"), r.email),
         ref("reg-phone1", t("registerPage.phone1Label"), r.phone1),
         // phone2 is absent by design, and that absence is the whole point of

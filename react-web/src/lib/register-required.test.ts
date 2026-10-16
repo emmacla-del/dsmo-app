@@ -32,7 +32,7 @@ const ALL_TYPES: EntityType[] = [
 function emptyState(overrides: Partial<RegState> = {}): RegState {
   return {
     entityType: null,
-    respondent: { firstName: "", lastName: "", function: "", email: "", phone1: "", phone2: "" },
+    respondent: { firstName: "", lastName: "", function: "", functionOther: "", email: "", phone1: "", phone2: "" },
     emailAvailable: null,
     entityData: {},
     regionId: "",
@@ -56,7 +56,14 @@ function requiredOnlyEntityData(type: EntityType): Record<string, string> {
     // A gated field is not on screen unless its gate is open, and these
     // states never open one.
     if (field.dependsOn) continue;
-    data[field.key] = field.kind === "number" ? "2020" : (field.options?.[0]?.value ?? "x");
+    // A phone must be a valid Cameroonian number: a wrong one keeps the
+    // section unfinished, which is not what these tests are about.
+    data[field.key] =
+      field.kind === "number"
+        ? "2020"
+        : field.kind === "tel"
+          ? "677123456"
+          : (field.options?.[0]?.value ?? "x");
   }
   return data;
 }
@@ -112,6 +119,7 @@ test("respondent and location ignore their optional fields", () => {
       firstName: "Emmanuel",
       lastName: "Biya",
       function: "Gérant",
+      functionOther: "",
       email: "a@b.cm",
       phone1: "655000000",
       phone2: "", // untouched
@@ -140,7 +148,6 @@ test("isSectionComplete and missingRequiredFields never disagree", () => {
     emptyState({ entityType: "enterprise" }),
     emptyState({ entityType: "ong", entityData: requiredOnlyEntityData("ong") }),
     emptyState({ entityType: "ctd", entityData: { ctdType: "Région" } }),
-    emptyState({ regionId: "r1", departmentId: "d1", subdivisionsStatus: "empty", area: "Rural" }),
     emptyState({ regionId: "r1", departmentId: "d1", subdivisionsStatus: "ready", area: "Rural" }),
   ];
   for (const state of states) {
@@ -154,6 +161,17 @@ test("isSectionComplete and missingRequiredFields never disagree", () => {
       );
     }
   }
+});
+
+test("a department with no subdivision blocks without naming a missing field", () => {
+  // The one location state the two predicates deliberately disagree on: the
+  // server needs an arrondissement the list cannot offer, so the section is
+  // unfinished, but there is no field to fill. The row's own hint explains
+  // it (noSubdivisionHint); the missing-fields notice must not point at a
+  // disabled, empty select.
+  const state = emptyState({ regionId: "r1", departmentId: "d1", subdivisionsStatus: "empty", area: "Rural" });
+  assert.equal(isSectionComplete("location", state), false);
+  assert.deepEqual(missingRequiredFields("location", state, resolvers), []);
 });
 
 // ── Gated fields ─────────────────────────────────────────────────────────
@@ -236,7 +254,7 @@ test("other sections report exactly what is missing", () => {
 
 test("missing fields come back in render order, named", () => {
   const state = emptyState({
-    respondent: { firstName: "Emmanuel", lastName: "", function: "", email: "", phone1: "", phone2: "" },
+    respondent: { firstName: "Emmanuel", lastName: "", function: "", functionOther: "", email: "", phone1: "", phone2: "" },
   });
   assert.deepEqual(
     missingRequiredFields("respondent", state, resolvers).map((f) => f.name),
@@ -247,6 +265,39 @@ test("missing fields come back in render order, named", () => {
       "registerPage.phone1Label",
     ]
   );
+});
+
+test("Autre reports the typed job, and only once Autre is chosen", () => {
+  const named = emptyState({
+    respondent: {
+      firstName: "Awa",
+      lastName: "Ngo",
+      function: "Gérant",
+      functionOther: "",
+      email: "",
+      phone1: "",
+      phone2: "",
+    },
+  });
+  const namedIds = missingRequiredFields("respondent", named, resolvers).map((f) => f.id);
+  assert.equal(namedIds.includes("reg-function-other"), false);
+
+  const autre = emptyState({
+    respondent: {
+      firstName: "Awa",
+      lastName: "Ngo",
+      function: "Autre",
+      functionOther: "",
+      email: "a@b.cm",
+      phone1: "655000000",
+      phone2: "",
+    },
+  });
+  assert.deepEqual(
+    missingRequiredFields("respondent", autre, resolvers).map((f) => f.id),
+    ["reg-function-other"]
+  );
+  assert.equal(isSectionComplete("respondent", autre), false);
 });
 
 test("security reports emptiness only, never weakness or mismatch", () => {

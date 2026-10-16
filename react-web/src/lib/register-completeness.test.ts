@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   PASSWORD_MIN_STRENGTH,
   advancesImmediately,
+  isPlausibleEmail,
   isSectionComplete,
   type RegState,
   type SubdivisionsStatus,
@@ -20,6 +21,7 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       firstName: "Emmanuel",
       lastName: "Biya",
       function: "DRH",
+      functionOther: "",
       email: "contact@organisation.cm",
       phone1: "655000000",
       phone2: "",
@@ -62,6 +64,17 @@ test("respondent section requires all five mandatory fields", () => {
       `clearing ${key} should block the respondent section`
     );
   }
+});
+
+test("Autre requires the typed job, and a named function does not", () => {
+  const autre = baseState();
+  autre.respondent = { ...autre.respondent, function: "Autre", functionOther: "" };
+  assert.equal(isSectionComplete("respondent", autre), false);
+  autre.respondent = { ...autre.respondent, functionOther: "Comptable" };
+  assert.equal(isSectionComplete("respondent", autre), true);
+  const named = baseState();
+  named.respondent = { ...named.respondent, function: "Gérant", functionOther: "" };
+  assert.equal(isSectionComplete("respondent", named), true);
 });
 
 test("respondent section ignores the optional second phone", () => {
@@ -179,12 +192,14 @@ test("location section ignores the optional sector", () => {
   assert.equal(isSectionComplete("location", baseState({ sectorId: "" })), true);
 });
 
-test("a department that returns no subdivisions does not strand the respondent", () => {
+test("no selected subdivision leaves the section unfinished, whatever the list status", () => {
+  // "empty" included: the server requires an arrondissement, so a department
+  // with none cannot complete the registration here (the row says so).
   const cases: [SubdivisionsStatus, boolean][] = [
     ["idle", false],
     ["loading", false],
     ["error", false],
-    ["empty", true],
+    ["empty", false],
     ["ready", false],
   ];
   for (const [subdivisionsStatus, expected] of cases) {
@@ -225,10 +240,11 @@ test("review is never complete from field state alone", () => {
   assert.equal(isSectionComplete("review", baseState()), false);
 });
 
-test("advancesImmediately is true only for sections with no optional fields", () => {
+test("advancesImmediately is true only for the organisation-type list", () => {
   const state = baseState();
   assert.equal(advancesImmediately("entityType", state.entityType), true);
-  assert.equal(advancesImmediately("security", state.entityType), true);
+  // The password step waits for Continuer even though both fields are required.
+  assert.equal(advancesImmediately("security", state.entityType), false);
   // phone2 / sector make these wait for the respondent to move on.
   assert.equal(advancesImmediately("respondent", state.entityType), false);
   assert.equal(advancesImmediately("location", state.entityType), false);
@@ -308,4 +324,32 @@ test("passwordRuleChecks agrees with the weights passwordStrength applies", () =
     isSectionComplete("security", baseState({ password: short, confirmPassword: short })),
     false
   );
+});
+
+test("a malformed email or phone keeps the respondent section unfinished", () => {
+  const withRespondent = (patch: Partial<RegState["respondent"]>) => {
+    const state = baseState();
+    return baseState({ respondent: { ...state.respondent, ...patch } });
+  };
+  assert.equal(isSectionComplete("respondent", withRespondent({ email: "audit@example" })), false);
+  assert.equal(isSectionComplete("respondent", withRespondent({ email: "a b@x.cm" })), false);
+  assert.equal(isSectionComplete("respondent", withRespondent({ phone1: "123" })), false);
+  // The optional phone only gates when it is given and wrong.
+  assert.equal(isSectionComplete("respondent", withRespondent({ phone2: "99" })), false);
+  assert.equal(isSectionComplete("respondent", withRespondent({ phone2: "677123456" })), true);
+});
+
+test("a malformed phone keeps the organisation section unfinished", () => {
+  const state = baseState();
+  assert.equal(
+    isSectionComplete("entityInfo", baseState({ entityData: { ...state.entityData, phone: "99" } })),
+    false
+  );
+});
+
+test("isPlausibleEmail accepts ordinary addresses only", () => {
+  assert.equal(isPlausibleEmail("contact@organisation.cm"), true);
+  assert.equal(isPlausibleEmail(" contact@organisation.cm "), true);
+  assert.equal(isPlausibleEmail("contact@organisation"), false);
+  assert.equal(isPlausibleEmail("contact.organisation.cm"), false);
 });

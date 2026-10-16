@@ -1,9 +1,7 @@
-// Roadmap: the four phases, each carrying the state it is actually in.
-import { PortalRoadmap } from "@/components/landing/portal/PortalRoadmap";
-import { portalMetadata } from "@/components/landing/portal/portal-metadata";
+import { redirect } from "next/navigation";
 
-export const generateMetadata = () => portalMetadata("navRoadmap", "roadmapIntro");
-
-export default function PortalRoadmapPage() {
-  return <PortalRoadmap />;
+// Merged into Le programme (2026-10-14): the roadmap is its "Les phases"
+// section. Kept as a redirect so links already shared keep working.
+export default function PortalProgrammeRedirect() {
+  redirect("/programme");
 }

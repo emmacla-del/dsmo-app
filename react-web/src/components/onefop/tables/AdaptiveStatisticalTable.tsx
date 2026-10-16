@@ -641,7 +641,7 @@ function BlockTabs({
               color: isActive ? "var(--cam-text)" : "var(--cam-text-muted)",
               background: isActive ? "var(--cam-surface)" : "transparent",
               border: "1px solid",
-              borderColor: isActive ? "#475569" : "transparent",
+              borderColor: isActive ? "var(--cam-text-muted)" : "transparent",
               borderBottomColor: isActive ? "var(--cam-surface)" : "transparent",
               borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
             }}
@@ -655,8 +655,8 @@ function BlockTabs({
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 9,
-                color: "#ffffff",
+                fontSize: "var(--cam-font-size-4xs)",
+                color: "var(--cam-white)",
                 border: "1px solid",
                 borderColor:
                   state === "complete"

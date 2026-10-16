@@ -76,7 +76,10 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   // /home/home, the same placeholder (owner, 2026-10-10).
   COMPANY: [
     { slug: "home", labelKey: "homeNav.item.home", route: "/home" },
-    { slug: "declarations", labelKey: "homeNav.item.declarations", route: "/home/declarations" },
+    { slug: "declarations", labelKey: "homeNav.item.surveys", route: "/home/declarations" },
+    { slug: "messages", labelKey: "homeNav.item.messages", route: "/home/messages" },
+    { slug: "etablissement", labelKey: "homeNav.item.establishment", route: "/home/etablissement" },
+    { slug: "aide", labelKey: "homeNav.item.help", route: "/home/aide" },
   ],
   DIVISIONAL_ADMIN: [
     { slug: "pilotage", labelKey: "homeNav.item.territorialDashboard", route: "/admin/pilotage" },

@@ -38,7 +38,7 @@ if (tests.length === 0) {
 
 const result = spawnSync(
   process.execPath,
-  ["--disable-warning=ExperimentalWarning", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "--import", "./scripts/test-resolve.mjs", "--test", ...tests],
+  ["--max-old-space-size=4096", "--disable-warning=ExperimentalWarning", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "--import", "./scripts/test-resolve.mjs", "--test", ...tests],
   { stdio: "inherit", cwd: root, env: { ...process.env, REACT_WEB_ROOT: root } },
 );
 process.exitCode = result.status ?? 1;

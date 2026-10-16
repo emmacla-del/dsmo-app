@@ -282,8 +282,8 @@ export function CameroonGeographySelector({
               padding: "0 12px",
               fontSize: "var(--cam-answer-size)",
               borderRadius: 6,
-              background: disabled ? "#f8fafc" : "#ffffff",
-              color: "#0f172a",
+              background: disabled ? "var(--cam-surface-subtle)" : "var(--cam-white)",
+              color: "var(--cam-text)",
               cursor: disabled ? "not-allowed" : "pointer",
             }}
           >
@@ -299,7 +299,7 @@ export function CameroonGeographySelector({
             ))}
           </select>
           {errors[regionFieldId] && (
-            <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 4, display: "block" }}>
+            <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
               {errors[regionFieldId]}
             </span>
           )}
@@ -310,7 +310,7 @@ export function CameroonGeographySelector({
           <span
             style={{
               fontSize: 16,
-              color: !selectedRegionId ? "#cbd5e1" : "#64748b",
+              color: !selectedRegionId ? "var(--cam-placeholder)" : "var(--cam-text-muted)",
               lineHeight: 1,
               marginTop: 30,
               userSelect: "none",
@@ -327,7 +327,7 @@ export function CameroonGeographySelector({
                 fontSize: "var(--cam-question-size)",
                 fontWeight: "var(--cam-question-weight)",
                 lineHeight: "var(--cam-question-line-height)",
-                color: !selectedRegionId ? "#94a3b8" : "var(--cam-text)",
+                color: !selectedRegionId ? "var(--cam-placeholder)" : "var(--cam-text)",
                 marginBottom: "var(--cam-field-stack-gap)",
               }}
             >
@@ -349,8 +349,8 @@ export function CameroonGeographySelector({
                 padding: "0 12px",
                 fontSize: "var(--cam-answer-size)",
                 borderRadius: 6,
-                background: disabled || !selectedRegionId ? "#f8fafc" : "#ffffff",
-                color: !selectedRegionId ? "#94a3b8" : "#0f172a",
+                background: disabled || !selectedRegionId ? "var(--cam-surface-subtle)" : "var(--cam-white)",
+                color: !selectedRegionId ? "var(--cam-placeholder)" : "var(--cam-text)",
                 cursor: disabled || !selectedRegionId ? "not-allowed" : "pointer",
               }}
             >
@@ -366,7 +366,7 @@ export function CameroonGeographySelector({
               ))}
             </select>
             {errors[departmentFieldId] && (
-              <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 4, display: "block" }}>
+              <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
                 {errors[departmentFieldId]}
               </span>
             )}
@@ -378,7 +378,7 @@ export function CameroonGeographySelector({
           <span
             style={{
               fontSize: 16,
-              color: !selectedDeptId ? "#cbd5e1" : "#64748b",
+              color: !selectedDeptId ? "var(--cam-placeholder)" : "var(--cam-text-muted)",
               lineHeight: 1,
               marginTop: 30,
               userSelect: "none",
@@ -395,7 +395,7 @@ export function CameroonGeographySelector({
                 fontSize: "var(--cam-question-size)",
                 fontWeight: "var(--cam-question-weight)",
                 lineHeight: "var(--cam-question-line-height)",
-                color: !selectedDeptId ? "#94a3b8" : "var(--cam-text)",
+                color: !selectedDeptId ? "var(--cam-placeholder)" : "var(--cam-text)",
                 marginBottom: "var(--cam-field-stack-gap)",
               }}
             >
@@ -419,8 +419,8 @@ export function CameroonGeographySelector({
                 padding: "0 12px",
                 fontSize: "var(--cam-answer-size)",
                 borderRadius: 6,
-                background: disabled || !selectedDeptId ? "#f8fafc" : "#ffffff",
-                color: !selectedDeptId ? "#94a3b8" : "#0f172a",
+                background: disabled || !selectedDeptId ? "var(--cam-surface-subtle)" : "var(--cam-white)",
+                color: !selectedDeptId ? "var(--cam-placeholder)" : "var(--cam-text)",
                 cursor: disabled || !selectedDeptId ? "not-allowed" : "pointer",
               }}
             >
@@ -436,7 +436,7 @@ export function CameroonGeographySelector({
               ))}
             </select>
             {errors[subdivisionFieldId] && (
-              <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 4, display: "block" }}>
+              <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
                 {errors[subdivisionFieldId]}
               </span>
             )}
@@ -475,12 +475,12 @@ export function CameroonGeographySelector({
               padding: "0 12px",
               fontSize: "var(--cam-answer-size)",
               borderRadius: 6,
-              background: disabled ? "#f8fafc" : "#ffffff",
-              color: "#0f172a",
+              background: disabled ? "var(--cam-surface-subtle)" : "var(--cam-white)",
+              color: "var(--cam-text)",
             }}
           />
           {errors[localityFieldId] && (
-            <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 4, display: "block" }}>
+            <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
               {errors[localityFieldId]}
             </span>
           )}

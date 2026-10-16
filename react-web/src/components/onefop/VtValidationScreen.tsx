@@ -239,7 +239,7 @@ export function VtValidationScreen({
             </button>
           </div>
           {showZeroedDetails && (
-            <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: 12, color: "var(--cam-success-text-deep)" }}>
+            <ul style={{ margin: "8px 0 0 16px", padding: 0, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-success-text-deep)" }}>
               {zeroedTables.map((t) => (
                 <li key={t.code || t.tableId} style={{ marginTop: "var(--cam-space-1)" }}>
                   <strong>{t.code || t.tableId}</strong>: {isFr ? t.nameFr : t.nameEn}
@@ -545,7 +545,7 @@ export function VtValidationScreen({
               height: "var(--cam-form-field-height)",
               padding: "0 20px",
               borderRadius: "var(--cam-radius-sm)",
-              fontSize: 14,
+              fontSize: "var(--cam-font-size-sm)",
               fontWeight: 600,
               cursor: "pointer",
               border: "1px solid var(--cam-border)",
@@ -569,7 +569,7 @@ export function VtValidationScreen({
                   height: "var(--cam-form-field-height)",
                   padding: "0 20px",
                   borderRadius: "var(--cam-radius-sm)",
-                  fontSize: 14,
+                  fontSize: "var(--cam-font-size-sm)",
                   fontWeight: 600,
                   cursor: isGeneratingPdf ? "wait" : "pointer",
                   border: "1px solid var(--cam-border)",
@@ -592,7 +592,7 @@ export function VtValidationScreen({
                 height: "var(--cam-form-field-height)",
                 padding: "0 20px",
                 borderRadius: "var(--cam-radius-sm)",
-                fontSize: 14,
+                fontSize: "var(--cam-font-size-sm)",
                 fontWeight: 600,
                 cursor: "pointer",
                 border: "1px solid var(--cam-border)",
@@ -612,7 +612,7 @@ export function VtValidationScreen({
                   height: "var(--cam-form-field-height)",
                   padding: "0 20px",
                   borderRadius: "var(--cam-radius-sm)",
-                  fontSize: 14,
+                  fontSize: "var(--cam-font-size-sm)",
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "1px solid var(--cam-border)",
@@ -650,7 +650,7 @@ export function VtValidationScreen({
               height: "var(--cam-form-field-height)",
               padding: "0 48px",
               borderRadius: "var(--cam-radius-sm)",
-              fontSize: 15,
+              fontSize: "var(--cam-font-size-base)",
               fontWeight: 600,
               cursor: isSubmitting || hasErrors || !canSubmit ? "not-allowed" : "pointer",
               border: "none",

@@ -1,7 +1,7 @@
 # CAM-LEAP UI grammar
 
 **Status:** normative. This is the answer to "which rules apply to this surface?"
-**Scope:** the staff console (`react-web/src/app/admin/**`, `react-web/src/components/admin/**`) and the registration wizard (`react-web/src/app/register/**`, `react-web/src/components/auth/**`). The 15 rules G1–G15 below are the staff console's class recipes; G16 governs question, answer and hint text on every respondent form. Both surfaces share §Shared rules. The wizard's own shell is §Respondent composition.
+**Scope:** the staff console (`react-web/src/app/admin/**`, `react-web/src/components/admin/**`), the registration wizard (`react-web/src/app/register/**`, `react-web/src/components/auth/**`), and the public portal (`react-web/src/app/(portal)/**`, `react-web/src/components/landing/**` — see §Public portal). The 15 rules G1–G15 below are the staff console's class recipes; G16 governs question, answer and hint text on every respondent form. Both surfaces share §Shared rules. The wizard's own shell is §Respondent composition.
 **Reference page:** `src/app/admin/campagnes/page.tsx` — 242 `cam-*` class usages, 0 colour literals, in 1,087 lines. It exercises the four things every admin page is made of: a filtered list, a table, dialogs, and status badges.
 **Enforced by:** `npm run check:ui-grammar` and the scoped `no-restricted-syntax` block in `react-web/eslint.config.mjs`. See §Enforcement.
 
@@ -167,6 +167,53 @@ It is not the admin reference, and must not be copied as one. Its classes are un
 
 ---
 
+## Public portal
+
+The public front door — `/`, `/a-propos`, `/declarer`, `/feuille-de-route`, `/assistance`, and the 404 — is the third surface. It is neither the staff console nor a form, and it is the only one whose styling lives in a **CSS module** (`src/components/landing/portal.module.css`) rather than in the shared CSS layer.
+
+Its classes are unprefixed and local to that module (`.page`, `.masthead`, `.bandInk`, `.notice`, `.journeyStep`). That is correct for a CSS module and is **not** a licence to invent values: every colour, radius, space, size, weight and line-height in it resolves through `tokens.css`.
+
+**Why this section exists.** The portal was built on a palette of its own — a second green family (`--cam-portal-teal` `#476c59`, ink `#112530`, cream) approved for this page alone on 2026-10-12. A `.cam-button` inside the portal therefore painted teal while the same class in the staff console painted brand green. The owner retired it on 2026-10-13, and on 2026-10-14 every call site was repointed onto the canonical names. **Nothing in the repository objected while that second palette existed**, because no rule scanned CSS modules. `hex-in-module-css` is the countermeasure.
+
+### The cream exception
+
+`--cam-portal-cream` (`#f7f5ed`) is the one colour in `tokens.css` that is not part of the canonical palette (owner, 2026-10-14). The front door is the only surface that is not the working application, and the warm ground is what separates "public institution" from "staff console".
+
+It is read in exactly one place: `.page` sets `--cam-bg: var(--cam-portal-cream)`. Every other rule in the portal reads `--cam-bg` as usual, so the exception is written down once and the rest of the file stays canonical. **No file outside `portal.module.css` may read it.**
+
+### The dark band
+
+`.bandInk` re-points three tokens for its subtree, so cards and rules inside it go dark without every child needing its own colour:
+
+```css
+.bandInk {
+  background: var(--cam-green-dark);
+  --cam-surface: var(--cam-green-dark);   /* a card in here is dark */
+  --cam-text: var(--cam-on-dark);
+  --cam-border: var(--cam-white-wash);
+}
+```
+
+**A foreground on the dark band reads `--cam-on-dark`, never `--cam-surface`.** Because `.bandInk` re-points `--cam-surface` to the dark green, a heading, link, status dot or notice rule that reaches for `--cam-surface` there renders dark-on-dark — invisible, and invisible to the phantom check too, since the token resolves perfectly well. This cost an hour to find on 2026-10-14. The same holds for `.footer` and `.figurePanelInk`, which are dark grounds outside `.bandInk`.
+
+### Section rhythm
+
+Band depth comes from `--cam-section-pad-hero` (48px), `--cam-section-pad-standard` (32px) and `--cam-section-pad-compact` (24px), not from a literal. A hero gets more air than a standard band and a compact band less, so the page has a rhythm rather than one repeated gap.
+
+### What is enforced
+
+| Rule | Covers |
+|---|---|
+| `hex-in-module-css` | Every `*.module.css` under `src`. Locked at zero — there is no baseline. |
+| `phantom-token` | Blocks immediately, as everywhere. |
+| `respondent-hex-in-tsx`, `-font-size-literal`, `-locale-format`, `-spacing-off-scale` | The portal's `.tsx`, which is outside `ADMIN_DIRS`. |
+
+A `*.module.css` is **not** a definition source for the phantom check. A `--cam-*` set inside a module is local to it, and counting it as a definition would blind the check everywhere else — which is why `moduleCss()` is deliberately kept out of `TOKEN_CSS`.
+
+Layout values stay literal here as everywhere: `max-width`, `height`, `grid-template-*`, and the `2px`/`3px` accent border widths are not a token concern (G14).
+
+---
+
 ## Shared rules
 
 Both compositions read `react-web/src/app/tokens.css`. The catalogue, including which call site may use a token, is `docs/standards/tokens.md`. A page does not invent a colour, a size, or a spacing step.
@@ -252,14 +299,14 @@ npm run check:ui-grammar -- --update  # re-record baselines (deliberate, reviewa
 npm run lint                          # the AST-shaped rules
 ```
 
-Run `check:ui-grammar` after any change under `app/admin/**`, `components/admin/**`, `app/register/**`, or `components/auth/**`.
+Run `check:ui-grammar` after any change under `app/admin/**`, `components/admin/**`, `app/register/**`, `components/auth/**`, `app/(portal)/**`, or `components/landing/**`.
 
 ### The split
 
 | Where | Rules | Why there |
 |---|---|---|
 | `eslint.config.mjs`, scoped `no-restricted-syntax` | G7 `position:"fixed"`, G12 `toLocale*`, G13 literal `fontSize`, G1 Tailwind palette classes | AST-shaped. Reported in the editor, on the exact node. |
-| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption, G16 question/answer/hint size | Text-shaped, cross-file, or needing a per-file count. |
+| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, hex in a CSS module, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption, G16 question/answer/hint size | Text-shaped, cross-file, or needing a per-file count. |
 
 G12 and G13 appear in both: ESLint shows them at the node, the script ratchets the count so they cannot grow while the backlog is still being worked off.
 

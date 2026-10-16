@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Shared styling for instructional/helper text under a field — field hints
  * ("Not to be filled in"), group instructions ("Select all that apply").
  * Replaces the ~9 call sites in VtWizardFields.tsx that each hand-rolled
- * their own <p style={{fontSize:12, color:..., margin:...}}> with slightly
+ * their own <p style={{fontSize: "var(--cam-font-size-2xs)", color:..., margin:...}}> with slightly
  * different values (some used --vt-ink-soft with a 6px top margin, others
  * --cam-text-muted with 4px — same resolved color, inconsistent spacing).
  */

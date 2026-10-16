@@ -1167,7 +1167,7 @@ export function WizardShell({
               saveToast === "failed" ? "var(--cam-error-bg)" : "var(--cam-success-bg)",
             color:
               saveToast === "failed" ? "var(--cam-error)" : "var(--cam-success)",
-            fontSize: 12,
+            fontSize: "var(--cam-font-size-2xs)",
             fontWeight: 700,
             fontFamily: "var(--vt-font)",
             boxShadow: "0 2px 6px rgba(0,0,0,.08)",

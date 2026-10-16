@@ -1,18 +1,7 @@
-// Declare: the routes into the collection, what each one needs, and the
-// questions people ask before taking one.
-import { PortalDeclare } from "@/components/landing/portal/PortalDeclare";
-import { PortalNotices } from "@/components/landing/portal/PortalNotices";
-import { PortalFaq } from "@/components/landing/portal/PortalFaq";
-import { portalMetadata } from "@/components/landing/portal/portal-metadata";
+import { redirect } from "next/navigation";
 
-export const generateMetadata = () => portalMetadata("navDeclare", "doorsIntro");
-
-export default function PortalDeclarePage() {
-  return (
-    <>
-      <PortalDeclare />
-      <PortalNotices />
-      <PortalFaq />
-    </>
-  );
+// The survey's "how to respond" now lives on Assistance (2026-10-14). Kept
+// as a redirect so links already shared keep working.
+export default function PortalSurveyRedirect() {
+  redirect("/assistance#comment");
 }

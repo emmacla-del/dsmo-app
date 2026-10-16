@@ -157,17 +157,16 @@ import {
 // CFP") still declares its own.
 const PHONE: EntityField = {
   key: "phone",
-  label: { fr: "Téléphone / WhatsApp", en: "Phone / WhatsApp" },
+  // The respondent's own number is a different field, on the previous step.
+  // Naming whose phone this is is the whole label.
+  label: { fr: "Téléphone de l'établissement", en: "Establishment phone" },
   placeholder: { fr: "Ex : 655000000", en: "E.g. 655000000" },
   required: true,
   kind: "tel",
 };
 const PHONE_2: EntityField = {
   key: "phone2",
-  // Was "Téléphone secondaire" / "Secondary phone". Both fit on one line, but
-  // "Téléphone 2" matches the Declarant section's own phone 1 / phone 2 pair,
-  // which the respondent has already filled in once.
-  label: { fr: "Téléphone 2", en: "Phone 2" },
+  label: { fr: "Autre téléphone de l'établissement", en: "Other establishment phone" },
   required: false,
   kind: "tel",
 };
@@ -180,6 +179,11 @@ const PO_BOX: EntityField = {
 const TAX_NUMBER: EntityField = {
   key: "taxNumber",
   label: { fr: "N° contribuable (NIU)", en: "Taxpayer no. (NIU)" },
+  // Where to find it, not a specimen: a made-up NIU would look official.
+  hint: {
+    fr: "Obligatoire. Sur la carte de contribuable ou l'attestation de la DGI.",
+    en: "Required. On the taxpayer card or the DGI certificate.",
+  },
   required: true,
   kind: "text",
 };
@@ -191,6 +195,13 @@ const TAX_NUMBER: EntityField = {
 const CNPS_NUMBER: EntityField = {
   key: "cnpsNumber",
   label: { fr: "N° CNPS", en: "CNPS no." },
+  // Required wherever this field is collected. The server and the approval
+  // desk both refuse an empty number for those five types, so the hint must
+  // not say "if applicable".
+  hint: {
+    fr: "Obligatoire. Matricule employeur, sur l'attestation d'immatriculation CNPS.",
+    en: "Required. Employer number, on the CNPS registration certificate.",
+  },
   required: true,
   kind: "text",
 };
@@ -480,7 +491,8 @@ export function resolveAddress(data: Record<string, unknown>): string {
   return "";
 }
 
-export function resolveMainActivity(data: Record<string, unknown>): string {
+export function resolveMainActivity(data: Record<string, unknown>, entityType?: EntityType): string {
+  if (entityType === "vocationalTraining") return "Formation professionnelle";
   const candidates = [data.mainActivity, data.mainMission];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;

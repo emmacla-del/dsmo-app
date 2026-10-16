@@ -30,13 +30,13 @@ export function StatusChip({ status, label }: { status: FormStatus; label: strin
         backgroundColor: s.bg,
         border: `1px solid ${s.border}`,
         color: s.fg,
-        fontSize: 11,
+        fontSize: "var(--cam-font-size-3xs)",
         fontFamily: "var(--cam-font-sans)",
         fontWeight: 600,
         whiteSpace: "nowrap",
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1 }}>{s.icon}</span>
+      <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-2xs)", lineHeight: 1 }}>{s.icon}</span>
       {label}
     </span>
   );

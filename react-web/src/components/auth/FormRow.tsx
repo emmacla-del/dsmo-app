@@ -28,24 +28,23 @@ const SIZE_CLASS: Record<FieldSize, string> = {
 // that did that from 560px was removed); do not reintroduce one. Nothing here
 // measures anything -- no window.innerWidth, no ResizeObserver.
 //
-// The required marker is its own element carrying aria-hidden, never appended
-// to the label text: a screen reader announcing "Prenom star" is noise, and
-// the information it carries is already on the control as aria-required. The
-// caller owns that attribute, since the control is passed in as children.
+// No required marker (owner, 2026-10-15): every field is required unless
+// its label says "(facultatif)", so a red star on most labels repeated what
+// the exception already tells. Required-ness stays on the control as
+// aria-required, which the caller owns since the control is passed in as
+// children; `required` is still accepted so call sites say it out loud.
 //
 // `hint` renders directly under the input, never between the label and the
 // control -- example values belong in the control's own placeholder instead.
 //
-// There is no optional marker. A trailing "(optionnel)" was the second thing
-// on every optional label, which pushed those labels onto two lines and made
-// the label wrap on a parenthesis rather than on a field name.
-// Optionality is said in the control instead, by a "Facultatif" placeholder:
-// it is in the box the respondent is deciding whether to fill, and it costs
-// the label nothing.
+// Optionality is said in the label, by a muted "(facultatif)" after the
+// name (optionalLabel). It used to be a "Facultatif" placeholder in the box,
+// but the wizard carries no placeholders or hints any more (owner,
+// 2026-10-15), and the label is the one place left that is always read.
 export function FormRow({
   htmlFor,
   label,
-  required = false,
+  optionalLabel,
   hint,
   size = "full",
   labelPrefix,
@@ -60,6 +59,11 @@ export function FormRow({
   htmlFor?: string;
   label: string;
   required?: boolean;
+  // The word for "optional" in the active language; shown after the label
+  // in parentheses. Omit on required fields.
+  optionalLabel?: string;
+  // Only for a status the respondent must read (a department with no
+  // arrondissement), never for an example or an explanation.
   hint?: string;
   // There is no per-field error slot. A missing required field is reported
   // once, by the wizard's pinned notice, and only the first such control is
@@ -85,11 +89,7 @@ export function FormRow({
       <label htmlFor={htmlFor} id={labelId}>
         {labelPrefix}
         {label}
-        {required && (
-          <span className="field-required-mark" aria-hidden="true">
-            *
-          </span>
-        )}
+        {optionalLabel && <span className="field-optional-mark"> ({optionalLabel})</span>}
       </label>
       {children}
       {hint && <p className="field-hint">{hint}</p>}

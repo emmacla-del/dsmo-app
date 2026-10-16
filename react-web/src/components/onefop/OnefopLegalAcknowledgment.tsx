@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { RESPONDENT_FUNCTION_OPTIONS, registerOptionLabel } from "@/lib/register-options";
+import { CamleapOvalMark } from "@/components/brand/CamleapOvalMark";
 
 export interface OnefopLegalAcknowledgmentProps {
   entityType: string;
@@ -83,8 +84,10 @@ export function OnefopLegalAcknowledgment({
         // The platform opens on its own name; the ONEFOP emblem then heads
         // the notice as the issuing institution (owner, 2026-10-12).
         <div className="cam-welcome-splash">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/camleap_logo.png" alt="CAMLEAP" width={240} height={40} />
+          {/* The oval launch mark, not the flat wordmark: the opening beat
+              traces its frame and raises the name inside it, which needs the
+              SVG inline (owner, 2026-10-12). */}
+          <CamleapOvalMark />
         </div>
       )}
 

@@ -79,7 +79,7 @@ export function InfoTooltip({
         aria-describedby={isOpen ? tooltipId : undefined}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-5 h-5 inline-flex items-center justify-center rounded-full text-[#7a827f] hover:text-[#1a5c3a] hover:bg-[#eaf3ec] focus-visible:ring-2 focus-visible:ring-[#1a5c3a] outline-none transition-colors duration-150 cursor-pointer"
+        className="w-5 h-5 inline-flex items-center justify-center rounded-full text-[var(--cam-text-muted)] hover:text-[var(--cam-green)] hover:bg-[var(--cam-success-bg)] focus-visible:ring-2 focus-visible:ring-[var(--cam-green)] outline-none transition-colors duration-150 cursor-pointer"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -101,11 +101,11 @@ export function InfoTooltip({
         <div
           id={tooltipId}
           role="tooltip"
-          className="absolute z-50 bottom-full mb-2 left-1/2 w-64 max-w-[85vw] p-3 rounded-[4px] bg-[#0b1f14] text-white text-xs leading-relaxed shadow-lg border border-[#1a5c3a]/40 cam-tooltip-pop-in"
+          className="absolute z-50 bottom-full mb-2 left-1/2 w-64 max-w-[85vw] p-3 rounded-[4px] bg-[var(--cam-text)] text-white text-xs leading-relaxed shadow-lg border border-[var(--cam-green)]/40 cam-tooltip-pop-in"
         >
           {/* Arrow */}
           <div
-            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#0b1f14]"
+            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--cam-text)]"
             aria-hidden="true"
           />
           {content}
