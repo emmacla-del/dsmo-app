@@ -683,7 +683,8 @@
     },
     "detail.respondent.name": {
       "variableName": "VT1_15_NAME",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.respondent.function": {
       "variableName": "VT1_15_FUNCTION",
@@ -691,15 +692,18 @@
     },
     "detail.respondent.phone1": {
       "variableName": "VT1_15_TEL1",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.respondent.phone2": {
       "variableName": "VT1_15_TEL2",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.respondent.email": {
       "variableName": "VT1_15_EMAIL",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.vocationalTraining.respondentSex": {
       "variableName": "VT1_15_SEX",
@@ -710,7 +714,8 @@
     },
     "detail.vocationalTraining.promoterName": {
       "variableName": "VT1_16_NAME",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.vocationalTraining.promoterSex": {
       "variableName": "VT1_16_SEX",
@@ -721,15 +726,18 @@
     },
     "detail.vocationalTraining.promoterPhone1": {
       "variableName": "VT1_16_TEL1",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.vocationalTraining.promoterPhone2": {
       "variableName": "VT1_16_TEL2",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "detail.vocationalTraining.promoterEmail": {
       "variableName": "VT1_16_EMAIL",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "matrix.S21Q01.s21q01_cadres_male_15_24": {
       "variableName": "s21q01_cadres_male_15_24",
@@ -3793,7 +3801,8 @@
     },
     "vocationalTraining.email": {
       "variableName": "VT2_12",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "Dataset v11: moved to restricted contact file alongside 8.8 (Decision 2, 2026-10-16)"
     },
     "vocationalTraining.website": {
       "variableName": "VT2_13",

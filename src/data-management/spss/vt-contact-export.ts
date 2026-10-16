@@ -41,6 +41,10 @@ export function vtContactColumns(): VtContactColumn[] {
       value: (s: any) => s.respondent?.phone1 ?? s.rawData?.VT1_15_TEL1 ?? s.rawData?.respondent?.phone1 ?? '',
     },
     {
+      variable: { name: 'VT1_15_TEL2', label: '1.15 — Répondant: Téléphone 2', type: 'string', width: 30, measure: 'nominal' },
+      value: (s: any) => s.respondent?.phone2 ?? s.rawData?.VT1_15_TEL2 ?? s.rawData?.respondent?.phone2 ?? '',
+    },
+    {
       variable: { name: 'VT1_15_EMAIL', label: '1.15 — Répondant: E-mail', type: 'string', width: 100, measure: 'nominal' },
       value: (s: any) => s.respondent?.email ?? s.rawData?.VT1_15_EMAIL ?? s.rawData?.respondent?.email ?? '',
     },
@@ -51,6 +55,10 @@ export function vtContactColumns(): VtContactColumn[] {
     {
       variable: { name: 'VT1_16_TEL1', label: '1.16 — Promoteur/Directeur: Téléphone 1', type: 'string', width: 30, measure: 'nominal' },
       value: (s: any) => s.vocationalTrainingDetail?.promoterPhone1 ?? s.rawData?.VT1_16_TEL1 ?? '',
+    },
+    {
+      variable: { name: 'VT1_16_TEL2', label: '1.16 — Promoteur/Directeur: Téléphone 2', type: 'string', width: 30, measure: 'nominal' },
+      value: (s: any) => s.vocationalTrainingDetail?.promoterPhone2 ?? s.rawData?.VT1_16_TEL2 ?? '',
     },
     {
       variable: { name: 'VT1_16_EMAIL', label: '1.16 — Promoteur/Directeur: E-mail', type: 'string', width: 100, measure: 'nominal' },

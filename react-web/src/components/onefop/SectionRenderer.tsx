@@ -597,10 +597,10 @@ export function SectionRenderer({
               const hasLocality = section.fields.some((f) => f.id === localityFieldId);
 
               const geoErrors: Record<string, string> = {};
-              if (issueByFieldId.has(field.id)) geoErrors[field.id] = issueByFieldId.get(field.id)!;
-              if (issueByFieldId.has(deptFieldId)) geoErrors[deptFieldId] = issueByFieldId.get(deptFieldId)!;
-              if (issueByFieldId.has(subdivFieldId)) geoErrors[subdivFieldId] = issueByFieldId.get(subdivFieldId)!;
-              if (hasLocality && issueByFieldId.has(localityFieldId)) {
+              if (shouldShowError(field.id) && issueByFieldId.has(field.id)) geoErrors[field.id] = issueByFieldId.get(field.id)!;
+              if (shouldShowError(deptFieldId) && issueByFieldId.has(deptFieldId)) geoErrors[deptFieldId] = issueByFieldId.get(deptFieldId)!;
+              if (shouldShowError(subdivFieldId) && issueByFieldId.has(subdivFieldId)) geoErrors[subdivFieldId] = issueByFieldId.get(subdivFieldId)!;
+              if (hasLocality && shouldShowError(localityFieldId) && issueByFieldId.has(localityFieldId)) {
                 geoErrors[localityFieldId] = issueByFieldId.get(localityFieldId)!;
               }
 
@@ -632,7 +632,7 @@ export function SectionRenderer({
                   sectionId={section.id}
                   errorMessage={
                     field.type === "table" || field.type === "repeating_table"
-                      ? gatewayErrorForTable(field)
+                      ? (attemptedContinue ? gatewayErrorForTable(field) : undefined)
                       : shouldShowError(field.id)
                         ? issueByFieldId.get(field.id)
                         : undefined
@@ -645,6 +645,7 @@ export function SectionRenderer({
                   onEntryModeChange={setSectionEntryMode}
                   showTableModeToggle={false}
                   onOpenScope={onOpenScope}
+                  attemptedContinue={attemptedContinue}
                 />
               </FormCol>
             );
@@ -952,6 +953,7 @@ export function SectionRenderer({
                     sectionId={section.id}
                     errorMessage={shouldShowError(nameField.id) ? issueByFieldId.get(nameField.id) : undefined}
                     onFieldTouch={onFieldTouch}
+                    attemptedContinue={attemptedContinue}
                   />
                 )}
 
@@ -964,6 +966,7 @@ export function SectionRenderer({
                     sectionId={section.id}
                     errorMessage={shouldShowError(functionField.id) ? issueByFieldId.get(functionField.id) : undefined}
                     onFieldTouch={onFieldTouch}
+                    attemptedContinue={attemptedContinue}
                   />
                 )}
 
@@ -986,6 +989,7 @@ export function SectionRenderer({
                         errorMessage={shouldShowError(tel1Field.id) ? issueByFieldId.get(tel1Field.id) : undefined}
                         onFieldTouch={onFieldTouch}
                         noBottomMargin
+                        attemptedContinue={attemptedContinue}
                       />
                     )}
                     {tel2Field && (
@@ -998,6 +1002,7 @@ export function SectionRenderer({
                         errorMessage={shouldShowError(tel2Field.id) ? issueByFieldId.get(tel2Field.id) : undefined}
                         onFieldTouch={onFieldTouch}
                         noBottomMargin
+                        attemptedContinue={attemptedContinue}
                       />
                     )}
                   </div>
@@ -1012,6 +1017,7 @@ export function SectionRenderer({
                     sectionId={section.id}
                     errorMessage={shouldShowError(emailField.id) ? issueByFieldId.get(emailField.id) : undefined}
                     onFieldTouch={onFieldTouch}
+                    attemptedContinue={attemptedContinue}
                   />
                 )}
 
@@ -1025,6 +1031,7 @@ export function SectionRenderer({
                     sectionId={section.id}
                     errorMessage={shouldShowError(f.id) ? issueByFieldId.get(f.id) : undefined}
                     onFieldTouch={onFieldTouch}
+                    attemptedContinue={attemptedContinue}
                   />
                 ))}
               </div>

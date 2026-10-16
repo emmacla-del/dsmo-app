@@ -141,6 +141,7 @@ interface TableRendererProps {
   field: OnefopField;
   data: FormData;
   onChange: (cellId: string, value: unknown) => void;
+  attemptedContinue?: boolean;
 }
 
 /**
@@ -631,7 +632,7 @@ type TableConfig = {
   hasTotalRow?: boolean;
 };
 
-export function TableRenderer({ field, data, onChange }: TableRendererProps) {
+export function TableRenderer({ field, data, onChange, attemptedContinue = false }: TableRendererProps) {
   const t = useTranslations();
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const campaignPeriod = useCampaignPeriod();
@@ -660,8 +661,8 @@ export function TableRenderer({ field, data, onChange }: TableRendererProps) {
   );
 
   const missingFieldKeys = useMemo(
-    () => (isReported && definition ? missingQuizFieldKeys(definition, data) : []),
-    [isReported, definition, data]
+    () => (attemptedContinue && isReported && definition ? missingQuizFieldKeys(definition, data) : []),
+    [attemptedContinue, isReported, definition, data]
   );
   const missingKeysSet = useMemo(() => new Set(missingFieldKeys), [missingFieldKeys]);
 

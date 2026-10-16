@@ -14,6 +14,8 @@ import { getModernJobsTooltip } from "./modern-jobs-tooltips";
 import { ConditionalTable } from "@/components/modern-jobs/conditional/ConditionalTable";
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 
+import { extractCleanErrorMessage } from "@/lib/onefop-validation";
+
 /** Question text: the --cam-question-* tokens every respondent form shares
  *  (15px semibold); answers are --cam-answer-size (14px), hints 12px. */
 const labelStyle: React.CSSProperties = {
@@ -43,10 +45,11 @@ const selectAllHintStyle: React.CSSProperties = {
 };
 
 const errorTextStyle: React.CSSProperties = {
-  fontSize: "var(--cam-font-size-sm)",
+  fontSize: "var(--cam-font-size-xs, 0.75rem)",
   color: "var(--cam-error)",
   fontWeight: 600,
-  margin: "var(--cam-space-1) 0 0",
+  margin: "var(--cam-space-1, 4px) 0 0",
+  lineHeight: 1.35,
 };
 
 const secondaryLabelStyle: React.CSSProperties = {
@@ -101,6 +104,7 @@ interface FieldRendererProps {
   /** False when the section shows one shared Tableau/Guidé switch instead of one per table. */
   showTableModeToggle?: boolean;
   onEntryModeChange?: (mode: "grid" | "guided") => void;
+  attemptedContinue?: boolean;
 }
 
 /**
@@ -126,6 +130,7 @@ export function FieldRenderer({
   entryMode,
   showTableModeToggle = true,
   onEntryModeChange,
+  attemptedContinue = false,
 }: FieldRendererProps) {
   const t = useTranslations();
   const locale = (useLocale() as "fr" | "en") || "fr";
@@ -162,6 +167,7 @@ export function FieldRenderer({
     ? { display: "grid", gridTemplateRows: "subgrid", gridRow: "span 3", rowGap: 0, marginBottom: 0, minWidth: 0 }
     : wrapperStyle;
   const hasError = !!errorMessage;
+  const cleanMessage = hasError ? extractCleanErrorMessage(errorMessage) : "";
   const errorId = hasError ? `${field.id}-error` : undefined;
 
   // Tables governed by the preliminary quiz appear only after its "Oui"
@@ -182,6 +188,7 @@ export function FieldRenderer({
         mode={entryMode}
         showModeToggle={showTableModeToggle}
         onModeChange={onEntryModeChange}
+        attemptedContinue={attemptedContinue}
       />
     );
     if (!gated) return table;
@@ -217,7 +224,7 @@ export function FieldRenderer({
         <FieldControl field={field} value={value} onChange={onChange} hasError={hasError} locale={locale} />
         {hasError && (
           <p id={errorId} role="alert" style={errorTextStyle}>
-            {errorMessage}
+            {cleanMessage}
           </p>
         )}
         {hint && <p style={hintStyle}>{hint}</p>}
@@ -241,7 +248,7 @@ export function FieldRenderer({
         <FieldControl field={field} value={value} onChange={onChange} hasError={hasError} locale={locale} />
         {hasError && (
           <p id={errorId} role="alert" style={errorTextStyle}>
-            {errorMessage}
+            {cleanMessage}
           </p>
         )}
         {hint && <p style={hintStyle}>{hint}</p>}
@@ -308,7 +315,7 @@ export function FieldRenderer({
       <div style={noBottomMargin ? { contain: "inline-size" } : undefined}>
         {hasError && (
           <p id={errorId} role="alert" style={errorTextStyle}>
-            {errorMessage}
+            {cleanMessage}
           </p>
         )}
         {/* An "Ex: …" hint is already shown as the placeholder — don't repeat it. */}

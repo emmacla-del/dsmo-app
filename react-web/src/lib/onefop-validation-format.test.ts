@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { FormData, OnefopField, OnefopSchema, OnefopSection } from "./onefop-schema";
 import {
   COUNT_FIELD_IDS,
+  extractCleanErrorMessage,
   isWholeCount,
   parseCountInput,
   validateSectionData,
@@ -193,4 +194,36 @@ test("a training-centre table cell holding a decimal is reported, a whole number
       .filter((i) => i.fieldId === cellId && /: Enter a whole number$/.test(i.message));
   assert.equal(wholeIssues("2.5").length, 1);
   assert.equal(wholeIssues("3").length, 0);
+});
+
+test("extractCleanErrorMessage strips redundant long label prefixes cleanly", () => {
+  assert.equal(
+    extractCleanErrorMessage("Quel est le statut juridique de votre établissement selon les textes en vigueur au Cameroun ? : Champ obligatoire"),
+    "Champ obligatoire"
+  );
+  assert.equal(
+    extractCleanErrorMessage("S0Q03_TEL1: Le numéro doit contenir exactement 9 chiffres"),
+    "Le numéro doit contenir exactement 9 chiffres"
+  );
+  assert.equal(
+    extractCleanErrorMessage("Champ obligatoire"),
+    "Champ obligatoire"
+  );
+  assert.equal(extractCleanErrorMessage(""), "");
+});
+
+test("validateSectionData provides both legacy message and cleanMessage", () => {
+  const section: OnefopSection = {
+    id: "sec_test",
+    order: 1,
+    title: null,
+    description: null,
+    entityTypes: null,
+    subsections: [],
+    fields: [schemaField("enterprise", "S0Q03_TEL1")],
+  };
+  const issues = validateSectionData(section, { S0Q03_TEL1: "123" }, "fr");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].cleanMessage, "Le numéro doit contenir exactement 9 chiffres");
+  assert.ok(issues[0].message.includes(" : Le numéro doit contenir"));
 });

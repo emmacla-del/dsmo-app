@@ -21,6 +21,7 @@ interface AnyTableRendererProps {
   onModeChange?: (mode: "grid" | "guided") => void;
   /** False when a section-level Tableau/Guidé switch replaces the per-table one. */
   showModeToggle?: boolean;
+  attemptedContinue?: boolean;
 }
 
 /**
@@ -43,6 +44,7 @@ export function AnyTableRenderer({
   mode,
   onModeChange,
   showModeToggle = true,
+  attemptedContinue = false,
 }: AnyTableRendererProps) {
   if (field.table?.template === "activities_table") {
     return <ActivitiesTableRenderer field={field} data={data} onChange={onChange} />;
@@ -68,6 +70,7 @@ export function AnyTableRenderer({
         mode={mode}
         allowToggle={showModeToggle}
         onModeChange={onModeChange}
+        attemptedContinue={attemptedContinue}
       />
     );
   }
@@ -93,11 +96,12 @@ export function AnyTableRenderer({
           mode="guided"
           allowToggle={false}
           onModeChange={onModeChange}
+          attemptedContinue={attemptedContinue}
         />
       );
     }
   }
 
-  return <TableRenderer field={field} data={data} onChange={onChange} />;
+  return <TableRenderer field={field} data={data} onChange={onChange} attemptedContinue={attemptedContinue} />;
 }
 
