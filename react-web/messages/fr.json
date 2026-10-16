@@ -254,6 +254,15 @@
     "copiedLabel": "Copié ✓",
     "copyButton": "Copier"
   },
+  "onefopSubmittedLock": {
+    "title": "Votre déclaration a été soumise",
+    "submitted": "Votre déclaration ({period}) a été soumise le {date}. Sa référence est #{ref}.",
+    "pending": "Elle est en attente d'examen par l'ONEFOP.",
+    "approved": "Elle a été visée par l'ONEFOP.",
+    "locked": "Elle ne peut plus être modifiée. Si l'ONEFOP demande une correction, vous pourrez la modifier de nouveau ici.",
+    "home": "Retour à l'accueil",
+    "declarations": "Voir mes déclarations"
+  },
   "onefopPreviewPage": {
     "savingStatus": "Enregistrement…",
     "savedAtPlaceholder": "Enregistré à 07:49",

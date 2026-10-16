@@ -47,6 +47,9 @@ export function useOnefopDraft(
   // restores its stored position only once the matching draft is loaded).
   const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
   const [lastSavedData, setLastSavedData] = useState<FormData>({});
+  // The answers as loaded (draft merged with registration autofill): what the
+  // account already holds, so opening the wizard is not a change to save.
+  const [loadedData, setLoadedData] = useState<FormData | undefined>(undefined);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [idbSaveFailed, setIdbSaveFailed] = useState(false);
   const skipNextSave = useRef(false);
@@ -124,6 +127,7 @@ export function useOnefopDraft(
       skipNextSave.current = true;
       setData(merged);
       setLastSavedData(merged);
+      setLoadedData(merged);
       setLoadedEntityType(entityType);
       setLoadedQuarterCode(quarterCode);
       setLoadedDraftKey(draftId(entityType, quarterCode, userId, establishmentId));
@@ -258,6 +262,8 @@ export function useOnefopDraft(
     saveFailed: idbSaveFailed,
     clearLocalDraft,
     draftKey,
+    /** The answers as loaded, before any change; undefined until loaded. */
+    loadedData,
     /** draftKey once its draft has been loaded into `data`, else null. */
     loadedDraftKey: draftKey !== null && loadedDraftKey === draftKey ? draftKey : null,
   };

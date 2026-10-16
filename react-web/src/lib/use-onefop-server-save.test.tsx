@@ -140,3 +140,53 @@ test("answers typed after a departure are sent by the next one", async () => {
 
   assert.equal(calls.length, 2);
 });
+
+/** The wizard as opened: answers loaded from the account, then maybe changed. */
+function loadedHarness(save: (options: { keepalive: boolean }) => Promise<unknown>, enabled = true) {
+  const loaded = { VT1_2: "CFP Test" };
+  function Harness() {
+    const [data, setData] = useState<Record<string, string>>(loaded);
+    const { hasUnsavedChanges, saveNow } = useOnefopServerSave(data, save, { baseline: loaded, enabled });
+    return (
+      <div>
+        <span data-testid="unsaved">{String(hasUnsavedChanges)}</span>
+        <button type="button" onClick={() => setData({ VT1_2: String(Math.random()) })}>Type</button>
+        <button type="button" onClick={() => void saveNow()}>Save</button>
+      </div>
+    );
+  }
+  return renderWithProviders(<Harness />);
+}
+
+test("opening the wizard and leaving it unchanged sends nothing", async () => {
+  const calls: unknown[] = [];
+  loadedHarness(async (o) => { calls.push(o); });
+
+  assert.equal(unsaved(), "false", "the loaded answers are already on the account");
+  hide();
+  await leave("pagehide");
+  assert.equal(calls.length, 0);
+});
+
+test("a change to the loaded answers is still sent on leaving", async () => {
+  const calls: unknown[] = [];
+  const { user } = loadedHarness(async (o) => { calls.push(o); });
+
+  await type(user);
+  assert.equal(unsaved(), "true");
+  hide();
+  await leave("pagehide");
+  assert.equal(calls.length, 1);
+});
+
+test("disabled (a submitted declaration): nothing is sent, on leaving or on request", async () => {
+  const calls: unknown[] = [];
+  const { user } = loadedHarness(async (o) => { calls.push(o); }, false);
+
+  await type(user);
+  assert.equal(unsaved(), "false");
+  await save(user);
+  hide();
+  await leave("pagehide");
+  assert.equal(calls.length, 0);
+});
