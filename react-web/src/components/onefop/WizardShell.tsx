@@ -292,14 +292,23 @@ export function WizardShell({
       )
       : null;
 
-  // Match Flutter: show feedback when an active save finishes. A failure
+  // Match Flutter: show feedback when an active server save finishes. A failure
   // remains visible until the next successful save; success fades after 2.2s.
-  // The toast is adjusted during render when `saving` flips, rather than in
-  // an effect (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
-  const [prevSaving, setPrevSaving] = useState(saving);
-  if (saving !== prevSaving) {
-    setPrevSaving(saving);
-    setSaveToast(saving ? null : saveFailed ? "failed" : "saved");
+  // The toast is driven by the server save status (use-onefop-server-save.ts),
+  // not the local IndexedDB buffer (Defect 7).
+  const [prevServerSaveState, setPrevServerSaveState] = useState(serverSave?.state);
+  if (serverSave && serverSave.state !== prevServerSaveState) {
+    const prior = prevServerSaveState;
+    setPrevServerSaveState(serverSave.state);
+    if (prior === "saving" && serverSave.state === "saved") {
+      setSaveToast("saved");
+    } else if (serverSave.state === "failed") {
+      setSaveToast("failed");
+    } else if (serverSave.state === "saving") {
+      setSaveToast(null);
+    }
+  } else if (!serverSave && saveFailed && saveToast !== "failed") {
+    setSaveToast("failed");
   }
 
   useEffect(() => {

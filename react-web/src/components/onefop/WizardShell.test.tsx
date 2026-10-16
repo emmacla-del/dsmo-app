@@ -414,3 +414,67 @@ test("the add-a-row tables mark the cells of a started row (4.3)", async () => {
     "cell-input-s4q3_row1_fcFemale",
   ]);
 });
+
+test("Defect 7: 'Saved just now' does not appear on local saving, but appears when server save succeeds", async () => {
+  const data = { ...quiz(), ...filled("VT4_1") };
+
+  // 1. Local saving flips saving true -> false: no toast
+  const { rerender } = renderWithProviders(
+    <WizardShell
+      entity={entity}
+      data={data}
+      onChange={() => {}}
+      positionKey={KEY}
+      saving={true}
+    />,
+    { queryData: [[["onefop", "active-quarter"], { code: "2026-T1", isOpen: true }]] },
+  );
+
+  rerender(
+    <WizardShell
+      entity={entity}
+      data={data}
+      onChange={() => {}}
+      positionKey={KEY}
+      saving={false}
+    />,
+  );
+  await flush();
+
+  assert.equal(screen.queryByText(/Enregistré à l'instant|Saved just now/i), null, "local save must not show 'Saved just now'");
+
+  // 2. Server save: transitions from saving to saved: toast appears
+  rerender(
+    <WizardShell
+      entity={entity}
+      data={data}
+      onChange={() => {}}
+      positionKey={KEY}
+      serverSave={{
+        state: "saving",
+        savedAt: null,
+        hasUnsavedChanges: true,
+        onRetry: () => {},
+      }}
+    />,
+  );
+  await flush();
+
+  rerender(
+    <WizardShell
+      entity={entity}
+      data={data}
+      onChange={() => {}}
+      positionKey={KEY}
+      serverSave={{
+        state: "saved",
+        savedAt: new Date(),
+        hasUnsavedChanges: false,
+        onRetry: () => {},
+      }}
+    />,
+  );
+  await flush();
+
+  assert.ok(screen.getByText(/Enregistré à l'instant|Saved just now/i), "server save success shows 'Saved just now'");
+});
