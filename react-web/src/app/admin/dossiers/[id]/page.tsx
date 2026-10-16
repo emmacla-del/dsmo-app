@@ -22,7 +22,7 @@ import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { sentenceCaseTitle } from "@/lib/dossier-vt-answers";
-import { parseCoherenceWarning } from "@/lib/coherence-warning-text";
+import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import {
   NOT_PROVIDED,
   count,
@@ -35,6 +35,7 @@ import {
 } from "@/lib/admin-data-state";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
+import { respondentFunctionLabel } from "@/lib/display-labels";
 import {
   allowedDecisions,
   eligibilityAxis,
@@ -327,11 +328,8 @@ function SubmissionDetailContent() {
     label: sentenceCaseTitle(localized(s.title, locale)),
   }));
   /** A coherence warning in the console language; the stored text when it cannot be read. */
-  const warningText = (ruleCode: string | null | undefined, description: string | null | undefined) => {
-    const parts = parseCoherenceWarning(ruleCode, description);
-    if (!parts) return description ?? "";
-    return t(`coherence.${parts.code}`, { first: parts.first, second: parts.second, sex: t(`coherence.${parts.sex}`) });
-  };
+  const warningText = (ruleCode: string | null | undefined, description: string | null | undefined) =>
+    coherenceWarningText(t, ruleCode, description);
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -601,7 +599,7 @@ function SubmissionDetailContent() {
               </div>
               <div>
                 <dt>{t("functionLabel")}</dt>
-                <dd>{recorded(dossier.respondent?.respondentFunction)}</dd>
+                <dd>{recorded(respondentFunctionLabel(dossier.respondent?.respondentFunction, locale))}</dd>
               </div>
               <div>
                 <dt>{t("phoneLabel")}</dt>

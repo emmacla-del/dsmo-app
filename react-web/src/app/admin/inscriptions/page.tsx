@@ -16,6 +16,7 @@ import {
 } from "@/lib/user-directory";
 import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
+import { respondentFunctionLabel } from "@/lib/display-labels";
 import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
 import {
   approvalGate,
@@ -582,7 +583,7 @@ function InscriptionsContent() {
                 <dt>{t("nameLabel")}</dt>
                 <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || NOT_PROVIDED}</dd>
               </div>
-              <div><dt>{t("functionLabel")}</dt><dd>{reviewing.respondentFunction || NOT_PROVIDED}</dd></div>
+              <div><dt>{t("functionLabel")}</dt><dd>{respondentFunctionLabel(reviewing.respondentFunction, locale) || NOT_PROVIDED}</dd></div>
               <div>
                 <dt>{t("phoneLabel")}</dt>
                 <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || NOT_PROVIDED}</dd>

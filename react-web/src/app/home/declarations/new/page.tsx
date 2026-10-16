@@ -6,7 +6,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { asUiLocale } from "@/lib/register-i18n";
+import { sectorLabel } from "@/lib/display-labels";
 import {
   getMyCompany,
   getRegions,
@@ -125,6 +127,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 export default function DsmoDeclarationWizardPage() {
   const router = useRouter();
   const t = useTranslations();
+  const locale = asUiLocale(useLocale());
 
   // Role guard: only COMPANY accounts may file DSMO declarations.
   useEffect(() => {
@@ -273,7 +276,9 @@ export default function DsmoDeclarationWizardPage() {
     ]).then(([sectRes, regRes, compRes, draftRes]) => {
       if (sectRes.status === "fulfilled") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSectors((sectRes.value as any[]).map((s: any) => ({ id: s.id ?? s.code ?? s.name, name: s.name ?? s.label ?? s.id })));
+        // name stays the stored French name (it is what the declaration sends);
+        // nameEn is only for the option's label in English.
+        setSectors((sectRes.value as any[]).map((s: any) => ({ id: s.id ?? s.code ?? s.name, name: s.name ?? s.label ?? s.id, nameEn: s.nameEn ?? null })));
       }
       setLoadingSectors(false);
 
@@ -556,7 +561,7 @@ export default function DsmoDeclarationWizardPage() {
         <Field label={L.fieldMainActivity} error={fieldErrors.sector}>
           <select className="cam-input" style={{ width: "100%" }} value={selectedSectorId} onChange={(e) => { setSelectedSectorId(e.target.value); scheduleAutosave(); }} disabled={loadingSectors}>
             <option value="">{loadingSectors ? t("common.loading") : t("homeDeclarationsNewPage.selectPlaceholder")}</option>
-            {sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {sectors.map((s) => <option key={s.id} value={s.id}>{sectorLabel({ name: s.name, nameEn: s.nameEn as string | null }, locale)}</option>)}
           </select>
         </Field>
         <Field label={L.fieldSecondaryActivity}>

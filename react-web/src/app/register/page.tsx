@@ -41,6 +41,7 @@ import {
   lastEntityFieldKey,
 } from "@/lib/register-entity-sections";
 import { asUiLocale, localized } from "@/lib/register-i18n";
+import { sectorLabel } from "@/lib/display-labels";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
@@ -1671,7 +1672,7 @@ export default function RegisterPage() {
                     </option>
                     {sectorsQuery.data?.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}
+                        {sectorLabel(s, locale)}
                       </option>
                     ))}
                   </select>

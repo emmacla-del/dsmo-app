@@ -14,6 +14,7 @@ import {
   listCompanies,
 } from "@/lib/companies-directory";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
+import { respondentFunctionLabel, sectorLabel } from "@/lib/display-labels";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
@@ -328,7 +329,7 @@ function CompanyDetail({ company: c }: { company: Company }) {
           rows={[
             [t("companiesDirectory.niuColumn"), hasRealNiu(c.taxNumber) ? c.taxNumber : null],
             [t("companiesDirectory.entityTypeLabel"), typeLabel(t, c.entityType) || null],
-            [t("companiesDirectory.sectorLabel"), c.sector?.name],
+            [t("companiesDirectory.sectorLabel"), sectorLabel(c.sector, locale) || null],
             [t("companiesDirectory.mainActivityLabel"), c.mainActivity],
             [t("companiesDirectory.legalStatusLabel"), c.legalStatus],
             [t("companiesDirectory.registrationNumberLabel"), c.registrationNumber],
@@ -365,7 +366,7 @@ function CompanyDetail({ company: c }: { company: Company }) {
           title={t("companiesDirectory.sectionRespondent")}
           rows={[
             [t("companiesDirectory.nameColumn"), respondentName || null],
-            [t("companiesDirectory.functionLabel"), c.respondentFunction],
+            [t("companiesDirectory.functionLabel"), respondentFunctionLabel(c.respondentFunction, locale) || null],
             [t("companiesDirectory.phoneLabel"), c.respondentPhone],
           ]}
         />

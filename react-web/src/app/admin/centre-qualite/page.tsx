@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
+import { coherenceWarningText, parseCoherenceWarning } from "@/lib/coherence-warning-text";
 import { asUiLocale } from "@/lib/register-i18n";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { useAuthStore } from "@/lib/auth-store";
@@ -81,6 +82,15 @@ function CentreQualiteContent() {
   const queryClient = useQueryClient();
   const tRoot = useTranslations();
   const t = useTranslations("adminCentreQualitePage");
+  // Coherence warnings are stored as French sentences; the VT ones read in
+  // the console language (defect 7), the sentences living on the file page's
+  // catalogue. Their figures are in the sentence, so the stored
+  // "Incohérence détectée" / "Égalité requise" pair is not repeated.
+  const tCoherence = useTranslations("adminDossierPage");
+  const anomalyText = (a: { ruleCode?: string | null; description?: string | null }) =>
+    coherenceWarningText(tCoherence, a.ruleCode, a.description);
+  const hasOwnFigures = (a: { ruleCode?: string | null; description?: string | null }) =>
+    parseCoherenceWarning(a.ruleCode, a.description) !== null;
   const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
@@ -454,11 +464,11 @@ function CentreQualiteContent() {
                       <span title={a.ruleCode}>{ruleFamilyLabel(a.ruleFamily, locale)}</span>
                     </td>
                     <td>
-                      <div style={{ maxWidth: 360, wordBreak: "break-word" }}>{a.description}</div>
-                      <div className="cam-admin-meta">
+                      <div style={{ maxWidth: 360, wordBreak: "break-word" }}>{anomalyText(a)}</div>
+                      {!hasOwnFigures(a) && <div className="cam-admin-meta">
                         {t("observed")} <strong>{a.observedValue}</strong> &middot; {t("expected")} <strong>{a.expectedValue}</strong>
                         {a.deltaValue ? <> &middot; {t("gap")} <strong>{a.deltaValue}</strong></> : null}
-                      </div>
+                      </div>}
                     </td>
                     <td>
                       <span className={`cam-badge ${severityBadge(a.isBlocking)}`}>
@@ -542,7 +552,7 @@ function CentreQualiteContent() {
             )}
 
             <div>
-              <div className="cam-admin-strong">{selectedAnomaly.description}</div>
+              <div className="cam-admin-strong">{anomalyText(selectedAnomaly)}</div>
               <div className="cam-admin-meta">
                 {/* A submission with no stored region is reported as such.
                     Printing "National" here would invent a territorial fact on
