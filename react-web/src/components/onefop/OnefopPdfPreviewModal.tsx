@@ -325,8 +325,8 @@ export function OnefopPdfPreviewModal({
             </strong>{" "}
             <span style={{ color: "var(--cam-text-muted)" }}>
               {isFr
-                ? "Ce document représente la version officielle qui sera archivée et transmise aux services statistiques du MINEFOP."
-                : "This document represents the official legal copy that will be archived and filed with MINEFOP statistical services."}
+                ? "Ceci est une copie de relecture : votre déclaration n'est transmise qu'au moment où vous la soumettez."
+                : "This is a review copy: your declaration is sent only when you submit it."}
             </span>
           </p>
         </div>
