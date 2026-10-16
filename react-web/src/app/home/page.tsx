@@ -248,6 +248,10 @@ export default function HomeLandingPage() {
   const endorsedAlongside =
     openCorrection && campaignEntries.some((e) => e.group === "approved") ? campaignEntries.find((e) => e.group === "approved") ?? null : null;
   const surveyState: SubmissionGroup | "none" = campaignSubmission?.group ?? "none";
+  // Until the filings have loaded the state is unknown: saying "expected
+  // before the deadline · Take the survey" for those seconds told a centre
+  // that had already filed to file again (2026-10-16 re-test, defect 23).
+  const surveyLoading = submissionsQuery.isLoading;
   const correctionReason =
     surveyState === "correction"
       ? (campaignSubmission?.raw as { rejectionReason?: string | null }).rejectionReason ?? null
@@ -344,6 +348,8 @@ export default function HomeLandingPage() {
             <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
               {!quarter?.isOpen
                 ? t("homeLandingPage.campaignClosedNotice")
+                : surveyLoading
+                ? t("common.loading")
                 : surveyState === "none"
                 ? t("homeLandingPage.submissionStatusNone")
                 : surveyState === "draft"
@@ -368,7 +374,7 @@ export default function HomeLandingPage() {
             )}
           </div>
 
-          {quarter?.isOpen && (
+          {quarter?.isOpen && !surveyLoading && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "var(--cam-space-2)", flexShrink: 0 }}>
               {surveyState === "none" && (
                 <button

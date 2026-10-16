@@ -58,6 +58,7 @@ type Tone = "success" | "warning" | "error" | "info" | "neutral";
 // auditService.log in src/). An action missing here still lists and renders
 // under its raw code; it just can't be picked in the "Type d'action" filter.
 export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
+  AUDIT_APPROVE:           { label: "Dossier visé", tone: "success" },
   AUDIT_BULK_VISA_GRANTED: { label: "Visa en lot", tone: "success" },
   AUDIT_BULK_REJECT:       { label: "Rejet en lot", tone: "error" },
   AUDIT_REJECT:            { label: "Dossier rejeté", tone: "error" },
@@ -80,6 +81,19 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   DISTRIBUTE:              { label: "Rapport diffusé", tone: "neutral" },
   COMPANY_REGISTRATION_APPROVED:      { label: "Inscription approuvée", tone: "success" },
   COMPANY_REGISTRATION_AUTO_APPROVED: { label: "Inscription approuvée automatiquement", tone: "success" },
+  COMPANY_REGISTRATION_ASSISTED:      { label: "Inscription assistée", tone: "info" },
+  COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED: { label: "Compléments d'inscription demandés", tone: "warning" },
+  COMPANY_REGISTRATION_RESUBMITTED:   { label: "Inscription complétée et renvoyée", tone: "info" },
+  COMPANY_REGISTRATION_REJECTED:      { label: "Inscription rejetée", tone: "error" },
+  COMPANY_ESTABLISHMENT_ID_ISSUED:    { label: "Identifiant d'établissement attribué", tone: "info" },
+  COMPANY_ESTABLISHMENT_ID_BACKFILLED: { label: "Identifiant d'établissement attribué (rattrapage)", tone: "neutral" },
+  STAFF_INVITATION_CREATED:      { label: "Invitation d'agent créée", tone: "info" },
+  STAFF_INVITATION_ACCEPTED:     { label: "Invitation d'agent acceptée", tone: "success" },
+  STAFF_INVITATION_LINK_CREATED: { label: "Lien d'invitation de groupe créé", tone: "info" },
+  STAFF_INVITATION_LINK_USED:    { label: "Lien d'invitation de groupe utilisé", tone: "neutral" },
+  STAFF_REGISTRATION_REJECTED:   { label: "Inscription d'agent rejetée", tone: "error" },
+  CAMPAIGN_QUOTA_DELETE:         { label: "Quota de campagne supprimé", tone: "warning" },
+  DATA_EXPORT:                   { label: "Export de données", tone: "neutral" },
 };
 
 export const AUDIT_RESOURCE_TYPES: Record<string, string> = {
@@ -94,6 +108,7 @@ export const AUDIT_RESOURCE_TYPES: Record<string, string> = {
 };
 
 const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
+  AUDIT_APPROVE: "File endorsed",
   AUDIT_BULK_VISA_GRANTED: "Bulk endorsement",
   AUDIT_BULK_REJECT: "Bulk rejection",
   AUDIT_REJECT: "File rejected",
@@ -116,6 +131,19 @@ const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
   DISTRIBUTE: "Report distributed",
   COMPANY_REGISTRATION_APPROVED: "Registration approved",
   COMPANY_REGISTRATION_AUTO_APPROVED: "Registration approved automatically",
+  COMPANY_REGISTRATION_ASSISTED: "Assisted registration",
+  COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED: "Registration complements requested",
+  COMPANY_REGISTRATION_RESUBMITTED: "Registration completed and resent",
+  COMPANY_REGISTRATION_REJECTED: "Registration rejected",
+  COMPANY_ESTABLISHMENT_ID_ISSUED: "Establishment ID assigned",
+  COMPANY_ESTABLISHMENT_ID_BACKFILLED: "Establishment ID assigned (backfill)",
+  STAFF_INVITATION_CREATED: "Staff invitation created",
+  STAFF_INVITATION_ACCEPTED: "Staff invitation accepted",
+  STAFF_INVITATION_LINK_CREATED: "Group invitation link created",
+  STAFF_INVITATION_LINK_USED: "Group invitation link used",
+  STAFF_REGISTRATION_REJECTED: "Staff registration rejected",
+  CAMPAIGN_QUOTA_DELETE: "Campaign quota deleted",
+  DATA_EXPORT: "Data export",
 };
 
 const AUDIT_RESOURCE_TYPES_EN: Record<string, string> = {
