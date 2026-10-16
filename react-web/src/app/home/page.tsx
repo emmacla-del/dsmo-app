@@ -235,10 +235,11 @@ export default function HomeLandingPage() {
 
   // Filings for the open campaign, newest first. If a filing was already endorsed or is pending review,
   // that live state governs the card.
-  const campaignEntries = quarter?.code ? allEntries.filter((e) => sameCampaign(e, quarter.code)) : [];
+  const campaignCode = quarter?.code;
+  const campaignEntries = campaignCode ? allEntries.filter((e) => sameCampaign(e, campaignCode)) : [];
   const liveCampaignEntry = campaignEntries.find((e) => e.group === "approved" || e.group === "pending");
   const openCorrection = !liveCampaignEntry ? campaignEntries.find((e) => e.group === "correction") ?? null : null;
-  const campaignSubmission = liveCampaignEntry ?? openCorrection ?? campaignEntries[0] ?? null;
+  const campaignSubmission = liveCampaignEntry ?? openCorrection ?? campaignEntries.at(0) ?? null;
   const endorsedAlongside =
     openCorrection && campaignEntries.some((e) => e.group === "approved") ? campaignEntries.find((e) => e.group === "approved") ?? null : null;
   const surveyState: SubmissionGroup | "none" = campaignSubmission?.group ?? "none";
