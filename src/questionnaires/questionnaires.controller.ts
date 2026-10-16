@@ -9,6 +9,7 @@ import {
   ValidationPipe,
   UseGuards,
   Req,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { QuestionnairesService } from './questionnaires.service';
@@ -21,7 +22,6 @@ import {
   mapAdministrationData,
   mapProjectProgramData,
   mapVocationalTrainingData,
-  diagnoseMappingKeys,
 } from '../services/pdf-data-mapper.service';
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -57,6 +57,10 @@ function normalizeEntityTypeForPreview(raw: string): string {
 @Controller('onefop')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class QuestionnairesController {
+  // Logs carry ids and counts only — never a value the respondent typed,
+  // nor a name, phone number or email (defect 9, 2026-10-15 VT run).
+  private readonly logger = new Logger(QuestionnairesController.name);
+
   constructor(
     private readonly service: QuestionnairesService,
     private readonly pdfService: OnefopPuppeteerService,
@@ -84,36 +88,18 @@ export class QuestionnairesController {
       const rawLocale = body?.lang || body?.data?.lang || body?.locale || body?.data?.locale || (req?.query?.lang as string) || (req?.query?.locale as string) || req?.headers?.['accept-language'];
       const locale: 'fr' | 'en' = (typeof rawLocale === 'string' && rawLocale.toLowerCase().startsWith('en')) ? 'en' : 'fr';
 
-      console.log('📥 Preview request received');
-      console.log('   entityType (raw):', body?.entityType);
-      console.log('   entityType (normalized):', entityType);
-      console.log('   locale:', locale);
-      console.log('   data keys:', Object.keys(rawData).length);
-
       // ── STEP 1: Normalize ──────────────────────────────────────
-      console.log('🔄 Step 1: Normalizing keys...');
       let normalized: Record<string, unknown>;
       try {
         normalized = normalizeFlatKeys(rawData, entityType);
-        console.log('✅ Step 1 done — normalized keys:', Object.keys(normalized).length);
       } catch (e: any) {
-        console.error('❌ Step 1 FAILED — normalizeFlatKeys threw:', e.message);
-        console.error(e.stack);
+        this.logger.error(`Preview (${entityType}) step 1, key normalization failed: ${e.message}`, e.stack);
         return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           error: 'Normalization failed', step: 1, message: e.message,
         });
       }
 
-      const relevantKeys = Object.keys(normalized)
-        .filter(k => k.startsWith('s3q02') || k.startsWith('s4q02') || k.startsWith('s4q03'));
-      console.log('🔑 Reasons/Skills/Training keys:', JSON.stringify(relevantKeys));
-
-      if (process.env.NODE_ENV !== 'production') {
-        diagnoseMappingKeys(normalized);
-      }
-
       // ── STEP 2: Map to template data ───────────────────────────
-      console.log('🔄 Step 2: Mapping data for entityType:', entityType);
       let mappedData: Record<string, unknown>;
       try {
         switch (entityType) {
@@ -139,15 +125,13 @@ export class QuestionnairesController {
             mappedData = mapVocationalTrainingData(normalized, quarterCode, locale);
             break;
           default:
-            console.error(`❌ Unknown entityType after normalization: "${entityType}"`);
+            this.logger.warn(`Preview rejected: unknown entity type "${entityType}"`);
             return res.status(HttpStatus.BAD_REQUEST).json({
               error: `Invalid entity type: "${body?.entityType}" (normalized: "${entityType}")`,
             });
         }
-        console.log('✅ Step 2 done — mapped keys:', Object.keys(mappedData).length);
       } catch (e: any) {
-        console.error('❌ Step 2 FAILED — data mapping threw:', e.message);
-        console.error(e.stack);
+        this.logger.error(`Preview (${entityType}) step 2, data mapping failed: ${e.message}`, e.stack);
         return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           error: 'Data mapping failed', step: 2, message: e.message,
         });
@@ -158,7 +142,6 @@ export class QuestionnairesController {
       const wantsHtml = requestedFormat === 'html';
 
       if (wantsHtml) {
-        console.log('⚡ Step 3: Rendering HTML preview (offline / Chrome-free)...');
         try {
           const html = this.pdfService.renderHtml({
             ...mappedData,
@@ -169,14 +152,13 @@ export class QuestionnairesController {
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           return res.send(html);
         } catch (e: any) {
-          console.error('❌ Step 3 FAILED — HTML render threw:', e.message);
+          this.logger.error(`Preview (${entityType}) step 3, HTML render failed: ${e.message}`, e.stack);
           return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
             error: 'HTML preview rendering failed', step: 3, message: e.message,
           });
         }
       }
 
-      console.log('🔄 Step 3: Generating PDF...');
       let pdfBuffer: Buffer;
       try {
         pdfBuffer = await this.pdfService.generate({
@@ -185,16 +167,8 @@ export class QuestionnairesController {
           locale,
           lang: locale,
         });
-        console.log(`✅ Step 3 done — PDF size: ${pdfBuffer.length} bytes`);
       } catch (e: any) {
-        console.error('❌ Step 3 FAILED — PDF generation threw:', e.message);
-        console.error('   Full stack:', e.stack);
-        if (e.message?.includes('Could not find Chrome')) {
-          console.error('💡 Hint: Chrome/Chromium not found — set PUPPETEER_EXECUTABLE_PATH');
-        }
-        if (e.message?.includes('Failed to launch')) {
-          console.error('💡 Hint: Browser failed to launch — check sandbox args');
-        }
+        this.logger.error(`Preview (${entityType}) step 3, PDF generation failed: ${e.message}`, e.stack);
         return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           error: 'PDF generation failed', step: 3, message: e.message,
         });
@@ -207,8 +181,7 @@ export class QuestionnairesController {
 
     } catch (err) {
       const error = err as Error;
-      console.error('❌ Unhandled preview error:', error.message);
-      console.error('   Stack:', error.stack);
+      this.logger.error(`Preview failed: ${error.message}`, error.stack);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to generate preview',
         message: error.message,
@@ -229,22 +202,16 @@ export class QuestionnairesController {
     }),
   )
   async submit(@Body() dto: any, @Req() req: any) {
-    console.log('📥 Submit request received');
-    console.log('   userId:', req.user?.id);
-    console.log('   entityType:', dto?.entityType);
-    console.log('   isDraft:', dto?.isDraft);
-    console.log('   data keys:', dto?.data ? Object.keys(dto.data).length : 0);
-
+    const kind = `${dto?.entityType} ${dto?.isDraft ? 'draft' : 'final'}`;
     try {
       const result = await this.service.submitQuestionnaire({
         ...dto,
         userId: req.user.id,
       });
-      console.log('✅ Submit successful:', result);
+      this.logger.log(`Submission ${result?.submissionId} saved (${kind}, user ${req.user.id})`);
       return result;
     } catch (e: any) {
-      console.error('❌ Submit FAILED:', e.message);
-      console.error('   Stack:', e.stack);
+      this.logger.warn(`Submission refused (${kind}, user ${req.user?.id}): ${e.message}`);
       throw e;
     }
   }

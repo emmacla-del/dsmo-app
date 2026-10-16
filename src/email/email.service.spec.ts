@@ -6,6 +6,7 @@ jest.mock('resend', () => ({
   })),
 }));
 
+import { Logger } from '@nestjs/common';
 import { EmailService, EmailSendError } from './email.service';
 
 describe('EmailService.sendPasswordResetLink', () => {
@@ -41,6 +42,22 @@ describe('EmailService.sendPasswordResetLink', () => {
     await expect(
       service.sendPasswordResetLink(toEmail, resetLink),
     ).rejects.toThrow(EmailSendError);
+  });
+
+  it('keeps the recipient address out of the log and the error (defect 9)', async () => {
+    mockSend.mockResolvedValue({
+      data: null,
+      error: { name: 'invalid_api_key', message: 'API key is invalid', statusCode: 401 },
+    });
+    const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    const service = new EmailService();
+    const error = await service.sendPasswordResetLink(toEmail, resetLink).catch((e) => e);
+
+    expect(logged).toHaveBeenCalled();
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(toEmail);
+    expect(error.message).not.toContain(toEmail);
+    logged.mockRestore();
   });
 
   it('throws without calling Resend when RESEND_API_KEY is not configured', async () => {

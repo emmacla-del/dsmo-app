@@ -55,18 +55,19 @@ export class EmailService {
     });
 
     if (error) {
-      this.logSendError(toEmail, error);
+      this.logSendError(error);
       throw new EmailSendError(
-        `Échec de l'envoi de l'e-mail de réinitialisation à ${toEmail}: ${error.message}`,
+        `Échec de l'envoi de l'e-mail de réinitialisation : ${error.message}`,
         error,
       );
     }
   }
 
-  private logSendError(toEmail: string, error: ErrorResponse): void {
+  // No recipient address in the log or the error: callers log the user id.
+  private logSendError(error: ErrorResponse): void {
     if (RESEND_AUTH_OR_DOMAIN_ERROR_CODES.has(error.name)) {
       this.logger.error(
-        `Resend rejected the send to ${toEmail} (code: ${error.name}) — likely an ` +
+        `Resend rejected a password reset email (code: ${error.name}) — likely an ` +
           'invalid RESEND_API_KEY or an unverified sending domain. Check the API ' +
           'key and confirm dsmo-digital.com is verified under Domains on the ' +
           `Resend dashboard. Details: ${error.message}`,
@@ -74,7 +75,7 @@ export class EmailService {
       return;
     }
     this.logger.error(
-      `Resend failed to send to ${toEmail} (code: ${error.name}): ${error.message}`,
+      `Resend failed to send a password reset email (code: ${error.name}): ${error.message}`,
     );
   }
 
