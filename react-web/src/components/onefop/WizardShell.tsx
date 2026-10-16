@@ -954,8 +954,6 @@ export function WizardShell({
                   data={data}
                   onOpenSection={openSectionFromReview}
                   onBack={() => goToSection(sections.length - 1)}
-                  onPreviewPdf={() => setPreviewModalOpen(true)}
-                  isGeneratingPdf={pdfMutation.isPending}
                   onSaveDraft={onSaveNow ? () => onSaveNow() : undefined}
                   onSubmitFinal={() => setPreviewModalOpen(true)}
                   isSubmitting={submitMutation.isPending}

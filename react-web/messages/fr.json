@@ -937,8 +937,7 @@
     "periodClosedTitle": "Période de déclaration fermée",
     "errorsBlockingSubmit": "Des erreurs de validation bloquent la soumission. Cliquez sur les sections concernées ci-dessous pour les corriger.",
     "incompleteWarning": "Attention : certaines sections ne sont pas encore complètes. Vous pouvez cliquer sur une section ci-dessous pour la corriger avant de soumettre.",
-    "summaryHeader": "Récapitulatif des 9 sections",
-    "sectionLabel": "SECTION {number}",
+    "sectionLabel": "Section {number} : {name}",
     "badgeCompleted": "Complété",
     "badgeInProgress": "En cours",
     "badgeNotStarted": "Non commencé",
@@ -958,16 +957,16 @@
     },
     "issuesCount": "{count} incomplet(s)",
     "backButton": "Retour à la section 9",
-    "previewPdfButton": "Ouvrir la copie de vérification (PDF)",
     "saveDraftButton": "Sauvegarder Brouillon",
     "submitting": "Envoi en cours…",
-    "submitButton": "Soumettre définitivement"
+    "submitButton": "Soumettre définitivement",
+    "continueButton": "Continuer vers la soumission"
   },
   "vtWizardSidebar": {
     "navAriaLabel": "Navigation du questionnaire VT",
     "masthead": "MINEFOP / ONEFOP",
     "censusSubtitle": "RECENSEMENT ANNUEL DES CENTRES (VT)",
-    "validationLink": "Validation & Synthèse",
+    "validationLink": "Vérifier vos réponses",
     "progressFooter": "{done} sur {total} sections terminées"
   },
   "wizardShell": {

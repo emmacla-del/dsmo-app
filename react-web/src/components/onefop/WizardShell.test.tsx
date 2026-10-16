@@ -283,8 +283,9 @@ test("a Section 4 card on the Validation screen opens the table holding the firs
     <WizardShell entity={entity} data={{ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2") }} onChange={() => {}} positionKey={KEY} />,
     { queryData: [[["onefop", "active-quarter"], { code: "2026-T1", isOpen: true }]] },
   );
-  const card = screen.getAllByRole("button").find((b) => b.textContent?.startsWith("SECTION 3"));
-  assert.ok(card, "the third section's card (Section 4 of the questionnaire, here the third)");
+  // Each section row has a "Modifier cette section" link; the third row is Section 4 here.
+  const card = screen.getAllByRole("button", { name: "Modifier cette section" })[2];
+  assert.ok(card, "the third section's change link (Section 4 of the questionnaire, here the third)");
 
   await user.click(card);
   await flush();
