@@ -11,6 +11,7 @@ import {
   approveDossier,
   rejectDossier,
   requestCorrectionDossier,
+  reopenDossierForCorrection,
   type AdminDossier,
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
@@ -38,6 +39,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel } from "@/lib/display-labels";
 import {
   allowedDecisions,
+  canReopenForCorrection,
   eligibilityAxis,
   endorsementAxis,
   qualityAxis,
@@ -397,6 +399,34 @@ function SubmissionDetailContent() {
     },
   });
 
+  // ── Reopen an endorsed file for correction (defect 13) ──
+  const [isReopenOpen, setIsReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [certifiedReopen, setCertifiedReopen] = useState(false);
+  const [reopenSuccess, setReopenSuccess] = useState(false);
+
+  const reopenMutation = useMutation({
+    mutationFn: () => reopenDossierForCorrection(id, reopenReason.trim(), certifiedReopen),
+    onSuccess: () => {
+      setReopenSuccess(true);
+      // The header and its actions follow at once, as after an endorsement
+      // (defect 9); the refetch then has the last word.
+      void queryClient.cancelQueries({ queryKey: ["admin", "dossier", id] });
+      queryClient.setQueryData(["admin", "dossier", id], (old: unknown) =>
+        old && typeof old === "object" ? { ...old, status: "CORRECTION_REQUESTED", rejectionReason: reopenReason.trim() } : old,
+      );
+      invalidateDossier();
+    },
+  });
+
+  const openReopenModal = () => {
+    setReopenSuccess(false);
+    reopenMutation.reset();
+    setCertifiedReopen(false);
+    setReopenReason("");
+    setIsReopenOpen(true);
+  };
+
   const openRejectModal = () => {
     setRejectSuccess(false);
     rejectMutation.reset();
@@ -594,6 +624,11 @@ function SubmissionDetailContent() {
             {decisions.requestCorrection && (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
                 {t("requestCorrectionButton")}
+              </button>
+            )}
+            {canReopenForCorrection(dossier.status, role) && (
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openReopenModal}>
+                {t("reopenButton")}
               </button>
             )}
             {decisions.approve && (
@@ -1153,6 +1188,82 @@ function SubmissionDetailContent() {
             {rejectMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
                 {t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
+              </div>
+            )}
+          </div>
+        )}
+      </AdminDialog>
+
+      <AdminDialog
+        open={isReopenOpen}
+        onClose={() => setIsReopenOpen(false)}
+        title={t("reopenButton")}
+        eyebrow={t("declarationLine", { ref, name: name ?? "\u2014" })}
+        footer={
+          <>
+            <button
+              type="button"
+              className="cam-button cam-button-secondary cam-button-sm"
+              onClick={() => setIsReopenOpen(false)}
+            >
+              {reopenSuccess ? t("closeButton") : tCommon("cancel")}
+            </button>
+            {!reopenSuccess && (
+              <button
+                type="button"
+                className="cam-button cam-button-primary cam-button-sm"
+                onClick={() => reopenMutation.mutate()}
+                disabled={!certifiedReopen || reopenReason.trim().length < 10 || reopenMutation.isPending}
+              >
+                {reopenMutation.isPending ? t("reopening") : t("confirmReopen")}
+              </button>
+            )}
+          </>
+        }
+      >
+        {reopenSuccess ? (
+          <p className="cam-admin-notice cam-admin-notice--success">{t("reopenSuccess")}</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+            <p style={{ margin: 0 }}>{t("reopenBody")}</p>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="reopen-motif">
+                {t("reopenReasonLabel")}
+              </label>
+              <textarea
+                id="reopen-motif"
+                className="cam-admin-textarea"
+                rows={3}
+                required
+                aria-required="true"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder={t("reopenReasonPlaceholder")}
+              />
+              {reopenReason.trim().length > 0 && reopenReason.trim().length < 10 && (
+                <p className="cam-field-error" style={{ margin: "var(--cam-space-1) 0 0" }}>
+                  {t("reasonTooShort", { length: reopenReason.trim().length })}
+                </p>
+              )}
+            </div>
+
+            <label className="cam-admin-choice">
+              <input
+                type="checkbox"
+                checked={certifiedReopen}
+                onChange={(e) => setCertifiedReopen(e.target.checked)}
+              />
+              <span>
+                <strong>{t("certifyStrong")}</strong> {t("reopenCertifyRest")}
+              </span>
+            </label>
+
+            <p className="cam-admin-meta" style={{ margin: 0 }}>{t("reopenAudit")}</p>
+
+            {reopenMutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+                {t("reopenFailed", { message: (reopenMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
             )}
           </div>

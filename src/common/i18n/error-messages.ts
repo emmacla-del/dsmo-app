@@ -400,6 +400,11 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Impossible d\'approuver un dossier au statut {0}.', en: 'A file with status {0} cannot be approved.' },
   { fr: 'Impossible de rejeter un dossier au statut {0}.', en: 'A file with status {0} cannot be rejected.' },
   { fr: 'Impossible de demander une correction sur un dossier au statut {0}.', en: 'A correction cannot be requested on a file with status {0}.' },
+  { fr: "Seuls les administrateurs centraux de l'ONEFOP peuvent rouvrir un dossier visé.", en: 'Only central ONEFOP administrators can reopen an endorsed file.' },
+  { fr: 'La certification est requise pour rouvrir un dossier visé.', en: 'Certification is required to reopen an endorsed file.' },
+  { fr: 'Le motif de la réouverture doit comporter au moins 10 caractères.', en: 'The reason for reopening must be at least 10 characters long.' },
+  { fr: 'Seul un dossier visé peut être rouvert ; ce dossier est au statut {0}.', en: 'Only an endorsed file can be reopened; this file has status {0}.' },
+  { fr: "Ce dossier ne peut pas être rouvert : sa période {0} n'est plus ouverte, le déclarant ne pourrait pas le soumettre à nouveau.", en: 'This file cannot be reopened: its period {0} is no longer open, so the respondent could not submit it again.' },
 
   // ── Team monitoring (actor summary, nudges) ──────────────────────────
   { fr: 'Aucun dossier en attente depuis plus de {0} jours pour cet administrateur.', en: 'No file has been pending for more than {0} days for this administrator.' },
