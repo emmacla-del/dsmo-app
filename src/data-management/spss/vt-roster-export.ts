@@ -18,7 +18,7 @@ import type { SavVariable } from './sav-writer';
 /** Version of the roster file's shape, independent of DATASET_SCHEMA_VERSION. */
 export const VT_ROSTER_DATASET_VERSION = 1;
 
-export const VT_ROSTER_FILE_LABEL = `CONFIDENTIEL - données nominatives (8.8) - CAM-LEAP / ONEFOP (liste nominative v${VT_ROSTER_DATASET_VERSION})`;
+export const VT_ROSTER_FILE_LABEL = `CONFIDENTIEL - données nominatives (8.8) - CAMLEAP / ONEFOP (liste nominative v${VT_ROSTER_DATASET_VERSION})`;
 
 /** Context variables copied from the main dataset, same names and values. */
 export const VT_ROSTER_CONTEXT_VARIABLES = [

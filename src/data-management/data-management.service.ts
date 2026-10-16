@@ -966,7 +966,7 @@ export class DataManagementService {
                 const variables = adapter.getVariablesForPartition(partition);
                 include = this.partitionInclude(partition);
                 writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), {
-                    fileLabel: `CAM-LEAP / ONEFOP - Registre Analytique Canonique (v${DATASET_SCHEMA_VERSION})`,
+                    fileLabel: `CAMLEAP / ONEFOP - Registre Analytique Canonique (v${DATASET_SCHEMA_VERSION})`,
                 });
                 const referencePeriods = await this.loadReferencePeriods();
                 rowsOf = (batch) => batch.map((s) => {
@@ -984,7 +984,7 @@ export class DataManagementService {
                         width: c.numeric ? 10 : 254,
                         missingValues: c.numeric ? [-99] : undefined,
                     })),
-                    { fileLabel: 'CAM-LEAP / ONEFOP' },
+                    { fileLabel: 'CAMLEAP / ONEFOP' },
                 );
                 const detailKeyByFormType = new Map(this.onefopSheetDefs().map((d) => [d.formType, d.detailKey]));
                 const remapByFormType = this.buildFormTypeRemap();
@@ -1087,7 +1087,7 @@ export class DataManagementService {
     }
 
     private readonly vtRosterHeader = {
-        title: 'CONFIDENTIEL — données nominatives (8.8). Liste nominative du personnel, CAM-LEAP / ONEFOP.',
+        title: 'CONFIDENTIEL — données nominatives (8.8). Liste nominative du personnel, CAMLEAP / ONEFOP.',
         version: `Version de la liste nominative : ${VT_ROSTER_DATASET_VERSION}.`,
     };
 
@@ -1221,7 +1221,7 @@ export class DataManagementService {
     }
 
     private readonly vtContactHeader = {
-        title: 'CONFIDENTIEL — coordonnées et personnes de contact. CAM-LEAP / ONEFOP.',
+        title: 'CONFIDENTIEL — coordonnées et personnes de contact. CAMLEAP / ONEFOP.',
         version: `Version du fichier contacts : ${VT_CONTACT_DATASET_VERSION}.`,
     };
 

@@ -12,7 +12,7 @@ import type { SavVariable } from './sav-writer';
 /** Version of the contact file's shape. */
 export const VT_CONTACT_DATASET_VERSION = 1;
 
-export const VT_CONTACT_FILE_LABEL = `CONFIDENTIEL - coordonnées et contacts (VT) - CAM-LEAP / ONEFOP (contacts v${VT_CONTACT_DATASET_VERSION})`;
+export const VT_CONTACT_FILE_LABEL = `CONFIDENTIEL - coordonnées et contacts (VT) - CAMLEAP / ONEFOP (contacts v${VT_CONTACT_DATASET_VERSION})`;
 
 /** Context variables copied from the main dataset, same names and values. */
 export const VT_CONTACT_CONTEXT_VARIABLES = [

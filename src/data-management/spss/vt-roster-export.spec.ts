@@ -144,6 +144,9 @@ describe('8.8 named staff list export', () => {
     const { sps, rosterVersion } = await service.buildVtRosterManifest();
     expect(rosterVersion).toBe(VT_ROSTER_DATASET_VERSION);
     expect(sps).toContain('* CONFIDENTIEL — données nominatives (8.8).');
+    // The platform's name is CAMLEAP (2026-10-16 re-test: the header said CAM-LEAP).
+    expect(sps).toContain('CAMLEAP / ONEFOP');
+    expect(sps).not.toContain('CAM-LEAP');
     expect(sps).toContain(`* Version de la liste nominative : ${VT_ROSTER_DATASET_VERSION}.`);
     expect(sps).not.toContain('Version du schéma du jeu de données');
     expect(sps).toContain("/FILE='onefop_8-8_liste_nominative.csv'");
