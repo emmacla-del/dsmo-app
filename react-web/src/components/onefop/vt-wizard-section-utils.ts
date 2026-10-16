@@ -194,21 +194,30 @@ const SECTION_3_FINE_GROUPS: Record<string, string | null> = {
   VT3_29: "Sécurisation", VT3_30: "Sécurisation",
 };
 
+// Section 7 in two blocks, as its questions read (defect 4, 2026-10-16):
+// 7.1-7.1.3 are the HIV and AIDS directives of the internal rules (they cover
+// harassment, stigma, discipline and how they are made known); 7.2-7.6 are
+// STIs, sex and HIV education, and the parents' guidance sessions. The first
+// block was titled "VBG & Discipline", and 7.2 belonged to neither: it showed,
+// untitled, under that heading, whose "questions left" did not count it.
+const S7_RULES = "Règlement intérieur et VIH/SIDA";
+const S7_EDUCATION = "IST, éducation sexuelle et orientation";
 const SECTION_7_FINE_GROUPS: Record<string, string | null> = {
-  VT7_1: "VBG & Discipline", VT7_2: "VBG & Discipline", VT7_3: "VBG & Discipline",
-  VT7_4: "VBG & Discipline", VT7_5: "VBG & Discipline", VT7_6: "VBG & Discipline",
-  VT7_6_INFORMED: "VBG & Discipline",
-  VT7_7: "VBG & Discipline", VT7_8: "VBG & Discipline", VT7_9: "VBG & Discipline",
-  VT7_10: "VBG & Discipline", VT7_11: "VBG & Discipline",
+  VT7_1: S7_RULES, VT7_2: S7_RULES, VT7_3: S7_RULES,
+  VT7_4: S7_RULES, VT7_5: S7_RULES, VT7_6: S7_RULES,
+  VT7_6_INFORMED: S7_RULES,
+  VT7_7: S7_RULES, VT7_8: S7_RULES, VT7_9: S7_RULES,
+  VT7_10: S7_RULES, VT7_11: S7_RULES,
   // 7.1.3 « précisez » of each row's 96, shown under the channel grid.
-  VT7_7_OTHER: "VBG & Discipline", VT7_8_OTHER: "VBG & Discipline", VT7_9_OTHER: "VBG & Discipline",
-  VT7_10_OTHER: "VBG & Discipline", VT7_11_OTHER: "VBG & Discipline",
-  VT7_13: "Éducation Sexuelle & Orientation", VT7_14: "Éducation Sexuelle & Orientation",
-  VT7_15: "Éducation Sexuelle & Orientation", VT7_16: "Éducation Sexuelle & Orientation",
-  VT7_17: "Éducation Sexuelle & Orientation", VT7_18: "Éducation Sexuelle & Orientation",
-  VT7_19: "Éducation Sexuelle & Orientation", VT7_20: "Éducation Sexuelle & Orientation",
-  VT7_20_DOMAINS: "Éducation Sexuelle & Orientation",
-  VT7_21: "Éducation Sexuelle & Orientation", VT7_22: "Éducation Sexuelle & Orientation",
+  VT7_7_OTHER: S7_RULES, VT7_8_OTHER: S7_RULES, VT7_9_OTHER: S7_RULES,
+  VT7_10_OTHER: S7_RULES, VT7_11_OTHER: S7_RULES,
+  VT7_12: S7_EDUCATION,
+  VT7_13: S7_EDUCATION, VT7_14: S7_EDUCATION,
+  VT7_15: S7_EDUCATION, VT7_16: S7_EDUCATION,
+  VT7_17: S7_EDUCATION, VT7_18: S7_EDUCATION,
+  VT7_19: S7_EDUCATION, VT7_20: S7_EDUCATION,
+  VT7_20_DOMAINS: S7_EDUCATION,
+  VT7_21: S7_EDUCATION, VT7_22: S7_EDUCATION,
 };
 
 const SECTION_9_FINE_GROUPS: Record<string, string | null> = {
@@ -245,8 +254,8 @@ const VT_GROUP_TITLE_EN: Record<string, string> = {
   "Préparation et formations des formateurs": "Trainer Emergency Preparedness",
   "Formateurs formés sur d'autres aspects d'ESU": "Trainers trained on other emergency aspects",
   "Sécurisation": "Security measures",
-  "VBG & Discipline": "GBV & Discipline",
-  "Éducation Sexuelle & Orientation": "Sex Education & Guidance",
+  "Règlement intérieur et VIH/SIDA": "Internal rules on HIV and AIDS",
+  "IST, éducation sexuelle et orientation": "STIs, sex education and guidance",
   "Difficultés": "Difficulties",
 };
 
