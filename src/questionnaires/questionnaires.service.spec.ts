@@ -244,8 +244,8 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
   const administrationData = {
     respondent: validRespondent,
     administration: {
-      name: 'MINEFOP', area: 1, region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1',
-      locality: 'Centre-ville', phone1: '699999999', sector: 1, mainMission: 'Emploi',
+      name: 'MINEFOP', sigle: 'MF', area: 1, region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1',
+      locality: 'Centre-ville', phone1: '699999999', poBox: 'BP 1', sector: 1, branch: 'Fonction publique', mainMission: 'Emploi',
       hasProject: 1, projectCount: 2, hasSupervisedStructures: 2,
     },
   };
@@ -253,7 +253,7 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
   const projectProgramData = {
     respondent: validRespondent,
     projectProgram: {
-      nature: 1, name: 'Programme Test', personInCharge: 'Marie Curie', area: 1, region: 'Centre',
+      nature: 1, name: 'Programme Test', sigle: 'PT', personInCharge: 'Marie Curie', area: 1, region: 'Centre',
       department: 'Mfoundi', subdivision: 'Yaoundé 1', locality: 'Centre-ville', phone1: '699999999',
       poBox: 'BP 1', sector: 1, branch: 'Formation', mainMission: 'Insertion', headOffice: 'Yaoundé',
       supervisingMinistry: 'MINEFOP', status: 2, permanentWorkers: 5, vacancies: 1,
@@ -353,6 +353,39 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
     } catch (e: any) {
       expect(e).toBeInstanceOf(BadRequestException);
       expect(e.getResponse().missingFields).toContain('projectProgram.stopReason');
+    }
+  });
+
+  it.each(['sigle', 'poBox', 'branch'])(
+    'Administration: requires %s in final submission',
+    (field) => {
+      const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS);
+      const incompleteData = {
+        respondent: validRespondent,
+        administration: { ...administrationData.administration, [field]: undefined },
+      };
+      try {
+        callEnforce(incompleteData, flat, 'administration');
+        fail('expected BadRequestException');
+      } catch (e: any) {
+        expect(e).toBeInstanceOf(BadRequestException);
+        expect(e.getResponse().missingFields).toContain(`administration.${field}`);
+      }
+    },
+  );
+
+  it('Projects & Programs: requires sigle in final submission', () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    const incompleteData = {
+      respondent: validRespondent,
+      projectProgram: { ...projectProgramData.projectProgram, sigle: undefined },
+    };
+    try {
+      callEnforce(incompleteData, flat, 'projectProgram');
+      fail('expected BadRequestException');
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      expect(e.getResponse().missingFields).toContain('projectProgram.sigle');
     }
   });
 });
@@ -1596,6 +1629,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         projectProgram: {
           nature: 'Projet',
           name: 'PROJ-TEST',
+          sigle: 'PT',
           personInCharge: 'M. Le Directeur',
           area: 1,
           region: 'Centre',
