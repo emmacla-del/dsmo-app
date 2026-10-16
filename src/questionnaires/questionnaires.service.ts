@@ -366,6 +366,9 @@ function toLowerEntityType(normalizedEntityType: string): string {
   return normalizedEntityType.toLowerCase();
 }
 
+/** The roles that may reopen an endorsed file for correction (defect 13). */
+const REOPEN_ROLES: string[] = ['SUPER_ADMIN', 'ADMIN_ONEFOP'];
+
 function normalizeEntityType(type: string): string {
   const upper = type?.toUpperCase()?.replace(/[\s-]+/g, '_') || '';
   if (upper === 'ENTERPRISE' || upper === 'ENTREPRISE') return 'ENTREPRISE';
@@ -3419,7 +3422,7 @@ export class QuestionnairesService {
   private async findForDecision(id: string, territory?: Territory) {
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
-      select: { id: true, status: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
+      select: { id: true, status: true, quarterCode: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;
@@ -3556,6 +3559,74 @@ export class QuestionnairesService {
     }
     const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the correction request.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
+    return updated;
+  }
+
+  /**
+   * Withdraws an endorsement so the respondent corrects and resubmits
+   * (defect 13 of the 2026-10-16 VT run: an endorsed file could never be
+   * returned, and the next submit for the period was refused with 409).
+   *
+   * - SUPER_ADMIN and ADMIN_ONEFOP only (the route says so too);
+   * - APPROVED files only; a written reason and the reviewer's attestation;
+   * - only while the file's period is open, or the respondent could not
+   *   resubmit and the declaration would simply leave the statistics;
+   * - recorded as AUDIT_REOPEN. The file then follows the correction flow:
+   *   CORRECTION_REQUESTED, the reason shown to the respondent, who submits
+   *   a corrected declaration as a new file for review.
+   */
+  async reopenForCorrection(id: string, reason: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
+    if (!territory?.role || !REOPEN_ROLES.includes(territory.role)) {
+      throw new ForbiddenException('Seuls les administrateurs centraux de l\'ONEFOP peuvent rouvrir un dossier visé.');
+    }
+    if (certified !== true) {
+      throw new BadRequestException('La certification est requise pour rouvrir un dossier visé.');
+    }
+    if (!reason || reason.trim().length < 10) {
+      throw new BadRequestException('Le motif de la réouverture doit comporter au moins 10 caractères.');
+    }
+    const submission = await this.findForDecision(id, territory);
+    if (submission.status !== 'APPROVED') {
+      throw new BadRequestException(`Seul un dossier visé peut être rouvert ; ce dossier est au statut ${submission.status}.`);
+    }
+    const openRound = await this.prisma.submissionRound.findFirst({
+      where: {
+        module: 'ONEFOP',
+        status: { in: ['OPEN', 'EXTENDED'] },
+        deadline: { gte: new Date() },
+        ...(submission.quarterCode ? { quarterCode: submission.quarterCode } : {}),
+      },
+      select: { id: true },
+    });
+    if (!openRound) {
+      throw new BadRequestException(
+        `Ce dossier ne peut pas être rouvert : sa période ${submission.quarterCode ?? ''} n'est plus ouverte, le déclarant ne pourrait pas le soumettre à nouveau.`,
+      );
+    }
+    if (reviewedBy) {
+      await (this.prisma as any).auditLog.create({
+        data: {
+          userId: reviewedBy,
+          action: 'AUDIT_REOPEN',
+          resourceType: 'OnefopSubmission',
+          resourceId: submission.id,
+          details: {
+            reason: reason.trim(),
+            previousStatus: submission.status,
+            newStatus: 'CORRECTION_REQUESTED',
+            certified: true,
+            campaignId: submission.campaignId ?? null,
+            establishmentId: submission.establishmentId ?? null,
+          },
+        },
+      });
+    }
+    const updated = await (this.prisma as any).onefopSubmission.update({
+      where: { id: submission.id },
+      data: { status: 'CORRECTION_REQUESTED', rejectionReason: reason.trim(), reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
+    });
+    // Campaign progress B4: best-effort, never fails the reopening.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;
   }

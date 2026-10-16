@@ -62,6 +62,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   AUDIT_BULK_REJECT:       { label: "Rejet en lot", tone: "error" },
   AUDIT_REJECT:            { label: "Dossier rejeté", tone: "error" },
   AUDIT_CORRECTION:        { label: "Retour pour correction", tone: "warning" },
+  AUDIT_REOPEN:            { label: "Visa retiré, retour pour correction", tone: "warning" },
   AUDIT_LIST_EXPORT:       { label: "Export de la liste des dossiers", tone: "neutral" },
   ANOMALY_RESOLVED:        { label: "Anomalie résolue", tone: "success" },
   ANOMALY_WAIVED:          { label: "Anomalie dérogée", tone: "warning" },
@@ -97,6 +98,7 @@ const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
   AUDIT_BULK_REJECT: "Bulk rejection",
   AUDIT_REJECT: "File rejected",
   AUDIT_CORRECTION: "Returned for correction",
+  AUDIT_REOPEN: "Endorsement withdrawn, returned for correction",
   AUDIT_LIST_EXPORT: "File list export",
   ANOMALY_RESOLVED: "Anomaly resolved",
   ANOMALY_WAIVED: "Anomaly waived",
@@ -259,7 +261,7 @@ export function auditTransition(e: AuditLogEntry, locale: UiLocale = "fr"): stri
       [text(role) && directoryRoleLabel(String(role), locale), text(region), text(dept)].filter(Boolean).join(" · ") || "—";
     return `${side(d.previousRole, d.previousRegion, d.previousDepartment)} → ${side(d.newRole, d.newRegion, d.newDepartment)}`;
   }
-  if (e.action === "AUDIT_CORRECTION" && text(d.previousStatus)) {
+  if ((e.action === "AUDIT_CORRECTION" || e.action === "AUDIT_REOPEN") && text(d.previousStatus)) {
     return `${statusLabel(String(d.previousStatus))} → ${statusLabel("CORRECTION_REQUESTED")}`;
   }
   return null;

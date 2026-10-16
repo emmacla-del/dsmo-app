@@ -294,4 +294,20 @@ export class AdminQuestionnairesController {
   ) {
     return this.service.requestCorrection(id, comments, certified, req.user?.id, territoryFromUser(req.user));
   }
+
+  /**
+   * Reopens an endorsed (APPROVED) file for correction: SUPER_ADMIN and
+   * ADMIN_ONEFOP only, with a written reason and the reviewer's attestation,
+   * recorded as AUDIT_REOPEN (defect 13). The service checks the role again.
+   */
+  @Patch(':id/reopen-for-correction')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  async reopenForCorrection(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Body('certified') certified: boolean,
+    @Request() req: any,
+  ) {
+    return this.service.reopenForCorrection(id, reason, certified, req.user?.id, territoryFromUser(req.user));
+  }
 }

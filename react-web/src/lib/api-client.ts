@@ -812,6 +812,19 @@ export function requestCorrectionDossier(id: string, comments: string, certified
   });
 }
 
+/**
+ * Withdraws an endorsement so the respondent corrects and resubmits
+ * (defect 13 of the 2026-10-16 VT run). SUPER_ADMIN and ADMIN_ONEFOP only,
+ * enforced server-side; the reason and the attestation are required and
+ * recorded (AUDIT_REOPEN).
+ */
+export function reopenDossierForCorrection(id: string, reason: string, certified: boolean) {
+  return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reopen-for-correction`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason, certified }),
+  });
+}
+
 export function bulkVisaDeclarations(payload: { submissionIds: string[]; certified: boolean; notes?: string }) {
   return apiFetch<{
     success: boolean;

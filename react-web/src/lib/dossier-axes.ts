@@ -104,6 +104,18 @@ export interface AllowedDecisions {
  * REJECTED are final, so nothing is offered. The server enforces this; the
  * interface only stops offering what it would refuse.
  */
+/** The roles that may reopen an endorsed file (the server's own list). */
+export const REOPEN_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP"] as const;
+
+/**
+ * An endorsed (APPROVED) file can be reopened for correction by the two
+ * central ONEFOP roles only (defect 13 of the 2026-10-16 VT run). The server
+ * enforces the same rule (QuestionnairesService.reopenForCorrection).
+ */
+export function canReopenForCorrection(status: string | null | undefined, role: string | null | undefined): boolean {
+  return status === "APPROVED" && (REOPEN_ROLES as readonly string[]).includes(role ?? "");
+}
+
 export function allowedDecisions(status: string | null | undefined): AllowedDecisions {
   if (status === "PENDING_REVIEW") return { approve: true, reject: true, requestCorrection: true };
   if (status === "CORRECTION_REQUESTED") return { approve: false, reject: true, requestCorrection: false };

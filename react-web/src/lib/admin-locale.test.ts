@@ -247,6 +247,10 @@ test("audit log helpers: English labels, summaries and transitions; French defau
     auditTransition(entry("AUDIT_CORRECTION", { previousStatus: "PENDING_REVIEW" }), "en"),
     "Pending → Correction requested",
   );
+  assert.match(
+    auditTransition(entry("AUDIT_REOPEN", { previousStatus: "APPROVED" }), "en") ?? "",
+    /^Endorsed → Correction requested$|^Approved → Correction requested$/,
+  );
   assert.equal(
     auditTransition(entry("USER_TERRITORY_CHANGED", { previousRole: "REGIONAL_ADMIN", newRole: "DIVISIONAL_ADMIN", newDepartment: "Mfoundi" }), "en"),
     "Regional → Departmental · Mfoundi",
