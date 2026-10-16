@@ -31,6 +31,7 @@ export function errorLocaleFrom(header: string | string[] | undefined): ErrorLoc
 }
 
 export const ERROR_MESSAGES: BilingualMessage[] = [
+  { fr: 'Export du fichier des contacts indisponible.', en: 'The contact file export is unavailable.' },
   // ── Authentication and accounts ──────────────────────────────────────
   { fr: 'Authentification requise.', en: 'Authentication required.' },
   { fr: 'Votre compte est en attente d\'approbation par un administrateur.', en: 'Your account is awaiting approval by an administrator.' },
