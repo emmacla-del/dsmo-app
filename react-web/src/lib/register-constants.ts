@@ -97,7 +97,9 @@ export interface EntityField {
   // is guidance that must stay visible once the field is filled.
   placeholder?: LocalizedText;
   required: boolean;
-  kind: "text" | "tel" | "number" | "select";
+  // "radio": exactly one of a few short options, every option on screen
+  // (§9), e.g. the promoter's sex; "select" for longer lists.
+  kind: "text" | "tel" | "number" | "select" | "radio";
   options?: import("./register-options").RegisterOption[];
   // Conditional visibility within the same entity's field set — mirrors
   // register_constants.dart's dependsOn/dependsValue (itself mirroring the
@@ -395,7 +397,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       // because section 3 also asks for the CENTRE's two phone numbers and
       // the missing-fields notice lists these by name.
       { key: "promoterName", label: { fr: "Promoteur — Nom", en: "Promoter — name" }, required: true, kind: "text" },
-      { key: "promoterSex", label: { fr: "Promoteur — Sexe", en: "Promoter — sex" }, required: true, kind: "select", options: SEX_OPTIONS },
+      { key: "promoterSex", label: { fr: "Promoteur — Sexe", en: "Promoter — sex" }, required: true, kind: "radio", options: SEX_OPTIONS },
       { key: "promoterPhone1", label: { fr: "Promoteur — Tél. 1", en: "Promoter — phone 1" }, required: true, kind: "tel" },
       { key: "promoterPhone2", label: { fr: "Promoteur — Tél. 2", en: "Promoter — phone 2" }, required: false, kind: "tel" },
     ],
