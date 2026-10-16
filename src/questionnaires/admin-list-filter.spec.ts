@@ -1,11 +1,18 @@
 import { ADMIN_LIST_FORM_TYPES, ADMIN_LIST_STATUSES, buildAdminListWhere, periodStart } from './admin-list-filter';
 
-const NOT_DRAFT = { status: { not: 'DRAFT' } };
+// Drafts never listed; replaced files (SUPERSEDED) only when asked for.
+const NOT_DRAFT = { status: { notIn: ['DRAFT', 'SUPERSEDED'] } };
 const NOW = new Date('2026-09-29T12:00:00.000Z');
 
 describe('buildAdminListWhere', () => {
   it('always excludes drafts, even with no filter and no territory', () => {
     expect(buildAdminListWhere({})).toEqual({ AND: [{}, NOT_DRAFT] });
+  });
+
+  it('lists replaced files (SUPERSEDED) only when the status filter asks for them', () => {
+    const where = buildAdminListWhere({ status: 'SUPERSEDED' });
+    expect(where.AND[1]).toEqual({ status: { notIn: ['DRAFT'] } });
+    expect(where.AND).toContainEqual({ status: 'SUPERSEDED' });
   });
 
   it('puts the territory first, then the draft exclusion, then each filter, all under AND', () => {

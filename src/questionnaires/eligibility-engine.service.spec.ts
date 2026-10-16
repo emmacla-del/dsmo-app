@@ -574,7 +574,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
     // Aggregates use the same territory filter as the other queue counts,
     // and never count drafts (unsubmitted work).
-    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { not: 'DRAFT' } }] };
+    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { notIn: ['DRAFT', 'SUPERSEDED'] } }] };
     for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
       expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
     }
@@ -608,7 +608,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
 
     const queues = await engine.getPilotageQueues();
 
-    // OnefopStatus has five members and DRAFT is excluded, so the four
+    // DRAFT and SUPERSEDED are excluded, so the four
     // remaining buckets partition the result set and the total is their sum.
     expect(queues.totalSubmissionsCount).toBe(1280);
     expect(queues.pendingNationalVisasCount).toBe(400);
@@ -693,7 +693,7 @@ describe('EligibilityEngineService.getQualitySummary — aggregates', () => {
   const scoped = {
     AND: [
       { region: { equals: 'Littoral', mode: 'insensitive' } },
-      { status: { not: 'DRAFT' } },
+      { status: { notIn: ['DRAFT', 'SUPERSEDED'] } },
       { campaignId: 'camp-1' },
     ],
   };

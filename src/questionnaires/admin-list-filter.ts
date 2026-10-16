@@ -39,14 +39,18 @@ export function periodStart(period: AdminListPeriod, now: Date): Date {
 /**
  * Filters are combined with AND, never spread into one object: a region filter
  * must narrow the caller's territory, never replace its region key and escape
- * it. Drafts are respondents' unsubmitted work and are never part of the list.
+ * it. Drafts are respondents' unsubmitted work and are never part of the list;
+ * replaced files (SUPERSEDED) only when the status filter asks for them.
  */
 export function buildAdminListWhere(
   filters: AdminListFilters,
   territory?: Territory,
   now: Date = new Date(),
 ): { AND: Record<string, unknown>[] } {
-  const and: Record<string, unknown>[] = [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }];
+  // A file replaced by a newer submission (SUPERSEDED) is closed: out of the
+  // list unless asked for by its status, as the file it points to is there.
+  const hidden = filters.status === OnefopStatus.SUPERSEDED ? [OnefopStatus.DRAFT] : [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED];
+  const and: Record<string, unknown>[] = [territoryWhere(territory), { status: { notIn: hidden } }];
   if (filters.status) and.push({ status: filters.status });
   if (filters.formType) and.push({ formType: filters.formType });
   if (filters.companyId) and.push({ companyId: filters.companyId });

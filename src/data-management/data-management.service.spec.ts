@@ -833,7 +833,8 @@ describe('DataManagementService — getDataStats territory scoping', () => {
     }
     // Company still gets the full shape — its model has the id column.
     expect(prisma.company.groupBy.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
-    expect(prisma.onefopSubmission.groupBy.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt' });
+    // A replaced file (SUPERSEDED) is counted once, as its replacement.
+    expect(prisma.onefopSubmission.groupBy.mock.calls[0][0].where).toEqual({ regionId: 'reg-lt', status: { not: 'SUPERSEDED' } });
   });
 
   it('scopes a DIVISIONAL_ADMIN by division — not department, not departmentId', async () => {

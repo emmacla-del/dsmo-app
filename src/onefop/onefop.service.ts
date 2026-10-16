@@ -209,7 +209,9 @@ export class OnefopService {
     }) {
         const where: any = {};
 
-        if (filters.status) where.status = filters.status;
+        // A replaced file (SUPERSEDED) is closed: listed only when asked for by
+        // its status. The respondent's home showed it next to its replacement.
+        where.status = filters.status ? filters.status : { not: 'SUPERSEDED' };
         // NORMALIZE entityType filter to uppercase
         if (filters.entityType) where.formType = filters.entityType.toUpperCase();
         if (filters.establishmentId) where.establishmentId = filters.establishmentId;

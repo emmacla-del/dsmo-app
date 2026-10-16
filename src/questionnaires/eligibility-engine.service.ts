@@ -233,8 +233,11 @@ export class EligibilityEngineService {
    * Scoped by territory if the user is regional or divisional.
    */
   async getPilotageQueues(territory?: Territory): Promise<PilotageQueues> {
-    // Drafts are respondents' unsubmitted work: never counted as submissions.
-    const baseWhere: any = { AND: [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }] };
+    // Drafts are respondents' unsubmitted work, and a replaced file
+    // (SUPERSEDED) is counted once, as the file that replaced it.
+    const baseWhere: any = {
+      AND: [territoryWhere(territory), { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } }],
+    };
 
     // Kept deliberately narrow: four round trips, never more than two at once.
     //
@@ -320,7 +323,8 @@ export class EligibilityEngineService {
     const baseWhere: any = {
       AND: [
         territoryWhere(territory),
-        { status: { not: OnefopStatus.DRAFT } },
+        // Not drafts, and not replaced files: see getPilotageQueues.
+        { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } },
         ...(campaignId ? [{ campaignId }] : []),
       ],
     };

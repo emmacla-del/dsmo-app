@@ -3710,6 +3710,8 @@ export class QuestionnairesService {
       case 'APPROVED': return 'Visé';
       case 'PENDING_REVIEW': return 'En instance';
       case 'REJECTED': return 'Rejeté';
+      // Listed only when the list is filtered on it (buildAdminListWhere).
+      case 'SUPERSEDED': return 'Remplacé par un dossier plus récent';
       default: return 'Correction demandée';
     }
   }

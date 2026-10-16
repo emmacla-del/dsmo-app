@@ -40,6 +40,11 @@ describe('ONEFOP export filters', () => {
     expect(() => buildOnefopExportWhere({ year: 'deux mille' }, ELIGIBLE)).toThrow(BadRequestException);
   });
 
+  it('never exports a replaced file (SUPERSEDED): asking for one is refused', () => {
+    expect(() => parseStatuses('SUPERSEDED')).toThrow(BadRequestException);
+    expect(parseStatuses('CORRECTION_REQUESTED')).toEqual(['CORRECTION_REQUESTED']);
+  });
+
   it('filters rows by entity type, place and year', () => {
     expect(
       buildOnefopExportWhere({ entityType: 'COOPERATIVE', region: 'Ouest', department: 'Mifi', year: '2026' }, ELIGIBLE),
