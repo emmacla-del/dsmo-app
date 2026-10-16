@@ -96,6 +96,21 @@ function formatExportFormat(fmt: string, t: Translate): string {
   }
 }
 
+/**
+ * A campaign in the picker: its period in the page's language. The stored
+ * title is added only to tell apart two campaigns of the same period.
+ */
+function campaignOptionLabel(
+  c: { id: string; code?: string | null; name?: string | null },
+  all: { code?: string | null }[],
+  locale: UiLocale,
+): string {
+  if (!c.code) return c.name ? formatCampaignDisplayName(c.name) : c.id;
+  const period = referencePeriodLabel(c.code, locale);
+  const shared = all.filter((o) => o.code && referencePeriodLabel(o.code, locale) === period).length > 1;
+  return shared && c.name ? `${period} — ${formatCampaignDisplayName(c.name)}` : period;
+}
+
 function formatExportScope(filters: Record<string, unknown> | null | undefined, tRoot: Translate, locale: UiLocale): string {
   const t = (key: string, values?: Record<string, string>) => tRoot(`adminDiffusionPage.${key}`, values);
   if (!filters || typeof filters !== "object" || Object.keys(filters).length === 0) {
@@ -119,9 +134,13 @@ export default function DiffusionPage() {
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
   // The subtitle names the active campaign, when there is one, instead of
-  // a fixed « Campagne 2026 ».
+  // a fixed « Campagne 2026 »: by its period in the page's language ("Q4
+  // 2026"), not its stored title, which is French, in capitals, and worded
+  // for one questionnaire while the campaign covers all of them (defect 22).
   const { activeCampaign } = useActiveCampaign();
-  const activeCampaignName = activeCampaign?.name || activeCampaign?.code || null;
+  const activeCampaignName = activeCampaign?.code
+    ? referencePeriodLabel(activeCampaign.code, locale)
+    : activeCampaign?.name || null;
 
   // Stats query
   const statsQuery = useQuery({
@@ -586,9 +605,9 @@ export default function DiffusionPage() {
                   onChange={(e) => setCampaignChoice(e.target.value)}
                 >
                   {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
-                    campaignsQuery.data.map((c) => (
+                    campaignsQuery.data.map((c, _i, all) => (
                       <option key={c.id} value={c.code || c.name || c.id}>
-                        {c.code ? `${referencePeriodLabel(c.code, locale)} — ` : ""}{c.name ? formatCampaignDisplayName(c.name) : c.id}
+                        {campaignOptionLabel(c, all, locale)}
                       </option>
                     ))
                   ) : (
@@ -817,14 +836,6 @@ export default function DiffusionPage() {
                 </button>
                 <div className="cam-admin-meta">{t("spssOnDemand")}</div>
               </div>
-
-              <DataState
-                dense
-                state="unavailable"
-                resource={t("referenceResource")}
-                title={t("referenceTitle")}
-                hint={t("referenceHint")}
-              />
             </div>
           </section>
         </div>
