@@ -1360,15 +1360,22 @@ export class QuestionnairesService {
     // one. See prisma/migrations/20260909100000_add_onefop_submission_duplicate_guard
     // for the matching partial unique index (belt-and-suspenders against
     // a concurrent race this pre-check alone can't close).
+    // The same query also finds the period's open correction requests, which
+    // this submission answers and closes once it is saved (SUPERSEDED, §21,
+    // 2026-10-16): one round trip for both (defect 12).
+    let openCorrectionIds: string[] = [];
     if (!isDraft) {
-      const conflicting = await this.prisma.onefopSubmission.findFirst({
+      const periodFiles = await this.prisma.onefopSubmission.findMany({
         where: {
           companyId: resolvedCompanyId,
           quarterCode: resolvedQuarterCode,
-          status: { in: ['PENDING_REVIEW', 'APPROVED'] },
+          status: { in: ['PENDING_REVIEW', 'APPROVED', 'CORRECTION_REQUESTED'] },
           ...(dto.formId ? { submissionId: { not: dto.formId } } : {}),
         },
+        select: { id: true, status: true },
       });
+      const conflicting = periodFiles.find((f) => f.status === 'PENDING_REVIEW' || f.status === 'APPROVED');
+      openCorrectionIds = periodFiles.filter((f) => f.status === 'CORRECTION_REQUESTED').map((f) => f.id);
       if (conflicting) {
         throw new ConflictException(
           'Une déclaration est déjà en cours pour ce trimestre. / ' +
@@ -1497,6 +1504,14 @@ export class QuestionnairesService {
       throw err;
     }
 
+    // The correction requests this submission answers are closed: SUPERSEDED,
+    // pointing at it, each with an audit entry. Best-effort, like the steps
+    // below: the declaration is saved; a failure leaves the old file open,
+    // as it was before this existed, and is logged.
+    if (!isDraft && openCorrectionIds.length > 0) {
+      await this.supersedeCorrections(openCorrectionIds, result.id, dto.userId);
+    }
+
     // Campaign progress sync:
     // DRAFT -> IN_PROGRESS, PENDING_REVIEW -> SUBMITTED (with submittedAt).
     // Best-effort: the OnefopSubmission is already saved, so a failure is logged, not thrown.
@@ -1543,6 +1558,39 @@ export class QuestionnairesService {
         : 'Formulaire soumis avec succès',
       data: coherenceFlags.length ? { flags: coherenceFlags } : undefined,
     };
+  }
+
+  /**
+   * Closes the correction requests a new submission answers (owner, §21,
+   * 2026-10-16). Only CORRECTION_REQUESTED rows move: the status condition
+   * is repeated in the update so a file a reviewer changed in between
+   * (approved, rejected) is left as the reviewer set it.
+   */
+  private async supersedeCorrections(ids: string[], replacingId: string, userId: string | undefined): Promise<void> {
+    try {
+      // Usually one file; one by one so the audit names only those closed.
+      const closed: string[] = [];
+      for (const id of ids) {
+        const { count } = await this.prisma.onefopSubmission.updateMany({
+          where: { id, status: 'CORRECTION_REQUESTED' },
+          data: { status: 'SUPERSEDED', supersededById: replacingId },
+        });
+        if (count > 0) closed.push(id);
+      }
+      if (closed.length > 0 && userId) {
+        await (this.prisma as any).auditLog.createMany({
+          data: closed.map((id) => ({
+            userId,
+            action: 'AUDIT_SUPERSEDED',
+            resourceType: 'OnefopSubmission',
+            resourceId: id,
+            details: { previousStatus: 'CORRECTION_REQUESTED', newStatus: 'SUPERSEDED', supersededById: replacingId },
+          })),
+        });
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to close the correction requests answered by ONEFOP submission ${replacingId}: ${err?.message}`, err?.stack);
+    }
   }
 
   /**

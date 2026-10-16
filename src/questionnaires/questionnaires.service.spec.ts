@@ -442,6 +442,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
+        // The period's live files and open correction requests (none here).
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(({ data }: any) =>
           Promise.resolve({ submissionId: data.submissionId })),
       },
@@ -1582,6 +1584,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         onefopSubmission: {
           findUnique: jest.fn().mockResolvedValue(null),
           findFirst: jest.fn().mockResolvedValue(null),
+          // The period's live files and open correction requests (none here).
+          findMany: jest.fn().mockResolvedValue([]),
           create: jest.fn().mockImplementation(({ data }: any) =>
             Promise.resolve({ submissionId: data.submissionId })),
         },
@@ -1865,6 +1869,8 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
+        // The period's live files and open correction requests (none here).
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(({ data }: any) =>
           Promise.resolve({ submissionId: data.submissionId })),
         update: jest.fn().mockResolvedValue({}),
@@ -2236,6 +2242,8 @@ describe('QuestionnairesService — Section 1 territory sourcing (Commit 0.1b)',
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
+        // The period's live files and open correction requests (none here).
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(({ data }: any) =>
           Promise.resolve({ submissionId: data.submissionId })),
       },
@@ -2319,6 +2327,8 @@ describe('QuestionnairesService — Phase E.1 Establishment Resolution', () => {
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
+        // The period's live files and open correction requests (none here).
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(({ data }: any) =>
           Promise.resolve({ submissionId: data.submissionId })),
       },
