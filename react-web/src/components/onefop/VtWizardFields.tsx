@@ -20,7 +20,8 @@ import { CheckboxGroup, type CheckboxOption } from "./form/Checkbox";
 import { NumberStepper } from "./form/NumberStepper";
 import { Microcopy } from "./form/Microcopy";
 import { OptionalSuffix } from "./ui/OptionalSuffix";
-import { isOptionalField } from "@/lib/onefop-validation";
+import { isOptionalField, VT_DATE_FIELD_ID } from "@/lib/onefop-validation";
+import { respondentFunctionLabel } from "@/lib/display-labels";
 
 /** next-intl's useLocale() returns a plain string ("fr"/"en"/"fr-FR"...);
  * localized() wants the narrow union. */
@@ -75,12 +76,27 @@ function VtFieldHint({ id, children }: { id?: string; children: ReactNode }) {
  * Where a VT question's hint goes: into the box as its placeholder when the
  * question has one text box, otherwise appended to the question's tooltip.
  */
+/**
+ * A box's example when the schema gives none: an e-mail in the screen's
+ * language (1.16 showed a French one on the English form), and the
+ * DD/MM/YYYY form of 2.1.13's order date, the format it is stored in.
+ */
+function fallbackPlaceholder(field: OnefopField, locale: string): string | undefined {
+  const en = locale.startsWith("en");
+  if (field.type === "email") return en ? "E.g. name@example.com" : "Ex : nom@exemple.com";
+  if (field.id === VT_DATE_FIELD_ID) return en ? "DD/MM/YYYY" : "JJ/MM/AAAA";
+  return undefined;
+}
+
 export function vtHintPlacement(
   field: OnefopField,
   hint: string | undefined,
   tooltip: string | undefined,
 ): { placeholder?: string; tooltip?: string } {
   if (!hint) return { tooltip };
+  // 1.1 is filled in for the respondent: the paper's "A ne pas remplir" is
+  // not shown under (or in) a box that already holds the code (defect 18).
+  if (VT_ADMIN_ONLY_IDS.has(field.id)) return { tooltip };
   const textBox =
     isVtYearField(field) ||
     (["text", "email", "tel", "textarea"].includes(field.type) && field.id !== "VT9_3" && field.id !== "VT9_4");
@@ -398,13 +414,16 @@ export function VtWizardInlineCountBox({
    *  the block say "to fix" with nothing marked on screen. */
   errorMessage?: string;
 }) {
-  const t = useTranslations();
+  const locale = useLocale();
   const errorId = vtFieldErrorId(field.id);
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-2)" }}>
+        {/* The count's own question ("If yes, specify the number of study
+            guides…"), not a bare "Number:": the label and the error now
+            name the same thing (defect 18 of the 2026-10-16 run). */}
         <label htmlFor={field.id} style={{ ...labelStyle, marginBottom: 0 }}>
-          {t("vtWizard.number", { default: "Nombre :" })}
+          {localized(field.label, vtLocale(locale))}
         </label>
         <VtWizardNumberStepper
           field={field}
@@ -961,8 +980,8 @@ export function VtWizardField({
         id={field.id}
         {...a11yProps}
         type={field.type === "email" ? "email" : "text"}
-        placeholder={hintPlaceholder ?? (field.type === "email" ? "exemple@domaine.cm" : undefined)}
-        value={(value as string) ?? ""}
+        placeholder={hintPlaceholder ?? fallbackPlaceholder(field, locale)}
+        value={field.id === "VT1_15_FUNCTION" ? respondentFunctionLabel(value as string, vtLocale(locale)) : ((value as string) ?? "")}
         readOnly={adminOnly}
         aria-readonly={adminOnly || undefined}
         onChange={adminOnly ? undefined : (e) => onChange(field.id, e.target.value)}

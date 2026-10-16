@@ -11,6 +11,7 @@
 // "Not answered" is its own value (null), never folded into "No" (§9).
 import type { FormData, OnefopEntity, OnefopField, OnefopSection, VtCellDef } from "./onefop-schema";
 import { isFieldVisible, isVtSectionWaived, localized } from "./onefop-schema";
+import { respondentFunctionLabel } from "./display-labels";
 
 type Locale = "fr" | "en";
 
@@ -91,7 +92,10 @@ export function formatAnswer(field: OnefopField, value: unknown, locale: Locale,
   const out = list
     .map((v) => String(v ?? "").trim())
     .filter((v) => v !== "")
-    .map((v) => (field.options?.length ? optionLabel(field, v, locale) : v));
+    .map((v) => (field.options?.length ? optionLabel(field, v, locale) : v))
+    // 1.15 "Qualité du répondant" is stored as the French registration option
+    // ("Responsable RH"): shown in the reader's language, stored unchanged.
+    .map((v) => (field.id === "VT1_15_FUNCTION" ? respondentFunctionLabel(v, locale) : v));
   return out.length ? out : null;
 }
 

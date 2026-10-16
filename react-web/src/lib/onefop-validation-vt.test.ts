@@ -21,6 +21,7 @@ function completeAnswers(): FormData {
     if (!f.required || f.table) continue;
     const first = f.options?.[0]?.value;
     if (f.id === "VT1_14" || f.id === "VT2_15") out[f.id] = "2010";
+    else if (f.id === "VT2_17") out[f.id] = "15/03/2019";
     else if (f.type === "number") out[f.id] = "0";
     else if (f.type === "checkbox") out[f.id] = first ? [first] : ["Réponse"];
     else if (f.type === "tel") out[f.id] = "677000000";
@@ -327,3 +328,21 @@ test("Defect 5: 6.3 placed leavers in a specialty > 4.10 leavers warns and block
   assert.ok(secIssues.some((i) => i.fieldId === "VT6_13"));
 });
 
+
+// Defect 18 (2026-10-16 run): 2.1.13's order date is free text stored as
+// DD/MM/YYYY; the format is now checked, the stored text unchanged.
+test("2.1.13's accreditation order date must be a real DD/MM/YYYY date, not in the future", async () => {
+  const { isValidDayMonthYear } = await import("./onefop-validation");
+  const today = new Date(2026, 9, 16);
+  assert.equal(isValidDayMonthYear("15/03/2019", today), true);
+  assert.equal(isValidDayMonthYear("16/10/2026", today), true);
+  for (const bad of ["2019-03-15", "15/3/2019", "31/02/2019", "15/13/2019", "17/10/2026", "01/01/1899", "15/03/2019 "]) {
+    assert.equal(isValidDayMonthYear(bad, today), false, bad);
+  }
+  const data: FormData = { VT2_14: "Oui/ Yes", VT2_17: "2019-03-15" };
+  const issues = validateSectionData(vt.sections.find((s: { id: string }) => s.id === sectionOf("VT2_17"))!, data, "en");
+  const issue = issues.find((i) => i.fieldId === "VT2_17");
+  assert.match(issue?.cleanMessage ?? "", /DD\/MM\/YYYY/);
+  const ok = validateSectionData(vt.sections.find((s: { id: string }) => s.id === sectionOf("VT2_17"))!, { ...data, VT2_17: "15/03/2019" }, "en");
+  assert.equal(ok.find((i) => i.fieldId === "VT2_17"), undefined);
+});

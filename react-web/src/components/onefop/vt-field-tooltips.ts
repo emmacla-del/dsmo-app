@@ -8,8 +8,8 @@
 export const VT_FIELD_TOOLTIPS: Record<string, { fr: string; en: string }> = {
   // Section 1 - Identification
   VT1_1: {
-    fr: "Code d'identification officiel à 7-9 caractères délivré par le MINEFOP.",
-    en: "Official 7-9 character identification code issued by MINEFOP.",
+    fr: "Identifiant de votre centre, attribué à l'inscription (ex. VT26001002). Il est rempli pour vous et ne se modifie pas.",
+    en: "Your centre's ID, assigned at registration (e.g. VT26001002). It is filled in for you and cannot be changed.",
   },
   VT1_3: {
     fr: "Acronyme ou abréviation officielle de la structure (ex: CFPR, CFP-B).",
