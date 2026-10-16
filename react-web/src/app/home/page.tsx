@@ -71,6 +71,11 @@ const STATUS_BADGE_CLASS: Record<SubmissionGroup, string> = {
   rejected: "cam-badge-error",
 };
 
+/** VOCATIONAL_TRAINING (API) or vocationalTraining (schema). */
+function isTrainingCentre(entityType: string | null | undefined): boolean {
+  return (entityType ?? "").replace(/_/g, "").toLowerCase() === "vocationaltraining";
+}
+
 function groupStatusLabel(t: ReturnType<typeof useTranslations>, group: SubmissionGroup): string {
   switch (group) {
     case "draft":
@@ -286,7 +291,9 @@ export default function HomeLandingPage() {
               <span>{locationText}</span>
             </>
           )}
-          {company?.totalEmployees != null && (
+          {/* A training centre declares trainees and trainers, not employees:
+              its header never read anything but "0 declared employees". */}
+          {company?.totalEmployees != null && !isTrainingCentre(company.entityType) && (
             <>
               <span aria-hidden="true">·</span>
               <span>{t("homeLandingPage.employeesCount", { count: company.totalEmployees })}</span>
@@ -304,22 +311,13 @@ export default function HomeLandingPage() {
       <section style={{
         background: "var(--cam-surface)",
         border: "var(--cam-border-width) solid var(--cam-border)",
-        borderLeft: `4px solid ${
-          !quarter?.isOpen
-            ? "var(--cam-border-strong)"
-            : surveyState === "correction"
-            ? "var(--cam-warning)"
-            : surveyState === "rejected"
-            ? "var(--cam-error)"
-            : "var(--cam-primary)"
-        }`,
         borderRadius: "var(--cam-radius-lg)",
         padding: "var(--cam-space-5) var(--cam-space-6)",
         boxShadow: "var(--cam-shadow-sm)",
       }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--cam-text-muted)" }}>
+            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
               {campaign || (quarter?.label ?? t("homeLandingPage.campaignStatusTitle"))}
             </span>
             {quarter && !quarter.isOpen && (
@@ -375,7 +373,14 @@ export default function HomeLandingPage() {
               {surveyState === "none" && (
                 <button
                   type="button"
-                  onClick={() => setIsDialogOpen(true)}
+                  // The campaign's survey is the account's own questionnaire,
+                  // as the rail's button opens it: no chooser offering a
+                  // training centre the employers' DSMO declaration.
+                  onClick={() =>
+                    company?.entityType
+                      ? router.push(`/onefop/preview?entity=${encodeURIComponent(company.entityType)}`)
+                      : setIsDialogOpen(true)
+                  }
                   className="cam-button cam-button-primary"
                   style={{ padding: "var(--cam-space-2) var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)" }}
                 >

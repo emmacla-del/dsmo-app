@@ -180,7 +180,10 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
 
   // Button follows survey state: Take survey, Resume, or Correct
   // It disappears once the survey is submitted / pending / approved / rejected or period is closed
+  // Not on /home itself, whose survey card carries the same action: one
+  // primary action per screen (§11, defect 23 of the 2026-10-16 VT run).
   const showSurveyButton =
+    pathname !== "/home" &&
     isCompany &&
     !awaitingApproval &&
     quarter?.isOpen &&
