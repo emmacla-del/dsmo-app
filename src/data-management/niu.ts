@@ -7,8 +7,9 @@
  * and must never reach an export as one. Mirrors hasRealNiu in
  * react-web/src/lib/companies-directory.ts.
  */
-export function hasRealNiu(value: string | null | undefined): boolean {
-  return !!value && !value.startsWith('NA-');
+export function hasRealNiu(value: unknown): value is string {
+  // Not a string (a number from an older payload, an object) is no NIU.
+  return typeof value === 'string' && value !== '' && !value.startsWith('NA-');
 }
 
 /**

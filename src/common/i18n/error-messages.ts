@@ -31,6 +31,11 @@ export function errorLocaleFrom(header: string | string[] | undefined): ErrorLoc
 }
 
 export const ERROR_MESSAGES: BilingualMessage[] = [
+  {
+    fr: 'Données incohérentes : une sous-catégorie (« dont ») ne peut pas dépasser son total.',
+    en: 'Incoherent data: a subset cannot exceed its total.',
+    also: ['Données incohérentes : une sous-catégorie (« dont ») ne peut pas dépasser son total. / Incoherent data: a subset cannot exceed its total.'],
+  },
   { fr: 'Export du fichier des contacts indisponible.', en: 'The contact file export is unavailable.' },
   // ── Authentication and accounts ──────────────────────────────────────
   { fr: 'Authentification requise.', en: 'Authentication required.' },

@@ -48,5 +48,10 @@ describe('resolveTaxNumber (Defect 6)', () => {
     expect(resolveTaxNumber({})).toBeUndefined();
     expect(resolveTaxNumber(null)).toBeUndefined();
   });
+
+  it('never throws on a NIU that is not a string', () => {
+    expect(() => resolveTaxNumber({ taxNumber: 12345, company: { taxNumber: 678 } })).not.toThrow();
+    expect(resolveTaxNumber({ taxNumber: 12345, company: { taxNumber: 'P0TESTE2E1016' } })).toBe('P0TESTE2E1016');
+  });
 });
 
