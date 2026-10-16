@@ -548,7 +548,7 @@ function VtFiveSlotsField({
   const isEn = locale.startsWith("en");
   const isPerspectives = field.id === "VT9_4";
   const slotPrefix = isPerspectives
-    ? (isEn ? "Prospect" : "Perspective")
+    ? (isEn ? "Outlook" : "Perspective")
     : (isEn ? "Other" : "Autre");
 
   const currentArray = useMemo(() => {
@@ -588,9 +588,14 @@ function VtFiveSlotsField({
       >
         {[0, 1, 2, 3, 4].map((i) => {
           const isSlotRequired = isPerspectives && i === 0;
+          // Each line is named by its visible label (defect 17 of the
+          // 2026-10-16 run: the placeholder was its only accessible name).
+          const slotId = `${field.id}-slot-${i + 1}`;
+          const slotInvalid = hasError && isSlotRequired && !currentArray[0]?.trim();
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span
+              <label
+                htmlFor={slotId}
                 style={{
                   minWidth: "115px",
                   fontSize: "13px",
@@ -599,20 +604,23 @@ function VtFiveSlotsField({
                 }}
               >
                 {slotPrefix} {i + 1}
-                {isSlotRequired ? (
-                  <span style={{ color: "var(--cam-error)", marginLeft: "4px" }}>*</span>
-                ) : (
+                {/* Required unless marked optional, the form's rule: no asterisk. */}
+                {!isSlotRequired && (
                   <span style={{ color: "var(--cam-text-muted)", fontWeight: 400, marginLeft: "4px", fontSize: "11px" }}>
                     ({isEn ? "optional" : "facultatif"})
                   </span>
                 )}
-              </span>
+              </label>
               <input
+                id={slotId}
                 type="text"
+                aria-required={isSlotRequired || undefined}
+                aria-invalid={slotInvalid || undefined}
+                aria-describedby={slotInvalid && errorId ? errorId : undefined}
                 value={currentArray[i] ?? ""}
                 onChange={(e) => handleSlotChange(i, e.target.value)}
                 onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-                className={`sovereign-text-input ${hasError && isSlotRequired && !currentArray[0]?.trim() ? "has-error" : ""}`}
+                className={`sovereign-text-input ${slotInvalid ? "has-error" : ""}`}
                 style={{ flex: 1, minHeight: "38px" }}
                 placeholder={
                   isPerspectives
