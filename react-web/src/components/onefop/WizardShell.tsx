@@ -254,6 +254,14 @@ export function WizardShell({
       if (positionKey) clearWizardSession(positionKey);
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
       setSubmissionId(result.submissionId || null);
+      // The receipt shows on the page, never inside the review window,
+      // which is closed: its "Edit information" no longer applies. A
+      // training centre moves to its final screen, where the receipt is.
+      setPreviewModalOpen(false);
+      if (isVt) {
+        setIsVtQuizStage(false);
+        setIsValidationStage(true);
+      }
     },
   });
 
@@ -767,7 +775,7 @@ export function WizardShell({
           submissionResult={submissionResult}
           submissionId={submissionId}
           submissionError={submissionError}
-          onPreviewPdf={() => setPreviewModalOpen(true)}
+          onPreviewPdf={submissionResult ? () => pdfMutation.mutate(formLocale) : () => setPreviewModalOpen(true)}
           isGeneratingPdf={pdfMutation.isPending}
           establishmentName={effectiveEstablishment}
           establishmentId={establishmentId}
@@ -789,7 +797,6 @@ export function WizardShell({
           hasErrors={validationIssues.length > 0}
           validationErrorCount={validationIssues.length}
           submissionResult={submissionResult}
-          submissionId={submissionId}
           submissionError={submissionError}
           establishmentName={effectiveEstablishment}
         />
@@ -866,7 +873,9 @@ export function WizardShell({
                 niu={niu}
                 quarterCode={effectiveQuarter}
                 locale={formLocale}
-                onDownloadPdf={() => handlePreviewPdf(formLocale)}
+                // A copy of the answers sent, straight away: the review window
+                // would bring back "Edit information" after submission.
+                onDownloadPdf={() => pdfMutation.mutate(formLocale)}
                 isGeneratingPdf={pdfMutation.isPending}
                 onPrint={() => window.print()}
                 onReturnToDashboard={onCancel}
@@ -934,7 +943,6 @@ export function WizardShell({
               hasErrors={validationIssues.length > 0}
               validationErrorCount={validationIssues.length}
               submissionResult={submissionResult}
-              submissionId={submissionId}
               submissionError={submissionError}
               establishmentName={effectiveEstablishment}
             />
@@ -1163,7 +1171,6 @@ export function WizardShell({
         hasErrors={validationIssues.length > 0}
         validationErrorCount={validationIssues.length}
         submissionResult={submissionResult}
-        submissionId={submissionId}
         submissionError={submissionError}
         establishmentName={effectiveEstablishment}
       />

@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { fetchDeclarationPreviewHtml, fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
 import type { OnefopEntity } from "@/lib/onefop-schema";
-import { OnefopSubmissionSuccess } from "./OnefopSubmissionSuccess";
 import { getZeroedTablesList, type ZeroedTableInfo } from "@/components/modern-jobs/scope/QuizSemantics";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 
@@ -23,8 +21,6 @@ interface OnefopPdfPreviewModalProps {
   hasErrors?: boolean;
   validationErrorCount?: number;
   submissionResult?: string | null;
-  /** The submission reference the server returned, for the receipt. */
-  submissionId?: string | null;
   submissionError?: { summary: string; items: string[] } | null;
   establishmentName?: string;
 }
@@ -43,11 +39,9 @@ export function OnefopPdfPreviewModal({
   hasErrors = false,
   validationErrorCount = 0,
   submissionResult,
-  submissionId,
   submissionError,
   establishmentName,
 }: OnefopPdfPreviewModalProps) {
-  const router = useRouter();
   const [activeLocale, setActiveLocale] = useState<"fr" | "en">(locale);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -492,32 +486,9 @@ export function OnefopPdfPreviewModal({
             />
           )}
 
-          {/* Submission Success Overlay */}
-          {submissionResult && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(255, 255, 255, 0.98)",
-                overflowY: "auto",
-                zIndex: 20,
-                padding: "24px 16px",
-              }}
-            >
-              <OnefopSubmissionSuccess
-                rawResult={submissionResult}
-                submissionId={submissionId}
-                entityType={entityType}
-                establishmentName={establishmentName}
-                quarterCode={quarterCode || undefined}
-                locale={isFr ? "fr" : "en"}
-                onDownloadPdf={handleDownload}
-                isGeneratingPdf={loading}
-                onPrint={() => window.print()}
-                onReturnToDashboard={() => router.push("/home/declarations")}
-              />
-            </div>
-          )}
+          {/* No receipt here: a successful submission closes this window, and
+              the receipt shows on the page (WizardShell), not under a "review
+              before submission" header with an "Edit information" button. */}
         </div>
 
         {/* Error notification if submission failed */}
