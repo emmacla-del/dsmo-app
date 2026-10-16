@@ -20,6 +20,7 @@ import {
   getToken,
   login as loginRequest,
   logoutRequest,
+  setOnUnauthorized,
   setToken,
   verifyTwoFactor as verifyTwoFactorRequest,
 } from "./api-client";
@@ -158,3 +159,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+// Defect 8: when any API request receives a 401, reset the in-memory auth store
+// so the screen guards immediately redirect to /login and polling loops halt.
+setOnUnauthorized(() => {
+  useAuthStore.getState().logout();
+});

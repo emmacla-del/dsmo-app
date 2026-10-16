@@ -154,6 +154,6 @@ export async function clearDraft(
  *  sessionStorage (wizard-position.ts). */
 export async function purgeAllDrafts(): Promise<void> {
   purgeWizardSessions();
-  if (!draftsDb) return;
+  if (!draftsDb || typeof indexedDB === "undefined") return;
   await draftsDb.drafts.clear();
 }
