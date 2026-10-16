@@ -134,9 +134,9 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
       const vt = report.forms.find((f) => f.entity === 'vocationalTraining')!;
       expect(vt).toBeDefined();
       // VT4_3, VT4_4, VT4_5, VT4_6, VT4_10, VT5_5, VT6_13, VT8_4, VT8_7 → LONG_FORMAT
-      // VT8_8 + 7 contact fields (VT1_15_*, VT1_16_*, VT2_12) → INTENTIONALLY_EXCLUDED (Defect 3)
+      // VT8_8 + 9 contact fields (VT1_15_*, VT1_16_*, VT2_12) → INTENTIONALLY_EXCLUDED (Defect 3)
       expect(vt.repeatingFields).toBe(9);
-      expect(vt.intentionallyExcluded).toBe(8);
+      expect(vt.intentionallyExcluded).toBe(10);
       expect(vt.missingFields).toBe(0);
     });
 
@@ -839,7 +839,7 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
       const schemaVer = allVars.find((v) => v.variableName === 'schemaVersion');
       expect(schemaVer).toBeDefined();
       expect(schemaVer!.paperCode).toBe('SYS_00');
-      expect(DATASET_SCHEMA_VERSION).toBe(10);
+      expect(DATASET_SCHEMA_VERSION).toBe(11);
       expect(adapter.extractValue(schemaVer!, { submissionId: 'test-123' })).toBe(DATASET_SCHEMA_VERSION);
       expect(adapter.extractValue(schemaVer!, { schemaVersion: 1 })).toBe(1);
     });

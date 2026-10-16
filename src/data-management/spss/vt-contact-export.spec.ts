@@ -33,20 +33,24 @@ function vtSubmission(id = '60b107b8-7027-41ff-ac3f-258005fba92d') {
       respondentName: 'Jean Dupont',
       respondentFunction: 'Directeur RH',
       phone1: '699112233',
+      phone2: '655112233',
       email: 'jean.dupont@test.cm',
     },
     vocationalTrainingDetail: {
       promoterName: 'Paul Kamga',
       promoterPhone1: '677445566',
+      promoterPhone2: '688445566',
       promoterEmail: 'paul.kamga@test.cm',
       email: 'contact@cfp-test.cm',
     },
     rawData: {
       VT1_15_NAME: 'Jean Dupont',
       VT1_15_TEL1: '699112233',
+      VT1_15_TEL2: '655112233',
       VT1_15_EMAIL: 'jean.dupont@test.cm',
       VT1_16_NAME: 'Paul Kamga',
       VT1_16_TEL1: '677445566',
+      VT1_16_TEL2: '688445566',
       VT1_16_EMAIL: 'paul.kamga@test.cm',
       VT2_12: 'contact@cfp-test.cm',
     },
@@ -85,14 +89,16 @@ describe('Defect 3 — Restricted VT contact export (Decision 2 Option B)', () =
   const contactFields = [
     'VT1_15_NAME',
     'VT1_15_TEL1',
+    'VT1_15_TEL2',
     'VT1_15_EMAIL',
     'VT1_16_NAME',
     'VT1_16_TEL1',
+    'VT1_16_TEL2',
     'VT1_16_EMAIL',
     'VT2_12',
   ];
 
-  it('excludes all 7 personal contact fields from CANONICAL_PII_EXCLUSIONS and main registry', () => {
+  it('excludes all 9 personal contact fields from CANONICAL_PII_EXCLUSIONS and main registry', () => {
     for (const f of contactFields) {
       expect(CANONICAL_PII_EXCLUSIONS.has(f)).toBe(true);
     }
@@ -104,7 +110,7 @@ describe('Defect 3 — Restricted VT contact export (Decision 2 Option B)', () =
     }
   });
 
-  it('includes all 7 personal contact fields in the restricted contact export columns', () => {
+  it('includes all 9 personal contact fields in the restricted contact export columns', () => {
     const cols = vtContactColumns();
     const colNames = cols.map((c) => c.variable.name);
     expect(colNames).toEqual(contactFields);
@@ -114,9 +120,11 @@ describe('Defect 3 — Restricted VT contact export (Decision 2 Option B)', () =
     expect(values).toEqual([
       'Jean Dupont',
       '699112233',
+      '655112233',
       'jean.dupont@test.cm',
       'Paul Kamga',
       '677445566',
+      '688445566',
       'paul.kamga@test.cm',
       'contact@cfp-test.cm',
     ]);
@@ -131,7 +139,7 @@ describe('Defect 3 — Restricted VT contact export (Decision 2 Option B)', () =
     const lines = text.split('\r\n');
 
     expect(lines).toHaveLength(2);
-    // Header includes context variables + 7 contact fields
+    // Header includes context variables + 9 contact fields
     const headers = lines[0].split(',');
     expect(headers).toEqual([...VT_CONTACT_CONTEXT_VARIABLES, ...contactFields]);
 
@@ -140,11 +148,13 @@ describe('Defect 3 — Restricted VT contact export (Decision 2 Option B)', () =
     expect(row[0]).toBe('60b107b8-7027-41ff-ac3f-258005fba92d'); // submissionId
     expect(row[7]).toBe('Jean Dupont'); // VT1_15_NAME
     expect(row[8]).toBe('699112233'); // VT1_15_TEL1
-    expect(row[9]).toBe('jean.dupont@test.cm'); // VT1_15_EMAIL
-    expect(row[10]).toBe('Paul Kamga'); // VT1_16_NAME
-    expect(row[11]).toBe('677445566'); // VT1_16_TEL1
-    expect(row[12]).toBe('paul.kamga@test.cm'); // VT1_16_EMAIL
-    expect(row[13]).toBe('contact@cfp-test.cm'); // VT2_12
+    expect(row[9]).toBe('655112233'); // VT1_15_TEL2
+    expect(row[10]).toBe('jean.dupont@test.cm'); // VT1_15_EMAIL
+    expect(row[11]).toBe('Paul Kamga'); // VT1_16_NAME
+    expect(row[12]).toBe('677445566'); // VT1_16_TEL1
+    expect(row[13]).toBe('688445566'); // VT1_16_TEL2
+    expect(row[14]).toBe('paul.kamga@test.cm'); // VT1_16_EMAIL
+    expect(row[15]).toBe('contact@cfp-test.cm'); // VT2_12
   });
 
   it('restricts contact export endpoints to SUPER_ADMIN and ADMIN_ONEFOP only', () => {

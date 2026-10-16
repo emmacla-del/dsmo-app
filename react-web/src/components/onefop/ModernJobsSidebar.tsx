@@ -51,9 +51,25 @@ function isTableNoneOrNa(f: OnefopField, data: FormData): boolean {
 export function getSectionStatus(
   section: OnefopSection,
   data: FormData,
-  issues: ValidationIssue[] = []
+  issues: ValidationIssue[] = [],
+  includeUnansweredAsError: boolean = false
 ): SectionStatus {
-  const hasErrors = issues.some((issue) =>
+  // Check if any issue on this section is an actual format/value error on an entered field
+  const hasFormatErrors = issues.some((issue) => {
+    const isSectionIssue = section.fields.some(
+      (f) =>
+        f.id === issue.fieldId ||
+        (f.paperCode && f.paperCode === issue.fieldId) ||
+        issue.fieldId.toLowerCase().startsWith(f.id.toLowerCase() + "_") ||
+        (f.paperCode && issue.fieldId.toLowerCase().startsWith(f.paperCode.toLowerCase() + "_"))
+    );
+    if (!isSectionIssue) return false;
+    // An entered value that violates validation format (e.g. invalid phone/email, negative count) is an immediate error
+    const val = data[issue.fieldId];
+    return val !== undefined && val !== null && String(val).trim() !== "";
+  });
+
+  const hasAnyErrors = issues.some((issue) =>
     section.fields.some(
       (f) =>
         f.id === issue.fieldId ||
@@ -102,13 +118,16 @@ export function getSectionStatus(
   const answeredCount = visibleFields.filter(isFieldAnswered).length;
 
   if (answeredCount === 0) return "not-started";
-  if (hasErrors) return "has-errors";
+  // If user entered invalid data in a field, show error immediately
+  if (hasFormatErrors) return "has-errors";
+  // In review stage or when explicitly checking all required errors, unanswered required fields also count as errors
+  if (includeUnansweredAsError && hasAnyErrors) return "has-errors";
 
   const allRequiredAnswered = requiredFields.length > 0
     ? requiredFields.every(isFieldAnswered)
     : answeredCount > 0;
 
-  if (allRequiredAnswered && !hasErrors) return "complete";
+  if (allRequiredAnswered && !hasAnyErrors) return "complete";
   return "in-progress";
 }
 
@@ -166,7 +185,7 @@ export function ModernJobsSidebar({
   // The preliminary quiz sits right after Section 1 (same rule as the wizard).
   const quizSlot = preliminaryQuizSlot(sections);
 
-  const statuses = sections.map((sec) => getSectionStatus(sec, data, issues));
+  const statuses = sections.map((sec) => getSectionStatus(sec, data, issues, isValidationStage));
   const completedCount = statuses.filter((st) => st === "complete").length;
 
   // Sidebar titles without the "Section N." prefix -- the number sits in the circle.

@@ -160,7 +160,7 @@ test("the section screen's groups are the same steps: one per paper table", asyn
 
 test("defect 10: table 4.3 English title matches the intended meaning", () => {
   const vt43Field = s4.fields.find((f) => f.paperCode === "4.3");
-  assert.ok(vt43Field?.table?.vt, "4.3 must have table definitions");
-  assert.equal(vt43Field.table.vt.title.fr, "Apprenants non occupés par spécialité");
-  assert.equal(vt43Field.table.vt.title.en, "Unemployed working-age trainees by specialty");
+  assert.ok(vt43Field?.table?.vt?.title, "4.3 must have table definitions");
+  assert.equal(vt43Field!.table!.vt!.title!.fr, "Apprenants non occupés par spécialité");
+  assert.equal(vt43Field!.table!.vt!.title!.en, "Unemployed working-age trainees by specialty");
 });

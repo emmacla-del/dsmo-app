@@ -30,6 +30,24 @@ import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY } from "./onefop-activ
 export interface ValidationIssue {
   fieldId: string;
   message: string;
+  cleanMessage?: string;
+}
+
+/**
+ * Extracts a concise error message by stripping redundant question labels or paper code prefixes.
+ * If the issue has cleanMessage or starts with "${label} : " / "${label}: ", returns only the clean instruction.
+ */
+export function extractCleanErrorMessage(message?: string): string {
+  if (!message) return "";
+  const colonIdx = message.indexOf(" : ");
+  if (colonIdx !== -1 && colonIdx < 160) {
+    return message.slice(colonIdx + 3).trim();
+  }
+  const altColonIdx = message.indexOf(": ");
+  if (altColonIdx !== -1 && altColonIdx < 160) {
+    return message.slice(altColonIdx + 2).trim();
+  }
+  return message;
 }
 
 // IDs the AST marks required: true but Flutter treats as optional anyway
@@ -149,8 +167,8 @@ export function wholeNumberMessage(locale?: ValidationLocale): string {
   return msg(`${WHOLE_NUMBER_FR} (ex. 12)`, `${WHOLE_NUMBER_EN} (e.g. 12)`, locale);
 }
 
-function fieldIssue(field: OnefopField, message: string): ValidationIssue {
-  return { fieldId: field.id, message };
+function fieldIssue(field: OnefopField, message: string, cleanMessage?: string): ValidationIssue {
+  return { fieldId: field.id, message, cleanMessage };
 }
 
 /**
@@ -200,36 +218,46 @@ function validateField(
 
   if (empty) {
     if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
-    return fieldIssue(field, labelled(fieldLabel(field, locale), "Champ obligatoire", "Required field", locale));
+    const cleanMsg = msg("Champ obligatoire", "Required field", locale);
+    return fieldIssue(field, labelled(fieldLabel(field, locale), "Champ obligatoire", "Required field", locale), cleanMsg);
   }
 
   if (field.type === "tel" && !isValidPhone(v)) {
+    const cleanMsg = v.length !== 9
+      ? msg("Le numéro doit contenir exactement 9 chiffres", "Number must be exactly 9 digits", locale)
+      : msg("Le numéro doit commencer par 2 (fixe) ou 6 (mobile)", "Number must start with 2 (landline) or 6 (mobile)", locale);
     return fieldIssue(
       field,
       v.length !== 9
         ? labelled(fieldLabel(field, locale), "Le numéro doit contenir exactement 9 chiffres", "Number must be exactly 9 digits", locale)
         : labelled(fieldLabel(field, locale), "Le numéro doit commencer par 2 (fixe) ou 6 (mobile)", "Number must start with 2 (landline) or 6 (mobile)", locale),
+      cleanMsg,
     );
   }
 
   if (field.type === "email" && !isValidEmail(v)) {
+    const cleanMsg = msg("Veuillez entrer une adresse e-mail valide", "Please enter a valid email address", locale);
     return fieldIssue(
       field,
       labelled(fieldLabel(field, locale), "Veuillez entrer une adresse e-mail valide", "Please enter a valid email address", locale),
+      cleanMsg,
     );
   }
 
   if (field.type === "number" && isYearField(field)) {
     const year = Number(v);
     if (!Number.isInteger(year)) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer une année valide", "Please enter a valid year", locale));
+      const cleanMsg = msg("Veuillez entrer une année valide", "Please enter a valid year", locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer une année valide", "Please enter a valid year", locale), cleanMsg);
     }
     if (year < 1900) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), "L'année doit être ≥ 1900", "Year must be ≥ 1900", locale));
+      const cleanMsg = msg("L'année doit être ≥ 1900", "Year must be ≥ 1900", locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), "L'année doit être ≥ 1900", "Year must be ≥ 1900", locale), cleanMsg);
     }
     const currentYear = new Date().getFullYear();
     if (year > currentYear) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), `L'année doit être ≤ ${currentYear}`, `Year must be ≤ ${currentYear}`, locale));
+      const cleanMsg = msg(`L'année doit être ≤ ${currentYear}`, `Year must be ≤ ${currentYear}`, locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), `L'année doit être ≤ ${currentYear}`, `Year must be ≤ ${currentYear}`, locale), cleanMsg);
     }
   }
 
@@ -239,13 +267,16 @@ function validateField(
   if (field.type === "number" && !isYearField(field) && v !== "") {
     const num = Number(v.replace(/\s/g, ""));
     if (Number.isNaN(num)) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer une valeur numérique", "Please enter a numeric value", locale));
+      const cleanMsg = msg("Veuillez entrer une valeur numérique", "Please enter a numeric value", locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), "Veuillez entrer une valeur numérique", "Please enter a numeric value", locale), cleanMsg);
     }
     if (num < 0) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), "La valeur doit être ≥ 0", "Value must be ≥ 0", locale));
+      const cleanMsg = msg("La valeur doit être ≥ 0", "Value must be ≥ 0", locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), "La valeur doit être ≥ 0", "Value must be ≥ 0", locale), cleanMsg);
     }
     if (COUNT_FIELD_IDS.has(field.id) && !isWholeCount(v.replace(/\s/g, ""))) {
-      return fieldIssue(field, labelled(fieldLabel(field, locale), WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale));
+      const cleanMsg = msg(WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale);
+      return fieldIssue(field, labelled(fieldLabel(field, locale), WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale), cleanMsg);
     }
   }
 
@@ -257,9 +288,11 @@ function validateField(
     if (regionVal && v && territoryTree) {
       const geoCheck = validateCameroonGeography(territoryTree, regionVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "department" && geoCheck.errorMessage) {
+        const cleanMsg = msg(geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / ");
         return fieldIssue(
           field,
           labelled(fieldLabel(field, locale), geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / "),
+          cleanMsg,
         );
       }
     }
@@ -274,9 +307,11 @@ function validateField(
     if (deptVal && v && territoryTree) {
       const geoCheck = validateCameroonGeography(territoryTree, regionVal || undefined, deptVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "subdivision" && geoCheck.errorMessage) {
+        const cleanMsg = msg(geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / ");
         return fieldIssue(
           field,
           labelled(fieldLabel(field, locale), geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / "),
+          cleanMsg,
         );
       }
     }
@@ -288,9 +323,11 @@ function validateField(
     if (regionVal && v && territoryTree) {
       const geoCheck = validateCameroonGeography(territoryTree, regionVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "department" && geoCheck.errorMessage) {
+        const cleanMsg = msg(geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / ");
         return fieldIssue(
           field,
           labelled(fieldLabel(field, locale), geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / "),
+          cleanMsg,
         );
       }
     }
@@ -302,9 +339,11 @@ function validateField(
     if (deptVal && v && territoryTree) {
       const geoCheck = validateCameroonGeography(territoryTree, regionVal || undefined, deptVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "subdivision" && geoCheck.errorMessage) {
+        const cleanMsg = msg(geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / ");
         return fieldIssue(
           field,
           labelled(fieldLabel(field, locale), geoCheck.errorMessage.fr, geoCheck.errorMessage.en, locale, " / "),
+          cleanMsg,
         );
       }
     }
@@ -490,8 +529,13 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
           fieldId: key,
           message: labelled(
             label,
-            `La cellule (${key}) ne peut pas être négative`,
-            "Cell cannot be negative",
+            "La valeur ne peut pas être négative",
+            "Value cannot be negative",
+            locale,
+          ),
+          cleanMessage: msg(
+            "La valeur ne peut pas être négative",
+            "Value cannot be negative",
             locale,
           ),
         });
@@ -508,12 +552,14 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
       const missingKeys = missingQuizFieldKeys(definition, data);
       const cellMissingKeys = missingKeys.filter((k) => !k.endsWith("_TEXT"));
       if (cellMissingKeys.length > 0) {
+        const cleanMsg = locale === "en"
+          ? `${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cell" : "cells"} still to fill. Enter 0 where there was nothing.`
+          : `${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cellule reste" : "cellules restent"} à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`;
         issues.push({
           fieldId: field.id,
           // Real plurals and a shorter sentence: what is missing, then what to do.
-          message: locale === "en"
-            ? `${label}: ${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cell" : "cells"} still to fill. Enter 0 where there was nothing.`
-            : `${label} : ${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cellule reste" : "cellules restent"} à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+          message: locale === "en" ? `${label}: ${cleanMsg}` : `${label} : ${cleanMsg}`,
+          cleanMessage: cleanMsg,
         });
       }
       return issues;
@@ -525,6 +571,11 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
         fieldId: field.id,
         message: labelled(
           label,
+          "Tableau obligatoire — veuillez renseigner les données requises",
+          "Required table — please fill required entries",
+          locale,
+        ),
+        cleanMessage: msg(
           "Tableau obligatoire — veuillez renseigner les données requises",
           "Required table — please fill required entries",
           locale,

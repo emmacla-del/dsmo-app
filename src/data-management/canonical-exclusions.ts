@@ -35,6 +35,11 @@ export const CANONICAL_PII_EXCLUSION_DEFINITIONS: Record<string, CanonicalPiiExc
     policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
     affectedData: 'VT1_15_TEL1',
   },
+  VT1_15_TEL2: {
+    reason: 'PII — Respondent secondary phone number',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_15_TEL2',
+  },
   VT1_15_EMAIL: {
     reason: 'PII — Respondent email address',
     policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
@@ -49,6 +54,11 @@ export const CANONICAL_PII_EXCLUSION_DEFINITIONS: Record<string, CanonicalPiiExc
     reason: 'PII — Promoter/Director primary phone number',
     policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
     affectedData: 'VT1_16_TEL1',
+  },
+  VT1_16_TEL2: {
+    reason: 'PII — Promoter/Director secondary phone number',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_16_TEL2',
   },
   VT1_16_EMAIL: {
     reason: 'PII — Promoter/Director email address',

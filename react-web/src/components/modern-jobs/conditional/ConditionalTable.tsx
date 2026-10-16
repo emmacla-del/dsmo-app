@@ -11,6 +11,8 @@ import {
   resolveTableStatusFieldId,
 } from "./gateway-catalog";
 
+import { extractCleanErrorMessage } from "@/lib/onefop-validation";
+
 export { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "./gateway-catalog";
 
 export interface ConditionalTableProps {
@@ -76,7 +78,7 @@ export function ConditionalTable({
         fontWeight: 600,
       }}
     >
-      {errorMessage}
+      {extractCleanErrorMessage(errorMessage)}
     </div>
   );
 

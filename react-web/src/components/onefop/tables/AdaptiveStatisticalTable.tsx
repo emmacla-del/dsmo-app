@@ -83,6 +83,7 @@ export interface AdaptiveStatisticalTableProps {
    * out, the table derives them from the scope quiz instead.
    */
   markMissingFieldKeys?: string[];
+  attemptedContinue?: boolean;
 }
 
 /**
@@ -115,6 +116,7 @@ export function AdaptiveStatisticalTable({
   onOpenScope,
   tableFieldId,
   markMissingFieldKeys,
+  attemptedContinue = false,
 }: AdaptiveStatisticalTableProps) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.adaptive");
@@ -366,10 +368,10 @@ export function AdaptiveStatisticalTable({
 
   // The training-centre wizard knows its own missing cells (validation's own
   // list, missingVtTableCells) and passes them once it is showing errors; the
-  // Modern Jobs wizard derives them from the scope quiz.
+  // Modern Jobs wizard derives them from the scope quiz once continue was attempted.
   const missingFieldKeys = useMemo(
-    () => markMissingFieldKeys ?? (isReported ? missingQuizFieldKeys(effectiveDefinition, data) : []),
-    [markMissingFieldKeys, isReported, effectiveDefinition, data]
+    () => markMissingFieldKeys ?? (isReported && attemptedContinue ? missingQuizFieldKeys(effectiveDefinition, data) : []),
+    [markMissingFieldKeys, isReported, attemptedContinue, effectiveDefinition, data]
   );
 
   const blockFillState = (block: ColumnBlock): "empty" | "partial" | "complete" => {

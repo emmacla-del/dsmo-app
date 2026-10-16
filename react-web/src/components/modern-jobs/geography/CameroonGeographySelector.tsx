@@ -9,6 +9,7 @@ import {
   REGION_NAME_EN,
   useTerritoryStructure,
 } from "@/hooks/useTerritoryStructure";
+import { extractCleanErrorMessage } from "@/lib/onefop-validation";
 
 export interface CameroonGeographySelectorProps {
   /** The field ID for Region, e.g. "S1Q04_REGION" or "COOP_S1Q05_REGION" */
@@ -300,7 +301,7 @@ export function CameroonGeographySelector({
           </select>
           {errors[regionFieldId] && (
             <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
-              {errors[regionFieldId]}
+              {extractCleanErrorMessage(errors[regionFieldId])}
             </span>
           )}
         </div>
@@ -367,7 +368,7 @@ export function CameroonGeographySelector({
             </select>
             {errors[departmentFieldId] && (
               <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
-                {errors[departmentFieldId]}
+                {extractCleanErrorMessage(errors[departmentFieldId])}
               </span>
             )}
           </div>
@@ -437,7 +438,7 @@ export function CameroonGeographySelector({
             </select>
             {errors[subdivisionFieldId] && (
               <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
-                {errors[subdivisionFieldId]}
+                {extractCleanErrorMessage(errors[subdivisionFieldId])}
               </span>
             )}
           </div>
@@ -481,7 +482,7 @@ export function CameroonGeographySelector({
           />
           {errors[localityFieldId] && (
             <span style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-error)", fontWeight: 600, marginTop: 4, display: "block" }}>
-              {errors[localityFieldId]}
+              {extractCleanErrorMessage(errors[localityFieldId])}
             </span>
           )}
         </div>

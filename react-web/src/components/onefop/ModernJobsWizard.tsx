@@ -953,7 +953,7 @@ export function ModernJobsWizard({
                 {/* Section Review Cards */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
                   {sections.map((sec, sIdx) => {
-                    const status = getSectionStatus(sec, data, validationIssues);
+                    const status = getSectionStatus(sec, data, validationIssues, true);
                     const isDone = status === "complete";
                     const isErr = status === "has-errors";
                     return (

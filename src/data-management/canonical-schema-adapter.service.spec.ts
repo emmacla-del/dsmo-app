@@ -822,7 +822,7 @@ describe('E8 (dataset v6): free-text width', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
     for (const name of ['VT3_10', 'VT9_3_1', 'VT9_4_5']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 10.');
+    expect(sps).toContain('Version du schéma du jeu de données : 11.');
   });
 });
 
@@ -876,11 +876,12 @@ describe('dataset v8 export fixes (VT end-to-end test, 2026-10-10)', () => {
       respondent: { respondentName: 'Walters KOng', respondentFunction: 'Directeur Général', phone1: '673456677', phone2: '699112233', email: 'walti@gmail.com' },
       rawData: {},
     };
-    // Decision 2 (Option B): VT1_15_NAME and VT1_15_EMAIL are excluded from TVET variables (moved to restricted contact file)
+    // Decision 2 (Option B): VT1_15_NAME, VT1_15_TEL1, VT1_15_TEL2, VT1_15_EMAIL are excluded from TVET variables (moved to restricted contact file)
     expect(v('VT1_15_NAME')).toBeUndefined();
+    expect(v('VT1_15_TEL1')).toBeUndefined();
+    expect(v('VT1_15_TEL2')).toBeUndefined();
     expect(v('VT1_15_EMAIL')).toBeUndefined();
     expect(adapter.extractValue(v('VT1_15_FUNCTION'), submission)).toBe('Directeur Général');
-    expect(adapter.extractValue(v('VT1_15_TEL2'), submission)).toBe('699112233');
   });
 
   it('(b) an unstored « Total (calculé) » is the sum of its row group, blank while a cell is blank', () => {

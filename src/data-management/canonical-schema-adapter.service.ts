@@ -156,8 +156,12 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *    VT9_4_1..VT9_4_5 (A2000, see LIST_TEXT_SLOTS), in place of VT9_3 and
  *    VT9_4, which held the five lines comma-joined and are retired (names
  *    stay reserved). Every other name and the order around them unchanged.
+ * 11: (Defect 3) Personal contact fields (VT1_15_NAME, VT1_15_TEL1, VT1_15_TEL2,
+ *     VT1_15_EMAIL, VT1_16_NAME, VT1_16_TEL1, VT1_16_TEL2, VT1_16_EMAIL,
+ *     VT2_12) retired from the anonymous dataset under Decision 2 (Option B,
+ *     2026-10-16) and moved to the restricted contact file alongside 8.8.
  */
-export const DATASET_SCHEMA_VERSION = 10;
+export const DATASET_SCHEMA_VERSION = 11;
 
 /**
  * Every multiple-choice (checkbox) question with options is also exported as

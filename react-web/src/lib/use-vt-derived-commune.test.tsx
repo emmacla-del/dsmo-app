@@ -63,7 +63,7 @@ test("defect 2: a commune the respondent typed survives a reload and subsequent 
   // 2. User types "Douala 2e" into 1.7
   dataSession1 = { VT1_6: "Douala 2", VT1_7: "Douala 2e" };
   rerenderSession1();
-  assert.ok(session1Writes.some((w) => w.VT1_7_dirty === true), "typing marks commune dirty");
+  assert.ok(session1Writes.some((w: Record<string, unknown>) => w.VT1_7_dirty === true), "typing marks commune dirty");
 
   // 3. User reloads page: fresh mount loads draft containing typed commune and dirty flag
   const session2Writes: Record<string, unknown>[] = [];

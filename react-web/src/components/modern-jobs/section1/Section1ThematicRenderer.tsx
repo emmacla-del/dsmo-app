@@ -330,6 +330,7 @@ export function Section1ThematicRenderer({
                       onFieldTouch={onFieldTouch}
                       noBottomMargin={noBottomMargin}
                       controlMaxWidth={controlMaxWidth}
+                      attemptedContinue={attemptedContinue}
                     />
                   </ConditionalField>
                 );
