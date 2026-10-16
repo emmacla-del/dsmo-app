@@ -1603,10 +1603,10 @@ const vtKeys = (options: VtOption[]): string[] => options.map((o) => o.value);
 
 function vtSexKey(f: FlatData, key: string): 'M' | 'F' | '' {
     const v = f[key];
-    if (typeof v !== 'string') return '';
-    const lv = v.toLowerCase();
-    if (lv.startsWith('m') || lv.includes('masculin') || lv.includes('homme')) return 'M';
-    if (lv.startsWith('f') || lv.includes('féminin') || lv.includes('feminin') || lv.includes('femme')) return 'F';
+    if (typeof v !== 'string' && typeof v !== 'number') return '';
+    const lv = String(v).trim().toLowerCase();
+    if (lv === '1' || lv.startsWith('m') || lv.includes('masculin') || lv.includes('homme')) return 'M';
+    if (lv === '2' || lv.startsWith('f') || lv.includes('féminin') || lv.includes('feminin') || lv.includes('femme')) return 'F';
     return '';
 }
 
@@ -2023,7 +2023,7 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
             prenom: str(f, `s8q8_row${idx}_firstName`),
             sexe: vtSexKey(f, `s8q8_row${idx}_sex`),
             statutCode: str(f, `s8q8_row${idx}_trainerStatus`),
-            personnelAdministratif: vtBool(f, `s8q8_row${idx}_isAdminPersonnel`) === true,
+            personnelAdministratif: vtBool(f, `s8q8_row${idx}_isAdminPersonnel`),
             diplomeAcademiqueCode: VT_ACADEMIC_DIPLOMA_ROSTER_CODE[academic] ?? '',
             diplomeProfessionnelCode: VT_PROFESSIONAL_DIPLOMA_ROSTER_CODE[professional] ?? '',
         };

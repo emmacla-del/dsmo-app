@@ -397,4 +397,77 @@ describe('PDF Flow end-to-end data and template test', () => {
       'non',
     ]);
   });
+
+  it('defect 1: renders table 8.8 roster with man (1), woman (2), and empty rows without defaulting to 2', () => {
+    const rawData = {
+      // Row 1: Man using stored code "1"
+      s8q8_row1_lastName: 'Kamga',
+      s8q8_row1_firstName: 'Paul',
+      s8q8_row1_sex: '1',
+      s8q8_row1_trainerStatus: '1',
+      s8q8_row1_isAdminPersonnel: true,
+      s8q8_row1_academicDiploma: 'MASTER',
+      s8q8_row1_professionalDiploma: 'DQP',
+      // Row 2: Woman using stored code "2"
+      s8q8_row2_lastName: 'Ngo',
+      s8q8_row2_firstName: 'Marie',
+      s8q8_row2_sex: '2',
+      s8q8_row2_trainerStatus: '3',
+      s8q8_row2_isAdminPersonnel: false,
+      s8q8_row2_academicDiploma: 'LICENCE',
+      s8q8_row2_professionalDiploma: 'CQP',
+      // Row 3: Woman using text 'Femme'
+      s8q8_row3_lastName: 'Bello',
+      s8q8_row3_firstName: 'Amina',
+      s8q8_row3_sex: 'Femme',
+      s8q8_row3_trainerStatus: '2',
+      // Rows 4..14 are empty
+    };
+
+    const mapped = mapVocationalTrainingData(rawData, 'QUARTERLY_2026_T4_001') as any;
+    expect(mapped.formateurs.personnel[0].sexe).toBe('M');
+    expect(mapped.formateurs.personnel[1].sexe).toBe('F');
+    expect(mapped.formateurs.personnel[2].sexe).toBe('F');
+    expect(mapped.formateurs.personnel[3].sexe).toBe('');
+
+    const tplPath = path.join(__dirname, '..', 'pdf', 'templates', 'dynamic', 'vocationalTraining.hbs');
+    const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf-8'))(mapped);
+
+    // Extract table 8.8 tbody rows
+    const tbodyMatch = /8\.8\s+État nominatif[\s\S]*?<table[^>]*class="[^"]*data-table[^"]*"[^>]*>[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/i.exec(html);
+    expect(tbodyMatch).not.toBeNull();
+    const rowsHtml = tbodyMatch![1];
+    const rowMatches = [...rowsHtml.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+    expect(rowMatches.length).toBe(14);
+
+    const parseCells = (rowStr: string) => [...rowStr.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map(m => m[1].trim());
+
+    // Row 1: Kamga Paul, sex 1, admin 1
+    const row1Cells = parseCells(rowMatches[0][1]);
+    expect(row1Cells[1]).toBe('Kamga');
+    expect(row1Cells[2]).toBe('Paul');
+    expect(row1Cells[3]).toBe('1'); // Sexe: 1
+    expect(row1Cells[5]).toBe('1'); // Admin: 1
+
+    // Row 2: Ngo Marie, sex 2, admin 2
+    const row2Cells = parseCells(rowMatches[1][1]);
+    expect(row2Cells[1]).toBe('Ngo');
+    expect(row2Cells[2]).toBe('Marie');
+    expect(row2Cells[3]).toBe('2'); // Sexe: 2
+    expect(row2Cells[5]).toBe('2'); // Admin: 2
+
+    // Row 3: Bello Amina, sex 2, admin empty
+    const row3Cells = parseCells(rowMatches[2][1]);
+    expect(row3Cells[1]).toBe('Bello');
+    expect(row3Cells[2]).toBe('Amina');
+    expect(row3Cells[3]).toBe('2'); // Sexe: 2
+    expect(row3Cells[5]).toBe(''); // Admin: empty, not defaulting to 2
+
+    // Row 4 (empty): sex empty, admin empty
+    const row4Cells = parseCells(rowMatches[3][1]);
+    expect(row4Cells[1]).toBe('');
+    expect(row4Cells[2]).toBe('');
+    expect(row4Cells[3]).toBe(''); // Sexe: empty, NOT 2
+    expect(row4Cells[5]).toBe(''); // Admin: empty, NOT 2
+  });
 });

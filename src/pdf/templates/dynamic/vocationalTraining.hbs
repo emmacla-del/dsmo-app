@@ -1662,9 +1662,9 @@
                     <td>{{id}}</td>
                     <td class="rowlabel">{{nom}}</td>
                     <td class="rowlabel">{{prenom}}</td>
-                    <td>{{#if (eq sexe 'M')}}1{{else}}2{{/if}}</td>
+                    <td>{{#if (eq sexe 'M')}}1{{else if (eq sexe 'F')}}2{{/if}}</td>
                     <td>{{statutCode}}</td>
-                    <td>{{#if personnelAdministratif}}1{{else}}2{{/if}}</td>
+                    <td>{{#if (eq personnelAdministratif true)}}1{{else if (eq personnelAdministratif false)}}2{{/if}}</td>
                     <td>{{diplomeAcademiqueCode}}</td>
                     <td>{{diplomeProfessionnelCode}}</td>
                 </tr>
