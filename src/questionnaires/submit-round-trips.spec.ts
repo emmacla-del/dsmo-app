@@ -22,6 +22,7 @@ describe('final VT submit — database round trips', () => {
       onefopSubmission: {
         findUnique: async () => null,
         findFirst: async () => null,
+        findMany: async () => [],
         create: async (args: any) => {
           createArgs = args;
           return { id: 'db-1', submissionId: args.data.submissionId };
@@ -63,7 +64,7 @@ describe('final VT submit — database round trips', () => {
       'submissionRound.findFirst', // the period is open
       'company.findFirst', // attribution
       'submissionRound.findMany', // campaign and deadline
-      'onefopSubmission.findFirst', // one live declaration per period
+      'onefopSubmission.findMany', // one live declaration per period, and the corrections it answers
       'onefopSubmission.create', // the declaration and every child table
       'campaignSubmission.updateMany', // campaign progress
       'onefopAnomaly.createMany', // the advisory coherence flags
