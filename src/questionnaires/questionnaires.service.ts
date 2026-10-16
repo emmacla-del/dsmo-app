@@ -702,6 +702,15 @@ export class QuestionnairesService {
         normalized as Record<string, unknown>,
         entityLower,
       );
+      if (normalizedEntityType === 'VOCATIONAL_TRAINING') {
+        const subsetViolations = this.checkVtSubsetViolations(normalized as unknown as FlatFormData);
+        if (subsetViolations.length > 0) {
+          throw new BadRequestException({
+            message: 'Données incohérentes : une sous-catégorie (« dont ») ne peut pas dépasser son total. / Incoherent data: a subset cannot exceed its total.',
+            violations: subsetViolations,
+          });
+        }
+      }
     }
 
     const flat = normalized as unknown as FlatFormData;
@@ -1890,7 +1899,130 @@ export class QuestionnairesService {
       }
     });
 
+    const subsetViolations = this.checkVtSubsetViolations(flat);
+    for (const v of subsetViolations) {
+      flags.push({ code: v.code, message: v.message });
+    }
+
     return flags;
+  }
+
+  checkVtSubsetViolations(flat: FlatFormData): { fieldId: string; message: string; code: string }[] {
+    const violations: { fieldId: string; message: string; code: string }[] = [];
+    const n = (key: string) => this.flatInt(flat, key);
+
+    // Rule 1: 2.1.7 (specialized teachers female <= total)
+    const vt2_7 = n('VT2_7');
+    const vt2_8 = n('VT2_8');
+    if (flat['VT2_7'] !== undefined && flat['VT2_8'] !== undefined && vt2_8 > vt2_7) {
+      violations.push({
+        fieldId: 'VT2_8',
+        code: 'VT_SUBSET_SPECIALIZED_TEACHERS_FEMALE_MISMATCH',
+        message: `Le nombre de femmes formateurs spécialisés (2.1.7 : ${vt2_8}) ne peut pas dépasser le total (2.1.7 : ${vt2_7}).`,
+      });
+    }
+
+    // Rule 2: 2.1.15 / 2.1.16 (lower secondary + upper secondary trainees <= total trainees)
+    const vt2_19 = n('VT2_19');
+    const vt2_21 = n('VT2_21');
+    const vt2_22 = n('VT2_22');
+    if (flat['VT2_19'] !== undefined && (flat['VT2_21'] !== undefined || flat['VT2_22'] !== undefined)) {
+      if (vt2_21 + vt2_22 > vt2_19) {
+        violations.push({
+          fieldId: 'VT2_22',
+          code: 'VT_SUBSET_SECONDARY_TRAINEES_TOTAL_MISMATCH',
+          message: `L'effectif des apprenants venant du secondaire (2.1.16 : ${vt2_21 + vt2_22}) ne peut pas dépasser le nombre total d'apprenants (2.1.15 : ${vt2_19}).`,
+        });
+      }
+    }
+
+    // Rule 3: 2.2.15 (ICT trained teachers female <= total)
+    const vt2_47 = n('VT2_47');
+    const vt2_48 = n('VT2_48');
+    if (flat['VT2_47'] !== undefined && flat['VT2_48'] !== undefined && vt2_48 > vt2_47) {
+      violations.push({
+        fieldId: 'VT2_48',
+        code: 'VT_SUBSET_ICT_TEACHERS_FEMALE_MISMATCH',
+        message: `Le nombre de femmes formées aux TIC (2.2.15 : ${vt2_48}) ne peut pas dépasser le total (2.2.15 : ${vt2_47}).`,
+      });
+    }
+
+    // Rule 4: Section 3 trained teachers vs VT2_20 (total teachers)
+    const vt2_20 = n('VT2_20');
+    if (flat['VT2_20'] !== undefined) {
+      const sec3Pairs = [
+        { m: 'VT3_13', f: 'VT3_14', code: '3.5' },
+        { m: 'VT3_16', f: 'VT3_17', code: '3.6' },
+        { m: 'VT3_19', f: 'VT3_20', code: '3.7' },
+        { m: 'VT3_22', f: 'VT3_23', code: '3.8' },
+        { m: 'VT3_25', f: 'VT3_26', code: '3.9' },
+      ];
+      for (const p of sec3Pairs) {
+        if (flat[p.m] !== undefined || flat[p.f] !== undefined) {
+          const sum = n(p.m) + n(p.f);
+          if (sum > vt2_20) {
+            violations.push({
+              fieldId: p.f,
+              code: 'VT_SUBSET_TRAINED_TEACHERS_TOTAL_MISMATCH',
+              message: `L'effectif des formateurs formés (${p.code} : ${sum}) ne peut pas dépasser le nombre total de formateurs (2.1.15 : ${vt2_20}).`,
+            });
+          }
+        }
+      }
+    }
+
+    // Rule 5: 6.3 placed leavers vs 4.10 leavers
+    const leaversBySpec = new Map<string, { male: number; female: number; total: number }>();
+    let totalLeavers = 0;
+    let has410 = false;
+    for (let j = 1; j <= 12; j++) {
+      const text = flat[`s4q10_row${j}_specialtyText`];
+      if (text !== undefined && text !== null && String(text).trim().length > 0) {
+        const m = n(`s4q10_row${j}_male`);
+        const f = n(`s4q10_row${j}_female`);
+        leaversBySpec.set(String(text).trim().toLowerCase(), { male: m, female: f, total: m + f });
+        totalLeavers += m + f;
+        has410 = true;
+      }
+    }
+    let totalPlaced = 0;
+    let hasPlaced = false;
+    for (let i = 1; i <= 10; i++) {
+      const text = flat[`s6q3_row${i}_specialtyText`];
+      if (text !== undefined && text !== null && String(text).trim().length > 0) {
+        hasPlaced = true;
+        const m = n(`s6q3_row${i}_male`);
+        const f = n(`s6q3_row${i}_female`);
+        totalPlaced += m + f;
+        const key = String(text).trim().toLowerCase();
+        const leavers = leaversBySpec.get(key);
+        if (leavers) {
+          if (f > leavers.female) {
+            violations.push({
+              fieldId: `s6q3_row${i}_female`,
+              code: 'VT_SUBSET_PLACED_LEAVERS_SPECIALTY_MISMATCH',
+              message: `Spécialité « ${String(text).trim()} » : l'effectif des femmes insérées (${f}) dépasse les sortantes (4.10 : ${leavers.female}).`,
+            });
+          }
+          if (m > leavers.male) {
+            violations.push({
+              fieldId: `s6q3_row${i}_male`,
+              code: 'VT_SUBSET_PLACED_LEAVERS_SPECIALTY_MISMATCH',
+              message: `Spécialité « ${String(text).trim()} » : l'effectif des hommes insérés (${m}) dépasse les sortants (4.10 : ${leavers.male}).`,
+            });
+          }
+        }
+      }
+    }
+    if (has410 && hasPlaced && totalPlaced > totalLeavers) {
+      violations.push({
+        fieldId: 'VT6_13',
+        code: 'VT_SUBSET_PLACED_LEAVERS_TOTAL_MISMATCH',
+        message: `Le total des sortants insérés (6.3 : ${totalPlaced}) dépasse le total des sortants (4.10 : ${totalLeavers}).`,
+      });
+    }
+
+    return violations;
   }
 
   private enforceFinalRequiredFields(

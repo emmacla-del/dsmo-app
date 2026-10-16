@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanHiddenDependentFields, isFieldVisible, type FormData, type OnefopSchema } from "./onefop-schema";
-import { validateEntityData, validateSectionData } from "./onefop-validation";
+import { validateEntityData, validateSectionData, vtSubsetIssues } from "./onefop-validation";
 import { vtCrossTableIssues } from "./vt-cross-table";
 
 const root = process.env.REACT_WEB_ROOT ?? process.cwd();
@@ -252,3 +252,78 @@ test("the trainers' list asks for answers, not cells to put 0 in (8.8)", () => {
   assert.ok(issue);
   assert.match(issue.message, /réponses? (reste|restent) à renseigner/);
 });
+
+// ── Defect 5: Impossible "of which" (dont) values (Decision 3: warn on entry, block on submit) ──
+
+const section2 = vt.sections.find((s) => s.id === "section2_vocationalTraining")!;
+const section3 = vt.sections.find((s) => s.id === "section3_vocationalTraining")!;
+const section6 = vt.sections.find((s) => s.id === "section6_vocationalTraining")!;
+
+test("Defect 5: 2.1.7 female specialized teachers > total warns on entry and blocks section/submission", () => {
+  const data = completeDeclaration();
+  data.VT2_7 = "3";
+  data.VT2_8 = "5"; // 5 > 3
+  const issues = vtSubsetIssues(section2.fields, data, "fr");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].fieldId, "VT2_8");
+  assert.match(issues[0].message, /Le nombre de femmes \(5\) ne peut pas dépasser le total des formateurs spécialisés \(3\)/);
+
+  // Blocks section navigation
+  const secIssues = validateSectionData(section2, data, "fr");
+  assert.ok(secIssues.some((i) => i.fieldId === "VT2_8"));
+
+  // Blocks final submit
+  const entityIssues = validateEntityData(vt, data, "fr");
+  assert.ok(entityIssues.some((i) => i.fieldId === "VT2_8"));
+});
+
+test("Defect 5: 2.1.16 secondary trainees sum > 2.1.15 total trainees warns and blocks", () => {
+  const data = completeDeclaration();
+  data.VT2_19 = "50";
+  data.VT2_21 = "20";
+  data.VT2_22 = "40"; // 20 + 40 = 60 > 50
+  const issues = vtSubsetIssues(section2.fields, data, "fr");
+  assert.ok(issues.some((i) => i.fieldId === "VT2_22"));
+
+  const secIssues = validateSectionData(section2, data, "fr");
+  assert.ok(secIssues.some((i) => i.fieldId === "VT2_22"));
+});
+
+test("Defect 5: 2.2.15 ICT trained female teachers > total warns and blocks", () => {
+  const data = completeDeclaration();
+  data.VT2_47 = "4";
+  data.VT2_48 = "6"; // 6 > 4
+  const issues = vtSubsetIssues(section2.fields, data, "fr");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].fieldId, "VT2_48");
+});
+
+test("Defect 5: Section 3 trained teachers sum > VT2_20 total teachers warns and blocks", () => {
+  const data = completeDeclaration();
+  data.VT2_20 = "10";
+  data.VT3_13 = "6";
+  data.VT3_14 = "5"; // 6 + 5 = 11 > 10
+  const issues = vtSubsetIssues(section3.fields, data, "fr");
+  assert.ok(issues.some((i) => i.fieldId === "VT3_14"));
+
+  const secIssues = validateSectionData(section3, data, "fr");
+  assert.ok(secIssues.some((i) => i.fieldId === "VT3_14"));
+});
+
+test("Defect 5: 6.3 placed leavers in a specialty > 4.10 leavers warns and blocks", () => {
+  const data = completeDeclaration();
+  data.s4q10_row1_specialtyText = "Couture et mode";
+  data.s4q10_row1_male = "2";
+  data.s4q10_row1_female = "4";
+
+  data.s6q3_row1_specialtyText = "Couture et mode";
+  data.s6q3_row1_male = "1";
+  data.s6q3_row1_female = "5"; // 5 > 4 placed women > leavers
+
+  const issues = vtSubsetIssues(section6.fields, data, "fr");
+  assert.ok(issues.some((i) => i.fieldId === "VT6_13" && /Couture et mode/.test(i.message)));
+
+  const secIssues = validateSectionData(section6, data, "fr");
+  assert.ok(secIssues.some((i) => i.fieldId === "VT6_13"));
+});
+

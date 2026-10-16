@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { validateSectionData } from "@/lib/onefop-validation";
+import { validateSectionData, vtSubsetIssues } from "@/lib/onefop-validation";
 import {
   fetchDeclarationPreviewPdf,
   formatSubmissionError,
@@ -323,6 +323,12 @@ export function WizardShell({
   );
 
   const showErrors = attemptedAdvance || attemptedSubmit;
+
+  // Defect 5: impossible subset values ("dont" > total) warn on entry inline
+  const immediateSubsetIssues = useMemo(
+    () => (isVt && currentSection ? vtSubsetIssues(currentSection.fields, data, formLocale) : []),
+    [isVt, currentSection, data, formLocale],
+  );
 
   const vtStepped = isVt && !!currentSection && VT_STEPPED_SECTION_IDS.has(currentSection.id);
   const vtSteps = useMemo(
@@ -1079,7 +1085,7 @@ export function WizardShell({
                   section={currentSection}
                   data={data}
                   onChange={onChange}
-                  issues={showErrors ? sectionIssues : []}
+                  issues={showErrors ? sectionIssues : immediateSubsetIssues}
                   isFirst={clampedSectionIndex === 0}
                   isLast={clampedSectionIndex === sections.length - 1}
                   onBack={handlePrev}
