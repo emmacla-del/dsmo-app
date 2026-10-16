@@ -51,32 +51,37 @@ test("the hook does nothing outside the training-centre questionnaire", () => {
   assert.equal(writes.length, 0);
 });
 
-test("defect 2: a commune the respondent typed survives a reload and subsequent subdivision change", () => {
-  const session1Writes: Record<string, unknown>[] = [];
-  // 1. Initial visit: prefilled subdivision "Douala 2", commune empty -> derived
-  let dataSession1: FormData = { VT1_6: "Douala 2" };
-  const { rerender: rerenderSession1 } = renderHook(() =>
-    useVtDerivedCommune(vt, dataSession1, (u) => session1Writes.push(u)),
-  );
-  assert.deepEqual(session1Writes, [{ VT1_7: "Douala 2" }]);
-
-  // 2. User types "Douala 2e" into 1.7
-  dataSession1 = { VT1_6: "Douala 2", VT1_7: "Douala 2e" };
-  rerenderSession1();
-  assert.ok(session1Writes.some((w: Record<string, unknown>) => w.VT1_7_dirty === true), "typing marks commune dirty");
-
-  // 3. User reloads page: fresh mount loads draft containing typed commune and dirty flag
-  const session2Writes: Record<string, unknown>[] = [];
-  let dataSession2: FormData = { VT1_6: "Douala 2", VT1_7: "Douala 2e", VT1_7_dirty: true };
-  const { rerender: rerenderSession2 } = renderHook(() =>
-    useVtDerivedCommune(vt, dataSession2, (u) => session2Writes.push(u)),
-  );
-  // Fresh mount must not overwrite typed commune
-  assert.equal(session2Writes.find((w) => "VT1_7" in w), undefined);
-
-  // 4. Changing subdivision in reloaded session must never replace the typed commune
-  dataSession2 = { VT1_6: "Douala 1", VT1_7: "Douala 2e", VT1_7_dirty: true };
-  rerenderSession2();
-  assert.equal(session2Writes.find((w) => "VT1_7" in w), undefined);
+// Defect 2 (2026-10-16): the wizard passes the entity only once the draft
+// has loaded, so the registration prefill alone never writes a commune.
+test("defect 2: nothing is written before the draft has loaded", () => {
+  const writes: Record<string, unknown>[] = [];
+  renderHook(() => useVtDerivedCommune(undefined, { VT1_6: "Douala 2" }, (u) => writes.push(u)));
+  assert.equal(writes.length, 0);
 });
 
+test("defect 2: a typed commune in a draft that loads after mount is never replaced", () => {
+  const writes: Record<string, unknown>[] = [];
+  let entity: OnefopEntity | undefined = undefined;
+  let data: FormData = { VT1_6: "Douala 2" };
+  const { rerender } = renderHook(() => useVtDerivedCommune(entity, data, (u) => writes.push(u)));
+  entity = vt;
+  data = { VT1_6: "Douala 2", VT1_7: "Douala 2e" };
+  rerender();
+  data = { ...data, VT1_6: "Douala 3" };
+  rerender();
+  assert.equal(writes.length, 0);
+});
+
+test("defect 2: a filled-in commune in a draft that loads after mount still follows the arrondissement", () => {
+  const writes: Record<string, unknown>[] = [];
+  let entity: OnefopEntity | undefined = undefined;
+  let data: FormData = {};
+  const { rerender } = renderHook(() => useVtDerivedCommune(entity, data, (u) => writes.push(u)));
+  entity = vt;
+  data = { VT1_6: "Douala 2", VT1_7: "Douala 2" };
+  rerender();
+  assert.equal(writes.length, 0);
+  data = { ...data, VT1_6: "Douala 3" };
+  rerender();
+  assert.deepEqual(writes, [{ VT1_7: "Douala 3" }]);
+});

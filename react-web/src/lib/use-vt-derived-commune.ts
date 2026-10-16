@@ -5,7 +5,6 @@ import type { FormData, OnefopEntity } from "./onefop-schema";
 
 const SUBDIVISION = "VT1_6";
 const COMMUNE = "VT1_7";
-export const COMMUNE_DIRTY = "VT1_7_dirty";
 
 const text = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
@@ -20,15 +19,10 @@ export function deriveVtCommune(
   previousSubdivision: string | undefined,
   subdivision: string,
   commune: string,
-  isDirty?: boolean,
 ): string | undefined {
-  if (isDirty) return undefined;
   if (!subdivision || subdivision === previousSubdivision) return undefined;
-  if (isDirty === undefined) {
-    if (commune === "" || commune === previousSubdivision) return subdivision === commune ? undefined : subdivision;
-    return undefined;
-  }
-  return subdivision === commune ? undefined : subdivision;
+  if (commune === "" || commune === previousSubdivision) return subdivision === commune ? undefined : subdivision;
+  return undefined;
 }
 
 /**
@@ -37,36 +31,26 @@ export function deriveVtCommune(
  * the company record. Remembers the last arrondissement seen, so clearing
  * and re-choosing it still moves a commune that followed it.
  *
- * A typed commune is dirty and is never replaced.
+ * Pass the entity only once the draft has loaded: before that, the form
+ * holds the registration prefill without the saved commune, and a commune
+ * written then could replace the one the respondent typed (defect 2,
+ * 2026-10-16). Nothing is stored to tell a typed commune from a derived
+ * one; a commune that differs from the arrondissement is the respondent's.
  */
 export function useVtDerivedCommune(
   entity: OnefopEntity | undefined,
   data: FormData,
   onChange: (updates: Record<string, unknown>) => void,
 ): void {
+  const previous = useRef<string | undefined>(undefined);
   const active = entity?.entityType === "vocationalTraining";
   const subdivision = text(data[SUBDIVISION]);
   const commune = text(data[COMMUNE]);
-  const previous = useRef<string | undefined>(undefined);
-  const derivedValue = useRef<string | undefined>(commune && commune === subdivision ? commune : undefined);
-  const isDirty =
-    Boolean(data[COMMUNE_DIRTY]) ||
-    (commune !== "" && commune !== subdivision && commune !== derivedValue.current);
-
-  useEffect(() => {
-    if (!active) return;
-    if (commune && commune !== derivedValue.current && !data[COMMUNE_DIRTY]) {
-      onChange({ [COMMUNE_DIRTY]: true });
-    }
-  }, [active, commune, data, onChange]);
 
   useEffect(() => {
     if (!active || !subdivision) return;
-    const next = deriveVtCommune(previous.current, subdivision, commune, isDirty);
+    const next = deriveVtCommune(previous.current, subdivision, commune);
     previous.current = subdivision;
-    if (next !== undefined) {
-      derivedValue.current = next;
-      onChange({ [COMMUNE]: next });
-    }
-  }, [active, subdivision, commune, isDirty, onChange]);
+    if (next !== undefined) onChange({ [COMMUNE]: next });
+  }, [active, subdivision, commune, onChange]);
 }
