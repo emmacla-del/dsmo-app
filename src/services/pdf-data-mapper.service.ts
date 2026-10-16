@@ -1511,7 +1511,10 @@ function vtBool(f: FlatData, key: string): boolean | undefined {
     const v = f[key];
     if (typeof v === 'boolean') return v;
     if (typeof v !== 'string') return undefined;
-    const lv = v.toLowerCase();
+    const lv = v.trim().toLowerCase();
+    // A boolean that reached the store as text (the 8.8 Admin column).
+    if (lv === 'true') return true;
+    if (lv === 'false') return false;
     if (lv.includes('oui') || lv.includes('yes')) return true;
     if (lv.includes('non') || lv.includes('no')) return false;
     return undefined;
