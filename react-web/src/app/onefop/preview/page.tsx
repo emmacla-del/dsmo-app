@@ -163,8 +163,9 @@ function OnefopDeclarationContent() {
     );
   // Training centres: the fixed-row tables' totals are saved with the numbers.
   useVtFixedRowTotals(entity, formData, handleChange);
-  // Training centres: the commune follows the arrondissement unless typed.
-  useVtDerivedCommune(entity, formData, handleChange);
+  // Training centres: the commune follows the arrondissement unless typed,
+  // once the draft has loaded (before that the saved commune is not there).
+  useVtDerivedCommune(loadedDraftKey ? entity : undefined, formData, handleChange);
 
   // The stored acknowledgment of this declaration (same tenant-scoped key as
   // the draft). While the key is still resolving (quarter / company loading)
