@@ -14439,7 +14439,7 @@
               "required": true,
               "label": {
                 "fr": "Le centre dispose-t-il d'une bibliothèque fonctionnelle ?",
-                "en": "Is there a fonctional library?"
+                "en": "Is there a functional library?"
               },
               "hint": null,
               "instruction": null,
