@@ -644,7 +644,9 @@ export function validateEntityData(
   // Training centres: breakdowns of the same learners / trainers must agree
   // (vt-cross-table.ts). Blocking, like the section-level check.
   if (entity.entityType === "vocationalTraining") {
-    issues.push(...crossTableIssues(entity.sections.flatMap((sec) => sec.fields), data, locale));
+    const allFields = entity.sections.flatMap((sec) => sec.fields);
+    issues.push(...crossTableIssues(allFields, data, locale));
+    issues.push(...vtSubsetIssues(allFields, data, locale));
   }
 
   for (const section of entity.sections) {
@@ -853,7 +855,175 @@ export function validateSectionData(
     ...validateFields(section.fields, data, locale, territoryTree),
     ...crossTableIssues(section.fields, data, locale),
     ...companionTableIssues(section.fields, data, locale),
+    ...vtSubsetIssues(section.fields, data, locale),
   ];
+}
+
+/**
+ * Impossible "of which" (dont) values where a subset exceeds its total
+ * (e.g. female specialized teachers > total specialized teachers).
+ * Warns on entry, blocks on submit (Defect 5).
+ */
+export function vtSubsetIssues(
+  fields: OnefopField[],
+  data: FormData,
+  locale?: ValidationLocale,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const hasField = (id: string) => fields.some((f) => f.id === id);
+
+  // 1. Rule 2.1.7: VT2_8 (dont femmes) <= VT2_7 (Total formateurs spécialisés)
+  if (hasField("VT2_8") && isEnteredValue(data.VT2_7) && isEnteredValue(data.VT2_8)) {
+    const tot = Number(data.VT2_7);
+    const sub = Number(data.VT2_8);
+    if (!Number.isNaN(tot) && !Number.isNaN(sub) && sub > tot) {
+      issues.push({
+        fieldId: "VT2_8",
+        message: msg(
+          `Le nombre de femmes (${sub}) ne peut pas dépasser le total des formateurs spécialisés (${tot}).`,
+          `Number of women (${sub}) cannot exceed total specialized trainers (${tot}).`,
+          locale,
+        ),
+      });
+    }
+  }
+
+  // 2. Rule 2.1.15 / 2.1.16: VT2_21 + VT2_22 <= VT2_19 (Total apprenants)
+  if ((hasField("VT2_21") || hasField("VT2_22")) && isEnteredValue(data.VT2_19)) {
+    const tot = Number(data.VT2_19);
+    const sub1 = isEnteredValue(data.VT2_21) ? Number(data.VT2_21) : 0;
+    const sub2 = isEnteredValue(data.VT2_22) ? Number(data.VT2_22) : 0;
+    if (!Number.isNaN(tot) && (isEnteredValue(data.VT2_21) || isEnteredValue(data.VT2_22))) {
+      const sum = sub1 + sub2;
+      if (sum > tot) {
+        const targetId = hasField("VT2_22") && isEnteredValue(data.VT2_22) ? "VT2_22" : "VT2_21";
+        issues.push({
+          fieldId: targetId,
+          message: msg(
+            `La somme des apprenants venant du secondaire (${sum}) ne peut pas dépasser l'effectif total d'apprenants (${tot}).`,
+            `Trainees from secondary education (${sum}) cannot exceed total trainees (${tot}).`,
+            locale,
+          ),
+        });
+      }
+    }
+  }
+
+  // 3. Rule 2.2.15: VT2_48 (dont femmes) <= VT2_47 (Total formateurs formés TIC)
+  if (hasField("VT2_48") && isEnteredValue(data.VT2_47) && isEnteredValue(data.VT2_48)) {
+    const tot = Number(data.VT2_47);
+    const sub = Number(data.VT2_48);
+    if (!Number.isNaN(tot) && !Number.isNaN(sub) && sub > tot) {
+      issues.push({
+        fieldId: "VT2_48",
+        message: msg(
+          `Le nombre de femmes (${sub}) ne peut pas dépasser le total des formateurs formés (${tot}).`,
+          `Number of women (${sub}) cannot exceed total trained trainers (${tot}).`,
+          locale,
+        ),
+      });
+    }
+  }
+
+  // 4. Section 3 trained teachers vs VT2_20 (Total formateurs)
+  const sec3Pairs = [
+    { m: "VT3_13", f: "VT3_14", code: "3.5" },
+    { m: "VT3_16", f: "VT3_17", code: "3.6" },
+    { m: "VT3_19", f: "VT3_20", code: "3.7" },
+    { m: "VT3_22", f: "VT3_23", code: "3.8" },
+    { m: "VT3_25", f: "VT3_26", code: "3.9" },
+  ];
+  if (isEnteredValue(data.VT2_20)) {
+    const totTrainers = Number(data.VT2_20);
+    if (!Number.isNaN(totTrainers)) {
+      for (const p of sec3Pairs) {
+        if (hasField(p.f) || hasField(p.m)) {
+          const mVal = isEnteredValue(data[p.m]) ? Number(data[p.m]) : 0;
+          const fVal = isEnteredValue(data[p.f]) ? Number(data[p.f]) : 0;
+          if (isEnteredValue(data[p.m]) || isEnteredValue(data[p.f])) {
+            const sum = mVal + fVal;
+            if (sum > totTrainers) {
+              const targetId = hasField(p.f) && isEnteredValue(data[p.f]) ? p.f : p.m;
+              issues.push({
+                fieldId: targetId,
+                message: msg(
+                  `Le nombre de formateurs formés (${p.code} : ${sum}) ne peut pas dépasser l'effectif total des formateurs (2.1.15 : ${totTrainers}).`,
+                  `Trained trainers (${p.code}: ${sum}) cannot exceed total trainers (2.1.15: ${totTrainers}).`,
+                  locale,
+                ),
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Table 6.3 (VT6_13, prefix s6q3) placed leavers vs Table 4.10 (VT4_10, prefix s4q10) leavers
+  if (hasField("VT6_13")) {
+    const leaversBySpec = new Map<string, { male: number; female: number; total: number }>();
+    let totalLeavers = 0;
+    let hasAny410 = false;
+    for (let j = 1; j <= 12; j++) {
+      const text = data[`s4q10_row${j}_specialtyText`];
+      const m = isEnteredValue(data[`s4q10_row${j}_male`]) ? Number(data[`s4q10_row${j}_male`]) : 0;
+      const f = isEnteredValue(data[`s4q10_row${j}_female`]) ? Number(data[`s4q10_row${j}_female`]) : 0;
+      if (text !== undefined && text !== null && String(text).trim().length > 0) {
+        const key = String(text).trim().toLowerCase();
+        leaversBySpec.set(key, { male: m, female: f, total: m + f });
+        totalLeavers += m + f;
+        hasAny410 = true;
+      }
+    }
+
+    let totalPlaced = 0;
+    let hasAnyPlaced = false;
+    for (let i = 1; i <= 10; i++) {
+      const text = data[`s6q3_row${i}_specialtyText`];
+      const m = isEnteredValue(data[`s6q3_row${i}_male`]) ? Number(data[`s6q3_row${i}_male`]) : 0;
+      const f = isEnteredValue(data[`s6q3_row${i}_female`]) ? Number(data[`s6q3_row${i}_female`]) : 0;
+      if (text !== undefined && text !== null && String(text).trim().length > 0) {
+        hasAnyPlaced = true;
+        totalPlaced += m + f;
+        const key = String(text).trim().toLowerCase();
+        const leavers = leaversBySpec.get(key);
+        if (leavers) {
+          if (isEnteredValue(data[`s6q3_row${i}_female`]) && f > leavers.female) {
+            issues.push({
+              fieldId: "VT6_13",
+              message: msg(
+                `Spécialité « ${String(text).trim()} » (6.3) : l'effectif des femmes insérées (${f}) ne peut pas dépasser les sortantes (4.10 : ${leavers.female}).`,
+                `Specialty "${String(text).trim()}" (6.3): placed women (${f}) cannot exceed leavers (4.10: ${leavers.female}).`,
+                locale,
+              ),
+            });
+          }
+          if (isEnteredValue(data[`s6q3_row${i}_male`]) && m > leavers.male) {
+            issues.push({
+              fieldId: "VT6_13",
+              message: msg(
+                `Spécialité « ${String(text).trim()} » (6.3) : l'effectif des hommes insérés (${m}) ne peut pas dépasser les sortants (4.10 : ${leavers.male}).`,
+                `Specialty "${String(text).trim()}" (6.3): placed men (${m}) cannot exceed leavers (4.10: ${leavers.male}).`,
+                locale,
+              ),
+            });
+          }
+        }
+      }
+    }
+    if (hasAny410 && hasAnyPlaced && totalPlaced > totalLeavers) {
+      issues.push({
+        fieldId: "VT6_13",
+        message: msg(
+          `Le total des sortants insérés (6.3 : ${totalPlaced}) ne peut pas dépasser le total des sortants (4.10 : ${totalLeavers}).`,
+          `Total placed leavers (6.3: ${totalPlaced}) cannot exceed total leavers (4.10: ${totalLeavers}).`,
+          locale,
+        ),
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

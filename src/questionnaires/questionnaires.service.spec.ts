@@ -1051,6 +1051,43 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       const callData = prisma.onefopSubmission.create.mock.calls[0][0].data;
       expect(callData.flags).toBeUndefined();
     });
+
+    it('Defect 5: rejects final VT submission when an impossible "of which" (dont > total) is present', async () => {
+      const prisma = buildMockPrisma();
+      const service = new QuestionnairesService(prisma);
+
+      await expect(service.submitQuestionnaire({
+        formId: 'vt-subset-violation-final',
+        userId: 'user-1',
+        entityType: 'VOCATIONAL_TRAINING',
+        isDraft: false,
+        data: {
+          ...baseVtFinal,
+          VT2_7: '3',
+          VT2_8: '5', // 5 > 3
+        },
+      } as any)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.onefopSubmission.create).not.toHaveBeenCalled();
+    });
+
+    it('Defect 5: allows draft VT submission even with an impossible subset', async () => {
+      const prisma = buildMockPrisma();
+      const service = new QuestionnairesService(prisma);
+
+      await expect(service.submitQuestionnaire({
+        formId: 'vt-subset-violation-draft',
+        userId: 'user-1',
+        entityType: 'VOCATIONAL_TRAINING',
+        isDraft: true,
+        data: {
+          ...respondentFlat,
+          VT1_2: 'Centre Draft',
+          VT2_7: '3',
+          VT2_8: '5',
+        },
+      } as any)).resolves.toMatchObject({ success: true });
+      expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('QuestionnairesService.approve (Single-dossier Approval Gate)', () => {
