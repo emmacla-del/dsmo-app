@@ -47,6 +47,14 @@ interface AuthState {
 // a 2FA login is two requests sharing one remember decision.
 let pendingRemember = true;
 
+/** Waits between profile retries at boot when the server cannot be reached and no profile is cached. */
+export const RESTORE_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
+/** The server refused the stored token: the only failure that ends a session at boot. */
+function isSessionRefused(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 401 || e.status === 403);
+}
+
 function messageFrom(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
@@ -66,30 +74,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ status: "unauthenticated", user: null });
       return;
     }
-    try {
-      const user = await getMe();
-      // Signed out (or someone else signed in) while /auth/me was in flight:
-      // this answer belongs to a session that no longer exists (F10).
-      if (getToken() !== token) return;
-      cacheUser(user);
-      set({ status: "authenticated", user });
-    } catch (e) {
-      if (getToken() !== token) return;
-      // ApiError means the request reached the server and it rejected the
-      // token (e.g. 401) — that's a real logout. A non-ApiError here is a
-      // network-level failure (fetch never got a response), which doesn't
-      // mean the token is invalid: fall back to the cached profile rather
-      // than stranding an offline returning user on the login screen.
-      if (!(e instanceof ApiError)) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const user = await getMe();
+        // Signed out (or someone else signed in) while /auth/me was in flight:
+        // this answer belongs to a session that no longer exists (F10).
+        if (getToken() !== token) return;
+        cacheUser(user);
+        set({ status: "authenticated", user });
+        return;
+      } catch (e) {
+        if (getToken() !== token) return;
+        // Only the server refusing the token ends the session: 401, or 403
+        // (a rejected or suspended account). apiFetch also throws an ApiError,
+        // with status 0, when the server cannot be reached, and a 5xx says
+        // nothing about the token either. Treating those as a refusal signed
+        // the admin out when the backend restarted (2026-10-16 re-test).
+        if (isSessionRefused(e)) {
+          clearToken();
+          clearCachedUser();
+          set({ status: "unauthenticated", user: null });
+          return;
+        }
+        // Not refused: carry on with the cached profile; the next request
+        // that reaches the server settles it (a 401 signs out, defect 8).
         const cached = getCachedUser();
         if (cached) {
           set({ status: "authenticated", user: cached });
           return;
         }
+        // No profile to show yet: try again, briefly, while the screen waits.
+        if (attempt < RESTORE_RETRY_DELAYS_MS.length) {
+          await new Promise((resolve) => setTimeout(resolve, RESTORE_RETRY_DELAYS_MS[attempt]));
+          if (getToken() !== token) return;
+          continue;
+        }
+        // Still unreachable: the screens need a profile, so show sign-in, but
+        // keep the token: it was never refused, and a reload tries it again.
+        set({ status: "unauthenticated", user: null });
+        return;
       }
-      clearToken();
-      clearCachedUser();
-      set({ status: "unauthenticated", user: null });
     }
   },
 
