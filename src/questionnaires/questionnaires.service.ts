@@ -1,6 +1,5 @@
 // src/questionnaires/questionnaires.service.ts
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger, Optional } from '@nestjs/common';
-import { AnomalyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -1457,6 +1456,10 @@ export class QuestionnairesService {
           vtTrainerRoster: vtTrainerRosterRows.length
             ? { createMany: { data: vtTrainerRosterRows as any, skipDuplicates: true } } : undefined,
         },
+        // Only what the rest of this method reads: the created row came back
+        // whole, rawData included, a large JSON sent back over the database
+        // link for nothing (defect 12 of the 2026-10-16 VT run).
+        select: { id: true, submissionId: true },
       });
     } catch (err: any) {
       if (err.code === 'P2002' && dto.formId) {
@@ -1515,12 +1518,11 @@ export class QuestionnairesService {
     }
 
     // Persist anomalies into OnefopAnomaly for non-draft submissions:
+    // The row was created just above, so it has no anomaly to clear first: the
+    // deleteMany that preceded this was one more round trip for nothing
+    // (defect 12).
     if (!isDraft && result?.id && coherenceFlags.length > 0) {
       try {
-        await this.prisma.onefopAnomaly.deleteMany({
-          where: { submissionId: result.id, status: AnomalyStatus.OPEN },
-        });
-
         await this.prisma.onefopAnomaly.createMany({
           // Advisory warnings, never blocking (coherence-anomaly.ts).
           data: coherenceFlags.map((flag) => coherenceFlagToAnomaly(result.id, flag)),

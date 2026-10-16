@@ -802,6 +802,7 @@ export class DataManagementService {
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
+            const include = this.partitionInclude(partition);
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.csv"');
@@ -826,7 +827,7 @@ export class DataManagementService {
                         orderBy: { id: 'asc' },
                         take: BATCH_SIZE,
                         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-                        include: this.approvedOnefopInclude(),
+                        include,
                     });
                     if (batch.length === 0) break;
 
@@ -952,10 +953,14 @@ export class DataManagementService {
         try {
             let writer: SavWriter;
             let rowsOf: (batch: any[]) => unknown[][];
+            // The legacy flat columns read every relation; the canonical
+            // dataset only its population's (partitionInclude).
+            let include: object = this.approvedOnefopInclude();
 
             if (this.canonicalAdapter) {
                 const adapter = this.canonicalAdapter;
                 const variables = adapter.getVariablesForPartition(partition);
+                include = this.partitionInclude(partition);
                 writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), {
                     fileLabel: `CAM-LEAP / ONEFOP - Registre Analytique Canonique (v${DATASET_SCHEMA_VERSION})`,
                 });
@@ -995,7 +1000,7 @@ export class DataManagementService {
                 };
             }
 
-            await this.writeSavFile(tmpSav, writer, where, rowsOf);
+            await this.writeSavFile(tmpSav, writer, where, rowsOf, include);
 
             res.setHeader('Content-Type', 'application/x-spss-sav');
             res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.sav"');
@@ -1435,6 +1440,38 @@ export class DataManagementService {
     // factSkillNeeds are Excel-only (their own long-format sheets there, see
     // buildOnefopWorkbook) so they're deliberately left out here to keep
     // each batch's fetch smaller.
+    // The relations one population's variables read. An employers' (DEMAND)
+    // export never reads a training-centre table and a TVET export never reads
+    // an employer table, yet every batch loaded all ~37 relations, one query
+    // each: on a distant database link that was most of the export's time
+    // (defect 12 of the 2026-10-16 VT run). data-management.service.spec.ts
+    // checks that every exported value is the same with the narrower include.
+    private static readonly TVET_RELATIONS = [
+        'vocationalTrainingDetail',
+        'vtDiplomaData',
+        'vtTraineeAgeFlow',
+        'vtTrainerAge',
+        'vtEducationLevelFlow',
+        'vtTraineeVulnerable',
+        'vtTrainerDisability',
+        'vtScholarship',
+        'vtSpecialtyRows',
+        'vtCurricula',
+        'vtInfrastructure',
+        'vtFurniture',
+    ];
+
+    /** approvedOnefopInclude() narrowed to what one population's variables read. */
+    private partitionInclude(partition: AnalyticalPartition): Record<string, unknown> {
+        const all: Record<string, unknown> = this.approvedOnefopInclude();
+        if (partition === 'ALL') return all;
+        const tvet = new Set(DataManagementService.TVET_RELATIONS);
+        const shared = new Set(['company', 'respondent']);
+        return Object.fromEntries(
+            Object.entries(all).filter(([key]) => shared.has(key) || (partition === 'TVET' ? tvet.has(key) : !tvet.has(key))),
+        );
+    }
+
     private approvedOnefopInclude() {
         return {
             company: {
