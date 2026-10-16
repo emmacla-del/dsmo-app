@@ -941,8 +941,8 @@
     "badgeCompleted": "Completed",
     "badgeInProgress": "In progress",
     "badgeNotStarted": "Not started",
-    "questionsProgress": "{filled} / {total} questions",
-    "tablesProgress": "{complete} / {total} tables",
+    "questionsProgress": "{filled} / {total, plural, one {# question} other {# questions}}",
+    "tablesProgress": "{complete} / {total, plural, one {# table} other {# tables}}",
     "answers": {
       "show": "Show answers",
       "change": "Change this section",

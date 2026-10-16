@@ -29,3 +29,16 @@ test("the review step's side list still names the preliminary questionnaire", ()
   assert.ok(nav, "the side list is shown on a wide screen");
   assert.ok(within(nav).getByText("Preliminary questionnaire"));
 });
+
+// 2026-10-16 re-test: the side list and the Contents drawer still named the
+// last step "Review and submission"; the page it opens is "Check your answers".
+test("the side list names the last step as its page does", () => {
+  writeWizardPosition(KEY, { stage: "section", sectionIndex: 0 });
+  renderWithProviders(<WizardShell entity={entity} data={{}} onChange={() => {}} positionKey={KEY} />, {
+    locale: "en",
+    queryData: [[["onefop", "active-quarter"], { code: "QUARTERLY_2026_T4_001", isOpen: true }]],
+  });
+  const nav = document.querySelector("nav") as HTMLElement;
+  assert.ok(within(nav).getByText("Check your answers"));
+  assert.equal(within(nav).queryByText("Review and submission"), null);
+});

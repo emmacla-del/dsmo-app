@@ -70,3 +70,36 @@ test("an approval recorded before the review rows, or an automatic one, shows th
   );
   assert.equal(auditDetailsSummary(entry("COMPANY_REGISTRATION_APPROVED", {})), "—");
 });
+
+// 2026-10-16 re-test: an endorsement read "AUDIT_APPROVE" in the audit log.
+// Every action the backend writes needs a label in both languages.
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+const backendSrc = join(process.cwd(), "..", "src");
+
+function backendActions(dir: string, out = new Set<string>()): Set<string> {
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) backendActions(full, out);
+    else if (name.endsWith(".ts") && !name.endsWith(".spec.ts")) {
+      for (const m of readFileSync(full, "utf-8").matchAll(/action: *'([A-Z_]+)'/g)) out.add(m[1]);
+    }
+  }
+  return out;
+}
+
+test("an endorsement has a label, in both languages", () => {
+  assert.equal(auditActionLabel("AUDIT_APPROVE"), "Dossier visé");
+  assert.equal(auditActionLabel("AUDIT_APPROVE", "en"), "File endorsed");
+  assert.equal(auditActionTone("AUDIT_APPROVE"), "success");
+});
+
+test("every action the backend writes has a French and an English label", { skip: !existsSync(backendSrc) && "backend not checked out" }, () => {
+  const actions = [...backendActions(backendSrc)];
+  assert.ok(actions.length > 10, "the backend's actions were found");
+  for (const action of actions) {
+    assert.notEqual(auditActionLabel(action, "fr"), action, `${action} has no French label`);
+    assert.notEqual(auditActionLabel(action, "en"), action, `${action} has no English label`);
+  }
+});

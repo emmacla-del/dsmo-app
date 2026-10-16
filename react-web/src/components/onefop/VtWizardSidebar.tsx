@@ -99,7 +99,8 @@ export function VtWizardSidebar({
     steps.push({
       key: "validation",
       marker: sections.length + 1,
-      name: t("review"),
+      // The page it opens is "Check your answers" (defect 15), not "Review and submission".
+      name: tVt("validationLink"),
       state: reviewState,
       stateLabel: stateLabel(reviewState),
       onSelect: onGoToValidation,
