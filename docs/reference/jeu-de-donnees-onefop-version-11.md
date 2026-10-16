@@ -55,3 +55,22 @@ Les deux fichiers doivent être triés par `submissionId`.
 La version d'un fichier se lit dans la variable `schemaVersion`, dans
 l'en-tête de la syntaxe `.sps` (« Version du schéma du jeu de données : 11. »)
 et dans l'en-tête HTTP `X-Dataset-Schema-Version`.
+
+## Dictionnaire des syntaxes `.sps` (16/10/2026)
+
+Les noms, les valeurs et l'ordre des variables ne changent pas, ni
+`schemaVersion` (toujours 11). Seul le texte du dictionnaire change :
+
+- **Étiquettes de valeurs de `region`.** Elles portent sur les valeurs
+  réellement enregistrées (« Littoral », « Extrême-Nord »…). Elles portaient
+  auparavant sur des codes (`LITTORAL`, `EXTREME_NORD`) qu'aucune déclaration
+  ne contient, si bien que SPSS n'en appliquait aucune.
+- **Étiquettes des cellules de tableaux.** Une ligne ou une colonne sans nom
+  dans le questionnaire est désignée par son rang (« Ligne 1 », « Colonne 2 »),
+  et non plus par la clé technique de la cellule (`s4q3_row1`).
+- **En-tête.** « Généré par CAMLEAP » remplace « Généré par DSMO ». La
+  syntaxe de la liste nominative (8.8) et celle du fichier des coordonnées ne
+  renvoient plus à une variable `formType` qu'elles ne contiennent pas.
+
+Une syntaxe qui recode `region` à partir des anciens codes doit utiliser les
+noms de régions.
