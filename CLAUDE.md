@@ -627,6 +627,20 @@ Approved changes on record:
   "fonctional" corrected to "functional"; both schema artifacts regenerated
   with `flutter test test/tools/export_onefop_schema_test.dart`. Label only:
   id, path and options unchanged. Confirmed by the owner in chat, 2026-10-16.
+- 2026-10-16 — SUPERSEDED: a correction request answered by a newer file
+  is closed (schema change; migrations `20261022120000_onefop_superseded_status`
+  and `20261022120100_onefop_superseded_backfill`). Issue: a resubmission
+  after a correction request or a reopening lands as a new file, and the old
+  one stayed CORRECTION_REQUESTED forever, in the reviewers' queue, the
+  pilotage counts and the respondent's home. Decision: `OnefopStatus`
+  gains SUPERSEDED and `OnefopSubmission.supersededById` names the
+  replacing file; a final submission closes the period's open correction
+  requests (`QuestionnairesService.supersedeCorrections`, AUDIT_SUPERSEDED);
+  the backfill closes existing ones. A replaced file is in no list unless
+  filtered on, no count, no export (asking for it is refused), never
+  statistically eligible (EXCL_SUPERSEDED), and offers no decision. REJECTED
+  files are final and untouched; the live-submission index is unchanged.
+  Approved by the owner in chat, 2026-10-16.
 
 ---
 
