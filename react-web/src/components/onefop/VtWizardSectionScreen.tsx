@@ -4,7 +4,7 @@ import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { useTranslations, useLocale } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, computeSubsectionLayout } from "@/lib/onefop-schema";
-import { VtGeographyLockContext, VtPaperCodeContext, VtSharedCodeContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox, VtWizardSignaturesCard } from "./VtWizardFields";
+import { VtGeographyLockContext, VtPaperCodeContext, VtSharedCodeContext, VtWizardField, VtWizardFieldError, VtWizardInlineCountBox } from "./VtWizardFields";
 import { useCompanyGeographyLock } from "@/hooks/useCompanyGeographyLock";
 import { SECTION1_GEOGRAPHY_FIELDS } from "@/lib/onefop-geography-lock";
 import {
@@ -26,7 +26,6 @@ import {
 } from "./vt-wizard-utils";
 import {
   VT_COMPACT_TOGGLE_SECTION_IDS,
-  VT_SIGNATURES_SECTION_ID,
   VT_ACCENT,
   VT_CARD_BORDER,
   VT_INK_SOFT,
@@ -1257,8 +1256,6 @@ export function VtWizardSectionScreen({
   const shortLabel = getVtSectionShortLabel(sectionId, locale);
   const sectionTitle = shortLabel ?? (section.title ? localized(section.title, locale.startsWith("en") ? "en" : "fr") : sectionId);
 
-  const isSignaturesSection = sectionId === VT_SIGNATURES_SECTION_ID;
-
   return (
     <VtGeographyLockContext.Provider value={lockedGeography}>
     <VtPaperCodeContext.Provider value={paperCodes}>
@@ -1318,12 +1315,6 @@ export function VtWizardSectionScreen({
                   columns={rowColumns}
                   headingTextOverride={groups[activeTab].title ?? undefined}
                 />
-
-                {isSignaturesSection && (
-                  <div style={{ marginTop: 24 }}>
-                    <VtWizardSignaturesCard />
-                  </div>
-                )}
               </FormSection>
               </TableHeadingShownContext.Provider>
             )}
@@ -1355,12 +1346,6 @@ export function VtWizardSectionScreen({
                     </div>
                   );
                 })}
-
-                {isSignaturesSection && c === cardChunks.length - 1 && (
-                  <div style={{ marginTop: 20 }}>
-                    <VtWizardSignaturesCard />
-                  </div>
-                )}
               </FormSection>
             ))}
           </div>
@@ -1381,12 +1366,6 @@ export function VtWizardSectionScreen({
                     group.fields.length > 0 ? <VtWizardBlockProgress summary={blockSummaries[i]} t={t} /> : undefined
                   }
                 />
-
-                {isSignaturesSection && (
-                  <div style={{ marginTop: 20 }}>
-                    <VtWizardSignaturesCard />
-                  </div>
-                )}
               </FormSection>
             ))}
           </div>

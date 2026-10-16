@@ -1038,8 +1038,6 @@
     "number": "Number:",
     "selectAllThatApply": "Select all that apply",
     "selectAnOption": "Select an option",
-    "signaturesApprovals": "Signatures & Approvals",
-    "signatureArea": "Stamp area",
     "graduates": "Graduates",
     "rowsFilledNote": "{count} of {total} {noun} filled in. Rows can be edited or removed before validation.",
     "countOfTotalNoun": "{count} of {total} {noun}.",

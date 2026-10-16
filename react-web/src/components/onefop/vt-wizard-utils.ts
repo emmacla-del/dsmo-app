@@ -41,7 +41,6 @@ export const VT_TABBED_IN_TABLEUR_IDS = new Set([
   "section7_vocationalTraining",
   "section9_vocationalTraining",
 ]);
-export const VT_SIGNATURES_SECTION_ID = "section9_vocationalTraining";
 
 export function isYesNoField(field: OnefopField): boolean {
   const opts = field.options ?? [];

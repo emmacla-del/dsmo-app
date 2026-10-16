@@ -1038,8 +1038,6 @@
     "number": "Nombre :",
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "selectAnOption": "Sélectionner une option",
-    "signaturesApprovals": "Signatures & Approbations",
-    "signatureArea": "Zone de signature",
     "graduates": "Diplômés",
     "rowsFilledNote": "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
     "countOfTotalNoun": "{count} {noun} sur {total}.",
