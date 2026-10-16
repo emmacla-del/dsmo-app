@@ -410,8 +410,58 @@ function SubmissionDetailContent() {
 
   const approveMutation = useMutation({
     mutationFn: () => approveDossier(id),
-    onSuccess: () => {
+    onSuccess: (approvedData: any) => {
       setApproveSuccess(true);
+      // Defect 9: cancel any in-flight refetches for the dossier and diagnostic queries,
+      // and write the authoritative server update directly into query cache so the header,
+      // decision actions, and diagnostic state update immediately without a stale race.
+      queryClient.cancelQueries({ queryKey: ["admin", "dossier", id] });
+      queryClient.cancelQueries({ queryKey: ["admin", "diagnostic", id] });
+      if (canonicalId && canonicalId !== id) {
+        queryClient.cancelQueries({ queryKey: ["admin", "dossier", canonicalId] });
+        queryClient.cancelQueries({ queryKey: ["admin", "diagnostic", canonicalId] });
+      }
+
+      queryClient.setQueryData(["admin", "dossier", id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          status: "APPROVED",
+          reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
+          reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
+        };
+      });
+      if (canonicalId && canonicalId !== id) {
+        queryClient.setQueryData(["admin", "dossier", canonicalId], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            status: "APPROVED",
+            reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
+            reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
+          };
+        });
+      }
+
+      queryClient.setQueryData(["admin", "diagnostic", id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          axis1Endorsed: true,
+          axis3Eligible: true,
+        };
+      });
+      if (canonicalId && canonicalId !== id) {
+        queryClient.setQueryData(["admin", "diagnostic", canonicalId], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            axis1Endorsed: true,
+            axis3Eligible: true,
+          };
+        });
+      }
+
       invalidateDossier();
     },
   });
