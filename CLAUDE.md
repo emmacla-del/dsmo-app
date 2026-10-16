@@ -220,6 +220,15 @@ Blocking checks currently in force:
   permanent room a condition. Blocks Suivant and submission in the
   wizard. The "Espaces temporaires" row follows the same rule only;
   whether it must be counted entirely as Provisoire awaits MINEFOP.
+- 2026-10-16 — VT "of which" subsets (`vtSubsetIssues` in
+  `react-web/src/lib/onefop-validation.ts`, `checkVtSubsetViolations` in
+  `src/questionnaires/questionnaires.service.ts`): 2.1.7 women ≤ total
+  specialised trainers (VT2_8 ≤ VT2_7), 2.1.16 lower + upper secondary ≤
+  2.1.15 total trainees (VT2_21 + VT2_22 ≤ VT2_19), 2.2.15 women ≤ total
+  ICT-trained trainers (VT2_48 ≤ VT2_47). Basis: a part of a count cannot
+  exceed the count it belongs to, a hard logical edit, not a comparison of
+  two populations. Warned on entry, blocks submission in the wizard and on
+  the server. Confirmed by the owner in chat, 2026-10-16.
 
 ---
 
@@ -580,6 +589,32 @@ Approved changes on record:
   variables stay in the anonymous dataset. Approved by the owner in chat,
   2026-10-16. The questionnaire is unchanged. Analyst note:
   `docs/reference/jeu-de-donnees-onefop-version-11.md`.
+- 2026-10-16 — reopen an endorsed file for correction (defect 13)
+  (`PATCH /admin/questionnaires/:id/reopen-for-correction`,
+  `QuestionnairesService.reopenForCorrection`). Issue: an APPROVED file could
+  never be returned, and the respondent's next submit for the period was
+  refused with 409. Decision: SUPER_ADMIN and ADMIN_ONEFOP only, enforced
+  server-side (route and service); APPROVED files only; a written reason
+  (10+ characters) and the reviewer's attestation; refused once the file's
+  period is closed. The file becomes CORRECTION_REQUESTED and follows the
+  existing correction flow; every reopening is recorded as AUDIT_REOPEN.
+  While reopened, the file is out of the validated exports. No schema
+  change. Confirmed by the owner in chat, 2026-10-16.
+- 2026-10-16 — .sps dictionary wording (defect 21)
+  (`src/data-management/canonical-schema-adapter.service.ts`,
+  `REGION_NAMES`). Issue: region VALUE LABELS were keyed by codes
+  ("LITTORAL") that no record holds, so SPSS applied none; table labels
+  carried cell keys ("s4q3_row1"); the header said DSMO. Fix: region labels
+  keyed by the stored region names (frozen registry updated with
+  `spss:registry --write --accept-value-labels`), unnamed rows and columns
+  labelled "Ligne n" / "Colonne n", header "Généré par CAMLEAP". Variable
+  names, values, order and DATASET_SCHEMA_VERSION (11) unchanged. Analyst
+  note: `docs/reference/jeu-de-donnees-onefop-version-11.md`. Confirmed by
+  the owner in chat, 2026-10-16.
+- 2026-10-16 — VT 2.2.7 English label (`lib/core/focus/compiler/onefop_ast.dart`):
+  "fonctional" corrected to "functional"; both schema artifacts regenerated
+  with `flutter test test/tools/export_onefop_schema_test.dart`. Label only:
+  id, path and options unchanged. Confirmed by the owner in chat, 2026-10-16.
 
 ---
 
