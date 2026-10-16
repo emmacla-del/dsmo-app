@@ -127,7 +127,12 @@ describe('DataManagementService — CSV/SPSS helpers (no DB)', () => {
     expect(sps).toContain('(-99)');
     expect(sps).toContain('VALUE LABELS');
     expect(sps).toContain("'ENTREPRISE' \"Entreprise\"");
-    expect(sps).toContain("'LITTORAL' \"Littoral\"");
+    // Keyed by the stored region name (defect 21 of the 2026-10-16 VT run).
+    expect(sps).toContain("'Littoral' \"Littoral\"");
+    expect(sps).toContain("'Extrême-Nord' \"Extrême-Nord\"");
+    expect(sps).not.toContain("'LITTORAL'");
+    expect(sps).toContain('* Généré par CAMLEAP');
+    expect(sps).not.toContain('DSMO');
   });
 
   it('buildFormTypeRemap only remaps a form-type column when its key collides with a common/formType column', () => {

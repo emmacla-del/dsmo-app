@@ -6,6 +6,7 @@ import {
   CANONICAL_ENTITY_PRIORITY,
   SPSS_TEXTAREA_WIDTH,
   LIST_TEXT_SLOTS,
+  REGION_NAMES,
 } from './canonical-schema-adapter.service';
 import { DataManagementService } from './data-management.service';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
@@ -982,5 +983,38 @@ describe('dataset v10: the 9.1 and 9.2 write-in lines are one variable each', ()
     const sub = vt({ VT9_3: 'Transport\nLoyer' });
     expect(adapter.exportValue(v('VT9_3_1'), sub)).toBe('Transport');
     expect(adapter.exportValue(v('VT9_3_2'), sub)).toBe('Loyer');
+  });
+});
+
+// Defect 21 (2026-10-16 VT run): the .sps an analyst opens. Names, values and
+// order are unchanged; only what the dictionary says changes.
+describe('.sps manifest wording (defect 21)', () => {
+  const adapter = new CanonicalSchemaAdapterService(new OnefopSchemaLoaderService());
+  const tvet = adapter.getTvetVariables();
+  const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
+
+  it('names CAMLEAP / ONEFOP in its header, not DSMO', () => {
+    expect(sps).toContain('* Généré par CAMLEAP — Registre analytique canonique ONEFOP.');
+    expect(sps).not.toContain('DSMO');
+  });
+
+  it('labels region by the values the variable holds', () => {
+    const region = tvet.find((v) => v.variableName === 'region')!;
+    expect(Object.keys(region.valueLabels!)).toEqual([...REGION_NAMES]);
+    expect(sps).toContain(`'Littoral' "Littoral"`);
+    expect(sps).not.toContain(`'LITTORAL'`);
+  });
+
+  it('labels table cells in words, never by their technical cell key', () => {
+    const technical = tvet.filter((v) => /s\dq\d+_row\d|\[s\d/.test(v.labelFr) || /s\dq\d+_row\d/.test(v.labelEn ?? ''));
+    expect(technical.map((v) => `${v.variableName}: ${v.labelFr}`)).toEqual([]);
+    const s4q3 = tvet.find((v) => v.variableName === 's4q3_row1_fiMale');
+    expect(s4q3?.labelFr).toMatch(/Ligne 1/);
+  });
+
+  it('points to formType only in a file that has it', () => {
+    expect(sps).toContain('(voir la variable formType)');
+    const noFormType = adapter.buildSpssSyntax(tvet.filter((v) => v.variableName !== 'formType'), 'x.csv');
+    expect(noFormType).not.toContain('formType');
   });
 });

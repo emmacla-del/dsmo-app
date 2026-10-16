@@ -54,16 +54,16 @@
     "submission.region": {
       "variableName": "region",
       "valueLabels": {
-        "ADAMAOUA": "Adamaoua",
-        "CENTRE": "Centre",
-        "EST": "Est",
-        "EXTREME_NORD": "Extrême-Nord",
-        "LITTORAL": "Littoral",
-        "NORD": "Nord",
-        "NORD_OUEST": "Nord-Ouest",
-        "OUEST": "Ouest",
-        "SUD": "Sud",
-        "SUD_OUEST": "Sud-Ouest"
+        "Adamaoua": "Adamaoua",
+        "Centre": "Centre",
+        "Est": "Est",
+        "Extrême-Nord": "Extrême-Nord",
+        "Littoral": "Littoral",
+        "Nord": "Nord",
+        "Nord-Ouest": "Nord-Ouest",
+        "Ouest": "Ouest",
+        "Sud": "Sud",
+        "Sud-Ouest": "Sud-Ouest"
       }
     },
     "submission.department": {

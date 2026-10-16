@@ -9,6 +9,7 @@ import {
     CanonicalSchemaAdapterService,
     AnalyticalPartition,
     AnalyticalVariableDefinition,
+    REGION_NAMES,
 } from './canonical-schema-adapter.service';
 import {
     buildExcelExportWhere,
@@ -2093,16 +2094,8 @@ export class DataManagementService {
         if (regionIdx !== -1) {
             valueLabelsParts.push([
                 `VALUE LABELS ${varNames[regionIdx]}`,
-                `  'ADAMAOUA' "Adamaoua"`,
-                `  'CENTRE' "Centre"`,
-                `  'EST' "Est"`,
-                `  'EXTREME_NORD' "Extreme-Nord"`,
-                `  'LITTORAL' "Littoral"`,
-                `  'NORD' "Nord"`,
-                `  'NORD_OUEST' "Nord-Ouest"`,
-                `  'OUEST' "Ouest"`,
-                `  'SUD' "Sud"`,
-                `  'SUD_OUEST' "Sud-Ouest"`,
+                // Keyed by the stored region name, as the canonical .sps (defect 21).
+                ...REGION_NAMES.map((n) => `  '${n}' "${n}"`),
                 `  .`,
             ].join('\n'));
         }
@@ -2118,7 +2111,7 @@ export class DataManagementService {
 
         return [
             '* Encoding: UTF-8.',
-            '* Généré par DSMO — export SPSS des soumissions ONEFOP.',
+            '* Généré par CAMLEAP — export SPSS des soumissions ONEFOP.',
             `* Placez ce fichier dans le même dossier que "${csvFilename}", puis exécutez-le`,
             '* entièrement (Exécuter > Tout) dans SPSS pour charger les données étiquetées.',
             '',
