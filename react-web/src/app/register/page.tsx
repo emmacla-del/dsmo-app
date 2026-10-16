@@ -451,6 +451,40 @@ export default function RegisterPage() {
         ),
     };
 
+    // One choice among two or three short options: radio buttons in a
+    // fieldset named by its legend, no option pre-selected (defect 19 of the
+    // 2026-10-16 VT run: the promoter's sex was a two-option select).
+    if (field.kind === "radio") {
+      return (
+        <fieldset
+          key={field.key}
+          id={id}
+          className="field choice-fieldset"
+          aria-required={field.required ? true : undefined}
+          {...invalid}
+        >
+          <legend>
+            {localized(field.label, locale)}
+            {!field.required && <span className="field-optional-mark"> ({t("registerPage.optionalLabel")})</span>}
+          </legend>
+          <div className="choice-list choice-list--inline">
+            {field.options?.map((o) => (
+              <label key={o.value} className="choice-option">
+                <input
+                  type="radio"
+                  name={id}
+                  value={o.value}
+                  checked={entityData[field.key] === o.value}
+                  onChange={() => setEntityField(field.key, o.value)}
+                />
+                <span>{localized(o.label, locale)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      );
+    }
+
     return (
       <FormRow
         key={field.key}

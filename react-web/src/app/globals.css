@@ -405,11 +405,9 @@ body {
 }
 
 .cam-auth-page .receipt-id-label {
-  font-size: var(--cam-font-size-2xs);
+  font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text-muted);
-  letter-spacing: var(--cam-tracking-label);
-  text-transform: uppercase;
 }
 
 .cam-auth-page .receipt-id--hero {
