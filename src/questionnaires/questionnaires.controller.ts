@@ -5,6 +5,7 @@ import {
   Body,
   Res,
   HttpStatus,
+  HttpCode,
   UsePipes,
   ValidationPipe,
   UseGuards,
@@ -187,6 +188,28 @@ export class QuestionnairesController {
         message: error.message,
       });
     }
+  }
+
+  /**
+   * The advisory coherence flags the answers would raise at final submission,
+   * shown to the respondent before they submit (defect 25). Reads and writes
+   * nothing; the flags are recomputed and stored by POST /onefop/submit.
+   */
+  @Post('coherence-preview')
+  @Roles('COMPANY')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(
+    new ValidationPipe({
+      transform: false,
+      skipMissingProperties: true,
+      skipUndefinedProperties: true,
+      skipNullProperties: true,
+      whitelist: false,
+      forbidNonWhitelisted: false,
+    }),
+  )
+  coherencePreview(@Body() dto: any) {
+    return { flags: this.service.previewCoherence(dto?.entityType, dto?.data) };
   }
 
   @Post('submit')

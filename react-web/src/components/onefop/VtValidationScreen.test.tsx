@@ -166,3 +166,49 @@ test("the review has one primary action and no duplicate or decorative controls"
   assert.doesNotMatch(text, /SECTION \d|Récapitulatif des 9 sections/);
   assert.ok(screen.getByRole("heading", { level: 3, name: "Section 1 : Identification" }));
 });
+
+// Defect 25 (2026-10-16 run): the server's advisory coherence flags are shown
+// before submission, with a way to confirm and continue. Never blocking (§7).
+const FLAG = {
+  code: "VT_DIPLOMA_ACADEMIC_PRO_MISMATCH",
+  message: "Effectif total des apprenants par diplôme académique (4.1: 12, hommes) ne correspond pas au total par diplôme professionnel (4.2: 10, hommes).",
+};
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test("coherence flags are shown first, then 'the figures are right' continues to submission", async () => {
+  let checks = 0;
+  const { user, submittedCount } = renderScreen({
+    entity: noErrorsEntity,
+    quiz: { isComplete: true, onOpen: () => {} },
+    checkCoherence: async () => {
+      checks += 1;
+      return [FLAG];
+    },
+  });
+  await user.click(submitButton());
+  await flush();
+  assert.equal(submittedCount(), 0, "the flags are shown before anything else");
+  assert.ok(screen.getByRole("heading", { name: "Vérifiez ces chiffres avant de soumettre" }));
+  const panel = document.getElementById("vt-coherence-warnings")!;
+  assert.match(panel.textContent ?? "", /4\.1[^0-9]+12[\s\S]*4\.2[^0-9]+10/, "the figures, in the reader's language");
+  assert.equal(document.activeElement?.id, "vt-coherence-warnings");
+
+  await user.click(screen.getByRole("button", { name: "Les chiffres sont justes, continuer vers la soumission" }));
+  assert.equal(submittedCount(), 1, "confirming continues: the flags never block");
+  assert.equal(checks, 1, "not asked twice for the same answers");
+});
+
+test("with no coherence flag, or a failed check, Continue goes straight on", async () => {
+  for (const checkCoherence of [async () => [], async () => Promise.reject(new Error("offline"))]) {
+    const { user, submittedCount, unmount } = renderScreen({
+      entity: noErrorsEntity,
+      quiz: { isComplete: true, onOpen: () => {} },
+      checkCoherence,
+    });
+    await user.click(submitButton());
+    await flush();
+    assert.equal(submittedCount(), 1);
+    assert.equal(screen.queryByText("Vérifiez ces chiffres avant de soumettre"), null);
+    unmount();
+  }
+});

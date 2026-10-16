@@ -1541,6 +1541,29 @@ export class QuestionnairesService {
   }
 
   /**
+   * The advisory coherence flags a final submission of `data` would raise,
+   * by the same rules as submitQuestionnaire, computed without reading or
+   * writing the database (defect 25 of the 2026-10-16 VT run: the respondent
+   * never saw them before submitting). Advisory only (CLAUDE.md §7): the
+   * wizard shows them and lets the respondent confirm and submit.
+   */
+  previewCoherence(entityType: unknown, data: unknown): { code: string; message: string }[] {
+    const type = normalizeEntityType(String(entityType ?? ''));
+    const raw = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
+    const normalized = normalizeFlatKeys(raw, toLowerEntityType(type));
+    const flat = normalized as unknown as FlatFormData;
+    if (type === 'VOCATIONAL_TRAINING') return this.checkVtCoherence(flat);
+    const nested = buildNestedDto(normalized, toLowerEntityType(type)) as any;
+    const headlineWorkers =
+      nested.enterprise?.permanentWorkers ?? nested.cooperative?.permanentWorkers ??
+      nested.ctd?.permanentWorkers ?? nested.ong?.permanentWorkers ?? null;
+    const headlineVacancies =
+      nested.enterprise?.vacancies ?? nested.cooperative?.vacancies ??
+      nested.ctd?.vacancies ?? nested.ong?.vacancies ?? null;
+    return this.checkCoherence(flat, type, headlineWorkers, headlineVacancies);
+  }
+
+  /**
    * Cross-question coherence checks — flags (never blocks) cases where the
    * same underlying count is declared twice, cross-tabulated two different
    * ways, and the totals disagree. Stored on OnefopSubmission.flags for the

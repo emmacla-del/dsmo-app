@@ -960,7 +960,14 @@
     "saveDraftButton": "Save Draft",
     "submitting": "Submitting…",
     "submitButton": "Final Submission",
-    "continueButton": "Continue to submission"
+    "continueButton": "Continue to submission",
+    "coherence": {
+      "title": "Check these figures before you submit",
+      "intro": "Some totals that count the same trainees or trainers do not agree. This does not stop you submitting: correct the figures if they are wrong, or confirm that they are right.",
+      "correct": "Correct this section",
+      "checking": "Checking the figures…",
+      "confirmButton": "The figures are right, continue to submission"
+    }
   },
   "vtWizardSidebar": {
     "navAriaLabel": "VT questionnaire navigation",

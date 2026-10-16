@@ -309,6 +309,26 @@ export function submitDeclaration(
   // and must reach the respondent as the error it is — never as a success.
 }
 
+/** One advisory coherence flag, as the server words and stores it. */
+export interface CoherenceFlag {
+  code: string;
+  message: string;
+}
+
+/**
+ * The advisory coherence flags a final submission of `data` would raise,
+ * computed by the server's own rules without saving anything (defect 25 of
+ * the 2026-10-16 VT run: the respondent never saw them). Advisory only
+ * (CLAUDE.md §7): the caller lets the respondent confirm and submit.
+ */
+export function previewCoherence(entityType: string, data: Record<string, unknown>, entity?: OnefopEntity | null) {
+  const backendEntityType = BACKEND_ENTITY_TYPE[entityType] ?? entityType;
+  return apiFetch<{ flags: CoherenceFlag[] }>("/onefop/coherence-preview", {
+    method: "POST",
+    body: JSON.stringify({ entityType: backendEntityType, data: prepareSubmissionData(entity, data) }),
+  }).then((r) => r?.flags ?? []);
+}
+
 // Raw shape of a single class-validator error, as questionnaires.service.ts
 // throws it directly (`throw new BadRequestException(dataErrors)`, no
 // wrapping) when its manual `validate()` call against the nested
