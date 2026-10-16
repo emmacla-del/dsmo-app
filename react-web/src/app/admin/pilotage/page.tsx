@@ -75,16 +75,20 @@ function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { ca
 
 function CampaignCard({
   campaign,
+  isLoading = false,
   totalSubmissions,
   canOpenCampaigns,
   canOpenTargets,
 }: {
   campaign?: Campaign;
+  /** The active campaign is still being fetched: say so, never "Inactive". */
+  isLoading?: boolean;
   totalSubmissions: number | null;
   canOpenCampaigns: boolean;
   canOpenTargets: boolean;
 }) {
   const t = useTranslations("adminPilotagePage");
+  const tCommon = useTranslations("common");
   const tStatus = useTranslations("adminCampagnesPage.status");
   const locale = useUiLocale();
   const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
@@ -92,14 +96,14 @@ function CampaignCard({
 
   if (!campaign) {
     return (
-      <section className="cam-dash-card" aria-labelledby="dash-campaign-title">
+      <section className="cam-dash-card" aria-labelledby="dash-campaign-title" aria-busy={isLoading || undefined}>
         <div className="cam-dash-card-head">
           <div>
             <div className="cam-dash-card-title-row">
               <h3 id="dash-campaign-title" className="cam-dash-card-title">{t("campaignCardTitle")}</h3>
-              <span className="cam-badge cam-badge-neutral">{t("campaignInactive")}</span>
+              {!isLoading && <span className="cam-badge cam-badge-neutral">{t("campaignInactive")}</span>}
             </div>
-            <p className="cam-dash-card-sub">{t("noActiveCampaign")}</p>
+            <p className="cam-dash-card-sub">{isLoading ? tCommon("loading") : t("noActiveCampaign")}</p>
           </div>
           <CampaignLinks campaignLabel={t("manageCampaignsLink")} canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
         </div>
@@ -373,7 +377,7 @@ export default function PilotagePage() {
     refetchInterval: 120000,
   });
 
-  const { activeCampaign } = useActiveCampaign();
+  const { activeCampaign, isLoading: campaignLoading } = useActiveCampaign();
 
   const qualityQuery = useQuery({
     queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
@@ -520,6 +524,7 @@ export default function PilotagePage() {
         <div className="cam-dash-column">
           <CampaignCard
             campaign={activeCampaign}
+            isLoading={campaignLoading}
             totalSubmissions={totalSubmissions}
             canOpenCampaigns={hasRole(userRole, CAMPAIGN_ROLES)}
             canOpenTargets={hasRole(userRole, APPROVAL_ROLES)}
