@@ -72,6 +72,20 @@ test("a blank or unreadable cell counts 0, as on the server", () => {
   assert.deepEqual(vtAdvisoryIssues(s4.fields, data)[0].bySex, [{ sex: "male", first: 0, second: 2 }]);
 });
 
+test("4.10 switched off by the preliminary questionnaire counts 0 and is complete, as the submission sends it", () => {
+  const off = { _scopeConfig: { vocationalTraining: { formerStudents: false } } };
+  const data = { ...off, ...all("VT4_2", "VT4_7"), s4q7_age_18_sortant_male: 3, s4q10_row1_male: 3 };
+  const issues = vtAdvisoryIssues(s4.fields, data);
+  assert.deepEqual(
+    issues.map((i) => [i.code, i.offTables, i.bySex]),
+    [["VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH", ["VT4_10"], [{ sex: "male", first: 3, second: 0 }]]],
+    "a figure left in 4.10 before it was switched off is not counted",
+  );
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, { ...off, ...all("VT4_2", "VT4_7") }), [], "no leavers: nothing to say");
+  const on = { _scopeConfig: { vocationalTraining: { formerStudents: true } } };
+  assert.deepEqual(vtAdvisoryIssues(s4.fields, { ...on, ...all("VT4_2", "VT4_7"), s4q7_age_18_sortant_male: 3 }), [], "4.10 asked and empty: wait for it");
+});
+
 // ── The browser copy must match the server's rules (checkVtCoherence) ──
 // The server sums fixed row lists; the browser sums the schema's cells.
 // If either side changes its rows, keys or codes, this fails.

@@ -24,9 +24,10 @@ const S4 = 2;
 const STEP_4_7 = 6;
 const KEY = "advisory-test";
 
-function quiz(): FormData {
+function quiz(overrides: Record<string, boolean> = {}): FormData {
   const answers: Record<string, boolean> = {};
   for (const q of VT_QUIZ_QUESTIONS) answers[q.id] = true;
+  Object.assign(answers, overrides);
   return { _scopeConfig: { vocationalTraining: answers }, VT2_18: ["Formation Initiale (FI)"] };
 }
 
@@ -136,4 +137,15 @@ test("a table the rules do not compare shows nothing", () => {
   renderAt(mismatched(), 0);
   assert.equal(currentTable(), "4.1");
   assert.equal(advisoryNotice(), null);
+});
+
+test("4.10 switched off by the questionnaire: 4.7 leavers are compared with 0, and the line offers the questionnaire", async () => {
+  const data = { ...quiz({ formerStudents: false }), ...filled("VT4_1"), ...filled("VT4_2"), ...filled("VT4_7"), s4q7_age_18_sortant_male: 3 };
+  const { user } = renderAt(data, STEP_4_7);
+  const notice = advisoryNotice();
+  assert.ok(notice, "shown on 4.7 although 4.10 is never filled");
+  assert.match(notice.textContent ?? "", /4\.7 sortants = 3, 4\.10 \(sans objet\) = 0/);
+  await user.click(within(notice).getByRole("button", { name: "Revoir le questionnaire préliminaire" }));
+  await wait(20);
+  assert.ok(document.getElementById("vt-quiz-heading"), "the questionnaire is open");
 });

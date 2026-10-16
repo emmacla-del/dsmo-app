@@ -2,6 +2,7 @@ import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { VtAdvisoryCoherenceNotice } from "./VtAdvisoryCoherenceNotice";
+import { VtQuizContext } from "./VtScopeQuiz";
 import { VT_ADVISORY_RULES, type VtAdvisoryIssue } from "@/lib/vt-advisory-coherence";
 
 // The advisory coherence notice under a Section 4 table (CLAUDE.md §7).
@@ -11,6 +12,7 @@ const AGE: VtAdvisoryIssue = {
   code: rule.code,
   tables: ["VT4_2", "VT4_7"],
   labels: [rule.first.label, rule.second.label],
+  offTables: [],
   bySex: [
     { sex: "male", first: 10, second: 8 },
     { sex: "female", first: 7, second: 9 },
@@ -55,4 +57,26 @@ test("shows nothing with no disagreement, or none for the table on screen", () =
   assert.equal(container.innerHTML, "");
   rerender(<VtAdvisoryCoherenceNotice issues={[AGE]} tableFieldIds={["VT4_8"]} onOpenTable={() => {}} />);
   assert.equal(container.innerHTML, "");
+});
+
+test("a table switched off by the preliminary questionnaire is named as such, and the link opens the questionnaire", async () => {
+  const out = VT_ADVISORY_RULES[2];
+  const leavers: VtAdvisoryIssue = {
+    code: out.code,
+    tables: ["VT4_7", "VT4_10"],
+    labels: [out.first.label, out.second.label],
+    offTables: ["VT4_10"],
+    bySex: [{ sex: "male", first: 3, second: 0 }],
+    why: out.why,
+  };
+  let opened = 0;
+  const { user } = renderWithProviders(
+    <VtQuizContext.Provider value={{ openQuiz: () => opened++ }}>
+      <VtAdvisoryCoherenceNotice issues={[leavers]} tableFieldIds={["VT4_7"]} onOpenTable={() => assert.fail("4.10 is not asked")} />
+    </VtQuizContext.Provider>,
+  );
+  assert.match(screen.getByRole("status").textContent ?? "", /hommes : 4\.7 sortants = 3, 4\.10 \(sans objet\) = 0/);
+  assert.equal(screen.queryByRole("button", { name: "Ouvrir le tableau 4.10" }), null);
+  await user.click(screen.getByRole("button", { name: "Revoir le questionnaire préliminaire" }));
+  assert.equal(opened, 1);
 });

@@ -1005,6 +1005,8 @@
     "advisoryMen": "hommes",
     "advisoryWomen": "femmes",
     "advisoryWhy": "Pourquoi ?",
+    "advisoryOff": "(sans objet)",
+    "advisoryOpenQuiz": "Revoir le questionnaire préliminaire",
     "crossTableOpenFull": "Ouvrir le tableau {code} — comparaison des tableaux {tables}",
     "rowOwes": "À compléter : {cells}",
     "rowNumber": "ligne {index}",
