@@ -177,4 +177,28 @@ export class DataManagementController {
     this.dataManagementService.logExport(req.user?.id, 'ROSTER_SAV', { filters });
     await this.dataManagementService.streamVtRosterSav(filters, res, territoryFromUser(req.user));
   }
+
+  // Restricted VT contact file (Decision 2 Option B) — personal contact info,
+  // restricted to central ONEFOP admins. Every download is recorded.
+  @Post('export/vt-contact/manifest')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtContactManifest(@Body('csvFilename') csvFilename?: string) {
+    return this.dataManagementService.buildVtContactManifest(csvFilename);
+  }
+
+  @Post('export/vt-contact/csv')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtContactCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
+    this.dataManagementService.logExport(req.user?.id, 'CONTACT_CSV', { filters });
+    await this.dataManagementService.streamVtContactCsv(filters, res, territoryFromUser(req.user));
+  }
+
+  @Post('export/vt-contact/sav')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+  async postExportVtContactSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
+    this.dataManagementService.logExport(req.user?.id, 'CONTACT_SAV', { filters });
+    await this.dataManagementService.streamVtContactSav(filters, res, territoryFromUser(req.user));
+  }
 }

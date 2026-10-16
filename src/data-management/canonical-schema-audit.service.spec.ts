@@ -134,9 +134,9 @@ describe('ONEFOP SPSS Export — Production Certification', () => {
       const vt = report.forms.find((f) => f.entity === 'vocationalTraining')!;
       expect(vt).toBeDefined();
       // VT4_3, VT4_4, VT4_5, VT4_6, VT4_10, VT5_5, VT6_13, VT8_4, VT8_7 → LONG_FORMAT
-      // VT8_8 → INTENTIONALLY_EXCLUDED
+      // VT8_8 + 7 contact fields (VT1_15_*, VT1_16_*, VT2_12) → INTENTIONALLY_EXCLUDED (Defect 3)
       expect(vt.repeatingFields).toBe(9);
-      expect(vt.intentionallyExcluded).toBe(1);
+      expect(vt.intentionallyExcluded).toBe(8);
       expect(vt.missingFields).toBe(0);
     });
 

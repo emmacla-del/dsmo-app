@@ -25,6 +25,41 @@ export const CANONICAL_PII_EXCLUSION_DEFINITIONS: Record<string, CanonicalPiiExc
     affectedData:
       's8q8_row1_lastName … s8q8_row14_professionalDiploma (7 cells × 14 rows = 98 PII cell IDs)',
   },
+  VT1_15_NAME: {
+    reason: 'PII — Respondent name (last name, first name)',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_15_NAME',
+  },
+  VT1_15_TEL1: {
+    reason: 'PII — Respondent primary phone number',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_15_TEL1',
+  },
+  VT1_15_EMAIL: {
+    reason: 'PII — Respondent email address',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_15_EMAIL',
+  },
+  VT1_16_NAME: {
+    reason: 'PII — Promoter/Director name',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_16_NAME',
+  },
+  VT1_16_TEL1: {
+    reason: 'PII — Promoter/Director primary phone number',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_16_TEL1',
+  },
+  VT1_16_EMAIL: {
+    reason: 'PII — Promoter/Director email address',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT1_16_EMAIL',
+  },
+  VT2_12: {
+    reason: 'PII — Centre contact email address',
+    policy: 'Decision 2 (Option B, 2026-10-16): Moved to restricted contact file alongside 8.8.',
+    affectedData: 'VT2_12',
+  },
 };
 
 export const CANONICAL_PII_EXCLUSIONS = new Set<string>(
