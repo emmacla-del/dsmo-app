@@ -3971,7 +3971,7 @@ const section2VocationalTrainingQuestions = <FormQuestionAst>[
     paperCode: "2.2.7",
     label: LocalizedText(
       fr: "Le centre dispose-t-il d'une bibliothèque fonctionnelle ?",
-      en: "Is there a fonctional library?",
+      en: "Is there a functional library?",
     ),
     sectionId: "section2_vocationalTraining",
     order: 32,
