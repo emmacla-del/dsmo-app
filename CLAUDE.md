@@ -209,6 +209,8 @@ Blocking checks currently in force:
   (trainers), by sex, once both tables are complete. They block
   Suivant and submission in the wizard. The server's 4.2/4.7, 4.2/4.8
   and 4.7/4.10 checks are NOT in this list: they await domain review.
+  Since 2026-10-16 the respondent sees them as amber, non-blocking lines
+  under those tables (`react-web/src/lib/vt-advisory-coherence.ts`).
   Server-side, coherence flags are stored as non-blocking warnings
   (`src/questionnaires/coherence-anomaly.ts`).
 - 2026-10-11 — VT table 5.3 (`react-web/src/lib/vt-infrastructure-check.ts`):
@@ -229,6 +231,16 @@ Blocking checks currently in force:
   exceed the count it belongs to, a hard logical edit, not a comparison of
   two populations. Warned on entry, blocks submission in the wizard and on
   the server. Confirmed by the owner in chat, 2026-10-16.
+- 2026-10-16 — VT 6.3 placed leavers ≤ 4.10 leavers (rule 5 of
+  `vtSubsetIssues` in `react-web/src/lib/onefop-validation.ts`, rule 5 of
+  `checkVtSubsetViolations` in `src/questionnaires/questionnaires.service.ts`):
+  for a specialty named in both tables, 6.3 men ≤ 4.10 men and 6.3 women
+  ≤ 4.10 women; and the 6.3 total ≤ the 4.10 total. Basis: 6.3 counts the
+  leavers of 4.10 who found work, for the same prior year (both labels read
+  « pour l'année antérieure »), so it is an "of which" subset of 4.10, not
+  a second population. A specialty named in 6.3 but not in 4.10 is not
+  compared row by row. Warned on entry, blocks Suivant and submission in
+  the wizard and on the server. Confirmed by the owner in chat, 2026-10-16.
 
 ---
 
