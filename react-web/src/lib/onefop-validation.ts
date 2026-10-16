@@ -22,7 +22,7 @@ import {
 } from "@/components/onefop/tables/quizRequired";
 import { incompleteQuizQuestions, readQuizScope, withQuizDerivedStatuses } from "@/components/modern-jobs/scope/QuizSemantics";
 import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vtQuizQuestionForTable, vtTableStatus } from "./vt-quiz";
-import type { PrimaryQuestionId } from "@/components/modern-jobs/scope/ScopeTypes";
+import type { PrimaryQuestionId, ScopeState } from "@/components/modern-jobs/scope/ScopeTypes";
 import { vtCrossTableIssues } from "./vt-cross-table";
 import { vt53Issue } from "./vt-infrastructure-check";
 import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY } from "./onefop-activities";
@@ -506,13 +506,14 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
     const definition = getModernJobsTableDefinition(field, data) ?? getGuidedOnlyTableDefinition(field, data);
     if (definition) {
       const missingKeys = missingQuizFieldKeys(definition, data);
-      if (missingKeys.length > 0) {
+      const cellMissingKeys = missingKeys.filter((k) => !k.endsWith("_TEXT"));
+      if (cellMissingKeys.length > 0) {
         issues.push({
           fieldId: field.id,
           // Real plurals and a shorter sentence: what is missing, then what to do.
           message: locale === "en"
-            ? `${label}: ${missingKeys.length} ${missingKeys.length === 1 ? "cell" : "cells"} still to fill. Enter 0 where there was nothing.`
-            : `${label} : ${missingKeys.length} ${missingKeys.length === 1 ? "cellule reste" : "cellules restent"} à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+            ? `${label}: ${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cell" : "cells"} still to fill. Enter 0 where there was nothing.`
+            : `${label} : ${cellMissingKeys.length} ${cellMissingKeys.length === 1 ? "cellule reste" : "cellules restent"} à renseigner. Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
         });
       }
       return issues;
@@ -646,34 +647,190 @@ export function validateEntityData(
     issues.push(...crossTableIssues(entity.sections.flatMap((sec) => sec.fields), data, locale));
   }
 
-  // V1: S3Q02 reason rows 2 and 3 — text field required when any count in
-  // that row is non-zero. These fields are in OPTIONAL_OVERRIDES to allow
-  // single-reason declarations (where rows 2/3 have zero counts). The table-
-  // level mechanism (missingQuizFieldKeys) handles this for modern-jobs
-  // tables but S3Q02 is a hybrid reasons table not registered there. This
-  // targeted check fills that gap. Skip entirely when the quiz says no
-  // departures occurred — the table is NONE/gated and stale draft values
-  // must not produce false errors.
+  for (const section of entity.sections) {
+    if (isVtSectionWaived(section.id, data)) continue;
+    issues.push(...companionTableIssues(section.fields, tableView, locale));
+  }
+
+  return issues;
+}
+
+export interface CompanionTableSpec {
+  tableCode: string;
+  tablePrefix: string;
+  isGated: (scope: ScopeState | null, data: FormData) => boolean;
+  slots: Array<{
+    slot: number;
+    textKey: string;
+    rowKey: string;
+    missingTextMsg: { fr: string; en: string };
+    missingCountsMsg: { fr: string; en: string };
+  }>;
+}
+
+export const COMPANION_TABLE_SPECS: CompanionTableSpec[] = [
+  {
+    tableCode: "S3Q02",
+    tablePrefix: "s3q02",
+    isGated: (scope, data) => {
+      const status = (data.S3Q02_RESPONSE_STATUS ?? data.s3q02_RESPONSE_STATUS) as string | undefined;
+      if (status === "NONE") return true;
+      if (status === "REPORTED") return false;
+      if (!scope) return false;
+      return scope.departures === false || (Array.isArray(scope.departure_reasons) && !scope.departure_reasons.includes("licenciement"));
+    },
+    slots: [
+      {
+        slot: 2,
+        textKey: "S3Q02_REASON_2_TEXT",
+        rowKey: "reason_2",
+        missingTextMsg: {
+          fr: "La description du motif est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Dismissal reason description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce motif de licenciement.",
+          en: "Headcounts are required for this dismissal reason.",
+        },
+      },
+      {
+        slot: 3,
+        textKey: "S3Q02_REASON_3_TEXT",
+        rowKey: "reason_3",
+        missingTextMsg: {
+          fr: "La description du motif est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Dismissal reason description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce motif de licenciement.",
+          en: "Headcounts are required for this dismissal reason.",
+        },
+      },
+    ],
+  },
+  {
+    tableCode: "S4Q02",
+    tablePrefix: "s4q02",
+    isGated: (scope, data) => {
+      const status = (data.S4Q02_RESPONSE_STATUS ?? data.s4q02_RESPONSE_STATUS) as string | undefined;
+      if (status === "NONE") return true;
+      if (status === "REPORTED") return false;
+      if (!scope) return false;
+      return scope.skills_needs === false;
+    },
+    slots: [
+      {
+        slot: 2,
+        textKey: "S4Q02_DOMAIN_2_TEXT",
+        rowKey: "skill_2",
+        missingTextMsg: {
+          fr: "Le domaine de compétence est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Skill domain description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce domaine de compétence.",
+          en: "Headcounts are required for this skill domain.",
+        },
+      },
+      {
+        slot: 3,
+        textKey: "S4Q02_DOMAIN_3_TEXT",
+        rowKey: "skill_3",
+        missingTextMsg: {
+          fr: "Le domaine de compétence est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Skill domain description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce domaine de compétence.",
+          en: "Headcounts are required for this skill domain.",
+        },
+      },
+    ],
+  },
+  {
+    tableCode: "S4Q03",
+    tablePrefix: "s4q03",
+    isGated: (scope, data) => {
+      const status = (data.S4Q03_RESPONSE_STATUS ?? data.s4q03_RESPONSE_STATUS) as string | undefined;
+      if (status === "NONE") return true;
+      if (status === "REPORTED") return false;
+      if (!scope) return false;
+      return scope.training_needs === false;
+    },
+    slots: [
+      {
+        slot: 2,
+        textKey: "S4Q03_DOMAIN_2_TEXT",
+        rowKey: "domain_2",
+        missingTextMsg: {
+          fr: "Le domaine de formation est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Training domain description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce domaine de formation.",
+          en: "Headcounts are required for this training domain.",
+        },
+      },
+      {
+        slot: 3,
+        textKey: "S4Q03_DOMAIN_3_TEXT",
+        rowKey: "domain_3",
+        missingTextMsg: {
+          fr: "Le domaine de formation est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          en: "Training domain description is required when a count is entered for this row.",
+        },
+        missingCountsMsg: {
+          fr: "Les effectifs sont obligatoires pour ce domaine de formation.",
+          en: "Headcounts are required for this training domain.",
+        },
+      },
+    ],
+  },
+];
+
+export function companionTableIssues(
+  fields: OnefopField[],
+  data: FormData,
+  locale?: ValidationLocale,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
   const scope = readQuizScope(data);
-  const departuresCouldBeReported = scope === null || scope.departures !== false;
-  if (departuresCouldBeReported) {
-    for (const { textKey, prefix } of [
-      { textKey: "S3Q02_REASON_2_TEXT", prefix: "S3Q02_REASON_2_" },
-      { textKey: "S3Q02_REASON_3_TEXT", prefix: "S3Q02_REASON_3_" },
-    ] as const) {
-      const textValue = data[textKey];
-      if (textValue !== undefined && textValue !== null && textValue !== "") continue;
-      const rowHasCount = Object.entries(data).some(([k, v]) => {
-        if (!k.startsWith(prefix) || k === textKey) return false;
+
+  for (const spec of COMPANION_TABLE_SPECS) {
+    const hasTable = fields.some(
+      (f) => f.id.toUpperCase() === spec.tableCode || f.paperCode?.toUpperCase() === spec.tableCode,
+    );
+    if (!hasTable) continue;
+    if (spec.isGated(scope, data)) continue;
+
+    for (const slot of spec.slots) {
+      const textRaw = data[slot.textKey];
+      const hasText = textRaw !== undefined && textRaw !== null && String(textRaw).trim().length > 0;
+
+      const prefix = `${spec.tablePrefix}_${slot.rowKey}_`;
+      const hasPositiveCount = Object.entries(data).some(([k, v]) => {
+        const lk = k.toLowerCase();
+        if (!lk.startsWith(prefix) || lk === slot.textKey.toLowerCase()) return false;
         const n = typeof v === "number" ? v : Number(v);
         return !Number.isNaN(n) && n > 0;
       });
-      if (rowHasCount) {
+
+      if (hasPositiveCount && !hasText) {
         issues.push({
-          fieldId: textKey,
-          message: locale === "en"
-            ? "Dismissal reason description is required when a count is entered for this row."
-            : "La description du motif est obligatoire lorsqu'un effectif est saisi pour cette ligne.",
+          fieldId: slot.textKey,
+          message: locale === "en" ? slot.missingTextMsg.en : slot.missingTextMsg.fr,
+        });
+      }
+
+      if (hasText && !hasPositiveCount) {
+        const maleKey = `${spec.tablePrefix}_${slot.rowKey}_male`;
+        const femaleKey = `${spec.tablePrefix}_${slot.rowKey}_female`;
+        const maleEntered = isEnteredValue(data[maleKey]) && !Number.isNaN(Number(data[maleKey]));
+        const femaleEntered = isEnteredValue(data[femaleKey]) && !Number.isNaN(Number(data[femaleKey]));
+        const targetId = !maleEntered ? maleKey : !femaleEntered ? femaleKey : slot.textKey;
+        issues.push({
+          fieldId: targetId,
+          message: locale === "en" ? slot.missingCountsMsg.en : slot.missingCountsMsg.fr,
         });
       }
     }
@@ -695,6 +852,7 @@ export function validateSectionData(
   return [
     ...validateFields(section.fields, data, locale, territoryTree),
     ...crossTableIssues(section.fields, data, locale),
+    ...companionTableIssues(section.fields, data, locale),
   ];
 }
 
