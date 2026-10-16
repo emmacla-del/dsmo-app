@@ -1,6 +1,7 @@
 import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { useState } from "react";
 import { VtRosterGrid } from "./VtRosterGrid";
 import { buildVt88TrainerRosterDefinition } from "./StatisticalTableDefinition";
 import { schemaField } from "@/test/schema";
@@ -60,3 +61,16 @@ test("defect 4: clicking Add on an empty roster grid keeps slot 0 and opens slot
   assert.ok(document.getElementById("cell-input-s8q8_row2_lastName"), "row 2 must be added");
 });
 
+test("defect 4: removing the only row, then Add, keeps row 1 and opens row 2", async () => {
+  function Harness() {
+    const [data, setData] = useState<Record<string, unknown>>({ s8q8_row1_lastName: "Ateba" });
+    return <VtRosterGrid definition={definition} data={data} onChange={(id, v) => setData((d) => ({ ...d, [id]: v }))} />;
+  }
+  const { user, unmount } = renderWithProviders(<Harness />);
+  await user.click(screen.getByRole("button", { name: "Supprimer Ateba" }));
+  assert.ok(document.getElementById("cell-input-s8q8_row1_lastName"), "row 1 is offered again");
+  await user.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+  assert.ok(document.getElementById("cell-input-s8q8_row1_lastName"), "row 1 must remain");
+  assert.ok(document.getElementById("cell-input-s8q8_row2_lastName"), "row 2 must be added");
+  unmount();
+});

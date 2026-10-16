@@ -152,8 +152,7 @@ export function VtProgressiveRowGrid({
   const hasTotals = valueCells.some((c) => c.kind === "number" || c.kind === "computed");
 
   // Slots opened with "Add" but not typed in yet (not stored anywhere).
-  // An empty table opens slot 0 so clicking "Add" opens slot 1 without dropping slot 0.
-  const [opened, setOpened] = useState<number[]>(() => (vtStartedSlots(field, data).length === 0 ? [0] : []));
+  const [opened, setOpened] = useState<number[]>([]);
   // The slot whose specialty input takes focus once "Add" has rendered it.
   const focusSlot = useRef<number | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -174,7 +173,9 @@ export function VtProgressiveRowGrid({
   const add = () => {
     if (next === null) return;
     focusSlot.current = next;
-    setOpened((o) => [...o, next]);
+    // Every slot on screen stays open, the empty first line included: it is
+    // shown without being opened, and would vanish once another slot is.
+    setOpened((o) => [...new Set([...o, ...shown, next])]);
   };
 
   const remove = (slot: number) => {
