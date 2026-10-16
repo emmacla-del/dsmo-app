@@ -10,7 +10,7 @@ import type {
   SchemaSection,
 } from '../onefop-schema-validation/onefop-schema.types';
 import { OnefopEntityType } from '../types/prisma.types';
-import { hasRealNiu } from './niu';
+import { hasRealNiu, resolveTaxNumber } from './niu';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
 import { DEFAULT_VARIABLE_REGISTRY, VariableRegistry } from './spss/variable-registry';
 import { disambiguateDuplicateLabels, neutralizeReportingPeriod } from './spss/export-labels';
@@ -390,9 +390,10 @@ export class CanonicalSchemaAdapterService {
     // 1. Direct system variable paths
     if (sp.startsWith('submission.')) {
       const prop = sp.slice('submission.'.length);
+      if (prop === 'taxNumber') {
+        return resolveTaxNumber(submission);
+      }
       const value = submission[prop];
-      // A synthetic NA-<uuid> placeholder exports as missing, not as a NIU.
-      if (prop === 'taxNumber' && typeof value === 'string' && !hasRealNiu(value)) return null;
       return value;
     }
     if (sp.startsWith('company.')) {

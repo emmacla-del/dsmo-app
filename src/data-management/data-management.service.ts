@@ -32,7 +32,7 @@ import {
     VT_CONTACT_FILE_LABEL,
     vtContactColumns,
 } from './spss/vt-contact-export';
-import { hasRealNiu } from './niu';
+import { hasRealNiu, resolveTaxNumber } from './niu';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1663,7 +1663,7 @@ export class DataManagementService {
             quarterCode: s.quarterCode,
             companyName: s.company?.name ?? null,
             // A synthetic NA-<uuid> placeholder exports as an empty cell.
-            taxNumber: [s.company?.taxNumber, s.taxNumber].find(hasRealNiu) ?? null,
+            taxNumber: resolveTaxNumber(s),
             establishmentId: s.company?.establishmentId ?? s.establishmentId ?? null,
             region: s.region ?? s.company?.region ?? null,
             department: s.department ?? s.company?.department ?? null,

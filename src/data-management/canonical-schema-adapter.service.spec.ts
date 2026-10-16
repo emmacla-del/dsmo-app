@@ -240,6 +240,23 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(adapter.extractValue(taxNumber, { taxNumber: null })).toBeNull();
       expect(adapter.extractValue(taxNumber, {})).toBeUndefined();
     });
+
+    it('Defect 6: extractValue falls back to company.taxNumber when submission.taxNumber is empty', () => {
+      const taxNumber = adapter.getAllVariables().find((v) => v.paperCode === 'SYS_07')!;
+      expect(adapter.extractValue(taxNumber, {
+        taxNumber: null,
+        company: { taxNumber: 'P0TESTE2E1016' },
+      })).toBe('P0TESTE2E1016');
+
+      expect(adapter.extractValue(taxNumber, {
+        taxNumber: '',
+        company: { taxNumber: 'P0TESTE2E1016' },
+      })).toBe('P0TESTE2E1016');
+
+      expect(adapter.extractValue(taxNumber, {
+        company: { taxNumber: 'P0TESTE2E1016' },
+      })).toBe('P0TESTE2E1016');
+    });
   });
 
   describe('4. SPSS Variable Names', () => {
@@ -859,10 +876,11 @@ describe('dataset v8 export fixes (VT end-to-end test, 2026-10-10)', () => {
       respondent: { respondentName: 'Walters KOng', respondentFunction: 'Directeur Général', phone1: '673456677', phone2: '699112233', email: 'walti@gmail.com' },
       rawData: {},
     };
-    expect(adapter.extractValue(v('VT1_15_NAME'), submission)).toBe('Walters KOng');
+    // Decision 2 (Option B): VT1_15_NAME and VT1_15_EMAIL are excluded from TVET variables (moved to restricted contact file)
+    expect(v('VT1_15_NAME')).toBeUndefined();
+    expect(v('VT1_15_EMAIL')).toBeUndefined();
     expect(adapter.extractValue(v('VT1_15_FUNCTION'), submission)).toBe('Directeur Général');
     expect(adapter.extractValue(v('VT1_15_TEL2'), submission)).toBe('699112233');
-    expect(adapter.extractValue(v('VT1_15_EMAIL'), submission)).toBe('walti@gmail.com');
   });
 
   it('(b) an unstored « Total (calculé) » is the sum of its row group, blank while a cell is blank', () => {
