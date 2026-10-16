@@ -1,4 +1,4 @@
-import { getMe, getMyCompany } from "./api-client";
+import { getMe, getMyCompany, getMyDeclarations, getMyOnefopSubmissions, getMyNotifications, getMyUnreadNotificationCount } from "./api-client";
 import { getActiveQuarter } from "./onefop-submission";
 
 /**
@@ -34,3 +34,30 @@ export const activeQuarterQueryOptions = {
   queryFn: getActiveQuarter,
   staleTime: SHARED_QUERY_STALE_MS,
 };
+
+export const mySubmissionsQueryOptions = {
+  queryKey: ["home", "my-submissions"] as const,
+  queryFn: async () => {
+    const [dsmoRes, onefopRes] = await Promise.allSettled([
+      getMyDeclarations(),
+      getMyOnefopSubmissions(),
+    ]);
+    const dsmo = dsmoRes.status === "fulfilled" ? dsmoRes.value : [];
+    const onefop = onefopRes.status === "fulfilled" ? onefopRes.value : [];
+    return { dsmo, onefop };
+  },
+  staleTime: SHARED_QUERY_STALE_MS,
+};
+
+export const unreadNotificationCountQueryOptions = {
+  queryKey: ["notifications", "unread-count"] as const,
+  queryFn: getMyUnreadNotificationCount,
+  staleTime: SHARED_QUERY_STALE_MS,
+};
+
+export const myNotificationsQueryOptions = {
+  queryKey: ["notifications", "my-list"] as const,
+  queryFn: () => getMyNotifications({ limit: 50 }),
+  staleTime: SHARED_QUERY_STALE_MS,
+};
+

@@ -11,17 +11,24 @@ export function passwordStrength(password: string): number {
   return Math.min(1, Math.max(0, s));
 }
 
-export function passwordStrengthLabel(s: number): string {
-  if (s < 0.35) return "Faible/ Weak";
-  if (s < 0.65) return "Moyen/ Medium";
-  if (s < 0.9) return "Fort/ Strong";
-  return "Très fort/ Very strong";
+// One band, one language. The page resolves the band through the catalogue
+// so the meter never prints "Faible/ Weak".
+export type PasswordStrengthBand = "weak" | "medium" | "strong" | "veryStrong";
+
+export function passwordStrengthBand(score: number): PasswordStrengthBand {
+  if (score < 0.35) return "weak";
+  if (score < 0.65) return "medium";
+  if (score < 0.9) return "strong";
+  return "veryStrong";
 }
 
-export function validatePassword(password: string): string | null {
-  if (!password) return "Mot de passe requis/ Password required";
-  if (password.length < 8) return "8 caractères minimum/ Minimum 8 characters";
-  if (passwordStrength(password) < 0.35) return "Mot de passe trop faible/ Password too weak";
+// A code, not a sentence: the page owns the wording, in the active language.
+export type PasswordValidationCode = "required" | "tooShort" | "tooWeak";
+
+export function validatePassword(password: string): PasswordValidationCode | null {
+  if (!password) return "required";
+  if (password.length < 8) return "tooShort";
+  if (passwordStrength(password) < 0.35) return "tooWeak";
   return null;
 }
 

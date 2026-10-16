@@ -304,7 +304,7 @@ export function Section1ThematicRenderer({
           >
             <p
               style={{
-                fontSize: 13,
+                fontSize: "var(--cam-font-size-xs)",
                 color: "var(--cam-text-muted)",
                 marginTop: -4,
                 marginBottom: 16,
@@ -420,7 +420,7 @@ export function Section1ThematicRenderer({
                     {milieuField && <div>{renderField(milieuField)}</div>}
 
                     {regionField && (
-                      <div style={{ paddingTop: 14, borderTop: "0.5px solid var(--border, #e2e8f0)" }}>
+                      <div style={{ paddingTop: 14, borderTop: "0.5px solid var(--border)" }}>
                         <CameroonGeographySelector
                           regionFieldId={regionField.id}
                           departmentFieldId={deptFieldId}

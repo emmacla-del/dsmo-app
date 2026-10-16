@@ -16,6 +16,8 @@
 // unit-testable without a DOM.
 import { ENTITY_CONFIGS, isFieldVisible, type EntityType, type RegistrationStepId } from "./register-constants";
 import { passwordStrength } from "./password-strength";
+import { RESPONDENT_FUNCTION_OTHER } from "./register-options";
+import { isValidCameroonPhone } from "./cameroon-phone";
 
 // The 0.35 floor is passwordStrength's own "too weak" threshold, shared with
 // validatePassword so the gate and the submit-time rejection cannot disagree.
@@ -33,16 +35,37 @@ export const PASSWORD_MIN_STRENGTH = 0.35;
 //              we just could not fetch them, and letting the respondent past
 //              here only moves the failure to submit(), which requires a
 //              subdivision name. The row surfaces a retry instead.
-//   empty   -- the request settled and genuinely returned nothing. Treated as
-//              complete: requiring a value the server cannot offer would
-//              strand the respondent with no way forward.
+//   empty   -- the request settled and genuinely returned nothing. NOT
+//              complete: the server refuses a registration without an
+//              arrondissement (register-company.dto.ts), so letting the
+//              respondent past only moved the dead end to Submit. The row
+//              says so and points to support instead.
 //   ready   -- options are available, so a subdivision must actually be picked
+// A deliberately loose shape check -- something@something.tld, no spaces.
+// The server's own validation stays authoritative; this only stops an
+// address that cannot be delivered to from passing the step it is typed in.
+export function isPlausibleEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+// An answer that is given but in the wrong shape keeps its section
+// unfinished, the same as an empty one: otherwise the section would show as
+// done and the respondent would only learn about the typo at submission,
+// several steps later. The wizard explains it (see formatFailure in
+// register/page.tsx); nothing here produces a message.
+function invalidPhone(value: string | undefined): boolean {
+  return filled(value) && !isValidCameroonPhone(value);
+}
+
 export type SubdivisionsStatus = "idle" | "loading" | "error" | "empty" | "ready";
 
 export interface RegRespondentState {
   firstName: string;
   lastName: string;
   function: string;
+  // The real job, required only when `function` is RESPONDENT_FUNCTION_OTHER.
+  // The payload sends this text in place of the word "Autre".
+  functionOther: string;
   email: string;
   phone1: string;
   phone2: string;
@@ -76,8 +99,11 @@ export function isEntityTypeComplete(state: RegState): boolean {
 export function isRespondentComplete(state: RegState): boolean {
   const r = state.respondent;
   if (!filled(r.firstName) || !filled(r.lastName) || !filled(r.function)) return false;
+  if (r.function === RESPONDENT_FUNCTION_OTHER && !filled(r.functionOther)) return false;
   if (!filled(r.email) || !filled(r.phone1)) return false;
-  // phone2 is optional by design and must never gate the section.
+  if (!isPlausibleEmail(r.email)) return false;
+  // phone2 is optional by design: only a wrong number gates the section.
+  if (invalidPhone(r.phone1) || invalidPhone(r.phone2)) return false;
   return state.emailAvailable !== false;
 }
 
@@ -92,6 +118,13 @@ export function isEntityInfoComplete(state: RegState): boolean {
     if (!isFieldVisible(field, state.entityData, fields)) continue;
     if (!filled(state.entityData[field.key])) return false;
   }
+  // Every phone on screen, required or not, must be a number the
+  // declaration wizards accept.
+  for (const field of fields) {
+    if (field.kind !== "tel") continue;
+    if (!isFieldVisible(field, state.entityData, fields)) continue;
+    if (invalidPhone(state.entityData[field.key])) return false;
+  }
   return true;
 }
 
@@ -100,8 +133,7 @@ export function isLocationComplete(state: RegState): boolean {
   // area (urbain/rural) reaches the payload and has always been required by
   // the step's own validation; it stays required here.
   if (!filled(state.area)) return false;
-  if (filled(state.subdivisionId)) return true;
-  return state.subdivisionsStatus === "empty";
+  return filled(state.subdivisionId);
 }
 
 export function isSecurityComplete(state: RegState): boolean {
@@ -167,8 +199,10 @@ export function advancesImmediately(
       // The activity sector is optional.
       return false;
     case "security":
-      // The password and its confirmation are both required.
-      return true;
+      // Both fields are required, and there is nothing optional to wait for,
+      // but the step still waits for Continuer. Confirming a password must
+      // not turn the page by itself.
+      return false;
     case "review":
       // The last section: there is nothing to advance to.
       return false;

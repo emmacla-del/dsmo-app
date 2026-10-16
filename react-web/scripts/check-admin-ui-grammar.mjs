@@ -76,6 +76,12 @@ const SHARED_CSS = [
 // definition source for the phantom check but never scanned for hex.
 const TOKEN_CSS = [...SHARED_CSS, join(root, "src", "app", "tokens.css")];
 
+// Component stylesheets (*.module.css) -- the public portal's among them.
+// Scanned for hex like the shared layer, but deliberately NOT part of
+// TOKEN_CSS: a --cam-* set inside a module is local to that module, and
+// counting it as a definition would blind the phantom check everywhere else.
+const moduleCss = () => collect(join(root, "src"), [".module.css"]);
+
 function isTestFile(p) {
   const n = p.replace(/\\/g, "/");
   return (
@@ -107,7 +113,10 @@ const collectRespondent = (exts) => collectAll(RESPONDENT_ROOTS, exts).filter((p
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const stripCssComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
+// Blank the comment but keep its newlines, so a finding below a block
+// comment still reports the line it is actually on.
+const stripCssComments = (s) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
 
 // Drop a trailing line comment so prose naming an old hex is not a finding.
 const stripJsComment = (line) => line.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "");
@@ -237,6 +246,22 @@ const RULES = [
         (line) => {
           // A mask reads only the opacity channel, so its opaque stop has to
           // be a fully opaque literal; a palette token there would be wrong.
+          if (/(^|[\s-])mask\s*:/.test(line)) return false;
+          return /#[0-9a-fA-F]{3,8}\b/.test(line);
+        },
+        { stripComments: true }
+      ),
+  },
+  {
+    key: "hex-in-module-css",
+    rule: "G1",
+    title: "Hex colour literal in a CSS module",
+    fix: "Define the value in tokens.css and reference the token. This rule exists because the public portal grew a second green family in its own stylesheet, where nothing was looking.",
+    run: () =>
+      findPerLine(
+        moduleCss(),
+        (line) => {
+          // A mask reads only the opacity channel (see hex-in-shared-css).
           if (/(^|[\s-])mask\s*:/.test(line)) return false;
           return /#[0-9a-fA-F]{3,8}\b/.test(line);
         },
@@ -604,7 +629,7 @@ if (improved > 0) {
 if (failed > 0) {
   console.error(
     `\n${C.red}FAIL: ${failed} blocking UI-grammar regression(s).${C.off} ` +
-      `See docs/standards/admin-ui-grammar.md.\n`
+      `See docs/standards/ui-grammar.md.\n`
   );
   process.exit(1);
 }

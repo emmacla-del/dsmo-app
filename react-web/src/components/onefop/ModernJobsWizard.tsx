@@ -695,10 +695,10 @@ export function ModernJobsWizard({
                   className="cam-hoverable"
                   style={{
                     background: "var(--cam-surface)",
-                    border: "1px solid var(--vt-card-border, #e5eae7)",
+                    border: "1px solid var(--vt-card-border)",
                     borderRadius: "var(--cam-radius-sm)",
                     padding: "6px 14px",
-                    fontSize: 12,
+                    fontSize: "var(--cam-font-size-2xs)",
                     fontWeight: 600,
                     color: "var(--cam-text)",
                     cursor: "pointer",
@@ -755,7 +755,7 @@ export function ModernJobsWizard({
                       onClick={closeMobileMenu}
                       className="cam-hoverable"
                       aria-label={t("close")}
-                      style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}
+                      style={{ background: "none", border: "none", fontSize: "var(--cam-font-size-lg)", cursor: "pointer" }}
                     >
                       ✕
                     </button>
@@ -789,7 +789,7 @@ export function ModernJobsWizard({
                   border: "1px solid var(--cam-error)",
                   borderRadius: "var(--cam-radius-sm)",
                   color: "var(--cam-error)",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   marginBottom: 16,
                 }}
               >
@@ -842,10 +842,10 @@ export function ModernJobsWizard({
                         marginBottom: 20,
                       }}
                     >
-                      <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)" }}>
+                      <h3 style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)" }}>
                         {locale === "fr" ? "Copie conforme des données transmises" : "Certified copy of submitted data"}
                       </h3>
-                      <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: 0 }}>
+                      <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: 0 }}>
                         {locale === "fr"
                           ? "Ces données sont désormais archivées et enregistrées auprès de l'ONEFOP."
                           : "These data are now archived and officially recorded with ONEFOP."}
@@ -874,19 +874,19 @@ export function ModernJobsWizard({
                                 borderRadius: 4,
                                 display: "grid",
                                 placeItems: "center",
-                                fontSize: 12,
+                                fontSize: "var(--cam-font-size-2xs)",
                                 fontWeight: 700,
                                 background: "var(--cam-green)",
-                                color: "#ffffff",
+                                color: "var(--cam-white)",
                               }}
                             >
                               ✓
                             </span>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--cam-text)" }}>
+                            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
                               {(sec.title && localized(sec.title, locale)) || sec.id}
                             </span>
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--cam-green)" }}>
+                          <span style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-green)" }}>
                             {locale === "fr" ? "Transmis ✓" : "Submitted ✓"}
                           </span>
                         </div>
@@ -923,7 +923,7 @@ export function ModernJobsWizard({
               <div
                 style={{
                   background: "var(--cam-surface)",
-                  border: "1px solid var(--vt-card-border, #e5eae7)",
+                  border: "1px solid var(--vt-card-border)",
                   borderRadius: "var(--cam-radius-md)",
                   padding: "clamp(20px, 4vw, 32px)",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
@@ -945,7 +945,7 @@ export function ModernJobsWizard({
                   >
                     {t("reviewHeading")}
                   </h2>
-                  <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: 0 }}>
+                  <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: 0 }}>
                     {t("reviewIntro")}
                   </p>
                 </div>
@@ -977,19 +977,19 @@ export function ModernJobsWizard({
                               borderRadius: 4,
                               display: "grid",
                               placeItems: "center",
-                              fontSize: 12,
+                              fontSize: "var(--cam-font-size-2xs)",
                               fontWeight: 700,
                               background: isDone
                                 ? "var(--cam-green)"
                                 : isErr
                                   ? "var(--cam-error)"
                                   : "rgba(11, 31, 20, 0.15)",
-                              color: isDone || isErr ? "#ffffff" : "var(--cam-text)",
+                              color: isDone || isErr ? "var(--cam-white)" : "var(--cam-text)",
                             }}
                           >
                             {isDone ? "✓" : isErr ? "!" : sIdx + 1}
                           </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--cam-text)" }}>
+                          <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
                             {(sec.title && localized(sec.title, locale)) || sec.id}
                           </span>
                         </div>
@@ -1000,7 +1000,7 @@ export function ModernJobsWizard({
                             background: "none",
                             border: "none",
                             color: "var(--cam-green)",
-                            fontSize: 12,
+                            fontSize: "var(--cam-font-size-2xs)",
                             fontWeight: 700,
                             cursor: "pointer",
                             textDecoration: "underline",
@@ -1030,12 +1030,12 @@ export function ModernJobsWizard({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                       <div>
-                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--cam-error)" }}>
+                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 700, color: "var(--cam-error)" }}>
                           {locale === "fr"
                             ? `${validationIssues.length} point(s) à corriger avant la soumission`
                             : `${validationIssues.length} issue(s) require attention before submission`}
                         </h3>
-                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--cam-text-muted)" }}>
+                        <p style={{ margin: "2px 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                           {locale === "fr"
                             ? "Veuillez renseigner les champs obligatoires ou corriger les formats invalides ci-dessous."
                             : "Please fill required fields or correct invalid formats below."}
@@ -1052,7 +1052,7 @@ export function ModernJobsWizard({
                             ? (sections[secIdx].title ? localized(sections[secIdx].title, locale) : `Section ${secIdx + 1}`)
                             : null;
                         return (
-                          <li key={issue.fieldId} style={{ fontSize: 13, color: "var(--cam-text)" }}>
+                          <li key={issue.fieldId} style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
                             <span style={{ fontWeight: 600 }}>{issue.message}</span>
                             {secTitle && (
                               <button
@@ -1068,7 +1068,7 @@ export function ModernJobsWizard({
                                   background: "none",
                                   border: "none",
                                   color: "var(--cam-green)",
-                                  fontSize: 12,
+                                  fontSize: "var(--cam-font-size-2xs)",
                                   fontWeight: 600,
                                   cursor: "pointer",
                                   textDecoration: "underline",
@@ -1099,7 +1099,7 @@ export function ModernJobsWizard({
                       gap: 12,
                     }}
                   >
-                    <div style={{ fontSize: 13, color: "var(--cam-text)" }}>
+                    <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
                       <span style={{ fontWeight: 700 }}>
                         {locale === "fr" ? "Période de déclaration fermée" : "Declaration period closed"}
                       </span>
@@ -1135,7 +1135,7 @@ export function ModernJobsWizard({
                       background: "transparent",
                       border: "none",
                       color: "var(--cam-text-muted)",
-                      fontSize: 14,
+                      fontSize: "var(--cam-font-size-sm)",
                       fontWeight: 600,
                       cursor: "pointer",
                       display: "inline-flex",
@@ -1159,7 +1159,7 @@ export function ModernJobsWizard({
                           border: "1px solid var(--cam-border)",
                           borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 18px",
-                          fontSize: 13,
+                          fontSize: "var(--cam-font-size-xs)",
                           fontWeight: 600,
                           cursor: isGeneratingPdf ? "wait" : "pointer",
                           display: "flex",
@@ -1185,7 +1185,7 @@ export function ModernJobsWizard({
                         border: "1px solid var(--cam-border)",
                         borderRadius: "var(--cam-radius-sm)",
                         padding: "10px 18px",
-                        fontSize: 13,
+                        fontSize: "var(--cam-font-size-xs)",
                         fontWeight: 600,
                         cursor: "pointer",
                         display: "flex",
@@ -1209,10 +1209,10 @@ export function ModernJobsWizard({
                         style={{
                           background: "var(--cam-green)",
                           border: "none",
-                          color: "#ffffff",
+                          color: "var(--cam-white)",
                           borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 24px",
-                          fontSize: 13,
+                          fontSize: "var(--cam-font-size-xs)",
                           fontWeight: 700,
                           cursor: isSubmitting ? "wait" : "pointer",
                           opacity: isSubmitting ? 0.7 : 1,

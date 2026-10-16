@@ -80,7 +80,7 @@ export function FactsTracker({
         <h3
           style={{
             margin: 0,
-            fontSize: 15,
+            fontSize: "var(--cam-font-size-base)",
             fontWeight: 700,
             color: "var(--cam-text)",
           }}
@@ -100,7 +100,7 @@ export function FactsTracker({
               background: "none",
               border: "none",
               color: "var(--cam-green)",
-              fontSize: 11,
+              fontSize: "var(--cam-font-size-3xs)",
               fontWeight: 600,
               cursor: "pointer",
               textDecoration: "underline",
@@ -143,7 +143,7 @@ export function FactsTracker({
               width: "100%",
               minWidth: "640px",
               borderCollapse: "collapse",
-              fontSize: 14,
+              fontSize: "var(--cam-font-size-sm)",
               lineHeight: 1.35,
               textAlign: "left",
             }}
@@ -191,7 +191,7 @@ export function FactsTracker({
                   }
 
                   if (colKey === "reponse") {
-                    if (row.reponse === null) return <span style={{ color: "#94a3b8" }}>—</span>;
+                    if (row.reponse === null) return <span style={{ color: "var(--cam-placeholder)" }}>—</span>;
                     const isYes = row.reponse === "Oui";
                     return (
                       <span
@@ -201,8 +201,8 @@ export function FactsTracker({
                           borderRadius: 4,
                           fontWeight: 700,
                           fontSize: 12.5,
-                          background: isYes ? "#eaf3ec" : "#f1f5f9",
-                          color: isYes ? "var(--cam-green)" : "#475569",
+                          background: isYes ? "var(--cam-success-bg)" : "var(--cam-surface-subtle)",
+                          color: isYes ? "var(--cam-green)" : "var(--cam-text-muted)",
                         }}
                       >
                         {isYes ? t("yes") : t("no")}
@@ -222,7 +222,7 @@ export function FactsTracker({
                       : row.autre;
 
                   if (!values || values.length === 0) {
-                    return <span style={{ color: "#cbd5e1" }}>—</span>;
+                    return <span style={{ color: "var(--cam-placeholder)" }}>—</span>;
                   }
 
                   return (
@@ -236,16 +236,16 @@ export function FactsTracker({
                             title={tooltip || label}
                             style={{
                               display: "inline-block",
-                              background: "#f1f5f9",
+                              background: "var(--cam-surface-subtle)",
                               padding: "1px 5px",
                               borderRadius: 3,
-                              fontSize: 12,
+                              fontSize: "var(--cam-font-size-2xs)",
                               fontWeight: 500,
-                              color: "#334155",
+                              color: "var(--cam-text)",
                               maxWidth: "100%",
                               wordBreak: "break-word",
                               cursor: tooltip ? "help" : "default",
-                              borderBottom: tooltip ? "1px dotted #94a3b8" : "none",
+                              borderBottom: tooltip ? "1px dotted var(--cam-placeholder)" : "none",
                             }}
                           >
                             {label}
@@ -261,7 +261,7 @@ export function FactsTracker({
                     key={row.mainId}
                     style={{
                       borderBottom: "1px solid var(--cam-border)",
-                      background: isRowActive ? "var(--vt-accent-soft, #eaf3ec)" : "transparent",
+                      background: isRowActive ? "var(--vt-accent-soft)" : "transparent",
                       transition: "background-color 0.1s ease",
                     }}
                   >
@@ -292,7 +292,7 @@ export function FactsTracker({
                             padding: "9px 10px",
                             verticalAlign: "top",
                             cursor: isClickable ? "pointer" : "default",
-                            background: isCellActive ? "var(--vt-accent-soft, #eaf3ec)" : "transparent",
+                            background: isCellActive ? "var(--vt-accent-soft)" : "transparent",
                             outline: isCellActive ? "1px solid var(--cam-green)" : "none",
                             borderRadius: isCellActive ? 3 : 0,
                             minWidth: col.minWidth,
@@ -318,7 +318,7 @@ export function FactsTracker({
             marginTop: 14,
             paddingTop: 8,
             borderTop: "1px dashed var(--cam-border)",
-            fontSize: 11,
+            fontSize: "var(--cam-font-size-3xs)",
             color: "var(--cam-text-muted)",
             display: "flex",
             flexWrap: "wrap",
@@ -332,11 +332,11 @@ export function FactsTracker({
               key={code}
               style={{
                 fontFamily: "var(--cam-font-mono)",
-                background: "#f1f5f9",
+                background: "var(--cam-surface-subtle)",
                 padding: "1px 5px",
                 borderRadius: 3,
                 fontSize: 10,
-                color: "#475569",
+                color: "var(--cam-text-muted)",
               }}
             >
               {code}

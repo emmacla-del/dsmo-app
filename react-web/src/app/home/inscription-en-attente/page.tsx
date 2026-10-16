@@ -66,7 +66,6 @@ export default function InscriptionEnAttentePage() {
   const t = useTranslations("homeRegistrationPendingPage");
   const user = useAuthStore((s) => s.user);
   const refreshUser = useAuthStore((s) => s.refreshUser);
-  const logout = useAuthStore((s) => s.logout);
 
   const pending = user?.status === "PENDING_APPROVAL";
   const complements = user?.status === "COMPLEMENTS_REQUESTED";
@@ -185,9 +184,30 @@ export default function InscriptionEnAttentePage() {
         {t("title")}
       </h1>
       {pending && (
-        <p className="cam-admin-lede">
-          {t("pendingBody")}
-        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)", marginBottom: "var(--cam-space-6)" }}>
+          <p className="cam-admin-lede">
+            {t("pendingBody")}
+          </p>
+          <div className="cam-admin-notice cam-admin-notice--info" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              {t("pendingNextSteps")}
+            </p>
+            <p style={{ margin: 0 }}>
+              {t("pendingTurnaround")}
+            </p>
+            <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
+              {t("pendingContact")}{" "}
+              <a
+                href="https://wa.me/237651965905"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontWeight: 600, color: "var(--cam-green-dark)" }}
+              >
+                {t("pendingWhatsappNumber")}
+              </a>
+            </p>
+          </div>
+        </div>
       )}
       {complements && (
         <>
@@ -305,11 +325,6 @@ export default function InscriptionEnAttentePage() {
           </button>
         </>
       )}
-      <p>
-        <button type="button" className="cam-button cam-button-secondary" onClick={() => logout()}>
-          {t("signOut")}
-        </button>
-      </p>
     </div>
   );
 }

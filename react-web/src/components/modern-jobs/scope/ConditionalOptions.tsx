@@ -81,7 +81,7 @@ export function ConditionalOptions({
                 ? "1px solid var(--cam-green)"
                 : "1px solid var(--cam-border)",
               background: isSelected
-                ? "var(--vt-accent-soft, #eaf3ec)"
+                ? "var(--vt-accent-soft)"
                 : "var(--cam-surface)",
               color: isSelected
                 ? "var(--cam-green)"

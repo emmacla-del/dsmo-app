@@ -568,10 +568,10 @@ function VtWizardTableField({
     const status = vtTableStatus(field.id, data);
     const question = vtQuizQuestionForTable(field.id);
     const code = vt.paperCode ?? field.paperCode ?? field.id;
-    const noteStyle = { margin: "4px 0 16px", fontSize: 13, color: "var(--cam-text-muted)", lineHeight: 1.5 } as const;
+    const noteStyle = { margin: "4px 0 16px", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: 1.5 } as const;
     const linkStyle = {
       marginLeft: 8, background: "none", border: "none", padding: 0, color: "var(--cam-green)",
-      fontSize: 13, fontWeight: 600, textDecoration: "underline", cursor: "pointer",
+      fontSize: "var(--cam-font-size-xs)", fontWeight: 600, textDecoration: "underline", cursor: "pointer",
     } as const;
     if (status === "NONE") {
       return (
@@ -1275,7 +1275,7 @@ export function VtWizardSectionScreen({
 
       <div style={{ width: "100%" }}>
         {groups.length === 0 ? (
-          <p style={{ fontFamily: "var(--cam-font-sans)", fontSize: 15, color: "var(--cam-text-muted)", padding: "8px 0" }}>
+          <p style={{ fontFamily: "var(--cam-font-sans)", fontSize: "var(--cam-font-size-base)", color: "var(--cam-text-muted)", padding: "8px 0" }}>
             {t("vtWizard.noFieldsVisible", { default: "Aucun champ visible pour le moment." })}
           </p>
         ) : tabbed && groups.length > 1 ? (
@@ -1414,7 +1414,7 @@ export function VtWizardSectionScreen({
             position: "sticky",
             bottom: 0,
             zIndex: 10,
-            backgroundColor: "#ffffff",
+            backgroundColor: "var(--cam-white)",
             borderTop: `1px solid ${VT_CARD_BORDER}`,
             boxShadow: "0 -3px 10px rgba(0,0,0,.06)",
           }}
@@ -1426,10 +1426,10 @@ export function VtWizardSectionScreen({
               height: 40,
               padding: "0 20px",
               borderRadius: 6,
-              fontSize: 13,
+              fontSize: "var(--cam-font-size-xs)",
               fontWeight: 600,
               border: `1px solid ${VT_CARD_BORDER}`,
-              background: "#ffffff",
+              background: "var(--cam-white)",
               color: VT_INK_SOFT,
               cursor: "pointer",
             }}
@@ -1449,10 +1449,10 @@ export function VtWizardSectionScreen({
                 height: 40,
                 padding: "0 20px",
                 borderRadius: 6,
-                fontSize: 13,
+                fontSize: "var(--cam-font-size-xs)",
                 fontWeight: 600,
                 border: `1px solid ${VT_CARD_BORDER}`,
-                background: "#ffffff",
+                background: "var(--cam-white)",
                 color: VT_INK_SOFT,
                 cursor: "pointer",
               }}
@@ -1467,11 +1467,11 @@ export function VtWizardSectionScreen({
               height: 40,
               padding: "0 24px",
               borderRadius: 6,
-              fontSize: 13,
+              fontSize: "var(--cam-font-size-xs)",
               fontWeight: 800,
               border: "none",
               background: VT_ACCENT,
-              color: "#ffffff",
+              color: "var(--cam-white)",
               cursor: "pointer",
             }}
           >

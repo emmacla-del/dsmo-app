@@ -94,7 +94,7 @@ export function vtHintPlacement(
 const VT_MEDIUM_WIDTH_IDS = new Set(["VT1_1", "VT1_3", "VT2_11", "VT2_11_CITY", "VT2_16", "VT2_17"]);
 
 const errorStyle: CSSProperties = {
-  fontSize: 13,
+  fontSize: "var(--cam-font-size-xs)",
   fontWeight: 600,
   color: "var(--cam-error)",
   margin: "4px 0 0",
@@ -896,7 +896,7 @@ export function VtWizardField({
               top: "50%",
               transform: "translateY(-50%)",
               pointerEvents: "none",
-              fontSize: 11,
+              fontSize: "var(--cam-font-size-3xs)",
               color: "var(--cam-text-muted)",
             }}
           >
@@ -983,12 +983,12 @@ export function VtWizardSignaturesCard() {
       style={{
         marginTop: 24,
         padding: 24,
-        background: "#fff",
+        background: "var(--cam-white)",
         border: "1px solid var(--cam-border)",
         borderRadius: "var(--cam-radius-md)",
       }}
     >
-      <div style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 13, color: "var(--cam-green)", letterSpacing: 0.5, textTransform: "uppercase" }}>
+      <div style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-green)", letterSpacing: 0.5, textTransform: "uppercase" }}>
         {t("vtWizard.signaturesApprovals", { default: "Signatures & Approbations" })}
       </div>
       <div style={{ height: 1, background: "var(--cam-border)", margin: "16px 0 20px" }} />
@@ -1004,7 +1004,7 @@ export function VtWizardSignaturesCard() {
               borderRadius: "var(--cam-radius-sm)",
             }}
           >
-            <div style={{ minHeight: 40, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: 12, color: "var(--cam-text)" }}>
+            <div style={{ minHeight: 40, fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text)" }}>
               {isEn ? role.en : role.fr}
             </div>
             <div
@@ -1014,10 +1014,10 @@ export function VtWizardSignaturesCard() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "#fff",
+                background: "var(--cam-white)",
                 border: "1px solid var(--cam-border)",
                 borderRadius: "var(--cam-radius-sm)",
-                fontSize: 12,
+                fontSize: "var(--cam-font-size-2xs)",
                 color: "var(--cam-text-muted)",
               }}
             >

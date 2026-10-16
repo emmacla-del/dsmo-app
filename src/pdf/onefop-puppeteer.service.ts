@@ -270,7 +270,29 @@ export class OnefopPuppeteerService {
             ? html.replace('</head>', `${pagedMediaCss}</head>`)
             : `${pagedMediaCss}${html}`;
 
-        return this.renderWithWeasyprint(styledHtml);
+        try {
+            return await this.renderWithWeasyprint(styledHtml);
+        } catch (weasyErr: any) {
+            console.warn(`⚠️ WeasyPrint execution failed (${weasyErr.message}), falling back to Playwright`);
+            return await this.renderWithPlaywright(html);
+        }
+    }
+
+    private async renderWithPlaywright(html: string): Promise<Buffer> {
+        const { chromium } = require('playwright');
+        const browser = await chromium.launch({ headless: true });
+        try {
+            const page = await browser.newPage();
+            await page.setContent(html, { waitUntil: 'load' });
+            const pdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '15mm', bottom: '15mm', left: '15mm', right: '15mm' },
+            });
+            return Buffer.from(pdfBuffer);
+        } finally {
+            await browser.close();
+        }
     }
 
     private async renderWithWeasyprint(html: string): Promise<Buffer> {
@@ -295,6 +317,9 @@ export class OnefopPuppeteerService {
                     proc.stderr.on('data', (d) => stderrChunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
 
                     proc.on('error', (err) => reject(err));
+                    proc.stdin.on('error', () => {
+                        // Prevent unhandled stream error (write EOF / EPIPE) if child exits prematurely
+                    });
 
                     proc.on('close', (code) => {
                         if (code === 0) {
@@ -310,15 +335,12 @@ export class OnefopPuppeteerService {
                 });
             } catch (err: any) {
                 lastError = err;
-                if (err?.code === 'ENOENT') {
-                    continue;
-                }
-                throw err;
+                continue;
             }
         }
 
         throw new Error(
-            `WeasyPrint could not be executed. Please ensure weasyprint is installed in your environment (e.g. apt-get install weasyprint). Details: ${lastError?.message}`,
+            `WeasyPrint could not be executed. Details: ${lastError?.message}`,
         );
     }
 }

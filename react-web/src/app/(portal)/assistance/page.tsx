@@ -1,9 +1,9 @@
-// Support: the one published channel, and the way in.
-import { PortalSupport } from "@/components/landing/portal/PortalSupport";
-import { portalMetadata } from "@/components/landing/portal/portal-metadata";
+// Assistance: who responds, how to respond, FAQ, contacts.
+import { HelpView } from "@/components/landing/site/HelpView";
+import { siteMetadata } from "@/components/landing/site/site-metadata";
 
-export const generateMetadata = () => portalMetadata("navSupport", "helpBody");
+export const generateMetadata = () => siteMetadata("helpTitle", "helpLede");
 
-export default function PortalSupportPage() {
-  return <PortalSupport />;
+export default function PortalHelpPage() {
+  return <HelpView />;
 }

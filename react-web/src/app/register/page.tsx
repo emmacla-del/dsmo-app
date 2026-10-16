@@ -32,13 +32,16 @@ import {
 } from "@/lib/register-constants";
 import {
   advancesImmediately,
+  isPlausibleEmail,
   isSectionComplete,
+  type RegRespondentState,
   type RegState,
   type SubdivisionsStatus,
 } from "@/lib/register-completeness";
 import {
-  entityFieldGroups,
   lastEntityFieldKey,
+  optionalEntityFields,
+  requiredEntityGroups,
 } from "@/lib/register-entity-sections";
 import { asUiLocale, localized } from "@/lib/register-i18n";
 import { sectorLabel } from "@/lib/display-labels";
@@ -46,7 +49,6 @@ import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
   missingFieldsToReport,
-  missingRequiredFields,
   type NameResolvers,
 } from "@/lib/register-required";
 import {
@@ -58,18 +60,20 @@ import {
   saveStoredDraftJson,
   toDraft,
 } from "@/lib/register-draft";
-import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
+import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, RESPONDENT_FUNCTION_OTHER } from "@/lib/register-options";
 import { saveLoginIdentifier } from "@/lib/login-handoff";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
 import {
   PASSWORD_RULE_IDS,
   passwordRuleChecks,
   passwordStrength,
-  passwordStrengthLabel,
+  passwordStrengthBand,
   validatePassword,
 } from "@/lib/password-strength";
 import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
+import { LanguageLink } from "@/components/LanguageLink";
+import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
@@ -95,46 +99,58 @@ const SNACKBAR_MS = 6000;
 // The last field of each section that has optional fields: changing it is
 // what tells the wizard the respondent is done with the section. Section 3's
 // own last field is data-driven (see lastEntityFieldKey).
-const LAST_RESPONDENT_FIELD: keyof RespondentState = "phone2";
+const LAST_RESPONDENT_FIELD: keyof RegRespondentState = "phone2";
+
+// validatePassword returns a code. The sentence the respondent reads is the
+// catalogue's, in the active language.
+const PASSWORD_ERROR_KEY = {
+  required: "registerPage.errorPasswordRequired",
+  tooShort: "registerPage.errorPasswordTooShort",
+  tooWeak: "registerPage.errorPasswordTooWeak",
+} as const;
+
+const PASSWORD_STRENGTH_KEY = {
+  weak: "registerPage.passwordStrengthWeak",
+  medium: "registerPage.passwordStrengthMedium",
+  strong: "registerPage.passwordStrengthStrong",
+  veryStrong: "registerPage.passwordStrengthVeryStrong",
+} as const;
 
 // The pinned "Il reste n champs obligatoires" notice, which the first missing
 // control points at with aria-describedby.
 const MISSING_NOTICE_ID = "reg-missing-notice";
-
-interface RespondentState {
-  firstName: string;
-  lastName: string;
-  function: string;
-  email: string;
-  phone1: string;
-  phone2: string;
-}
+// The notice for an answer that is present but in the wrong shape (an email
+// without a domain, a phone that is not 9 digits), shown by Continuer.
+const FORMAT_NOTICE_ID = "reg-format-notice";
 
 // Step 1 radio list: one row per structure type, in respondent-facing order.
 // Labels avoid administrative codes (CTD/ONG/CFP); the two types whose plain
 // label is ambiguous carry a short hint. Replaces the former public/private
 // two-state classification flow, which was UI-only and never reached the payload.
-const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string; hintKey?: string }[] = [
+// No hint line under any option: the wizard carries no hints (owner,
+// 2026-10-15). The labels have to stand on their own.
+const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string }[] = [
   { type: "enterprise", labelKey: "registerPage.entityOptionEnterprise" },
   { type: "cooperative", labelKey: "registerPage.entityOptionCooperative" },
   { type: "ong", labelKey: "registerPage.entityOptionOng" },
-  {
-    type: "administration",
-    labelKey: "registerPage.entityOptionAdministration",
-    hintKey: "registerPage.entityOptionAdministrationHint",
-  },
-  {
-    type: "ctd",
-    labelKey: "registerPage.entityOptionCtd",
-    hintKey: "registerPage.entityOptionCtdHint",
-  },
+  { type: "administration", labelKey: "registerPage.entityOptionAdministration" },
+  { type: "ctd", labelKey: "registerPage.entityOptionCtd" },
   { type: "projectProgram", labelKey: "registerPage.entityOptionProjectProgram" },
   { type: "vocationalTraining", labelKey: "registerPage.entityOptionVocationalTraining" },
 ];
 
+// A field inside the optional disclosure is not focusable while that
+// disclosure is closed. Open it before focusing, so an invalid optional
+// phone can still be reached from the error path.
+function openDetailsAround(el: Element | null) {
+  const details = el?.closest("details");
+  if (details instanceof HTMLDetailsElement && !details.open) details.open = true;
+}
+
 // A control the respondent types or picks a value in -- as opposed to the
 // continue link, the eye toggle or the rail. Focus moving from a section's
 // last field to one of these is still work inside the section.
+
 function isFormField(el: Element): boolean {
   return (
     el instanceof HTMLInputElement ||
@@ -165,10 +181,6 @@ export default function RegisterPage() {
   // is re-derived from `certified`, so ticking the box clears it.
   const [certifyFlagged, setCertifyFlagged] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  // Item 6: the rail only becomes a navigation once something on it is
-  // clickable, so the line explaining that appears when the first circle
-  // turns green and never again after the respondent has used it.
-  const [railHintDismissed, setRailHintDismissed] = useState(false);
   // Item 11: the DOM ids of the fields a trigger has flagged. Only a FLAG is
   // stored, never an error message -- whether a flagged field still shows one
   // is re-derived from its value on every render, so an error clears the
@@ -176,6 +188,10 @@ export default function RegisterPage() {
   // it. Nothing is flagged until a trigger fires, which is what keeps errors
   // off fields the respondent has not reached yet.
   const [flaggedIds, setFlaggedIds] = useState<readonly string[]>([]);
+  // The control Continuer last found in the wrong shape. Like flaggedIds, a
+  // flag only: the message is re-derived from the values (formatFailure), so
+  // it goes the moment the answer is corrected.
+  const [formatFlagId, setFormatFlagId] = useState<string | null>(null);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
@@ -200,10 +216,16 @@ export default function RegisterPage() {
   const forceSaveRef = useRef(false);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const firstEntityRadioRef = useRef<HTMLInputElement>(null);
-  const [respondent, setRespondent] = useState<RespondentState>({
+  // The optional-details disclosure on the organisation step. Closed until
+  // the respondent opens it, or until a restored answer is sitting inside it.
+  const optionalDetailsRef = useRef<HTMLDetailsElement>(null);
+  const optionalClosedByUser = useRef(false);
+  const optionalTypeSeen = useRef<EntityType | null>(null);
+  const [respondent, setRespondent] = useState<RegRespondentState>({
     firstName: "",
     lastName: "",
     function: "",
+    functionOther: "",
     email: "",
     phone1: "",
     phone2: "",
@@ -296,7 +318,9 @@ export default function RegisterPage() {
     const email = respondent.email.trim();
     const handle = setTimeout(() => {
       setEmailCheckFailed(false);
-      if (!email || !email.includes("@")) {
+      // Only an address that could exist is worth asking about: a "✓
+      // available" next to "name@domain" without its ".cm" read as approval.
+      if (!isPlausibleEmail(email)) {
         setEmailAvailable(null);
         return;
       }
@@ -337,7 +361,7 @@ export default function RegisterPage() {
     setEntityData(next);
   }
 
-  function setRespondentField(key: keyof RespondentState, value: string) {
+  function setRespondentField(key: keyof RegRespondentState, value: string) {
     armFromField(key === LAST_RESPONDENT_FIELD);
     setRespondent((r) => ({ ...r, [key]: value }));
   }
@@ -346,26 +370,21 @@ export default function RegisterPage() {
     return checkFieldVisible(field as import("@/lib/register-constants").EntityField, entityData, config?.fields);
   }
 
-  // Text for the empty <option> of a select whose list comes from the API, so
-  // "still loading", "nothing to choose" and "the request failed" are all
-  // distinguishable instead of every one of them reading as an empty dropdown.
-  // `gateLabel`, when given, wins: a cascade field whose parent is still
-  // unanswered has not requested anything yet.
+  // Text for the empty <option> of a select whose list comes from the API.
+  // Normally nothing: the box's arrow already says "dropdown", so no
+  // "— Sélectionner —" (owner, 2026-10-15). Only a state the respondent must
+  // know about is written there -- still loading, nothing to choose, or the
+  // request failed. A cascade field whose parent is unanswered (`gated`) is
+  // disabled and greyed, which says enough, so it stays empty too.
   function selectStatusLabel(
     query: { isFetching: boolean; isError: boolean; data?: readonly unknown[] },
-    gateLabel?: string,
-    optional = false
+    gated = false
   ): string {
-    if (gateLabel) return gateLabel;
+    if (gated) return "";
     if (query.isFetching) return t("registerPage.loadingOptions");
     if (query.isError) return t("registerPage.loadErrorOptions");
     if ((query.data?.length ?? 0) === 0) return t("registerPage.noOptions");
-    // An optional select says so in its own empty option, which is where the
-    // respondent is looking when deciding whether to answer it -- the label
-    // no longer carries an "(optionnel)" suffix.
-    return optional
-      ? t("registerPage.optionalPlaceholder")
-      : t("registerPage.selectPlaceholder");
+    return "";
   }
 
   // A list that failed to load is a dead end unless the respondent can ask
@@ -392,6 +411,14 @@ export default function RegisterPage() {
   // the NIU and the CNPS number but also the P.O. box, which is short.
   const CODE_FIELD_KEYS = new Set(["taxNumber", "cnpsNumber", "registrationNumber"]);
 
+  // The organisation's own name and address. Every other field in step 3 is
+  // "off": the establishment's phone is not the respondent's, and a browser
+  // offering the respondent's number there would be offering the wrong one.
+  const ENTITY_AUTOCOMPLETE: Record<string, string> = {
+    companyName: "organization",
+    address: "street-address",
+  };
+
   function entityFieldSize(field: EntityField): FieldSize {
     if (CODE_FIELD_KEYS.has(field.key)) return "medium";
     // tel covers every phone; number covers the year of creation and the
@@ -406,12 +433,6 @@ export default function RegisterPage() {
   // carried a second copy of this JSX.
   function renderEntityField(field: EntityField) {
     const id = `reg-entity-${field.key}`;
-    // Optionality lives in the control, not in a "(optionnel)" suffix on the
-    // label -- see FormRow. A required field shows nothing here unless its
-    // own hint carries an example.
-    const optionalPlaceholder = field.required
-      ? undefined
-      : t("registerPage.optionalPlaceholder");
     const invalid = invalidProps(id);
     // A year or an amount is digits only. Not type="number": that adds
     // spinner arrows, lets the mouse wheel change a value the respondent has
@@ -436,15 +457,13 @@ export default function RegisterPage() {
         htmlFor={id}
         label={localized(field.label, locale)}
         required={field.required}
-        hint={field.hint ? localized(field.hint, locale) : undefined}
+        optionalLabel={field.required ? undefined : t("registerPage.optionalLabel")}
         size={entityFieldSize(field)}
       >
         <div className="input-row">
           {field.kind === "select" ? (
             <select {...controlProps}>
-              <option value="">
-                {optionalPlaceholder ?? t("registerPage.selectPlaceholder")}
-              </option>
+              <option value=""></option>
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {localized(o.label, locale)}
@@ -455,16 +474,68 @@ export default function RegisterPage() {
             <input
               {...controlProps}
               type={field.kind === "tel" ? "tel" : "text"}
+              autoComplete={ENTITY_AUTOCOMPLETE[field.key] ?? "off"}
               inputMode={digitsOnly ? "numeric" : undefined}
               maxLength={field.key === "yearOfCreation" ? 4 : undefined}
-              placeholder={
-                field.placeholder ? localized(field.placeholder, locale) : optionalPlaceholder
-              }
             />
           )}
         </div>
       </FormRow>
     );
+  }
+
+  // An answer that is there but cannot be accepted, per section: the shape
+  // checks isSectionComplete applies, put into words. Asked by Continuer once
+  // nothing is missing, and by the submit pass, so the step and the final
+  // check say the same thing. Null when the section has nothing to object to.
+  function formatFailure(step: RegistrationStepId): { message: string; focusId: string } | null {
+    switch (step) {
+      case "respondent": {
+        if (emailAvailable === false) {
+          return { message: t("registerPage.errorEmailInUse"), focusId: "reg-email" };
+        }
+        if (respondent.email.trim() && !isPlausibleEmail(respondent.email)) {
+          return { message: t("registerPage.errorEmailFormat"), focusId: "reg-email" };
+        }
+        // A phone that is given must be a Cameroonian number the declaration
+        // wizards will accept (cameroon-phone.ts) -- optional ones included.
+        for (const [focusId, value] of [
+          ["reg-phone1", respondent.phone1],
+          ["reg-phone2", respondent.phone2],
+        ] as const) {
+          if (value.trim() && !isValidCameroonPhone(value)) {
+            return { message: t("registerPage.errorPhoneFormat"), focusId };
+          }
+        }
+        return null;
+      }
+      case "entityInfo": {
+        for (const field of config?.fields ?? []) {
+          const value = entityData[field.key]?.trim();
+          if (field.kind === "tel" && isFieldVisible(field) && value && !isValidCameroonPhone(value)) {
+            return { message: t("registerPage.errorPhoneFormat"), focusId: `reg-entity-${field.key}` };
+          }
+        }
+        return null;
+      }
+      case "location":
+        // The server needs an arrondissement, and this department's list has
+        // none. Focus goes to the department, the answer that can change.
+        if (departmentId && !subdivisionId && subdivisionsStatus === "empty") {
+          return { message: t("registerPage.errorNoSubdivision"), focusId: "reg-department" };
+        }
+        return null;
+      case "security": {
+        const code = validatePassword(password);
+        if (code) return { message: t(PASSWORD_ERROR_KEY[code]), focusId: "reg-password" };
+        if (password !== confirmPassword) {
+          return { message: t("registerPage.errorPasswordMismatch"), focusId: "reg-confirm-password" };
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
   }
 
   // The one validation pass, run when the respondent submits.
@@ -488,6 +559,9 @@ export default function RegisterPage() {
       ["reg-first-name", respondent.firstName],
       ["reg-last-name", respondent.lastName],
       ["reg-function", respondent.function],
+      ...(respondent.function === RESPONDENT_FUNCTION_OTHER
+        ? [["reg-function-other", respondent.functionOther] as [string, string]]
+        : []),
       ["reg-email", respondent.email],
       ["reg-phone1", respondent.phone1],
     ];
@@ -496,19 +570,8 @@ export default function RegisterPage() {
         return { index: respondentIndex, message: t("registerPage.errorRequiredFields"), focusId };
       }
     }
-    if (emailAvailable === false) {
-      return { index: respondentIndex, message: t("registerPage.errorEmailInUse"), focusId: "reg-email" };
-    }
-    // A phone that is given must be a Cameroonian number the declaration
-    // wizards will accept (cameroon-phone.ts) — optional ones included.
-    for (const [focusId, value] of [
-      ["reg-phone1", respondent.phone1],
-      ["reg-phone2", respondent.phone2],
-    ] as const) {
-      if (value.trim() && !isValidCameroonPhone(value)) {
-        return { index: respondentIndex, message: t("registerPage.errorPhoneFormat"), focusId };
-      }
-    }
+    const respondentFormat = formatFailure("respondent");
+    if (respondentFormat) return { index: respondentIndex, ...respondentFormat };
 
     if (config) {
       for (const field of config.fields) {
@@ -520,16 +583,8 @@ export default function RegisterPage() {
           };
         }
       }
-      for (const field of config.fields) {
-        const value = entityData[field.key]?.trim();
-        if (field.kind === "tel" && isFieldVisible(field) && value && !isValidCameroonPhone(value)) {
-          return {
-            index: STEPS.indexOf("entityInfo"),
-            message: t("registerPage.errorPhoneFormat"),
-            focusId: `reg-entity-${field.key}`,
-          };
-        }
-      }
+      const entityFormat = formatFailure("entityInfo");
+      if (entityFormat) return { index: STEPS.indexOf("entityInfo"), ...entityFormat };
     }
 
     const locationIndex = STEPS.indexOf("location");
@@ -541,8 +596,11 @@ export default function RegisterPage() {
     }
     // An arrondissement is still required, except where the department has
     // none to offer -- see SubdivisionsStatus.
-    if (!subdivisionId && subdivisionsStatus !== "empty") {
-      return { index: locationIndex, message: t("registerPage.errorSelectSubdivision"), focusId: "reg-subdivision" };
+    if (!subdivisionId) {
+      const noList = formatFailure("location");
+      return noList
+        ? { index: locationIndex, ...noList }
+        : { index: locationIndex, message: t("registerPage.errorSelectSubdivision"), focusId: "reg-subdivision" };
     }
     if (!area) {
       return { index: locationIndex, message: t("registerPage.errorSelectArea"), focusId: "reg-area" };
@@ -551,7 +609,7 @@ export default function RegisterPage() {
     const securityIndex = STEPS.indexOf("security");
     const pwError = validatePassword(password);
     if (pwError) {
-      return { index: securityIndex, message: pwError, focusId: "reg-password" };
+      return { index: securityIndex, message: t(PASSWORD_ERROR_KEY[pwError]), focusId: "reg-password" };
     }
     if (password !== confirmPassword) {
       return {
@@ -584,9 +642,10 @@ export default function RegisterPage() {
       // The frame swaps to the failing section; put the page back to the top
       // so the error banner above the section is the first thing on screen,
       // then let focusing the control scroll the page the rest of the way if
-      // the field sits below the fold (section 3 runs to thirteen rows).
+      // the field sits below the fold.
       scrollPageTop();
       const control = failure.focusId ? document.getElementById(failure.focusId) : null;
+      openDetailsAround(control);
       if (control) {
         control.focus();
       } else {
@@ -632,9 +691,7 @@ export default function RegisterPage() {
       // if not it moves on, which is what the respondent asked for. Reading
       // currentLastFieldId straight from the render closure is safe -- a
       // keydown can only arrive after the component body has finished.
-      if (!promptMissing() && current < LAST_INDEX) {
-        advanceFrom(current);
-      }
+      if (current < LAST_INDEX) tryContinue();
     }
   };
 
@@ -657,7 +714,7 @@ export default function RegisterPage() {
 
       const companyName = resolveCompanyName(visibleData, `${respondent.firstName} ${respondent.lastName}`);
       const address = resolveAddress(visibleData);
-      const mainActivity = resolveMainActivity(visibleData);
+      const mainActivity = resolveMainActivity(visibleData, entityType);
 
       const rName = resolvedRegionName || "";
       const dName = resolvedDepartmentName || "";
@@ -714,7 +771,10 @@ export default function RegisterPage() {
         promoterPhone1: visibleData.promoterPhone1 ? normalizeCameroonPhone(visibleData.promoterPhone1) : visibleData.promoterPhone1,
         promoterPhone2: visibleData.promoterPhone2 ? normalizeCameroonPhone(visibleData.promoterPhone2) : visibleData.promoterPhone2,
         sectorId: sectorId || undefined,
-        respondentFunction: respondent.function,
+        respondentFunction:
+          respondent.function === RESPONDENT_FUNCTION_OTHER
+            ? respondent.functionOther.trim()
+            : respondent.function,
         respondentPhone: normalizeCameroonPhone(respondent.phone1),
         respondentPhone2: respondent.phone2 ? normalizeCameroonPhone(respondent.phone2) : undefined,
       };
@@ -783,10 +843,6 @@ export default function RegisterPage() {
   // Called by the rail. A locked section is not reachable -- the rail renders
   // it as a disabled button, and this is the second line of that defence.
   function goToSection(index: number) {
-    // Dismissed on the first click of ANY rail item, enabled or not: the
-    // respondent has shown they know the circles are controls, which is the
-    // only thing the hint was there to say.
-    setRailHintDismissed(true);
     // Trigger (d): a locked item is a question, not a dead end. The rail
     // renders it aria-disabled rather than disabled precisely so the click
     // lands here and can say WHY it is locked.
@@ -877,11 +933,12 @@ export default function RegisterPage() {
   // an answered section must never shove the respondent forward again, which
   // is what `current === reached` guarantees.
   //
-  // A section with no optional fields (the type list, the password) moves on
-  // the instant it is complete. One with optional fields waits for the
-  // respondent to say so, by leaving its last field after changing it,
-  // pressing Enter on it, or following the "continue" link -- see
-  // armFromField.
+  // The type list moves on the instant it is complete. The password step
+  // does not, even though both of its fields are required: confirming a
+  // password must leave the respondent on the step until they press
+  // Continuer. A section with optional fields waits for the respondent to
+  // say so, by leaving its last field after changing it, pressing Enter on
+  // it, or following the "continue" link -- see armFromField.
   const frontierComplete = current === reached && completed[reached];
   const frontierImmediate = advancesImmediately(STEPS[reached], entityType);
 
@@ -903,6 +960,26 @@ export default function RegisterPage() {
     /* eslint-enable react-hooks/set-state-in-effect */
     requestAnimationFrame(scrollPageTop);
   }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
+
+  // A restored draft, or a second phone kept across an organisation-type
+  // change, can already hold an optional answer before this section is on
+  // screen. Open the disclosure so that answer is visible. Once the
+  // respondent closes it, leave it closed until the organisation type
+  // changes. `reached` is a dependency because the disclosure is not in the
+  // document until the organisation step has been revealed.
+  useEffect(() => {
+    if (optionalTypeSeen.current !== entityType) {
+      optionalTypeSeen.current = entityType;
+      optionalClosedByUser.current = false;
+    }
+    if (!entityType || optionalClosedByUser.current) return;
+    const filled = optionalEntityFields(entityType, entityData).some(
+      (field) => (entityData[field.key] ?? "").trim() !== ""
+    );
+    const details = optionalDetailsRef.current;
+    if (!filled || !details || details.open) return;
+    details.open = true;
+  }, [entityType, entityData, reached]);
 
   // Moves focus to the new section's heading -- see headingFocusPendingRef.
   // Declared after every effect and handler that sets the flag.
@@ -930,13 +1007,17 @@ export default function RegisterPage() {
 
   // Re-derived every render from the values, never stored: a flagged field
   // drops out of the notice the moment it is filled, with nothing to clear.
-  // missingNow is everything still blocking the section (Continuer's state);
   // shownErrors is what the notice names -- see missingFieldsToReport for
-  // why a cascade field waiting on its parent is not named.
-  const missingNow = missingRequiredFields(currentStep, regState, nameResolvers);
+  // why a cascade field waiting on its parent is not named. Continuer asks
+  // the same question when it is clicked.
   const shownErrors = missingFieldsToReport(currentStep, regState, nameResolvers).filter((f) =>
     flaggedIds.includes(f.id)
   );
+
+  // Shown while the control Continuer flagged is still the one at fault.
+  const currentFormatFailure = formatFailure(currentStep);
+  const shownFormatError =
+    formatFlagId && currentFormatFailure?.focusId === formatFlagId ? currentFormatFailure : null;
 
   // The four triggers in item 11 all call this. Returns true when it actually
   // stopped something, so a caller can use it as a guard.
@@ -953,6 +1034,7 @@ export default function RegisterPage() {
   function focusField(id: string) {
     {
       const first = document.getElementById(id);
+      openDetailsAround(first);
       // The type list's "field" is a <fieldset>, which carries the id but
       // cannot take focus, so the first radio stands in for it. Checking the
       // element kind rather than the id keeps this true if another group
@@ -962,7 +1044,7 @@ export default function RegisterPage() {
         first instanceof HTMLSelectElement ||
         first instanceof HTMLTextAreaElement
           ? first
-          : firstEntityRadioRef.current;
+          : first?.querySelector<HTMLInputElement>("input") ?? firstEntityRadioRef.current;
       // Default scroll behaviour on purpose: the page scrolls the minimum
       // needed to reveal the control.
       focusable?.focus();
@@ -978,6 +1060,7 @@ export default function RegisterPage() {
   // their way back in.
   function clearFlags() {
     if (flaggedIds.length > 0) setFlaggedIds([]);
+    if (formatFlagId) setFormatFlagId(null);
   }
 
   // One message, not one per field. The pinned notice names every missing
@@ -986,16 +1069,22 @@ export default function RegisterPage() {
   // that notice. Marking every field red and repeating "Champ obligatoire"
   // under each turned a section with three gaps into a red page.
   function invalidProps(id: string) {
-    if (shownErrors[0]?.id !== id) return {};
-    return { "aria-invalid": true, "aria-describedby": MISSING_NOTICE_ID } as const;
+    if (shownErrors[0]?.id === id) {
+      return { "aria-invalid": true, "aria-describedby": MISSING_NOTICE_ID } as const;
+    }
+    if (shownFormatError?.focusId === id) {
+      return { "aria-invalid": true, "aria-describedby": FORMAT_NOTICE_ID } as const;
+    }
+    return {};
   }
 
   // ── Continue ───────────────────────────────────────────────────────────
   // Shown at the bottom of the section whenever that section is the furthest
-  // revealed one, complete or not. Styled as available and aria-disabled
-  // while incomplete: a control that vanishes until the form is correct
-  // cannot tell anyone what is wrong with the form, which is the one thing
-  // the respondent needs at that moment.
+  // revealed one, complete or not. It stays a real button, with no
+  // aria-disabled: that attribute hides the control from a screen reader and
+  // from automation, and the click is how anyone learns which fields are
+  // missing. Do not put aria-disabled back on Continuer. (Soumettre is a
+  // different control and keeps it until the certification box is ticked.)
   //
   // It is also the required-only path forward. A section with optional fields
   // auto-advances when its LAST field is changed and left -- and in every such section
@@ -1004,7 +1093,25 @@ export default function RegisterPage() {
   // triggers it. This link is what they use instead, and it never asks them
   // to touch an optional field.
   const showContinueLink = current < LAST_INDEX && current === reached;
-  const continueBlocked = missingNow.length > 0;
+
+  // Continuer, and Enter on a section's last field. Missing answers first
+  // (the notice names them all), then an answer in the wrong shape, which
+  // the step explains here rather than leaving it to Submit steps later.
+  // On a section the respondent came back to, the same checks run before
+  // moving on: going back to fix one answer must not be a way to leave
+  // another one broken.
+  function tryContinue() {
+    if (promptMissing()) return;
+    const failure = formatFailure(STEPS[current]);
+    if (failure && !isSectionComplete(STEPS[current], regState)) {
+      setFormatFlagId(failure.focusId);
+      requestAnimationFrame(() => focusField(failure.focusId));
+      return;
+    }
+    setSubmitError(null);
+    if (showContinueLink) advanceFrom(current);
+    else goToSection(current + 1);
+  }
 
   // ── Draft ──────────────────────────────────────────────────────────────
   const draftLoadedRef = useRef(false);
@@ -1263,7 +1370,7 @@ export default function RegisterPage() {
                   kept, so the respondent signs in -- with the email they
                   just registered already in the identifier field. A pending
                   account is sent on to its status page by the home layout. */}
-              <div style={{ marginTop: "24px" }}>
+              <div style={{ marginTop: "var(--cam-space-5)" }}>
                 <Link
                   href="/login"
                   className="btn-primary"
@@ -1280,6 +1387,18 @@ export default function RegisterPage() {
               {t("loginPage.whatsappLink")}
             </a>
           </p>
+          <div style={{ textAlign: "center", marginTop: "var(--cam-space-4)" }}>
+            <Link
+              href="/"
+              style={{
+                fontSize: "var(--cam-font-size-xs)",
+                color: "var(--cam-text-muted)",
+                textDecoration: "underline",
+              }}
+            >
+              {t("common.backToPortal")}
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -1299,7 +1418,12 @@ export default function RegisterPage() {
               subtitle={t("registerPage.entityTypeSubtitle")}
             />
 
-            {/* As in the Flutter app (register_steps.dart StepEntityType):
+            {/* The approval-wait notice is not here: before anything is
+                answered it read as an obstacle, and it belongs where the
+                respondent certifies and sends -- the review (owner,
+                2026-10-15).
+
+                As in the Flutter app (register_steps.dart StepEntityType):
                 the title and subtitle, then the choices -- no field label,
                 which only repeated the title. The fieldset is named by the
                 step title.
@@ -1322,19 +1446,8 @@ export default function RegisterPage() {
                     value={option.type}
                     checked={entityType === option.type}
                     onChange={() => requestEntityType(option.type)}
-                    aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
                   />
-                  <span className="entity-type-option-label">
-                    {t(option.labelKey)}
-                    {option.hintKey && (
-                      <span
-                        id={`reg-entity-hint-${option.type}`}
-                        className="entity-type-option-hint"
-                      >
-                        {t(option.hintKey)}
-                      </span>
-                    )}
-                  </span>
+                  <span className="entity-type-option-label">{t(option.labelKey)}</span>
                 </label>
               ))}
             </fieldset>
@@ -1362,11 +1475,11 @@ export default function RegisterPage() {
                   <input
                     id="reg-first-name"
                     type="text"
+                    autoComplete="given-name"
                     aria-required={true}
                     {...invalidProps("reg-first-name")}
                     value={respondent.firstName}
                     onChange={(e) => setRespondentField("firstName", e.target.value)}
-                    placeholder={t("registerPage.firstNamePlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1376,11 +1489,11 @@ export default function RegisterPage() {
                   <input
                     id="reg-last-name"
                     type="text"
+                    autoComplete="family-name"
                     aria-required={true}
                     {...invalidProps("reg-last-name")}
                     value={respondent.lastName}
                     onChange={(e) => setRespondentField("lastName", e.target.value)}
-                    placeholder={t("registerPage.lastNamePlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1394,7 +1507,7 @@ export default function RegisterPage() {
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
-                    <option value="">{t("registerPage.selectPlaceholder")}</option>
+                    <option value=""></option>
                     {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {localized(o.label, locale)}
@@ -1403,6 +1516,25 @@ export default function RegisterPage() {
                   </select>
                 </div>
               </FormRow>
+
+              {respondent.function === RESPONDENT_FUNCTION_OTHER && (
+                <FormRow
+                  htmlFor="reg-function-other"
+                  label={t("registerPage.functionOtherLabel")}
+                  required
+                >
+                  <div className="input-row">
+                    <input
+                      id="reg-function-other"
+                      type="text"
+                      aria-required={true}
+                      {...invalidProps("reg-function-other")}
+                      value={respondent.functionOther}
+                      onChange={(e) => setRespondentField("functionOther", e.target.value)}
+                    />
+                  </div>
+                </FormRow>
+              )}
 
               <FormRow
                 htmlFor="reg-email"
@@ -1415,15 +1547,16 @@ export default function RegisterPage() {
                     aria-required={true}
                     {...invalidProps("reg-email")}
                     type="email"
+                    autoComplete="email"
+                    spellCheck={false}
                     value={respondent.email}
                     onChange={(e) => setRespondentField("email", e.target.value)}
-                    placeholder={t("registerPage.emailPlaceholder")}
                   />
                 </div>
                 <div aria-live="polite" aria-atomic="true">
                   {emailAvailable === false && (
                     <span className="field-status is-error">
-                      ⚠ {t("registerPage.emailUnavailable")}
+                      {t("registerPage.emailUnavailable")} {emailInUseActions}
                     </span>
                   )}
                   {emailAvailable === true && (
@@ -1446,21 +1579,25 @@ export default function RegisterPage() {
                     aria-required={true}
                     {...invalidProps("reg-phone1")}
                     type="tel"
+                    autoComplete="tel-national"
                     value={respondent.phone1}
                     onChange={(e) => setRespondentField("phone1", e.target.value)}
-                    placeholder={t("registerPage.phonePlaceholder")}
                   />
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone2" label={t("registerPage.phone2Label")} size="short">
+              <FormRow
+                htmlFor="reg-phone2"
+                label={t("registerPage.phone2Label")}
+                optionalLabel={t("registerPage.optionalLabel")}
+                size="short"
+              >
                 <div className="input-row">
                   <input
                     id="reg-phone2"
                     type="tel"
                     value={respondent.phone2}
                     onChange={(e) => setRespondentField("phone2", e.target.value)}
-                    placeholder={t("registerPage.optionalPlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1468,8 +1605,9 @@ export default function RegisterPage() {
           </>
         );
 
-      case "entityInfo":
+      case "entityInfo": {
         if (!config || !entityType) return null;
+        const optionalFields = optionalEntityFields(entityType, entityData);
         return (
           <>
             <StepHeader
@@ -1478,17 +1616,13 @@ export default function RegisterPage() {
               subtitle={localized(config.identification, locale)}
             />
 
-            {/* The grouping and the field order both come from
-                entityFieldGroups, which is also what lastEntityFieldKey
-                reads: the field the wizard treats as "the last one in this
-                section" is by construction the last one rendered here. */}
-            {/* ONE grid for the whole section, not one per block. The label
-                column is a grid track sized to the longest label in it, so a
-                grid per block would give each block its own column width and
-                the inputs would start at a different x after every heading.
-                The headings are grid items spanning both columns instead. */}
+            {/* Required groups first, then one closed disclosure for the
+                optional fields. Continuer stays in the dock under this, so
+                it follows the last required field while the disclosure is
+                shut. lastEntityFieldKey reads the same order: required
+                groups, then the optional list. */}
             <div className="form-single-column">
-              {entityFieldGroups(entityType, entityData).map((group) => (
+              {requiredEntityGroups(entityType, entityData).map((group) => (
                 <Fragment key={group.title.fr}>
                   <h2 className="admin-section-header">
                     {localized(group.title, locale)}
@@ -1496,9 +1630,24 @@ export default function RegisterPage() {
                   {group.fields.map(renderEntityField)}
                 </Fragment>
               ))}
+              {optionalFields.length > 0 && (
+                <details
+                  ref={optionalDetailsRef}
+                  className="optional-details"
+                  onToggle={(event) => {
+                    if (!event.currentTarget.open) optionalClosedByUser.current = true;
+                  }}
+                >
+                  <summary>{t("registerPage.optionalDetailsSummary")}</summary>
+                  <div className="optional-details-fields">
+                    {optionalFields.map(renderEntityField)}
+                  </div>
+                </details>
+              )}
             </div>
           </>
         );
+      }
 
       case "location":
         return (
@@ -1508,10 +1657,6 @@ export default function RegisterPage() {
               title={t("registerPage.locationTitle")}
               subtitle={t("registerPage.locationSubtitle")}
             />
-
-            {/* The cascade affordance: the ↳ markers and the gated
-                placeholders say it per field, this says it once up front. */}
-            <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
 
             <div className="form-single-column">
               <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
@@ -1553,7 +1698,6 @@ export default function RegisterPage() {
               <FormRow
                 htmlFor="reg-department"
                 label={t("registerPage.departmentLabel")}
-                labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
                 gated={!regionId}
                 required
               >
@@ -1576,7 +1720,7 @@ export default function RegisterPage() {
                     <option value="">
                       {selectStatusLabel(
                         departmentsQuery,
-                        regionId ? undefined : t("registerPage.selectRegionFirst")
+                        !regionId
                       )}
                     </option>
                     {departmentsQuery.data?.map((d) => (
@@ -1592,7 +1736,6 @@ export default function RegisterPage() {
               <FormRow
                 htmlFor="reg-subdivision"
                 label={t("registerPage.subdivisionLabel")}
-                labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
                 gated={!departmentId}
                 required
                 // An arrondissement cannot be required of a department the
@@ -1617,7 +1760,7 @@ export default function RegisterPage() {
                     <option value="">
                       {selectStatusLabel(
                         subdivisionsQuery,
-                        departmentId ? undefined : t("registerPage.selectDepartmentFirst")
+                        !departmentId
                       )}
                     </option>
                     {subdivisionsQuery.data?.map((s) => (
@@ -1630,29 +1773,44 @@ export default function RegisterPage() {
                 {loadRetry(subdivisionsQuery)}
               </FormRow>
 
-              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
-                <div className="input-row">
-                  <select
-                    id="reg-area"
-                    aria-required={true}
-                    {...invalidProps("reg-area")}
-                    value={area}
-                    onChange={(e) => {
-                      armFromField(false);
-                      setArea(e.target.value);
-                    }}
-                  >
-                    <option value="">{t("registerPage.urbanRuralPlaceholder")}</option>
-                    {AREA_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {localized(o.label, locale)}
-                      </option>
-                    ))}
-                  </select>
+              {/* Two answers, one choice: radios, not a dropdown (CLAUDE.md
+                  section 9). A fieldset named by its legend; the id the
+                  missing-fields notice points at is the fieldset's, and
+                  focusField moves focus to its first radio. Nothing is
+                  pre-selected: unanswered stays unanswered. */}
+              <fieldset
+                id="reg-area"
+                className="field choice-fieldset"
+                aria-required={true}
+                {...invalidProps("reg-area")}
+              >
+                <legend>
+                  {t("registerPage.areaLabel")}
+                </legend>
+                <div className="choice-list choice-list--inline">
+                  {AREA_OPTIONS.map((o) => (
+                    <label key={o.value} className="choice-option">
+                      <input
+                        type="radio"
+                        name="reg-area"
+                        value={o.value}
+                        checked={area === o.value}
+                        onChange={() => {
+                          armFromField(false);
+                          setArea(o.value);
+                        }}
+                      />
+                      <span>{localized(o.label, locale)}</span>
+                    </label>
+                  ))}
                 </div>
-              </FormRow>
+              </fieldset>
 
-              <FormRow htmlFor="reg-sector" label={t("registerPage.sectorLabel")}>
+              <FormRow
+                htmlFor="reg-sector"
+                label={t("registerPage.sectorLabel")}
+                optionalLabel={t("registerPage.optionalLabel")}
+              >
                 <div className="input-row">
                   <select
                     id="reg-sector"
@@ -1668,7 +1826,7 @@ export default function RegisterPage() {
                     }}
                   >
                     <option value="">
-                      {selectStatusLabel(sectorsQuery, undefined, true)}
+                      {selectStatusLabel(sectorsQuery)}
                     </option>
                     {sectorsQuery.data?.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -1711,11 +1869,20 @@ export default function RegisterPage() {
                     aria-required={true}
                     {...invalidProps("reg-password")}
                     type={obscurePassword ? "password" : "text"}
+                    autoComplete="new-password"
+                    // The rules, plus the error notice when this field is
+                    // the one at fault (invalidProps above would otherwise be
+                    // overridden by this attribute).
+                    aria-describedby={[
+                      (invalidProps("reg-password") as { "aria-describedby"?: string })["aria-describedby"],
+                      "reg-password-rules",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
                     }}
-                    placeholder="••••••••••••"
                   />
                   <PasswordVisibilityToggle
                     obscured={obscurePassword}
@@ -1738,8 +1905,8 @@ export default function RegisterPage() {
                       ))}
                     </div>
                     <span className="password-strength-label">
-                      {t("registerPage.passwordStrengthPrefix")} :{" "}
-                      <strong>{passwordStrengthLabel(pwScore)}</strong>
+                      {t("registerPage.passwordStrengthPrefix")}{" "}
+                      <strong>{t(PASSWORD_STRENGTH_KEY[passwordStrengthBand(pwScore)])}</strong>
                     </span>
                   </div>
                 )}
@@ -1747,7 +1914,7 @@ export default function RegisterPage() {
                 {/* The four requirements the score is built from, each
                     ticking off as it is met, instead of one static
                     sentence listing them all. */}
-                <div className="password-rules">
+                <div className="password-rules" id="reg-password-rules">
                   <span className="password-rules-title">
                     {t("registerPage.passwordRulesTitle")}
                   </span>
@@ -1778,11 +1945,11 @@ export default function RegisterPage() {
                     aria-required={true}
                     {...invalidProps("reg-confirm-password")}
                     type={obscureConfirm ? "password" : "text"}
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
                     }}
-                    placeholder="••••••••••••"
                   />
                   <PasswordVisibilityToggle
                     obscured={obscureConfirm}
@@ -1827,8 +1994,12 @@ export default function RegisterPage() {
               onEdit={(targetStep) => goToSection(STEPS.indexOf(targetStep))}
             />
 
+            {/* The same wait the first step states, repeated where the
+                respondent certifies and sends. */}
+            <p className="section-notice">{t("registerPage.approvalWaitNotice")}</p>
+
             {/* The certification, made once by ticking the box. The submit
-                button it gates is pinned in the frame footer, where every
+                button it gates sits at the end of the frame, where every
                 other step keeps its primary action. No "Déclaration sur
                 l'honneur" prefix: this is the inscription, not a
                 declaration. */}
@@ -1856,28 +2027,43 @@ export default function RegisterPage() {
   // The way out of the wizard and the help contact. Rendered twice -- in the
   // dossier panel on a wide screen, under the frame on a narrow one -- and
   // CSS shows one of the two, so each sits where that layout keeps its chrome.
-  const exitLinks = (
-    <>
-      <a
-        href="/login"
-        onClick={(e) => {
-          // An in-app navigation away from a part-filled form is
-          // confirmable; see the dialog below.
-          if (!hasEnteredData) return;
-          e.preventDefault();
-          setLeaveTo("/login");
-        }}
-      >
-        {reached === 0
-          ? t("registerPage.alreadyRegisteredSignIn")
-          : t("registerPage.backToSignInLink")}
-      </a>
-      <span className="flow-footer-sep" aria-hidden="true">·</span>
-      {t("loginPage.needHelpText")}{" "}
-      <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
-        {t("loginPage.whatsappLink")}
-      </a>
-    </>
+  // An in-app navigation away from a part-filled form is confirmable; see
+  // the dialog below. Every link out of the wizard goes through this,
+  // including the masthead logo on narrow screens.
+  const guardLeave = (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!hasEnteredData) return;
+    e.preventDefault();
+    setLeaveTo(href);
+  };
+
+  // The two ways on from an address that already has an account, shown
+  // beside "already in use" under the field and in the step's notice.
+  const emailInUseActions = (
+    <span className="field-status-actions">
+      <Link href="/login" onClick={guardLeave("/login")}>
+        {t("registerPage.emailInUseSignIn")}
+      </Link>
+      {" · "}
+      <Link href="/forgot-password" onClick={guardLeave("/forgot-password")}>
+        {t("registerPage.emailInUseReset")}
+      </Link>
+    </span>
+  );
+
+  // The one way out the wizard keeps at the foot: help (owner, 2026-10-15).
+  // Signing in and the portal are one click away through the logo; the
+  // language link sits beside the logo. The number is not printed: the link
+  // opens the WhatsApp conversation, and its accessible name says so.
+  const helpLink = (
+    <a
+      className="flow-help-link"
+      href="https://wa.me/237651965905"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={t("registerPage.helpLinkAria")}
+    >
+      {t("loginPage.needHelpText")}
+    </a>
   );
 
   // One frame, one section, one scrollbar -- the page's own.
@@ -1888,9 +2074,8 @@ export default function RegisterPage() {
   // holds, the way out -- sticky beside a body holding a single bordered
   // frame. On a narrow screen the panel is not shown and the page is a column
   // of the header that carries the rail, the body and a one-line footer.
-  // Either way a long section makes the page longer, and the frame's dock
-  // (notices, Retour, Continuer) is position: sticky to the bottom of the
-  // viewport so the step's actions stay on screen.
+  // Either way a long section makes the page longer. Retour and Continuer
+  // stay at the end of the frame, not pinned (owner, 2026-10-10).
   //
   // Every revealed section stays MOUNTED and is merely hidden: a section the
   // respondent has left keeps its state and its in-flight requests, and the
@@ -1902,18 +2087,13 @@ export default function RegisterPage() {
           underneath it. */}
       <header className="flow-header">
         <div className="flow-header-inner">
-          <AuthHeader />
+          <AuthHeader onHomeClick={guardLeave("/")} />
           <RegistrationProgress
             currentIndex={current}
             reached={reached}
             completed={completed}
             summaries={railSummaries}
             onSelect={goToSection}
-            hint={
-              !railHintDismissed && completed.some((c, i) => c && i !== current)
-                ? t("registerPage.railEditHintLine")
-                : null
-            }
           />
         </div>
       </header>
@@ -1934,12 +2114,25 @@ export default function RegisterPage() {
           className="flow-panel"
           head={
             <div className="flow-panel-identity">
-              {/* The front door: both marks, as one lockup (brand.md). */}
-              <BrandLockup size="panel" />
+              {/* One logo, CAMLEAP, with ONEFOP named in the endorsement
+                  under it (owner, 2026-10-15; brand.md). The language switch
+                  is in the panel's foot, not up here. */}
+              {/* The logo is the way back to the portal, through the same
+                  leave check as every other link out of the wizard. */}
+              <div className="flow-panel-brandrow">
+                <Link href="/" className="flow-panel-home" onClick={guardLeave("/")}>
+                  <BrandLockup size="panel" emblem={false} />
+                </Link>
+                {/* The one language control, a quiet link to the other
+                    official language (owner, 2026-10-15). */}
+                <LanguageLink />
+              </div>
               <p className="flow-panel-sub">{t("landingPage.endorsement")}</p>
             </div>
           }
-          foot={<div className="flow-panel-foot">{exitLinks}</div>}
+          foot={
+            <div className="flow-panel-foot">{helpLink}</div>
+          }
         >
           <RegistrationStepList
             currentIndex={current}
@@ -1965,22 +2158,62 @@ export default function RegisterPage() {
                   links to its control. The first missing control is also
                   focused and points here (aria-describedby). */}
               {shownErrors.length > 0 && (
-                <div className="flow-missing-notice" id={MISSING_NOTICE_ID} role="alert">
-                  {t("registerPage.missingFieldsLead", { count: shownErrors.length })}{" "}
-                  {shownErrors.map((f, i) => (
-                    <span key={f.id}>
-                      {i > 0 && ", "}
+                <div
+                  className="flow-missing-notice"
+                  id={MISSING_NOTICE_ID}
+                  role="alert"
+                  aria-labelledby={`${MISSING_NOTICE_ID}-title`}
+                >
+                  <h2 className="flow-missing-notice-title" id={`${MISSING_NOTICE_ID}-title`}>
+                    {t("registerPage.errorSummaryTitle")}
+                  </h2>
+                  <p>{t("registerPage.missingFieldsLead", { count: shownErrors.length })}</p>
+                  <ul>
+                    {shownErrors.map((f) => (
+                      <li key={f.id}>
+                        <a
+                          href={`#${f.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            focusField(f.id);
+                          }}
+                        >
+                          {f.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {shownFormatError && (
+                <div
+                  className="flow-missing-notice"
+                  id={FORMAT_NOTICE_ID}
+                  role="alert"
+                  aria-labelledby={`${FORMAT_NOTICE_ID}-title`}
+                >
+                  <h2 className="flow-missing-notice-title" id={`${FORMAT_NOTICE_ID}-title`}>
+                    {t("registerPage.errorSummaryTitle")}
+                  </h2>
+                  <ul>
+                    <li>
                       <a
-                        href={`#${f.id}`}
+                        href={`#${shownFormatError.focusId}`}
                         onClick={(e) => {
                           e.preventDefault();
-                          focusField(f.id);
+                          focusField(shownFormatError.focusId);
                         }}
                       >
-                        {f.name}
+                        {shownFormatError.message}
                       </a>
-                    </span>
-                  ))}
+                      {/* A taken address is not a typo: the way on is the
+                          account that already has it. */}
+                      {shownFormatError.focusId === "reg-email" && emailAvailable === false && (
+                        <> {emailInUseActions}</>
+                      )}
+                    </li>
+                  </ul>
                 </div>
               )}
 
@@ -2083,28 +2316,22 @@ export default function RegisterPage() {
                     type="button"
                     className="btn-primary btn-primary--inline flow-continue-link"
                     data-flow-continue
-                    aria-disabled={(showContinueLink && continueBlocked) || undefined}
-                    // Never the `disabled` attribute: a disabled button
-                    // swallows the click, and the click is how the
-                    // respondent asks what is missing.
-                    onClick={() => {
-                      if (!showContinueLink) {
-                        goToSection(current + 1);
-                        return;
-                      }
-                      if (promptMissing()) return;
-                      advanceFrom(current);
-                    }}
+                    // No aria-disabled and no disabled attribute. Either one
+                    // swallows the click, and the click is how the respondent
+                    // asks what is missing. A screen reader must be able to
+                    // reach this button too.
+                    onClick={tryContinue}
                   >
                     {t("registerPage.continueButton")}
                     <span aria-hidden="true">→</span>
                   </button>
                 )}
                 {/* Soumettre: the review's primary action, in the same place
-                    as Continuer on every other step. aria-disabled rather
-                    than disabled until the box is ticked, for the same reason
-                    as Continuer: the click is how the respondent learns what
-                    is still missing. Truly disabled only while in flight. */}
+                    as Continuer on every other step. aria-disabled until the
+                    box is ticked, so a screen reader does not offer a submit
+                    the click would only refuse. Continuer does not use
+                    aria-disabled; do not copy this attribute onto it.
+                    Truly disabled only while in flight. */}
                 {current === LAST_INDEX && (
                   <button
                     type="button"
@@ -2135,51 +2362,26 @@ export default function RegisterPage() {
       </div>
 
       {/* Narrow screens only; the panel carries these on a wide one. */}
-      <div className="flow-footer">{exitLinks}</div>
+      <div className="flow-footer">{helpLink}</div>
 
       {/* Entity-type change confirmation. Only raised when there is
           something to lose: with step 3 still empty the type switches
-          silently. */}
+          silently. Cancel keeps the old type and its data: the radio is
+          controlled by `entityType`, which nothing has changed yet. */}
       {pendingEntityType && (
-        <div
-          className="leave-dialog-backdrop"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPendingEntityType(null);
+        <ConfirmDialog
+          id="reg-entity-change"
+          title={t("registerPage.entityChangeTitle")}
+          body={t("registerPage.entityChangeBody")}
+          cancelLabel={t("registerPage.entityChangeCancel")}
+          confirmLabel={t("registerPage.entityChangeConfirm")}
+          onCancel={() => setPendingEntityType(null)}
+          onConfirm={() => {
+            const next = pendingEntityType;
+            setPendingEntityType(null);
+            applyEntityType(next, true);
           }}
-        >
-          <div
-            className="leave-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reg-entity-change-title"
-          >
-            <h2 id="reg-entity-change-title">{t("registerPage.entityChangeTitle")}</h2>
-            <p>{t("registerPage.entityChangeBody")}</p>
-            <div className="leave-dialog-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                // Cancel keeps the old type and its data: the radio is
-                // controlled by `entityType`, which nothing has changed yet.
-                onClick={() => setPendingEntityType(null)}
-              >
-                {t("registerPage.entityChangeCancel")}
-              </button>
-              <button
-                type="button"
-                className="btn-primary btn-primary--inline"
-                onClick={() => {
-                  const next = pendingEntityType;
-                  setPendingEntityType(null);
-                  if (next) applyEntityType(next, true);
-                }}
-              >
-                {t("registerPage.entityChangeConfirm")}
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* Leave confirmation. Only reachable with data entered, and only for
@@ -2187,39 +2389,19 @@ export default function RegisterPage() {
           cannot carry custom wording, so beforeunload shows the browser's own
           dialog instead (see the effect above). */}
       {leaveTo && (
-        <div
-          className="leave-dialog-backdrop"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setLeaveTo(null);
+        <ConfirmDialog
+          id="reg-leave"
+          title={t("registerPage.leaveTitle")}
+          body={t("registerPage.leaveBody")}
+          cancelLabel={t("registerPage.leaveCancel")}
+          confirmLabel={t("registerPage.leaveConfirm")}
+          onCancel={() => setLeaveTo(null)}
+          onConfirm={() => {
+            const href = leaveTo;
+            setLeaveTo(null);
+            router.push(href);
           }}
-        >
-          <div
-            className="leave-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reg-leave-title"
-          >
-            <h2 id="reg-leave-title">{t("registerPage.leaveTitle")}</h2>
-            <p>{t("registerPage.leaveBody")}</p>
-            <div className="leave-dialog-actions">
-              <button type="button" className="btn-secondary" onClick={() => setLeaveTo(null)}>
-                {t("registerPage.leaveCancel")}
-              </button>
-              <button
-                type="button"
-                className="btn-primary btn-primary--inline"
-                onClick={() => {
-                  const href = leaveTo;
-                  setLeaveTo(null);
-                  if (href) router.push(href);
-                }}
-              >
-                {t("registerPage.leaveConfirm")}
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
     </main>
   );

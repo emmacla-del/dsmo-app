@@ -232,7 +232,7 @@
 }
 
 .cam-admin-rail-hub:focus-visible {
-  outline: 2px solid var(--cam-flag-yellow);
+  outline: 2px solid var(--cam-focus);
   outline-offset: -2px;
 }
 
@@ -269,7 +269,7 @@
   padding: 0 var(--cam-space-1);
   flex-shrink: 0;
   border-radius: var(--cam-radius-full);
-  background: var(--cam-flag-yellow);
+  background: var(--cam-gold);
   color: var(--cam-text);
   font-size: var(--cam-font-size-3xs);
   font-weight: 700;
@@ -355,7 +355,7 @@
 }
 
 .cam-admin-rail-logout:focus-visible {
-  outline: 2px solid var(--cam-flag-yellow);
+  outline: 2px solid var(--cam-focus);
   outline-offset: 2px;
 }
 
@@ -548,12 +548,12 @@
   flex-shrink: 0;
 }
 
-.cam-admin-status-badge--pending    { background: rgba(240, 180, 41, 0.15); color: var(--cam-warning);    --cam-status-dot: var(--cam-flag-yellow); }
-.cam-admin-status-badge--validated  { background: rgba(30, 107, 58, 0.12);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
-.cam-admin-status-badge--rejected   { background: rgba(179, 38, 30, 0.1);   color: var(--cam-error);      --cam-status-dot: var(--cam-error); }
-.cam-admin-status-badge--correction { background: rgba(240, 180, 41, 0.15); color: var(--cam-warning);    --cam-status-dot: var(--cam-gold); }
-.cam-admin-status-badge--active     { background: rgba(30, 107, 58, 0.12);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
-.cam-admin-status-badge--neutral    { background: rgba(74, 90, 80, 0.1);    color: var(--cam-text-muted); --cam-status-dot: var(--cam-text-muted); }
+.cam-admin-status-badge--pending    { background: color-mix(in srgb, var(--cam-gold) 15%, transparent); color: var(--cam-warning);    --cam-status-dot: var(--cam-gold); }
+.cam-admin-status-badge--validated  { background: color-mix(in srgb, var(--cam-green) 12%, transparent);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
+.cam-admin-status-badge--rejected   { background: color-mix(in srgb, var(--cam-error) 10%, transparent);   color: var(--cam-error);      --cam-status-dot: var(--cam-error); }
+.cam-admin-status-badge--correction { background: color-mix(in srgb, var(--cam-gold) 15%, transparent); color: var(--cam-warning);    --cam-status-dot: var(--cam-gold); }
+.cam-admin-status-badge--active     { background: color-mix(in srgb, var(--cam-green) 12%, transparent);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
+.cam-admin-status-badge--neutral    { background: color-mix(in srgb, var(--cam-text-muted) 10%, transparent);    color: var(--cam-text-muted); --cam-status-dot: var(--cam-text-muted); }
 
 /* ── Page header actions (AdminHeaderActions, NotificationBell) ──
    These classes draw the header as it renders today: they replaced inline
@@ -1520,7 +1520,7 @@
   background: var(--cam-surface);
   color: var(--cam-text);
   font-family: var(--cam-font-sans);
-  box-shadow: 0 24px 64px rgba(11, 31, 20, 0.22);
+  box-shadow: 0 24px 64px color-mix(in srgb, var(--cam-text) 22%, transparent);
 }
 
 .cam-admin-dialog[open] {
@@ -1533,7 +1533,7 @@
 }
 
 .cam-admin-dialog::backdrop {
-  background: rgba(11, 31, 20, 0.45);
+  background: var(--cam-scrim);
 }
 
 .cam-admin-dialog *,
@@ -1724,13 +1724,13 @@
   border-radius: var(--cam-radius-full);
   background: var(--cam-green);
   flex-shrink: 0;
-  box-shadow: 0 0 0 4px rgba(30, 107, 58, 0.15);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cam-green) 15%, transparent);
   animation: cam-pulse 2s infinite;
 }
 
 @keyframes cam-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(30, 107, 58, 0.15); }
-  50%       { box-shadow: 0 0 0 8px rgba(30, 107, 58, 0.05); }
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--cam-green) 15%, transparent); }
+  50%       { box-shadow: 0 0 0 8px color-mix(in srgb, var(--cam-green) 5%, transparent); }
 }
 
 .cam-campaign-banner-body {
@@ -1975,7 +1975,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   left: -14px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 18px;
+  font-size: var(--cam-font-size-lg);
   color: var(--cam-placeholder);
   font-weight: 300;
 }

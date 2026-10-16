@@ -1,37 +1,64 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { ApiError, getCachedUser, getMyAttestation } from "@/lib/api-client";
+import { getCachedUser } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { respondentRailItems } from "@/lib/respondent-rail";
-import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { LanguageLink } from "@/components/LanguageLink";
+import { AuthLoadingSplash } from "@/components/auth/AuthLoadingSplash";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
-import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions } from "@/lib/shared-queries";
+import {
+  activeQuarterQueryOptions,
+  meQueryOptions,
+  myCompanyQueryOptions,
+  mySubmissionsQueryOptions,
+  unreadNotificationCountQueryOptions,
+} from "@/lib/shared-queries";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useIsClient } from "@/lib/use-is-client";
-import { campaignPhrase, respondentTypeLabel } from "@/lib/respondent-identity";
+import { respondentTypeLabel } from "@/lib/respondent-identity";
 import { asUiLocale } from "@/lib/register-i18n";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
+import type { ActiveQuarter } from "@/lib/onefop-submission";
 
-/**
- * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
- * _buildTabs/_buildDrawer (see role-navigation.ts for the exact mapping).
- * Deliberately real Next.js routes per destination (/home/<slug>) rather
- * than Flutter's in-memory tab-index switching: bookmarkable URLs and
- * working browser back/forward are a "materially better browser-native web
- * experience" (the plan's own Phase 5 acceptance criterion, applied here to
- * navigation too), not a mechanical port of Flutter's own mechanism.
- *
- * Only one destination is real today (the ONEFOP declaration entry point,
- * /onefop/preview, built earlier this migration) — every other item links
- * to an honest "not yet migrated" placeholder rather than a fabricated
- * screen, per the plan's Phase 6 per-module retirement model.
- */
+// null when no campaign is known: the rail then shows no line rather than
+// the label "Current campaign" as if it were the value.
+function formatCampaignLine(quarter: ActiveQuarter | null | undefined, locale: "fr" | "en"): string | null {
+  if (!quarter) return null;
+  if (quarter.isOpen === false) {
+    return locale === "fr" ? "Période fermée" : "Period closed";
+  }
+  let periodStr = "";
+  if (quarter.code) {
+    const match = /^(?:QUARTERLY_)?(\d{4})[-_]T([1-4])(?:_\d+)?$/.exec(quarter.code);
+    if (match) {
+      periodStr = locale === "fr" ? `T${match[2]} ${match[1]}` : `Q${match[2]} ${match[1]}`;
+    } else {
+      periodStr = referencePeriodLabel(quarter.code, locale);
+    }
+  } else {
+    periodStr = quarter.label ?? "";
+  }
+  if (!periodStr) return null;
+
+  if (!quarter.deadline) return periodStr;
+  try {
+    const d = new Date(quarter.deadline);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const closesPart = locale === "fr" ? `clôture ${day}/${month}` : `closes ${day}/${month}`;
+    return `${periodStr} · ${closesPart}`;
+  } catch {
+    return periodStr;
+  }
+}
+
 export default function HomeLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const uiLocale = asUiLocale(useLocale());
@@ -46,71 +73,38 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     initialData: authUser ?? getCachedUser() ?? undefined,
   });
   const user = meQuery.data ?? authUser ?? getCachedUser();
+  const isCompany = user?.role === "COMPANY";
   const awaitingApproval =
-    user?.role === "COMPANY" &&
+    isCompany &&
     (user.status === "PENDING_APPROVAL" || user.status === "COMPLEMENTS_REQUESTED");
-  // The active-quarter route is guarded, and a company still under review is
-  // denied it. Left enabled, every mount fires a request that comes back 403
-  // and sends the browser to the status page this layout is already
-  // redirecting to — a loop. Disabled rather than exempted server-side: a
-  // company that cannot declare yet has no active quarter to speak of.
+
   const quarterQuery = useQuery({
     ...activeQuarterQueryOptions,
     enabled: authState === "authed" && !awaitingApproval,
   });
-  // The respondent's own structure, for its type in the rail.
+
   const companyQuery = useQuery({
     ...myCompanyQueryOptions,
-    enabled: authState === "authed" && user?.role === "COMPANY",
+    enabled: authState === "authed" && isCompany,
   });
+
+  const submissionsQuery = useQuery({
+    ...mySubmissionsQueryOptions,
+    enabled: authState === "authed" && isCompany && !awaitingApproval,
+  });
+
+  const unreadNotificationsQuery = useQuery({
+    ...unreadNotificationCountQueryOptions,
+    enabled: authState === "authed" && isCompany,
+  });
+
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
-  // Below 900px the rail is a drawer (globals.css .cam-home-rail). Escape,
-  // focus trap and focus return come from useDialogFocus; choosing a link
-  // closes it too.
   const [menuOpen, setMenuOpen] = useState(false);
   const railRef = useRef<HTMLElement>(null);
   useDialogFocus(menuOpen, railRef, () => setMenuOpen(false));
-  const [attestationLoading, setAttestationLoading] = useState(false);
-  const [attestationError, setAttestationError] = useState<string | null>(null);
-  // Mirrors home_screen.dart's "Mon attestation d'inscription" menu entry.
-  // The backend guards the route with ActiveCompanyGuard, so the button is
-  // only offered to an active company.
-  const canDownloadAttestation = user?.role === "COMPANY" && user.status === "ACTIVE";
 
-  async function openAttestation() {
-    setAttestationError(null);
-    setAttestationLoading(true);
-    // Opened before the request, inside the click, so the browser treats it
-    // as user-initiated: a window.open() after an await is popup-blocked.
-    const tab = window.open("", "_blank");
-    try {
-      const { url } = await getMyAttestation();
-      if (tab) {
-        tab.opener = null;
-        tab.location.href = url;
-      } else {
-        window.location.assign(url);
-      }
-    } catch (e) {
-      tab?.close();
-      // 400 is the backend's "no attestation stored for this account" --
-      // a pending approval, or a PDF that failed to generate.
-      setAttestationError(
-        e instanceof ApiError && e.status === 400
-          ? t("homeLayout.attestationUnavailable")
-          : t("homeLayout.attestationOpenError"),
-      );
-    } finally {
-      setAttestationLoading(false);
-    }
-  }
-  // Client-only gate, hydration-safe (false on the server and while hydrating).
   const mounted = useIsClient();
 
-  // A company whose registration is still under review holds a valid
-  // session but has no operational screens yet, so it belongs on its status
-  // page. This runs in an effect rather than in render: router.replace() in
-  // a render body is a side effect in render and re-fires under StrictMode.
   useEffect(() => {
     if (!mounted || authState !== "authed") return;
     if (awaitingApproval && pathname !== "/home/inscription-en-attente") {
@@ -118,12 +112,56 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     }
   }, [mounted, authState, awaitingApproval, pathname, router]);
 
-  if (!mounted || authState !== "authed") {
+  const quarter = quarterQuery.data;
+
+  // Active campaign survey state
+  const quarterCode = quarter?.code;
+  const activeSubmission = useMemo(() => {
+    if (!quarterCode || !submissionsQuery.data) return null;
+    const matches = submissionsQuery.data.onefop.filter((s) => (s.quarterCode ?? s.period) === quarterCode);
+    // If a filing for this campaign was already endorsed or is pending review, that live state governs.
+    const liveMatch = matches.find((s) => s.status === "APPROVED" || s.status === "PENDING_REVIEW");
+    if (liveMatch) return liveMatch;
+
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--cam-bg)", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
+      matches.find((s) => s.status === "CORRECTION_REQUESTED") ??
+      matches.find((s) => s.status === "DRAFT") ??
+      matches[0] ??
+      null
     );
+  }, [quarterCode, submissionsQuery.data]);
+
+  const surveyState = useMemo(() => {
+    if (!activeSubmission) return "none";
+    if (activeSubmission.status === "DRAFT") return "draft";
+    if (activeSubmission.status === "CORRECTION_REQUESTED") return "correction";
+    if (activeSubmission.status === "APPROVED") return "approved";
+    if (activeSubmission.status === "REJECTED") return "rejected";
+    return "pending";
+  }, [activeSubmission]);
+
+  // Count of drafts + corrections requiring action (excluding superseded filings whose quarter is already approved/pending):
+  const actionRequiredCount = useMemo(() => {
+    if (!submissionsQuery.data) return 0;
+    const dsmoDrafts = submissionsQuery.data.dsmo.filter((d) => d.status === "DRAFT").length;
+    const liveQuarterCodes = new Set(
+      submissionsQuery.data.onefop
+        .filter((s) => s.status === "APPROVED" || s.status === "PENDING_REVIEW")
+        .map((s) => s.quarterCode ?? s.period)
+        .filter(Boolean),
+    );
+    const onefopAction = submissionsQuery.data.onefop.filter(
+      (s) =>
+        (s.status === "DRAFT" || s.status === "CORRECTION_REQUESTED") &&
+        !liveQuarterCodes.has(s.quarterCode ?? s.period),
+    ).length;
+    return dsmoDrafts + onefopAction;
+  }, [submissionsQuery.data]);
+
+  const unreadCount = unreadNotificationsQuery.data?.count ?? 0;
+
+  if (!mounted || authState !== "authed") {
+    return <AuthLoadingSplash />;
   }
 
   const effectiveRole = user ? resolveEffectiveRole(user) : null;
@@ -135,6 +173,18 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     ),
     awaitingApproval,
   );
+
+  const campaignLine = awaitingApproval ? null : formatCampaignLine(quarter, uiLocale);
+  const companyName = companyQuery.data?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const companyType = respondentTypeLabel(companyQuery.data?.entityType, uiLocale);
+
+  // Button follows survey state: Take survey, Resume, or Correct
+  // It disappears once the survey is submitted / pending / approved / rejected or period is closed
+  const showSurveyButton =
+    isCompany &&
+    !awaitingApproval &&
+    quarter?.isOpen &&
+    (surveyState === "none" || surveyState === "draft" || surveyState === "correction");
 
   return (
     <div className={`cam-home${menuOpen ? " is-menu-open" : ""}`}>
@@ -150,11 +200,10 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           <span aria-hidden="true">☰</span>
           <span aria-hidden="true">{t("homeLayout.menuLabel")}</span>
         </button>
-        {/* A working screen: the CAMLEAP logo, 20px tall, and nothing else.
-            ONEFOP is named once, in the rail this bar opens
-            (docs/standards/brand.md). */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/camleap_logo.png" alt="CAMLEAP" width={120} height={20} style={{ display: "block", width: 120, height: "auto" }} />
+        <Link href="/" title={t("homeLayout.backToPublicPortal")}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={270} height={38} style={{ display: "block", width: 120, height: "auto" }} />
+        </Link>
       </div>
       <div className="cam-home-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
       <aside
@@ -164,57 +213,39 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": t("homeLayout.menuLabel") } : {})}
       >
         <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
-          <div>
-            {/* The CAMLEAP logo, with ONEFOP as a line of text under it: this
-                screen has no footer, so the endorsement belongs here
-                (docs/standards/brand.md, working screens). */}
+          <Link href="/" title={t("homeLayout.backToPublicPortal")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/camleap_logo.png" alt="CAMLEAP" width={120} height={20} style={{ display: "block", width: 120, height: "auto" }} />
-            <div style={{ marginTop: "var(--cam-space-1)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-              {t("landingPage.endorsement")}
-            </div>
-            {/* The campaign in words ("Campagne du 4e trimestre 2026"), never the
-                stored code nor the survey's all-caps title (lib/respondent-identity). */}
-            {/* Only a known campaign: the label alone read as if it were the
-                value while the campaign was unknown (awaiting approval, loading,
-                failed). */}
-            {!awaitingApproval && campaignPhrase(quarterQuery.data, uiLocale) && (
-              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                {campaignPhrase(quarterQuery.data, uiLocale)}
-              </div>
-            )}
-            {/* A closed period must not read as the live campaign. */}
-            {quarterQuery.data?.isOpen === false && (
-              <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, color: "var(--cam-warning)" }}>
-                {t("homeLayout.periodClosed")}
-              </div>
-            )}
-          </div>
-          {user && (
-            <div style={{ marginTop: "var(--cam-space-3)" }}>
-              <div style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)", overflowWrap: "break-word" }}>
-                {user.email}
-              </div>
-              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                {(user.role === "COMPANY" ? respondentTypeLabel(companyQuery.data?.entityType, uiLocale) : null)
-                  ?? (roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole)}
-              </div>
-            </div>
-          )}
+            <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={270} height={38} style={{ display: "block", width: 120, height: "auto" }} />
+          </Link>
         </div>
 
-        {/* Global New Declaration CTA button: EXCLUSIVELY for COMPANY roles */}
-        {user?.role === "COMPANY" && (
+        {/* Survey state action button: follows state (Take the survey, Resume, Correct), disappears once submitted */}
+        {showSurveyButton && (
           <div style={{ padding: "var(--cam-space-3) var(--cam-space-4) var(--cam-space-1)" }}>
             <button
               type="button"
               onClick={() => {
                 setMenuOpen(false);
-                setIsNewDeclarationOpen(true);
+                if (surveyState === "none") {
+                  const entityType = companyQuery.data?.entityType;
+                  if (entityType) {
+                    router.push(`/onefop/preview?entity=${encodeURIComponent(entityType)}`);
+                  } else {
+                    setIsNewDeclarationOpen(true);
+                  }
+                } else if (activeSubmission) {
+                  const entityType = activeSubmission.entityType;
+                  router.push(entityType ? `/onefop/preview?entity=${encodeURIComponent(entityType)}` : "/onefop/preview");
+                }
               }}
-              className="cam-button cam-button-secondary cam-button-block cam-button-sm"
+              className="cam-button cam-button-primary cam-button-block cam-button-sm"
+              style={{ fontWeight: 600 }}
             >
-              {t("homeLayout.newDeclarationButton")}
+              {surveyState === "none"
+                ? t("homeLandingPage.takeSurveyButton")
+                : surveyState === "draft"
+                ? t("homeLandingPage.resumeDraftButton")
+                : t("homeLandingPage.correctSurveyButton")} →
             </button>
           </div>
         )}
@@ -223,6 +254,13 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           {navItems.map((item) => {
             const href = item.route ?? `/home/${item.slug}`;
             const active = item.route ? pathname === item.route : pathname === `/home/${item.slug}`;
+            const count =
+              item.slug === "declarations"
+                ? actionRequiredCount
+                : item.slug === "messages"
+                ? unreadCount
+                : 0;
+
             return (
               <Link
                 key={item.slug}
@@ -232,6 +270,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 style={{
                   display: "flex",
                   alignItems: "center",
+                  justifyContent: "space-between",
                   padding: "var(--cam-space-2) var(--cam-space-4)",
                   fontSize: "var(--cam-font-size-sm)",
                   color: active ? "var(--cam-green)" : "var(--cam-text)",
@@ -241,7 +280,31 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                   fontWeight: active ? 700 : 500,
                 }}
               >
-                {t(item.labelKey)}
+                <span>{t(item.labelKey)}</span>
+                {count > 0 && (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      fontSize: "var(--cam-font-size-xs)",
+                      fontWeight: 600,
+                      color: active ? "var(--cam-green)" : "var(--cam-text-muted)",
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        backgroundColor: item.slug === "declarations" ? "var(--cam-warning)" : "var(--cam-primary)",
+                        display: "inline-block",
+                      }}
+                    />
+                    <span>{count}</span>
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -252,52 +315,91 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
 
-        <div style={{ padding: "var(--cam-space-4)", borderTop: "var(--cam-border-width) solid var(--cam-border)" }}>
-          {/* Interface language, as on the admin rail: the respondent area had
-              no switcher outside the ONEFOP wizard header. */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "var(--cam-space-3)" }}>
-            <LocaleSwitcher />
-          </div>
-          {canDownloadAttestation && (
-            <>
-              <button
-                type="button"
-                onClick={openAttestation}
-                disabled={attestationLoading}
-                className="cam-text-button"
-                style={{ display: "block", marginBottom: "var(--cam-space-3)" }}
-              >
-                {attestationLoading ? t("homeLayout.attestationLoading") : t("homeLayout.attestationButton")}
-              </button>
-              {attestationError && (
-                <p
-                  role="alert"
-                  style={{
-                    color: "var(--cam-error)",
-                    fontSize: "var(--cam-font-size-2xs)",
-                    margin: "0 0 var(--cam-space-2)",
-                  }}
-                >
-                  {attestationError}
-                </p>
+        {/* Footer: Establishment identity + language switcher and Logout */}
+        <div
+          style={{
+            padding: "var(--cam-space-3) var(--cam-space-4)",
+            borderTop: "var(--cam-border-width) solid var(--cam-border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--cam-space-3)",
+            background: "var(--cam-surface)",
+          }}
+        >
+          {user && (
+            <div>
+              {isCompany ? (
+                <>
+                  <div
+                    style={{
+                      fontSize: "var(--cam-font-size-sm)",
+                      fontWeight: 700,
+                      color: "var(--cam-text)",
+                      overflowWrap: "break-word",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {companyName || user.email}
+                  </div>
+                  {companyType && (
+                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "var(--cam-space-hairline)" }}>
+                      {companyType}
+                    </div>
+                  )}
+                  {campaignLine && (
+                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "var(--cam-space-1)" }}>
+                      {campaignLine}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      fontSize: "var(--cam-font-size-xs)",
+                      fontWeight: 600,
+                      color: "var(--cam-text)",
+                      overflowWrap: "break-word",
+                    }}
+                  >
+                    {user.email}
+                  </div>
+                  <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+                    {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
+                  </div>
+                  {campaignLine && (
+                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "4px" }}>
+                      {campaignLine}
+                    </div>
+                  )}
+                </>
               )}
-            </>
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              // The store's logout, as the admin layout uses: it also clears
-              // the cached profile, purges local drafts (D8) and marks the
-              // session signed out. Removing only the token left the store
-              // "authenticated", so the landing page sent the user back to
-              // /home, which bounced them out again (F10).
-              logout();
-              router.replace("/");
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "var(--cam-space-2)",
+              paddingTop: "var(--cam-space-2)",
+              borderTop: "1px dashed var(--cam-border)",
             }}
-            className="cam-button cam-button-secondary cam-button-block cam-button-sm"
           >
-            {t("homeLayout.logoutButton")}
-          </button>
+            <LanguageLink />
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                router.replace("/");
+              }}
+              className="cam-text-button"
+              style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}
+            >
+              {t("homeLayout.logoutButton")}
+            </button>
+          </div>
         </div>
       </aside>
 

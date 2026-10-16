@@ -29,9 +29,15 @@ import { useTranslations } from "next-intl";
  * the first to register draws the control; the rest render nothing, or the
  * app bar would carry one selector per table on the screen.
  *
- * It is a select rather than a segmented control: the chosen mode shows,
- * the other appears on click, and a native control carries its own
- * keyboard and screen-reader behaviour.
+ * It is a segmented control of two toggle buttons, each an icon and its
+ * word (owner, 2026-10-12). It was a native select between 2026-10-11 and
+ * then, for the keyboard and screen-reader behaviour a native control
+ * brings; two buttons keep that much — each is a real button, named, and
+ * reachable by Tab — and in exchange both modes are on the bar instead of
+ * one being hidden until the select opens. The word stays beside each
+ * icon: a grid reads as "table", but nothing reads as "guided", and this
+ * choice decides how a respondent enters statistical data, so it must not
+ * become hover-only.
  */
 
 interface EntryModeSlot {
@@ -112,17 +118,34 @@ export function EntryModeSwitch({
 }) {
   const t = useTranslations("modernJobs.entryMode");
   return (
-    <div className="cam-mode-switch">
-      {/* No visible label: in the app bar it wrapped to three lines beside
-          the control. The name is still on the control itself. */}
-      <select
-        aria-label={t("ariaLabel")}
-        value={mode}
-        onChange={(event) => onChange(event.target.value === "guided" ? "guided" : "grid")}
-      >
-        <option value="grid">{t("grid")}</option>
-        <option value="guided">{t("guided")}</option>
-      </select>
+    /* No visible label: in the app bar it wrapped to three lines beside the
+       control. "Mode de saisie" names the group for a screen reader, which
+       then reads each button as the pressed or unpressed mode. */
+    <div className="cam-mode-switch" role="group" aria-label={t("ariaLabel")}>
+      {(["grid", "guided"] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={mode === value}
+          onClick={() => onChange(value)}
+        >
+          {/* Tableau is the grid of cells; Guidé is the single card the
+              respondent answers one of at a time. The pair only has to
+              differ at 14px — the word carries the meaning. */}
+          {value === "grid" ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="4" y="3" width="16" height="18" rx="2" />
+              <path d="M8 9h8M8 14h5" />
+            </svg>
+          )}
+          {t(value)}
+        </button>
+      ))}
     </div>
   );
 }

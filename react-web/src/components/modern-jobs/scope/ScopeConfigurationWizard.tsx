@@ -745,7 +745,7 @@ export function EventFactInterview({
         </h1>
         <p
           style={{
-            fontSize: 14,
+            fontSize: "var(--cam-font-size-sm)",
             color: "var(--cam-text-muted)",
             margin: 0,
             lineHeight: 1.5,
@@ -823,7 +823,7 @@ export function EventFactInterview({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 24 }} aria-hidden="true">
+              <span style={{ fontSize: "var(--cam-font-size-xl)" }} aria-hidden="true">
                 ⚠️
               </span>
               <h3
@@ -855,7 +855,7 @@ export function EventFactInterview({
                   border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 18px",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
@@ -878,11 +878,11 @@ export function EventFactInterview({
                 }}
                 style={{
                   background: "var(--cam-green)",
-                  color: "#ffffff",
+                  color: "var(--cam-white)",
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "9px 20px",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
@@ -952,7 +952,7 @@ export function EventFactInterview({
                   border: "1px solid var(--cam-border)",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "8px 18px",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
@@ -967,9 +967,9 @@ export function EventFactInterview({
                   border: "none",
                   borderRadius: "var(--cam-radius-sm, 6px)",
                   padding: "8px 20px",
-                  fontSize: 13,
+                  fontSize: "var(--cam-font-size-xs)",
                   fontWeight: 700,
-                  color: "#ffffff",
+                  color: "var(--cam-white)",
                   cursor: "pointer",
                 }}
               >

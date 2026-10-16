@@ -103,7 +103,7 @@ export function ConditionalTable({
         </p>
       )}
       {errorBox}
-      <p style={{ fontSize: 13, color: "var(--cam-text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+      <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
         {locale === "en"
           ? "Answer this question in the preliminary questionnaire first: the table appears if the answer is Yes."
           : "Répondez d'abord à cette question dans le questionnaire préliminaire : le tableau s'affiche si la réponse est Oui."}
@@ -117,7 +117,7 @@ export function ConditionalTable({
             border: "1px solid var(--cam-border)",
             borderRadius: "var(--cam-radius-sm, 4px)",
             padding: "8px 18px",
-            fontSize: 13,
+            fontSize: "var(--cam-font-size-xs)",
             fontWeight: 600,
             color: "var(--cam-green)",
             cursor: "pointer",

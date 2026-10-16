@@ -23,6 +23,7 @@ function baseState(overrides: Partial<SummaryState> = {}): SummaryState {
       firstName: "Emmanuel",
       lastName: "Biya",
       function: "Directeur des Ressources Humaines",
+      functionOther: "",
       email: "contact@organisation.cm",
       phone1: "655000000",
       phone2: "",
@@ -261,12 +262,37 @@ test("location omits an unselected subdivision and an unselected sector", () => 
   assert.equal(labels.includes("registerPage.regionLabel"), true);
 });
 
-test("security summarises the login and never the password", () => {
+test("Autre summarises the typed job, not the word Autre", () => {
+  const state = baseState();
+  const rows = summaryRows(
+    "respondent",
+    {
+      ...state,
+      respondent: { ...state.respondent, function: "Autre", functionOther: "Comptable" },
+    },
+    t,
+    LOCALE
+  );
+  const fn = rows.find((r) => r.label === "registerPage.functionLabel");
+  assert.equal(fn?.value, "Comptable");
+});
+
+test("security says the password is set and never shows it or the email", () => {
   const rows = summaryRows("security", baseState(), t, LOCALE);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].value, "contact@organisation.cm");
+  assert.equal(rows[0].label, "registerPage.passwordLabel");
+  assert.equal(rows[0].value, "registerPage.summaryPasswordSet");
   const serialized = JSON.stringify(rows);
   assert.equal(serialized.includes("Motdepasse1!"), false);
+  assert.equal(serialized.includes("contact@organisation.cm"), false);
+
+  const incomplete = summaryRows(
+    "security",
+    baseState({ password: "", confirmPassword: "" }),
+    t,
+    LOCALE
+  );
+  assert.deepEqual(incomplete, []);
 });
 
 test("review has no rows of its own", () => {

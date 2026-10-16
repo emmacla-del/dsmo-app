@@ -63,7 +63,7 @@ const numberBoxInputStyle = {
   fontSize: "var(--cam-answer-size)",
   fontVariantNumeric: "tabular-nums",
   color: ink,
-  background: "#ffffff",
+  background: "var(--cam-white)",
   outline: "none",
   boxSizing: "border-box" as const,
 };
@@ -79,7 +79,7 @@ const addButtonStyle: CSSProperties = {
   height: "var(--cam-form-field-height)",
   padding: "0 var(--cam-space-5)",
   backgroundColor: accentGreen,
-  color: "#ffffff",
+  color: "var(--cam-white)",
   border: "none",
   borderRadius: "var(--cam-radius-sm)",
   fontFamily: "var(--cam-font-sans)",
@@ -90,7 +90,7 @@ const addButtonStyle: CSSProperties = {
 
 const summaryRowStyle: CSSProperties = {
   padding: 12,
-  backgroundColor: "#ffffff",
+  backgroundColor: "var(--cam-white)",
   border: `1px solid ${cardBorder}`,
   borderRadius: "var(--cam-radius-sm)",
   display: "flex",
@@ -381,7 +381,7 @@ const TotalBar = memo(function TotalBar({
         <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: accentGreen, flex: 1 }}>
           {totalsText}
         </span>
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-3xs)", color: "#ffffff", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-white)", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
           {countText}
         </span>
       </div>
@@ -498,7 +498,7 @@ export function VtWizardFixedRowMultiNumberEntry({
               }
               setControls(newControls);
             }}
-            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "#ffffff", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "var(--cam-white)", outline: "none", boxSizing: "border-box" }}
           >
             <option value="" disabled hidden>
               {t("vtWizard.select", { default: "Sélectionner…" })}
@@ -1351,7 +1351,7 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
                 cursor: "pointer",
                 borderRadius: "var(--cam-radius-sm)",
                 background: active ? accentGreen : "transparent",
-                color: active ? "#ffffff" : inkSoft,
+                color: active ? "var(--cam-white)" : inkSoft,
                 fontFamily: "var(--cam-font-sans)",
                 fontWeight: 600,
                 fontSize: "var(--cam-font-size-2xs)",

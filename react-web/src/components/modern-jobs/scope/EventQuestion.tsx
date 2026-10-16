@@ -759,7 +759,7 @@ export function EventQuestion({
           disabled={!canContinue}
           style={{
             background: canContinue ? "var(--cam-green)" : "var(--cam-border)",
-            color: canContinue ? "#ffffff" : "var(--cam-text-muted)",
+            color: canContinue ? "var(--cam-white)" : "var(--cam-text-muted)",
             border: "none",
             borderRadius: "var(--cam-radius-control, 6px)",
             height: "var(--cam-button-height, 42px)",

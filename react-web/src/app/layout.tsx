@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Newsreader } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { QueryProvider } from "./query-provider";
 import { AuthInitializer } from "./auth-initializer";
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
 
 // Inter, self-hosted, HINTED (owner, 2026-10-10). The four weights the type
 // scale uses (400/500/600/700), from the official Inter 4.1 release
@@ -47,8 +55,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`h-full ${inter.variable}`}>
+    <html lang={locale} className={`h-full ${inter.variable} ${newsreader.variable}`}>
       <body className="min-h-full flex flex-col">
+        {/* No key={locale}: a key remounts the whole tree on a language
+            switch, which emptied every form in progress (the registration
+            wizard lost its password and reported a "restored draft"). The
+            provider's new locale and messages re-render what reads them. */}
         <NextIntlClientProvider locale={locale} messages={messages}>
           <QueryProvider>
             <AuthInitializer />

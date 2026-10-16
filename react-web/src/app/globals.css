@@ -7,7 +7,8 @@
 }
 
 html {
-  -webkit-font-smoothing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-synthesis: none;
   text-size-adjust: 100%;
@@ -19,8 +20,18 @@ body {
   color: var(--cam-text);
   font-family: var(--cam-font-sans);
   line-height: var(--cam-line-height-base);
-  -webkit-font-smoothing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* ── Swift view transition for in-page navigation & language toggle ── */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 :focus-visible {
@@ -98,7 +109,9 @@ body {
 .cam-select {
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-3);
-  border: var(--cam-border-width) solid var(--cam-border);
+  /* --cam-border-strong: a control's edge needs 3:1 on white (WCAG 1.4.11);
+     --cam-border is decorative only since tokens v2 (2026-10-14). */
+  border: var(--cam-border-width) solid var(--cam-border-strong);
   border-radius: var(--cam-radius-sm);
   font-size: var(--cam-font-size-base);
   background: var(--cam-surface);
@@ -131,7 +144,7 @@ body {
 .cam-button {
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-5);
-  border-radius: var(--cam-radius-sm);
+  border-radius: var(--cam-radius-control);
   border: var(--cam-border-width) solid transparent;
   font-size: var(--cam-font-size-base);
   font-weight: 600;
@@ -270,14 +283,46 @@ body {
   max-width: var(--cam-container-form);
 }
 
-/* --- Masthead: lives OUTSIDE the card --- */
+/* --- Masthead: lives OUTSIDE the card ---
+   A row, not an absolutely positioned switcher: on a phone the switcher
+   used to sit on top of the wordmark. The lockup takes the first column,
+   the language switch the second, and the endorsement the full next row. */
 .cam-auth-page .masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--cam-space-3);
   text-align: center;
   margin-bottom: var(--cam-space-6);
 }
 
+.cam-auth-page .masthead-lockup {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cam-auth-page .masthead-locale {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.cam-auth-page .masthead-title {
+  margin: 0;
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-text);
+  text-align: start;
+}
+
 /* The platform's full name under the front-door lockup (AuthHeader). */
 .cam-auth-page .masthead > .brand-sub {
+  grid-column: 1 / -1;
+  grid-row: 2;
   margin-top: var(--cam-space-2);
 }
 
@@ -476,7 +521,7 @@ body {
   width: 100%;
   padding: var(--cam-auth-inset-10) var(--cam-space-3);
   font-size: var(--cam-font-size-base);
-  border: var(--cam-border-width) solid var(--cam-border);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
   border-radius: var(--cam-radius-control);
   outline: none;
   background: var(--cam-surface);
@@ -782,10 +827,25 @@ html:has(.cam-masthead) {
 .cam-auth-page--wizard .masthead {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--cam-space-2);
   min-width: 0;
   margin: 0 0 var(--cam-space-3);
+}
+
+/* The wizard puts the endorsement on the same line as the wordmark. The
+   switcher keeps its own width; the endorsement is what truncates. */
+.cam-auth-page--wizard .masthead-lockup {
+  flex: 0 0 auto;
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.cam-auth-page--wizard .masthead-locale {
+  flex: 0 0 auto;
+  margin-left: auto;
+  grid-column: auto;
+  grid-row: auto;
 }
 
 .cam-auth-page--wizard .brand-name {
@@ -801,6 +861,9 @@ html:has(.cam-masthead) {
    and a second line here is a line the frame does not get. */
 .cam-auth-page--wizard .brand-sub,
 .cam-auth-page--wizard .masthead > .brand-sub {
+  flex: 1 1 auto;
+  grid-column: auto;
+  grid-row: auto;
   min-width: 0;
   margin: 0;
   font-size: var(--cam-font-size-xs);
@@ -809,13 +872,13 @@ html:has(.cam-masthead) {
   text-overflow: ellipsis;
 }
 
-/* The frame is stretched to the body's height, so a short section still
-   gets a full-height frame with its dock at the bottom, and a long one
-   simply makes the page longer. */
+/* The frame wraps its content with natural height and dock right beneath,
+   so short steps remain compact and tidy without giant vertical voids. */
 .cam-auth-page--wizard .flow-body {
   flex: 1 1 auto;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   padding: var(--cam-space-4) var(--cam-space-4) var(--cam-space-2);
 }
 
@@ -825,20 +888,20 @@ html:has(.cam-masthead) {
 .cam-auth-page--wizard .flow-frame {
   width: 100%;
   max-width: var(--cam-container-wizard);
+  height: fit-content;
   display: flex;
   flex-direction: column;
-  border: 1.5px solid var(--cam-green);
+  border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-section-radius);
   background: var(--cam-surface);
   overflow: clip;
 }
 
 /* The section's content. Not a scroller: it grows with the section, and the
-   document scrolls. flex: 1 pushes the dock to the bottom of a frame taller
-   than its section. */
+   document scrolls. */
 .cam-auth-page--wizard .flow-frame-content {
-  flex: 1 1 auto;
-  padding: var(--cam-frame-scroll-pad-top) var(--cam-frame-scroll-pad-x) var(--cam-space-2);
+  flex: 0 1 auto;
+  padding: var(--cam-frame-scroll-pad-top) var(--cam-frame-scroll-pad-x) var(--cam-space-5);
 }
 
 /* The frame's footer row: Retour / Continuer after the last field. In flow,
@@ -848,25 +911,19 @@ html:has(.cam-masthead) {
   background: var(--cam-surface);
 }
 
-/* One line under the frame: the way back to sign-in and the help contact,
-   which were two separate blocks when the document still scrolled. */
+/* Under the frame on narrow screens: the same help link as the panel's
+   foot, centred. */
 .cam-auth-page--wizard .flow-footer {
   flex: 0 0 auto;
   text-align: center;
-  padding: 0 var(--cam-space-4) var(--cam-space-3);
-  font-size: var(--cam-font-size-xs);
+  padding: 0 var(--cam-space-4) var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
   color: var(--cam-text-muted);
 }
 
-.cam-auth-page--wizard :is(.flow-footer, .flow-panel-foot) a {
-  color: var(--cam-text-muted);
-  font-weight: var(--cam-font-weight-semibold);
-  text-decoration: none;
-}
 
-.cam-auth-page--wizard :is(.flow-footer, .flow-panel-foot) a:hover {
-  text-decoration: underline;
-}
+
+
 
 .cam-auth-page--wizard .flow-footer-sep {
   margin: 0 var(--cam-space-2);
@@ -891,26 +948,66 @@ html:has(.cam-masthead) {
    frame and step list as the Modern Jobs and VT wizards. This file only
    decides when it shows -- see the min-width rule below. */
 
-/* The ONEFOP | CAMLEAP lockup at panel size, the endorsement under it. */
+/* CAMLEAP alone at panel size (owner, 2026-10-15), the endorsement under
+   it. The language switch is in the foot. */
 .cam-auth-page--wizard .flow-panel-identity {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
 
+
 .cam-auth-page--wizard .flow-panel-sub {
   margin: var(--cam-space-2) 0 0;
-  font-size: var(--cam-font-size-2xs);
+  min-width: 0;
+  font-size: var(--cam-font-size-xs);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
 }
 
+/* Panel foot: one quiet help link, nothing else (owner, 2026-10-15). */
 .cam-auth-page--wizard .flow-panel-foot {
   margin-top: auto;
-  font-size: var(--cam-font-size-xs);
-  line-height: var(--cam-line-height-copy);
-  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
 }
+
+
+.cam-auth-page--wizard .flow-panel-foot .flow-footer-sep {
+  display: none;
+}
+
+.cam-auth-page--wizard .flow-help-link {
+  color: var(--cam-text-muted);
+  font-weight: var(--cam-font-weight-medium);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cam-auth-page--wizard .flow-help-link:hover {
+  color: var(--cam-text);
+}
+
+
+/* The logo and, on its right, the language link. */
+.cam-auth-page--wizard .flow-panel-brandrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+}
+
+/* The panel logo is a link home; it keeps the look of a logo. */
+.cam-auth-page--wizard .flow-panel-home {
+  display: inline-block;
+  border-radius: var(--cam-radius-sm);
+}
+
+.cam-auth-page--wizard .flow-panel-home:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 4px;
+}
+
 
 /* Short viewports: the header gives back what it can, so the first fields
    of a section are on screen without scrolling. */
@@ -942,6 +1039,23 @@ html:has(.cam-masthead) {
   .cam-auth-page--wizard .flow-frame-content {
     padding: var(--cam-section-pad) var(--cam-section-pad) var(--cam-space-2);
   }
+
+  .cam-auth-page--wizard .flow-body {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .cam-auth-page--wizard .flow-frame {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .cam-auth-page--wizard .masthead > .brand-sub {
+    display: none;
+  }
 }
 
 /* Wide: the dossier panel replaces the header and the footer. After the
@@ -958,7 +1072,8 @@ html:has(.cam-masthead) {
 
   .cam-auth-page--wizard .flow-body {
     flex: 1 1 auto;
-    padding: var(--cam-space-6) var(--cam-space-5) var(--cam-space-4);
+    align-items: flex-start;
+    padding: var(--cam-space-7) var(--cam-space-5) var(--cam-space-6);
   }
 }
 
@@ -985,7 +1100,7 @@ html:has(.cam-masthead) {
 .cam-auth-page--wizard .step-header-title {
   font-size: var(--cam-step-title-size);
   font-weight: var(--cam-font-weight-bold);
-  color: var(--cam-green-dark);
+  color: var(--cam-text);
   line-height: var(--cam-line-height-title);
   margin: 0 0 var(--cam-step-header-gap);
 }
@@ -1001,35 +1116,46 @@ html:has(.cam-masthead) {
 
 .cam-auth-page--wizard .step-header-subtitle {
   font-size: var(--cam-step-subtitle-size);
-  color: var(--cam-text-muted);
+  color: var(--cam-slate-600);
   line-height: var(--cam-line-height-copy);
   margin: 0;
 }
 
-/* Step 1. As in the Flutter app: the step title and subtitle, then the
-   choices, with no field label of their own. No card per option and no rule
-   between them -- the other steps' fields have neither. */
-.cam-auth-page--wizard .entity-type-list {
+/* Step 1, and the location step's Urban/Rural: plain radio lists. No tile,
+   no border, no fill (CLAUDE.md section 9) -- the whole label is the click
+   target, and the radio carries the focus ring. */
+.cam-auth-page--wizard .entity-type-list,
+.cam-auth-page--wizard .choice-list {
   border: none;
   margin: 0;
   padding: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
 }
 
-/* Each option is one control-height row, with its first line centred where
-   an input's text sits -- the same rhythm as the other steps' rows. */
-.cam-auth-page--wizard .entity-type-option {
+.cam-auth-page--wizard .choice-list--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: var(--cam-space-5);
+}
+
+.cam-auth-page--wizard .entity-type-option,
+.cam-auth-page--wizard .choice-option {
   display: flex;
   align-items: flex-start;
   gap: var(--cam-space-3);
   margin: 0;
-  padding: calc((var(--cam-field-height) - (var(--cam-line-height-copy) * 1em)) / 2) 0;
+  padding: var(--cam-space-2) 0;
   font-size: var(--cam-answer-size);
   font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text);
   cursor: pointer;
 }
 
-.cam-auth-page--wizard .entity-type-option input {
+.cam-auth-page--wizard .entity-type-option input,
+.cam-auth-page--wizard .choice-option input {
   accent-color: var(--cam-green);
   width: var(--cam-choice-size);
   height: var(--cam-choice-size);
@@ -1038,17 +1164,42 @@ html:has(.cam-masthead) {
   cursor: pointer;
 }
 
-.cam-auth-page--wizard .entity-type-option-label {
+.cam-auth-page--wizard .entity-type-option input:focus-visible,
+.cam-auth-page--wizard .choice-option input:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-auth-page--wizard .entity-type-option-label,
+.cam-auth-page--wizard .choice-option span {
   color: var(--cam-text);
   line-height: var(--cam-line-height-copy);
 }
 
-/* Under the option's name, not beside it: two lines of one choice rather
-   than a second, smaller label competing on the same line. */
+/* A radio group's question: the legend, sized like every other field
+   label in the flow (.field > label). */
+.cam-auth-page--wizard .choice-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.cam-auth-page--wizard .choice-fieldset > legend {
+  padding: 0;
+  margin-bottom: var(--cam-field-stack-gap);
+  font-size: var(--cam-question-size);
+  font-weight: var(--cam-question-weight);
+  line-height: var(--cam-question-line-height);
+  color: var(--cam-text);
+}
+
+/* Under the option's name: clear readable secondary copy */
 .cam-auth-page--wizard .entity-type-option-hint {
   display: block;
-  font-size: var(--cam-font-size-2xs);
-  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-slate-600);
+  margin-top: var(--cam-space-1);
 }
 
 /* ── Field parts (FormRow.tsx) ──
@@ -1059,6 +1210,11 @@ html:has(.cam-masthead) {
   color: var(--cam-error);
   font-weight: var(--cam-font-weight-bold);
   margin-left: var(--cam-space-1);
+}
+
+.cam-auth-page .field-optional-mark {
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text-muted);
 }
 
 /* Explanation directly under the input. Example values are not
@@ -1242,19 +1398,48 @@ html:has(.cam-masthead) {
    At the top of the section content, the error-summary convention: it names
    every missing field, and each name is a link that focuses its control. */
 .cam-auth-page--wizard .flow-missing-notice {
-  background: var(--cam-error-bg);
-  border: var(--cam-border-width) solid var(--cam-error-border);
+  border: 2px solid var(--cam-error);
   border-radius: var(--cam-radius-control);
-  color: var(--cam-error);
-  font-size: var(--cam-font-size-xs);
-  font-weight: var(--cam-font-weight-semibold);
-  line-height: var(--cam-line-height-ui);
-  padding: var(--cam-space-2) var(--cam-space-3);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+  padding: var(--cam-space-3) var(--cam-space-4);
   margin-bottom: var(--cam-space-4);
 }
 
+.cam-auth-page--wizard .flow-missing-notice-title {
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-text);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.cam-auth-page--wizard .flow-missing-notice p {
+  margin: 0 0 var(--cam-space-1);
+}
+
+.cam-auth-page--wizard .flow-missing-notice ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-auth-page--wizard .flow-missing-notice li + li {
+  margin-top: var(--cam-space-1);
+}
+
 .cam-auth-page--wizard .flow-missing-notice a {
-  color: inherit;
+  color: var(--cam-error);
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: underline;
+}
+
+/* The ways on from an email that already has an account, after the
+   message. Ordinary links, in the text colour: they are not the error. */
+.cam-auth-page--wizard .field-status-actions a,
+.cam-auth-page--wizard .flow-missing-notice .field-status-actions a {
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-semibold);
   text-decoration: underline;
 }
 
@@ -1389,6 +1574,30 @@ html:has(.cam-masthead) {
   margin-top: 0;
 }
 
+/* Optional fields on the organisation step. One closed line after the
+   required groups, so Continuer follows the last required field. No box:
+   the frame is already the container, and a second one would read as a card. */
+.cam-auth-page--wizard .optional-details > summary {
+  cursor: pointer;
+  padding: var(--cam-space-2) 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+}
+
+.cam-auth-page--wizard .optional-details > summary:focus-visible {
+  outline: 2px solid var(--cam-focus-ring);
+  outline-offset: 2px;
+}
+
+.cam-auth-page--wizard .optional-details-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-2);
+}
+
 /* Official Data Table Grid (Table Matrix) */
 .cam-auth-page .table-official {
   width: 100%;
@@ -1445,14 +1654,12 @@ html:has(.cam-masthead) {
    a second bordered rectangle is a second frame, and the only one of those
    on this page is the frame itself. */
 .cam-auth-page--wizard .section-notice {
-  border-left: 3px solid var(--cam-info);
-  background: var(--cam-info-bg);
+  border-left: 4px solid var(--cam-border);
   color: var(--cam-text);
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-copy);
-  padding: var(--cam-space-2) var(--cam-space-3);
+  padding: var(--cam-space-1) 0 var(--cam-space-1) var(--cam-space-3);
   margin: 0 0 var(--cam-field-row-gap);
-  border-radius: 0 var(--cam-radius-sm) var(--cam-radius-sm) 0;
 }
 
 /* ── The section in the frame ──
@@ -1663,20 +1870,23 @@ html:has(.cam-masthead) {
   align-items: flex-start;
   gap: var(--cam-space-3);
   margin: var(--cam-space-5) 0 var(--cam-space-4);
+  font-weight: var(--cam-font-weight-regular);
   cursor: pointer;
 }
+
+
 
 .cam-auth-page--wizard .certify-row input {
   width: var(--cam-choice-size);
   height: var(--cam-choice-size);
   flex: 0 0 auto;
-  margin-top: var(--cam-space-hairline);
+  margin-top: calc((var(--cam-line-height-copy) * 1em - var(--cam-choice-size)) / 2);
   accent-color: var(--cam-green);
   cursor: pointer;
 }
 
 .cam-auth-page--wizard .certify-row span {
-  font-size: var(--cam-font-size-sm);
+  font-size: var(--cam-answer-size);
   line-height: var(--cam-line-height-copy);
   color: var(--cam-text);
 }
@@ -1705,25 +1915,29 @@ html:has(.cam-masthead) {
    An in-app navigation away from a part-filled form is confirmable; a real
    browser unload is not (browsers show their own wording), so beforeunload
    gets the native dialog and this covers the links inside the page. */
-.cam-auth-page .leave-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--cam-scrim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--cam-space-4);
-  z-index: var(--cam-z-dialog);
-}
-
+/* Native <dialog> (ConfirmDialog.tsx): showModal() centres it in the top
+   layer, so no positioned overlay is needed. The padding sits on the inner
+   block so a click on the element itself is a click on the backdrop. */
 .cam-auth-page .leave-dialog {
   background: var(--cam-surface);
+  color: var(--cam-text);
   border-radius: var(--cam-radius-lg);
   border: var(--cam-border-width) solid var(--cam-border);
   box-shadow: var(--cam-card-shadow);
-  padding: var(--cam-space-5);
-  max-width: var(--cam-container-compact);
+  padding: 0;
+  /* The preflight reset zeroes a dialog's margin; auto is what centres a
+     modal <dialog> in the viewport. */
+  margin: auto;
+  max-width: min(var(--cam-container-compact), calc(100vw - 2 * var(--cam-space-4)));
   width: 100%;
+}
+
+.cam-auth-page .leave-dialog::backdrop {
+  background: var(--cam-scrim);
+}
+
+.cam-auth-page .leave-dialog-inner {
+  padding: var(--cam-space-5);
 }
 
 .cam-auth-page .leave-dialog h2 {
@@ -1829,9 +2043,8 @@ html:has(.cam-masthead) {
   margin-top: var(--cam-space-1);
   color: var(--cam-text-muted);
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: var(--cam-line-height-ui);
+  overflow-wrap: anywhere;
   max-width: 100%;
 }
 
@@ -1911,32 +2124,79 @@ html:has(.cam-masthead) {
 }
 
 .cam-auth-page .review-section-title {
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-base);
   font-weight: var(--cam-font-weight-bold);
-  color: var(--cam-green-dark);
-  letter-spacing: var(--cam-tracking-kicker);
-  text-transform: uppercase;
+  color: var(--cam-text);
+  margin: 0;
 }
 
 .cam-auth-page .btn-edit-section {
   background: none;
-  border: 1px solid var(--cam-border);
-  border-radius: var(--cam-radius-sm);
-  color: var(--cam-green);
-  font-size: var(--cam-font-size-3xs);
+  border: none;
+  padding: var(--cam-space-1) 0;
+  color: var(--cam-green-dark);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
-  padding: var(--cam-edit-pad-y) var(--cam-space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cam-space-1);
-  transition: all 0.15s ease;
 }
 
 .cam-auth-page .btn-edit-section:hover {
-  border-color: var(--cam-green);
-  background: var(--cam-green-wash-hover);
-  color: var(--cam-green-dark);
+  color: var(--cam-text);
+}
+
+.cam-auth-page .btn-edit-section:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+/* The review's summary list: row rules only (GOV.UK check-your-answers).
+   It carries .table-official so the UI-grammar check knows it as the
+   wizard's table; these rules, one class heavier, take that class's grid,
+   grey label cells and tracking back off. */
+.cam-auth-page .table-official.review-list {
+  width: 100%;
+  border: none;
+  border-collapse: collapse;
+  background: none;
+  font-size: var(--cam-font-size-sm);
+  margin-bottom: var(--cam-space-5);
+}
+
+.cam-auth-page .table-official.review-list th,
+.cam-auth-page .table-official.review-list td {
+  border: none;
+  border-bottom: 1px solid var(--cam-border);
+  padding: var(--cam-space-2) var(--cam-space-3) var(--cam-space-2) 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cam-auth-page .table-official.review-list th {
+  width: 40%;
+  background: none;
+  letter-spacing: normal;
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-auth-page .table-official.review-list td {
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-regular);
+  word-break: break-word;
+}
+
+.cam-auth-page .review-list th {
+  width: 40%;
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-auth-page .review-list td {
+  color: var(--cam-text);
+  word-break: break-word;
 }
 
 /* Password strength segments */
@@ -1970,10 +2230,12 @@ html:has(.cam-masthead) {
   background: var(--cam-green);
 }
 
-/* The start page's opening beat: the CAMLEAP wordmark rises into place,
-   then breathes until the notice appears. No glow and no circle: the
-   wordmark carries itself (owner, 2026-10-12; was the ONEFOP emblem
-   pulsing in a glowing circle). */
+/* The start page's opening beat: the CAMLEAP mark rises into place, then
+   pulses until the notice appears. The oval around the name is part of
+   the launch artwork the owner supplied (2026-10-12) — a drawn frame, not
+   a decorative halo; there is still no glow, and no circle behind the
+   mark. Earlier that day this was the wordmark alone, and before that the
+   ONEFOP emblem pulsing in a glowing circle. */
 @keyframes camleapEnter {
   from {
     opacity: 0;
@@ -1986,9 +2248,21 @@ html:has(.cam-masthead) {
   }
 }
 
-@keyframes camleapBreathe {
+/* The pulse the mark holds while the page loads: it swells and settles,
+   and dips slightly as it does. A fade alone was too quiet to read as the
+   screen working (owner, 2026-10-12) — the beat has to be in the motion,
+   as it was when the ONEFOP emblem pulsed here. 5% of 300px is about 15px
+   of travel, visible across the room without the mark appearing to jump. */
+@keyframes camleapPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
   50% {
-    opacity: 0.55;
+    opacity: 0.82;
+    transform: scale(1.05);
   }
 }
 
@@ -2047,7 +2321,7 @@ html:has(.cam-masthead) {
 .cam-brand-lockup--panel {
   --cam-brand-gap: var(--cam-space-3);
   --cam-brand-emblem: var(--cam-brand-emblem-min);
-  --cam-brand-logo: 144px;
+  --cam-brand-logo: 160px;
   justify-content: flex-start;
 }
 
@@ -2056,8 +2330,12 @@ html:has(.cam-masthead) {
    leaves it out here and AuthHeader names ONEFOP in words instead. */
 .cam-brand-lockup--compact {
   --cam-brand-gap: var(--cam-space-2);
-  --cam-brand-logo: 96px;
-  /* Never squeezed below its 16px height (brand.md): beside it, the text
+  /* 114px, not 96: the wordmark is 7.09 times as wide as it is tall, so
+     96px drew it 13.5px high — under brand.md's 16px floor, which 96px
+     also broke with the raster logo it replaced (14.2px). 114px is the
+     width that puts it at 16px (owner, 2026-10-12). */
+  --cam-brand-logo: 114px;
+  /* Never squeezed below that 16px height (brand.md): beside it, the text
      gives way instead. */
   flex: none;
 }
@@ -2095,20 +2373,72 @@ html:has(.cam-masthead) {
 
 .cam-welcome-splash {
   align-self: center;
-  animation:
-    camleapEnter 0.5s ease-out both,
-    camleapBreathe 1.4s ease-in-out 0.5s infinite;
 }
 
-.cam-welcome-splash img {
+/* The oval launch mark (components/brand/CamleapOvalMark.tsx). 300px, not
+   the flat wordmark's 240: the name occupies 270 of the artwork's 340
+   units, so the oval has to be the wider of the two for the name inside it
+   to read at the size it did before. */
+.cam-welcome-splash .cam-camleap-oval {
   display: block;
-  width: min(240px, 60vw);
+  width: min(300px, 76vw);
   height: auto;
+  /* Pulses once the frame is drawn and the name is up (0.9s + a beat), so
+     the screen still reads as working while the page loads. */
+  animation: camleapPulse 1.5s ease-in-out 1.1s infinite;
+}
+
+/* The frame draws itself: one dash as long as the whole ellipse
+   (CAMLEAP_OVAL_LENGTH, measured 810.87 user units), pulled off the path
+   and then slid back on. */
+/* The launch mark's four inks. They are classes rather than attributes on
+   the artwork so the component carries no hex literal (UI grammar G1); the
+   values are the --cam-logo-* tokens. The static wordmark asset keeps its
+   literals — an <img> never sees this stylesheet. */
+.cam-camleap-ink-green {
+  fill: var(--cam-green);
+}
+
+.cam-camleap-ink-navy {
+  fill: var(--cam-green-dark);
+}
+
+.cam-camleap-ink-accent {
+  fill: var(--cam-green);
+}
+
+.cam-camleap-ink-accent-light {
+  fill: var(--cam-green);
+}
+
+.cam-camleap-oval-frame {
+  stroke: var(--cam-green);
+  stroke-dasharray: 812;
+  stroke-dashoffset: 812;
+  animation: camleapTrace 0.9s ease-out both;
+}
+
+/* The name rises into the frame, on the beat the frame closes. */
+.cam-camleap-oval-word {
+  animation: camleapEnter 0.5s ease-out 0.35s both;
+}
+
+@keyframes camleapTrace {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cam-welcome-splash {
+  .cam-welcome-splash .cam-camleap-oval,
+  .cam-camleap-oval-frame,
+  .cam-camleap-oval-word {
     animation: none;
+  }
+
+  /* Without the trace, the dash must not leave the frame pulled off it. */
+  .cam-camleap-oval-frame {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -2845,7 +3175,8 @@ html:has(.cam-masthead) {
   margin-top: var(--cam-space-3);
 }
 
-/* Grid / Guided switch above a statistical table (EntryModeSwitch.tsx). */
+/* Grid / Guided switch, in the wizard masthead (EntryModeSwitch.tsx).
+   Two toggle buttons, each an icon and its word. */
 .cam-mode-switch {
   display: inline-flex;
   padding: 2px;
@@ -2855,6 +3186,9 @@ html:has(.cam-masthead) {
 }
 
 .cam-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1);
   min-height: 28px;
   padding: 0 var(--cam-space-3);
   border: none;
@@ -3931,4 +4265,75 @@ textarea.sovereign-text-input {
   .cam-home-main {
     padding: var(--cam-space-5) var(--cam-space-4);
   }
+}
+
+/* Registration panel: more air between the six steps and around the
+   identity block (owner, 2026-10-15). Scoped to this panel; the VT and
+   Modern Jobs rails keep the shared rhythm. At the end of the file and one
+   class heavier than the short-viewport rule, which would otherwise tighten
+   it again: six steps fit at any laptop height. */
+.cam-auth-page--wizard .flow-panel.cam-wizard-rail {
+  gap: var(--cam-space-6);
+  /* Side padding stays the shared 16px: at 24px "Type d'organisation"
+     wrapped beside its "Modifier" link in the 280px panel. */
+  padding: var(--cam-space-6) var(--cam-space-4) var(--cam-space-5);
+}
+
+.cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step-button {
+  padding: var(--cam-space-3) 0;
+}
+
+.cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step:not(:last-child)::after {
+  top: calc(var(--cam-space-3) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+  bottom: calc(var(--cam-space-hairline) - var(--cam-space-3));
+}
+
+/* Short screens give back the extra air before the panel would need a
+   scrollbar of its own (CLAUDE.md section 13). */
+@media (max-height: 700px) {
+  .cam-auth-page--wizard .flow-panel.cam-wizard-rail {
+    gap: var(--cam-space-4);
+    padding-top: var(--cam-space-4);
+  }
+
+  .cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step-button {
+    padding: var(--cam-space-2) 0;
+  }
+
+  .cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step:not(:last-child)::after {
+    top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+    bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
+  }
+
+}
+
+/* A quiet text link to the other official language (LanguageLink.tsx):
+   small, grey, underlined, no box. A button, styled as the link it reads as. */
+.cam-language-link {
+  background: none;
+  border: none;
+  padding: var(--cam-space-1) 0;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-medium);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cam-language-link:hover {
+  color: var(--cam-text);
+}
+
+.cam-language-link:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-sm);
+}
+
+.cam-language-link[aria-busy="true"] {
+  cursor: progress;
 }

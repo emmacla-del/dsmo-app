@@ -15,16 +15,20 @@ export type BrandLockupSize = "hero" | "panel" | "compact";
 export function BrandLockup({
   size,
   nameAs: Name = "div",
+  emblem = true,
 }: {
   size: BrandLockupSize;
   nameAs?: "h1" | "div";
+  // False draws CAMLEAP alone, for a place that names ONEFOP in words
+  // instead (the registration panel, owner 2026-10-15).
+  emblem?: boolean;
 }) {
   const t = useTranslations();
   // The emblem is a seal: below --cam-brand-emblem-min its ring lettering is
   // an illegible smear. The compact header is one line with room for about
   // 32px, so it leaves the emblem out and names ONEFOP in words instead
   // (AuthHeader). See docs/standards/brand.md.
-  const showEmblem = size !== "compact";
+  const showEmblem = emblem && size !== "compact";
   return (
     <div className={`cam-brand-lockup cam-brand-lockup--${size}`}>
       {showEmblem && (
@@ -42,7 +46,7 @@ export function BrandLockup({
       )}
       <Name className="cam-brand-lockup-name">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/camleap_logo.png" alt="CAMLEAP" width={858} height={143} />
+        <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={270} height={38} />
       </Name>
     </div>
   );

@@ -29,8 +29,13 @@ export interface EntityFieldGroup {
 
 const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: string[] }[]> = {
   enterprise: [
-    { title: { fr: "Identité juridique", en: "Legal identity" }, keys: ["companyName", "legalStatus", "socialCapital", "parentCompany"] },
+    // Name and legal status, then the NIU and the CNPS number, then the
+    // optional capital and parent company. A key must live in one group
+    // only: field order inside a group follows ENTITY_CONFIGS, and a key
+    // listed twice is rendered twice.
+    { title: { fr: "Identité juridique", en: "Legal identity" }, keys: ["companyName", "legalStatus"] },
     { title: { fr: "Fiscalité et affiliation", en: "Tax and social security" }, keys: ["taxNumber", "cnpsNumber"] },
+    { title: { fr: "Capital et rattachement", en: "Capital and parent company" }, keys: ["socialCapital", "parentCompany"] },
     { title: { fr: "Activité économique", en: "Economic activity" }, keys: ["mainActivity", "secondaryActivity", "branch"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
@@ -106,17 +111,46 @@ export function entityFieldGroups(
   return groups;
 }
 
+// The groups the organisation step shows in the open part of the form:
+// required visible fields only. A group whose fields are all optional
+// (enterprise's capital block) is dropped, so it does not leave an empty
+// heading above the disclosure.
+export function requiredEntityGroups(
+  entityType: EntityType,
+  entityData: Record<string, string>
+): EntityFieldGroup[] {
+  return entityFieldGroups(entityType, entityData)
+    .map((group) => ({ ...group, fields: group.fields.filter((f) => f.required) }))
+    .filter((group) => group.fields.length > 0);
+}
+
+// Visible optional fields, in the same order entityFieldGroups would have
+// rendered them. The page puts these behind one closed disclosure after the
+// required groups, so Continuer follows the last required field. Order here
+// is the order inside that disclosure.
+export function optionalEntityFields(
+  entityType: EntityType,
+  entityData: Record<string, string>
+): EntityField[] {
+  return entityFieldGroups(entityType, entityData).flatMap((group) =>
+    group.fields.filter((f) => !f.required)
+  );
+}
+
 // The key of the last field the section renders, or null when the type has no
-// visible field at all. A change to this field is what tells the wizard the
-// respondent has reached the end of section 3 and the next section may open:
-// section 3's optional fields (the second phone, the P.O. box) mean it cannot
-// open the next one the instant its required fields are satisfied, or the
-// optional ones would be pulled away mid-entry.
+// visible field at all. Required groups render first and the optional
+// disclosure after them, so the last field is the last optional one when the
+// type has any. A change to it is what tells the wizard the respondent has
+// reached the end of section 3. The section must not open the next one the
+// instant its required fields are satisfied, or the optional ones (the second
+// phone, the P.O. box) would be pulled away mid-entry.
 export function lastEntityFieldKey(
   entityType: EntityType,
   entityData: Record<string, string>
 ): string | null {
-  const groups = entityFieldGroups(entityType, entityData);
+  const optional = optionalEntityFields(entityType, entityData);
+  if (optional.length > 0) return optional[optional.length - 1].key;
+  const groups = requiredEntityGroups(entityType, entityData);
   const lastGroup = groups[groups.length - 1];
   if (!lastGroup) return null;
   return lastGroup.fields[lastGroup.fields.length - 1]?.key ?? null;

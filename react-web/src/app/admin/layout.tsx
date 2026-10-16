@@ -13,7 +13,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { ADMIN_ROLES } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { LanguageLink } from "@/components/LanguageLink";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -147,7 +147,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <span className="cam-admin-account-role">
               {user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}
             </span>
-            <LocaleSwitcher />
+            <LanguageLink />
           </div>
         </div>
 

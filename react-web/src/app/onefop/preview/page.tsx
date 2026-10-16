@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { getCachedUser, getToken } from "@/lib/api-client";
+import { getCachedUser } from "@/lib/api-client";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuthStore } from "@/lib/auth-store";
 import { checkCoherence } from "@/lib/onefop-coherence";
 import { saveDraftToBackend } from "@/lib/onefop-submission";
@@ -28,34 +29,8 @@ import { parseCompanyEntityType } from "@/lib/register-constants";
 import { CoherenceProvider } from "@/components/onefop/coherence/Coherence";
 import { WizardShell } from "@/components/onefop/WizardShell";
 import { OnefopLegalAcknowledgment } from "@/components/onefop/OnefopLegalAcknowledgment";
+import { AuthLoadingSplash } from "@/components/auth/AuthLoadingSplash";
 import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions } from "@/lib/shared-queries";
-
-// ── Auth gate ─────────────────────────────────────────────────────────────
-
-function subscribeNoop() { return () => {}; }
-type AuthState = "checking" | "authed" | "anon";
-
-function useAuthState(): AuthState {
-  return useSyncExternalStore(
-    subscribeNoop,
-    () => (getToken() ? "authed" : "anon"),
-    () => "checking",
-  );
-}
-
-function useRequireAuth(): AuthState {
-  const router = useRouter();
-  const authState = useAuthState();
-  // Navigation is a side effect and must not run during render (it was
-  // here, guarded only by `typeof window !== "undefined"` — that avoids an
-  // SSR crash but not the render-purity violation; React/Next.js can end up
-  // updating router state while this component's own render is still in
-  // flight). Same fix already applied in lib/use-require-auth.ts.
-  useEffect(() => {
-    if (authState === "anon") router.replace("/login");
-  }, [authState, router]);
-  return authState;
-}
 
 // ── Main page with Suspense wrapper ───────────────────────────────────────
 
@@ -65,15 +40,11 @@ export default function OnefopDeclarationPage() {
   const t = useTranslations();
 
   if (!mounted) {
-    return (
-      <div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
-    );
+    return <AuthLoadingSplash />;
   }
 
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>{t("common.loading")}</div>}>
+    <Suspense fallback={<AuthLoadingSplash />}>
       <OnefopDeclarationContent />
     </Suspense>
   );
@@ -279,11 +250,7 @@ function OnefopDeclarationContent() {
   }, [meQuery.data, router]);
 
   if (authState !== "authed") {
-    return (
-      <div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
-    );
+    return <AuthLoadingSplash />;
   }
 
   // While a non-COMPANY redirect is pending, render nothing.
@@ -292,11 +259,7 @@ function OnefopDeclarationContent() {
   }
 
   if (resolvingAcknowledgment || checkingSubmitted) {
-    return (
-      <div style={{ minHeight: "100vh", padding: 48, textAlign: "center", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
-    );
+    return <AuthLoadingSplash />;
   }
 
   const establishmentName =

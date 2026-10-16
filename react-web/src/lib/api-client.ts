@@ -122,8 +122,8 @@ export class ApiError extends Error {
 export const COMPANY_NOT_ACTIVE = "COMPANY_NOT_ACTIVE";
 
 const REGISTRATION_STATUS_PATH = "/home/inscription-en-attente";
-// The sign-in form is on the landing page; /login only redirects to it.
-const LOGIN_PATH = "/";
+// Unauthenticated / inactive session redirect target.
+const LOGIN_PATH = "/login";
 
 /**
  * ActiveCompanyGuard throws `new ForbiddenException({ code, status })`, which
@@ -267,6 +267,13 @@ export function getMe() {
 export function logoutRequest(): void {
   clearToken();
   clearCachedUser();
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/auth/change-password", {
+    method: "PATCH",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 // Self-service reset via security questions — the live "forgot password"
@@ -420,6 +427,36 @@ export function registerCompany(payload: RegisterCompanyPayload) {
 // rather than cached.
 export function getMyAttestation() {
   return apiFetch<{ url: string }>("/auth/attestation");
+}
+
+// ── User Notifications (In-app inbox) ─────────────────────────────────────
+export interface UserNotification {
+  id: string;
+  userId: string;
+  kind: string;
+  subject: string;
+  body: string;
+  linkHref?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export function getMyNotifications(opts: { unreadOnly?: boolean; limit?: number } = {}): Promise<UserNotification[]> {
+  const params = new URLSearchParams();
+  if (opts.unreadOnly) params.set("unreadOnly", "true");
+  if (opts.limit) params.set("limit", String(opts.limit));
+  const query = params.toString();
+  return apiFetch<UserNotification[]>(`/auth/me/notifications${query ? `?${query}` : ""}`);
+}
+
+export function getMyUnreadNotificationCount(): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>("/auth/me/notifications/unread-count");
+}
+
+export function markNotificationRead(id: string): Promise<UserNotification> {
+  return apiFetch<UserNotification>(`/auth/me/notifications/${id}/read`, {
+    method: "PATCH",
+  });
 }
 
 // ── DSMO Company profile ──────────────────────────────────────────────────
@@ -585,12 +622,17 @@ export function deleteDsmoDraft() {
   });
 }
 
-// ── DSMO Declaration PDF ──────────────────────────────────────────────────
+// ── DSMO & ONEFOP Declaration/Submission PDF ──────────────────────────────
 // Returns the redirect URL (the server does a 302 redirect to Supabase).
 // We just open this URL directly in a new tab.
 export function getDeclarationPdfUrl(id: string): string {
   const base = process.env.NEXT_PUBLIC_API_URL ?? "";
   return `${base}/dsmo/declarations/${encodeURIComponent(id)}/pdf/1`;
+}
+
+export function getOnefopSubmissionPdfUrl(id: string): string {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? "";
+  return `${base}/onefop/submissions/${encodeURIComponent(id)}/pdf`;
 }
 
 // ── Find identifier (Retrouver mon identifiant) ───────────────────────────

@@ -17,7 +17,7 @@ export const VT_SECTION_713_TABLE_ID = "VT7_7_table";
 export const SECTION_784_BREAKPOINT = 784;
 export const TABLET_BREAKPOINT = 768;
 
-// Was a VT-specific #0A6640/#E6F2ED/#F4F6F5/Manrope skin to pixel-match
+// Was a VT-specific var(--cam-green)/var(--cam-success-bg)/var(--cam-surface-subtle)/Manrope skin to pixel-match
 // Flutter's own VT styling; now aliases the app-wide tokens so the VT
 // wizard matches the rest of the app (including the login page) in accent
 // green, background, and font.

@@ -1,198 +1,288 @@
-/* CAM-LEAP design tokens — the visual language for the React web frontend.
+/* CAMLEAP design tokens — the visual language for the React web frontend
+   and the public website. ONE file for every surface: public portal,
+   registration wizard, questionnaires and staff console.
    Locked by the migration plan: no library-default colors, no arbitrary
-   per-screen values where a token below already applies. */
+   per-screen values where a token below already applies.
+
+   v2 (owner, 2026-10-14): the app adopts the public website's palette —
+   teal primary #00766c, slate text #1e293b / #64748b, slate border #e2e8f0,
+   cool grounds #f8fafc / #f0f4f8. Every token NAME is kept, so no call site
+   changes; only values move. --cam-primary* are the canonical brand names
+   from now on; --cam-green* are kept as aliases until call sites move.
+   The superseded values are listed in docs/standards/tokens-v2-migration.md. */
 
 :root {
-   /* ── Brand ── */
-   --cam-green: #1e6b3a;
-   --cam-green-dark: #144a28;
-   --cam-gold: #e8a020;
-   --cam-gold-dark: #b87c14;
-   --cam-accent: var(--cam-green);
+  /* ── Brand ──
+     Teal is the one brand colour (owner, 2026-10-14). It is reserved: primary
+     buttons, the active navigation item, the eyebrow/kicker, the trust rule,
+     focus, and "answered/done" states. Everything else is slate. */
+  --cam-primary: #00766c;
+  /* 5.5:1 on white — white text on it passes, and it passes as text. */
+  --cam-primary-dark: #004d40;
+  /* hover / pressed */
+  /* The pale primary highlight, named for the hue rather than for one of its
+     jobs: the status band, the success tint and the eyebrow ground are all
+     the same colour and must move together. Primary text on it is 4.75:1. */
+  --cam-primary-tint: #e6f0ef;
 
-   /* ── CAMLEAP logo inks ──
-     The artwork's own four colours, not UI colours: they exist so the
-     inline launch mark (components/brand/CamleapOvalMark.tsx) can paint
-     itself without hex literals. Nothing but the logo uses them — UI green
-     is --cam-green above, which is a different, quieter green. The static
-     asset images/camleap-logo.svg carries the same values literally,
-     because an <img> is never reached by this stylesheet. */
-   --cam-logo-green: #077440;
-   --cam-logo-navy: #021f40;
-   --cam-logo-accent: #0e8445;
-   --cam-logo-accent-light: #58ad3b;
+  /* Legacy names, same values. Read --cam-primary* in new code. */
+  --cam-green: var(--cam-primary);
+  --cam-green-dark: var(--cam-primary-dark);
+  --cam-green-tint: var(--cam-primary-tint);
+  --cam-accent: var(--cam-primary);
 
-   /* ── Front-door palette ──
-     The landing page at "/" and nothing else. Approved by the owner on
-     2026-10-12, taken from docs/mockups/landing-camleap-canonical.html.
+  /* Gold is a STATE colour, not brand: "you are here" on the wizard rail
+     (current step ring). It is no longer the focus colour — #e8a020 is
+     2.2:1 on white and fails the 3:1 non-text minimum for a focus ring. */
+  --cam-gold: #e8a020;
+  --cam-gold-dark: #b87c14;
 
-     Deliberately a separate, prefixed set rather than a redefinition of the
-     surface and text tokens above: the staff console, the wizards and the
-     respondent forms keep the pure-colour system. The only file that reads
-     these is components/landing/portal.module.css, which re-points the
-     shared tokens on the portal's own root, so the recolouring cannot leave
-     that subtree.
+  /* ── Public Portal Very Light Ash theme ── */
+  --cam-portal-mint: #2aa79b;
+  --cam-portal-mint-deep: #178a7d;
+  --cam-portal-mint-hover: #127367;
+  --cam-portal-mint-bright: #3cb4a8;
+  --cam-portal-teal-dark: #0c3b36;
+  --cam-portal-bg: #f5f6f8;
+  --cam-portal-band: #f5f6f8;
+  --cam-portal-panel: #ffffff;
+  --cam-portal-ink: #0f172a;
+  --cam-portal-muted: #475569;
+  --cam-portal-hairline: #e2e8f0;
+  --cam-portal-rule: #cbd5e1;
+  --cam-portal-icon-bg: #edf2f7;
+  --cam-portal-pill-bg: #edf2f7;
+  --cam-portal-closing-muted: #cbd5e1;
+  --cam-portal-foot-muted: #8292a2;
+  --cam-portal-flow: #cbd5e1;
 
-     Provisional: which of these the platform eventually keeps is a separate
-     decision (docs/plans/landing-portal.md), so nothing else should start
-     consuming them until it is made. */
-   --cam-portal-ink: #112530;
-   --cam-portal-cream: #f7f5ed;
-   --cam-portal-cream-light: #fdfaf4;
-   --cam-portal-teal: #476c59;
-   --cam-portal-teal-dark: #2e4c3c;
-   --cam-portal-teal-surface: #e8f3ef;
-   --cam-portal-line: #cbd7d1;
-   --cam-portal-red: #b74a42;
-   --cam-portal-yellow: #e8bb52;
-   /* On the ink ground: the footer. --cam-text-muted is tuned for a light
-     background and disappears there, so the dark band needs its own pair. */
-   --cam-portal-on-ink: #ffffff;
-   --cam-portal-on-ink-muted: #b9c6cd;
-   --cam-portal-ink-line: #2b3f4b;
+  /* ── Institutional national tricolor ──
+     Kept for the VT status colours that alias them. The portal no longer
+     draws a tricolor bar (owner, 2026-10-14). */
+  --cam-flag-green: #0e5c2b;
+  --cam-flag-red: #ce1126;
+  --cam-flag-yellow: #fcd116;
 
-   /* ── Institutional national tricolor ── */
-   --cam-flag-green: #0e5c2b;
-   --cam-flag-red: #b3202c;
-   --cam-flag-yellow: #f0b429;
+  /* ── Surface / text ──
+     Slate (owner, 2026-10-14), replacing the neutral greys of 2026-10-10 so
+     the app and the public website are one family. Contrast on white:
+     text 14.6:1, muted 4.76:1 (4.55:1 on --cam-bg) — both pass AA; muted is
+     lighter than the old #555555 (7.5:1), so it is for secondary text only,
+     never for a question or a value. */
+  --cam-bg: #f8fafc;
+  /* page ground of the app; alternate band on the portal */
+  --cam-surface: #ffffff;
+  --cam-surface-subtle: #f0f4f8;
+  /* tags, toggles, table heads, notices */
+  --cam-text: #1e293b;
+  --cam-text-muted: #64748b;
+  /* Decorative rules and card edges only: 1.2:1, it separates, it does not
+     bound a control. */
+  --cam-border: #e2e8f0;
+  --cam-border-soft: #eef2f6;
+  /* hairline between two white sections */
+  /* The edge of anything you can type in or tick: 3.16:1 on white, the
+     WCAG 1.4.11 minimum for a control boundary. Inputs, selects, radios,
+     checkboxes read this, never --cam-border. */
+  --cam-border-strong: #8492a6;
 
-   /* ── Surface / text ── */
-   /* Pure colours (owner, 2026-10-10): white page, pure black text, and
-     every grey neutral -- no green, yellow or blue tint. The page was
-     #fafaf7 and the text #0b1f14 (a dark green), so text sat on a tinted
-     ground and read soft. Each grey kept its lightness, so its contrast
-     is unchanged; secondary text #555555 is 7.5:1 on white. Brand and
-     state colours (green, gold, red) are not greys and are unchanged. */
-   --cam-bg: #ffffff;
-   --cam-surface: #ffffff;
-   --cam-surface-subtle: #fafafa;
-   --cam-text: #000000;
-   --cam-text-muted: #555555;
-   --cam-border: #d9d9d9;
-   --cam-border-strong: #ababab;
+  /* ── Shadows ──
+     Mixed from the named --cam-shadow-black, so this file has no rgba() left
+     (the old rgba(20, 30, 20, 0.04) exception is retired). */
+  --cam-shadow-sm: 0 1px 2px color-mix(in srgb, var(--cam-shadow-black) 5%, transparent);
+  /* resting card, button */
+  --cam-shadow-md: 0 4px 6px -1px color-mix(in srgb, var(--cam-shadow-black) 5%, transparent),
+    0 2px 4px -1px color-mix(in srgb, var(--cam-shadow-black) 3%, transparent);
+  /* hover lift, current phase card */
 
-   /* ── Shadows ──
-     The one rgba() in this file. rgb(20, 30, 20) is not a token, so this
-     cannot be a color-mix of a defined solid colour. A second exception
-     means that shadow-base colour needs naming. */
-   --cam-shadow-sm: 0 1px 2px rgba(20, 30, 20, 0.04);
+  /* ── Dark surfaces ──
+     One dark ground for the whole platform: the public footer and roadmap
+     band, the staff rail, the workspace rail. The pair below it is what may
+     be drawn on it -- --cam-text-muted is tuned for a light ground and
+     disappears here, so the dark band gets its own muted. */
+  --cam-white: #ffffff;
+  /* Slate, not teal-dark (owner, 2026-10-14): the dark band is a neutral
+     ground so the teal button on it stays the one coloured thing. It is the
+     slate primitive, NOT var(--cam-text): .bandInk re-points --cam-text to
+     white, and a dark surface defined through it would turn white too. */
+  --cam-dark-surface: var(--cam-slate-800);
+  --cam-on-dark: var(--cam-white);
+  --cam-on-dark-muted: color-mix(in srgb, var(--cam-white) 70%, transparent);
+  /* 15% white: rules on the dark ground, rail footer rules, progress track. */
+  --cam-white-wash: color-mix(in srgb, var(--cam-white) 15%, transparent);
+  --cam-dark-line: var(--cam-white-wash);
 
-   /* ── State ── */
-   --cam-focus: #e8a020;
-   /* Green focus ring for custom interactive controls (Radio/Checkbox) that
-     need to visually tie their focus state to the brand accent rather than
-     the page-wide gold outline above. */
-   --cam-focus-ring: var(--cam-green);
-   /* Same colour as the previous rgba(30, 107, 58, 0.15):
-     --cam-green is #1e6b3a = rgb(30, 107, 58), mixed at 15%. */
-   --cam-focus-shadow: 0 0 0 3px color-mix(in srgb, var(--cam-green) 15%, transparent);
-   /* Invalid-field ring and current-step ring. The mixes match the
+  /* ── Section rhythm ──
+     The public portal's three band depths (website, 2026-10-14). A hero gets
+     more air than a standard band, and a compact band less, so the page has
+     a rhythm instead of one repeated gap. Phones step all three down at the
+     end of this file. */
+  --cam-section-pad-hero: var(--cam-space-9);
+  /* 80px */
+  --cam-section-pad-standard: var(--cam-space-8);
+  /* 64px */
+  --cam-section-pad-compact: var(--cam-space-6);
+  /* 32px */
+
+  /* One transition for hover and focus changes that should feel immediate
+     without snapping. */
+  --cam-transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── State ── */
+  /* Focus is primary teal everywhere (owner, 2026-10-14): 5.5:1 on white.
+     The old gold #e8a020 was 2.2:1 and failed the 3:1 focus minimum.
+     Outline: 2px var(--cam-focus), offset 3px. */
+  --cam-focus: var(--cam-primary);
+  --cam-focus-ring: var(--cam-primary);
+  --cam-focus-shadow: 0 0 0 3px color-mix(in srgb, var(--cam-focus) 15%, transparent);
+  /* Invalid-field ring and current-step ring. The mixes match the
      rgba() literals those call sites still write. */
-   --cam-focus-shadow-error: 0 0 0 3px color-mix(in srgb, var(--cam-error) 15%, transparent);
-   --cam-focus-shadow-gold: 0 0 0 3px color-mix(in srgb, var(--cam-gold) 18%, transparent);
-   /* Leave-dialog and admin-dialog backdrop. --cam-text is #0b1f14, so
-     this is rgba(11, 31, 20, 0.45). */
-   --cam-scrim: color-mix(in srgb, var(--cam-text) 45%, transparent);
-   /* Selected fill (10%) and hover fill (5%) of brand green. */
-   --cam-green-wash: color-mix(in srgb, var(--cam-green) 10%, transparent);
-   --cam-green-wash-hover: color-mix(in srgb, var(--cam-green) 5%, transparent);
-   /* Establishment-ID chip. 8% is not the 10% selected fill. */
-   --cam-green-wash-soft: color-mix(in srgb, var(--cam-green) 8%, transparent);
-   --cam-error: #b3261e;
-   --cam-error-bg: #fbeceb;
-   --cam-error-border: #f2b8b5;
-   --cam-success: #1e6b3a;
-   --cam-success-bg: #eaf3ec;
-   --cam-success-border: #c3e0cb;
-   /* Amber warning state (e.g. "remaining to distribute" in guided table
+  --cam-focus-shadow-error: 0 0 0 3px color-mix(in srgb, var(--cam-error) 15%, transparent);
+  --cam-focus-shadow-gold: 0 0 0 3px color-mix(in srgb, var(--cam-gold) 18%, transparent);
+  /* Leave-dialog and admin-dialog backdrop: slate at 45%. */
+  --cam-scrim: color-mix(in srgb, var(--cam-slate-800) 45%, transparent);
+  /* Selected fill (10%) and hover fill (5%) of the primary. */
+  --cam-green-wash: color-mix(in srgb, var(--cam-green) 10%, transparent);
+  --cam-green-wash-hover: color-mix(in srgb, var(--cam-green) 5%, transparent);
+  /* Establishment-ID chip. 8% is not the 10% selected fill. */
+  --cam-green-wash-soft: color-mix(in srgb, var(--cam-green) 8%, transparent);
+  /* Danger is the canonical name. --cam-error is kept as an alias because
+     94 call sites still read it; one value, two spellings, until they move. */
+  --cam-danger: #b3261e;
+  --cam-danger-bg: #fbeceb;
+  --cam-danger-border: #f2b8b5;
+  --cam-error: var(--cam-danger);
+  --cam-error-bg: var(--cam-danger-bg);
+  --cam-error-border: var(--cam-danger-border);
+  --cam-success: var(--cam-green);
+  --cam-success-bg: var(--cam-green-tint);
+  --cam-success-border: #b5d6d2;
+  /* primary-tint family */
+  /* Amber warning state (e.g. "remaining to distribute" in guided table
      entry) — the app had success/error tints but no warning tint, so
      guided mode's amber colors were previously invented ad hoc instead of
      drawn from a token. Reuses --cam-gold-dark for text so it stays on the
      institutional gold hue rather than introducing a generic Tailwind
      amber. */
-   --cam-warning: var(--cam-gold-dark);
-   --cam-warning-bg: #fdf3dc;
-   --cam-warning-border: #f0d999;
-   --cam-info: #1a6896;
-   --cam-info-bg: #ebf4f9;
-   --cam-info-border: #b6d7ea;
+  /* Warning TEXT is amber-800 (7:1). --cam-gold-dark #b87c14 was 3.5:1 and
+     failed as text; it stays the warning border/icon hue (owner, 2026-10-14). */
+  --cam-warning: var(--cam-amber-text);
+  --cam-warning-bg: #fdf3dc;
+  --cam-warning-border: #f0d999;
+  --cam-info: #1a6896;
+  --cam-info-bg: #ebf4f9;
+  --cam-info-border: #b6d7ea;
 
-   /* ── Aliases for admin consolidation ── */
-   --cam-ink: var(--cam-text);
-   --cam-line: var(--cam-border);
-   --cam-muted: var(--cam-text-muted);
-   --cam-red: var(--cam-error);
-   --cam-blue: var(--cam-info);
-   --cam-accent-soft: var(--cam-success-bg);
+  /* ── Aliases for admin consolidation ── */
+  --cam-ink: var(--cam-text);
+  --cam-line: var(--cam-border);
+  --cam-muted: var(--cam-text-muted);
+  --cam-red: var(--cam-error);
+  --cam-blue: var(--cam-info);
+  --cam-accent-soft: var(--cam-success-bg);
 
-   /* ── Spacing (4px base) ── */
-   --cam-space-1: 4px;
-   --cam-space-2: 8px;
-   --cam-space-3: 12px;
-   --cam-space-4: 16px;
-   --cam-space-5: 24px;
-   --cam-space-6: 32px;
-   --cam-space-7: 48px;
+  /* ── Spacing (4px base) ── */
+  --cam-space-1: 4px;
+  --cam-space-2: 8px;
+  --cam-space-3: 12px;
+  --cam-space-4: 16px;
+  --cam-space-5: 24px;
+  --cam-space-6: 32px;
+  --cam-space-7: 48px;
+  /* Section depths of the public portal (website, 2026-10-14). Not for
+     component padding. */
+  --cam-space-8: 64px;
+  --cam-space-9: 80px;
 
-   /* ── Typography ── */
-   --cam-font-sans: var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
-   /* Codes/IDs only (NIU, CNPS, row codes). Never use bare `monospace`:
+  /* ── Typography ── */
+  --cam-font-sans: var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cam-font-serif: var(--font-newsreader), "Newsreader", Georgia, "Times New Roman", serif;
+  /* Codes/IDs only (NIU, CNPS, row codes). Never use bare `monospace`:
      on Windows it resolves to Courier New, which is thin and blurry at
      small sizes. Numbers in tables use the UI font + tabular-nums. */
-   --cam-font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace;
-   /* One ladder, monotonic by name. 3xs was called 2xs until the 12px step
+  --cam-font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace;
+  /* One ladder, monotonic by name. 3xs was called 2xs until the 12px step
      was added between it and xs: 12px is the most-used raw font size in the
      app, so it had to become a token, and a token called 2xs that rendered
      smaller than the one called 3xs would misread at every call site. */
-   /* 9px exists for two pieces of sidebar micro-copy that are deliberately
+  /* 9px exists for two pieces of sidebar micro-copy that are deliberately
      below the body floor: the uppercase, letter-spaced brand sub-label, and
      the star inside the flag circle. Raising either to 11px would change a
      size that was chosen small on purpose, so the ladder gains a step
      instead. Nothing new should reach for it. */
-   --cam-font-size-4xs: 0.5625rem;   /* 9px */
-   --cam-font-size-3xs: 0.6875rem;   /* 11px */
-   --cam-font-size-2xs: 0.75rem;     /* 12px */
-   --cam-font-size-xs: 0.8125rem;    /* 13px */
-   --cam-font-size-sm: 0.875rem;     /* 14px */
-   --cam-font-size-base: 0.9375rem;  /* 15px */
-   --cam-font-size-input-ios: 16px;  /* stops iOS zooming a focused control; not a ladder step */
-   --cam-font-size-lg: 1.125rem;     /* 18px */
-   --cam-font-size-xl: 1.5rem;       /* 24px */
-   --cam-font-size-2xl: 1.5625rem;   /* 25px */
-   /* Dashboard KPI value (.cam-kpi-tile-value and the KPI rows that will
+  --cam-font-size-4xs: 0.5625rem;
+  /* 9px */
+  --cam-font-size-3xs: 0.6875rem;
+  /* 11px */
+  --cam-font-size-2xs: 0.75rem;
+  /* 12px */
+  --cam-font-size-xs: 0.8125rem;
+  /* 13px */
+  --cam-font-size-sm: 0.875rem;
+  /* 14px */
+  --cam-font-size-base: 0.9375rem;
+  /* 15px */
+  --cam-font-size-input-ios: 16px;
+  /* stops iOS zooming a focused control; not a ladder step */
+  --cam-font-size-lg: 1.125rem;
+  /* 18px */
+  --cam-font-size-xl: 1.5rem;
+  /* 24px */
+  --cam-font-size-2xl: 1.5625rem;
+  /* 25px */
+  /* Dashboard KPI value (.cam-kpi-tile-value and the KPI rows that will
      adopt it). Deliberately larger than 2xl, which .cam-pilot-kpi-value
      uses for the smaller panel KPIs. */
-   --cam-font-size-3xl: 2rem;        /* 32px */
-   --cam-line-height-base: 1.5;
-   /* Named by job. --cam-line-height-label is load-bearing: the wizard
+  --cam-font-size-3xl: 2rem;
+  /* 32px */
+
+  /* ── Portal reading tier (public website only, owner 2026-10-14) ──
+     The app is a dense working tool and keeps the ladder above (body 15px).
+     The public pages are read, not worked in, so they read one tier larger.
+     These five are NOT ladder steps: no admin or form screen may use them,
+     and the portal does not use the ladder for running text.
+     Portal scale: label 13 (xs) · small 15 (base) · body 17 · lead 20 ·
+     h2 30 · display 32–44. */
+  --cam-font-size-portal-body: 1.0625rem;
+  /* 17px */
+  --cam-font-size-portal-lead: 1.25rem;
+  /* 20px: lead paragraph, card title */
+  --cam-font-size-portal-h2: 1.875rem;
+  /* 30px (26px on phones, below) */
+  --cam-font-size-portal-display: clamp(2rem, 4.2vw, 2.75rem);
+  /* 32–44px: the one h1 per page */
+  --cam-line-height-display: 1.12;
+  --cam-line-height-base: 1.5;
+  /* Named by job. --cam-line-height-label is load-bearing: the wizard
      label rule and the side-by-side alignment calc both read it, so the
      label's first line stays on the input's text. */
-   --cam-line-height-tight: 1.2;
-   --cam-line-height-title: 1.25;
-   --cam-line-height-label: 1.3;
-   --cam-line-height-ui: 1.4;
-   /* Multi-line wizard copy: option labels, certify text, section notes.
+  --cam-line-height-tight: 1.2;
+  --cam-line-height-title: 1.25;
+  --cam-line-height-label: 1.3;
+  --cam-line-height-ui: 1.4;
+  /* Multi-line wizard copy: option labels, certify text, section notes.
      1.45 is deliberate; --cam-line-height-ui is 1.4. */
-   --cam-line-height-copy: 1.45;
+  --cam-line-height-copy: 1.45;
 
-   --cam-font-weight-regular: 400;
-   --cam-font-weight-medium: 500;
-   --cam-font-weight-semibold: 600;
-   --cam-font-weight-bold: 700;
+  --cam-font-weight-regular: 400;
+  --cam-font-weight-medium: 500;
+  --cam-font-weight-semibold: 600;
+  --cam-font-weight-bold: 700;
 
-   --cam-tracking-caption: 0.01em;
-   --cam-tracking-tight: -0.01em;
-   --cam-tracking-label: 0.02em;
-   --cam-tracking-kicker: 0.03em;
+  --cam-tracking-caption: 0.01em;
+  --cam-tracking-tight: -0.01em;
+  --cam-tracking-label: 0.02em;
+  --cam-tracking-kicker: 0.03em;
 
-   /* ── Micro-copy (hints, "select all", helper text) ──
+  /* ── Micro-copy (hints, "select all", helper text) ──
      One shared scale instead of each field re-declaring its own size/
      color/margin — see form/Microcopy.tsx. */
-   --cam-microcopy-size: var(--cam-font-size-2xs); /* 12px: questionnaire hints (owner, 2026-10-10) */
-   --cam-microcopy-color: var(--cam-text-muted);
-   --cam-microcopy-margin-top: 4px;
+  --cam-microcopy-size: var(--cam-font-size-2xs);
+  /* 12px: questionnaire hints (owner, 2026-10-10) */
+  --cam-microcopy-color: var(--cam-text-muted);
+  --cam-microcopy-margin-top: 4px;
 
-   /* ── Question and answer (owner, 2026-10-10; weight 2026-10-11) ──
+  /* ── Question and answer (owner, 2026-10-10; weight 2026-10-11) ──
      Every respondent form -- registration, Modern Jobs, VT -- draws a
      question 15px semibold and the answer under it 14px regular; the hint
      is --cam-microcopy-size (12px). One place, so the three cannot drift.
@@ -200,59 +290,71 @@
      block heading gave two bold levels with no step between them, and
      medium (500) sat too close to the regular answers. The block heading
      is the one bold level. */
-   --cam-question-size: var(--cam-font-size-base);
-   --cam-question-weight: var(--cam-font-weight-medium); /* 500: lighter than semibold, still above the 400 answers (owner, 2026-10-12) */
-   --cam-question-line-height: var(--cam-line-height-label);
-   --cam-answer-size: var(--cam-font-size-sm);
+  --cam-question-size: var(--cam-font-size-base);
+  --cam-question-weight: var(--cam-font-weight-medium);
+  /* 500: lighter than semibold, still above the 400 answers (owner, 2026-10-12) */
+  --cam-question-line-height: var(--cam-line-height-label);
+  --cam-answer-size: var(--cam-font-size-sm);
 
-   /* ── Radius (restrained, administrative) ── */
-   --cam-radius-sm: 2px;
-   --cam-radius-md: 4px;
-   --cam-radius-control: 6px;
-   --cam-radius-lg: 10px;
-   --cam-radius-full: 9999px;
+  /* ── Radius (restrained, administrative) ──
+     control 6→8 and lg 10→12 to match the website (owner, 2026-10-14):
+     buttons and inputs 8, cards and panels 12. --cam-field-radius and
+     --cam-section-radius now sit ON the ladder. */
+  --cam-radius-sm: 2px;
+  --cam-radius-md: 4px;
+  --cam-radius-control: 8px;
+  --cam-radius-lg: 12px;
+  --cam-radius-full: 9999px;
 
-   /* ── Density ── */
-   --cam-row-height: 40px;
-   --cam-form-field-height: 40px;
-   /* Answer boxes on the respondent forms (questionnaires and registration):
+  /* ── Density ── */
+  --cam-row-height: 40px;
+  --cam-form-field-height: 40px;
+  /* Answer boxes on the respondent forms (questionnaires and registration):
       a little lower than the 40px admin controls (owner, 2026-10-12). */
-   --cam-respondent-field-height: 36px;
-   --cam-button-height: 44px;
-   --cam-form-gap: var(--cam-space-4);
+  --cam-respondent-field-height: 36px;
+  --cam-button-height: 44px;
+  --cam-form-gap: var(--cam-space-4);
 
-   /* ── Containers ── */
-   --cam-container-compact: 380px;
-   /* Every side navigation in the app: the respondent wizards' rail
+  /* ── Containers ── */
+  --cam-container-compact: 380px;
+  /* Public portal (website, 2026-10-14): one content edge for every block —
+     header, hero, sections, footer. Sections put their title in an aside
+     column and their content beside it; running text stops at the measure. */
+  --cam-container-portal: 1120px;
+  --cam-portal-aside: 240px;
+  --cam-portal-aside-gap: var(--cam-space-8);
+  --cam-measure: 68ch;
+  --cam-header-height: 72px;
+  /* Every side navigation in the app: the respondent wizards' rail
      (.cam-wizard-rail: registration, Modern Jobs, VT) and the staff
      console's dark rail (.cam-admin-rail). One width, so they line up. */
-   --cam-side-rail-width: 280px;
-   /* The smallest the ONEFOP emblem is shown. It is a seal -- ring lettering
+  --cam-side-rail-width: 280px;
+  /* The smallest the ONEFOP emblem is shown. It is a seal -- ring lettering
      around a magnifier -- and below this its text is an illegible smear, so
      a crisp CAMLEAP wordmark beside it reads as amateur, the opposite of
      what the endorsement is for. Where there is not room for this, the
      endorsement is carried by the words "ONEFOP" instead of the emblem
      (owner, 2026-10-12; brand.md said 24px). */
-   --cam-brand-emblem-min: 56px;
-   /* The step circle on every wizard rail, wide and phone. The connectors
+  --cam-brand-emblem-min: 56px;
+  /* The step circle on every wizard rail, wide and phone. The connectors
      and the outline indent are computed from it. 24px, not 30px: beside a
      14px step name a 30px circle read as the loudest thing on the rail, and
      on a laptop-height screen, where the rows tighten (globals.css,
      max-height 760px), the circles came within 2px of touching (owner,
      2026-10-12). The staff rail's icon box keeps 30px of its own below. */
-   --cam-step-marker-size: 24px;
-   /* The staff rail's icon box (.cam-admin-rail-hub-icon): a rounded square
+  --cam-step-marker-size: 24px;
+  /* The staff rail's icon box (.cam-admin-rail-hub-icon): a rounded square
      around an 18px icon, not a step circle. It borrowed the step-circle size
      while the two were equal; it keeps 30px now that the circles are 24px. */
-   --cam-admin-rail-icon-size: 30px;
-   --cam-wizard-rail-bar-height: 6px;
-   --cam-container-form: 640px;
+  --cam-admin-rail-icon-size: 30px;
+  --cam-wizard-rail-bar-height: 6px;
+  --cam-container-form: 640px;
 
-   /* ── Borders ── */
-   --cam-border-width: 1px;
-   --cam-table-grid: #171a18;
+  /* ── Borders ── */
+  --cam-border-width: 1px;
+  --cam-table-grid: var(--cam-slate-800);
 
-   /* ── Registration wizard rigid card shell ──
+  /* ── Registration wizard rigid card shell ──
      The wizard's card frames a six-step form whose tall steps scroll inside
      it, so the frame has to read as a real boundary rather than a hairline:
      a brand-green border plus a green-tinted shadow, in place of
@@ -260,301 +362,340 @@
      paddings are tokens so the <=640px step-down happens in one place (see the
      media query at the end of this file) instead of being repeated across the
      header, body and footer rules in globals.css. */
-   --cam-card-frame-width: 2px;
-   /* Same colours as rgba(30, 107, 58, 0.22) and rgba(30, 107, 58, 0.1):
-     --cam-green is #1e6b3a = rgb(30, 107, 58). */
-   --cam-card-shadow:
-      0 6px 20px -4px color-mix(in srgb, var(--cam-green) 22%, transparent),
-      0 2px 6px color-mix(in srgb, var(--cam-green) 10%, transparent);
-   /* Same colours as rgba(30, 107, 58, 0.14) and rgba(30, 107, 58, 0.26). */
-   --cam-card-shadow-focus:
-      0 0 0 4px color-mix(in srgb, var(--cam-green) 14%, transparent),
-      0 6px 20px -4px color-mix(in srgb, var(--cam-green) 26%, transparent);
-   --cam-card-pad-x: 26px;
-   --cam-card-head-pad-top: 20px;
-   --cam-card-head-pad-bottom: 14px;
-   --cam-card-body-pad-y: 20px;
-   --cam-card-foot-pad-y: 14px;
-   --cam-card-shell-pad-y: var(--cam-space-5);
-   --cam-card-shell-pad-x: var(--cam-space-4);
+  --cam-card-frame-width: 2px;
+  /* Primary-tinted (follows --cam-green → --cam-primary). */
+  --cam-card-shadow:
+    0 6px 20px -4px color-mix(in srgb, var(--cam-green) 22%, transparent),
+    0 2px 6px color-mix(in srgb, var(--cam-green) 10%, transparent);
 
-   /* The wizard's one frame. 600px is a reading measure, not a viewport
+  --cam-card-shadow-focus:
+    0 0 0 4px color-mix(in srgb, var(--cam-green) 14%, transparent),
+    0 6px 20px -4px color-mix(in srgb, var(--cam-green) 26%, transparent);
+  --cam-card-pad-x: 26px;
+  --cam-card-head-pad-top: 20px;
+  --cam-card-head-pad-bottom: 14px;
+  --cam-card-body-pad-y: 20px;
+  --cam-card-foot-pad-y: 14px;
+  --cam-card-shell-pad-y: var(--cam-space-5);
+  --cam-card-shell-pad-x: var(--cam-space-4);
+
+  /* The wizard's one frame. 600px is a reading measure, not a viewport
      fraction: the form is a single column of label + input, and widening it
      only stretches the inputs. The frame grows with its section and the
      page scrolls, so this caps width alone. */
-   --cam-container-wizard: 600px;
+  --cam-container-wizard: 600px;
 
-   /* Space between two field rows, and between a label and the input
+  /* Space between two field rows, and between a label and the input
      beneath it. (No label-column tokens: the wizard is one column at every
      width -- owner's decision, 2026-10-10.) */
-   --cam-field-row-gap: 16px;
-   --cam-field-stack-gap: 6px;
+  --cam-field-row-gap: 16px;
+  --cam-field-stack-gap: 6px;
 
-   /* ── Wizard control metrics ──
+  /* ── Wizard control metrics ──
      Height aliases the density token, so a change to
      --cam-form-field-height reaches the wizard. The two used to be
      independent 40px literals that happened to agree. The radius and the
      1.5px border are purpose values, off the radius and border ladders.
      Scoped to the wizard in globals.css. */
-   --cam-field-height: var(--cam-form-field-height);
-   --cam-field-radius: 8px;
-   --cam-field-border-width: 1.5px;
-   /* Radio and checkbox control size. The wizard radio, the certify
+  --cam-field-height: var(--cam-form-field-height);
+  --cam-field-radius: var(--cam-radius-control);
+  --cam-field-border-width: 1.5px;
+  /* Radio and checkbox control size. The wizard radio, the certify
      checkbox and the login checkbox all read this. The login checkbox
      was 15px; it is now 18px. */
-   --cam-choice-size: 18px;
+  --cam-choice-size: 18px;
 
-   /* Off-ladder insets in the auth stylesheet. Each keeps the length the
+  /* Off-ladder insets in the auth stylesheet. Each keeps the length the
      screen already used. None of them follows the phone chrome tightening:
      --cam-card-pad-x is 26px too, but it becomes 16px at 640px, and the
      auth card does not. */
-   --cam-auth-card-pad: 26px;
-   --cam-auth-card-pad-bottom: 22px;
-   --cam-auth-tab-gap: 22px;
-   --cam-auth-inset-10: 10px;
-   --cam-auth-eye-pad: 40px;
-   --cam-auth-check-gap: 7px;
-   --cam-auth-footer-pad-y: 14px;
-   --cam-auth-block-gap: 20px;
-   --cam-frame-scroll-pad-top: 20px;
-   --cam-frame-scroll-pad-x: 22px;
-   --cam-inline-button-pad-x: 22px;
-   --cam-honour-pad-x: 14px;
-   --cam-edit-pad-y: 3px;
-   /* Smaller than the 4px step. The certify box, the collapsed title stack,
+  --cam-auth-card-pad: 26px;
+  --cam-auth-card-pad-bottom: 22px;
+  --cam-auth-tab-gap: 22px;
+  --cam-auth-inset-10: 10px;
+  --cam-auth-eye-pad: 40px;
+  --cam-auth-check-gap: 7px;
+  --cam-auth-footer-pad-y: 14px;
+  --cam-auth-block-gap: 20px;
+  --cam-frame-scroll-pad-top: 20px;
+  --cam-frame-scroll-pad-x: 22px;
+  --cam-inline-button-pad-x: 22px;
+  --cam-honour-pad-x: 14px;
+  --cam-edit-pad-y: 3px;
+  /* Smaller than the 4px step. The certify box, the collapsed title stack,
      and the establishment-ID chip use it. Not a new ladder step. */
-   --cam-space-hairline: 2px;
-   /* Visually-hidden clip. 0 would leave a 1px box that can scroll. */
-   --cam-sr-offset: -1px;
+  --cam-space-hairline: 2px;
+  /* Visually-hidden clip. 0 would leave a 1px box that can scroll. */
+  --cam-sr-offset: -1px;
 
-   /* FormRow `size`. full is the default column. medium caps NIU, CNPS and
+  /* FormRow `size`. full is the default column. medium caps NIU, CNPS and
      registration numbers at 280px; short caps phone, year and counts at
      220px. Admin keeps its minmax grid and does not use these. */
-   --cam-field-width-full: 100%;
-   --cam-field-width-medium: 240px; /* code, phone, PO box (was 280px; owner, 2026-10-12) */
-   --cam-field-width-short: 180px;  /* year, count (was 220px) */
+  --cam-field-width-full: 100%;
+  --cam-field-width-medium: 240px;
+  /* code, phone, PO box (was 280px; owner, 2026-10-12) */
+  --cam-field-width-short: 180px;
+  /* year, count (was 220px) */
 
-   /* Helper text under an input. Example values live in the control's own
+  /* Helper text under an input. Example values live in the control's own
      placeholder, so this carries explanation only. */
-   --cam-field-hint-size: var(--cam-font-size-xs);
+  --cam-field-hint-size: var(--cam-font-size-xs);
 
-   /* Placeholder text. Its own token rather than --cam-text-muted, which is
+  /* Placeholder text. Its own token rather than --cam-text-muted, which is
      the LABEL colour: an example value drawn at the same weight as the
      label naming the field made a column of untouched inputs read as
      already filled in. Lighter than both the label and the typed value,
      and still over 4.5:1 on --cam-surface. */
-   --cam-placeholder: #858585;
+  --cam-placeholder: #687789;
+  /* 4.58:1 — lighter than the muted label (4.76:1), still over 4.5:1 */
 
-   /* Rail items the respondent has not reached. Lighter than --cam-text-muted
+  /* Rail items the respondent has not reached. Lighter than --cam-text-muted
      so "not yet" reads as not yet, darker than --cam-border-strong (which
      the circle keeps) so the step NAME stays legible -- a label the colour
      of a hairline is a label nobody reads, and the rail is the only place
      the six steps are listed. */
-   --cam-rail-upcoming: #6e6e6e;
+  --cam-rail-upcoming: #687789;
 
-   /* ── Wizard frame ──
+  /* ── Wizard frame ──
      The single bordered frame the current section is shown in. The padding
      steps down on a narrow viewport; that step-down is a media query because
      a container cannot restyle itself from its own query. */
-   --cam-section-radius: 12px;
-   --cam-section-pad: 20px;
-   --cam-section-gap: 20px;
+  --cam-section-radius: var(--cam-radius-lg);
+  --cam-section-pad: 20px;
+  --cam-section-gap: 20px;
 
-   /* ── Section heading (StepHeader) ──
+  /* ── Section heading (StepHeader) ──
      One step of visual hierarchy above the form itself: the step title is the
      largest thing in the card body, the description sits under it in muted
      body text, and the gap below the pair is wider than the row gap so the
      heading reads as introducing the fields rather than belonging to the
      first one. */
-   --cam-step-title-size: 1.25rem;
-   --cam-step-subtitle-size: 0.84375rem;
-   --cam-step-header-gap: var(--cam-space-1);
-   --cam-step-header-space-after: var(--cam-space-5);
+  --cam-step-title-size: 1.25rem;
+  --cam-step-subtitle-size: 0.84375rem;
+  --cam-step-header-gap: var(--cam-space-1);
+  --cam-step-header-space-after: var(--cam-space-5);
 
-   /* Extra inline-end padding for the scroll region once the label column
+  /* Extra inline-end padding for the scroll region once the label column
      appears. scrollbar-gutter: stable reserves the gutter inside the padding
      box, so at the base padding the input column's right edge clears the
      scrollbar by only ~11px; this restores a readable gap. */
-   --cam-card-body-pad-end: calc(var(--cam-card-pad-x) + var(--cam-space-2));
+  --cam-card-body-pad-end: calc(var(--cam-card-pad-x) + var(--cam-space-2));
 
-   /* ── Slate primitives ──
-     The slate palette the statistical tables and the VT rail both draw on.
+  /* ── Slate primitives ──
+     The palette the statistical tables, the rails and the dark band draw on.
      Named by step, not by job: the --cam-table-* and --cam-rail-* tokens
-     below alias them, so one value is written once. */
-   --cam-slate-200: #e5e5e5;
-   --cam-slate-300: #d4d4d4;
-   --cam-slate-400: #a3a3a3;
-   --cam-slate-500: #737373;
-   --cam-slate-600: #525252;
-   --cam-slate-700: #404040;
-   --cam-slate-800: #262626;
+     below alias them, so one value is written once. Now true slate (they
+     were neutral greys under the slate name until 2026-10-14). */
+  --cam-slate-200: #e2e8f0;
+  --cam-slate-300: #cbd5e1;
+  --cam-slate-400: #94a3b8;
+  --cam-slate-500: #64748b;
+  --cam-slate-600: #475569;
+  --cam-slate-700: #334155;
+  --cam-slate-800: #1e293b;
 
-   /* ── Questionnaire statistical tables ──
+  /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
      TableRenderer's grids, VT tables, activities table, guided-mode live
      preview). Values are the slate palette the Modern Jobs grids already
      used (S22Q04 look), consolidated here instead of hardcoded per file. */
-   --cam-table-frame: var(--cam-slate-600);      /* outer frame, header rules, label column rule */
-   --cam-table-line: var(--cam-slate-500);      /* cell grid lines */
-   --cam-table-strong: var(--cam-slate-700);    /* total-row rule, sub-header text */
-   --cam-table-group-line: var(--cam-slate-800); /* separator between column blocks */
-   --cam-table-head-bg: #ffffff;
-   --cam-table-text: #000000;
-   --cam-table-muted: var(--cam-slate-400);     /* empty-cell dash / placeholder */
+  --cam-table-frame: var(--cam-slate-600);
+  /* outer frame, header rules, label column rule */
+  --cam-table-line: var(--cam-slate-500);
+  /* cell grid lines */
+  --cam-table-strong: var(--cam-slate-700);
+  /* total-row rule, sub-header text */
+  --cam-table-group-line: var(--cam-slate-800);
+  /* separator between column blocks */
+  --cam-table-head-bg: #ffffff;
+  --cam-table-text: var(--cam-text);
+  --cam-table-muted: var(--cam-slate-400);
+  /* empty-cell dash / placeholder */
 
-   /* ── Table typography (used only by .cam-dt-* in globals.css) ──
+  /* ── Table typography (used only by .cam-dt-* in globals.css) ──
      One size for every cell; hierarchy by weight. Change a table's look
      here — never in a table component. */
-   --cam-table-fs: 0.875rem;          /* 14px (13px on phones, see below) */
-   --cam-table-lh: 1.35;
-   --cam-table-w-group: 600;          /* Masculin, Permanent, corner header */
-   --cam-table-w-leaf: 400;           /* Homme, Femme, 25 à 34, Total */
-   --cam-table-w-label: 400;          /* row labels */
-   --cam-table-w-value: 400;          /* typed numbers */
-   --cam-table-w-computed: 600;       /* calculated totals */
-   --cam-table-w-total: 700;          /* TOTAL GÉNÉRAL row */
-   --cam-table-hover: #fafafa;
-   --cam-table-focus: #1a5c3a;
-   --cam-table-readonly-bg: var(--cam-success-bg);   /* calculated cells & total rows */
-   --cam-table-readonly-text: var(--cam-success);
+  --cam-table-fs: 0.875rem;
+  /* 14px (13px on phones, see below) */
+  --cam-table-lh: 1.35;
+  --cam-table-w-group: 600;
+  /* Masculin, Permanent, corner header */
+  --cam-table-w-leaf: 400;
+  /* Homme, Femme, 25 à 34, Total */
+  --cam-table-w-label: 400;
+  /* row labels */
+  --cam-table-w-value: 400;
+  /* typed numbers */
+  --cam-table-w-computed: 600;
+  /* calculated totals */
+  --cam-table-w-total: 700;
+  /* TOTAL GÉNÉRAL row */
+  --cam-table-hover: var(--cam-bg);
+  --cam-table-focus: var(--cam-primary-dark);
+  --cam-table-readonly-bg: var(--cam-success-bg);
+  /* calculated cells & total rows */
+  --cam-table-readonly-text: var(--cam-success);
 
-   /* ── Z-index scale ── */
-   --cam-z-nav: 100;
-   --cam-z-dropdown: 200;
-   --cam-z-dialog: 300;
-   --cam-z-toast: 400;
+  /* ── Z-index scale ── */
+  --cam-z-nav: 100;
+  --cam-z-dropdown: 200;
+  --cam-z-dialog: 300;
+  --cam-z-toast: 400;
 
-   /* ── VT wizard skin tokens ──
+  /* ── VT wizard skin tokens ──
      Font, background, and accent green were originally Manrope/#F4F6F5/
      #0A6640 to pixel-match the Flutter app's own distinct VT styling. By
      request, all three now alias the same tokens the rest of the app (and
      the login page) use, so the VT wizard matches everywhere — only the
      card border and status colors (red/yellow) stay VT-specific. */
-   --vt-yellow: #fcd116;
-   --vt-red: #ce1126;
-   --vt-bg: var(--cam-bg);
-   --vt-card-border: var(--cam-border);
-   --vt-ink: var(--cam-text);
-   --vt-ink-soft: var(--cam-text-muted);
-   --vt-ink-faint: #7a7a7a;
-   --vt-accent: var(--cam-green);
-   --vt-accent-soft: var(--cam-success-bg);
-   --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: var(--cam-side-rail-width);
-   --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
-   --vt-content-max-wide: 1100px; /* sections holding a statistical table */
-   /* The wizard pod's inset: the gap between its edge and the
+  --vt-yellow: #fcd116;
+  --vt-red: #ce1126;
+  --vt-bg: var(--cam-bg);
+  --vt-card-border: var(--cam-border);
+  --vt-ink: var(--cam-text);
+  --vt-ink-soft: var(--cam-text-muted);
+  --vt-ink-faint: var(--cam-placeholder);
+  --vt-accent: var(--cam-green);
+  --vt-accent-soft: var(--cam-success-bg);
+  --vt-card-radius: var(--cam-radius-md);
+  --vt-sidebar-width: var(--cam-side-rail-width);
+  --vt-content-max: 760px;
+  /* form sections: 600px answers + padding (owner, 2026-10-10) */
+  --vt-content-max-wide: 1100px;
+  /* sections holding a statistical table */
+  /* The wizard pod's inset: the gap between its edge and the
       declaration inside it. */
-   --cam-wizard-pod-pad: var(--cam-space-5);
-   --vt-font: var(--cam-font-sans);
+  --cam-wizard-pod-pad: var(--cam-space-5);
+  --vt-font: var(--cam-font-sans);
 
-   /* ── Respondent tokens recorded from live fallbacks ──
+  /* ── Respondent tokens recorded from live fallbacks ──
      These names were referenced in the questionnaire and /home code with a
      hex fallback but never defined, so the fallback was what rendered. Each
      is defined here with that rendered value (the majority value where two
      call sites disagreed), so the name is real and nothing visibly moves.
      They are a record of what the respondent side shows, not new palette
-     choices: --cam-primary in particular is a Tailwind blue on the locale
-     switcher, not the brand primary (--cam-green). Redirecting them onto
-     the core palette belongs with the wizard restyle's UX review. */
-   --cam-border-subtle: #eeeeee;
-   --cam-surface-2: #f2f2f2;
-   --cam-bg-subtle: #f8f8f8;
-   --cam-primary: #1d4ed8;
-   /* The grey a PDF reader puts behind the page, in the live preview pane.
+     choices. Redirecting them onto the core palette belongs with the
+     wizard restyle's UX review. */
+  /* Folded onto the palette (owner, 2026-10-14). */
+  --cam-border-subtle: var(--cam-border-soft);
+  --cam-surface-2: var(--cam-surface-subtle);
+  --cam-bg-subtle: var(--cam-bg);
+  /* The grey a PDF reader puts behind the page, in the live preview pane.
       Named at its rendered value like the rest of this block; whether a
       respondent screen should carry a dark field at all belongs with the
       wizard restyle's UX review. */
-   --cam-viewer-backdrop: #525659;
-   /* The masthead's preview button while the side preview is open. Both are
+  --cam-viewer-backdrop: #525659;
+  /* The masthead's preview button while the side preview is open. Both are
       near-misses of --cam-green (#1e6b3a); named at their rendered values so
       nothing moves, and redirecting them onto the core palette belongs with
       the same UX review as the rest of this block. */
-   --cam-green-active-wash: #e6f4ea;
-   --cam-green-active-ink: #1e7e34;
-   --cam-amber-bg: #fff8e6;
-   --cam-amber-border: #fcd34d;
-   --cam-amber-badge: #fef3c7;
-   --cam-amber-text: #92400e;
+  --cam-green-active-wash: var(--cam-primary-tint);
+  --cam-green-active-ink: var(--cam-primary);
+  --cam-amber-bg: #fff8e6;
+  --cam-amber-border: #fcd34d;
+  --cam-amber-badge: #fef3c7;
+  --cam-amber-text: #92400e;
 
-   /* ── VT respondent screens, recorded from inline literals ──
+  /* ── VT respondent screens, recorded from inline literals ──
      The VT sidebar, validation screen and PDF preview wrote these colours
      as hex in inline styles. Each token holds exactly the value that was
      rendered, so nothing visibly moves. Like the block above, they are a
      record, not palette choices: folding them onto the core palette
      (--cam-success-bg, --cam-green, --cam-warning-*) belongs with the
      wizard restyle's UX review. */
-   /* Light green success tints: completion notices and the current rail item. */
-   --cam-success-surface: #f0fdf4;
-   --cam-success-border-soft: #bbf7d0;
-   --cam-success-border-faint: #dcfce7;
-   --cam-success-mark: #16a34a;        /* filled "done" step badge */
-   --cam-success-link: #15803d;        /* text button inside a success notice */
-   --cam-success-text-strong: #166534; /* success notice heading/body */
-   --cam-success-text-deep: #14532d;   /* detail list inside a success notice */
-   /* VT section rail (sidebar). */
-   --cam-rail-active: #0e4d29;         /* current item, progress fill, percentage */
-   --cam-rail-active-shadow: 0 1px 3px color-mix(in srgb, var(--cam-rail-active) 8%, transparent);
-   --cam-rail-text: var(--cam-slate-800);
-   --cam-rail-border: var(--cam-slate-200);
-   --cam-rail-kicker: var(--cam-slate-400);
-   --cam-rail-text-muted: var(--cam-slate-500);
-   --cam-rail-item-text: var(--cam-slate-600);
-   --cam-rail-item-done: var(--cam-slate-700);
-   --cam-rail-badge-border: var(--cam-slate-300);
-   /* 15% white: rail footer rules and progress track. */
-   --cam-white-wash: color-mix(in srgb, var(--cam-surface) 15%, transparent);
-   /* Validation-screen section status icons. */
-   --cam-status-in-progress: #555555;
-   --cam-status-not-started: #888888;
-   /* "In progress" badge (pale yellow notice). */
-   --cam-notice-surface: #fffceb;
-   --cam-notice-text: #7a6200;
-   /* PDF preview warnings (orange alert icon/heading, banner text). */
-   --cam-alert-orange: #d9530f;
-   --cam-alert-orange-text: #b03e08;
-   /* PDF viewer canvas behind the rendered pages. */
-   --cam-pdf-viewer-bg: #525252;
-   /* Resting shadow of a validation-screen section row. Black is not a
+  /* Light green success tints: completion notices and the current rail item. */
+  /* Folded onto the primary family (owner, 2026-10-14): left as Tailwind
+     greens they would sit beside teal as a second brand. */
+  --cam-success-surface: var(--cam-primary-tint);
+  --cam-success-border-soft: var(--cam-success-border);
+  --cam-success-border-faint: var(--cam-primary-tint);
+  --cam-success-mark: var(--cam-primary);
+  /* filled "done" step badge */
+  --cam-success-link: var(--cam-primary-dark);
+  /* text button inside a success notice */
+  --cam-success-text-strong: var(--cam-primary-dark);
+  /* success notice heading/body */
+  --cam-success-text-deep: var(--cam-primary-dark);
+  /* detail list inside a success notice */
+  /* VT section rail (sidebar). */
+  --cam-rail-active: var(--cam-primary-dark);
+  /* current item, progress fill, percentage */
+  --cam-rail-active-shadow: 0 1px 3px color-mix(in srgb, var(--cam-rail-active) 8%, transparent);
+  --cam-rail-text: var(--cam-slate-800);
+  --cam-rail-border: var(--cam-slate-200);
+  --cam-rail-kicker: var(--cam-slate-400);
+  --cam-rail-text-muted: var(--cam-slate-500);
+  --cam-rail-item-text: var(--cam-slate-600);
+  --cam-rail-item-done: var(--cam-slate-700);
+  --cam-rail-badge-border: var(--cam-slate-300);
+  /* Validation-screen section status icons. */
+  --cam-status-in-progress: var(--cam-text-muted);
+  --cam-status-not-started: var(--cam-placeholder);
+  /* "In progress" badge (pale yellow notice). */
+  --cam-notice-surface: #fffceb;
+  --cam-notice-text: #7a6200;
+  /* PDF preview warnings (orange alert icon/heading, banner text). */
+  --cam-alert-orange: #d9530f;
+  --cam-alert-orange-text: #b03e08;
+  /* PDF viewer canvas behind the rendered pages. */
+  --cam-pdf-viewer-bg: #525252;
+  /* Resting shadow of a validation-screen section row. Black is not a
      token, so the shadow base is named here. */
-   --cam-shadow-black: #000000;
-   --cam-shadow-row: 0 1px 3px color-mix(in srgb, var(--cam-shadow-black) 4%, transparent);
-   /* VT soft red (vt-wizard-section-utils VT_RED_SOFT). */
-   --vt-red-soft: #fff5f5;
+  --cam-shadow-black: #000000;
+  --cam-shadow-row: 0 1px 3px color-mix(in srgb, var(--cam-shadow-black) 4%, transparent);
+  /* VT soft red (vt-wizard-section-utils VT_RED_SOFT). */
+  --vt-red-soft: #fff5f5;
 }
 
 .vt-wizard {
-   --vt-yellow: #fcd116;
-   --vt-red: #ce1126;
-   --vt-bg: var(--cam-bg);
-   --vt-card-border: var(--cam-border);
-   --vt-ink: var(--cam-text);
-   --vt-ink-soft: var(--cam-text-muted);
-   --vt-ink-faint: #7a7a7a;
-   --vt-accent: var(--cam-green);
-   --vt-accent-soft: var(--cam-success-bg);
-   --vt-card-radius: var(--cam-radius-md);
-   --vt-sidebar-width: var(--cam-side-rail-width);
-   --vt-content-max: 760px;       /* form sections: 600px answers + padding (owner, 2026-10-10) */
-   --vt-content-max-wide: 1100px; /* sections holding a statistical table */
-   /* The wizard pod's inset: the gap between its edge and the
+  --vt-yellow: #fcd116;
+  --vt-red: #ce1126;
+  --vt-bg: var(--cam-bg);
+  --vt-card-border: var(--cam-border);
+  --vt-ink: var(--cam-text);
+  --vt-ink-soft: var(--cam-text-muted);
+  --vt-ink-faint: var(--cam-placeholder);
+  --vt-accent: var(--cam-green);
+  --vt-accent-soft: var(--cam-success-bg);
+  --vt-card-radius: var(--cam-radius-md);
+  --vt-sidebar-width: var(--cam-side-rail-width);
+  --vt-content-max: 760px;
+  /* form sections: 600px answers + padding (owner, 2026-10-10) */
+  --vt-content-max-wide: 1100px;
+  /* sections holding a statistical table */
+  /* The wizard pod's inset: the gap between its edge and the
       declaration inside it. */
-   --cam-wizard-pod-pad: var(--cam-space-5);
-   --cam-form-field-height: var(--cam-respondent-field-height);
-   --vt-font: var(--cam-font-sans);
-   font-family: var(--vt-font);
-   color: var(--vt-ink);
-   background: var(--vt-bg);
+  --cam-wizard-pod-pad: var(--cam-space-5);
+  --cam-form-field-height: var(--cam-respondent-field-height);
+  --vt-font: var(--cam-font-sans);
+  font-family: var(--vt-font);
+  color: var(--vt-ink);
+  background: var(--vt-bg);
 }
 
 /* The registration wizard's boxes, the same height as the questionnaires'. */
 .cam-auth-page--wizard {
-   --cam-field-height: var(--cam-respondent-field-height);
+  --cam-field-height: var(--cam-respondent-field-height);
+}
+
+/* Phones: the portal's section depths and h2 step down together. */
+@media (max-width: 720px) {
+  :root {
+    --cam-section-pad-hero: var(--cam-space-7);
+    --cam-section-pad-standard: var(--cam-space-7);
+    --cam-section-pad-compact: var(--cam-space-5);
+    --cam-font-size-portal-h2: 1.625rem;
+    /* 26px */
+    --cam-font-size-portal-lead: 1.125rem;
+    /* 18px */
+  }
 }
 
 /* Phones: every table cell steps down together, never individually. */
 @media (max-width: 639px) {
-   :root { --cam-table-fs: 0.8125rem; }
+  :root {
+    --cam-table-fs: 0.8125rem;
+  }
 }
 
 /* Phones: the wizard card's chrome tightens so the scrolling form body keeps
@@ -562,14 +703,14 @@
    thin -- on a small screen the frame is the only thing separating the form
    from the page behind it. */
 @media (max-width: 640px) {
-   :root {
-      --cam-section-pad: 16px;
-      --cam-card-pad-x: 16px;
-      --cam-card-head-pad-top: 14px;
-      --cam-card-head-pad-bottom: 10px;
-      --cam-card-body-pad-y: 14px;
-      --cam-card-foot-pad-y: 12px;
-      --cam-card-shell-pad-y: var(--cam-space-3);
-      --cam-card-shell-pad-x: var(--cam-space-2);
-   }
+  :root {
+    --cam-section-pad: 16px;
+    --cam-card-pad-x: 16px;
+    --cam-card-head-pad-top: 14px;
+    --cam-card-head-pad-bottom: 10px;
+    --cam-card-body-pad-y: 14px;
+    --cam-card-foot-pad-y: 12px;
+    --cam-card-shell-pad-y: var(--cam-space-3);
+    --cam-card-shell-pad-x: var(--cam-space-2);
+  }
 }

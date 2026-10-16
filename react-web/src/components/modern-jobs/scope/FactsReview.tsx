@@ -67,7 +67,7 @@ export function FactsReview({
         </h2>
         <p
           style={{
-            fontSize: 13,
+            fontSize: "var(--cam-font-size-xs)",
             color: "var(--cam-text-muted)",
             margin: 0,
             lineHeight: 1.45,
@@ -83,11 +83,11 @@ export function FactsReview({
           role="alert"
           style={{
             padding: "12px 16px",
-            background: "#fffbeb",
-            border: "1px solid #fde68a",
+            background: "var(--cam-warning-bg)",
+            border: "1px solid var(--cam-warning-border)",
             borderRadius: "var(--cam-radius-sm, 6px)",
-            color: "#92400e",
-            fontSize: 13,
+            color: "var(--cam-warning)",
+            fontSize: "var(--cam-font-size-xs)",
             fontWeight: 600,
             marginBottom: 20,
             display: "flex",
@@ -131,7 +131,7 @@ export function FactsReview({
             border: "1px solid var(--cam-border)",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "9px 20px",
-            fontSize: 13,
+            fontSize: "var(--cam-font-size-xs)",
             fontWeight: 600,
             color: "var(--cam-text)",
             cursor: "pointer",
@@ -149,9 +149,9 @@ export function FactsReview({
             border: "none",
             borderRadius: "var(--cam-radius-sm, 6px)",
             padding: "10px 22px",
-            fontSize: 14,
+            fontSize: "var(--cam-font-size-sm)",
             fontWeight: 700,
-            color: "#ffffff",
+            color: "var(--cam-white)",
             cursor: "pointer",
             boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
           }}

@@ -142,7 +142,16 @@ class FieldValidator {
     final raw = data[f.id];
     final v = raw?.toString().trim() ?? '';
 
-    if (v.isEmpty) return const ValidationError(ValidationErrorCode.required);
+    if (raw is List) {
+      final hasAny = raw.any((item) => item != null && item.toString().trim().isNotEmpty);
+      if (!hasAny) return const ValidationError(ValidationErrorCode.required);
+      if (f.id == 'VT9_4') {
+        final first = raw.isEmpty ? '' : raw[0]?.toString().trim() ?? '';
+        if (first.isEmpty) return const ValidationError(ValidationErrorCode.required);
+      }
+    } else if (v.isEmpty) {
+      return const ValidationError(ValidationErrorCode.required);
+    }
 
     switch (f.type) {
       case 'tel':

@@ -44,7 +44,7 @@ export function FormSubsection({
         gap: 16,
         marginTop: bordered ? 18 : 0,
         paddingTop: bordered ? 18 : 0,
-        borderTop: bordered ? "1px solid var(--vt-card-border, #e5eae7)" : undefined,
+        borderTop: bordered ? "1px solid var(--vt-card-border)" : undefined,
       }}
     >
       {title && (

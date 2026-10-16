@@ -486,7 +486,7 @@ export function SectionRenderer({
               gap: 8,
               padding: "8px 12px",
               borderRadius: "var(--cam-radius-sm)",
-              background: "var(--vt-accent-soft, #eaf3ec)",
+              background: "var(--vt-accent-soft)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: 12.5,
@@ -803,7 +803,7 @@ export function SectionRenderer({
                         ? "var(--cam-success-bg)"
                         : "var(--cam-surface)",
                   color: isCurrent
-                    ? "#ffffff"
+                    ? "var(--cam-white)"
                     : chunkHasError
                       ? "var(--cam-error)"
                       : chunkAllAnswered
@@ -1056,7 +1056,7 @@ export function SectionRenderer({
                 </h3>
                 <p
                   style={{
-                    fontSize: 13,
+                    fontSize: "var(--cam-font-size-xs)",
                     color: "var(--cam-text-muted)",
                     maxWidth: 520,
                     margin: "0 auto 20px",
@@ -1074,7 +1074,7 @@ export function SectionRenderer({
                       border: "1px solid var(--cam-border)",
                       borderRadius: "var(--cam-radius-sm)",
                       padding: "8px 18px",
-                      fontSize: 13,
+                      fontSize: "var(--cam-font-size-xs)",
                       fontWeight: 600,
                       color: "var(--cam-green)",
                       cursor: "pointer",

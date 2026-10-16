@@ -25,9 +25,9 @@ import {
   isFieldVisible,
   type RegistrationStepId,
 } from "./register-constants";
-import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, registerOptionLabel } from "./register-options";
+import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, RESPONDENT_FUNCTION_OTHER, registerOptionLabel } from "./register-options";
 import { localized, type UiLocale } from "./register-i18n";
-import type { RegState } from "./register-completeness";
+import { isSecurityComplete, type RegState } from "./register-completeness";
 
 export interface SummaryRow {
   label: string;
@@ -79,12 +79,18 @@ export function summaryRows(
     case "respondent": {
       const r = state.respondent;
       const fullName = `${r.firstName.trim()} ${r.lastName.trim()}`.trim();
+      // Autre is a prompt, not a job. The review and the rail show the text
+      // that will be stored, which is what the respondent typed.
+      const functionValue =
+        r.function === RESPONDENT_FUNCTION_OTHER
+          ? r.functionOther.trim() ||
+            registerOptionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale)
+          : r.function
+            ? registerOptionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale)
+            : "";
       return compact([
         row(t("registerPage.summaryFullNameLabel"), fullName),
-        row(
-          t("registerPage.functionLabel"),
-          r.function ? registerOptionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale) : ""
-        ),
+        row(t("registerPage.functionLabel"), functionValue),
         row(t("registerPage.professionalEmailLabel"), r.email),
         row(t("registerPage.phone1Label"), r.phone1),
         // Optional, so it is simply absent when unanswered rather than shown
@@ -128,10 +134,12 @@ export function summaryRows(
       ]);
 
     case "security":
-      // The password is never summarised, shown or stored. The login identity
-      // is what this section actually establishes.
+      // The password is never summarised, shown or stored, and neither is the
+      // email: that already has its own row under the respondent. One line
+      // says the password was chosen, and only once it actually was.
+      if (!isSecurityComplete(state)) return [];
       return compact([
-        row(t("registerPage.summaryLoginLabel"), state.respondent.email),
+        row(t("registerPage.passwordLabel"), t("registerPage.summaryPasswordSet")),
       ]);
 
     case "review":

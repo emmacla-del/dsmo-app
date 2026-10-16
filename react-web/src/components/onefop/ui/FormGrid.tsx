@@ -70,7 +70,7 @@ export function FormSectionCard({ children, className = "", id }: FormSectionCar
   return (
     <section
       id={id}
-      className={`w-full bg-white border border-[#d8ddd3] rounded-[4px] p-4 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-shadow duration-200 ${className}`}
+      className={`w-full bg-white border border-[var(--cam-border)] rounded-[4px] p-4 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-shadow duration-200 ${className}`}
     >
       {children}
     </section>
@@ -103,12 +103,12 @@ export function SubsectionHeader({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span
-            className="w-1 h-5 bg-[#1a5c3a] rounded-full shrink-0"
+            className="w-1 h-5 bg-[var(--cam-green)] rounded-full shrink-0"
             aria-hidden="true"
           />
           <div className="flex items-baseline gap-2.5 flex-wrap">
             {code && (
-              <span className="font-mono text-xs font-bold text-[#1a5c3a] bg-[#eaf3ec] px-2 py-0.5 rounded border border-[#1a5c3a]/20">
+              <span className="font-mono text-xs font-bold text-[var(--cam-green)] bg-[var(--cam-success-bg)] px-2 py-0.5 rounded border border-[var(--cam-green)]/20">
                 {code}
               </span>
             )}
@@ -126,7 +126,7 @@ export function SubsectionHeader({
         </p>
       )}
 
-      {hasDivider && <div className="h-px bg-[#d8ddd3] mt-4 w-full" />}
+      {hasDivider && <div className="h-px bg-[var(--cam-border)] mt-4 w-full" />}
     </div>
   );
 }
