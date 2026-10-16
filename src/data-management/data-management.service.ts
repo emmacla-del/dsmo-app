@@ -14,6 +14,7 @@ import {
     buildExcelExportWhere,
     buildSpssExportWhere,
     resolveExportPartition,
+    safeCsvFilename,
     type OnefopExportFilters,
 } from './spss/export-filters';
 import { Territory, territoryWhere, territoryWhereForDeclaration, territoryWhereForExport } from '../auth/territory';
@@ -748,16 +749,33 @@ export class DataManagementService {
     /// streamApprovedOnefopSubmissionsCsv with the same filters.
     async buildSpssManifest(filters: OnefopExportFilters, territory?: Territory): Promise<{ sps: string; schemaVersion: number }> {
         const where = this.buildSpssWhere(filters, territory);
+        const csvFilename = safeCsvFilename(filters.csvFilename, 'onefop_submissions.csv');
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
             return {
-                sps: this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv'),
+                sps: this.canonicalAdapter.buildSpssSyntax(variables, csvFilename),
                 schemaVersion: DATASET_SCHEMA_VERSION,
             };
         }
         const columns = await this.buildFlatColumns(where);
-        return { sps: this.buildSpssSyntax(columns, 'onefop_submissions.csv'), schemaVersion: DATASET_SCHEMA_VERSION };
+        return { sps: this.buildSpssSyntax(columns, csvFilename), schemaVersion: DATASET_SCHEMA_VERSION };
+    }
+
+    /// How many files an export with these filters holds, in total and per
+    /// questionnaire type: the same rows as the export itself (filters,
+    /// statistical eligibility, territory), so the export page's summary
+    /// says what the download will contain. One grouped query.
+    async countExport(filters: OnefopExportFilters, territory?: Territory): Promise<{ total: number; byFormType: Record<string, number> }> {
+        const where = this.buildSpssWhere(filters, territory);
+        const groups = await (this.prisma.onefopSubmission.groupBy as any)({ by: ['formType'], where, _count: true });
+        const byFormType: Record<string, number> = {};
+        let total = 0;
+        for (const g of groups as Array<{ formType: string; _count: number }>) {
+            byFormType[g.formType] = g._count;
+            total += g._count;
+        }
+        return { total, byFormType };
     }
 
     /// The data half — writes the CSV straight to the HTTP response as it's
@@ -1057,10 +1075,14 @@ export class DataManagementService {
         version: `Version de la liste nominative : ${VT_ROSTER_DATASET_VERSION}.`,
     };
 
-    async buildVtRosterManifest(): Promise<{ sps: string; rosterVersion: number }> {
+    async buildVtRosterManifest(csvFilename?: unknown): Promise<{ sps: string; rosterVersion: number }> {
         const { variables } = this.vtRosterLayout();
         return {
-            sps: this.canonicalAdapter!.buildSpssSyntax(variables, 'onefop_8-8_liste_nominative.csv', this.vtRosterHeader),
+            sps: this.canonicalAdapter!.buildSpssSyntax(
+                variables,
+                safeCsvFilename(csvFilename, 'onefop_8-8_liste_nominative.csv'),
+                this.vtRosterHeader,
+            ),
             rosterVersion: VT_ROSTER_DATASET_VERSION,
         };
     }

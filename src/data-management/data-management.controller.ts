@@ -119,6 +119,13 @@ export class DataManagementController {
     return this.dataManagementService.buildSpssManifest(bodyFilters || {}, territoryFromUser(req.user));
   }
 
+  // What an export with these filters holds, for the export page's summary.
+  @Post('export/submissions/count')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  async postExportSubmissionsCount(@Body() bodyFilters: any, @Request() req: any) {
+    return this.dataManagementService.countExport(bodyFilters || {}, territoryFromUser(req.user));
+  }
+
   @Get('export/submissions/spss/csv')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
   async getExportSubmissionsSpssCsv(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
@@ -151,8 +158,8 @@ export class DataManagementController {
   // (approved 2026-10-15, constitution §21). Every download is recorded.
   @Post('export/vt-roster/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
-  async postExportVtRosterManifest() {
-    return this.dataManagementService.buildVtRosterManifest();
+  async postExportVtRosterManifest(@Body('csvFilename') csvFilename?: string) {
+    return this.dataManagementService.buildVtRosterManifest(csvFilename);
   }
 
   @Post('export/vt-roster/csv')
