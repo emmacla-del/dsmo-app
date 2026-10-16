@@ -141,10 +141,25 @@ export function spanningHeadingsOf(values: readonly (string | undefined)[]): Spa
 }
 
 /**
- * How wide the widest table in a section wants to be, from each table's
- * data-column count, or 0 where the section holds none. The wizard's
+ * How wide the widest table in a section wants to be, from each table's own
+ * data-column widths (matrixDataColumnWidthsPx), frame included, or 0 where
+ * the section holds none. The wizard's
  * content column grows to this (within its own floor and cap) so a section
  * is no wider than what it actually shows.
+ */
+export function widestTableFromColumnWidthsPx(tables: readonly (readonly number[])[]): number {
+  return tables.reduce(
+    (widest, widths) =>
+      widths.length === 0 ? widest : Math.max(widest, tablePreferredWidthPx(widths) + 2 * TABLE_FRAME_BORDER_PX),
+    0,
+  );
+}
+
+/**
+ * The same from data-column counts alone, each column at
+ * TABLE_MAX_DATA_COL_PX. Too narrow for a table whose headings ask for wider
+ * columns (5.3 asks 142px a column in English): the wizard sizes its content
+ * from the real widths (widestTableFromColumnWidthsPx) where it knows them.
  */
 export function widestTableWidthPx(dataColumnCounts: readonly number[]): number {
   return dataColumnCounts.reduce((widest, columns) => {

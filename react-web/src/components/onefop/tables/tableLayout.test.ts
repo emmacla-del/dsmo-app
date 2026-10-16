@@ -139,3 +139,15 @@ test("the widest table still fits the frame at its headings' width", () => {
   );
   assert.ok(tablePreferredWidthPx(Array.from({ length: 9 }, () => width)) <= TABLE_MAX_WIDTH_PX);
 });
+
+// Defect 6 (2026-10-16): the wizard sized its content column at 89px a
+// column, while a fixed-row grid sizes its columns from its headings.
+test("the widest table from real column widths, frame included", async () => {
+  const { widestTableFromColumnWidthsPx, TABLE_LABEL_COL_PX, TABLE_FRAME_BORDER_PX } = await import("./tableLayout");
+  assert.equal(widestTableFromColumnWidthsPx([]), 0);
+  assert.equal(widestTableFromColumnWidthsPx([[]]), 0);
+  assert.equal(
+    widestTableFromColumnWidthsPx([[70, 70], [142, 142, 142, 142]]),
+    TABLE_LABEL_COL_PX + 4 * 142 + 2 * TABLE_FRAME_BORDER_PX,
+  );
+});
