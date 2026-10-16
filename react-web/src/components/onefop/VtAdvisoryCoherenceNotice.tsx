@@ -12,7 +12,9 @@
 // table; "Pourquoi ?" opens the explanation in place (a disclosure rather
 // than a hover tooltip, which a finger or a keyboard cannot reach).
 
+import { useContext } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { VtQuizContext } from "./VtScopeQuiz";
 import type { VtAdvisoryIssue } from "@/lib/vt-advisory-coherence";
 import { VT_ADVISORY_TABLE_CODES } from "@/lib/vt-advisory-coherence";
 
@@ -32,9 +34,13 @@ export function VtAdvisoryCoherenceNotice({
 }) {
   const t = useTranslations("vtWizard");
   const lang = useLocale().startsWith("en") ? "en" : "fr";
+  const { openQuiz } = useContext(VtQuizContext);
   const onScreen = new Set(tableFieldIds);
   const shown = issues.filter((issue) => issue.tables.some((id) => onScreen.has(id)));
   if (shown.length === 0) return null;
+  // A table the preliminary questionnaire switched off counts 0 and says so.
+  const label = (issue: VtAdvisoryIssue, i: 0 | 1) =>
+    issue.offTables.includes(issue.tables[i]) ? `${issue.labels[i][lang]} ${t("advisoryOff")}` : issue.labels[i][lang];
 
   return (
     <ul
@@ -59,9 +65,9 @@ export function VtAdvisoryCoherenceNotice({
           .map((s) =>
             t("advisoryFigures", {
               sex: t(s.sex === "male" ? "advisoryMen" : "advisoryWomen"),
-              first: issue.labels[0][lang],
+              first: label(issue, 0),
               firstValue: s.first,
-              second: issue.labels[1][lang],
+              second: label(issue, 1),
               secondValue: s.second,
             }),
           )
@@ -73,11 +79,20 @@ export function VtAdvisoryCoherenceNotice({
               <strong style={{ color: "var(--cam-warning)" }}>{t("advisoryTitle")}</strong>
               {lang === "fr" ? " : " : ": "}
               {figures}
-              {other && (
+              {other && !issue.offTables.includes(other) && (
                 <>
                   {" "}
                   <button type="button" className="cam-text-button" onClick={() => onOpenTable(other)}>
                     {t("crossTableOpen", { code: VT_ADVISORY_TABLE_CODES[other] })}
+                  </button>
+                </>
+              )}
+              {/* The other table is not asked: the answer to change, if any, is in the questionnaire. */}
+              {other && issue.offTables.includes(other) && openQuiz && (
+                <>
+                  {" "}
+                  <button type="button" className="cam-text-button" onClick={openQuiz}>
+                    {t("advisoryOpenQuiz")}
                   </button>
                 </>
               )}

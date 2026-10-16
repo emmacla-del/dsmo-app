@@ -19,8 +19,12 @@
 // unreadable cell counts 0; flagged when the sums differ and one is not 0.
 // Like vt-cross-table.ts, a comparison waits until both of its tables are
 // complete: while a table still has cells to fill, its total is unfinished.
+// A table the preliminary questionnaire switched off (4.10 when the centre
+// declares no former students) is complete and counts 0: that is what the
+// submission sends for it (QuizSemantics: NONE, every cell 0), so it is what
+// the server compares.
 import type { FormData, OnefopField } from "./onefop-schema";
-import { missingVtTableCells } from "./vt-quiz";
+import { missingVtTableCells, vtTableStatus } from "./vt-quiz";
 
 type Sex = "male" | "female";
 type Text = { fr: string; en: string };
@@ -90,6 +94,8 @@ export interface VtAdvisoryIssue {
   /** The two tables compared, in paper order. */
   tables: [string, string];
   labels: [Text, Text];
+  /** The compared tables the preliminary questionnaire switched off (counted 0). */
+  offTables: string[];
   /** One entry per sex whose figures disagree (men first). */
   bySex: Array<{ sex: Sex; first: number; second: number }>;
   why: Text;
@@ -103,6 +109,7 @@ function cellInt(value: unknown): number {
 }
 
 function sideSum(field: OnefopField, suffix: string, data: FormData): number {
+  if (vtTableStatus(field.id, data) === "NONE") return 0;
   let sum = 0;
   for (const row of field.table?.matrix ?? []) {
     for (const cell of row) if (cell.endsWith(suffix)) sum += cellInt(data[cell]);
@@ -113,7 +120,9 @@ function sideSum(field: OnefopField, suffix: string, data: FormData): number {
 /** Every advisory disagreement between complete tables of the section's fields. */
 export function vtAdvisoryIssues(fields: readonly OnefopField[], data: FormData): VtAdvisoryIssue[] {
   const byId = new Map(fields.map((f) => [f.id, f]));
-  const complete = (f: OnefopField | undefined): f is OnefopField => !!f && missingVtTableCells(f, data).length === 0;
+  const off = (f: OnefopField) => vtTableStatus(f.id, data) === "NONE";
+  const complete = (f: OnefopField | undefined): f is OnefopField =>
+    !!f && (off(f) || missingVtTableCells(f, data).length === 0);
   const issues: VtAdvisoryIssue[] = [];
   for (const rule of VT_ADVISORY_RULES) {
     const a = byId.get(rule.first.fieldId);
@@ -130,6 +139,7 @@ export function vtAdvisoryIssues(fields: readonly OnefopField[], data: FormData)
         code: rule.code,
         tables: [rule.first.fieldId, rule.second.fieldId],
         labels: [rule.first.label, rule.second.label],
+        offTables: [a, b].filter(off).map((f) => f.id),
         bySex,
         why: rule.why,
       });

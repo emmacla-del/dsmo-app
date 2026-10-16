@@ -1005,6 +1005,8 @@
     "advisoryMen": "men",
     "advisoryWomen": "women",
     "advisoryWhy": "Why?",
+    "advisoryOff": "(not applicable)",
+    "advisoryOpenQuiz": "Review the preliminary questionnaire",
     "crossTableOpenFull": "Open table {code} — comparison of tables {tables}",
     "rowOwes": "Still to fill: {cells}",
     "rowNumber": "row {index}",
