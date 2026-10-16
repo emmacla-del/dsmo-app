@@ -9,6 +9,7 @@ import { ApiError, getCachedUser, getMyAttestation } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
+import { respondentRailItems } from "@/lib/respondent-rail";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions } from "@/lib/shared-queries";
@@ -126,8 +127,13 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   }
 
   const effectiveRole = user ? resolveEffectiveRole(user) : null;
-  const navItems = (effectiveRole ? navItemsForRole(effectiveRole) : []).filter(
-    (item) => !item.rawRoles || (!!user && item.rawRoles.includes(user.role)),
+  // While the registration awaits approval, only its status page: every
+  // other page sends the respondent back to it (respondent-rail.ts).
+  const navItems = respondentRailItems(
+    (effectiveRole ? navItemsForRole(effectiveRole) : []).filter(
+      (item) => !item.rawRoles || (!!user && item.rawRoles.includes(user.role)),
+    ),
+    awaitingApproval,
   );
 
   return (
@@ -169,9 +175,14 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
             </div>
             {/* The campaign in words ("Campagne du 4e trimestre 2026"), never the
                 stored code nor the survey's all-caps title (lib/respondent-identity). */}
-            <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-              {campaignPhrase(quarterQuery.data, uiLocale) ?? t("homeLayout.currentCampaign")}
-            </div>
+            {/* Only a known campaign: the label alone read as if it were the
+                value while the campaign was unknown (awaiting approval, loading,
+                failed). */}
+            {!awaitingApproval && campaignPhrase(quarterQuery.data, uiLocale) && (
+              <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+                {campaignPhrase(quarterQuery.data, uiLocale)}
+              </div>
+            )}
             {/* A closed period must not read as the live campaign. */}
             {quarterQuery.data?.isOpen === false && (
               <div style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 700, color: "var(--cam-warning)" }}>
@@ -234,6 +245,11 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          {awaitingApproval && (
+            <p style={{ margin: 0, padding: "var(--cam-space-2) var(--cam-space-4)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+              {t("homeLayout.pendingNavHint")}
+            </p>
+          )}
         </nav>
 
         <div style={{ padding: "var(--cam-space-4)", borderTop: "var(--cam-border-width) solid var(--cam-border)" }}>
