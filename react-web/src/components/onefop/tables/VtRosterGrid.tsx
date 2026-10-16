@@ -62,10 +62,7 @@ export function VtRosterGrid({
   const missing = new Set(missingCells ?? []);
 
   // Rows opened with "Add" but not typed in yet (stored nowhere).
-  // An empty table opens slot 0 so clicking "Add" opens slot 1 without dropping slot 0.
-  const [opened, setOpened] = useState<number[]>(() =>
-    definition.slots.some((s) => slotStarted(definition, s, data)) ? [] : [0],
-  );
+  const [opened, setOpened] = useState<number[]>([]);
   const focusSlot = useRef<number | null>(null);
 
   const startedIdx = definition.slots
@@ -87,7 +84,9 @@ export function VtRosterGrid({
   const add = () => {
     if (nextFree < 0) return;
     focusSlot.current = nextFree;
-    setOpened((o) => [...o, nextFree]);
+    // Every row on screen stays open, the empty first line included: it is
+    // shown without being opened, and would vanish once another row is.
+    setOpened((o) => [...new Set([...o, ...shown, nextFree])]);
   };
 
   const remove = (index: number) => {
