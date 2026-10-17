@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { Campaign } from "./campaigns";
-import { coverageRows, pickCoverageCampaign, ratioToPercent } from "./pilotage-coverage";
+import { coverageRows, entityTypeRows, pickCoverageCampaign, ratioToPercent } from "./pilotage-coverage";
 import type { CampaignReturnsResponse, ReturnMetrics } from "./pilotage-targets";
 
 function campaign(over: Partial<Campaign>): Campaign {
@@ -87,4 +87,16 @@ test("a ratio converts to a percentage, and an absent ratio stays absent", () =>
   assert.equal(ratioToPercent(0.5), 50);
   assert.equal(ratioToPercent(null), null);
   assert.equal(ratioToPercent(undefined), null);
+});
+
+test("entityTypeRows passes the server's breakdown through, in its order", () => {
+  const byEntityType = [
+    { entityType: "ENTREPRISE", received: 3, approved: 1, onTime: 3, late: 0, registeredStock: 4, responseRate: 0.75 },
+    { entityType: "CTD", received: 0, approved: 0, onTime: 0, late: 0, registeredStock: 0, responseRate: null },
+  ];
+  assert.deepEqual(entityTypeRows(returns({ byEntityType })), byEntityType);
+});
+
+test("entityTypeRows is empty when the backend predates the breakdown", () => {
+  assert.deepEqual(entityTypeRows(returns({})), []);
 });

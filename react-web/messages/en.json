@@ -1648,7 +1648,10 @@
     "lateColumn": "Late",
     "responseRateColumn": "Response rate",
     "centralLevel": "Central level",
-    "coverageDetailLink": "Detail by department →"
+    "coverageDetailLink": "Detail by department →",
+    "entityTypeColumn": "Type of organisation",
+    "registeredColumn": "Registered",
+    "untypedFootnote": "{count, plural, one {# registered establishment with no type of organisation is not counted.} other {# registered establishments with no type of organisation are not counted.}}"
   },
   "adminKpiTile": {
     "unavailableTitle": "Data not available"

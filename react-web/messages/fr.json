@@ -1648,7 +1648,10 @@
     "lateColumn": "En retard",
     "responseRateColumn": "Taux de réponse",
     "centralLevel": "Niveau central",
-    "coverageDetailLink": "Détail par département →"
+    "coverageDetailLink": "Détail par département →",
+    "entityTypeColumn": "Type d'organisation",
+    "registeredColumn": "Inscrits",
+    "untypedFootnote": "{count, plural, one {# établissement inscrit sans type d'organisation n'est pas compté.} other {# établissements inscrits sans type d'organisation ne sont pas comptés.}}"
   },
   "adminKpiTile": {
     "unavailableTitle": "Donnée non disponible"
