@@ -117,6 +117,8 @@ const TEXT_ALLOWLIST = new Map([
   ["messages/en.json#adminCampagnesPage.referenceYearPlaceholder", "input placeholder showing the expected format"],
   ["src/lib/onefop-validation.ts#L'année doit être ≥ 1900", "validation bound, not a reporting year"],
   ["src/lib/onefop-validation.ts#Year must be ≥ 1900", "validation bound, not a reporting year"],
+  ["src/lib/onefop-validation.ts#Saisissez une date réelle au format JJ/MM/AAAA, pas dans le futur (ex. 15/03/2019)", "example date showing the expected format, not a reporting year"],
+  ["src/lib/onefop-validation.ts#Enter a real date as DD/MM/YYYY, not in the future (e.g. 15/03/2019)", "example date showing the expected format, not a reporting year"],
 ]);
 
 function isTestFile(filePath) {
