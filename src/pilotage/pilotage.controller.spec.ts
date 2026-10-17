@@ -45,6 +45,7 @@ describe('PilotageController roles', () => {
       ['getCoverage', read],
       ['getSemesterCoverage', read],
       ['getAnnualCoverage', read],
+      ['getActiveCollectionCampaigns', read],
       ['getCampaignQuotas', read],
       ['getCampaignReturns', read],
       ['getCampaignReturnsTimeline', read],

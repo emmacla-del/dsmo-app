@@ -117,6 +117,14 @@ export class PilotageController {
     );
   }
 
+  // Before the :id routes. Lets every pilotage reader find the active
+  // campaign's id without the campaign list (§21, 2026-10-17).
+  @Get('campaigns/active')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getActiveCollectionCampaigns() {
+    return this.pilotage.getActiveCollectionCampaigns();
+  }
+
   @Get('campaigns/:id/quotas')
   @Roles(...PILOTAGE_READ_ROLES)
   getCampaignQuotas(@Param('id') id: string, @Req() req: any) {

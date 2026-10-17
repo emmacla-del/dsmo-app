@@ -7,7 +7,9 @@ import type { CampaignReturnsResponse, EntityTypeReturnRow } from "./pilotage-ta
  * kind, but returns exist only for a collection campaign (the backend refuses
  * a registration one with 400), so a registration campaign is never picked.
  */
-export function pickCoverageCampaign(campaigns: readonly Campaign[] | undefined): Campaign | undefined {
+export function pickCoverageCampaign<C extends Pick<Campaign, "status" | "collectionType" | "purpose">>(
+  campaigns: readonly C[] | undefined,
+): C | undefined {
   return (campaigns ?? []).find(
     (campaign) =>
       campaign.status === "ACTIVE" && campaign.collectionType === "ONEFOP" && !isRegistrationCampaign(campaign),
