@@ -1475,3 +1475,146 @@ describe('PilotageService.getCampaignReturns', () => {
     expect(centre.onTimeRate).toBe(0.1); // 2/20
   });
 });
+
+describe('PilotageService.getCampaignReturnsTimeline', () => {
+  const NOW = new Date('2026-02-10T12:00:00Z');
+
+  function campaign(id = 'c1', overrides?: Record<string, unknown>) {
+    return {
+      id,
+      name: 'Campagne Pilote ONEFOP 2026',
+      code: 'ONEFOP-2026-T1',
+      collectionType: SubmissionModule.ONEFOP,
+      purpose: 'COLLECTION',
+      status: 'ACTIVE',
+      // Midnight in Douala (UTC+1) is 23:00 UTC the day before.
+      startDate: new Date('2026-01-31T23:00:00Z'),
+      endDate: new Date('2026-03-31T22:59:59Z'),
+      deadline: new Date('2026-02-28T23:00:00Z'),
+      extendedDeadline: null,
+      referenceYear: 2026,
+      referenceQuarter: 1,
+      ...overrides,
+    };
+  }
+
+  let seq = 0;
+  function sub(
+    companyId: string,
+    status: OnefopStatus,
+    at: string,
+    overrides?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    seq += 1;
+    return {
+      id: `s-${seq}`,
+      campaignId: 'c1',
+      companyId,
+      formType: OnefopEntityType.ENTREPRISE,
+      status,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      submissionDate: new Date(at),
+      createdAt: new Date(at),
+      ...overrides,
+    };
+  }
+
+  /** Every case the headline counts or skips, across territories. */
+  function mixedHarness() {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.onefopSubmissions.push(
+      // Rejected then resubmitted: counts once, on the resubmission's day.
+      sub('a', OnefopStatus.REJECTED, '2026-02-02T09:00:00Z'),
+      sub('a', OnefopStatus.APPROVED, '2026-02-05T09:00:00Z'),
+      // Replaced by a corrected file: counts once, on the first file's day.
+      sub('b', OnefopStatus.SUPERSEDED, '2026-02-03T09:00:00Z'),
+      sub('b', OnefopStatus.PENDING_REVIEW, '2026-02-08T09:00:00Z', { isLate: true }),
+      // Draft only: not received.
+      sub('c', OnefopStatus.DRAFT, '2026-02-03T09:00:00Z'),
+      // Rejected only: not received.
+      sub('d', OnefopStatus.REJECTED, '2026-02-04T09:00:00Z'),
+      // Another department and region.
+      sub('e', OnefopStatus.CORRECTION_REQUESTED, '2026-02-04T09:00:00Z', { departmentId: 'd-lekie' }),
+      sub('f', OnefopStatus.PENDING_REVIEW, '2026-02-04T09:00:00Z', { regionId: 'r-littoral', departmentId: 'd-wouri' }),
+      // Central administration, filed from Mfoundi: central bucket only.
+      sub('g', OnefopStatus.APPROVED, '2026-02-06T09:00:00Z', { formType: OnefopEntityType.ADMINISTRATION }),
+      // No department: unassigned, national only.
+      sub('h', OnefopStatus.PENDING_REVIEW, '2026-02-06T09:00:00Z', { departmentId: null }),
+    );
+    return harness;
+  }
+
+  it.each([
+    ['national', national],
+    ['regional', regional],
+    ['divisional', divisional],
+  ])('ends on the /returns headline total for a %s reader', async (_label, territory) => {
+    const harness = mixedHarness();
+    const returns = await harness.service.getCampaignReturns(territory, 'c1');
+    const timeline = await harness.service.getCampaignReturnsTimeline(territory, 'c1', NOW);
+
+    expect(timeline.total).toBe(returns.totals.received);
+    expect(timeline.days[timeline.days.length - 1].cumulative).toBe(returns.totals.received);
+    expect(timeline.days.reduce((sum, day) => sum + day.received, 0)).toBe(returns.totals.received);
+  });
+
+  it('pins the national totals the equality above rests on', async () => {
+    const timeline = await mixedHarness().service.getCampaignReturnsTimeline(national, 'c1', NOW);
+    // a, b, e, f, g, h: c is a draft, d was rejected.
+    expect(timeline.total).toBe(6);
+  });
+
+  it('dates an establishment by its first file that was not rejected', async () => {
+    const timeline = await mixedHarness().service.getCampaignReturnsTimeline(divisional, 'c1', NOW);
+    // Mfoundi for a divisional reader: a (05/02, after its rejection on 02/02)
+    // and b (03/02, its replaced file, not the 08/02 resubmission).
+    // g is central, h unassigned: neither is in a department's figures.
+    const byDay = Object.fromEntries(timeline.days.map((day) => [day.date, day.received]));
+    expect(byDay['2026-02-02']).toBe(0);
+    expect(byDay['2026-02-03']).toBe(1);
+    expect(byDay['2026-02-05']).toBe(1);
+    expect(byDay['2026-02-08']).toBe(0);
+    expect(timeline.total).toBe(2);
+  });
+
+  it('buckets by the Africa/Douala calendar day, keeps empty days, and runs from the start to today', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // 23:30 UTC on 2 Feb is 00:30 on 3 Feb in Douala.
+    harness.onefopSubmissions.push(sub('a', OnefopStatus.PENDING_REVIEW, '2026-02-02T23:30:00Z'));
+
+    const timeline = await harness.service.getCampaignReturnsTimeline(national, 'c1', NOW);
+
+    expect(timeline.timeZone).toBe('Africa/Douala');
+    expect(timeline.days[0]).toEqual({ date: '2026-02-01', received: 0, cumulative: 0 });
+    expect(timeline.days.find((day) => day.date === '2026-02-02')).toEqual({ date: '2026-02-02', received: 0, cumulative: 0 });
+    expect(timeline.days.find((day) => day.date === '2026-02-03')).toEqual({ date: '2026-02-03', received: 1, cumulative: 1 });
+    expect(timeline.days[timeline.days.length - 1]).toEqual({ date: '2026-02-10', received: 0, cumulative: 1 });
+    expect(timeline.days).toHaveLength(10);
+    expect(timeline.campaign.deadline).toBe('2026-02-28T23:00:00.000Z');
+  });
+
+  it('stops at the collection\'s last day once it has passed, the extended deadline included', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(
+      campaign('c1', {
+        endDate: new Date('2026-02-14T22:59:59Z'),
+        deadline: new Date('2026-02-14T23:00:00Z'),
+        extendedDeadline: new Date('2026-02-20T23:00:00Z'),
+      }),
+    );
+    const timeline = await harness.service.getCampaignReturnsTimeline(national, 'c1', new Date('2026-06-01T12:00:00Z'));
+    expect(timeline.days[timeline.days.length - 1].date).toBe('2026-02-21');
+    expect(timeline.campaign.extendedDeadline).toBe('2026-02-20T23:00:00.000Z');
+    expect(timeline.total).toBe(0);
+  });
+
+  it('refuses a registration campaign, as /returns does', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('reg-1', { purpose: 'REGISTRATION', status: 'DRAFT' }));
+    await expect(harness.service.getCampaignReturnsTimeline(national, 'reg-1', NOW)).rejects.toThrow(BadRequestException);
+  });
+});

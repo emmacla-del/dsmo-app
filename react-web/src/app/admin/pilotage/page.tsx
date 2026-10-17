@@ -10,6 +10,7 @@ import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
+import { CampaignProgressChart } from "@/components/admin/CampaignProgressChart";
 import { DataState } from "@/components/admin/DataState";
 import { count, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
@@ -198,6 +199,9 @@ function CampaignCoverage({
               )}
             </div>
           </dl>
+
+          {/* Is the campaign on pace? The curve ends on totals.received. */}
+          <CampaignProgressChart campaignId={campaign.id} registeredStock={totals.registeredStock} />
 
           <div className="cam-dash-table-wrap" style={{ marginTop: "var(--cam-space-5)" }}>
             <table className="cam-dash-table">
