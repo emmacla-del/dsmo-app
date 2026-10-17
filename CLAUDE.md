@@ -695,6 +695,18 @@ Approved changes on record:
   The dashboard uses it for every role. `GET /campaigns` and its roles are
   unchanged; do not widen them to solve this. No schema change. Approved by
   the owner in chat, 2026-10-17.
+- 2026-10-17 — restricted exports fail closed
+  (`DataManagementService.recordRestrictedExport`, the four
+  `vt-roster/{csv,sav}` and `vt-contact/{csv,sav}` routes). Issue: the 8.8
+  roster and VT contact files are allowed on condition that every download
+  is recorded (entries above), but the record was best-effort: a failed audit
+  write was swallowed and the file still went out. Decision: these four
+  routes write the DATA_EXPORT row first and await it; if it cannot be
+  written, or the request has no user, the download is refused with 503
+  « Le téléchargement n'a pas pu être enregistré ; réessayez dans un
+  instant. » and nothing is streamed. Every other export keeps best-effort
+  `logExport`, which now logs a failed write. The .sps manifests carry no
+  personal data and are unchanged. Approved by the owner in chat, 2026-10-17.
 
 ---
 
