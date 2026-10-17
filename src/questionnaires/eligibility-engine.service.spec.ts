@@ -572,7 +572,9 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
         ),
       },
       onefopAnomaly: { count: jest.fn(async () => 3) },
+      auditLog: reviewDelayMocks().auditLog,
     };
+    Object.assign(prisma.onefopSubmission, reviewDelayMocks().onefopSubmission);
     const engine = new EligibilityEngineService(prisma);
 
     const queues = await engine.getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
@@ -596,8 +598,13 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     const prisma: any = {
       onefopSubmission: {
         count: jest.fn(async () => 650),
-        findMany: jest.fn(async () => {
-          throw new Error('getPilotageQueues must not fetch submission rows');
+        aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
+        // The only rows read are the two dates of each recent decision.
+        findMany: jest.fn(async (args: any) => {
+          if (JSON.stringify(args.select) !== JSON.stringify({ id: true, submissionDate: true, reviewedAt: true })) {
+            throw new Error('getPilotageQueues must not fetch whole submission rows');
+          }
+          return [];
         }),
         groupBy: jest.fn(async ({ by }: any) =>
           by[0] === 'status'
@@ -611,6 +618,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
         ),
       },
       onefopAnomaly: { count: jest.fn(async () => 3) },
+      auditLog: { findMany: jest.fn(async () => []) },
     };
     const engine = new EligibilityEngineService(prisma);
 
@@ -622,10 +630,10 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     expect(queues.pendingNationalVisasCount).toBe(400);
     expect(queues.correctionsUnderReviewCount).toBe(80);
     expect(prisma.onefopSubmission.groupBy).toHaveBeenCalledTimes(2);
-    expect(prisma.onefopSubmission.findMany).not.toHaveBeenCalled();
-    // The one remaining submission count is the statistically-ready figure,
-    // computed in the database with a `none` anomaly filter.
-    expect(prisma.onefopSubmission.count).toHaveBeenCalledTimes(1);
+    expect(prisma.onefopSubmission.findMany).toHaveBeenCalledTimes(1);
+    // Two submission counts: the statistically-ready figure, computed in the
+    // database with a `none` anomaly filter, and the overdue review count.
+    expect(prisma.onefopSubmission.count).toHaveBeenCalledTimes(2);
     expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         status: 'APPROVED',
@@ -674,15 +682,18 @@ describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', (
               ]
             : [{ region: 'Littoral', _count: { _all: 1100 } }],
         ),
+        aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
+        findMany: jest.fn(async () => []),
       },
       onefopAnomaly: { count: jest.fn(async () => 3) },
+      auditLog: { findMany: jest.fn(async () => []) },
     };
     const state = trackConcurrency(prisma);
     const engine = new EligibilityEngineService(prisma);
 
     const queues = await engine.getPilotageQueues({ role: 'SUPER_ADMIN' });
 
-    expect(state.calls).toBe(4);
+    expect(state.calls).toBe(8);
     expect(state.peak).toBeLessThanOrEqual(2);
     expect(queues).toEqual({
       totalSubmissionsCount: 1100,
@@ -693,7 +704,117 @@ describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', (
       statusCounts: { PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 0 },
       approvedCount: 700,
       regionCounts: [{ region: 'Littoral', count: 1100 }],
+      reviewDelay: {
+        thresholdDays: 7,
+        oldestPendingSubmittedAt: null,
+        pendingOverThresholdCount: 650,
+        windowDays: 90,
+        decidedMedianDays: null,
+        decidedCount: 0,
+      },
     });
+  });
+});
+
+/** Review-delay queries returning nothing: no file waits, none was decided. */
+function reviewDelayMocks() {
+  return {
+    onefopSubmission: {
+      aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
+      findMany: jest.fn(async () => []),
+    },
+    auditLog: { findMany: jest.fn(async () => []) },
+  };
+}
+
+describe('EligibilityEngineService.getPilotageQueues — review delay', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const daysAgo = (d: number) => new Date(now - d * DAY);
+
+  function makePrisma(decided: Array<{ id: string; submittedDaysAgo: number; decidedDaysAgo: number }>, reopenedIds: string[] = []) {
+    return {
+      onefopSubmission: {
+        groupBy: jest.fn(async () => []),
+        count: jest.fn(async ({ where }: any) => (where.AND?.some((c: any) => c.submissionDate) ? 3 : 0)),
+        aggregate: jest.fn(async () => ({ _min: { submissionDate: daysAgo(12) } })),
+        findMany: jest.fn(async () =>
+          decided.map((d) => ({ id: d.id, submissionDate: daysAgo(d.submittedDaysAgo), reviewedAt: daysAgo(d.decidedDaysAgo) })),
+        ),
+      },
+      onefopAnomaly: { count: jest.fn(async () => 0) },
+      auditLog: { findMany: jest.fn(async () => reopenedIds.map((resourceId) => ({ resourceId }))) },
+    };
+  }
+
+  it('reports the oldest waiting file, the overdue count and the decision median', async () => {
+    // Waits of 1, 3, 4 and 10 days: median 3.5.
+    const prisma: any = makePrisma([
+      { id: 'a', submittedDaysAgo: 2, decidedDaysAgo: 1 },
+      { id: 'b', submittedDaysAgo: 5, decidedDaysAgo: 2 },
+      { id: 'c', submittedDaysAgo: 6, decidedDaysAgo: 2 },
+      { id: 'd', submittedDaysAgo: 20, decidedDaysAgo: 10 },
+    ]);
+    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
+
+    expect(reviewDelay.thresholdDays).toBe(7);
+    expect(reviewDelay.windowDays).toBe(90);
+    expect(new Date(reviewDelay.oldestPendingSubmittedAt!).getTime()).toBe(daysAgo(12).getTime());
+    expect(reviewDelay.pendingOverThresholdCount).toBe(3);
+    expect(reviewDelay.decidedMedianDays).toBe(3.5);
+    expect(reviewDelay.decidedCount).toBe(4);
+  });
+
+  it('measures PENDING_REVIEW only, scoped like the queue counts, with a 7-day threshold', async () => {
+    const prisma: any = makePrisma([]);
+    await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
+
+    const territory = { region: { equals: 'Littoral', mode: 'insensitive' } };
+    const [{ where: oldestWhere }] = prisma.onefopSubmission.aggregate.mock.calls[0];
+    expect(oldestWhere).toEqual({ AND: [territory, { status: 'PENDING_REVIEW' }] });
+
+    const overdue = prisma.onefopSubmission.count.mock.calls
+      .map(([args]: any) => args.where)
+      .find((w: any) => w.AND?.some((c: any) => c.submissionDate));
+    expect(overdue.AND.slice(0, 2)).toEqual([territory, { status: 'PENDING_REVIEW' }]);
+    const cutoff = overdue.AND[2].submissionDate.lt.getTime();
+    expect(Math.abs(cutoff - daysAgo(7).getTime())).toBeLessThan(5000);
+
+    const [{ where: decidedWhere, select }] = prisma.onefopSubmission.findMany.mock.calls[0];
+    expect(select).toEqual({ id: true, submissionDate: true, reviewedAt: true });
+    expect(decidedWhere.AND[0]).toEqual(territory);
+    expect(decidedWhere.AND[1]).toEqual({ status: { in: ['APPROVED', 'REJECTED', 'CORRECTION_REQUESTED', 'SUPERSEDED'] } });
+    expect(Math.abs(decidedWhere.AND[2].reviewedAt.gte.getTime() - daysAgo(90).getTime())).toBeLessThan(5000);
+  });
+
+  it('fails closed for a territorial account without a territory', async () => {
+    const prisma: any = makePrisma([]);
+    await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'REGIONAL_ADMIN' });
+    expect(prisma.onefopSubmission.aggregate.mock.calls[0][0].where.AND[0]).toEqual({ id: { in: [] } });
+    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].where.AND[0]).toEqual({ id: { in: [] } });
+  });
+
+  it('leaves reopened files out of the median: their reviewedAt is the reopening', async () => {
+    const prisma: any = makePrisma(
+      [
+        { id: 'a', submittedDaysAgo: 3, decidedDaysAgo: 1 },
+        { id: 'reopened', submittedDaysAgo: 80, decidedDaysAgo: 1 },
+      ],
+      ['reopened'],
+    );
+    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
+    expect(reviewDelay.decidedMedianDays).toBe(2);
+    expect(reviewDelay.decidedCount).toBe(1);
+    expect(prisma.auditLog.findMany.mock.calls[0][0].where).toMatchObject({ action: 'AUDIT_REOPEN', resourceType: 'OnefopSubmission' });
+  });
+
+  it('returns null, not zero, when nothing waits and nothing was decided', async () => {
+    const prisma: any = makePrisma([]);
+    prisma.onefopSubmission.aggregate = jest.fn(async () => ({ _min: { submissionDate: null } }));
+    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
+    expect(reviewDelay.oldestPendingSubmittedAt).toBeNull();
+    expect(reviewDelay.decidedMedianDays).toBeNull();
+    expect(reviewDelay.decidedCount).toBe(0);
   });
 });
 
