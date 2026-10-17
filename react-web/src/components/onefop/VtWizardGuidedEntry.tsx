@@ -554,7 +554,7 @@ export function VtWizardFixedRowMultiNumberEntry({
       </p>
       <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
         {t("vtWizard.rowsFilledNote", {
-          default: "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
+          default: "Avancement : {count} sur {total} {noun}. Les lignes peuvent être modifiées ou supprimées avant validation.",
           count: entered.length,
           total: rows.length,
           noun: localizedNoun(vt.progressNoun, locale, "lignes", "rows"),
@@ -774,7 +774,7 @@ export function VtWizardProgressiveGuidedTableEntry({
       </p>
       <p style={{ fontSize: "var(--cam-microcopy-size)", color: inkSoft, fontFamily: "var(--cam-font-sans)", margin: "4px 0" }}>
         {t("vtWizard.rowsFilledNote", {
-          default: "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
+          default: "Avancement : {count} sur {total} {noun}. Les lignes peuvent être modifiées ou supprimées avant validation.",
           count: entered.length,
           total: rows.length,
           noun: localizedNoun(vt.progressNoun, locale, "lignes", "rows"),

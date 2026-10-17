@@ -955,7 +955,7 @@
       "sectionWaived": "Not asked: the centre declared itself closed or non-functional in 1.12.",
       "sectionEmpty": "No question in this section applies."
     },
-    "issuesCount": "{count} issue(s)",
+    "issuesCount": "{count, plural, one {# issue to fix} other {# issues to fix}}",
     "backButton": "Back to Section 9",
     "saveDraftButton": "Save Draft",
     "submitting": "Submitting…",

@@ -955,7 +955,7 @@
       "sectionWaived": "Non posée : le centre s'est déclaré fermé ou non fonctionnel en 1.12.",
       "sectionEmpty": "Aucune question de cette section ne s'applique."
     },
-    "issuesCount": "{count} incomplet(s)",
+    "issuesCount": "{count, plural, one {# point à corriger} other {# points à corriger}}",
     "backButton": "Retour à la section 9",
     "saveDraftButton": "Sauvegarder Brouillon",
     "submitting": "Envoi en cours…",
@@ -1053,7 +1053,7 @@
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "selectAnOption": "Sélectionner une option",
     "graduates": "Diplômés",
-    "rowsFilledNote": "{count} {noun} renseigné(s) sur {total}. Les lignes peuvent être éditées ou supprimées avant validation.",
+    "rowsFilledNote": "Avancement : {count} sur {total} {noun}. Les lignes peuvent être modifiées ou supprimées avant validation.",
     "countOfTotalNoun": "{count} {noun} sur {total}.",
     "totalAdded": "{count} {noun} ajoutés",
     "filledOfTotalNoun": "{count}/{total} {noun} renseignées",
