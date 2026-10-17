@@ -20,6 +20,11 @@ describe('SavWriter', () => {
     expect(h.readInt32LE(h.length - 4)).toBe(0);
   });
 
+  it('names CAMLEAP as the producer in the 60-byte product field (brand, §21 2026-10-17)', () => {
+    const product = new SavWriter(vars).header().subarray(4, 64).toString('ascii');
+    expect(product.trimEnd()).toBe('@(#) SPSS DATA FILE CAMLEAP ONEFOP');
+  });
+
   it('declares UTF-8 (7/3 character code 65001 and 7/20)', () => {
     const h = new SavWriter(vars).header();
     expect(h.includes(Buffer.from('UTF-8'))).toBe(true);
@@ -181,6 +186,11 @@ describe('SavWriter very long strings (> 255 bytes)', () => {
     const rows = [[1, 'Brasseries du Cameroun 😀', 'A', 'REPORTED', 1234.5], [null, 'é'.repeat(300), '', null, -98], [0, '', 'B', 'NONE', '42']];
     const w = new SavWriter(golden, { fileLabel: 'Golden', createdAt: new Date(2026, 8, 18, 16, 45, 0) });
     const bytes = Buffer.concat([w.header(), ...rows.map((r) => w.encodeCase(r)), w.finish()]);
+    // The golden was taken when the 60-byte product field (offset 4) still
+    // read "CAM-LEAP"; the brand rename (§21, 2026-10-17) changed only that
+    // field. Putting the old text back must give the old digest, which proves
+    // every other byte is unchanged.
+    bytes.write('@(#) SPSS DATA FILE CAM-LEAP ONEFOP'.padEnd(60, ' '), 4, 60, 'ascii');
     expect(createHash('sha256').update(bytes).digest('hex')).toBe('2be528f9efffaa8879880eb3c291d14ed0cabd874d2060fa45508cd8310cc750');
   });
 
