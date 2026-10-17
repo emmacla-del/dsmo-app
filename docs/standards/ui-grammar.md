@@ -181,6 +181,16 @@ Its classes are unprefixed and local to that module (`.page`, `.masthead`, `.ban
 
 It is read in exactly one place: `.page` sets `--cam-bg: var(--cam-portal-cream)`. Every other rule in the portal reads `--cam-bg` as usual, so the exception is written down once and the rest of the file stays canonical. **No file outside `portal.module.css` may read it.**
 
+### The hero artwork exception
+
+The animated "CAMLEAP · Project journey" in the home hero is an illustration, delivered as an SVG snippet and kept as raw strings in `src/components/landing/site/hero-animation/camleap-hero-svg.en.ts` and `camleap-hero-svg.fr.ts`. It draws with 73 colours of its own (skin tones, a laptop, a dashboard), about 700 hex literals per locale. They are artwork, not UI: putting them in `tokens.css` would bring back a second palette, the thing this section records retiring.
+
+The owner exempted **exactly those two files** from `respondent-hex-in-tsx` on 2026-10-17. The exemption is the `ARTWORK` list in `scripts/check-admin-ui-grammar.mjs`, by exact path. Every other rule still scans them, and no baseline was raised.
+
+- **No other file may reuse the hero's colours.** A portal element that needs a colour takes a token.
+- **A new illustration needs its own approval** before it goes on the `ARTWORK` list.
+- `camleap-hero.css`, the hero's stylesheet, is plain global CSS rather than a `*.module.css`, so neither hex rule scans it today.
+
 ### The dark band
 
 `.bandInk` re-points three tokens for its subtree, so cards and rules inside it go dark without every child needing its own colour:
@@ -206,7 +216,7 @@ Band depth comes from `--cam-section-pad-hero` (48px), `--cam-section-pad-standa
 |---|---|
 | `hex-in-module-css` | Every `*.module.css` under `src`. Locked at zero — there is no baseline. |
 | `phantom-token` | Blocks immediately, as everywhere. |
-| `respondent-hex-in-tsx`, `-font-size-literal`, `-locale-format`, `-spacing-off-scale` | The portal's `.tsx`, which is outside `ADMIN_DIRS`. |
+| `respondent-hex-in-tsx`, `-font-size-literal`, `-locale-format`, `-spacing-off-scale` | The portal's `.tsx`, which is outside `ADMIN_DIRS`. The two hero artwork strings are exempt from `respondent-hex-in-tsx` only (see §The hero artwork exception). |
 
 A `*.module.css` is **not** a definition source for the phantom check. A `--cam-*` set inside a module is local to it, and counting it as a definition would blind the check everywhere else — which is why `moduleCss()` is deliberately kept out of `TOKEN_CSS`.
 
