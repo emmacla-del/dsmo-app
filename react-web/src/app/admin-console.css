@@ -1944,6 +1944,37 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   gap: 16px;
 }
 
+/* Review pace: one line of figures under the "À traiter" tiles, no box. */
+.cam-dash-pace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-2) var(--cam-space-5);
+  margin-top: var(--cam-space-3);
+}
+
+.cam-dash-pace-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-pace-facts strong {
+  font-weight: 600;
+  color: var(--cam-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-pace-facts strong.is-overdue {
+  color: var(--cam-warning);
+}
+
 .cam-dash-pipeline {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

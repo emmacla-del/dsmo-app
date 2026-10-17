@@ -23,7 +23,7 @@ import {
   shortRecordId,
 } from "@/lib/admin-data-state";
 import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
-import { hrefWith, parseDossierStatus, type DossierStatus } from "@/lib/admin-url";
+import { hrefWith, parseDossierStatus, type DossierStatus, parseDossierSort, type DossierSort } from "@/lib/admin-url";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 
 /**
@@ -131,6 +131,9 @@ function DossiersContent() {
   // The status filter is URL state (?status=): read here, written by
   // setStatus. Other parameters (?companyId=, ?formType=, ?q=) are kept.
   const statusFilter = parseDossierStatus(searchParams.get("status"));
+  // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
+  // files first; URL state like the status, written by setSort.
+  const sortOrder = parseDossierSort(searchParams.get("sort"));
   const companyIdFilter = searchParams.get("companyId") ?? "";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
@@ -152,6 +155,12 @@ function DossiersContent() {
   const [offsetStatus, setOffsetStatus] = useState(statusFilter);
   if (offsetStatus !== statusFilter) {
     setOffsetStatus(statusFilter);
+    setOffset(0);
+  }
+  // So does a change of order.
+  const [offsetSort, setOffsetSort] = useState(sortOrder);
+  if (offsetSort !== sortOrder) {
+    setOffsetSort(sortOrder);
     setOffset(0);
   }
 
@@ -184,7 +193,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, companyIdFilter, offset }],
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: statusFilter || undefined,
@@ -193,6 +202,7 @@ function DossiersContent() {
         region: regionFilter || undefined,
         search: search || undefined,
         companyId: companyIdFilter || undefined,
+        sort: sortOrder || undefined,
         limit: PAGE_SIZE,
         offset,
       }),
@@ -248,6 +258,12 @@ function DossiersContent() {
   // URL (statusFilter above), so a reload reopens the same status.
   const setStatus = (status: DossierStatus | "") =>
     router.replace(hrefWith(pathname, searchParams.toString(), { status }));
+
+  // Writes ?sort=, keeping every other parameter; newest first removes it.
+  const setSort = (sort: DossierSort) => {
+    setSelectedIds(new Set());
+    router.replace(hrefWith(pathname, searchParams.toString(), { sort }));
+  };
 
   const goToOffset = (next: number) => {
     setOffset(next);
@@ -511,6 +527,19 @@ function DossiersContent() {
                 {PERIODS.map((p) => (
                   <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
                 ))}
+              </select>
+            </div>
+
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="dossiers-sort">{t("sortLabel")}</label>
+              <select
+                id="dossiers-sort"
+                className="cam-select"
+                value={sortOrder}
+                onChange={(e) => setSort(parseDossierSort(e.target.value))}
+              >
+                <option value="">{t("sortNewest")}</option>
+                <option value="oldest">{t("sortOldest")}</option>
               </select>
             </div>
 

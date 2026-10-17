@@ -11,6 +11,7 @@ import {
   anomalyRegisterHref,
   hrefWith,
   parseAnomalyStatusFilter,
+  parseDossierSort,
   parseDossierStatus,
   parseQualiteVue,
   parseSeverityFilter,
@@ -68,4 +69,11 @@ test("register links open the register, pre-filtered when asked", () => {
     anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" }),
     "/admin/centre-qualite?vue=registre&status=OPEN&severity=BLOCKING",
   );
+});
+
+test("parseDossierSort keeps oldest-first and falls back to newest first", () => {
+  assert.equal(parseDossierSort("oldest"), "oldest");
+  assert.equal(parseDossierSort(null), "");
+  assert.equal(parseDossierSort("newest"), "");
+  assert.equal(parseDossierSort("OLDEST"), "");
 });

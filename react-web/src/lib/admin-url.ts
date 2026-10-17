@@ -33,6 +33,14 @@ export function parseDossierStatus(raw: string | null): DossierStatus | "" {
   return (DOSSIER_STATUSES as readonly string[]).includes(raw ?? "") ? (raw as DossierStatus) : "";
 }
 
+/** ?sort=oldest on /admin/dossiers lists the longest-waiting files first. */
+export type DossierSort = "oldest" | "";
+
+/** ?sort= on /admin/dossiers; "" (newest first) for absent or unknown values. */
+export function parseDossierSort(raw: string | null): DossierSort {
+  return raw === "oldest" ? "oldest" : "";
+}
+
 // ── /admin/centre-qualite ───────────────────────────────────────────────────
 
 export const QUALITE_VUES = ["indicateurs", "registre", "regles"] as const;
