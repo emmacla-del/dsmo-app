@@ -5,6 +5,22 @@
 //   1. Vocational Training (VT) Form Wizard (Section 1: §1.1 - §1.16)
 //   2. Modern Jobs Form Wizard (Section 0: Respondent, Section 1: Entity details)
 //      for Enterprise, Cooperative, CTD, ONG, Administration, Project/Program.
+//
+// A field is prefilled only from something registration actually asked for,
+// and only where the two questions mean the same thing. Registration answers
+// a different set of questions from the declaration, and §9 of the
+// engineering constitution rules out presenting an unanswered value as an
+// answer. Two rules were broken until 2026-10-17 (E2E defect B9):
+//   - « Quartier/Village/Localité » (and VT 1.8 « Village-Quartier ») was
+//     filled with `address`, which registration asks as « Adresse du siège »
+//     / « Adresse du CFP » — a street address, not a place name. It still
+//     feeds the « Siège social » questions, which is what it is.
+//   - « Nombre d'employés permanents » was filled with `totalEmployees`, a
+//     DSMO-era column no ONEFOP path ever writes: the registration payload
+//     has no such field, so it is 0 for every ONEFOP account and the
+//     respondent was shown a zero they never declared. On a DSMO-era company
+//     it holds a headcount from another reference period and definition.
+// Both questions are required, so the respondent is asked for them.
 
 import type { FormData } from "./onefop-schema";
 import type { CompanyProfile } from "./api-client";
@@ -242,7 +258,9 @@ export function companyToInitialData(
       setIfPresent(data, "VT1_4", comp.region);
       setIfPresent(data, "VT1_5", comp.department);
       setIfPresent(data, "VT1_6", comp.subdivision);
-      setIfPresent(data, "VT1_8", comp.address);
+      // 1.8 « Village-Quartier » is not the centre's address: registration
+      // asks « Adresse du CFP », a street address, and has no village or
+      // quarter field. Left unanswered rather than answered wrongly (B9).
 
       const aVt = mapArea(comp.area);
       if (aVt) data["VT1_9"] = aVt;
@@ -289,7 +307,10 @@ export function companyToInitialData(
       setIfPresent(data, "S1Q04_REGION", comp.region);
       setIfPresent(data, "S1Q04_DEPT", comp.department);
       setIfPresent(data, "S1Q04_SUBDIV", comp.subdivision);
-      setIfPresent(data, "S1Q04_LOCALITY", comp.address);
+      // « Quartier/Village/Localité » is a place name; registration only
+      // collects a street address (`address`), which also feeds the
+      // « Siège social » question. Filling the locality with it put an
+      // answer the respondent never gave in a required field (B9, §9).
 
       setIfPresent(data, "S1Q05_TEL1", comp.phone);
       setIfPresent(data, "S1Q05_TEL2", comp.phone2);
@@ -305,9 +326,6 @@ export function companyToInitialData(
 
       setIfPresent(data, "S1Q09", comp.address);
 
-      if (comp.totalEmployees !== null && comp.totalEmployees !== undefined) {
-        data["S1Q10"] = String(comp.totalEmployees);
-      }
 
       const size = mapEnterpriseSize(comp.enterpriseSize as string);
       if (size) data["S1Q12"] = size;
@@ -329,12 +347,6 @@ export function companyToInitialData(
       setIfPresent(data, "COOP_S1Q05_REGION", comp.region);
       setIfPresent(data, "COOP_S1Q05_DEPT", comp.department);
       setIfPresent(data, "COOP_S1Q05_SUBDIV", comp.subdivision);
-      setIfPresent(
-        data,
-        "COOP_S1Q05_LOCALITY",
-        (comp as Record<string, unknown>).cooperativeHeadOffice ?? comp.address,
-      );
-
       setIfPresent(data, "COOP_S1Q06_TEL1", comp.phone);
       setIfPresent(data, "COOP_S1Q06_TEL2", comp.phone2);
       setIfPresent(data, "COOP_S1Q06_BP", comp.poBox);
@@ -352,9 +364,6 @@ export function companyToInitialData(
 
       setIfPresent(data, "COOP_S1Q10_OTHER", (comp as Record<string, unknown>).cooperativeTypeOther);
 
-      if (comp.totalEmployees !== null && comp.totalEmployees !== undefined) {
-        data["COOP_S1Q11"] = String(comp.totalEmployees);
-      }
       break;
     }
 
@@ -372,7 +381,6 @@ export function companyToInitialData(
       setIfPresent(data, "CTD_S1Q05_REGION", comp.region);
       setIfPresent(data, "CTD_S1Q05_DEPT", comp.department);
       setIfPresent(data, "CTD_S1Q05_SUBDIV", comp.subdivision);
-      setIfPresent(data, "CTD_S1Q05_LOCALITY", comp.address);
 
       setIfPresent(data, "CTD_S1Q06_TEL1", comp.phone);
       setIfPresent(data, "CTD_S1Q06_TEL2", comp.phone2);
@@ -383,9 +391,6 @@ export function companyToInitialData(
       if (ctdAct) data["CTD_S1Q07"] = mapActivityToSector(ctdAct);
       if (ctdBr) data["CTD_S1Q08"] = ctdBr;
 
-      if (comp.totalEmployees !== null && comp.totalEmployees !== undefined) {
-        data["CTD_S1Q09"] = String(comp.totalEmployees);
-      }
       break;
     }
 
@@ -400,7 +405,6 @@ export function companyToInitialData(
       setIfPresent(data, "ONG_S1Q05_REGION", comp.region);
       setIfPresent(data, "ONG_S1Q05_DEPT", comp.department);
       setIfPresent(data, "ONG_S1Q05_SUBDIV", comp.subdivision);
-      setIfPresent(data, "ONG_S1Q05_LOCALITY", comp.address);
 
       setIfPresent(data, "ONG_S1Q06_TEL1", comp.phone);
       setIfPresent(data, "ONG_S1Q06_TEL2", comp.phone2);
@@ -413,9 +417,6 @@ export function companyToInitialData(
 
       setIfPresent(data, "ONG_S1Q09", comp.mainMission);
 
-      if (comp.totalEmployees !== null && comp.totalEmployees !== undefined) {
-        data["ONG_S1Q10"] = String(comp.totalEmployees);
-      }
       break;
     }
 
@@ -437,7 +438,6 @@ export function companyToInitialData(
       setIfPresent(data, "ADMIN_S1Q04_REGION", comp.region);
       setIfPresent(data, "ADMIN_S1Q04_DEPT", comp.department);
       setIfPresent(data, "ADMIN_S1Q04_SUBDIV", comp.subdivision);
-      setIfPresent(data, "ADMIN_S1Q04_LOCALITY", comp.address);
 
       setIfPresent(data, "ADMIN_S1Q05_TEL1", comp.phone);
       setIfPresent(data, "ADMIN_S1Q05_TEL2", comp.phone2);
@@ -475,7 +475,6 @@ export function companyToInitialData(
       setIfPresent(data, "PP_S1Q06_REGION", comp.region);
       setIfPresent(data, "PP_S1Q06_DEPT", comp.department);
       setIfPresent(data, "PP_S1Q06_SUBDIV", comp.subdivision);
-      setIfPresent(data, "PP_S1Q06_LOCALITY", comp.address);
 
       setIfPresent(data, "PP_S1Q07_TEL1", comp.phone);
       setIfPresent(data, "PP_S1Q07_TEL2", comp.phone2);
@@ -489,9 +488,6 @@ export function companyToInitialData(
       setIfPresent(data, "PP_S1Q10", comp.mainMission);
       setIfPresent(data, "PP_S1Q11", comp.address);
 
-      if (comp.totalEmployees !== null && comp.totalEmployees !== undefined) {
-        data["PP_S1Q15"] = String(comp.totalEmployees);
-      }
       break;
     }
   }
