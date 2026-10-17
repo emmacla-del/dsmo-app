@@ -205,7 +205,7 @@ function CampaignCoverage({
                 <tr>
                   <th scope="col">{t("territoryColumn")}</th>
                   <th scope="col" className="is-num">{t("receivedColumn")}</th>
-                  <th scope="col" className="is-num">{t("lateColumn")}</th>
+                  <th scope="col" className="is-num is-wide-only">{t("lateColumn")}</th>
                   <th scope="col" className="is-num">{t("responseRateColumn")}</th>
                 </tr>
               </thead>
@@ -223,7 +223,7 @@ function CampaignCoverage({
                       <tr key={row.key}>
                         <th scope="row">{row.kind === "central" ? t("centralLevel") : row.name}</th>
                         <td className="is-num">{count(row.received, locale)}</td>
-                        <td className="is-num">{count(row.late, locale)}</td>
+                        <td className="is-num is-wide-only">{count(row.late, locale)}</td>
                         <td className="is-num">
                           <span className="cam-dash-meter-cell">
                             <span>{percent(pct, 1, locale, 0)}</span>

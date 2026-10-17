@@ -2246,7 +2246,13 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 @media (max-width: 639px) {
   .cam-dash-meter-cell .cam-dash-bar {
-    width: 48px;
+    width: 32px;
+  }
+
+  /* A column the phone drops so the rate stays in view; its total is
+     shown above the table. */
+  .cam-dash-table .is-wide-only {
+    display: none;
   }
 }
 
