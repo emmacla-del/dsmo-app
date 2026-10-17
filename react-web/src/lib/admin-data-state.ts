@@ -154,6 +154,24 @@ export function count(value: number | null | undefined, locale: UiLocale = "fr")
 }
 
 /**
+ * Whole days elapsed since `iso`, rounded down; null for a missing or
+ * unreadable date. A date in the future counts as 0.
+ */
+export function daysSince(iso: string | null | undefined, now: number = Date.now()): number | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  return Math.max(0, Math.floor((now - then) / 86_400_000));
+}
+
+/** Render a number of days, at most one decimal: "3,5 j" / "3.5 d". */
+export function days(value: number | null | undefined, locale: UiLocale = "fr"): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return NOT_PROVIDED;
+  const digits = value.toLocaleString(INTL_LOCALE[locale], { maximumFractionDigits: 1 });
+  return locale === "en" ? `${digits} d` : `${digits} j`;
+}
+
+/**
  * Render a percentage. Pass `null` when the rate is not calculable (e.g. the
  * denominator is 0 or either operand is missing) — do not pass a stand-in.
  *

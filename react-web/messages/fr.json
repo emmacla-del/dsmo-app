@@ -1631,6 +1631,13 @@
     "kpiReturnsToCorrect": "Retours à corriger",
     "kpiQualityAlerts": "Alertes qualité",
     "pipelineTitle": "Pipeline des déclarations",
+    "paceOldest": "Plus ancien dossier en attente :",
+    "paceNonePending": "Aucun dossier en attente de décision",
+    "paceOverdue": "en attente depuis plus de {days} jours",
+    "paceMedian": "Délai médian de décision sur {window} jours :",
+    "paceDecisions": "({count, plural, one {# décision} other {# décisions}})",
+    "paceNoDecision": "Aucune décision sur {window} jours",
+    "paceLink": "Voir les plus anciens",
     "coverageTitle": "Couverture de la campagne",
     "coverageResource": "la couverture de la campagne",
     "coverageUnavailable": "La couverture de la campagne n'est pas disponible pour ce profil.",
@@ -1854,7 +1861,10 @@
     "bulkRejectFailed": "Le rejet groupé a échoué : {message}. Aucun dossier n'a été rejeté.",
     "unknownErrorCapital": "Erreur inconnue",
     "rejecting": "Rejet en cours...",
-    "rejectCountButton": "Rejeter {count} dossier(s)"
+    "rejectCountButton": "Rejeter {count} dossier(s)",
+    "sortLabel": "Ordre",
+    "sortNewest": "Plus récents d'abord",
+    "sortOldest": "Plus anciens d'abord"
   },
   "adminDossierPage": {
     "statusPending": "En instance",

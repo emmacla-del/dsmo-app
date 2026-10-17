@@ -1631,6 +1631,13 @@
     "kpiReturnsToCorrect": "Returns to correct",
     "kpiQualityAlerts": "Quality alerts",
     "pipelineTitle": "Declaration pipeline",
+    "paceOldest": "Oldest file awaiting a decision:",
+    "paceNonePending": "No file awaiting a decision",
+    "paceOverdue": "waiting for more than {days} days",
+    "paceMedian": "Median time to decision over {window} days:",
+    "paceDecisions": "({count, plural, one {# decision} other {# decisions}})",
+    "paceNoDecision": "No decision in the last {window} days",
+    "paceLink": "See the oldest",
     "coverageTitle": "Campaign coverage",
     "coverageResource": "campaign coverage",
     "coverageUnavailable": "Campaign coverage is not available for this role.",
@@ -1854,7 +1861,10 @@
     "bulkRejectFailed": "Bulk rejection failed: {message}. No file was rejected.",
     "unknownErrorCapital": "Unknown error",
     "rejecting": "Rejecting…",
-    "rejectCountButton": "{count, plural, one {Reject # file} other {Reject # files}}"
+    "rejectCountButton": "{count, plural, one {Reject # file} other {Reject # files}}",
+    "sortLabel": "Order",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first"
   },
   "adminDossierPage": {
     "statusPending": "Pending",

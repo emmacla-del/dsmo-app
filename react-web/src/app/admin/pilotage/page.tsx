@@ -12,7 +12,8 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
 import { CampaignProgressChart } from "@/components/admin/CampaignProgressChart";
 import { DataState } from "@/components/admin/DataState";
-import { count, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
+import { count, days, daysSince, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
+import type { ReviewDelay } from "@/lib/api-client";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
@@ -415,6 +416,48 @@ function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySumm
   );
 }
 
+/**
+ * Review pace, under the "À traiter" tiles: how long the oldest file has
+ * waited for a decision, how many have waited past the threshold, and the
+ * median time from submission to decision. All from pilotage/queues, so the
+ * figures cover the same territory as the tiles. `null` = not loaded yet.
+ */
+function ReviewPace({ delay }: { delay: ReviewDelay | null }) {
+  const t = useTranslations("adminPilotagePage");
+  const locale = useUiLocale();
+  const oldestDays = delay ? daysSince(delay.oldestPendingSubmittedAt) : null;
+  const overdue = delay?.pendingOverThresholdCount ?? null;
+
+  return (
+    <div className="cam-dash-pace">
+      <ul className="cam-dash-pace-facts">
+        <li>
+          {delay && delay.oldestPendingSubmittedAt === null
+            ? t("paceNonePending")
+            : <>{t("paceOldest")} <strong>{days(oldestDays, locale)}</strong></>}
+        </li>
+        <li>
+          <strong className={overdue ? "is-overdue" : undefined}>{count(overdue, locale)}</strong>{" "}
+          {t("paceOverdue", { days: delay?.thresholdDays ?? 7 })}
+        </li>
+        <li>
+          {delay && delay.decidedMedianDays === null
+            ? t("paceNoDecision", { window: delay.windowDays })
+            : (
+              <>
+                {t("paceMedian", { window: delay?.windowDays ?? 90 })} <strong>{days(delay?.decidedMedianDays, locale)}</strong>{" "}
+                {delay && t("paceDecisions", { count: delay.decidedCount })}
+              </>
+            )}
+        </li>
+      </ul>
+      <Link href="/admin/dossiers?status=PENDING_REVIEW&sort=oldest" className="cam-dash-link">
+        {t("paceLink")}
+      </Link>
+    </div>
+  );
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PilotagePage() {
@@ -583,6 +626,7 @@ export default function PilotagePage() {
             href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
           />
         </div>
+        <ReviewPace delay={queues?.reviewDelay ?? null} />
       </section>
 
       <section aria-labelledby="dash-pipeline-title">
