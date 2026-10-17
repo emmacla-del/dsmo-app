@@ -239,12 +239,28 @@ function sectionItems(
 // The schema prints section titles in capitals, as on the paper form
 // ("SECTION 4. INFORMATIONS SUR LES APPRENANTS"). On screen they read in
 // sentence case; an acronym keeps its capitals.
-const ACRONYMS = new Set(["MINEFOP", "ONEFOP", "VIH", "HIV", "IST", "STI"]);
+// CTD, ONG, RLA and NGO are there for the other questionnaires' Section 1
+// titles ("IDENTIFICATION DE LA CTD", "NGO DETAILS"), which the file page now
+// reads from the schema too (lib/dossier-sections.ts).
+const ACRONYMS = new Set(["MINEFOP", "ONEFOP", "VIH", "HIV", "IST", "STI", "CTD", "ONG", "RLA", "NGO"]);
+
+/** An acronym behind an elision keeps its capitals and loses only the
+ * article's: "L'ONG" -> "l'ONG". */
+const ELISION = /^(\p{L})['’](.+)$/u;
+const letters = (word: string) => word.replace(/[^\p{L}]/gu, "");
+
+function titleWord(word: string): string {
+  const elided = ELISION.exec(word);
+  if (elided && ACRONYMS.has(letters(elided[2]))) {
+    return `${elided[1].toLocaleLowerCase("fr")}${word.slice(1, 2)}${elided[2]}`;
+  }
+  return ACRONYMS.has(letters(word)) ? word : word.toLocaleLowerCase("fr");
+}
 
 export function sentenceCaseTitle(title: string): string {
   const lower = title
     .split(/(\s+)/)
-    .map((word) => (ACRONYMS.has(word.replace(/[^\p{L}]/gu, "")) ? word : word.toLocaleLowerCase("fr")))
+    .map(titleWord)
     .join("");
   // Capital at the start and after the section number ("Section 4. Informations").
   return lower.replace(/^(\p{L})|(\d\.\s+)(\p{L})/gu, (_m, first, num, next) =>
