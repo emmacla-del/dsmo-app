@@ -1877,18 +1877,6 @@
     "supersededLine": "Remplacé par un dossier plus récent pour la même période",
     "openReplacingFile": "Ouvrir le dossier qui le remplace",
     "statusNotRecorded": "Statut non renseigné",
-    "section1": {
-      "ENTREPRISE": "Section 1. Identification de l'entreprise",
-      "COOPERATIVE": "Section 1. Identification de la coopérative",
-      "CTD": "Section 1. Identification de la CTD",
-      "ONG": "Section 1. Identification de l'ONG",
-      "ADMINISTRATION": "Section 1. Caractéristique de l'administration",
-      "PROJECT_PROGRAM": "Section 1. Identification de la structure",
-      "VOCATIONAL_TRAINING": "Section 1. Identification et localisation de la structure"
-    },
-    "section2": "Section 2. Emploi et travail",
-    "section3": "Section 3. Départs",
-    "section4": "Section 4. Stage et formation",
     "legalStatus": {
       "singleMember": "Société unipersonnelle",
       "llc": "SARL",
@@ -1994,6 +1982,7 @@
     "sectionDataResource": "les données de cette section",
     "sectionDataTitle": "Données chiffrées non affichées ici",
     "sectionDataHint": "Les tableaux statistiques de cette section ({tables}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.",
+    "sectionDataHintNoTables": "Les données chiffrées de cette section sont enregistrées avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.",
     "blockingAnomaliesTitle": "Anomalies bloquantes ({count})",
     "coherenceWarningsTitle": "Alertes de cohérence ({count})",
     "observedExpected": "Observé : {observed} · Attendu : {expected}",

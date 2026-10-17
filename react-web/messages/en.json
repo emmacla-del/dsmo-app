@@ -1877,18 +1877,6 @@
     "supersededLine": "Replaced by a newer file for the same period",
     "openReplacingFile": "Open the file that replaced it",
     "statusNotRecorded": "Status not recorded",
-    "section1": {
-      "ENTREPRISE": "Section 1. Company details",
-      "COOPERATIVE": "Section 1. Cooperative details",
-      "CTD": "Section 1. RLA details",
-      "ONG": "Section 1. NGO details",
-      "ADMINISTRATION": "Section 1. Administration details",
-      "PROJECT_PROGRAM": "Section 1. Structure details",
-      "VOCATIONAL_TRAINING": "Section 1. Identification and location of training center"
-    },
-    "section2": "Section 2. Employment and labour",
-    "section3": "Section 3. Departures",
-    "section4": "Section 4. Internship and training",
     "legalStatus": {
       "singleMember": "Single-member company",
       "llc": "LLC",
@@ -1994,6 +1982,7 @@
     "sectionDataResource": "the data for this section",
     "sectionDataTitle": "Figures not shown here",
     "sectionDataHint": "The statistical tables for this section ({tables}) are saved with the file, but how they are shown on this screen has not yet been specified by the ONEFOP domain. See the file's official PDF or the statistical export.",
+    "sectionDataHintNoTables": "The figures for this section are saved with the file, but how they are shown on this screen has not yet been specified by the ONEFOP domain. See the file's official PDF or the statistical export.",
     "blockingAnomaliesTitle": "Blocking anomalies ({count})",
     "coherenceWarningsTitle": "Coherence warnings ({count})",
     "observedExpected": "Observed: {observed} · Expected: {expected}",

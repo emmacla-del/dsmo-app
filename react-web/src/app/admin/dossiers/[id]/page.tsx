@@ -21,8 +21,13 @@ import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
-import { localized } from "@/lib/onefop-schema";
-import { sentenceCaseTitle } from "@/lib/dossier-vt-answers";
+import {
+  detailAnswerValue,
+  dossierEntity,
+  dossierSections,
+  questionnaireAsks,
+  sectionBackingTables,
+} from "@/lib/dossier-sections";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import {
   NOT_PROVIDED,
@@ -111,47 +116,21 @@ function supersededNotice(dossier: AdminDossier, t: (key: string) => string) {
   );
 }
 
-/**
- * Questionnaire sections whose figures this screen cannot show.
- *
- * GET /admin/questionnaires/:id does return the statistical tables
- * (cspGenderAge, departureData, internshipData, trainingNeeds, …), but mapping
- * them onto these section headings is a statistical-semantics decision owned by
- * the ONEFOP domain and the canonical AST — not something the admin UI may
- * improvise. Until that mapping is specified and reviewed, each section states
- * that its figures are not rendered here rather than printing numbers.
- * See docs/admin-data-integrity-inventory.md.
- */
-const SECTION_SOURCES: Record<number, { backing: string }> = {
-  2: { backing: "cspGenderAge, diplomaData, disabilityData, vulnerableData, firstTimeWorkers" },
-  3: { backing: "departureData, dismissalReasons, dismissalUnemployment" },
-  4: { backing: "internshipData, skillNeeds, trainingNeeds" },
-};
-
-/**
- * Section headings use the canonical AST titles (onefop_ast.dart, through the
- * generated onefop.schema.json). Section 1 is titled per entity type; 2-4 are
- * the enterprise-family sections the backing tables above belong to.
- *
- * The correction request stores the section in its comment, which is the
- * official record sent to the respondent. That text stays French whatever the
- * reviewer's language, so the French titles are kept here as the option
- * values; only the visible option labels follow the locale.
- */
-const SECTION1_TITLE_FR: Record<string, string> = {
-  ENTREPRISE: "Section 1. Identification de l'entreprise",
-  COOPERATIVE: "Section 1. Identification de la coopérative",
-  CTD: "Section 1. Identification de la CTD",
-  ONG: "Section 1. Identification de l'ONG",
-  ADMINISTRATION: "Section 1. Caractéristique de l'administration",
-  PROJECT_PROGRAM: "Section 1. Identification de la structure",
-  VOCATIONAL_TRAINING: "Section 1. Identification et localisation de la structure",
-};
-const SECTION_TITLE_FR: Record<2 | 3 | 4, string> = {
-  2: "Section 2. Emploi et travail",
-  3: "Section 3. Départs",
-  4: "Section 4. Stage et formation",
-};
+// Section headings, and which sections exist at all, are read from the
+// generated schema for the file's own entity type (lib/dossier-sections.ts).
+// They used to be a single hardcoded list — the enterprise family's — shown
+// for every type but VT, so a project/programme file was headed with three
+// enterprise sections its questionnaire does not have, and the
+// correction-request dialog offered them (B3 of
+// docs/audit/e2e-2026-10-17-project-enterprise.md).
+//
+// GET /admin/questionnaires/:id returns rawData (the respondent's answers)
+// but not the statistical child tables, and mapping those onto the classic
+// templates' headings is a statistical-semantics decision owned by the ONEFOP
+// domain and the canonical AST — not something the admin UI may improvise.
+// Until that mapping is specified and reviewed, each section past the first
+// states that its figures are not rendered here rather than printing numbers.
+// See docs/admin-data-integrity-inventory.md.
 
 /** Correction deadlines: the value is the French text stored in the comment. */
 const CORRECTION_DELAYS: { value: string; labelKey: string }[] = [
@@ -336,21 +315,27 @@ function SubmissionDetailContent() {
           ? t("awaitingRespondent", { date: decidedOn })
           : null;
   const formType = dossier?.formType ?? "";
-  const section1Fr = SECTION1_TITLE_FR[formType] ?? SECTION1_TITLE_FR.ENTREPRISE;
-  const section1Title = SECTION1_TITLE_FR[formType] ? t(`section1.${formType}`) : t("section1.ENTREPRISE");
 
   // A VT file is shown section by section from the schema and the
   // respondent's data (components/admin/DossierVtSections.tsx). The schema is
   // a static file, fetched once and cached.
   const isVt = formType === "VOCATIONAL_TRAINING";
   const schemaQuery = useOnefopSchema();
-  const vtEntity = schemaQuery.data?.entities.vocationalTraining ?? null;
-  // Correction request: the value is the French title (stored in the
-  // comment sent to the respondent); the label follows the locale.
-  const vtSectionOptions = (vtEntity?.sections ?? []).map((s) => ({
-    value: sentenceCaseTitle(localized(s.title, "fr")),
-    label: sentenceCaseTitle(localized(s.title, locale)),
-  }));
+  // The questionnaire this file was filled on. Every section heading, the
+  // identity questions it asks and the correction-request options come from
+  // it, so a project/programme file is never described with another type's
+  // sections.
+  const entity = dossierEntity(schemaQuery.data, formType);
+  // Section 1 is the identity disclosure below; the rest are listed after it.
+  const [section1, ...laterSections] = dossierSections(entity, locale);
+  /** A structure or identity answer: the option the respondent chose, in the
+   * reader's language, whether the detail row stored the option or its code. */
+  const answerValue = (column: string, stored: string) =>
+    localHalf(detailAnswerValue(entity, column, stored), locale);
+  /** An identity row belongs on screen when this questionnaire asks the
+   * question, or when the record carries a value for it anyway. */
+  const identityRow = (column: string, value: unknown) =>
+    questionnaireAsks(entity, column) || fact(value) !== NOT_PROVIDED;
   /** A coherence warning in the console language; the stored text when it cannot be read. */
   const warningText = (ruleCode: string | null | undefined, description: string | null | undefined) =>
     coherenceWarningText(t, ruleCode, description);
@@ -524,8 +509,12 @@ function SubmissionDetailContent() {
     setIsApproveOpen(true);
   };
 
-  // Section accordion toggle
-  const [expandedSection, setExpandedSection] = useState<number | null>(1);
+  // Section accordion toggle, by section id (the schema's own). `undefined`
+  // is "the reader has not chosen yet", which opens the first section as the
+  // page always did; `null` is every section closed, which a default of the
+  // first id could not express.
+  const [expandedSection, setExpandedSection] = useState<string | null | undefined>(undefined);
+  const openSectionId = expandedSection === undefined ? section1?.id ?? null : expandedSection;
 
   /**
    * Instruction history, derived exclusively from timestamps the record
@@ -732,7 +721,7 @@ function SubmissionDetailContent() {
                   <div key={field}>
                     {/* yearOfEstablishment (VT) shares the founding-year label. */}
                     <dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt>
-                    <dd>{localHalf(value, locale)}</dd>
+                    <dd>{answerValue(field, value)}</dd>
                   </div>
                 ))}
               </dl>
@@ -765,20 +754,30 @@ function SubmissionDetailContent() {
                 onRetry={() => schemaQuery.refetch()}
               />
             )
+          ) : !entity ? (
+            <DataState
+              dense
+              state={schemaQuery.isError ? "error" : schemaQuery.isLoading ? "loading" : "unavailable"}
+              resource={t("vt.resource")}
+              title={schemaQuery.data ? t("vt.schemaUnavailable") : undefined}
+              error={schemaQuery.error}
+              onRetry={() => schemaQuery.refetch()}
+            />
           ) : (
           <>
+          {section1 && (
           <details
             className="cam-dossier-section"
-            open={expandedSection === 1}
+            open={openSectionId === section1.id}
             onToggle={(e) => {
               // React closing a sibling fires that sibling's toggle with
               // open === false; without this guard it would clear the
               // section the reader just opened.
-              if (e.currentTarget.open) setExpandedSection(1);
-              else setExpandedSection((cur) => (cur === 1 ? null : cur));
+              if (e.currentTarget.open) setExpandedSection(section1.id);
+              else setExpandedSection((cur) => (cur === section1.id ? null : cur));
             }}
           >
-            <summary>{section1Title}</summary>
+            <summary>{section1.title}</summary>
             <div className="cam-dossier-section-body">
               <dl className="cam-dossier-fields cam-dossier-fields--two">
                 <div>
@@ -797,36 +796,52 @@ function SubmissionDetailContent() {
                   <dt>{t("addressLabel")}</dt>
                   <dd>{fact(detail.locality)}</dd>
                 </div>
-                <div>
-                  <dt>{t("yearCreatedLabel")}</dt>
-                  <dd>{fact(detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation)}</dd>
-                </div>
-                <div>
-                  <dt>{t("legalStatusLabel")}</dt>
-                  <dd>{legalStatus(detail.legalStatus)}</dd>
-                </div>
+                {/* Founding year and legal status: asked by some
+                    questionnaires and not others — the project/programme form
+                    asks neither, and the two rows read "—" on a project file
+                    as though the respondent had left them out (B3). A
+                    question this questionnaire does not ask appears only when
+                    the record carries a value for it anyway (an enterprise's
+                    registered founding year, Company.yearOfCreation). */}
+                {identityRow("yearCreated", detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation) && (
+                  <div>
+                    <dt>{t("yearCreatedLabel")}</dt>
+                    <dd>{fact(detail.yearCreated ?? detail.yearOfEstablishment ?? dossier.yearOfCreation)}</dd>
+                  </div>
+                )}
+                {identityRow("legalStatus", detail.legalStatus) && (
+                  <div>
+                    <dt>{t("legalStatusLabel")}</dt>
+                    <dd>{legalStatus(detail.legalStatus)}</dd>
+                  </div>
+                )}
               </dl>
             </div>
           </details>
+          )}
 
-          {([2, 3, 4] as const).map((n) => (
+          {laterSections.map((section) => (
             <details
-              key={n}
+              key={section.id}
               className="cam-dossier-section"
-              open={expandedSection === n}
+              open={openSectionId === section.id}
               onToggle={(e) => {
-                if (e.currentTarget.open) setExpandedSection(n);
-                else setExpandedSection((cur) => (cur === n ? null : cur));
+                if (e.currentTarget.open) setExpandedSection(section.id);
+                else setExpandedSection((cur) => (cur === section.id ? null : cur));
               }}
             >
-              <summary>{t(`section${n}`)}</summary>
+              <summary>{section.title}</summary>
               <div className="cam-dossier-section-body">
                 <DataState
                   dense
                   state="unavailable"
                   resource={t("sectionDataResource")}
                   title={t("sectionDataTitle")}
-                  hint={t("sectionDataHint", { tables: SECTION_SOURCES[n].backing })}
+                  hint={
+                    sectionBackingTables(section.id)
+                      ? t("sectionDataHint", { tables: sectionBackingTables(section.id) as string })
+                      : t("sectionDataHintNoTables")
+                  }
                 />
               </div>
             </details>
@@ -991,21 +1006,15 @@ function SubmissionDetailContent() {
                 onChange={(e) => setCorrectionSection(e.target.value)}
               >
                 <option value="">{t("selectSection")}</option>
-                {/* The value is the canonical French AST title, because it is
-                    stored in the correction comment -- the official record
-                    sent to the respondent. Only the label follows the locale. */}
-                {isVt ? (
-                  vtSectionOptions.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value={section1Fr}>{section1Title}</option>
-                    <option value={SECTION_TITLE_FR[2]}>{t("section2")}</option>
-                    <option value={SECTION_TITLE_FR[3]}>{t("section3")}</option>
-                    <option value={SECTION_TITLE_FR[4]}>{t("section4")}</option>
-                  </>
-                )}
+                {/* The sections of this file's own questionnaire: a reviewer
+                    could ask a project respondent to correct « Section 3.
+                    Départs », which their form never asked (B3). The value is
+                    the canonical French AST title, because it is stored in
+                    the correction comment -- the official record sent to the
+                    respondent. Only the label follows the locale. */}
+                {dossierSections(entity, locale).map((s) => (
+                  <option key={s.id} value={s.titleFr}>{s.title}</option>
+                ))}
               </select>
             </div>
 
