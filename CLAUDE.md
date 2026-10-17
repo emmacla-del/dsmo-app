@@ -722,6 +722,41 @@ Approved changes on record:
   wording, layout and every other PDF field unchanged.
   `src/common/brand-name.spec.ts` keeps the old spelling out. Approved by the
   owner in chat, 2026-10-17.
+- 2026-10-17 — dataset v12 (a): Project/Programme nature, status and
+  stopReason stored as the option string (E2E defect B1;
+  `QuestionnairesService.mapNature`, `mapProjectStatus`, `mapStopReason`,
+  migration `20261023120000_pp_identification_option_strings`). Issue:
+  PP_S1Q01, PP_S1Q13 and PP_S1Q14 were persisted as `String(code)` — "1",
+  "2" — while the .sps declares their VALUE LABELS on the option strings, so
+  SPSS applied none and the analyst read a bare code; their siblings
+  PP_S1Q05 and PP_S1Q08 held the option string, two codings in one section.
+  `onefop-questionnaire.dto.ts` documented the option-string convention for
+  all five; three were never given a mapper, as
+  `categorical-wording-drift.spec.ts` recorded. Fix: three label mappers
+  beside the existing six, used in the create block, plus a data-only
+  migration converting existing rows (no column added, dropped or retyped;
+  re-running it changes nothing). Values change for three variables; names,
+  widths, order and the dictionary are unchanged, so
+  DATASET_SCHEMA_VERSION = 12. The Excel « Motif d'arrêt » column shows the
+  label. The questionnaire, the normalizer and the DTO contract are
+  unchanged. Analyst note:
+  `docs/reference/jeu-de-donnees-onefop-version-12.md`. Approved by the owner
+  in chat, 2026-10-17.
+- 2026-10-17 — dataset v12 (b): value labels for the Section 2 activity
+  columns (E2E defect B2; `src/common/pp-activity-options.ts`,
+  `PP_ACTIVITY_VALUE_LABELS` in `canonical-schema-adapter.service.ts`).
+  Issue: `PP_S2_ACT_nn_TARGET`, `_SUPPORT` and `_SCOPE` carry codes
+  ("1".."6", A254) and the .sps declared no VALUE LABELS for them, so a "2"
+  was unreadable without the questionnaire. Fix: the label maps the PDF
+  already used move to a shared module and are attached to those three
+  columns; registry re-frozen with
+  `spss:registry --write --accept-value-labels`. Dictionary only: values,
+  names, widths and order unchanged. Caveat: this table is the one
+  `AstFieldType.repeatingTable` the compiler never emits, so its options
+  exist only in `lib/core/focus/renderers/activities_table.dart` and are
+  mirrored by hand in `react-web/src/lib/onefop-activities.ts` and the new
+  server module; a change to the Dart list must be carried to both. Approved
+  by the owner in chat, 2026-10-17.
 
 ---
 

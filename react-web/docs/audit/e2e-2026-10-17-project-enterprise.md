@@ -33,7 +33,7 @@ it is not test data from this run.
 
 ## Bugs, most severe first
 
-### B1 — SPSS: PP_S1Q01 and PP_S1Q13 exported as codes the dictionary does not label (high)
+### B1 — SPSS: PP_S1Q01 and PP_S1Q13 exported as codes the dictionary does not label (high) — fixed 2026-10-17
 - Seen: in the .sav, `PP_S1Q01 = "1"` and `PP_S1Q13 = "2"`; the .sps declares
   them A254 with `VALUE LABELS PP_S1Q01 'Projet/ Project' "Projet" …` and
   `PP_S1Q13 'Actif/ Active' "Actif" …`. SPSS applies no label, the analyst
@@ -49,11 +49,43 @@ it is not test data from this run.
 - Same pattern likely affects every coded Section 1 field of the other
   employer types read from a `*Detail` row — not checked in this run.
 - Touches an official export → §21 approval needed for the fix.
+- Checked since: all 29 `detail.*` variables that carry value labels, across
+  all seven entity types. Only Project/Programme is affected, and the real
+  cause is one step earlier than the adapter —
+  `questionnaires.service.ts:943` writes `nature`, `status` and `stopReason`
+  as `String(code)` while every sibling and every other entity writes the
+  option string through a `map*` helper. **PP_S1Q14 is affected too**; the
+  run missed it only because the test project was *Actif*, so `stopReason`
+  was null. `onefop-questionnaire.dto.ts:605` documents the option-string
+  convention for all five fields, so this is an implementation gap, not a
+  design choice, and `categorical-wording-drift.spec.ts:88` already recorded
+  it without noticing the export consequence.
+- Fix (approved under §21, 2026-10-17): three label mappers beside the
+  existing six (`mapNature`, `mapProjectStatus`, `mapStopReason`), used in
+  the create block, plus data-only migration
+  `20261023120000_pp_identification_option_strings` for existing rows. The
+  dictionary is unchanged — the data moves to meet the labels already
+  published. DATASET_SCHEMA_VERSION = 12, analyst note
+  `docs/reference/jeu-de-donnees-onefop-version-12.md`. The drift spec now
+  round-trips these three fields instead of recording the gap.
 
-### B2 — SPSS: PP Section 2 coded columns have no value labels (medium)
+### B2 — SPSS: PP Section 2 coded columns have no value labels (medium) — fixed 2026-10-17
 - `PP_S2_ACT_nn_TARGET`, `_SUPPORT`, `_SCOPE` carry "1".."6" (A254) and the
   .sps has no VALUE LABELS for them, so "2" cannot be read as "Graduate youth"
   without the questionnaire. §21 applies.
+- Fix (approved under §21, 2026-10-17): the values stay coded — only the
+  dictionary gains entries. The label maps already existed in the backend for
+  the PDF legend (`pdf-data-mapper.service.ts`); they move to
+  `src/common/pp-activity-options.ts` and are attached to those three columns
+  in the adapter, so there is one copy, not a new one. Registry re-frozen
+  with `spss:registry --write --accept-value-labels`; names, widths, values
+  and order unchanged.
+- Caveat worth keeping: this table is the one `AstFieldType.repeatingTable`
+  the schema compiler never emits, so its options live only in
+  `lib/core/focus/renderers/activities_table.dart` and are mirrored by hand
+  in `react-web/src/lib/onefop-activities.ts` and now the server module. A
+  change to the Dart list has to be carried to both. Emitting them into the
+  schema artifact is an AST change and a separate decision.
 
 ### B3 — Admin file view: project files shown with enterprise sections (high)
 - `/admin/dossiers/[id]` for a PROJECT_PROGRAM file lists « Section 2.
@@ -162,15 +194,30 @@ it is not test data from this run.
 - Logout from the respondent home lands on `/login?returnTo=/home`, so the
   next person to sign in on that browser is sent to the respondent home.
 
-## Fixes applied (2026-10-17, working tree, not committed)
+## Fixes applied (2026-10-17)
 
-- B4 and B5 only. `src/components/onefop/ModernJobsSidebar.tsx`,
+- B4 and B5, in react-web: `src/components/onefop/ModernJobsSidebar.tsx`,
   `src/components/onefop/tables/definitions/modernJobsTableDefinitions.ts`,
   new `src/components/onefop/ModernJobsSidebar.test.tsx`.
-- Gates: `npm test` 857/857 pass, `npx tsc --noEmit` clean. The four lint
-  errors reported in the definitions file are pre-existing `any`s on lines
-  this change does not touch. `check:ui-grammar` does not apply (nothing
-  under `app/admin/**` or `components/admin/**`).
+- B1 and B2, in the backend, under §21 approval given in chat on 2026-10-17
+  (both recorded in CLAUDE.md §21): `src/questionnaires/questionnaires.service.ts`,
+  `prisma/migrations/20261023120000_pp_identification_option_strings/`,
+  `src/data-management/canonical-schema-adapter.service.ts` (DATASET_SCHEMA_VERSION
+  = 12), new `src/common/pp-activity-options.ts`,
+  `src/services/pdf-data-mapper.service.ts`,
+  `src/data-management/spss/variable-registry.frozen.json`,
+  `src/data-management/categorical-wording-drift.spec.ts`.
+- Gates, react-web: `npm test` 857/857 pass, `npx tsc --noEmit` clean. The
+  four lint errors reported in the definitions file are pre-existing `any`s
+  on lines this change does not touch. `check:ui-grammar` does not apply
+  (nothing under `app/admin/**` or `components/admin/**`).
+- Gates, backend: `npx jest --runInBand` 1814/1814 pass. Four assertions
+  pinned the previous dataset version: the two that exist to make a bump a
+  deliberate act keep their literal (now 12), and the two that only wanted
+  the .sps header now read `DATASET_SCHEMA_VERSION` instead of a number, so
+  the next bump touches one place.
+- The migration applies on deploy, through the Render build step that runs
+  `prisma migrate deploy`.
 - No §21 approval sought: neither change touches statistical semantics, the
   AST, the database or an official export. B5 removes presentation text that
   contradicted the AST; B4 corrects a progress indicator only.
