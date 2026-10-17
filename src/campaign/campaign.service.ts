@@ -960,12 +960,54 @@ export class CampaignService {
             select: { id: true, companyId: true },
         });
 
+        // Only establishments without a row: existing rows are never touched.
+        const existing = await db.campaignSubmission.findMany({
+            where: { campaignId },
+            select: { establishmentId: true },
+        });
+        const hasRow = new Set(existing.map((r) => r.establishmentId));
+        const missing = establishments.filter((est) => !hasRow.has(est.id));
+        if (missing.length === 0) return;
+
+        // A missing establishment may already have filed under this campaign
+        // (before the submit-time upsert of 22714da3 existed, or on a resync
+        // after activation). Seed its row from that file, with the mapping of
+        // campaign-review-sync.ts, so it is not counted or reminded as not
+        // started. submittedAt is the file's createdAt (no submittedAt on
+        // OnefopSubmission). On a first activation no file names the
+        // campaign yet, so every row is NOT_STARTED, as before.
+        const files = await db.onefopSubmission.findMany({
+            where: {
+                campaignId,
+                establishmentId: { in: missing.map((est) => est.id) },
+                status: { not: 'SUPERSEDED' },
+            },
+            select: { establishmentId: true, status: true, createdAt: true },
+        });
+        const rank = { NOT_STARTED: 0, IN_PROGRESS: 1, SUBMITTED: 2, VALIDATED: 3 } as const;
+        const seeded = new Map<string, { status: keyof typeof rank; submittedAt: Date | null }>();
+        for (const f of files) {
+            const status: keyof typeof rank =
+                f.status === 'APPROVED' ? 'VALIDATED'
+                    : f.status === 'PENDING_REVIEW' ? 'SUBMITTED'
+                        : f.status === 'REJECTED' ? 'NOT_STARTED'
+                            : 'IN_PROGRESS'; // DRAFT, CORRECTION_REQUESTED
+            const prev = seeded.get(f.establishmentId);
+            if (!prev || rank[status] > rank[prev.status]) {
+                seeded.set(f.establishmentId, {
+                    status,
+                    submittedAt: status === 'SUBMITTED' || status === 'VALIDATED' ? f.createdAt : null,
+                });
+            }
+        }
+
         await db.campaignSubmission.createMany({
-            data: establishments.map((est) => ({
+            data: missing.map((est) => ({
                 campaignId,
                 companyId: est.companyId,
                 establishmentId: est.id,
-                status: 'NOT_STARTED' as const,
+                status: seeded.get(est.id)?.status ?? ('NOT_STARTED' as const),
+                submittedAt: seeded.get(est.id)?.submittedAt ?? null,
             })),
             skipDuplicates: true,
         });

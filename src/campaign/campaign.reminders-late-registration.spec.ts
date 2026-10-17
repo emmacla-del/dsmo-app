@@ -23,7 +23,8 @@ describe('CampaignService - reminders reach establishments registered after acti
 
     let establishments: { id: string; companyId: string; isPrincipal: boolean; status: string }[];
     let companies: { id: string; userId: string; name: string; establishmentId: string }[];
-    let rows: { campaignId: string; establishmentId: string; companyId: string; status: string }[];
+    let rows: { campaignId: string; establishmentId: string; companyId: string; status: string; submittedAt?: Date | null }[];
+    let files: { campaignId: string; establishmentId: string; status: string; createdAt: Date }[];
     let sendToCompanies: jest.Mock;
     let service: CampaignService;
     let prisma: any;
@@ -32,6 +33,7 @@ describe('CampaignService - reminders reach establishments registered after acti
         establishments = [{ id: 'est-early', companyId: 'co-early', isPrincipal: true, status: 'ACTIVE' }];
         companies = [{ id: 'co-early', userId: 'u-early', name: 'Early', establishmentId: 'est-early' }];
         rows = [];
+        files = [];
 
         prisma = {
             dataCampaign: { findUnique: jest.fn().mockResolvedValue(campaign) },
@@ -50,8 +52,15 @@ describe('CampaignService - reminders reach establishments registered after acti
                 }),
                 findMany: jest.fn(async ({ where }: any) =>
                     rows
-                        .filter(r => r.campaignId === where.campaignId && !where.status.notIn.includes(r.status))
+                        .filter(r => r.campaignId === where.campaignId && !where.status?.notIn.includes(r.status))
                         .map(r => ({ establishmentId: r.establishmentId }))),
+            },
+            onefopSubmission: {
+                findMany: jest.fn(async ({ where }: any) =>
+                    files.filter(f =>
+                        f.campaignId === where.campaignId
+                        && where.establishmentId.in.includes(f.establishmentId)
+                        && f.status !== where.status.not)),
             },
             company: {
                 findMany: jest.fn(async ({ where }: any) =>
@@ -104,5 +113,40 @@ describe('CampaignService - reminders reach establishments registered after acti
         await service.sendReminders(campaign.id, 'DEADLINE_APPROACHING');
 
         expect(sendToCompanies.mock.calls[0][0].map((c: any) => c.id)).toEqual(['co-early']);
+    });
+
+    it('does not remind a late establishment that filed before it had a row', async () => {
+        await (service as any)._initializeCampaignSubmissions(campaign.id);
+        establishments.push({ id: 'est-late', companyId: 'co-late', isPrincipal: true, status: 'ACTIVE' });
+        companies.push({ id: 'co-late', userId: 'u-late', name: 'Late', establishmentId: 'est-late' });
+        const filed = new Date('2026-10-10T09:00:00Z');
+        files.push(
+            { campaignId: campaign.id, establishmentId: 'est-late', status: 'SUPERSEDED', createdAt: new Date('2026-10-01') },
+            { campaignId: campaign.id, establishmentId: 'est-late', status: 'PENDING_REVIEW', createdAt: filed },
+        );
+
+        await service.sendReminders(campaign.id, 'DEADLINE_APPROACHING');
+
+        expect(rows.find(r => r.establishmentId === 'est-late')).toMatchObject({ status: 'SUBMITTED', submittedAt: filed });
+        expect(sendToCompanies.mock.calls[0][0].map((c: any) => c.id)).toEqual(['co-early']);
+    });
+
+    it('seeds an approved file as VALIDATED and a draft as IN_PROGRESS', async () => {
+        establishments.push(
+            { id: 'est-ok', companyId: 'co-ok', isPrincipal: true, status: 'ACTIVE' },
+            { id: 'est-draft', companyId: 'co-draft', isPrincipal: true, status: 'ACTIVE' },
+        );
+        files.push(
+            { campaignId: campaign.id, establishmentId: 'est-ok', status: 'APPROVED', createdAt: new Date() },
+            { campaignId: campaign.id, establishmentId: 'est-draft', status: 'DRAFT', createdAt: new Date() },
+        );
+
+        await service.syncCampaignSubmissions(campaign.id);
+
+        expect(Object.fromEntries(rows.map(r => [r.establishmentId, r.status]))).toEqual({
+            'est-early': 'NOT_STARTED',
+            'est-ok': 'VALIDATED',
+            'est-draft': 'IN_PROGRESS',
+        });
     });
 });
