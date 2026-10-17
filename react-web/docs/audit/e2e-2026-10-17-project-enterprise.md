@@ -215,15 +215,35 @@ it is not test data from this run.
 - « Tax ID: NA-6ff0ebd0-4f9f-… » — an internal placeholder NIU is shown to a
   project respondent (§8: no technical codes to respondents).
 
-### B7 — Technical question codes shown to respondents (medium, §8)
+### B7 — Technical question codes shown to respondents (medium, §8) — fixed 2026-10-17
 - Every question in the employer wizard is prefixed with its code: « S0Q01
   Respondent's full name », « S1Q02 Name »… and « S0Q03 » is repeated on
   three different questions (Tel 1, Tel 2, e-mail).
+- `paperCode` is two different things: the training-centre form numbers its
+  questions « 1.1 », « 4.10 », « 2.1.7 », which is printed on the paper the
+  respondent is copying from; every employer form carries an internal id
+  instead (S0Q01, S21Q01, PP_S4Q02), which appears nowhere they can see and
+  is not even unique — S0Q03 is Tel 1, Tel 2 *and* the e-mail, S1Q04 covers
+  four address questions.
+- Fix: `isDisplayableQuestionCode` (`src/lib/question-code.ts`) — a code is
+  shown only when it is a form number (digits and dots). `QuestionCode`
+  renders nothing for anything else, which covers every caller at once
+  (FieldRenderer, TableRenderer, ActivitiesTableRenderer, VtTableRenderer,
+  VtWizardFields, VtWizardGuidedEntry, VtWizardSectionScreen,
+  AdaptiveStatisticalTable, NominalRosterRenderer). `questionCodeText`
+  follows the same rule, so a screen reader is not read the id either. The
+  code is still split off the label text in every case, so a label that
+  embeds it is not left with it inside the question.
+- VT is untouched: all 187 of its paper codes are form numbers and still
+  show.
 
-### B8 — Review summary numbers off by one (low)
+### B8 — Review summary numbers off by one (low) — fixed 2026-10-17
 - On "Declaration summary and submission", Section 2 carries the badge « 3 »
   and Section 3 the badge « 4 » (index + 1), while the rail numbers them 2
   and 3.
+- Fix: the badge is the section's own index (`ModernJobsWizard.tsx` ~995),
+  the number `ModernJobsSidebar` already shows as `marker: idx` — Modern
+  Jobs numbers its sections from 0, as the paper form does.
 
 ### B9 — PP S1Q15 prefilled with 0 (medium, §9)
 - « Number of permanent workers » opened with 0 though registration never
@@ -275,6 +295,18 @@ it is not test data from this run.
   four lint errors reported in the definitions file are pre-existing `any`s
   on lines this change does not touch. `check:ui-grammar` does not apply
   (nothing under `app/admin/**` or `components/admin/**`).
+- B7 and B8, in react-web: `src/lib/question-code.ts`,
+  `src/components/onefop/ui/QuestionCode.tsx`,
+  `src/components/onefop/FieldRenderer.tsx`,
+  `src/components/onefop/ModernJobsWizard.tsx`, with new tests
+  `src/lib/question-code.test.ts`,
+  `src/components/onefop/ui/QuestionCode.test.tsx` and one more case in
+  `WizardShell.review.test.tsx`. `npm test` 876/876, `npx tsc --noEmit`
+  clean. Checked by rendering the real components against the real schema
+  rather than in the browser: the pane was signed in as the superadmin of
+  the session working on B3 in this same checkout, and signing out from
+  under it would have disturbed that run. The B8 test was confirmed to fail
+  on the old `sIdx + 1` before being kept.
 - Gates, backend: `npx jest --runInBand` 1814/1814 pass. Four assertions
   pinned the previous dataset version: the two that exist to make a bump a
   deliberate act keep their literal (now 12), and the two that only wanted
