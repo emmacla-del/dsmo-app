@@ -967,10 +967,10 @@ export default function RegisterPage() {
   // an answered section must never shove the respondent forward again, which
   // is what `current === reached` guarantees.
   //
-  // The type list moves on the instant it is complete. The password step
-  // does not, even though both of its fields are required: confirming a
-  // password must leave the respondent on the step until they press
-  // Continuer. A section with optional fields waits for the respondent to
+  // No fixed step moves on the instant it is complete: the type list and
+  // the password step wait for Continuer (the type list since defect 19,
+  // owner 2026-10-17; confirming a password must not turn the page by
+  // itself). A section with optional fields waits for the respondent to
   // say so, by leaving its last field after changing it, pressing Enter on
   // it, or following the "continue" link -- see armFromField.
   const frontierComplete = current === reached && completed[reached];
