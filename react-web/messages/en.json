@@ -1713,7 +1713,20 @@
     "registrationTargetsNoteBefore": "Registration quotas: they feed the",
     "registrationTargetsNoteLink": "Coverage",
     "registrationTargetsNoteAfter": "view of the Registrations page.",
-    "declarationQuotasNote": "Declaration quotas: they feed Returns tracking."
+    "declarationQuotasNote": "Declaration quotas: they feed Returns tracking.",
+    "viewNonRespondents": "To follow up",
+    "loadingNonRespondents": "Loading establishments to follow up…",
+    "nonRespSummary": "{count, plural, =0 {All {registered} registered establishments in your territory have declared.} one {# of {registered} registered establishments has not declared yet.} other {# of {registered} registered establishments have not declared yet.}}",
+    "nonRespNoRegistered": "No registered establishment in your territory.",
+    "nonRespLastReminder": "Last campaign reminder: {date} ({count, plural, one {# sent} other {# sent}}).",
+    "nonRespNoReminder": "No reminder has been sent for this campaign yet.",
+    "nonRespEstablishmentColumn": "Establishment",
+    "nonRespIdColumn": "Identifier",
+    "nonRespTypeColumn": "Type",
+    "nonRespFileColumn": "File",
+    "nonRespFileNONE": "No file",
+    "nonRespFileDRAFT": "Draft started",
+    "nonRespFileREJECTED": "File rejected"
   },
   "adminDossiersPage": {
     "period7d": "Last 7 days",
