@@ -1474,4 +1474,99 @@ describe('PilotageService.getCampaignReturns', () => {
     expect(centre.gap).toBe(18); // 20-2
     expect(centre.onTimeRate).toBe(0.1); // 2/20
   });
+
+  // ── Breakdown by entity type (2026-10-17) ─────────────────────────────────
+  describe('byEntityType', () => {
+    function submission(
+      id: string,
+      companyId: string,
+      formType: OnefopEntityType,
+      regionId: string | null,
+      departmentId: string | null,
+      status: OnefopStatus = OnefopStatus.PENDING_REVIEW,
+      isLate = false,
+    ) {
+      return { id, campaignId: 'c1', companyId, formType, status, isLate, regionId, departmentId, createdAt: new Date('2026-02-10') };
+    }
+
+    function mixedHarness() {
+      const harness = createHarness();
+      harness.campaigns.push(campaign('c1'));
+      harness.companies.push(
+        registeredCompany('ent-1', 'r-centre', 'd-mfoundi'),
+        registeredCompany('ent-2', 'r-littoral', 'd-wouri'),
+        registeredCompany('vt-1', 'r-centre', 'd-lekie', OnefopEntityType.VOCATIONAL_TRAINING),
+        registeredCompany('vt-2', 'r-centre', 'd-mfoundi', OnefopEntityType.VOCATIONAL_TRAINING),
+        registeredCompany('adm-1', 'r-centre', 'd-mfoundi', OnefopEntityType.ADMINISTRATION),
+        // A registered company with no type: outside the headline, reported apart.
+        { ...registeredCompany('untyped-1', 'r-centre', 'd-mfoundi'), entityType: null },
+      );
+      harness.onefopSubmissions.push(
+        submission('s-ent-1', 'ent-1', OnefopEntityType.ENTREPRISE, 'r-centre', 'd-mfoundi', OnefopStatus.APPROVED),
+        submission('s-vt-1', 'vt-1', OnefopEntityType.VOCATIONAL_TRAINING, 'r-centre', 'd-lekie', OnefopStatus.PENDING_REVIEW, true),
+        submission('s-adm-1', 'adm-1', OnefopEntityType.ADMINISTRATION, 'r-centre', 'd-mfoundi'),
+        // A return with no territory: in totals (it is non-zero), so in the breakdown too.
+        submission('s-ent-x', 'ent-x', OnefopEntityType.ENTREPRISE, null, null),
+      );
+      return harness;
+    }
+
+    function row(res: { byEntityType: Array<{ entityType: string }> }, entityType: string) {
+      return res.byEntityType.find((entry) => entry.entityType === entityType);
+    }
+
+    it('splits the national headline by type, and the rows add up to it', async () => {
+      const res = await mixedHarness().service.getCampaignReturns(national, 'c1');
+
+      expect(res.byEntityType.map((entry) => entry.entityType)).toEqual([
+        'ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING',
+      ]);
+      expect(row(res, 'ENTREPRISE')).toEqual({
+        entityType: 'ENTREPRISE', received: 2, approved: 1, onTime: 2, late: 0, registeredStock: 2, responseRate: 1,
+      });
+      expect(row(res, 'VOCATIONAL_TRAINING')).toEqual({
+        entityType: 'VOCATIONAL_TRAINING', received: 1, approved: 0, onTime: 0, late: 1, registeredStock: 2, responseRate: 0.5,
+      });
+      expect(row(res, 'ADMINISTRATION')).toMatchObject({ received: 1, registeredStock: 1, responseRate: 1 });
+      // A type nobody registered is listed, with no rate rather than 0 %.
+      expect(row(res, 'CTD')).toMatchObject({ received: 0, registeredStock: 0, responseRate: null });
+
+      const sum = (key: 'received' | 'registeredStock' | 'late' | 'approved') =>
+        res.byEntityType.reduce((total, entry) => total + entry[key], 0);
+      expect(sum('received')).toBe(res.totals.received);
+      expect(sum('registeredStock')).toBe(res.totals.registeredStock);
+      expect(sum('late')).toBe(res.totals.late);
+      expect(sum('approved')).toBe(res.totals.approved);
+      expect(res.untypedRegisteredStock).toBe(1);
+    });
+
+    it('keeps a regional account to its region and leaves the administrations out', async () => {
+      const res = await mixedHarness().service.getCampaignReturns(regional, 'c1');
+
+      expect(row(res, 'ADMINISTRATION')).toBeUndefined();
+      // Wouri (Littoral) is not Centre's: one enterprise in stock, not two.
+      expect(row(res, 'ENTREPRISE')).toMatchObject({ received: 1, registeredStock: 1 });
+      expect(row(res, 'VOCATIONAL_TRAINING')).toMatchObject({ received: 1, registeredStock: 2 });
+      expect(res.byEntityType.reduce((total, entry) => total + entry.received, 0)).toBe(res.totals.received);
+      expect(res.byEntityType.reduce((total, entry) => total + entry.registeredStock, 0)).toBe(
+        res.totals.registeredStock,
+      );
+      expect(res.untypedRegisteredStock).toBe(1);
+    });
+
+    it('keeps a divisional account to its department', async () => {
+      const res = await mixedHarness().service.getCampaignReturns(divisional, 'c1');
+
+      expect(row(res, 'VOCATIONAL_TRAINING')).toMatchObject({ received: 0, registeredStock: 1 });
+      expect(res.byEntityType.reduce((total, entry) => total + entry.registeredStock, 0)).toBe(
+        res.totals.registeredStock,
+      );
+    });
+
+    it('is empty for an account with no territory', async () => {
+      const res = await mixedHarness().service.getCampaignReturns({ role: 'REGIONAL_ADMIN' }, 'c1');
+      expect(res.byEntityType).toEqual([]);
+      expect(res.untypedRegisteredStock).toBe(0);
+    });
+  });
 });
