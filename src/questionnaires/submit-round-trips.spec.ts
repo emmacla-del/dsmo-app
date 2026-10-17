@@ -8,6 +8,14 @@ import { completeVtAnswers } from './complete-vt-answers.fixture';
  * so the cost is the number of round trips. This keeps that number bounded:
  * a complete final VT submit makes these queries, in this order, and no
  * more. The nested create is one call (its child rows are createMany).
+ *
+ * campaignSubmission.updateMany became campaignSubmission.upsert (fix for
+ * the dashboard-coverage bug found 2026-10-17): an establishment that
+ * registers after its campaign activates never gets a CampaignSubmission
+ * row, so updateMany silently matched nothing. This mock counts one Prisma
+ * Client call either way; Prisma's own upsert may cost the pooler one more
+ * round trip underneath than updateMany did — a smaller, known trade for
+ * no longer losing submissions from the coverage count.
  */
 describe('final VT submit — database round trips', () => {
   it('makes a bounded, known list of queries and returns only the ids from create', async () => {
@@ -32,7 +40,7 @@ describe('final VT submit — database round trips', () => {
       department: { findFirst: async () => null },
       region: { findFirst: async () => null },
       sector: { findFirst: async () => null },
-      campaignSubmission: { updateMany: async () => ({ count: 1 }) },
+      campaignSubmission: { upsert: async () => ({}) },
       onefopAnomaly: { deleteMany: async () => ({}), createMany: async () => ({}) },
     };
     const prisma = new Proxy(base, {
@@ -66,7 +74,7 @@ describe('final VT submit — database round trips', () => {
       'submissionRound.findMany', // campaign and deadline
       'onefopSubmission.findMany', // one live declaration per period, and the corrections it answers
       'onefopSubmission.create', // the declaration and every child table
-      'campaignSubmission.updateMany', // campaign progress
+      'campaignSubmission.upsert', // campaign progress (upsert: an establishment that registered after campaign activation has no row yet)
       'onefopAnomaly.createMany', // the advisory coherence flags
     ]);
     // Geography is resolved once, at most one lookup per level.

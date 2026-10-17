@@ -1878,7 +1878,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
       campaignSubmission: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn(),
-        upsert: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({ id: 'cs-1' }),
         createMany: jest.fn(),
       },
       // Array form only: the mocked update/updateMany calls return their
@@ -1934,9 +1934,10 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
         }),
       }),
     );
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
-      where: { campaignId: 'campaign-1', companyId: 'company-1' },
-      data: { status: 'SUBMITTED', submittedAt: expect.any(Date) },
+    expect(prisma.campaignSubmission.upsert).toHaveBeenCalledWith({
+      where: { campaignId_establishmentId: { campaignId: 'campaign-1', establishmentId: 'EST-1' } },
+      create: { campaignId: 'campaign-1', companyId: 'company-1', establishmentId: 'EST-1', status: 'SUBMITTED', submittedAt: expect.any(Date) },
+      update: { status: 'SUBMITTED', submittedAt: expect.any(Date) },
     });
   });
 
@@ -1955,27 +1956,19 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     expect(lookups[0].where.module).toBe('ONEFOP');
   });
 
-  it("an EXEMPT company that submits becomes SUBMITTED: the update carries no status condition", async () => {
+  it("an EXEMPT company that submits becomes SUBMITTED: the upsert's update branch carries no status condition", async () => {
     const prisma = buildMockPrisma('campaign-1');
-    // The mock can't hold row state, so it stands in for the database:
-    // it only reports the EXEMPT row as matched if the where clause
-    // doesn't exclude it.
-    const existingRow = { campaignId: 'campaign-1', companyId: 'company-1', status: 'EXEMPT' };
-    prisma.campaignSubmission.updateMany.mockImplementation(({ where }: any) =>
-      Promise.resolve({
-        count:
-          where.campaignId === existingRow.campaignId &&
-          where.companyId === existingRow.companyId &&
-          where.status === undefined ? 1 : 0,
-      }));
     const service = new QuestionnairesService(prisma);
 
     await submit(service, 'b2-exempt');
 
-    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
-    expect(args.where).not.toHaveProperty('status');
-    expect(args.data.status).toBe('SUBMITTED');
-    await expect(prisma.campaignSubmission.updateMany.mock.results[0].value).resolves.toEqual({ count: 1 });
+    // upsert's `update` branch is what runs against an existing row (here,
+    // standing in for one already EXEMPT): it unconditionally sets
+    // SUBMITTED, the same as before, it is just no longer gated on a
+    // matching `where`.
+    const args = prisma.campaignSubmission.upsert.mock.calls[0][0];
+    expect(args.where).toEqual({ campaignId_establishmentId: { campaignId: 'campaign-1', establishmentId: 'EST-1' } });
+    expect(args.update).toEqual({ status: 'SUBMITTED', submittedAt: expect.any(Date) });
   });
 
   it('round with campaignId null: does nothing to CampaignSubmission and keeps OnefopSubmission.campaign undefined', async () => {
@@ -1993,21 +1986,27 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
         }),
       }),
     );
-    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.upsert).not.toHaveBeenCalled();
   });
 
-  it('no matching CampaignSubmission row: does not error and does not create a row', async () => {
+  it('no CampaignSubmission row yet (the establishment registered after the campaign activated): upsert creates one, SUBMITTED', async () => {
+    // Regression test for the 2026-10-17 dashboard-coverage bug: before this
+    // fix, a submission from an establishment outside the activation-time
+    // snapshot matched nothing (updateMany, count 0) and was silently never
+    // counted. upsert must create the row instead of doing nothing.
     const prisma = buildMockPrisma('campaign-1');
-    prisma.campaignSubmission.updateMany.mockResolvedValue({ count: 0 });
     const service = new QuestionnairesService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
     const result = await submit(service, 'b2-no-row');
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-no-row' });
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.upsert).toHaveBeenCalledWith({
+      where: { campaignId_establishmentId: { campaignId: 'campaign-1', establishmentId: 'EST-1' } },
+      create: { campaignId: 'campaign-1', companyId: 'company-1', establishmentId: 'EST-1', status: 'SUBMITTED', submittedAt: expect.any(Date) },
+      update: { status: 'SUBMITTED', submittedAt: expect.any(Date) },
+    });
     expect(prisma.campaignSubmission.create).not.toHaveBeenCalled();
-    expect(prisma.campaignSubmission.upsert).not.toHaveBeenCalled();
     expect(prisma.campaignSubmission.createMany).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
   });
@@ -2015,7 +2014,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
   it('a failing campaign-progress update does not fail the submission (logged at error level with the stack)', async () => {
     const prisma = buildMockPrisma('campaign-1');
     const boom = new Error('connection reset');
-    prisma.campaignSubmission.updateMany.mockRejectedValue(boom);
+    prisma.campaignSubmission.upsert.mockRejectedValue(boom);
     const service = new QuestionnairesService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
@@ -2027,7 +2026,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
       message: 'Formulaire soumis avec succès',
       data: undefined,
     });
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.upsert).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0][0]).toContain('b2-update-throws');
     expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
@@ -2049,9 +2048,10 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
         }),
       }),
     );
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
-      where: { campaignId: 'campaign-1', companyId: 'company-1' },
-      data: { status: 'IN_PROGRESS' },
+    expect(prisma.campaignSubmission.upsert).toHaveBeenCalledWith({
+      where: { campaignId_establishmentId: { campaignId: 'campaign-1', establishmentId: 'EST-1' } },
+      create: { campaignId: 'campaign-1', companyId: 'company-1', establishmentId: 'EST-1', status: 'IN_PROGRESS', submittedAt: undefined },
+      update: { status: 'IN_PROGRESS' },
     });
   });
 
