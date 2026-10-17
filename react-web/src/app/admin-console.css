@@ -2201,6 +2201,61 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   background: var(--cam-green);
 }
 
+/* Pilotage coverage: the headline response rate, and a meter beside each
+   territory's rate so the laggards show at a glance. */
+.cam-dash-coverage {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-4);
+  margin-top: var(--cam-space-5);
+}
+
+.cam-dash-coverage-figure {
+  margin: 0;
+  font-size: var(--cam-font-size-3xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
+  color: var(--cam-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-coverage-label {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-dash-meter-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-meter-cell .cam-dash-bar {
+  display: block;
+  flex: none;
+  width: 96px;
+  margin-top: 0;
+}
+
+.cam-dash-table-foot {
+  margin: var(--cam-space-4) 0 0;
+}
+
+@media (max-width: 639px) {
+  .cam-dash-meter-cell .cam-dash-bar {
+    width: 32px;
+  }
+
+  /* A column the phone drops so the rate stays in view; its total is
+     shown above the table. */
+  .cam-dash-table .is-wide-only {
+    display: none;
+  }
+}
+
 @media (max-width: 1199px) {
   .cam-dash-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
