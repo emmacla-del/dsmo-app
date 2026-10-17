@@ -23,6 +23,11 @@ export class CampaignSchedulerService {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         for (const campaign of activeCampaigns) {
+            // Daily catch-up of establishments approved since activation, so
+            // dashboard and report totals lag by a day at most, not until the
+            // next reminder. Best-effort: never throws.
+            await this.campaignService.syncCampaignSubmissions(campaign.id);
+
             const deadline = campaign.extendedDeadline ?? campaign.deadline;
             if (!deadline) continue;
 
