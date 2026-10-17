@@ -1514,12 +1514,33 @@ export class QuestionnairesService {
 
     // Campaign progress sync:
     // DRAFT -> IN_PROGRESS, PENDING_REVIEW -> SUBMITTED (with submittedAt).
+    // upsert, not updateMany: _initializeCampaignSubmissions snapshots
+    // targeted establishments once, at campaign activation. An
+    // establishment that registers afterwards — the normal case in a pilot
+    // with rolling registration — never gets a row, so updateMany matched
+    // nothing and this submission's progress was silently never counted
+    // (dashboard coverage stuck below the real figure). The unique
+    // constraint is (campaignId, establishmentId) (schema.prisma), so the
+    // upsert is keyed on that, same as _initializeCampaignSubmissions'
+    // createMany rows.
     // Best-effort: the OnefopSubmission is already saved, so a failure is logged, not thrown.
     if (resolvedCampaignId && resolvedCompanyId) {
       try {
-        await this.prisma.campaignSubmission.updateMany({
-          where: { campaignId: resolvedCampaignId, companyId: resolvedCompanyId },
-          data: isDraft
+        await this.prisma.campaignSubmission.upsert({
+          where: {
+            campaignId_establishmentId: {
+              campaignId: resolvedCampaignId,
+              establishmentId: resolvedEstablishmentId,
+            },
+          },
+          create: {
+            campaignId: resolvedCampaignId,
+            companyId: resolvedCompanyId,
+            establishmentId: resolvedEstablishmentId,
+            status: isDraft ? 'IN_PROGRESS' : 'SUBMITTED',
+            submittedAt: isDraft ? undefined : new Date(),
+          },
+          update: isDraft
             ? { status: 'IN_PROGRESS' }
             : { status: 'SUBMITTED', submittedAt: new Date() },
         });

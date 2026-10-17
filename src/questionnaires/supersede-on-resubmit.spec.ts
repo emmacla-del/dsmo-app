@@ -35,7 +35,7 @@ describe('a resubmission closes the correction requests it answers', () => {
       department: { findFirst: async () => null },
       region: { findFirst: async () => null },
       sector: { findFirst: async () => null },
-      campaignSubmission: { updateMany: async () => ({ count: 1 }) },
+      campaignSubmission: { upsert: async () => ({}) },
       onefopAnomaly: { createMany: async () => ({}) },
       auditLog: { createMany: async (args: any) => audits.push(args) },
     };
