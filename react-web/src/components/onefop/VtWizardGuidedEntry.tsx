@@ -213,7 +213,7 @@ const GuidedRowOwes = memo(function GuidedRowOwes({ labels }: { labels: string[]
         fontWeight: 600,
         fontSize: "var(--cam-font-size-xs)",
         color: "var(--cam-error)",
-        margin: "2px 0 0",
+        margin: "var(--cam-space-hairline) 0 0",
       }}
     >
       {t("vtWizard.rowOwes", { cells: labels.join(", ") })}
@@ -612,7 +612,7 @@ function FixedSummaryRow({
         <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </p>
-        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
+        <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "var(--cam-space-hairline) 0 0" }}>
           {numberCells.map((c, i) => `${cellLabel(c, locale)}: ${guidedNumberDisplay(vals[i], locale)}`).join(" · ")}
         </p>
       </div>
@@ -847,7 +847,7 @@ function ProgressiveSummaryRow({
           {missingLabel ? t("vtWizard.labelMissing", { label: cellLabel(vt.cells[0], locale) }) : label}
         </p>
         {detail && (
-          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
+          <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "var(--cam-space-hairline) 0 0" }}>
             {detail}
           </p>
         )}
@@ -1014,7 +1014,7 @@ export function VtWizardProgressiveBooleanTableEntry({
                     {missingLabel ? t("vtWizard.labelMissing", { label: cellLabel(labelCell, locale) }) : label}
                   </p>
                   {detailParts.length > 0 && (
-                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
+                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "var(--cam-space-hairline) 0 0" }}>
                       {detailParts.join(" • ")}
                     </p>
                   )}
@@ -1267,7 +1267,7 @@ export function VtWizardRosterGuidedEntry({
                     {label}
                   </p>
                   {detailParts.length > 0 && (
-                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "2px 0 0" }}>
+                    <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, margin: "var(--cam-space-hairline) 0 0" }}>
                       {detailParts.join(" · ")}
                     </p>
                   )}
@@ -1337,7 +1337,7 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
       <label style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-question-weight)", fontSize: "var(--cam-question-size)", color: ink }}>
         {label}
       </label>
-      <div style={{ display: "flex", height: "var(--cam-form-field-height)", padding: 2, background: "var(--cam-bg)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)" }}>
+      <div style={{ display: "flex", height: "var(--cam-form-field-height)", padding: "var(--cam-space-hairline)", background: "var(--cam-bg)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)" }}>
         {options.map((opt) => {
           const active = value === opt.value;
           return (
