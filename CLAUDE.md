@@ -713,6 +713,15 @@ Approved changes on record:
   Fix: "@(#) SPSS DATA FILE CAMLEAP ONEFOP". File metadata only: variables,
   values, labels, order and DATASET_SCHEMA_VERSION unchanged; the golden-digest
   test proves no other byte moved. Approved by the owner in chat, 2026-10-17.
+- 2026-10-17 — official PDF footer and registration e-mails say CAMLEAP
+  (`src/pdf/onefop-puppeteer.service.ts`, `src/services/pdf-data-mapper.service.ts`,
+  the seven `src/pdf/templates/dynamic/*.hbs` fallbacks,
+  `src/dsmo/notification.service.ts`). Issue: the footer read « … via la
+  plateforme CAM-LEAP » / "… via the CAM-LEAP platform", and the three
+  registration e-mails used "CAM-LEAP" in body and subject. Fix: CAMLEAP;
+  wording, layout and every other PDF field unchanged.
+  `src/common/brand-name.spec.ts` keeps the old spelling out. Approved by the
+  owner in chat, 2026-10-17.
 
 ---
 
