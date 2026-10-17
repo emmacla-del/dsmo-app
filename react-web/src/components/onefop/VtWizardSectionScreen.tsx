@@ -1269,9 +1269,11 @@ export function VtWizardSectionScreen({
       <div className="cam-step-head">
         {/* Focus target of the shell on every section change (useStepFocus):
             not a Tab stop, and no ring around a title. */}
-        <h2 id={vtSectionHeadingId(sectionId)} tabIndex={-1} className="cam-step-title">
+        {/* The step's one h1 (audit R25), as the preliminary quiz has: the
+            tables' own h2/h3 then sit under it. */}
+        <h1 id={vtSectionHeadingId(sectionId)} tabIndex={-1} className="cam-step-title">
           {sectionTitle}
-        </h2>
+        </h1>
         {groups.length > 0 && <RequiredQuestionsNote />}
       </div>
 

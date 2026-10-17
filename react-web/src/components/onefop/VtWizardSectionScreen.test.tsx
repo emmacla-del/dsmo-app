@@ -74,3 +74,14 @@ test("2.1.13's order date shows its DD/MM/YYYY format", () => {
   const c = renderEn("VT2_17", { VT2_14: "Oui/ Yes" });
   assert.equal(c.querySelector<HTMLInputElement>("#VT2_17")?.placeholder, "DD/MM/YYYY");
 });
+
+// Audit R25: each section's title is the step's one h1 (the quiz's already
+// was), so the tables' own headings sit under it.
+test("a section's title is its one h1", () => {
+  const { container } = renderWithProviders(
+    <VtWizardSectionScreen section={s9} data={{}} onChange={() => {}} isFirst={false} isLast onBack={() => {}} onNext={() => {}} />,
+  );
+  const h1 = container.querySelectorAll("h1");
+  assert.equal(h1.length, 1);
+  assert.equal(h1[0].className, "cam-step-title");
+});
