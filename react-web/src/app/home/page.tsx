@@ -17,7 +17,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions, mySubmissionsQueryOptions, myNotificationsQueryOptions } from "@/lib/shared-queries";
-import { campaignPhrase, respondentTypeLabel } from "@/lib/respondent-identity";
+import { campaignPhrase, declaredWorkforce, respondentNiu, respondentTypeLabel } from "@/lib/respondent-identity";
 import { formatCampaignDate } from "@/lib/campaigns";
 import { formatDoualaDate } from "@/lib/douala-date";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -70,11 +70,6 @@ const STATUS_BADGE_CLASS: Record<SubmissionGroup, string> = {
   correction: "cam-badge-warning",
   rejected: "cam-badge-error",
 };
-
-/** VOCATIONAL_TRAINING (API) or vocationalTraining (schema). */
-function isTrainingCentre(entityType: string | null | undefined): boolean {
-  return (entityType ?? "").replace(/_/g, "").toLowerCase() === "vocationaltraining";
-}
 
 function groupStatusLabel(t: ReturnType<typeof useTranslations>, group: SubmissionGroup): string {
   switch (group) {
@@ -259,6 +254,9 @@ export default function HomeLandingPage() {
 
   const locationParts = [company?.subdivision, company?.department, company?.region].filter(Boolean);
   const locationText = locationParts.length > 0 ? locationParts.join(", ") : null;
+  // Identity strip: only what this account actually declared (B6).
+  const niu = respondentNiu(company?.taxNumber);
+  const workforce = declaredWorkforce(company);
 
   return (
     <div style={{ maxWidth: "var(--vt-content-max-wide)", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--cam-space-6)" }}>
@@ -277,10 +275,13 @@ export default function HomeLandingPage() {
         {/* Lightweight meta strip */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-1) var(--cam-space-3)", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
           {typeLabel && <span style={{ fontWeight: 600, color: "var(--cam-text)" }}>{typeLabel}</span>}
-          {company?.taxNumber && (
+          {/* Shown only when the account declared one: an administration and
+              a project/programme are never asked for a NIU, and their row
+              carries an internal `NA-<uuid>` placeholder (B6). */}
+          {niu && (
             <>
               <span aria-hidden="true">·</span>
-              <span>{t("homeLandingPage.niuLabel")} <strong style={{ color: "var(--cam-text)" }}>{company.taxNumber}</strong></span>
+              <span>{t("homeLandingPage.niuLabel")} <strong style={{ color: "var(--cam-text)" }}>{niu}</strong></span>
             </>
           )}
           {company?.cnpsNumber && (
@@ -295,12 +296,14 @@ export default function HomeLandingPage() {
               <span>{locationText}</span>
             </>
           )}
-          {/* A training centre declares trainees and trainers, not employees:
-              its header never read anything but "0 declared employees". */}
-          {company?.totalEmployees != null && !isTrainingCentre(company.entityType) && (
+          {/* The DSMO company profile's headcount, shown only when someone
+              entered one. ONEFOP never asks for it, so it stayed at 0 and the
+              header read « 0 declared employees » beside a declaration of 12
+              (B6); a training centre declares trainees, not employees. */}
+          {workforce !== null && (
             <>
               <span aria-hidden="true">·</span>
-              <span>{t("homeLandingPage.employeesCount", { count: company.totalEmployees })}</span>
+              <span>{t("homeLandingPage.employeesCount", { count: workforce })}</span>
             </>
           )}
         </div>

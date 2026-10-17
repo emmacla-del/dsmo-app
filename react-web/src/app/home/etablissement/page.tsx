@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ApiError, getCachedUser, getMyAttestation, changePassword } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { myCompanyQueryOptions, meQueryOptions } from "@/lib/shared-queries";
-import { respondentTypeLabel } from "@/lib/respondent-identity";
+import { declaredWorkforce, respondentNiu, respondentTypeLabel } from "@/lib/respondent-identity";
 import { asUiLocale } from "@/lib/register-i18n";
 import { SITE_CONTACT } from "@/components/landing/site/site-content";
 
@@ -31,6 +31,9 @@ export default function HomeEstablishmentPage() {
     enabled: user?.role === "COMPANY",
   });
   const company = companyQuery.data;
+  // The establishment record shows only what this account declared (B6).
+  const niu = respondentNiu(company?.taxNumber);
+  const workforce = declaredWorkforce(company);
 
   // Attestation state
   const [attestationLoading, setAttestationLoading] = useState(false);
@@ -236,23 +239,34 @@ export default function HomeEstablishmentPage() {
                 </dd>
               </div>
 
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.taxNumber")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.taxNumber || "—"}
-                </dd>
-              </div>
+              {/* An administration and a project/programme are never asked
+                  for a NIU; their row holds an internal `NA-<uuid>`
+                  placeholder, which is not a number to show them (B6). */}
+              {niu && (
+                <div>
+                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
+                    {t("homeEstablishmentPage.taxNumber")}
+                  </dt>
+                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
+                    {niu}
+                  </dd>
+                </div>
+              )}
 
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.cnpsNumber")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.cnpsNumber || "—"}
-                </dd>
-              </div>
+              {/* Registration asks for a CNPS number from the same five
+                  types as the NIU, so an administration or a
+                  project/programme read « Numéro CNPS — » for a question
+                  they are never asked. The home header already hid it. */}
+              {company?.cnpsNumber && (
+                <div>
+                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
+                    {t("homeEstablishmentPage.cnpsNumber")}
+                  </dt>
+                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
+                    {company.cnpsNumber}
+                  </dd>
+                </div>
+              )}
 
               <div>
                 <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
@@ -274,16 +288,19 @@ export default function HomeEstablishmentPage() {
                 </div>
               )}
 
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.totalEmployees")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.totalEmployees != null
-                    ? t("homeLandingPage.employeesCount", { count: company.totalEmployees })
-                    : "—"}
-                </dd>
-              </div>
+              {/* The DSMO company profile's headcount. ONEFOP never asks for
+                  it, so it stays at 0 and read « 0 déclarés » next to a
+                  declaration of 12 (B6): shown only when entered. */}
+              {workforce !== null && (
+                <div>
+                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
+                    {t("homeEstablishmentPage.totalEmployees")}
+                  </dt>
+                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
+                    {t("homeLandingPage.employeesCount", { count: workforce })}
+                  </dd>
+                </div>
+              )}
             </div>
           </section>
 
