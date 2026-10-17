@@ -662,6 +662,25 @@ Approved changes on record:
   already submitted before this fix deployed, so an already-active
   campaign's dashboard stays wrong for its existing submissions until a
   one-off backfill runs or those establishments resubmit.
+- 2026-10-17 — campaign rows re-synced for establishments approved after
+  activation (`CampaignService.syncCampaignSubmissions`, called in
+  `sendReminders` and for each ACTIVE campaign in the daily 06:00
+  `CampaignSchedulerService` run). Issue: the upsert above creates a row
+  only at submit, so an establishment approved after activation that had
+  not submitted was never reminded and was left out of the coverage and
+  completion denominators (dashboard, report and report PDF), which
+  overstated them. Fix: re-run `_initializeCampaignSubmissions`, which now
+  only adds rows for targeted establishments that have none, and seeds each
+  from its non-SUPERSEDED file for the campaign (APPROVED → VALIDATED,
+  PENDING_REVIEW → SUBMITTED, DRAFT/CORRECTION_REQUESTED → IN_PROGRESS,
+  REJECTED → NOT_STARTED; same mapping as `campaign-review-sync.ts`), so a
+  pre-upsert submitter is neither reminded nor counted as not started.
+  Existing rows are never changed or removed; a failed sync is logged and
+  reminders go to the existing rows. Consequence: coverage and completion
+  rates fall to their true value; frozen report snapshots are not rewritten.
+  This also does the backfill the caveat above asks for, on the first
+  daily run after deploy. No schema change. Approved by the owner in chat,
+  2026-10-17.
 
 ---
 
