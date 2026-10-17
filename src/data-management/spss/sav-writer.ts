@@ -270,7 +270,7 @@ export class SavWriter {
 
     // ── File header (176 bytes) ──
     out.fixed('$FL2', 4);
-    out.fixed('@(#) SPSS DATA FILE CAM-LEAP ONEFOP', 60);
+    out.fixed('@(#) SPSS DATA FILE CAMLEAP ONEFOP', 60);
     out.int32(2); // layout code
     out.int32(this.totalUnits); // nominal case size (8-byte units)
     out.int32(1); // bytecode compression
