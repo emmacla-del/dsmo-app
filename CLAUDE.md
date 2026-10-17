@@ -681,6 +681,20 @@ Approved changes on record:
   This also does the backfill the caveat above asks for, on the first
   daily run after deploy. No schema change. Approved by the owner in chat,
   2026-10-17.
+- 2026-10-17 — pilotage readers may list the active collection campaigns
+  (RBAC; `GET /admin/pilotage/campaigns/active`,
+  `PilotageService.getActiveCollectionCampaigns`). Issue: `/admin/pilotage`
+  found the campaign id with `GET /campaigns` (SUPER_ADMIN, ADMIN_ONEFOP,
+  REGIONAL_ADMIN), so DIVISIONAL_ADMIN and CENTRAL_AGENT, who may read the
+  coverage figures (`campaigns/:id/returns`, PILOTAGE_READ_ROLES), were told
+  coverage was not available to them. Decision: a read route for
+  PILOTAGE_READ_ROLES answering only id, code, name, collectionType,
+  periodicity, startDate, deadline and status of ACTIVE COLLECTION campaigns;
+  no counts, nothing territorial or personal, the same answer for every
+  reader. `deadline` is the one in force (the extended deadline when set).
+  The dashboard uses it for every role. `GET /campaigns` and its roles are
+  unchanged; do not widen them to solve this. No schema change. Approved by
+  the owner in chat, 2026-10-17.
 
 ---
 
