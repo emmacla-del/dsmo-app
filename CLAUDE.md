@@ -641,6 +641,27 @@ Approved changes on record:
   statistically eligible (EXCL_SUPERSEDED), and offers no decision. REJECTED
   files are final and untouched; the live-submission index is unchanged.
   Approved by the owner in chat, 2026-10-16.
+- 2026-10-17 — campaign-progress sync creates its CampaignSubmission row
+  instead of silently skipping it (`QuestionnairesService.submitQuestionnaire`,
+  `src/questionnaires/questionnaires.service.ts` ~1515). Issue: the
+  pilotage dashboard's coverage rate read 0% with 5 real declarations
+  submitted. `_initializeCampaignSubmissions` (`campaign.service.ts`)
+  snapshots targeted establishments once, at campaign activation; an
+  establishment that registers afterwards — the normal case with rolling
+  registration — never gets a row, and the submit-time sync used
+  `campaignSubmission.updateMany({ where: { campaignId, companyId } })`,
+  which matched nothing for it: no error, no log, the submission just
+  never counted. Fix: `upsert`, keyed on the existing
+  `@@unique([campaignId, establishmentId])` constraint — create the row if
+  missing, update it if present. Same statuses, same best-effort
+  try/catch. No schema change; the admin-review transitions (approve/
+  reject/requestCorrection) still use `updateMany` deliberately, since a
+  reviewer only acts on a submission whose row already exists. Approved
+  by the owner in chat, 2026-10-17. Caveat: this only takes effect on the
+  next submit — it does not retroactively backfill rows for declarations
+  already submitted before this fix deployed, so an already-active
+  campaign's dashboard stays wrong for its existing submissions until a
+  one-off backfill runs or those establishments resubmit.
 
 ---
 
