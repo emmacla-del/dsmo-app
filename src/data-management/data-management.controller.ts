@@ -166,7 +166,7 @@ export class DataManagementController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
   async postExportVtRosterCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
-    this.dataManagementService.logExport(req.user?.id, 'ROSTER_CSV', { filters });
+    await this.dataManagementService.recordRestrictedExport(req.user?.id, 'ROSTER_CSV', { filters });
     await this.dataManagementService.streamVtRosterCsv(filters, res, territoryFromUser(req.user));
   }
 
@@ -174,12 +174,13 @@ export class DataManagementController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
   async postExportVtRosterSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
-    this.dataManagementService.logExport(req.user?.id, 'ROSTER_SAV', { filters });
+    await this.dataManagementService.recordRestrictedExport(req.user?.id, 'ROSTER_SAV', { filters });
     await this.dataManagementService.streamVtRosterSav(filters, res, territoryFromUser(req.user));
   }
 
   // Restricted VT contact file (Decision 2 Option B) — personal contact info,
-  // restricted to central ONEFOP admins. Every download is recorded.
+  // restricted to central ONEFOP admins. Every download is recorded, and a
+  // download whose record cannot be written is refused (§21, 2026-10-17).
   @Post('export/vt-contact/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
   async postExportVtContactManifest(@Body('csvFilename') csvFilename?: string) {
@@ -190,7 +191,7 @@ export class DataManagementController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
   async postExportVtContactCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
-    this.dataManagementService.logExport(req.user?.id, 'CONTACT_CSV', { filters });
+    await this.dataManagementService.recordRestrictedExport(req.user?.id, 'CONTACT_CSV', { filters });
     await this.dataManagementService.streamVtContactCsv(filters, res, territoryFromUser(req.user));
   }
 
@@ -198,7 +199,7 @@ export class DataManagementController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
   async postExportVtContactSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     const filters = { ...(bodyFilters || {}), entityType: 'VOCATIONAL_TRAINING' };
-    this.dataManagementService.logExport(req.user?.id, 'CONTACT_SAV', { filters });
+    await this.dataManagementService.recordRestrictedExport(req.user?.id, 'CONTACT_SAV', { filters });
     await this.dataManagementService.streamVtContactSav(filters, res, territoryFromUser(req.user));
   }
 }

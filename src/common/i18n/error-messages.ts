@@ -37,6 +37,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     also: ['Données incohérentes : une sous-catégorie (« dont ») ne peut pas dépasser son total. / Incoherent data: a subset cannot exceed its total.'],
   },
   { fr: 'Export du fichier des contacts indisponible.', en: 'The contact file export is unavailable.' },
+  {
+    fr: "Le téléchargement n'a pas pu être enregistré ; réessayez dans un instant.",
+    en: 'The download could not be recorded; try again in a moment.',
+  },
   // ── Authentication and accounts ──────────────────────────────────────
   { fr: 'Authentification requise.', en: 'Authentication required.' },
   { fr: 'Votre compte est en attente d\'approbation par un administrateur.', en: 'Your account is awaiting approval by an administrator.' },

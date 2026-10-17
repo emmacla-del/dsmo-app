@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import type { Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -2288,6 +2288,34 @@ export class DataManagementService {
             // a download that left no record must at least show in the logs.
             this.logger.error(
                 `Export not recorded (format ${format}, user ${userId}): ${(error as Error)?.message ?? error}`,
+            );
+        }
+    }
+
+    /**
+     * Records a download of a restricted personal-data file (8.8 roster, VT
+     * contacts) and refuses it when the record cannot be written. §21: these
+     * files are allowed on condition that every download is recorded, so they
+     * fail closed, unlike logExport, which every other export keeps.
+     */
+    async recordRestrictedExport(userId: string | undefined, format: string, details?: any): Promise<void> {
+        try {
+            if (!userId) throw new Error('no user on the request');
+            await this.prisma.auditLog.create({
+                data: {
+                    userId,
+                    action: 'DATA_EXPORT',
+                    resourceType: 'DIFFUSION',
+                    resourceId: 'submissions',
+                    details: { format, ...(details || {}) },
+                },
+            });
+        } catch (error) {
+            this.logger.error(
+                `Restricted export refused, not recorded (format ${format}, user ${userId}): ${(error as Error)?.message ?? error}`,
+            );
+            throw new ServiceUnavailableException(
+                "Le téléchargement n'a pas pu être enregistré ; réessayez dans un instant.",
             );
         }
     }
