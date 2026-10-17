@@ -639,6 +639,11 @@ export class CampaignService {
             );
         }
 
+        // Recipients are read from CampaignSubmission rows, which activation
+        // creates only for the establishments targeted at that moment. Re-sync
+        // first so an establishment approved since then is reminded too.
+        await this.syncCampaignSubmissions(campaignId);
+
         const companies = await this._getPendingCompanies(campaignId);
         const subject = this.getReminderSubject(reminderType, campaign.name);
         const message = this.getReminderMessage(reminderType, campaign);
@@ -669,6 +674,24 @@ export class CampaignService {
             this.logger.log(summary);
         }
         return reminder;
+    }
+
+    /**
+     * Adds a NOT_STARTED row for every establishment the campaign targets
+     * that has none yet — establishments approved after activation, which
+     * the activation snapshot missed. Same targeting and skipDuplicates
+     * as activation, so it only ever adds rows and never touches an
+     * existing one. Best-effort: on failure the caller carries on with the
+     * rows already there.
+     */
+    async syncCampaignSubmissions(campaignId: string) {
+        try {
+            await this._initializeCampaignSubmissions(campaignId);
+        } catch (error) {
+            this.logger.warn(
+                `Campaign submission sync failed for ${campaignId}: ${(error as Error).message}`,
+            );
+        }
     }
 
     /**
