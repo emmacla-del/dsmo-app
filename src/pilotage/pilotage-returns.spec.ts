@@ -3,6 +3,7 @@ import {
   addMetrics,
   buildMetrics,
   emptyMetrics,
+  EntityTypeTally,
   isApprovedStatus,
   isReceivedStatus,
 } from './pilotage-returns';
@@ -106,6 +107,34 @@ describe('pilotage-returns helpers', () => {
         registeredStock: 0,
         responseRate: null,
       });
+    });
+  });
+
+  describe('EntityTypeTally', () => {
+    it('sums only the buckets asked for', () => {
+      const tally = new EntityTypeTally();
+      tally.addStock('d:r1:d1', 'ENTREPRISE');
+      tally.addStock('d:r2:d2', 'ENTREPRISE');
+      tally.addReturn('d:r1:d1', 'ENTREPRISE', true, false);
+      const entreprise = tally.rows(['d:r1:d1'], true).find((row) => row.entityType === 'ENTREPRISE');
+      expect(entreprise).toEqual({
+        entityType: 'ENTREPRISE', received: 1, approved: 1, onTime: 1, late: 0, registeredStock: 1, responseRate: 1,
+      });
+    });
+
+    it('lists a type outside the known order after it, only when it holds something', () => {
+      const tally = new EntityTypeTally();
+      tally.addStock('central', 'VOCATIONAL_TRAINING_CENTER');
+      const rows = tally.rows(['central'], true);
+      expect(rows).toHaveLength(8);
+      expect(rows[7]).toMatchObject({ entityType: 'VOCATIONAL_TRAINING_CENTER', registeredStock: 1, responseRate: 0 });
+      expect(new EntityTypeTally().rows([], true)).toHaveLength(7);
+    });
+
+    it('drops ADMINISTRATION outside national scope', () => {
+      const rows = new EntityTypeTally().rows([], false);
+      expect(rows.map((row) => row.entityType)).not.toContain('ADMINISTRATION');
+      expect(rows).toHaveLength(6);
     });
   });
 });
