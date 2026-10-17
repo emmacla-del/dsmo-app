@@ -240,9 +240,10 @@ test("review is never complete from field state alone", () => {
   assert.equal(isSectionComplete("review", baseState()), false);
 });
 
-test("advancesImmediately is true only for the organisation-type list", () => {
+test("advancesImmediately is false for every fixed step, the organisation type included", () => {
   const state = baseState();
-  assert.equal(advancesImmediately("entityType", state.entityType), true);
+  // Defect 19: picking a type no longer turns the page; Continuer does.
+  assert.equal(advancesImmediately("entityType", state.entityType), false);
   // The password step waits for Continuer even though both fields are required.
   assert.equal(advancesImmediately("security", state.entityType), false);
   // phone2 / sector make these wait for the respondent to move on.

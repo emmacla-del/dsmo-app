@@ -184,8 +184,12 @@ export function advancesImmediately(
 ): boolean {
   switch (step) {
     case "entityType":
-      // One radio list, and picking from it is the whole section.
-      return true;
+      // One radio list, but it waits for Continuer like every other step
+      // (owner, 2026-10-17). Moving on at the pick turned the Continuer
+      // press respondents make out of habit into a press on step 2, which
+      // then reported all its fields missing before anything was typed
+      // (defect 19).
+      return false;
     case "respondent":
       // phone2 is optional.
       return false;
