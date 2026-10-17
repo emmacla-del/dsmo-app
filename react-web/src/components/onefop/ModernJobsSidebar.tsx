@@ -15,7 +15,7 @@ import {
   quizGovernsEntry,
   missingQuizFieldKeys,
 } from "./tables/quizRequired";
-import { preliminaryQuizSlot } from "@/lib/wizard-navigation";
+import { fieldOwnsIssue, preliminaryQuizSlot } from "@/lib/wizard-navigation";
 
 interface ModernJobsSidebarProps {
   entity: OnefopEntity;
@@ -42,6 +42,22 @@ function isTableField(f: OnefopField): boolean {
   return f.type === "table" || f.type === "repeating_table" || !!f.table;
 }
 
+// Whether any cell of a table field holds a value. Cells are keyed by the
+// table id ("s2_row1_description", "s3kpi_employed_current",
+// "pp_s4q01_cadres_male_15_24"), which differs from the field id
+// (PP_S2_ACTIVITIES) and the paper code (S4Q01); older tables used those.
+function hasTableCell(f: OnefopField, data: FormData): boolean {
+  const prefixes = [f.table?.id, f.paperCode, f.id]
+    .filter((p): p is string => !!p)
+    .map((p) => p.toLowerCase() + "_");
+  return Object.keys(data).some((k) => {
+    const v = data[k];
+    if (v === undefined || v === null || v === "") return false;
+    const key = k.toLowerCase();
+    return prefixes.some((p) => key.startsWith(p));
+  });
+}
+
 function isTableNoneOrNa(f: OnefopField, data: FormData): boolean {
   if (!isTableField(f)) return false;
   const statusFieldId = resolveTableStatusFieldId(f, data);
@@ -55,29 +71,18 @@ export function getSectionStatus(
   includeUnansweredAsError: boolean = false
 ): SectionStatus {
   // Check if any issue on this section is an actual format/value error on an entered field
+  // Same ownership rule as Continue (fieldOwnsIssue), which also knows the
+  // table id: a PP_S2_ACTIVITIES issue is keyed "s2_row1_…".
+  const isSectionIssue = (issue: ValidationIssue) =>
+    section.fields.some((f) => fieldOwnsIssue(f, issue.fieldId));
   const hasFormatErrors = issues.some((issue) => {
-    const isSectionIssue = section.fields.some(
-      (f) =>
-        f.id === issue.fieldId ||
-        (f.paperCode && f.paperCode === issue.fieldId) ||
-        issue.fieldId.toLowerCase().startsWith(f.id.toLowerCase() + "_") ||
-        (f.paperCode && issue.fieldId.toLowerCase().startsWith(f.paperCode.toLowerCase() + "_"))
-    );
-    if (!isSectionIssue) return false;
+    if (!isSectionIssue(issue)) return false;
     // An entered value that violates validation format (e.g. invalid phone/email, negative count) is an immediate error
     const val = data[issue.fieldId];
     return val !== undefined && val !== null && String(val).trim() !== "";
   });
 
-  const hasAnyErrors = issues.some((issue) =>
-    section.fields.some(
-      (f) =>
-        f.id === issue.fieldId ||
-        (f.paperCode && f.paperCode === issue.fieldId) ||
-        issue.fieldId.toLowerCase().startsWith(f.id.toLowerCase() + "_") ||
-        (f.paperCode && issue.fieldId.toLowerCase().startsWith(f.paperCode.toLowerCase() + "_"))
-    )
-  );
+  const hasAnyErrors = issues.some(isSectionIssue);
 
   const visibleFields = section.fields.filter(
     (f) => isFieldVisible(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
@@ -103,12 +108,11 @@ export function getSectionStatus(
           if (typeof tableVal === "object" && Object.keys(tableVal as object).length === 0) return false;
           return true;
         }
-        const prefix = (f.paperCode || f.id).toLowerCase() + "_";
-        const hasCell = Object.keys(data).some(
-          (k) => k.toLowerCase().startsWith(prefix) && data[k] !== undefined && data[k] !== null && data[k] !== ""
-        );
-        return hasCell;
+        return hasTableCell(f, data);
       }
+      // A table with no response-status field (Project/Programme's
+      // PP_S2_ACTIVITIES and PP_S3_OUTCOMES) is answered once a cell is.
+      if (data[f.id] === undefined && hasTableCell(f, data)) return true;
     }
     const val = data[f.id];
     return val !== undefined && val !== null && String(val).trim() !== "";
