@@ -47,6 +47,7 @@ describe('PilotageController roles', () => {
       ['getAnnualCoverage', read],
       ['getCampaignQuotas', read],
       ['getCampaignReturns', read],
+      ['getCampaignReturnsTimeline', read],
       ['putInscriptionTargets', write],
       ['putCampaignQuotas', write],
     ] as const;
