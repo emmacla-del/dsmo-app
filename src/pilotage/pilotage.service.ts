@@ -15,6 +15,7 @@ import {
   CampaignReturnsResponse,
   CampaignReturnsSummary,
   DepartmentReturnRow,
+  EntityTypeTally,
   RegionReturnRow,
   ReturnMetrics,
   addMetrics,
@@ -330,6 +331,8 @@ export class PilotageService {
         unassigned: null,
         regions: [],
         totals: emptyMetrics(),
+        byEntityType: [],
+        untypedRegisteredStock: 0,
       };
     }
 
@@ -376,11 +379,13 @@ export class PilotageService {
 
     // Active registered stock by bucket (requires isRegistered)
     const registeredStockByBucket = new Map<string, number>();
+    const byType = new EntityTypeTally();
     for (const company of companies) {
       const row = toStockRow(company);
       if (isRegistered(row)) {
         const key = bucketKey(classifyBucket(row));
         registeredStockByBucket.set(key, (registeredStockByBucket.get(key) ?? 0) + 1);
+        if (row.entityType != null) byType.addStock(key, row.entityType);
       }
     }
 
@@ -393,8 +398,10 @@ export class PilotageService {
     const countsByBucket = new Map<string, BucketCounts>();
 
     // One entry per establishment, counted by countedReturns: the same rule
-    // the timeline uses, so its curve ends on these totals.
+    // the timeline uses, so its curve ends on these totals. The entity-type
+    // tally reads the same entries, so byEntityType agrees with the totals.
     for (const { submission, bucket } of countedReturns(submissions)) {
+      byType.addReturn(bucket, submission.formType, isApprovedStatus(submission.status), submission.isLate);
       const current = countsByBucket.get(bucket) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
       current.received += 1;
       if (isApprovedStatus(submission.status)) current.approved += 1;
@@ -515,12 +522,27 @@ export class PilotageService {
           : emptyMetrics();
     }
 
+    // The breakdown by type sums the buckets `totals` sums, so its rows add
+    // up to the headline: every department of the grid, plus — nationally —
+    // the central bucket and the unassigned one when totals took it in.
+    const headlineBuckets = regionRows.flatMap((region) =>
+      region.departments.map((department) =>
+        bucketKey({ kind: 'department', regionId: region.regionId, departmentId: department.departmentId }),
+      ),
+    );
+    if (national) {
+      headlineBuckets.push('central');
+      if (unassigned && unassigned.received > 0) headlineBuckets.push('unassigned');
+    }
+
     return {
       campaign: summary,
       central,
       unassigned,
       regions: regionRows,
       totals,
+      byEntityType: byType.rows(headlineBuckets, national),
+      untypedRegisteredStock: registeredStockByBucket.get('nullEntityType') ?? 0,
     };
   }
 
