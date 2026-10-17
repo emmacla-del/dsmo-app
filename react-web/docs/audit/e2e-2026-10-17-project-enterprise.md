@@ -87,7 +87,7 @@ it is not test data from this run.
   change to the Dart list has to be carried to both. Emitting them into the
   schema artifact is an AST change and a separate decision.
 
-### B3 — Admin file view: project files shown with enterprise sections (high)
+### B3 — Admin file view: project files shown with enterprise sections (high) — fixed 2026-10-17
 - `/admin/dossiers/[id]` for a PROJECT_PROGRAM file lists « Section 2.
   Employment and labour », « Section 3. Departures », « Section 4. Internship
   and training » (enterprise titles), all empty; « Year of creation » and
@@ -99,6 +99,64 @@ it is not test data from this run.
   which does not exist in their questionnaire.
 - The reviewer cannot see any of the project's Section 2–4 figures before
   endorsing (the page's own comment says this awaits a domain mapping).
+- Root cause: the page carried one hardcoded section list — the enterprise
+  family's `SECTION1_TITLE_FR` / `SECTION_TITLE_FR` plus the matching
+  `adminDossierPage.section1.*` / `section2..4` messages — and used it for
+  every entity type except VT, which alone was read from the schema. The
+  identity disclosure printed « Year of creation » and « Legal status »
+  unconditionally, and the structure card printed the detail row as stored.
+- Fix: the file's own questionnaire drives the screen
+  (`src/lib/dossier-sections.ts`, new, with
+  `src/lib/dossier-sections.test.ts`). `dossierEntity` maps the file's
+  `formType` to the generated schema's entity, `dossierSections` gives that
+  entity's sections (Section 0 excluded — the respondent's identity has its
+  own card), and the page uses that one list for both the headings and the
+  correction-request options, VT included; the two per-type lists and their
+  message keys are gone. Section titles are the AST's own, sentence-cased —
+  `sentenceCaseTitle` (`dossier-vt-answers.ts`) gained CTD/ONG/RLA/NGO and
+  now keeps an acronym behind an elision ("L'ONG" → "l'ONG"), so the French
+  titles the correction comment stores are the same text as before for the
+  enterprise family, except « coopérative » and « caractéristique », which
+  now read as the AST prints them, unaccented.
+- « Year of creation » and « Legal status » appear only when this
+  questionnaire asks them (`questionnaireAsks`) or the record carries a value
+  anyway — an enterprise keeps its registered founding year
+  (`Company.yearOfCreation`); a project file shows neither row.
+- « Nature »: `detailAnswerValue` resolves a detail-row value against the
+  AST's option list for that question — the option as stored passes through,
+  a 1-based code becomes the option at that position, the rule the official
+  PDF already follows (§21, 2026-10-15); anything else is shown as stored.
+  Display only: nothing stored or exported changes, and the SPSS adapter is
+  untouched. It reads the same whether the row holds "1" or the option string
+  B1's fix will write. The same resolution now covers the other types' coded
+  Section 1 columns (enterprise size, cooperative and CTD type, sector) — the
+  identical defect — though no file of those types exists to check it on.
+- Not done: the project's Section 2–4 figures are still not rendered. VT's
+  reviewer view is built from `VtTableMeta`, which the schema carries for VT
+  tables only; the classic templates (`csp_gender_age_table`,
+  `repeating_table`) would need the wizard's table machinery, and mapping
+  them onto a reviewer view is the domain decision the page's comment already
+  names. Each section past the first still says its figures are not shown
+  here, now naming its own backing tables (`projectProgramActivities` for PP
+  Section 2, not the enterprise family's).
+- Verified live as superadmin on the endorsed project file
+  (submission `d644e784-…`, local backend, both languages): Section 1 reads
+  « Section 1. Identification de la structure » and Sections 2–4 the project
+  questionnaire's own titles, no « Année de création » or « Régime/statut
+  juridique » row, and « Nature » reads « Projet » / "Project" instead of
+  « 1 » (`docs/audit/screenshots/b3-fixed-project-sections-2026-10-17.jpg`).
+  The correction dialog was opened on the one PENDING_REVIEW file in the
+  database, a VT one, and still offers that file's nine VT sections with
+  their French values; no enterprise-family or project file is awaiting
+  review, so the dialog could not be opened on a project file without
+  reopening the endorsed one, which would have taken it out of the validated
+  exports. The project list it would offer is covered by unit tests instead,
+  against the real schema, as is the enterprise family's (same titles as the
+  comments already stored).
+- Gates: `npm test` 867/867 pass (10 new), `npx tsc --noEmit` clean,
+  `npm run check:ui-grammar` passes with no baseline change. The five lint
+  errors in `page.tsx` are pre-existing `any`s in the approve mutation, on
+  lines this change does not touch.
 
 ### B4 — Project wizard: Sections 2 and 3 always count as "not started" (high) — fixed 2026-10-17
 - Filled both sections, Continue accepted them, submit succeeded — yet the
@@ -199,6 +257,12 @@ it is not test data from this run.
 - B4 and B5, in react-web: `src/components/onefop/ModernJobsSidebar.tsx`,
   `src/components/onefop/tables/definitions/modernJobsTableDefinitions.ts`,
   new `src/components/onefop/ModernJobsSidebar.test.tsx`.
+- B3, in react-web: `src/app/admin/dossiers/[id]/page.tsx`,
+  `src/lib/dossier-vt-answers.ts`, `messages/{fr,en}.json`, new
+  `src/lib/dossier-sections.ts` and `src/lib/dossier-sections.test.ts`.
+  Frontend only; nothing stored or exported changes. Gates: `npm test`
+  867/867 pass, `npx tsc --noEmit` clean, `npm run check:ui-grammar` passes
+  with no baseline change.
 - B1 and B2, in the backend, under §21 approval given in chat on 2026-10-17
   (both recorded in CLAUDE.md §21): `src/questionnaires/questionnaires.service.ts`,
   `prisma/migrations/20261023120000_pp_identification_option_strings/`,
@@ -221,8 +285,7 @@ it is not test data from this run.
 - No §21 approval sought: neither change touches statistical semantics, the
   AST, the database or an official export. B5 removes presentation text that
   contradicted the AST; B4 corrects a progress indicator only.
-- B1, B2, B3 and the rest of the list are untouched. B1/B2 touch an official
-  export and need §21 approval before a fix.
+- B6 to B11 are untouched.
 
 ## Questions for domain review (no change made)
 
