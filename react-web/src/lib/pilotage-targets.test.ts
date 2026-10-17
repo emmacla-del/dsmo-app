@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { coverageHref, YEAR_MAX, YEAR_MIN } from "./pilotage-targets";
+import { coverageHref, groupNonRespondents, nonRespondentsHref, YEAR_MAX, YEAR_MIN, type NonRespondentRow } from "./pilotage-targets";
 
 test("a valid ?annee= is carried over to the coverage view", () => {
   assert.equal(coverageHref("2025"), "/admin/inscriptions?vue=couverture&annee=2025");
@@ -23,4 +23,40 @@ test("a missing or invalid year is dropped, not forwarded", () => {
   assert.equal(coverageHref("2025&vue=quotas"), bare);
   assert.equal(coverageHref(String(YEAR_MIN - 1)), bare);
   assert.equal(coverageHref(String(YEAR_MAX + 1)), bare);
+});
+
+test("non-respondents are grouped by department, out-of-territory groups last", () => {
+  const row = (companyId: string, bucket: NonRespondentRow["bucket"], regionId: string | null, departmentId: string | null): NonRespondentRow => ({
+    companyId,
+    name: companyId,
+    establishmentId: `EST-${companyId}`,
+    entityType: "ENTREPRISE",
+    bucket,
+    regionId,
+    regionName: regionId,
+    departmentId,
+    departmentName: departmentId,
+    fileState: "NONE",
+  });
+  const groups = groupNonRespondents([
+    row("admin", "central", null, null),
+    row("a", "department", "Centre", "Lekie"),
+    row("b", "department", "Centre", "Lekie"),
+    row("loose", "unassigned", "Centre", null),
+    row("c", "department", "Littoral", "Wouri"),
+  ]);
+  assert.deepEqual(
+    groups.map((group) => [group.key, group.rows.map((r) => r.companyId)]),
+    [
+      ["d:Centre:Lekie", ["a", "b"]],
+      ["d:Littoral:Wouri", ["c"]],
+      ["central", ["admin"]],
+      ["unassigned", ["loose"]],
+    ],
+  );
+  assert.equal(groups[2].regionName, null);
+});
+
+test("the non-respondents view link carries the campaign", () => {
+  assert.equal(nonRespondentsHref("c 1"), "/admin/cibles?vue=relances&campagne=c%201");
 });

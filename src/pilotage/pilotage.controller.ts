@@ -135,6 +135,12 @@ export class PilotageController {
     return this.pilotage.getCampaignReturnsTimeline(territoryFromUser(req.user), id);
   }
 
+  @Get('campaigns/:id/non-respondents')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getCampaignNonRespondents(@Param('id') id: string, @Req() req: any) {
+    return this.pilotage.getCampaignNonRespondents(territoryFromUser(req.user), id);
+  }
+
   @Put('campaigns/:id/quotas')
   @Roles(...PILOTAGE_WRITE_ROLES)
   putCampaignQuotas(@Param('id') id: string, @Body() body: unknown, @Req() req: any) {

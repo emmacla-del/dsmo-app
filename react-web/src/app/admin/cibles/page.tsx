@@ -11,9 +11,10 @@ import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
+import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
-import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { NATIONAL_READ_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -31,6 +32,7 @@ import {
   canWritePilotageTargets,
   formatApiError,
   getCampaignQuotas,
+  getCampaignNonRespondents,
   getCampaignReturns,
   coverageHref,
   putCampaignQuotas,
@@ -38,11 +40,12 @@ import {
   type TargetField,
 } from "@/lib/pilotage-targets";
 
-type Vue = "quotas" | "retours";
+type Vue = "quotas" | "retours" | "relances";
 // `labelKey` is under adminCiblesPage.
 const VUES: { id: Vue; labelKey: string }[] = [
   { id: "quotas", labelKey: "viewQuotas" },
   { id: "retours", labelKey: "viewReturns" },
+  { id: "relances", labelKey: "viewNonRespondents" },
 ];
 
 export default function CiblesPage() {
@@ -131,11 +134,12 @@ function CiblesContent() {
           showCentral={isNational(user?.role)}
         />
       )}
-      {vue === "retours" && (
+      {(vue === "retours" || vue === "relances") && (
         <ReturnsPanel
           canList={canList}
           campagneParam={campagneParam}
           onCampagneChange={(id) => setParams({ campagne: id || null })}
+          content={vue === "relances" ? "nonRespondents" : "returns"}
         />
       )}
     </div>
@@ -478,14 +482,20 @@ function QuotasPanel({
   );
 }
 
+/**
+ * The collection-campaign picker shared by Suivi des retours and À relancer:
+ * both read a collection campaign, so they share its fallback rules.
+ */
 function ReturnsPanel({
   canList,
   campagneParam,
   onCampagneChange,
+  content,
 }: {
   canList: boolean;
   campagneParam: string;
   onCampagneChange: (id: string) => void;
+  content: "returns" | "nonRespondents";
 }) {
   const t = useTranslations("adminCiblesPage");
   const tRoot = useTranslations();
@@ -565,7 +575,8 @@ function ReturnsPanel({
           </select>
         </label>
       )}
-      {campaignId && <ReturnsContent campaignId={campaignId} />}
+      {campaignId && content === "returns" && <ReturnsContent campaignId={campaignId} />}
+      {campaignId && content === "nonRespondents" && <NonRespondentsContent campaignId={campaignId} />}
     </>
   );
 }
@@ -624,6 +635,46 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
   );
 }
 
+function NonRespondentsContent({ campaignId }: { campaignId: string }) {
+  const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
+  const locale = asUiLocale(useLocale());
+  // The establishment page reads nationally only (NATIONAL_READ_ROLES), so a
+  // territorial reader gets the name without a link that would show nothing.
+  const canOpenDetail = hasRole(useAuthStore((s) => s.user?.role), NATIONAL_READ_ROLES);
+  const query = useQuery({
+    queryKey: ["admin", "pilotage", "non-respondents", campaignId],
+    queryFn: () => getCampaignNonRespondents(campaignId),
+    enabled: !!campaignId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  if (query.isLoading) {
+    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingNonRespondents")} />;
+  }
+  if (query.isError) {
+    return (
+      <DataState
+        state="error"
+        resource={tRoot("adminNav.routes.cibles")}
+        title={formatApiError(query.error, locale)}
+        onRetry={() => query.refetch()}
+      />
+    );
+  }
+  if (!query.data) return null;
+
+  return (
+    <>
+      <p className="cam-admin-lede">
+        {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
+      </p>
+      <CampaignNonRespondentsTable data={query.data} canOpenDetail={canOpenDetail} />
+    </>
+  );
+}
+
 // A campaign's stored status as its label (adminCampagnesPage.status), not as
 // the raw enum code; an unknown status shows as stored.
 const CAMPAIGN_STATUS_CODES = new Set(["DRAFT", "ACTIVE", "PAUSED", "CLOSED", "ARCHIVED"]);
@@ -643,7 +694,7 @@ function defaultExpanded(regions: { regionId: string; mode: string }[]): Set<str
 }
 
 function parseVue(raw: string | null): Vue {
-  if (raw === "quotas" || raw === "retours") return raw;
+  if (raw === "quotas" || raw === "retours" || raw === "relances") return raw;
   return "quotas";
 }
 
