@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -502,6 +502,8 @@ interface FlatColumn {
 
 @Injectable()
 export class DataManagementService {
+    private readonly logger = new Logger(DataManagementService.name);
+
     constructor(
         private prisma: PrismaService,
         @Optional() private eligibilityEngine?: EligibilityEngineService,
@@ -2280,8 +2282,13 @@ export class DataManagementService {
                     },
                 },
             });
-        } catch {
-            // Non-blocking logging
+        } catch (error) {
+            // Non-blocking, but never silent: the restricted roster and
+            // contact files promise that every download is recorded (§21), so
+            // a download that left no record must at least show in the logs.
+            this.logger.error(
+                `Export not recorded (format ${format}, user ${userId}): ${(error as Error)?.message ?? error}`,
+            );
         }
     }
 
