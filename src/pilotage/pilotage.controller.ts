@@ -129,6 +129,12 @@ export class PilotageController {
     return this.pilotage.getCampaignReturns(territoryFromUser(req.user), id);
   }
 
+  @Get('campaigns/:id/returns/timeline')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getCampaignReturnsTimeline(@Param('id') id: string, @Req() req: any) {
+    return this.pilotage.getCampaignReturnsTimeline(territoryFromUser(req.user), id);
+  }
+
   @Put('campaigns/:id/quotas')
   @Roles(...PILOTAGE_WRITE_ROLES)
   putCampaignQuotas(@Param('id') id: string, @Body() body: unknown, @Req() req: any) {

@@ -1648,7 +1648,25 @@
     "lateColumn": "En retard",
     "responseRateColumn": "Taux de réponse",
     "centralLevel": "Niveau central",
-    "coverageDetailLink": "Détail par département →"
+    "coverageDetailLink": "Détail par département →",
+    "progressTitle": "Déclarations reçues au fil de la campagne",
+    "progressResource": "la progression de la campagne",
+    "progressLoading": "Chargement de la progression…",
+    "progressNoStart": "La campagne n'a pas de date de début : la progression ne peut pas être tracée.",
+    "progressNone": "Aucune déclaration reçue pour l'instant.",
+    "progressAhead": "{received, plural, one {# déclaration reçue} other {# déclarations reçues}} à ce jour, en avance sur le rythme régulier ({expected} attendues).",
+    "progressBehind": "{received, plural, one {# déclaration reçue} other {# déclarations reçues}} à ce jour, en retard sur le rythme régulier ({expected} attendues).",
+    "progressAria": "Courbe cumulée des déclarations reçues, du {start} au {end} : {total} au total.",
+    "progressDeadline": "Échéance {date}",
+    "progressExtended": "Prolongation {date}",
+    "progressSeries": "Déclarations reçues (cumul)",
+    "progressPace": "Rythme régulier jusqu'à l'échéance",
+    "progressTipDay": "{count, plural, =0 {aucune ce jour} one {# reçue ce jour} other {# reçues ce jour}}",
+    "progressTipTotal": "{count} au total",
+    "progressTableToggle": "Voir les chiffres par jour",
+    "progressTableDate": "Date",
+    "progressTableDay": "Reçues ce jour",
+    "progressTableCumulative": "Cumul"
   },
   "adminKpiTile": {
     "unavailableTitle": "Donnée non disponible"

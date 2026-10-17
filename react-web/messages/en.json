@@ -1648,7 +1648,25 @@
     "lateColumn": "Late",
     "responseRateColumn": "Response rate",
     "centralLevel": "Central level",
-    "coverageDetailLink": "Detail by department →"
+    "coverageDetailLink": "Detail by department →",
+    "progressTitle": "Declarations received over the campaign",
+    "progressResource": "campaign progress",
+    "progressLoading": "Loading progress…",
+    "progressNoStart": "The campaign has no start date, so its progress cannot be drawn.",
+    "progressNone": "No declarations received yet.",
+    "progressAhead": "{received, plural, one {# declaration received} other {# declarations received}} so far, ahead of a steady pace ({expected} expected).",
+    "progressBehind": "{received, plural, one {# declaration received} other {# declarations received}} so far, behind a steady pace ({expected} expected).",
+    "progressAria": "Cumulative declarations received, {start} to {end}: {total} in total.",
+    "progressDeadline": "Deadline {date}",
+    "progressExtended": "Extended {date}",
+    "progressSeries": "Declarations received (cumulative)",
+    "progressPace": "Steady pace to the deadline",
+    "progressTipDay": "{count, plural, =0 {none that day} one {# received that day} other {# received that day}}",
+    "progressTipTotal": "{count} in total",
+    "progressTableToggle": "Show daily figures",
+    "progressTableDate": "Date",
+    "progressTableDay": "Received that day",
+    "progressTableCumulative": "Cumulative"
   },
   "adminKpiTile": {
     "unavailableTitle": "Data not available"
