@@ -1666,7 +1666,10 @@
     "progressTableToggle": "Voir les chiffres par jour",
     "progressTableDate": "Date",
     "progressTableDay": "Reçues ce jour",
-    "progressTableCumulative": "Cumul"
+    "progressTableCumulative": "Cumul",
+    "entityTypeColumn": "Type d'organisation",
+    "registeredColumn": "Inscrits",
+    "untypedFootnote": "{count, plural, one {# établissement inscrit sans type d'organisation n'est pas compté.} other {# établissements inscrits sans type d'organisation ne sont pas comptés.}}"
   },
   "adminKpiTile": {
     "unavailableTitle": "Donnée non disponible"

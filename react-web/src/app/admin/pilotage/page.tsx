@@ -19,7 +19,8 @@ import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCou
 import { anomalyRegisterHref } from "@/lib/admin-url";
 import { CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
 import { getCampaignReturns, canWritePilotageTargets } from "@/lib/pilotage-targets";
-import { coverageRows, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
+import { coverageRows, entityTypeRows, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 
 // The stored submission status decides the label and the timeline dot's tone.
@@ -82,6 +83,7 @@ function CampaignCoverage({
   canSetQuotas: boolean;
 }) {
   const t = useTranslations("adminPilotagePage");
+  const tRoot = useTranslations();
   const tCommon = useTranslations("common");
   const tTargets = useTranslations("adminTargets");
   const tStatus = useTranslations("adminCampagnesPage.status");
@@ -132,6 +134,8 @@ function CampaignCoverage({
   const totals = data?.totals;
   const responsePct = ratioToPercent(totals?.responseRate);
   const rows = data ? coverageRows(data) : [];
+  const typeRows = data ? entityTypeRows(data) : [];
+  const untyped = data?.untypedRegisteredStock ?? 0;
   const detailHref = `/admin/cibles?vue=retours&campagne=${encodeURIComponent(campaign.id)}`;
 
   return (
@@ -246,6 +250,48 @@ function CampaignCoverage({
           <p className="cam-dash-table-foot">
             <Link href={detailHref} className="cam-dash-link">{t("coverageDetailLink")}</Link>
           </p>
+
+          {/* The same headline split by type of organisation: the rows add
+              up to it (server-side, same territory scope). Registered is the
+              denominator of the rate, so it gives way first on a phone. */}
+          {typeRows.length > 0 && (
+            <div className="cam-dash-table-wrap" style={{ marginTop: "var(--cam-space-5)" }}>
+              <table className="cam-dash-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t("entityTypeColumn")}</th>
+                    <th scope="col" className="is-num is-wide-only">{t("registeredColumn")}</th>
+                    <th scope="col" className="is-num">{t("receivedColumn")}</th>
+                    <th scope="col" className="is-num">{t("responseRateColumn")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {typeRows.map((row) => {
+                    const pct = ratioToPercent(row.responseRate);
+                    const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
+                    return (
+                      <tr key={row.entityType}>
+                        <th scope="row">{key ? tRoot(key) : entityTypeLabel(row.entityType)}</th>
+                        <td className="is-num is-wide-only">{count(row.registeredStock, locale)}</td>
+                        <td className="is-num">{count(row.received, locale)}</td>
+                        <td className="is-num">
+                          <span className="cam-dash-meter-cell">
+                            <span>{percent(pct, 1, locale, 0)}</span>
+                            <span className="cam-dash-bar" aria-hidden="true">
+                              <span style={{ width: meterWidth(pct) }} />
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {untyped > 0 && (
+            <p className="cam-dash-table-foot cam-admin-muted">{t("untypedFootnote", { count: untyped })}</p>
+          )}
         </>
       )}
     </section>
