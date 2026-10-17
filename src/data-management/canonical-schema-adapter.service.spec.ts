@@ -1,6 +1,7 @@
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import {
   CanonicalSchemaAdapterService,
+  DATASET_SCHEMA_VERSION,
   DEMAND_SCHEMA_ENTITIES,
   TVET_SCHEMA_ENTITIES,
   CANONICAL_ENTITY_PRIORITY,
@@ -823,7 +824,9 @@ describe('E8 (dataset v6): free-text width', () => {
     const tvet = adapter.getTvetVariables();
     const sps = adapter.buildSpssSyntax(tvet, 'tvet.csv');
     for (const name of ['VT3_10', 'VT9_3_1', 'VT9_4_5']) expect(sps).toContain(`\n  ${name} A2000\n`);
-    expect(sps).toContain('Version du schéma du jeu de données : 11.');
+    // Derived, not a literal: the version pin lives in one place,
+    // export-labels.spec's 'dataset schema version is N'.
+    expect(sps).toContain(`Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`);
   });
 });
 

@@ -3425,15 +3425,33 @@
     },
     "indexed.activities_table.1.target": {
       "variableName": "PP_S2_ACT_01_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.1.support": {
       "variableName": "PP_S2_ACT_01_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.1.scope": {
       "variableName": "PP_S2_ACT_01_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.1.date": {
       "variableName": "PP_S2_ACT_01_DATE",
@@ -3449,15 +3467,33 @@
     },
     "indexed.activities_table.2.target": {
       "variableName": "PP_S2_ACT_02_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.2.support": {
       "variableName": "PP_S2_ACT_02_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.2.scope": {
       "variableName": "PP_S2_ACT_02_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.2.date": {
       "variableName": "PP_S2_ACT_02_DATE",
@@ -3473,15 +3509,33 @@
     },
     "indexed.activities_table.3.target": {
       "variableName": "PP_S2_ACT_03_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.3.support": {
       "variableName": "PP_S2_ACT_03_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.3.scope": {
       "variableName": "PP_S2_ACT_03_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.3.date": {
       "variableName": "PP_S2_ACT_03_DATE",
@@ -3497,15 +3551,33 @@
     },
     "indexed.activities_table.4.target": {
       "variableName": "PP_S2_ACT_04_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.4.support": {
       "variableName": "PP_S2_ACT_04_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.4.scope": {
       "variableName": "PP_S2_ACT_04_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.4.date": {
       "variableName": "PP_S2_ACT_04_DATE",
@@ -3521,15 +3593,33 @@
     },
     "indexed.activities_table.5.target": {
       "variableName": "PP_S2_ACT_05_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.5.support": {
       "variableName": "PP_S2_ACT_05_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.5.scope": {
       "variableName": "PP_S2_ACT_05_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.5.date": {
       "variableName": "PP_S2_ACT_05_DATE",
@@ -3545,15 +3635,33 @@
     },
     "indexed.activities_table.6.target": {
       "variableName": "PP_S2_ACT_06_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.6.support": {
       "variableName": "PP_S2_ACT_06_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.6.scope": {
       "variableName": "PP_S2_ACT_06_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.6.date": {
       "variableName": "PP_S2_ACT_06_DATE",
@@ -3569,15 +3677,33 @@
     },
     "indexed.activities_table.7.target": {
       "variableName": "PP_S2_ACT_07_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.7.support": {
       "variableName": "PP_S2_ACT_07_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.7.scope": {
       "variableName": "PP_S2_ACT_07_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.7.date": {
       "variableName": "PP_S2_ACT_07_DATE",
@@ -3593,15 +3719,33 @@
     },
     "indexed.activities_table.8.target": {
       "variableName": "PP_S2_ACT_08_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.8.support": {
       "variableName": "PP_S2_ACT_08_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.8.scope": {
       "variableName": "PP_S2_ACT_08_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.8.date": {
       "variableName": "PP_S2_ACT_08_DATE",
@@ -3617,15 +3761,33 @@
     },
     "indexed.activities_table.9.target": {
       "variableName": "PP_S2_ACT_09_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.9.support": {
       "variableName": "PP_S2_ACT_09_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.9.scope": {
       "variableName": "PP_S2_ACT_09_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.9.date": {
       "variableName": "PP_S2_ACT_09_DATE",
@@ -3641,15 +3803,33 @@
     },
     "indexed.activities_table.10.target": {
       "variableName": "PP_S2_ACT_10_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.10.support": {
       "variableName": "PP_S2_ACT_10_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.10.scope": {
       "variableName": "PP_S2_ACT_10_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.10.date": {
       "variableName": "PP_S2_ACT_10_DATE",
@@ -3665,15 +3845,33 @@
     },
     "indexed.activities_table.11.target": {
       "variableName": "PP_S2_ACT_11_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.11.support": {
       "variableName": "PP_S2_ACT_11_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.11.scope": {
       "variableName": "PP_S2_ACT_11_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.11.date": {
       "variableName": "PP_S2_ACT_11_DATE",
@@ -3689,15 +3887,33 @@
     },
     "indexed.activities_table.12.target": {
       "variableName": "PP_S2_ACT_12_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.12.support": {
       "variableName": "PP_S2_ACT_12_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.12.scope": {
       "variableName": "PP_S2_ACT_12_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.12.date": {
       "variableName": "PP_S2_ACT_12_DATE",
@@ -3713,15 +3929,33 @@
     },
     "indexed.activities_table.13.target": {
       "variableName": "PP_S2_ACT_13_TARGET",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Jeune non diplômé",
+        "2": "Jeune diplômé",
+        "3": "Femme",
+        "4": "Monde rural",
+        "5": "Population urbaine",
+        "6": "Autre"
+      }
     },
     "indexed.activities_table.13.support": {
       "variableName": "PP_S2_ACT_13_SUPPORT",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "Gratuit",
+        "2": "Tarifé",
+        "3": "Aide financière remboursable",
+        "4": "Aide financière non remboursable",
+        "5": "Autre"
+      }
     },
     "indexed.activities_table.13.scope": {
       "variableName": "PP_S2_ACT_13_SCOPE",
-      "valueLabels": null
+      "valueLabels": {
+        "1": "National",
+        "2": "Régional",
+        "3": "Local",
+        "4": "Autre"
+      }
     },
     "indexed.activities_table.13.date": {
       "variableName": "PP_S2_ACT_13_DATE",

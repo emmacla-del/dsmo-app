@@ -10,6 +10,7 @@ import { PassThrough } from 'stream';
 import { OnefopSchemaLoaderService } from '../../onefop-schema-validation/onefop-schema-loader.service';
 import {
   CanonicalSchemaAdapterService,
+  DATASET_SCHEMA_VERSION,
   SPSS_MISSING_NOT_APPLICABLE,
   SPSS_USER_MISSING_CODES,
   type AnalyticalVariableDefinition,
@@ -157,7 +158,9 @@ describe('E1 — -98 « non applicable » user-missing code', () => {
       expect(sps).not.toMatch(/\(-99\)/);
       expect(sps).toContain("-98 = Non applicable (type d'établissement)");
       expect(sps).toContain('-99 = Non renseigné');
-      expect(sps).toContain('* Version du schéma du jeu de données : 11.');
+      // Derived, not a literal: the version pin lives in one place,
+      // export-labels.spec's 'dataset schema version is N'.
+      expect(sps).toContain(`* Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`);
       expect(sps).not.toMatch(/ F[12]\.0$/m);
     });
   });

@@ -84,14 +84,17 @@ const CASES: Case[] = [
   { entity: 'administration', fieldId: 'ADMIN_S1Q06', normalizer: mapSector, normalizerName: 'mapSector', server: 'mapSector' },
   { entity: 'projectProgram', fieldId: 'PP_S1Q05', normalizer: mapArea, normalizerName: 'mapArea', server: 'mapArea' },
   { entity: 'projectProgram', fieldId: 'PP_S1Q08', normalizer: mapSector, normalizerName: 'mapSector', server: 'mapSector' },
+  // Since dataset v12 the three Project/Programme fields below store the
+  // option string like every other coded Section 1 answer, so the round trip
+  // is checked on them too; they used to store String(code), which matched
+  // none of the VALUE LABELS the .sps declares (E2E 2026-10-17, B1).
+  { entity: 'projectProgram', fieldId: 'PP_S1Q01', normalizer: mapNature, normalizerName: 'mapNature', server: 'mapNature' },
+  { entity: 'projectProgram', fieldId: 'PP_S1Q13', normalizer: mapPPStatus, normalizerName: 'mapPPStatus', server: 'mapProjectStatus' },
+  { entity: 'projectProgram', fieldId: 'PP_S1Q14', normalizer: mapStopReason, normalizerName: 'mapStopReason', server: 'mapStopReason' },
   // No server string map: hasProject/hasSupervisedStructures are stored as
-  // booleans (code === 1), nature as String(code), status/stopReason as the
-  // code. Only the normalizer half can drift here.
+  // booleans (code === 1). Only the normalizer half can drift here.
   { entity: 'administration', fieldId: 'ADMIN_S1Q09', normalizer: mapYesNo, normalizerName: 'mapYesNo', server: null },
   { entity: 'administration', fieldId: 'ADMIN_S1Q11', normalizer: mapYesNo, normalizerName: 'mapYesNo', server: null },
-  { entity: 'projectProgram', fieldId: 'PP_S1Q01', normalizer: mapNature, normalizerName: 'mapNature', server: null },
-  { entity: 'projectProgram', fieldId: 'PP_S1Q13', normalizer: mapPPStatus, normalizerName: 'mapPPStatus', server: null },
-  { entity: 'projectProgram', fieldId: 'PP_S1Q14', normalizer: mapStopReason, normalizerName: 'mapStopReason', server: null },
 ];
 
 // Real current mismatches, kept visible instead of fixed (data mappings

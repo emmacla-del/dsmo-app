@@ -9,6 +9,14 @@ import {
     formatCollectionPeriodEn,
 } from '../campaign/campaign-period.helper';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
+import {
+    PP_TARGET_POPULATION_LABELS_FR,
+    PP_TARGET_POPULATION_LABELS_EN,
+    PP_SUPPORT_TYPE_LABELS_FR,
+    PP_SUPPORT_TYPE_LABELS_EN,
+    PP_SCOPE_LABELS_FR,
+    PP_SCOPE_LABELS_EN,
+} from '../common/pp-activity-options';
 
 // ─────────────────────────────────────────────
 // SHARED TYPES
@@ -1115,60 +1123,8 @@ function buildS2S4Administration(f: FlatData, locale?: 'fr' | 'en') {
 // columns). Neither shape existed before this entity — Section 2's
 // coded fields (targetPopulation/supportType/scope) are displayed as
 // "code — label" for the PDF, matching the source instrument's legend,
-// not the raw stored code.
-const PP_TARGET_POPULATION_LABELS_FR: LabelMap = {
-    '1': 'Jeune non diplômé',
-    '2': 'Jeune diplômé',
-    '3': 'Femme',
-    '4': 'Monde rural',
-    '5': 'Population urbaine',
-    '6': 'Autre',
-};
-
-const PP_TARGET_POPULATION_LABELS_EN: LabelMap = {
-    '1': 'Non-graduate youth',
-    '2': 'Graduate youth',
-    '3': 'Women',
-    '4': 'Rural',
-    '5': 'Urban population',
-    '6': 'Other',
-};
-
-const PP_TARGET_POPULATION_LABELS: LabelMap = PP_TARGET_POPULATION_LABELS_FR;
-
-const PP_SUPPORT_TYPE_LABELS_FR: LabelMap = {
-    '1': 'Gratuit',
-    '2': 'Tarifé',
-    '3': 'Aide financière remboursable',
-    '4': 'Aide financière non remboursable',
-    '5': 'Autre',
-};
-
-const PP_SUPPORT_TYPE_LABELS_EN: LabelMap = {
-    '1': 'Free',
-    '2': 'Fee-based',
-    '3': 'Reimbursable financial assistance',
-    '4': 'Non-reimbursable financial assistance',
-    '5': 'Other',
-};
-
-const PP_SUPPORT_TYPE_LABELS: LabelMap = PP_SUPPORT_TYPE_LABELS_FR;
-
-const PP_SCOPE_LABELS_FR: LabelMap = {
-    '1': 'National',
-    '2': 'Régional',
-    '3': 'Local',
-    '4': 'Autre',
-};
-
-const PP_SCOPE_LABELS_EN: LabelMap = {
-    '1': 'National',
-    '2': 'Regional',
-    '3': 'Local',
-    '4': 'Other',
-};
-
-const PP_SCOPE_LABELS: LabelMap = PP_SCOPE_LABELS_FR;
+// not the raw stored code. The label maps live in common/pp-activity-options
+// (imported above), shared with the SPSS dictionary since dataset v12.
 
 interface ActivityRow {
     index: number;
