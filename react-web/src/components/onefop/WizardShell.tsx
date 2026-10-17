@@ -1095,6 +1095,7 @@ export function WizardShell({
                   data={data}
                   onChange={onChange}
                   issues={showErrors ? sectionIssues : immediateSubsetIssues}
+                  showErrorSummary={showErrors}
                   isFirst={clampedSectionIndex === 0}
                   isLast={clampedSectionIndex === sections.length - 1}
                   onBack={handlePrev}

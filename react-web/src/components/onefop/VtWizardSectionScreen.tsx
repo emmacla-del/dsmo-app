@@ -50,6 +50,8 @@ import {
 } from "@/lib/vt-table-steps";
 import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
+import { findIssueOwner } from "@/lib/wizard-navigation";
+import { revealIssueElement } from "@/lib/use-step-focus";
 import { vtCrossTableIssues } from "@/lib/vt-cross-table";
 import { VtCrossTableNotice } from "./VtCrossTableNotice";
 import { VtAdvisoryCoherenceNotice } from "./VtAdvisoryCoherenceNotice";
@@ -107,6 +109,56 @@ interface VtWizardSectionScreenProps {
    */
   activeStep?: number;
   onStepChange?: (index: number) => void;
+  /**
+   * Next was pressed with answers missing or wrong: show the error summary
+   * at the top of the screen (audit R4). The shell passes `issues` before
+   * that too (the "of which" warnings shown on entry), so the summary has
+   * its own switch.
+   */
+  showErrorSummary?: boolean;
+}
+
+/**
+ * "There is a problem": every blocking answer on the screen, each a link to
+ * its question, at the top of the section (audit R4, the convention the
+ * registration form already follows). The §7 cross-table mismatches are not
+ * repeated here: VtCrossTableNotice lists them under the table.
+ */
+function VtSectionErrorSummary({
+  sectionId,
+  issues,
+  onOpen,
+}: {
+  sectionId: string;
+  issues: ValidationIssue[];
+  onOpen: (issue: ValidationIssue) => void;
+}) {
+  const t = useTranslations("vtWizard");
+  if (issues.length === 0) return null;
+  const titleId = `vt-error-summary-${sectionId}-title`;
+  return (
+    <div className="flow-missing-notice" role="alert" aria-labelledby={titleId}>
+      <h2 className="flow-missing-notice-title" id={titleId}>
+        {t("errorSummaryTitle")}
+      </h2>
+      <p>{t("errorSummaryLead", { count: issues.length })}</p>
+      <ul>
+        {issues.map((issue) => (
+          <li key={issue.fieldId}>
+            <a
+              href={`#${issue.fieldId}`}
+              onClick={(e) => {
+                e.preventDefault();
+                onOpen(issue);
+              }}
+            >
+              {issue.message}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 interface VtFieldGroup {
@@ -1100,6 +1152,7 @@ export function VtWizardSectionScreen({
   revealRef,
   activeStep,
   onStepChange,
+  showErrorSummary = false,
 }: VtWizardSectionScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -1168,6 +1221,20 @@ export function VtWizardSectionScreen({
     const listed = new Set(shownCrossTableIssues.map((i) => i.fieldId));
     return listed.size === 0 ? issues : issues.filter((i) => !listed.has(i.fieldId));
   }, [issues, shownCrossTableIssues]);
+
+  // The summary lists what blocks Next on this screen: in Sections 4 and 8
+  // that is the table shown (Next checks it alone), elsewhere the section.
+  const summaryIssues = useMemo(() => {
+    if (!showErrorSummary) return [];
+    const inView = tabbed && groups.length > 1 ? (groups[activeTab]?.fields ?? []) : section.fields;
+    return fieldIssues.filter((i) => findIssueOwner(inView, i.fieldId));
+  }, [showErrorSummary, fieldIssues, tabbed, groups, activeTab, section.fields]);
+
+  const openIssue = (issue: ValidationIssue) => {
+    const owner = findIssueOwner(section.fields, issue.fieldId);
+    if (tabbed && groups.length > 1) setActiveTab(vtStepForIssue(groups, issue.fieldId, data));
+    requestAnimationFrame(() => revealIssueElement(issue.fieldId, owner?.id));
+  };
 
   /** Opens the table holding `fieldId` and puts the respondent on it. */
   const openTableForField = (fieldId: string) => {
@@ -1276,6 +1343,8 @@ export function VtWizardSectionScreen({
         </h1>
         {groups.length > 0 && <RequiredQuestionsNote />}
       </div>
+
+      <VtSectionErrorSummary sectionId={sectionId} issues={summaryIssues} onOpen={openIssue} />
 
       <div style={{ width: "100%" }}>
         {groups.length === 0 ? (

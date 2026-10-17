@@ -110,7 +110,11 @@ test("Next on an incomplete table stays on it and shows its problems", async () 
   await flush();
 
   assert.equal(currentTable(), "4.2");
-  assert.ok(screen.getByText(/cellules? (reste|restent) à renseigner/), "4.2's own problem is shown");
+  // Shown under the table and listed in the error summary (audit R4).
+  assert.ok(screen.getAllByText(/cellules? (reste|restent) à renseigner/).length >= 1, "4.2's own problem is shown");
+  const summary = document.querySelector(".flow-missing-notice");
+  assert.ok(summary, "the error summary is shown");
+  assert.match(summary.textContent ?? "", /Il y a un problème/);
 });
 
 test("tables the questionnaire switched off are skipped by Next and Previous", async () => {
@@ -291,7 +295,7 @@ test("a Section 4 card on the Validation screen opens the table holding the firs
   await flush();
 
   assert.equal(currentTable(), "4.3");
-  assert.ok(screen.getByText(/cellules? (reste|restent) à renseigner|Ajoutez au moins une ligne/), "4.3's problem is shown");
+  assert.ok(screen.getAllByText(/cellules? (reste|restent) à renseigner|Ajoutez au moins une ligne/).length >= 1, "4.3's problem is shown");
 });
 
 // One title per table (audit S4): the table's heading names it; the table

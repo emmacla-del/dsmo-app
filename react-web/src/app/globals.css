@@ -1395,7 +1395,9 @@ html:has(.cam-masthead) {
 /* ── The missing-fields summary ──
    At the top of the section content, the error-summary convention: it names
    every missing field, and each name is a link that focuses its control. */
-.cam-auth-page--wizard .flow-missing-notice {
+/* The error summary ("There is a problem"): the registration form and the
+   VT wizard (audit R4). */
+.flow-missing-notice {
   border: 2px solid var(--cam-error);
   border-radius: var(--cam-radius-control);
   color: var(--cam-text);
@@ -1405,28 +1407,28 @@ html:has(.cam-masthead) {
   margin-bottom: var(--cam-space-4);
 }
 
-.cam-auth-page--wizard .flow-missing-notice-title {
+.flow-missing-notice-title {
   font-size: var(--cam-font-size-base);
   font-weight: var(--cam-font-weight-bold);
   color: var(--cam-text);
   margin: 0 0 var(--cam-space-2);
 }
 
-.cam-auth-page--wizard .flow-missing-notice p {
+.flow-missing-notice p {
   margin: 0 0 var(--cam-space-1);
 }
 
-.cam-auth-page--wizard .flow-missing-notice ul {
+.flow-missing-notice ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.cam-auth-page--wizard .flow-missing-notice li + li {
+.flow-missing-notice li + li {
   margin-top: var(--cam-space-1);
 }
 
-.cam-auth-page--wizard .flow-missing-notice a {
+.flow-missing-notice a {
   color: var(--cam-error);
   font-weight: var(--cam-font-weight-semibold);
   text-decoration: underline;
