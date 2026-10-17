@@ -368,6 +368,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Statut de dossier inconnu.', en: 'Unknown file status.' },
   { fr: 'Type de questionnaire inconnu.', en: 'Unknown questionnaire type.' },
   { fr: 'Période inconnue.', en: 'Unknown period.' },
+  { fr: 'Ordre de tri inconnu.', en: 'Unknown sort order.' },
   { fr: 'Vous devez certifier la décision de rejet avant de confirmer.', en: 'You must certify the rejection decision before confirming.' },
   {
     fr: 'Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).',

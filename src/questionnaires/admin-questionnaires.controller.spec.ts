@@ -5,7 +5,7 @@ import { buildAdminListWhere } from './admin-list-filter';
 
 type ListArgs = {
   status?: string; limit?: string; offset?: string; region?: string;
-  search?: string; formType?: string; period?: string; companyId?: string;
+  search?: string; formType?: string; period?: string; companyId?: string; sort?: string;
 };
 
 describe('AdminQuestionnairesController.getAll — list params', () => {
@@ -13,7 +13,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   let controller: AdminQuestionnairesController;
   const req = { user: { id: 'a1', role: 'REGIONAL_ADMIN', region: 'Littoral' } };
   const getAll = (a: ListArgs = {}) =>
-    controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, a.companyId, req);
+    controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, a.companyId, a.sort, req);
 
   beforeEach(() => {
     service = { listForAdmin: jest.fn(async () => ({ items: [], total: 0 })) };
@@ -70,6 +70,20 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
     expect(service.listForAdmin).not.toHaveBeenCalled();
   });
 
+  it('passes the sort order through, and rejects an unknown one with 400', async () => {
+    await getAll({ sort: 'oldest' });
+    await getAll({ sort: 'newest' });
+    await getAll();
+    expect(service.listForAdmin.mock.calls[0][0]).toMatchObject({ sort: 'oldest' });
+    expect(service.listForAdmin.mock.calls[1][0]).toMatchObject({ sort: 'newest' });
+    expect(service.listForAdmin.mock.calls[2][0].sort).toBeUndefined();
+    service.listForAdmin.mockClear();
+    for (const sort of ['asc', 'OLDEST', 'createdAt']) {
+      await expect(getAll({ sort })).rejects.toThrow('Ordre de tri inconnu.');
+    }
+    expect(service.listForAdmin).not.toHaveBeenCalled();
+  });
+
   it('treats blank filters as absent', async () => {
     await getAll({ status: '', limit: '', offset: '', region: '   ', search: '   ', formType: ' ', period: '' });
     expect(service.listForAdmin.mock.calls[0][0]).toEqual({
@@ -102,6 +116,13 @@ describe('QuestionnairesService.listForAdmin', () => {
     expect(orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
     // total counts the SAME where clause as the page, not the table.
     expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({ where });
+  });
+
+  it('sorts oldest first on request, with the same id tie-break', async () => {
+    await service.listForAdmin({ status: 'PENDING_REVIEW', limit: 10, offset: 0, sort: 'oldest' });
+    await service.listForAdmin({ limit: 10, offset: 0, sort: 'newest' });
+    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
+    expect(prisma.onefopSubmission.findMany.mock.calls[1][0].orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
   });
 
   it('applies limit/offset without a status too', async () => {

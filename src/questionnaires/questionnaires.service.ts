@@ -25,7 +25,7 @@ import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { OnefopShadowValidatorService, isVtSectionWaived } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
-import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
+import { AdminListFilters, AdminListSort, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import { withoutStaffNames } from './staff-names';
@@ -3412,16 +3412,17 @@ export class QuestionnairesService {
    * what the filters produce.
    */
   async listForAdmin(
-    filters: AdminListFilters & { limit: number; offset: number },
+    filters: AdminListFilters & { limit: number; offset: number; sort?: AdminListSort },
     territory?: Territory,
   ): Promise<{ items: any[]; total: number }> {
     const where = buildAdminListWhere(filters, territory);
+    const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
 
     const [items, total] = await Promise.all([
       (this.prisma as any).onefopSubmission.findMany({
         where,
         // id breaks createdAt ties so offset paging never repeats or skips rows.
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ createdAt: direction }, { id: direction }],
         take: filters.limit,
         skip: filters.offset,
         include: {
