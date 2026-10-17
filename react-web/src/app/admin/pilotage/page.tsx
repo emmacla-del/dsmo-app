@@ -1,24 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
-import { formatCampaignDate, formatCampaignDisplayName, type Campaign } from "@/lib/campaigns";
+import { formatCampaignDate, formatCampaignDisplayName, listCampaigns, type Campaign } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
 import { DataState } from "@/components/admin/DataState";
 import { count, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
-import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { anomalyRegisterHref } from "@/lib/admin-url";
-import { APPROVAL_ROLES, CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
+import { CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
+import { getCampaignReturns, canWritePilotageTargets } from "@/lib/pilotage-targets";
+import { coverageRows, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
 import { asUiLocale } from "@/lib/register-i18n";
 
 // The stored submission status decides the label and the timeline dot's tone.
@@ -54,45 +54,50 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
 }
 
 /**
- * Links out of the campaign card, each rendered only for roles that can open
- * its target: /admin/campagnes is CAMPAIGN_ROLES (not DIVISIONAL_ADMIN),
- * /admin/cibles is APPROVAL_ROLES (not AUDITOR).
+ * The campaign's coverage, the first thing the dashboard answers: how far
+ * the active ONEFOP collection has got, overall and territory by territory.
+ *
+ * Source: GET /admin/pilotage/campaigns/:id/returns, the figures of
+ * /admin/cibles?vue=retours (same query key, so the two share a cache). It
+ * counts submissions and registered establishments live, territory-scoped
+ * server-side. `campaign.progress` is NOT used: it counts CampaignSubmission
+ * rows snapshotted at activation, so it read 0 % while 5 of 7 registered
+ * establishments had declared (2026-10-17).
+ *
+ * The campaign id comes from the campaign list, which only CAMPAIGN_ROLES may
+ * read; other roles see that the figure is unavailable to them, never "no
+ * active campaign".
  */
-function CampaignLinks({ campaignLabel, canOpenCampaigns, canOpenTargets }: { campaignLabel: string; canOpenCampaigns: boolean; canOpenTargets: boolean }) {
-  const t = useTranslations("adminPilotagePage");
-  if (!canOpenCampaigns && !canOpenTargets) return null;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--cam-space-2)" }}>
-      {canOpenCampaigns && (
-        <Link href="/admin/campagnes" className="cam-dash-link">{campaignLabel}</Link>
-      )}
-      {canOpenTargets && (
-        <Link href="/admin/cibles" className="cam-dash-link">{t("quotasLink")}</Link>
-      )}
-    </div>
-  );
-}
-
-function CampaignCard({
+function CampaignCoverage({
   campaign,
-  isLoading = false,
-  totalSubmissions,
-  canOpenCampaigns,
-  canOpenTargets,
+  isLoading,
+  canReadCampaigns,
+  canSetQuotas,
 }: {
   campaign?: Campaign;
   /** The active campaign is still being fetched: say so, never "Inactive". */
-  isLoading?: boolean;
-  totalSubmissions: number | null;
-  canOpenCampaigns: boolean;
-  canOpenTargets: boolean;
+  isLoading: boolean;
+  canReadCampaigns: boolean;
+  canSetQuotas: boolean;
 }) {
   const t = useTranslations("adminPilotagePage");
   const tCommon = useTranslations("common");
+  const tTargets = useTranslations("adminTargets");
   const tStatus = useTranslations("adminCampagnesPage.status");
   const locale = useUiLocale();
-  const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
-  const daysLeft = computeDaysLeft(deadlineStr);
+
+  const returnsQuery = useQuery({
+    queryKey: ["admin", "pilotage", "returns", campaign?.id],
+    queryFn: () => getCampaignReturns(campaign!.id),
+    enabled: !!campaign,
+    refetchInterval: 120000,
+  });
+
+  const resource = t("coverageResource");
+
+  if (!canReadCampaigns) {
+    return <DataState state="unavailable" resource={resource} title={t("coverageUnavailable")} />;
+  }
 
   if (!campaign) {
     return (
@@ -105,24 +110,28 @@ function CampaignCard({
             </div>
             <p className="cam-dash-card-sub">{isLoading ? tCommon("loading") : t("noActiveCampaign")}</p>
           </div>
-          <CampaignLinks campaignLabel={t("manageCampaignsLink")} canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
+          <Link href="/admin/campagnes" className="cam-dash-link">{t("manageCampaignsLink")}</Link>
         </div>
       </section>
     );
   }
 
-  const target = campaign.progress?.total ?? null;
-  const submittedCount = campaign.progress?.submitted ?? totalSubmissions;
-  // null unless both figures are known and the target is non-zero.
-  const completionPct = rate(submittedCount, target);
-
   // Campaign dates are Cameroon calendar days (Africa/Douala), not the
   // viewer's own zone: see lib/douala-date.
+  const deadlineStr = campaign.extendedDeadline || campaign.deadline;
+  const daysLeft = computeDaysLeft(deadlineStr);
   const dateRange = campaign.startDate && deadlineStr
     ? `${formatCampaignDate(campaign.startDate)} — ${formatCampaignDate(deadlineStr)}`
     : campaign.startDate
       ? t("since", { date: formatCampaignDate(campaign.startDate) })
       : NOT_PROVIDED;
+  const when = daysLeft !== null ? `${dateRange} · ${t("daysRemaining", { days: daysLeft })}` : dateRange;
+
+  const data = returnsQuery.data;
+  const totals = data?.totals;
+  const responsePct = ratioToPercent(totals?.responseRate);
+  const rows = data ? coverageRows(data) : [];
+  const detailHref = `/admin/cibles?vue=retours&campagne=${encodeURIComponent(campaign.id)}`;
 
   return (
     <section className="cam-dash-card" aria-labelledby="dash-campaign-title">
@@ -136,82 +145,105 @@ function CampaignCard({
                 : tStatus.has(campaign.status) ? tStatus(campaign.status) : campaign.status}
             </span>
           </div>
-          <p className="cam-dash-card-sub">{dateRange}</p>
+          <p className="cam-dash-card-sub">{when}</p>
         </div>
-        <CampaignLinks campaignLabel={t("campaignDetailsLink")} canOpenCampaigns={canOpenCampaigns} canOpenTargets={canOpenTargets} />
+        <Link href="/admin/campagnes" className="cam-dash-link">{t("campaignDetailsLink")}</Link>
       </div>
 
-      <div className="cam-dash-metric-row">
-        <span>{t("coverageRateLabel")}</span>
-        <strong>{percent(completionPct, 0, locale)}</strong>
-      </div>
-      <div className="cam-dash-bar">
-        <span style={{ width: meterWidth(completionPct) }} />
-      </div>
+      {returnsQuery.isError ? (
+        <DataState dense state="error" resource={resource} error={returnsQuery.error} onRetry={() => returnsQuery.refetch()} />
+      ) : !totals ? (
+        <DataState dense state="loading" resource={resource} title={t("loadingCoverage")} />
+      ) : (
+        <>
+          <div className="cam-dash-coverage">
+            <p className="cam-dash-coverage-figure">{percent(responsePct, 1, locale, 0)}</p>
+            <div>
+              <p className="cam-dash-coverage-label">{t("responseRateLabel")}</p>
+              <p className="cam-dash-card-sub">
+                {t("responseRateCaption", { received: totals.received, stock: totals.registeredStock })}
+              </p>
+            </div>
+          </div>
+          <div className="cam-dash-bar" aria-hidden="true">
+            <span style={{ width: meterWidth(responsePct) }} />
+          </div>
 
-      <dl className="cam-dash-stats" style={{ marginTop: "var(--cam-space-5)" }}>
-        <div>
-          <dt>{t("timeRemainingLabel")}</dt>
-          <dd>{daysLeft !== null ? t("daysRemaining", { days: daysLeft }) : NOT_PROVIDED}</dd>
-        </div>
-        <div>
-          <dt>{t("targetedCompaniesLabel")}</dt>
-          <dd>{target !== null ? t("targetedCompaniesValue", { count: count(target, locale) }) : NOT_PROVIDED}</dd>
-        </div>
-        <div>
-          <dt>{t("collectionOfficersLabel")}</dt>
-          <dd>{NOT_PROVIDED}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
+          <dl className="cam-dash-stats" style={{ marginTop: "var(--cam-space-5)" }}>
+            <div>
+              <dt>{t("onTimeLabel")}</dt>
+              <dd>{count(totals.onTime, locale)}</dd>
+            </div>
+            <div>
+              <dt>{t("lateLabel")}</dt>
+              <dd>{count(totals.late, locale)}</dd>
+            </div>
+            <div>
+              <dt>{t("endorsedLabel")}</dt>
+              <dd>{count(totals.approved, locale)}</dd>
+            </div>
+            <div>
+              <dt>{t("quotaRateLabel")}</dt>
+              {/* The quota rate exists only once quotas are set; until then
+                  the absence is named, with the way to set them. */}
+              <dd>
+                {totals.quota != null
+                  ? percent(ratioToPercent(totals.quotaRate), 1, locale, 0)
+                  : <span className="cam-admin-muted">{t("noQuota")}</span>}
+              </dd>
+              {totals.quota == null && canSetQuotas && (
+                <Link href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaign.id)}`} className="cam-dash-link">
+                  {t("setQuotasLink")}
+                </Link>
+              )}
+            </div>
+          </dl>
 
-function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count: number }[]; isDivisional?: boolean }) {
-  const t = useTranslations("adminPilotagePage");
-  const locale = useUiLocale();
-  return (
-    <section className="cam-dash-card" aria-labelledby="dash-regions-title">
-      <div className="cam-dash-card-head">
-        {/* "Voir toutes les régions →" pointed at /admin/centre-qualite,
-            which has no all-regions view. This table already lists every
-            region in the caller's scope, so the link had nowhere to go. */}
-        <h3 id="dash-regions-title" className="cam-dash-card-title">{t("regionalCoverageTitle")}</h3>
-      </div>
-      <div className="cam-dash-table-wrap">
-        <table className="cam-dash-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("regionColumn")}</th>
-              <th scope="col" className="is-num">{t("submissionsColumn")}</th>
-              <th scope="col" className="is-num">{t("completionColumn")}</th>
-              <th scope="col" className="is-num">{t("qcColumn")}</th>
-              <th scope="col" className="is-num">{t("anomaliesColumn")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5}>
-                  <p className="cam-dash-empty">{isDivisional ? t("regionalNotApplicable") : t("noRegionalData")}</p>
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.name}>
-                  <th scope="row">{r.name}</th>
-                  <td className="is-num">{count(r.count, locale)}</td>
-                  {/* No per-region completion, QC or anomaly figure has a
-                      source yet; the columns say so rather than estimate. */}
-                  <td className="is-num cam-admin-muted">{NOT_PROVIDED}</td>
-                  <td className="is-num cam-admin-muted">{NOT_PROVIDED}</td>
-                  <td className="is-num cam-admin-muted">{NOT_PROVIDED}</td>
+          <div className="cam-dash-table-wrap" style={{ marginTop: "var(--cam-space-5)" }}>
+            <table className="cam-dash-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("territoryColumn")}</th>
+                  <th scope="col" className="is-num">{t("receivedColumn")}</th>
+                  <th scope="col" className="is-num">{t("lateColumn")}</th>
+                  <th scope="col" className="is-num">{t("responseRateColumn")}</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <p className="cam-dash-empty">{tTargets("noTerritory")}</p>
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => {
+                    const pct = ratioToPercent(row.responseRate);
+                    return (
+                      <tr key={row.key}>
+                        <th scope="row">{row.kind === "central" ? t("centralLevel") : row.name}</th>
+                        <td className="is-num">{count(row.received, locale)}</td>
+                        <td className="is-num">{count(row.late, locale)}</td>
+                        <td className="is-num">
+                          <span className="cam-dash-meter-cell">
+                            <span>{percent(pct, 1, locale, 0)}</span>
+                            <span className="cam-dash-bar" aria-hidden="true">
+                              <span style={{ width: meterWidth(pct) }} />
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="cam-dash-table-foot">
+            <Link href={detailHref} className="cam-dash-link">{t("coverageDetailLink")}</Link>
+          </p>
+        </>
+      )}
     </section>
   );
 }
@@ -338,13 +370,11 @@ function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySumm
 export default function PilotagePage() {
   const t = useTranslations();
   const locale = useUiLocale();
-  const { regions: CAMEROON_REGIONS } = useTerritoryRegions();
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
   const isRegional = userRole === "REGIONAL_ADMIN";
   const isDivisional = userRole === "DIVISIONAL_ADMIN";
   const isTerritorial = isRegional || isDivisional;
-  const userRegion = user?.region?.trim().toLowerCase();
 
   const status = useAuthStore((s) => s.status);
   const isAuthenticated = status === "authenticated";
@@ -377,7 +407,17 @@ export default function PilotagePage() {
     refetchInterval: 120000,
   });
 
-  const { activeCampaign, isLoading: campaignLoading } = useActiveCampaign();
+  // The active ONEFOP collection campaign. Same query as the header pill
+  // (useActiveCampaign), so one request serves both; the pill takes the first
+  // active campaign of any kind, coverage needs the collection one.
+  const canReadCampaigns = hasRole(userRole, CAMPAIGN_ROLES);
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns", "ACTIVE"],
+    queryFn: () => listCampaigns("ACTIVE"),
+    enabled: canReadCampaigns,
+  });
+  const activeCampaign = pickCoverageCampaign(campaignsQuery.data);
+  const campaignLoading = !user || (canReadCampaigns && campaignsQuery.isPending);
 
   const qualityQuery = useQuery({
     queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
@@ -404,31 +444,6 @@ export default function PilotagePage() {
 
   const eligibilityPct = queues ? rate(queues.statisticallyReadyCount, queues.totalSubmissionsCount) : null;
 
-  const regionalData = useMemo(() => {
-    if (!queues) return [];
-    if (isRegional && userRegion) {
-      const match = queues.regionCounts.find(
-        (rc) => rc.region?.trim().toLowerCase() === userRegion
-      );
-      const matchedRegionName = CAMEROON_REGIONS.find((r) => r.toLowerCase() === userRegion) || user?.region || "";
-      return [{
-        name: matchedRegionName,
-        count: match?.count ?? 0,
-      }];
-    }
-    if (isDivisional) {
-      return [];
-    }
-    return CAMEROON_REGIONS.map((regionName) => {
-      const match = queues.regionCounts.find(
-        (rc) => rc.region?.trim().toLowerCase() === regionName.toLowerCase()
-      );
-      return {
-        name: regionName,
-        count: match?.count ?? 0,
-      };
-    });
-  }, [queues, isRegional, isDivisional, userRegion, user?.region, CAMEROON_REGIONS]);
 
   const statusApproved = queues ? queues.approvedCount : null;
 
@@ -474,6 +489,18 @@ export default function PilotagePage() {
           onRetry={() => queuesQuery.refetch()}
         />
       )}
+
+      {/* Coverage first: "how far along is the campaign?" is the question
+          this page answers before any queue (owner, 2026-10-17). */}
+      <section aria-labelledby="dash-coverage-title">
+        <SectionLabel id="dash-coverage-title" tone="green">{t("adminPilotagePage.coverageTitle")}</SectionLabel>
+        <CampaignCoverage
+          campaign={activeCampaign}
+          isLoading={campaignLoading}
+          canReadCampaigns={canReadCampaigns}
+          canSetQuotas={canWritePilotageTargets(userRole)}
+        />
+      </section>
 
       <section aria-labelledby="dash-todo-title">
         <SectionLabel id="dash-todo-title" tone="green">{t("adminPilotagePage.toProcessTitle")}</SectionLabel>
@@ -522,17 +549,6 @@ export default function PilotagePage() {
 
       <div className="cam-dash-columns">
         <div className="cam-dash-column">
-          <CampaignCard
-            campaign={activeCampaign}
-            isLoading={campaignLoading}
-            totalSubmissions={totalSubmissions}
-            canOpenCampaigns={hasRole(userRole, CAMPAIGN_ROLES)}
-            canOpenTargets={hasRole(userRole, APPROVAL_ROLES)}
-          />
-          <RegionalCoverage rows={regionalData} isDivisional={isDivisional} />
-        </div>
-
-        <div className="cam-dash-column">
           <RecentActivity
             items={recentActivity}
             isLoading={recentQuery.isLoading}
@@ -540,6 +556,9 @@ export default function PilotagePage() {
             error={recentQuery.error}
             onRetry={() => recentQuery.refetch()}
           />
+        </div>
+
+        <div className="cam-dash-column">
           <DataQuality quality={quality} fallbackEligibilityPct={eligibilityPct} />
         </div>
       </div>
