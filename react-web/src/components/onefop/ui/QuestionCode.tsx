@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
-import { splitQuestionCode } from "@/lib/question-code";
+import { isDisplayableQuestionCode, splitQuestionCode } from "@/lib/question-code";
 
-/** Small grey code badge, e.g. [S22Q05]. Styled by `.cam-qcode` (globals.css). */
+/**
+ * Small grey number badge, e.g. [4.10]. Styled by `.cam-qcode` (globals.css).
+ * Renders nothing for an internal identifier such as S0Q01 or PP_S4Q02 — see
+ * isDisplayableQuestionCode.
+ */
 export function QuestionCode({ code }: { code: string | null | undefined }) {
-  if (!code) return null;
+  if (!isDisplayableQuestionCode(code)) return null;
   return <span className="cam-qcode">{code}</span>;
 }
 

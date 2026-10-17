@@ -987,7 +987,12 @@ export function ModernJobsWizard({
                               color: isDone || isErr ? "var(--cam-white)" : "var(--cam-text)",
                             }}
                           >
-                            {isDone ? "✓" : isErr ? "!" : sIdx + 1}
+                            {/* The section's own number, the one the rail
+                                shows (ModernJobsSidebar's `marker: idx`):
+                                Modern Jobs numbers its sections from 0, as
+                                the paper form does, so « Employment and
+                                labour » is 2 here and 2 there. */}
+                            {isDone ? "✓" : isErr ? "!" : sIdx}
                           </span>
                           <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
                             {(sec.title && localized(sec.title, locale)) || sec.id}
