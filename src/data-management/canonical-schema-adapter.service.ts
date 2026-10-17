@@ -15,6 +15,7 @@ import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
 import { DEFAULT_VARIABLE_REGISTRY, VariableRegistry } from './spss/variable-registry';
 import { disambiguateDuplicateLabels, neutralizeReportingPeriod } from './spss/export-labels';
 import { collectionPeriodFromQuarterCode } from '../campaign/campaign-period.helper';
+import { PP_ACTIVITY_VALUE_LABELS } from '../common/pp-activity-options';
 
 export type MeasurementLevel = 'NOMINAL' | 'ORDINAL' | 'SCALE' | 'DATE';
 export type SpssDataType = 'NUMERIC' | 'A';
@@ -160,8 +161,19 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *     VT1_15_EMAIL, VT1_16_NAME, VT1_16_TEL1, VT1_16_TEL2, VT1_16_EMAIL,
  *     VT2_12) retired from the anonymous dataset under Decision 2 (Option B,
  *     2026-10-16) and moved to the restricted contact file alongside 8.8.
+ * 12: (E2E 2026-10-17, B1 and B2) the Project/Programme coded answers read as
+ *     their labels. (a) PP_S1Q01, PP_S1Q13 and PP_S1Q14 now carry the AST
+ *     option string ("Projet/ Project", "Actif/ Active" …) like every other
+ *     entity's coded Section 1 answers; they held String(code) — "1", "2" —
+ *     which matched none of the VALUE LABELS the .sps declares, so SPSS
+ *     applied none. Existing rows are converted by migration
+ *     20261023120000_pp_identification_option_strings. (b) The Section 2
+ *     activity columns PP_S2_ACT_nn_TARGET, _SUPPORT and _SCOPE, which do
+ *     hold codes ("1".."6"), gain the VALUE LABELS they never had
+ *     (PP_ACTIVITY_VALUE_LABELS). Variable names, widths, order and every
+ *     other value unchanged.
  */
-export const DATASET_SCHEMA_VERSION = 11;
+export const DATASET_SCHEMA_VERSION = 12;
 
 /**
  * Every multiple-choice (checkbox) question with options is also exported as
@@ -1539,6 +1551,13 @@ export class CanonicalSchemaAdapterService {
             spssDataType: 'A',
             spssWidth: 254,
             measurementLevel: 'NOMINAL',
+            // TARGET / SUPPORT / SCOPE hold the respondent's code ("1".."6");
+            // the other three are free text. Their options are in no generated
+            // artifact (this table is the one repeatingTable the compiler never
+            // emits), so the labels come from common/pp-activity-options, the
+            // server's mirror of the Dart source (dataset v12 — before it these
+            // columns carried a bare code and no dictionary entry).
+            valueLabels: PP_ACTIVITY_VALUE_LABELS[af.suffix],
             sourcePath: `indexed.activities_table.${slot}.${af.slot_field}`,
             orderIndex: order++,
           });

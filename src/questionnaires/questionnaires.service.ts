@@ -940,7 +940,7 @@ export class QuestionnairesService {
       entityDetailRelation = {
         projectProgramDetail: {
           create: {
-            nature: String(p.nature ?? ''),
+            nature: this.mapNature(p.nature as 1 | 2 | 3 | 4),
             name: p.name ?? '',
             sigle: p.sigle ?? null,
             personInCharge: p.personInCharge ?? '',
@@ -958,8 +958,8 @@ export class QuestionnairesService {
             mainMission: p.mainMission ?? '',
             headOffice: p.headOffice ?? null,
             supervisingMinistry: p.supervisingMinistry ?? null,
-            status: String(p.status ?? ''),
-            stopReason: p.stopReason != null ? String(p.stopReason) : null,
+            status: this.mapProjectStatus(p.status as 1 | 2 | 3),
+            stopReason: p.stopReason != null ? this.mapStopReason(p.stopReason as 1 | 2 | 3 | 4) : null,
             permanentWorkers: p.permanentWorkers ?? 0,
             vacancies: p.vacancies ?? null,
             employedCurrent: outcomes.employed?.current ?? null,
@@ -3294,6 +3294,25 @@ export class QuestionnairesService {
   }
   private mapCouncilType(value?: 1 | 2): string {
     const map: Record<number, string> = { 1: "Commune d'Arrondissement/ Local Council", 2: 'Communauté Urbaine/ Urban Council' };
+    return value ? (map[value] ?? '') : '';
+  }
+  // Projects & Programs PP_S1Q01/S1Q13/S1Q14. Until dataset v12 these three
+  // were stored as String(code) while their siblings (area, sector) were
+  // stored as the option string, so the .sps VALUE LABELS — keyed by the
+  // option string — applied to none of them and the analyst read a bare "1"
+  // (E2E 2026-10-17, B1). The strings below are the AST option values, in
+  // option order; the normalizer's mapNature/mapPPStatus/mapStopReason are
+  // this mapping's inverse.
+  private mapNature(value?: 1 | 2 | 3 | 4): string {
+    const map: Record<number, string> = { 1: 'Projet/ Project', 2: 'Programme/ Program', 3: 'Structure sous-tutelle/ Structure under supervision', 4: 'Autres/ Other' };
+    return value ? (map[value] ?? '') : '';
+  }
+  private mapProjectStatus(value?: 1 | 2 | 3): string {
+    const map: Record<number, string> = { 1: 'En arrêt/ Stopped', 2: 'Actif/ Active', 3: 'En cours de démarrage/ Starting up' };
+    return value ? (map[value] ?? '') : '';
+  }
+  private mapStopReason(value?: 1 | 2 | 3 | 4): string {
+    const map: Record<number, string> = { 1: 'Arrivé à terme/ Expired', 2: 'Manque de fonds/ Lack of funds', 3: 'Résultats insuffisants/ Insufficient results', 4: 'Autre/ Other' };
     return value ? (map[value] ?? '') : '';
   }
 
