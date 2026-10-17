@@ -106,6 +106,15 @@ export const CAMPAIGN_ROLES: readonly UserRole[] = [
   "REGIONAL_ADMIN",
 ];
 
+/** Pilotage figures, read side (PILOTAGE_READ_ROLES on pilotage.controller.ts). */
+export const PILOTAGE_READ_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN_ONEFOP",
+  "REGIONAL_ADMIN",
+  "DIVISIONAL_ADMIN",
+  "CENTRAL_AGENT",
+];
+
 /** Platform settings and system identity. SUPER_ADMIN alone. */
 export const SETTINGS_ROLES: readonly UserRole[] = ["SUPER_ADMIN"];
 

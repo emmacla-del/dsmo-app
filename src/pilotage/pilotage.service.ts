@@ -102,6 +102,36 @@ export class PilotageService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * The ACTIVE collection campaigns, so a pilotage reader can find the id the
+   * coverage routes take. GET /campaigns is closed to DIVISIONAL_ADMIN and
+   * CENTRAL_AGENT, who may read those figures (§21, 2026-10-17). Campaign
+   * metadata only: no counts, nothing territorial, nothing personal, so the
+   * answer is the same for every reader. `deadline` is the one in force:
+   * the extended deadline when there is one, as the dashboard shows it.
+   */
+  async getActiveCollectionCampaigns() {
+    const campaigns = await this.prisma.dataCampaign.findMany({
+      where: { status: 'ACTIVE', purpose: CampaignPurpose.COLLECTION },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        collectionType: true,
+        periodicity: true,
+        startDate: true,
+        deadline: true,
+        extendedDeadline: true,
+        status: true,
+      },
+      orderBy: { startDate: 'desc' },
+    });
+    return campaigns.map(({ extendedDeadline, deadline, ...rest }) => ({
+      ...rest,
+      deadline: extendedDeadline ?? deadline,
+    }));
+  }
+
+  /**
    * ANNUAL coverage roll-up for the requested year.
    *
    * The signature is unchanged, but the target source is not. This used to

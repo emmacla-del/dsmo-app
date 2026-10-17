@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
-import { formatCampaignDate, formatCampaignDisplayName, listCampaigns, type Campaign } from "@/lib/campaigns";
+import { formatCampaignDate, formatCampaignDisplayName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -18,8 +18,13 @@ import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { anomalyRegisterHref } from "@/lib/admin-url";
-import { CAMPAIGN_ROLES, DATA_STATS_ROLES, hasRole } from "@/lib/roles";
-import { getCampaignReturns, canWritePilotageTargets } from "@/lib/pilotage-targets";
+import { DATA_STATS_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
+import {
+  getActiveCollectionCampaigns,
+  getCampaignReturns,
+  canWritePilotageTargets,
+  type PilotageCampaign,
+} from "@/lib/pilotage-targets";
 import { coverageRows, entityTypeRows, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -67,9 +72,10 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
  * rows snapshotted at activation, so it read 0 % while 5 of 7 registered
  * establishments had declared (2026-10-17).
  *
- * The campaign id comes from the campaign list, which only CAMPAIGN_ROLES may
- * read; other roles see that the figure is unavailable to them, never "no
- * active campaign".
+ * The campaign id comes from GET /admin/pilotage/campaigns/active, open to
+ * PILOTAGE_READ_ROLES like the returns themselves; any other role (AUDITOR,
+ * which lands here as the /admin fallback) sees that the figure is
+ * unavailable to it, never "no active campaign".
  */
 function CampaignCoverage({
   campaign,
@@ -77,7 +83,7 @@ function CampaignCoverage({
   canReadCampaigns,
   canSetQuotas,
 }: {
-  campaign?: Campaign;
+  campaign?: PilotageCampaign;
   /** The active campaign is still being fetched: say so, never "Inactive". */
   isLoading: boolean;
   canReadCampaigns: boolean;
@@ -122,7 +128,8 @@ function CampaignCoverage({
 
   // Campaign dates are Cameroon calendar days (Africa/Douala), not the
   // viewer's own zone: see lib/douala-date.
-  const deadlineStr = campaign.extendedDeadline || campaign.deadline;
+  // Already the deadline in force (extended when it was): the route says so.
+  const deadlineStr = campaign.deadline;
   const daysLeft = computeDaysLeft(deadlineStr);
   const dateRange = campaign.startDate && deadlineStr
     ? `${formatCampaignDate(campaign.startDate)} — ${formatCampaignDate(deadlineStr)}`
@@ -500,13 +507,13 @@ export default function PilotagePage() {
     refetchInterval: 120000,
   });
 
-  // The active ONEFOP collection campaign. Same query as the header pill
-  // (useActiveCampaign), so one request serves both; the pill takes the first
-  // active campaign of any kind, coverage needs the collection one.
-  const canReadCampaigns = hasRole(userRole, CAMPAIGN_ROLES);
+  // The active ONEFOP collection campaign, from the pilotage route every
+  // pilotage reader may call. GET /campaigns would shut DIVISIONAL_ADMIN and
+  // CENTRAL_AGENT out of a figure they may read (§21, 2026-10-17).
+  const canReadCampaigns = hasRole(userRole, PILOTAGE_READ_ROLES);
   const campaignsQuery = useQuery({
-    queryKey: ["campaigns", "ACTIVE"],
-    queryFn: () => listCampaigns("ACTIVE"),
+    queryKey: ["admin", "pilotage", "campaigns", "active"],
+    queryFn: getActiveCollectionCampaigns,
     enabled: canReadCampaigns,
   });
   const activeCampaign = pickCoverageCampaign(campaignsQuery.data);

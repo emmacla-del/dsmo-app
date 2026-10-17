@@ -1924,3 +1924,39 @@ describe('PilotageService.getCampaignNonRespondents', () => {
     expect(result.establishments.map((row) => row.companyId)).toEqual(['mfoundi']);
   });
 });
+
+describe('PilotageService.getActiveCollectionCampaigns', () => {
+  const row = {
+    id: 'c-1', code: 'QUARTERLY_2026_T4_001', name: 'ONEFOP T4', collectionType: 'ONEFOP',
+    periodicity: 'QUARTERLY', startDate: new Date('2026-10-01'), deadline: new Date('2026-11-30'),
+    extendedDeadline: null as Date | null, status: 'ACTIVE',
+  };
+
+  function serviceWith(rows: unknown[]) {
+    const findMany = jest.fn().mockResolvedValue(rows);
+    return { findMany, service: new PilotageService({ dataCampaign: { findMany } } as unknown as PrismaService) };
+  }
+
+  it('asks for ACTIVE collection campaigns only, and includes nothing', async () => {
+    const { findMany, service } = serviceWith([]);
+    await service.getActiveCollectionCampaigns();
+    const args = findMany.mock.calls[0][0];
+    expect(args.where).toEqual({ status: 'ACTIVE', purpose: 'COLLECTION' });
+    expect(args.include).toBeUndefined();
+  });
+
+  it('answers exactly the approved fields (§21, 2026-10-17)', async () => {
+    const { service } = serviceWith([row]);
+    const [campaign] = await service.getActiveCollectionCampaigns();
+    expect(Object.keys(campaign).sort()).toEqual(
+      ['code', 'collectionType', 'deadline', 'id', 'name', 'periodicity', 'startDate', 'status'],
+    );
+    expect(campaign.deadline).toEqual(new Date('2026-11-30'));
+  });
+
+  it('gives the extended deadline as the deadline when there is one', async () => {
+    const { service } = serviceWith([{ ...row, extendedDeadline: new Date('2026-12-15') }]);
+    const [campaign] = await service.getActiveCollectionCampaigns();
+    expect(campaign.deadline).toEqual(new Date('2026-12-15'));
+  });
+});

@@ -2,6 +2,7 @@ import { apiFetch, ApiError } from "./api-client";
 import type { UserRole } from "./roles";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "./roles";
 import type { UiLocale } from "./register-i18n";
+import type { Campaign } from "./campaigns";
 
 export const YEAR_MIN = 2000;
 export const YEAR_MAX = 2100;
@@ -285,6 +286,20 @@ export function formatApiError(error: unknown, locale: UiLocale = "fr"): string 
   }
   if (error instanceof Error && error.message.trim()) return error.message;
   return locale === "en" ? "The request failed." : "La requête a échoué.";
+}
+
+/**
+ * The ACTIVE collection campaigns, for every pilotage reader: unlike
+ * GET /campaigns, open to DIVISIONAL_ADMIN and CENTRAL_AGENT (§21, 2026-10-17).
+ * Metadata only; `deadline` is the one in force (extended when it was).
+ */
+export type PilotageCampaign = Pick<
+  Campaign,
+  "id" | "code" | "name" | "status" | "periodicity" | "collectionType" | "startDate" | "deadline"
+>;
+
+export function getActiveCollectionCampaigns() {
+  return apiFetch<PilotageCampaign[]>("/admin/pilotage/campaigns/active");
 }
 
 export function getAnnualCoverage(year: number) {
