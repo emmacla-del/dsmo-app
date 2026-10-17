@@ -220,7 +220,7 @@ export function VtValidationScreen({
 
   return (
     <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-7)" }}>
-      <h2
+      <h1
         // Focus target of WizardShell when Validation opens (useStepFocus).
         id={VT_VALIDATION_HEADING_ID}
         tabIndex={-1}
@@ -234,7 +234,7 @@ export function VtValidationScreen({
       >
         {/* Not "Thank you": nothing is submitted yet (audit R1). */}
         {t("vtValidationScreen.checkAnswersTitle")}
-      </h2>
+      </h1>
 
       {/* Statistical secrecy: plain text, as the paper form prints it. */}
       <p style={{ margin: "0 0 var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: 1.5 }}>
@@ -325,9 +325,9 @@ export function VtValidationScreen({
           aria-labelledby={`${COHERENCE_PANEL_ID}-title`}
           style={{ ...noticeStyle, background: "var(--cam-notice-surface)", border: "1px solid var(--cam-gold)", outline: "none" }}
         >
-          <h3 id={`${COHERENCE_PANEL_ID}-title`} style={{ margin: "0 0 var(--cam-space-2)", fontSize: "15px", fontWeight: 600 }}>
+          <h2 id={`${COHERENCE_PANEL_ID}-title`} style={{ margin: "0 0 var(--cam-space-2)", fontSize: "15px", fontWeight: 600 }}>
             {t("vtValidationScreen.coherence.title")}
-          </h3>
+          </h2>
           <p style={{ margin: "0 0 var(--cam-space-3)" }}>{t("vtValidationScreen.coherence.intro")}</p>
           <ul style={{ margin: 0, paddingLeft: "var(--cam-space-5)", display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
             {coherenceFlags!.map((flag, i) => {
@@ -352,12 +352,12 @@ export function VtValidationScreen({
         {sectionSummaries.map(({ index, section, stats }) => (
           <li key={section.id} style={{ borderTop: "1px solid var(--cam-border)", padding: "var(--cam-space-4) 0" }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "var(--cam-space-2) var(--cam-space-4)" }}>
-              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "var(--cam-text)" }}>
+              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "var(--cam-text)" }}>
                 {t("vtValidationScreen.sectionLabel", {
                   number: index,
                   name: getVtSectionShortLabel(section.id, locale) ?? localized(section.title, locale.startsWith("en") ? "en" : "fr"),
                 })}
-              </h3>
+              </h2>
               <span
                 style={{
                   fontSize: "var(--cam-font-size-sm)",

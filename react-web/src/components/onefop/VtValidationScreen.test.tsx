@@ -164,7 +164,7 @@ test("the review has one primary action and no duplicate or decorative controls"
   assert.equal(screen.getAllByRole("button", { name: "Modifier cette section" }).length, vt.sections.length);
   const text = container.textContent ?? "";
   assert.doesNotMatch(text, /SECTION \d|Récapitulatif des 9 sections/);
-  assert.ok(screen.getByRole("heading", { level: 3, name: "Section 1 : Identification" }));
+  assert.ok(screen.getByRole("heading", { level: 2, name: "Section 1 : Identification" }));
 });
 
 // Defect 25 (2026-10-16 run): the server's advisory coherence flags are shown
@@ -211,4 +211,12 @@ test("with no coherence flag, or a failed check, Continue goes straight on", asy
     assert.equal(screen.queryByText("Vérifiez ces chiffres avant de soumettre"), null);
     unmount();
   }
+});
+
+// Audit R25: the review has one h1, its title; sections are h2 under it.
+test("the review's title is the page's one h1", () => {
+  renderScreen();
+  const h1 = screen.getAllByRole("heading", { level: 1 });
+  assert.equal(h1.length, 1);
+  assert.match(h1[0].textContent ?? "", /Vérifiez vos réponses/);
 });
