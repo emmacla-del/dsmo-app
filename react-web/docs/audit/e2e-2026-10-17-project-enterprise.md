@@ -209,11 +209,55 @@ it is not test data from this run.
   covered by a unit test that the four PP Section 4 titles are distinct and
   equal to their field labels.
 
-### B6 — Respondent home: wrong figures in the header (medium)
+### B6 — Respondent home: wrong figures in the header (medium) — fixed 2026-10-17
 - « 0 declared employees » after declaring 12 permanent workers: the header
   reads `company.totalEmployees` (a DSMO-era column ONEFOP never updates).
 - « Tax ID: NA-6ff0ebd0-4f9f-… » — an internal placeholder NIU is shown to a
   project respondent (§8: no technical codes to respondents).
+- Root cause, the NIU: registration asks for one from enterprises,
+  cooperatives, CTDs, NGOs and training centres only — an administration and a
+  project/programme do not declare a taxpayer number (`ENTITY_CONFIGS`,
+  `register-constants.ts`). `Company.taxNumber` is NOT NULL and unique all
+  the same, so `AuthService` writes a synthetic `NA-<uuid>`. Every admin
+  screen already hides it through `hasRealNiu`; the respondent's own two
+  screens were the ones that printed it.
+- Root cause, the headcount: `Company.totalEmployees` is the DSMO company
+  profile's figure (`CreateCompanyDto.totalEmployees`). The ONEFOP
+  registration payload has no such field, so the row is created at 0, and no
+  ONEFOP path ever writes it — the column is NOT NULL, so a stored 0 cannot
+  be told apart from "never asked". §9 forbids showing an unanswered value as
+  an answer, and here it read as a declaration that had been lost.
+- Fix: two rules in `src/lib/respondent-identity.ts`, used by both respondent
+  screens. `respondentNiu` returns the number only when the account declared
+  one (`hasRealNiu`, the rule the console already applies);
+  `declaredWorkforce` returns the figure only when someone entered it — above
+  zero, and never for a training centre, which declares trainees and
+  trainers, not employees. `isTrainingCentre` moved there from
+  `home/page.tsx` so both screens share it.
+- The same two fields are on « Mon établissement »
+  (`src/app/home/etablissement/page.tsx`), which printed the placeholder as
+  the NIU and « 0 » as the headcount; they now follow the same rules. Its
+  « Numéro CNPS » row read "—" for the two types that are never asked for one
+  (the same five types declare the CNPS as the NIU), so it is shown only when
+  there is a number — the home header already did this.
+- Not done: showing the respondent the headcount they actually declared. That
+  figure is in the file (S1Q10, PP_S1Q15, …, by entity type), not on the
+  company row: `GET /onefop/submissions` returns a summary without `rawData`,
+  so the home would need the submission detail and the schema for one meta
+  item, and a headcount without its reference period is a different claim
+  from the one the file makes. Left for the owner to call.
+- Verified live on the local backend, in French, on both test accounts: the
+  project (PP26000102) home reads « Projet ou programme · Yaoundé 2,
+  Mfoundi, Centre » — no NIU, no employee count
+  (`docs/audit/screenshots/b6-fixed-project-home-2026-10-17.jpg`) — and its
+  establishment record shows name, type and main activity with no NIU, CNPS
+  or headcount row; the enterprise (EN26000201) still shows « NIU :
+  M102617000001X · CNPS : 2610170001 » on both screens, with the false « 0 »
+  gone.
+- Gates: `npm test` 883/883 pass (3 new), `npx tsc --noEmit` clean,
+  `npm run check:ui-grammar` passes with no baseline change. The two lint
+  warnings in `home/page.tsx` are pre-existing unused imports
+  (`getMyDeclarations`, `getMyOnefopSubmissions`) this change does not touch.
 
 ### B7 — Technical question codes shown to respondents (medium, §8) — fixed 2026-10-17
 - Every question in the employer wizard is prefixed with its code: « S0Q01
@@ -304,6 +348,10 @@ it is not test data from this run.
 - B4 and B5, in react-web: `src/components/onefop/ModernJobsSidebar.tsx`,
   `src/components/onefop/tables/definitions/modernJobsTableDefinitions.ts`,
   new `src/components/onefop/ModernJobsSidebar.test.tsx`.
+- B6, in react-web: `src/lib/respondent-identity.ts` (+ its test),
+  `src/app/home/page.tsx`, `src/app/home/etablissement/page.tsx`. Frontend
+  only. Gates: `npm test` 883/883, `npx tsc --noEmit` clean,
+  `npm run check:ui-grammar` passes with no baseline change.
 - B3, in react-web: `src/app/admin/dossiers/[id]/page.tsx`,
   `src/lib/dossier-vt-answers.ts`, `messages/{fr,en}.json`, new
   `src/lib/dossier-sections.ts` and `src/lib/dossier-sections.test.ts`.
@@ -350,7 +398,7 @@ it is not test data from this run.
 - No §21 approval sought: neither change touches statistical semantics, the
   AST, the database or an official export. B5 removes presentation text that
   contradicted the AST; B4 corrects a progress indicator only.
-- B6 to B11 are untouched.
+- B10 and B11 are untouched.
 
 ## Questions for domain review (no change made)
 
