@@ -245,11 +245,38 @@ it is not test data from this run.
   the number `ModernJobsSidebar` already shows as `marker: idx` — Modern
   Jobs numbers its sections from 0, as the paper form does.
 
-### B9 — PP S1Q15 prefilled with 0 (medium, §9)
+### B9 — PP S1Q15 prefilled with 0 (medium, §9) — fixed 2026-10-17
 - « Number of permanent workers » opened with 0 though registration never
   asked for it — an unanswered value presented as a zero answer. Also
   « Locality / village / quarter » is prefilled with the office street
   address.
+- Both are wider than Project/Programme. The headcount prefill
+  (`comp.totalEmployees`) was on five entity types — S1Q10, COOP_S1Q11,
+  CTD_S1Q09, ONG_S1Q10, PP_S1Q15 — and `RegisterCompanyPayload` has no such
+  field, so `auth.service.ts` stores `?? 0` for every ONEFOP account; the
+  column is DSMO-era and no ONEFOP path writes it. On a DSMO-era company it
+  holds a headcount from another reference period and definition, which is
+  not an answer to this question either. The locality prefill
+  (`comp.address`) was on all six employer types **and on the training
+  centre's 1.8 « Village-Quartier »**, which the run did not look at;
+  registration asks that field as « Adresse du siège » / « Adresse du CFP »,
+  a street address, and collects no village or quarter.
+- Fix: both prefills are gone (`src/lib/onefop-autofill.ts`), with the rule
+  written at the top of the file — a field is prefilled only from something
+  registration actually asked for, and only where the two questions mean the
+  same thing. `address` still fills the « Siège social » questions (S1Q09,
+  ONG_S1Q02, PP_S1Q11, COOP_S1Q02), which is what it is. Every question
+  concerned is required, so the respondent is asked for it.
+- Verified by `src/lib/onefop-autofill.test.ts`, which walks every entity
+  type and every « Quartier/Village/Localité » question in the schema, and
+  checks the identification fields registration *does* ask for are still
+  prefilled. The locality case was confirmed to fail before the fix.
+- Not fixed, and worth knowing: a draft started before this change keeps the
+  values the old prefill wrote. A saved answer wins over registration by
+  design (`mergeWithAutofill`), and that is checked here — EN26000201's draft
+  still holds `S1Q04_LOCALITY = "Rue Joss, Bonanjo"` and `S1Q10 = "8"`,
+  locally and on the server. Only a draft started after the change opens
+  empty.
 
 ### B10 — Registration review shows the sector in French in the English UI (low)
 - Picker shows « Public administration and defence », review shows
@@ -307,6 +334,12 @@ it is not test data from this run.
   the session working on B3 in this same checkout, and signing out from
   under it would have disturbed that run. The B8 test was confirmed to fail
   on the old `sIdx + 1` before being kept.
+- B9, in react-web: `src/lib/onefop-autofill.ts`, new
+  `src/lib/onefop-autofill.test.ts`. `npm test` 880/880, `npx tsc --noEmit`
+  clean. B7 was also checked live in the enterprise wizard — Section 0 now
+  reads « Nom et prénom(s) du répondant », not « S0Q01 Nom… ». B9 could not
+  be checked live: both test accounts already hold a draft, and a draft wins
+  over registration, so only a fresh account would show it.
 - Gates, backend: `npx jest --runInBand` 1814/1814 pass. Four assertions
   pinned the previous dataset version: the two that exist to make a bump a
   deliberate act keep their literal (now 12), and the two that only wanted
@@ -330,11 +363,12 @@ it is not test data from this run.
 
 ## Not covered
 
-- Enterprise survey: opened on 2026-10-17 to verify B5 — the preliminary
-  quiz was answered (applications Yes / executives / under 25, everything
-  else No) and Section 2 opened with S21Q01 only. Nothing was typed into a
-  table and nothing was submitted, so EN26000201 now holds a draft with quiz
-  answers and no figures. The rest of the enterprise journey is still
+- Enterprise survey: opened on 2026-10-17 to verify B5 and B7 — the
+  preliminary quiz was answered (applications Yes / executives / under 25,
+  everything else No) and Section 2 opened with S21Q01 only. Nothing was
+  typed into a table and nothing was submitted, so EN26000201 now holds a
+  draft with quiz answers, no figures, and the Section 1 values the old
+  prefill wrote (see B9). The rest of the enterprise journey is still
   untested.
 - Official PDF content of the project declaration (not downloaded).
 - Mobile/tablet layouts.
