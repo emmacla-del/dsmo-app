@@ -1666,7 +1666,10 @@
     "progressTableToggle": "Show daily figures",
     "progressTableDate": "Date",
     "progressTableDay": "Received that day",
-    "progressTableCumulative": "Cumulative"
+    "progressTableCumulative": "Cumulative",
+    "entityTypeColumn": "Type of organisation",
+    "registeredColumn": "Registered",
+    "untypedFootnote": "{count, plural, one {# registered establishment with no type of organisation is not counted.} other {# registered establishments with no type of organisation are not counted.}}"
   },
   "adminKpiTile": {
     "unavailableTitle": "Data not available"

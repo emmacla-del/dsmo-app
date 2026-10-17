@@ -84,6 +84,24 @@ export interface CampaignReturnsResponse {
   unassigned: ReturnMetrics | null;
   regions: RegionReturnRow[];
   totals: ReturnMetrics;
+  /**
+   * `totals` split by entity type; the rows add up to it. Optional: a backend
+   * older than 2026-10-17 does not send it.
+   */
+  byEntityType?: EntityTypeReturnRow[];
+  /** Registered establishments in scope with no entity type, outside `totals`. */
+  untypedRegisteredStock?: number;
+}
+
+export interface EntityTypeReturnRow {
+  /** An OnefopEntityType code, e.g. "VOCATIONAL_TRAINING". */
+  entityType: string;
+  received: number;
+  approved: number;
+  onTime: number;
+  late: number;
+  registeredStock: number;
+  responseRate: number | null;
 }
 
 /** Where a registered establishment that has not declared stands with its file. */

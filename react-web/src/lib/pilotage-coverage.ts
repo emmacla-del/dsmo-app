@@ -1,5 +1,5 @@
 import { isRegistrationCampaign, type Campaign } from "./campaigns";
-import type { CampaignReturnsResponse } from "./pilotage-targets";
+import type { CampaignReturnsResponse, EntityTypeReturnRow } from "./pilotage-targets";
 
 /**
  * The campaign the dashboard's coverage section reads: the active ONEFOP
@@ -62,6 +62,16 @@ export function coverageRows(data: CampaignReturnsResponse): CoverageRow[] {
     });
   }
   return rows;
+}
+
+/**
+ * The rows of the dashboard's breakdown by entity type, as the server lists
+ * them (registration-screen order, zero rows included — a type nobody
+ * declared is information). Empty when the backend predates the field, so
+ * the page shows no table rather than a table of zeros.
+ */
+export function entityTypeRows(data: CampaignReturnsResponse): EntityTypeReturnRow[] {
+  return data.byEntityType ?? [];
 }
 
 /** A 0–1 ratio as the 0–100 value the shared percent/meter helpers take. */
