@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { splitQuestionCode } from "@/lib/question-code";
+import { questionCodeText, splitQuestionCode } from "@/lib/question-code";
 import { AnyTableRenderer } from "./AnyTableRenderer";
 import { FieldControl } from "./FieldControl";
 import { CoherenceFieldNote } from "./coherence/Coherence";
@@ -151,10 +151,11 @@ export function FieldRenderer({
   const rawLabel = isRespondentSection
     ? (respondentLabels[field.id]?.[locale] ?? localized(field.label, locale))
     : localized(field.label, locale);
-  // Every question shows its paper code as a badge (see CodedLabel);
-  // `label` stays plain text for aria-labels.
+  // A question shows its form number as a badge when it has one (see
+  // CodedLabel); an internal code such as S0Q01 is never shown (§8).
+  // `label` stays plain text for aria-labels, by the same rule.
   const coded = splitQuestionCode(field.paperCode, rawLabel);
-  const label = coded.code ? `${coded.code} ${coded.text}` : coded.text;
+  const label = questionCodeText(coded.code, coded.text);
   const secondaryLabel = isRespondentSection ? null : null;
   const rawHint = localized(field.hint, locale);
   const hint = isRespondentSection && rawHint
