@@ -717,6 +717,25 @@ export interface PilotageQueues {
   approvedCount: number;
   /** Per stored region value; null = no region recorded. */
   regionCounts: Array<{ region: string | null; count: number }>;
+  /** Review pace over the same territory. */
+  reviewDelay: ReviewDelay;
+}
+
+/**
+ * Whether review keeps up. "Awaiting a decision" is PENDING_REVIEW for every
+ * role: ONEFOP has one decision, taken within the reviewer's territory.
+ */
+export interface ReviewDelay {
+  /** A file waiting longer than this many days is overdue. */
+  thresholdDays: number;
+  /** Submission date of the oldest file awaiting a decision; null when none waits. */
+  oldestPendingSubmittedAt: string | null;
+  pendingOverThresholdCount: number;
+  /** Days back from now over which the median is measured. */
+  windowDays: number;
+  /** Median days from submission to decision; null when nothing was decided. */
+  decidedMedianDays: number | null;
+  decidedCount: number;
 }
 
 export function getPilotageQueues() {
@@ -734,6 +753,8 @@ export function listAdminQuestionnaires(
   params: {
     status?: string; formType?: string; period?: string; region?: string; search?: string;
     companyId?: string;
+    /** "oldest" lists the longest-waiting first; the server default is newest first. */
+    sort?: "oldest";
     limit?: number; offset?: number;
   } = {},
 ) {
@@ -744,6 +765,7 @@ export function listAdminQuestionnaires(
   if (params.region) query.set("region", params.region);
   if (params.search) query.set("search", params.search);
   if (params.companyId) query.set("companyId", params.companyId);
+  if (params.sort) query.set("sort", params.sort);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   const qs = query.toString();

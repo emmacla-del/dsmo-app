@@ -18,6 +18,10 @@ export interface AdminListFilters {
 export const ADMIN_LIST_PERIODS = ['7d', '30d', '3m', '12m'] as const;
 export type AdminListPeriod = (typeof ADMIN_LIST_PERIODS)[number];
 
+/** Order of the list by submission: newest first (the default) or oldest first. */
+export const ADMIN_LIST_SORTS = ['newest', 'oldest'] as const;
+export type AdminListSort = (typeof ADMIN_LIST_SORTS)[number];
+
 /** Statuses an admin may filter on: every status except DRAFT (never listed). */
 export const ADMIN_LIST_STATUSES: string[] = Object.values(OnefopStatus).filter((s) => s !== OnefopStatus.DRAFT);
 

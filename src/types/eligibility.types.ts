@@ -60,4 +60,26 @@ export interface PilotageQueues {
   approvedCount: number;
   /** Submissions per stored region value (null = no region recorded). */
   regionCounts: Array<{ region: string | null; count: number }>;
+  /** Whether review keeps up, over the same territory. */
+  reviewDelay: ReviewDelay;
+}
+
+/**
+ * Review pace. "Awaiting a decision" is PENDING_REVIEW for every role: ONEFOP
+ * has one decision, taken by any staff role within its territory, so there is
+ * no separate regional stage to measure.
+ */
+export interface ReviewDelay {
+  /** A file waiting longer than this many days is counted as overdue. */
+  thresholdDays: number;
+  /** Submission date of the oldest file awaiting a decision; null when none waits. */
+  oldestPendingSubmittedAt: string | null;
+  /** Files awaiting a decision submitted more than `thresholdDays` days ago. */
+  pendingOverThresholdCount: number;
+  /** Days over which `decidedMedianDays` is measured, counted back from now. */
+  windowDays: number;
+  /** Median days from submission to decision, one decimal; null when nothing was decided. */
+  decidedMedianDays: number | null;
+  /** Decisions the median is computed over. */
+  decidedCount: number;
 }

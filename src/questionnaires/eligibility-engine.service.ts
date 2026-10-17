@@ -16,12 +16,27 @@ import {
 import {
   DossierDiagnostic,
   PilotageQueues,
+  ReviewDelay,
   StatisticalExclusionReason,
 } from '../types/eligibility.types';
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
+
+/** A file awaiting a decision longer than this is overdue (owner, 2026-10-17). */
+export const REVIEW_DELAY_THRESHOLD_DAYS = 7;
+/** The decision median covers the decisions of the last 90 days. */
+export const REVIEW_DELAY_WINDOW_DAYS = 90;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Median of a non-empty list of numbers. */
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 @Injectable()
 export class EligibilityEngineService {
@@ -318,6 +333,8 @@ export class EligibilityEngineService {
     }
     const regionCounts = regionGroups.map((g) => ({ region: g.region, count: g._count._all }));
 
+    const reviewDelay = await this.getReviewDelay(territory);
+
     return {
       totalSubmissionsCount,
       blockingAnomaliesCount,
@@ -327,6 +344,74 @@ export class EligibilityEngineService {
       statusCounts,
       approvedCount: statusCounts.APPROVED,
       regionCounts,
+      reviewDelay,
+    };
+  }
+
+  /**
+   * Review pace for getPilotageQueues: the age of the oldest file awaiting a
+   * decision, how many have waited past the threshold, and the median time
+   * from submission to decision. Two pairs of queries, never more than two in
+   * flight (see the pool note in getPilotageQueues).
+   */
+  private async getReviewDelay(territory?: Territory, now: Date = new Date()): Promise<ReviewDelay> {
+    const pendingWhere = { AND: [territoryWhere(territory), { status: OnefopStatus.PENDING_REVIEW }] };
+    const overdueBefore = new Date(now.getTime() - REVIEW_DELAY_THRESHOLD_DAYS * DAY_MS);
+    const windowStart = new Date(now.getTime() - REVIEW_DELAY_WINDOW_DAYS * DAY_MS);
+
+    const [oldest, pendingOverThresholdCount] = await Promise.all([
+      this.prisma.onefopSubmission.aggregate({
+        where: pendingWhere,
+        _min: { submissionDate: true },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: { AND: [...pendingWhere.AND, { submissionDate: { lt: overdueBefore } }] },
+      }),
+    ]);
+
+    // A decision sets reviewedAt. A replaced file (SUPERSEDED) keeps the
+    // reviewedAt of the correction request that preceded it, so it counts.
+    // Reopening an endorsed file also rewrites reviewedAt, to the reopening:
+    // those files are left out, as their reviewedAt is no longer a decision.
+    // Only two dates per file are read, over a bounded window.
+    const [decided, reopenings] = await Promise.all([
+      this.prisma.onefopSubmission.findMany({
+        where: {
+          AND: [
+            territoryWhere(territory),
+            {
+              status: {
+                in: [
+                  OnefopStatus.APPROVED,
+                  OnefopStatus.REJECTED,
+                  OnefopStatus.CORRECTION_REQUESTED,
+                  OnefopStatus.SUPERSEDED,
+                ],
+              },
+            },
+            { reviewedAt: { gte: windowStart } },
+          ],
+        },
+        select: { id: true, submissionDate: true, reviewedAt: true },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { action: 'AUDIT_REOPEN', resourceType: 'OnefopSubmission', timestamp: { gte: windowStart } },
+        select: { resourceId: true },
+      }),
+    ]);
+
+    const reopened = new Set(reopenings.map((r) => r.resourceId));
+    const durations = decided
+      .filter((d) => d.reviewedAt && !reopened.has(d.id))
+      .map((d) => Math.max(0, d.reviewedAt!.getTime() - d.submissionDate.getTime()) / DAY_MS);
+
+    return {
+      thresholdDays: REVIEW_DELAY_THRESHOLD_DAYS,
+      oldestPendingSubmittedAt: oldest._min.submissionDate ? oldest._min.submissionDate.toISOString() : null,
+      pendingOverThresholdCount,
+      windowDays: REVIEW_DELAY_WINDOW_DAYS,
+      decidedMedianDays: durations.length ? Math.round(median(durations) * 10) / 10 : null,
+      decidedCount: durations.length,
     };
   }
 

@@ -5,14 +5,18 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CampaignPurpose, OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
+import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
+import { DOUALA_TIME_ZONE } from '../common/utils/douala-date';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
 import {
+  CampaignNonRespondentsResponse,
   CampaignReturnsResponse,
   CampaignReturnsSummary,
+  NonRespondentRow,
+  nonRespondentFileState,
   DepartmentReturnRow,
   EntityTypeTally,
   RegionReturnRow,
@@ -20,6 +24,9 @@ import {
   addMetrics,
   buildMetrics,
   emptyMetrics,
+  CampaignReturnsTimeline,
+  buildTimelineDays,
+  countedReturns,
   isApprovedStatus,
   isReceivedStatus,
 } from './pilotage-returns';
@@ -304,15 +311,7 @@ export class PilotageService {
     territory: Territory | null | undefined,
     campaignId: string,
   ): Promise<CampaignReturnsResponse> {
-    const campaign = await this.requireOnefopCampaign(campaignId);
-    // Returns measure declarations against a declaration quota. A registration
-    // campaign collects nothing — its quotas are registration targets, read by
-    // Couverture — so there are no returns to compute for it.
-    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
-      throw new BadRequestException(
-        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
-      );
-    }
+    const campaign = await this.requireCollectionCampaign(campaignId);
     const { scope, regions } = await this.loadGrid(territory, (current) =>
       this.prisma.campaignQuota
         .findMany({ where: { campaignId, scopeKind: 'TERRITORIAL', ...regionFilter(current) } })
@@ -327,17 +326,7 @@ export class PilotageService {
         ),
     );
 
-    const summary: CampaignReturnsSummary = {
-      id: campaign.id,
-      name: campaign.name,
-      code: campaign.code,
-      collectionType: campaign.collectionType,
-      status: campaign.status,
-      startDate: campaign.startDate ? campaign.startDate.toISOString() : null,
-      endDate: campaign.endDate ? campaign.endDate.toISOString() : null,
-      referenceYear: campaign.referenceYear,
-      referenceQuarter: campaign.referenceQuarter,
-    };
+    const summary = returnsSummary(campaign);
 
     if (scope.kind === 'none') {
       return {
@@ -404,15 +393,6 @@ export class PilotageService {
       }
     }
 
-    // Deduplicate submissions by companyId (resubmissions count once)
-    const byCompany = new Map<string, typeof submissions>();
-    for (const sub of submissions) {
-      const key = sub.companyId ?? `sub-${sub.id}`;
-      const list = byCompany.get(key) ?? [];
-      list.push(sub);
-      byCompany.set(key, list);
-    }
-
     interface BucketCounts {
       received: number;
       approved: number;
@@ -421,48 +401,17 @@ export class PilotageService {
     }
     const countsByBucket = new Map<string, BucketCounts>();
 
-    function increment(bucket: string, approved: boolean, late: boolean, formType: string) {
-      byType.addReturn(bucket, formType, approved, late);
+    // One entry per establishment, counted by countedReturns: the same rule
+    // the timeline uses, so its curve ends on these totals. The entity-type
+    // tally reads the same entries, so byEntityType agrees with the totals.
+    for (const { submission, bucket } of countedReturns(submissions)) {
+      byType.addReturn(bucket, submission.formType, isApprovedStatus(submission.status), submission.isLate);
       const current = countsByBucket.get(bucket) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
       current.received += 1;
-      if (approved) current.approved += 1;
-      if (late) current.late += 1;
+      if (isApprovedStatus(submission.status)) current.approved += 1;
+      if (submission.isLate) current.late += 1;
       else current.onTime += 1;
       countsByBucket.set(bucket, current);
-    }
-
-    for (const [, companySubs] of byCompany) {
-      // Exclude DRAFT submissions
-      const nonDrafts = companySubs.filter((s) => s.status !== OnefopStatus.DRAFT);
-      if (nonDrafts.length === 0) continue;
-
-      // Find the latest received submission (PENDING_REVIEW, APPROVED, CORRECTION_REQUESTED)
-      const receivedSub = nonDrafts.find((s) => isReceivedStatus(s.status));
-      if (!receivedSub) {
-        // All non-drafts are REJECTED -> not counted in received
-        continue;
-      }
-
-      const approved = isApprovedStatus(receivedSub.status);
-      const late = receivedSub.isLate;
-
-      // Bucketing
-      if (receivedSub.formType === OnefopEntityType.ADMINISTRATION) {
-        increment('central', approved, late, receivedSub.formType);
-      } else if (!receivedSub.regionId || !receivedSub.departmentId) {
-        increment('unassigned', approved, late, receivedSub.formType);
-      } else {
-        increment(
-          bucketKey({
-            kind: 'department',
-            regionId: receivedSub.regionId,
-            departmentId: receivedSub.departmentId,
-          }),
-          approved,
-          late,
-          receivedSub.formType,
-        );
-      }
     }
 
     // Quota-relative fields (gap, quotaRate, onTimeRate) are measured only over
@@ -598,6 +547,174 @@ export class PilotageService {
       totals,
       byEntityType: byType.rows(headlineBuckets, national),
       untypedRegisteredStock: registeredStockByBucket.get('nullEntityType') ?? 0,
+    };
+  }
+
+  /**
+   * Cumulative declarations received per Africa/Douala calendar day, for the
+   * pilotage progress chart. Same roles, territory scope and purpose check
+   * as getCampaignReturns, and the same counting (countedReturns) over the
+   * same buckets its `totals` roll up, so the last `cumulative` equals
+   * `totals.received`. Each establishment is placed on the day it first
+   * delivered a file that was not rejected. `now` is a parameter for tests.
+   */
+  async getCampaignReturnsTimeline(
+    territory: Territory | null | undefined,
+    campaignId: string,
+    now: Date = new Date(),
+  ): Promise<CampaignReturnsTimeline> {
+    const campaign = await this.requireCollectionCampaign(campaignId);
+    // The grid only says which departments the reader sees; quotas are not
+    // needed, so no quota row is read.
+    const { scope, regions } = await this.loadGrid(territory, async () => []);
+    const summary = {
+      ...returnsSummary(campaign),
+      deadline: campaign.deadline ? campaign.deadline.toISOString() : null,
+      extendedDeadline: campaign.extendedDeadline ? campaign.extendedDeadline.toISOString() : null,
+    };
+    const timeZone = DOUALA_TIME_ZONE;
+    if (scope.kind === 'none') return { campaign: summary, timeZone, total: 0, days: [] };
+
+    // The buckets getCampaignReturns' totals add up for this reader: every
+    // visible department, plus central and unassigned at national scope.
+    const visible = new Set<string>();
+    for (const region of regions) {
+      for (const department of region.departments) {
+        visible.add(bucketKey({ kind: 'department', regionId: region.regionId, departmentId: department.departmentId }));
+      }
+    }
+    if (scope.kind === 'national') {
+      visible.add('central');
+      visible.add('unassigned');
+    }
+
+    const submissions = await this.prisma.onefopSubmission.findMany({
+      where: { campaignId, ...submissionWhere(scope) },
+      select: {
+        id: true,
+        companyId: true,
+        formType: true,
+        status: true,
+        isLate: true,
+        regionId: true,
+        departmentId: true,
+        submissionDate: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const deliveries = countedReturns(submissions)
+      .filter((counted) => visible.has(counted.bucket))
+      .map((counted) => counted.firstReceivedAt);
+
+    const effectiveDeadline = campaign.extendedDeadline ?? campaign.deadline;
+    const ends = [campaign.endDate, effectiveDeadline].filter((d): d is Date => !!d);
+    const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
+    const days = buildTimelineDays(deliveries, { startDate: campaign.startDate, lastDay, now });
+    return { campaign: summary, timeZone, total: deliveries.length, days };
+  }
+
+  /**
+   * The registered establishments of the caller's territory that have not
+   * declared for a collection campaign: getCampaignReturns' registeredStock
+   * minus its received, as a list to chase. Same predicates: registered is
+   * isRegistered, received is a file in a received status (a resubmission
+   * counts once). Files are matched to the company by companyId, not by the
+   * file's own territory. No contact data: each row leads to the
+   * establishment's page, which keeps its own access rules.
+   */
+  async getCampaignNonRespondents(
+    territory: Territory | null | undefined,
+    campaignId: string,
+  ): Promise<CampaignNonRespondentsResponse> {
+    const campaign = await this.requireOnefopCampaign(campaignId);
+    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
+      throw new BadRequestException(
+        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
+      );
+    }
+    const summary = returnsSummary(campaign);
+    const scope = await resolveTargetScope(this.prisma, territory);
+    if (scope.kind === 'none') {
+      return { campaign: summary, lastReminder: null, registered: 0, establishments: [] };
+    }
+
+    const [companies, reminder] = await Promise.all([
+      this.prisma.company.findMany({
+        where: companyWhere(scope),
+        select: {
+          id: true,
+          name: true,
+          entityType: true,
+          regionId: true,
+          departmentId: true,
+          establishmentId: true,
+          establishmentIdGeneratedAt: true,
+          createdAt: true,
+          regionRef: { select: { name: true } },
+          departmentRef: { select: { regionId: true, name: true } },
+          user: { select: { status: true, isActive: true, approvedAt: true } },
+        },
+      }),
+      this.prisma.campaignReminder.findFirst({
+        where: { campaignId },
+        orderBy: { sentAt: 'desc' },
+        select: { sentAt: true, reminderType: true, recipientCount: true },
+      }),
+    ]);
+
+    const registered = companies.filter((company) => isRegistered(toStockRow(company)));
+    const files = registered.length === 0
+      ? []
+      : await this.prisma.onefopSubmission.findMany({
+          where: { campaignId, companyId: { in: registered.map((company) => company.id) } },
+          select: { companyId: true, status: true, createdAt: true },
+        });
+    const filesByCompany = new Map<string, Array<{ status: OnefopStatus; createdAt: Date }>>();
+    for (const file of files) {
+      if (!file.companyId) continue;
+      const list = filesByCompany.get(file.companyId) ?? [];
+      list.push(file);
+      filesByCompany.set(file.companyId, list);
+    }
+
+    const establishments: NonRespondentRow[] = [];
+    for (const company of registered) {
+      const own = filesByCompany.get(company.id) ?? [];
+      if (own.some((file) => isReceivedStatus(file.status))) continue;
+      const bucket = classifyBucket(toStockRow(company));
+      establishments.push({
+        companyId: company.id,
+        name: company.name,
+        establishmentId: company.establishmentId as string,
+        entityType: company.entityType,
+        bucket: bucket.kind,
+        regionId: bucket.kind === 'department' ? bucket.regionId : company.regionId,
+        regionName: company.regionRef?.name ?? null,
+        departmentId: company.departmentId,
+        departmentName: company.departmentRef?.name ?? null,
+        fileState: nonRespondentFileState(own),
+      });
+    }
+    const label = (value: string | null) => value ?? '￿';
+    establishments.sort(
+      (a, b) =>
+        label(a.regionName).localeCompare(label(b.regionName), 'fr') ||
+        label(a.departmentName).localeCompare(label(b.departmentName), 'fr') ||
+        a.name.localeCompare(b.name, 'fr'),
+    );
+
+    return {
+      campaign: summary,
+      lastReminder: reminder
+        ? {
+            sentAt: reminder.sentAt.toISOString(),
+            reminderType: reminder.reminderType,
+            recipientCount: reminder.recipientCount,
+          }
+        : null,
+      registered: registered.length,
+      establishments,
     };
   }
 
@@ -840,11 +957,29 @@ export class PilotageService {
         // Selected for getCampaignReturns' purpose check; this method itself
         // still accepts both purposes (quotas are written on both).
         purpose: true,
+        // Marked on the returns timeline.
+        deadline: true,
+        extendedDeadline: true,
       },
     });
     if (!campaign) throw new NotFoundException('Campagne introuvable.');
     if (campaign.collectionType !== SubmissionModule.ONEFOP) {
       throw new BadRequestException('Les objectifs de campagne concernent uniquement les campagnes ONEFOP.');
+    }
+    return campaign;
+  }
+
+  /**
+   * Returns measure declarations against a declaration quota. A registration
+   * campaign collects nothing (its quotas are registration targets, read by
+   * Couverture), so there are no returns, and no timeline, to compute for it.
+   */
+  private async requireCollectionCampaign(id: string) {
+    const campaign = await this.requireOnefopCampaign(id);
+    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
+      throw new BadRequestException(
+        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
+      );
     }
     return campaign;
   }
@@ -970,6 +1105,30 @@ function hasRegion<T extends { regionId: string | null }>(row: T): row is T & { 
 function regionFilter(scope: TargetScope): { regionId?: string } {
   if (scope.kind === 'region' || scope.kind === 'department') return { regionId: scope.regionId };
   return {};
+}
+
+function returnsSummary(campaign: {
+  id: string;
+  name: string;
+  code: string;
+  collectionType: string;
+  status: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  referenceYear: number | null;
+  referenceQuarter: number | null;
+}): CampaignReturnsSummary {
+  return {
+    id: campaign.id,
+    name: campaign.name,
+    code: campaign.code,
+    collectionType: campaign.collectionType,
+    status: campaign.status,
+    startDate: campaign.startDate ? campaign.startDate.toISOString() : null,
+    endDate: campaign.endDate ? campaign.endDate.toISOString() : null,
+    referenceYear: campaign.referenceYear,
+    referenceQuarter: campaign.referenceQuarter,
+  };
 }
 
 function companyWhere(scope: TargetScope): Record<string, unknown> {

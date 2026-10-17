@@ -111,6 +111,17 @@ function collect(dir, exts) {
 const collectAll = (dirs, exts) => dirs.flatMap((d) => collect(d, exts));
 const collectRespondent = (exts) => collectAll(RESPONDENT_ROOTS, exts).filter((p) => !isAdminPath(p));
 
+// Artwork: the home hero illustration, an SVG delivered as a raw string (73
+// illustration colours, not UI). Exempt from respondent-hex-in-tsx ONLY, by
+// exact path; every other rule still scans them. Owner, 2026-10-17. See
+// docs/standards/ui-grammar.md §Public portal, "The hero artwork exception".
+// Adding a path here needs the same approval.
+const ARTWORK = [
+  join(root, "src", "components", "landing", "site", "hero-animation", "camleap-hero-svg.en.ts"),
+  join(root, "src", "components", "landing", "site", "hero-animation", "camleap-hero-svg.fr.ts"),
+];
+const isArtwork = (p) => ARTWORK.includes(p);
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 // Blank the comment but keep its newlines, so a finding below a block
@@ -389,7 +400,10 @@ const RULES = [
     title: "Hex colour literal in respondent TSX",
     fix: "Use a class, or var(--cam-*) where the value must be inline. New values go in tokens.css.",
     run: () =>
-      findPerLine(collectRespondent([".ts", ".tsx"]), (line) => /#[0-9a-fA-F]{3,8}\b/.test(stripJsComment(line))),
+      findPerLine(
+        collectRespondent([".ts", ".tsx"]).filter((p) => !isArtwork(p)),
+        (line) => /#[0-9a-fA-F]{3,8}\b/.test(stripJsComment(line))
+      ),
   },
   {
     key: "respondent-font-size-literal",

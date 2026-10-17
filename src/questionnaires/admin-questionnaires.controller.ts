@@ -22,7 +22,14 @@ import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { territoryFromUser } from '../auth/territory';
-import { ADMIN_LIST_FORM_TYPES, ADMIN_LIST_PERIODS, ADMIN_LIST_STATUSES, AdminListPeriod } from './admin-list-filter';
+import {
+  ADMIN_LIST_FORM_TYPES,
+  ADMIN_LIST_PERIODS,
+  ADMIN_LIST_SORTS,
+  ADMIN_LIST_STATUSES,
+  AdminListPeriod,
+  AdminListSort,
+} from './admin-list-filter';
 
 const LIST_MAX_LIMIT = 100;
 const SEARCH_MAX_LENGTH = 100;
@@ -157,6 +164,7 @@ export class AdminQuestionnairesController {
     @Query('formType') formType?: string,
     @Query('period') period?: string,
     @Query('companyId') companyId?: string,
+    @Query('sort') sort?: string,
     @Request() req?: any,
   ) {
     // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
@@ -172,8 +180,13 @@ export class AdminQuestionnairesController {
     if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
       throw new BadRequestException('Période inconnue.');
     }
+    const sortOrder = optionalText(sort);
+    if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
+      throw new BadRequestException('Ordre de tri inconnu.');
+    }
     return this.service.listForAdmin(
       {
+        sort: sortOrder as AdminListSort | undefined,
         status: statusFilter,
         formType: typeFilter,
         period: periodFilter as AdminListPeriod | undefined,

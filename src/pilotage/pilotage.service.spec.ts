@@ -35,6 +35,7 @@ function createHarness() {
   const onefopSubmissions: Array<Record<string, unknown>> = [];
   const audits: Array<Record<string, unknown>> = [];
   const campaigns: Array<Record<string, unknown>> = [];
+  const campaignReminders: Array<Record<string, unknown>> = [];
   let seq = 1;
 
   /**
@@ -144,8 +145,18 @@ function createHarness() {
           if (args?.where?.campaignId && sub.campaignId !== args.where.campaignId) return false;
           if (args?.where?.regionId && sub.regionId !== args.where.regionId) return false;
           if (args?.where?.departmentId && sub.departmentId !== args.where.departmentId) return false;
+          const companyIn = (args?.where?.companyId as { in?: unknown[] } | undefined)?.in;
+          if (companyIn && !companyIn.includes(sub.companyId)) return false;
           return true;
         }),
+      ),
+    },
+    campaignReminder: {
+      // orderBy sentAt desc, honoured: the latest send is the one read.
+      findFirst: jest.fn(async (args?: { where?: Record<string, unknown> }) =>
+        campaignReminders
+          .filter((row) => match(row, args?.where))
+          .sort((a, b) => (b.sentAt as Date).getTime() - (a.sentAt as Date).getTime())[0] ?? null,
       ),
     },
     auditLog: {
@@ -169,6 +180,7 @@ function createHarness() {
     onefopSubmissions,
     audits,
     campaigns,
+    campaignReminders,
     transactionOptions,
   };
 }
@@ -1568,5 +1580,347 @@ describe('PilotageService.getCampaignReturns', () => {
       expect(res.byEntityType).toEqual([]);
       expect(res.untypedRegisteredStock).toBe(0);
     });
+  });
+});
+
+describe('PilotageService.getCampaignReturnsTimeline', () => {
+  const NOW = new Date('2026-02-10T12:00:00Z');
+
+  function campaign(id = 'c1', overrides?: Record<string, unknown>) {
+    return {
+      id,
+      name: 'Campagne Pilote ONEFOP 2026',
+      code: 'ONEFOP-2026-T1',
+      collectionType: SubmissionModule.ONEFOP,
+      purpose: 'COLLECTION',
+      status: 'ACTIVE',
+      // Midnight in Douala (UTC+1) is 23:00 UTC the day before.
+      startDate: new Date('2026-01-31T23:00:00Z'),
+      endDate: new Date('2026-03-31T22:59:59Z'),
+      deadline: new Date('2026-02-28T23:00:00Z'),
+      extendedDeadline: null,
+      referenceYear: 2026,
+      referenceQuarter: 1,
+      ...overrides,
+    };
+  }
+
+  let seq = 0;
+  function sub(
+    companyId: string,
+    status: OnefopStatus,
+    at: string,
+    overrides?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    seq += 1;
+    return {
+      id: `s-${seq}`,
+      campaignId: 'c1',
+      companyId,
+      formType: OnefopEntityType.ENTREPRISE,
+      status,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      submissionDate: new Date(at),
+      createdAt: new Date(at),
+      ...overrides,
+    };
+  }
+
+  /** Every case the headline counts or skips, across territories. */
+  function mixedHarness() {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.onefopSubmissions.push(
+      // Rejected then resubmitted: counts once, on the resubmission's day.
+      sub('a', OnefopStatus.REJECTED, '2026-02-02T09:00:00Z'),
+      sub('a', OnefopStatus.APPROVED, '2026-02-05T09:00:00Z'),
+      // Replaced by a corrected file: counts once, on the first file's day.
+      sub('b', OnefopStatus.SUPERSEDED, '2026-02-03T09:00:00Z'),
+      sub('b', OnefopStatus.PENDING_REVIEW, '2026-02-08T09:00:00Z', { isLate: true }),
+      // Draft only: not received.
+      sub('c', OnefopStatus.DRAFT, '2026-02-03T09:00:00Z'),
+      // Rejected only: not received.
+      sub('d', OnefopStatus.REJECTED, '2026-02-04T09:00:00Z'),
+      // Another department and region.
+      sub('e', OnefopStatus.CORRECTION_REQUESTED, '2026-02-04T09:00:00Z', { departmentId: 'd-lekie' }),
+      sub('f', OnefopStatus.PENDING_REVIEW, '2026-02-04T09:00:00Z', { regionId: 'r-littoral', departmentId: 'd-wouri' }),
+      // Central administration, filed from Mfoundi: central bucket only.
+      sub('g', OnefopStatus.APPROVED, '2026-02-06T09:00:00Z', { formType: OnefopEntityType.ADMINISTRATION }),
+      // No department: unassigned, national only.
+      sub('h', OnefopStatus.PENDING_REVIEW, '2026-02-06T09:00:00Z', { departmentId: null }),
+    );
+    return harness;
+  }
+
+  it.each([
+    ['national', national],
+    ['regional', regional],
+    ['divisional', divisional],
+  ])('ends on the /returns headline total for a %s reader', async (_label, territory) => {
+    const harness = mixedHarness();
+    const returns = await harness.service.getCampaignReturns(territory, 'c1');
+    const timeline = await harness.service.getCampaignReturnsTimeline(territory, 'c1', NOW);
+
+    expect(timeline.total).toBe(returns.totals.received);
+    expect(timeline.days[timeline.days.length - 1].cumulative).toBe(returns.totals.received);
+    expect(timeline.days.reduce((sum, day) => sum + day.received, 0)).toBe(returns.totals.received);
+  });
+
+  it('pins the national totals the equality above rests on', async () => {
+    const timeline = await mixedHarness().service.getCampaignReturnsTimeline(national, 'c1', NOW);
+    // a, b, e, f, g, h: c is a draft, d was rejected.
+    expect(timeline.total).toBe(6);
+  });
+
+  it('dates an establishment by its first file that was not rejected', async () => {
+    const timeline = await mixedHarness().service.getCampaignReturnsTimeline(divisional, 'c1', NOW);
+    // Mfoundi for a divisional reader: a (05/02, after its rejection on 02/02)
+    // and b (03/02, its replaced file, not the 08/02 resubmission).
+    // g is central, h unassigned: neither is in a department's figures.
+    const byDay = Object.fromEntries(timeline.days.map((day) => [day.date, day.received]));
+    expect(byDay['2026-02-02']).toBe(0);
+    expect(byDay['2026-02-03']).toBe(1);
+    expect(byDay['2026-02-05']).toBe(1);
+    expect(byDay['2026-02-08']).toBe(0);
+    expect(timeline.total).toBe(2);
+  });
+
+  it('buckets by the Africa/Douala calendar day, keeps empty days, and runs from the start to today', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // 23:30 UTC on 2 Feb is 00:30 on 3 Feb in Douala.
+    harness.onefopSubmissions.push(sub('a', OnefopStatus.PENDING_REVIEW, '2026-02-02T23:30:00Z'));
+
+    const timeline = await harness.service.getCampaignReturnsTimeline(national, 'c1', NOW);
+
+    expect(timeline.timeZone).toBe('Africa/Douala');
+    expect(timeline.days[0]).toEqual({ date: '2026-02-01', received: 0, cumulative: 0 });
+    expect(timeline.days.find((day) => day.date === '2026-02-02')).toEqual({ date: '2026-02-02', received: 0, cumulative: 0 });
+    expect(timeline.days.find((day) => day.date === '2026-02-03')).toEqual({ date: '2026-02-03', received: 1, cumulative: 1 });
+    expect(timeline.days[timeline.days.length - 1]).toEqual({ date: '2026-02-10', received: 0, cumulative: 1 });
+    expect(timeline.days).toHaveLength(10);
+    expect(timeline.campaign.deadline).toBe('2026-02-28T23:00:00.000Z');
+  });
+
+  it('stops at the collection\'s last day once it has passed, the extended deadline included', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(
+      campaign('c1', {
+        endDate: new Date('2026-02-14T22:59:59Z'),
+        deadline: new Date('2026-02-14T23:00:00Z'),
+        extendedDeadline: new Date('2026-02-20T23:00:00Z'),
+      }),
+    );
+    const timeline = await harness.service.getCampaignReturnsTimeline(national, 'c1', new Date('2026-06-01T12:00:00Z'));
+    expect(timeline.days[timeline.days.length - 1].date).toBe('2026-02-21');
+    expect(timeline.campaign.extendedDeadline).toBe('2026-02-20T23:00:00.000Z');
+    expect(timeline.total).toBe(0);
+  });
+
+  it('refuses a registration campaign, as /returns does', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('reg-1', { purpose: 'REGISTRATION', status: 'DRAFT' }));
+    await expect(harness.service.getCampaignReturnsTimeline(national, 'reg-1', NOW)).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('PilotageService.getCampaignNonRespondents', () => {
+  function campaign(id = 'c1', overrides?: Record<string, unknown>) {
+    return {
+      id,
+      name: 'Campagne T4 2026',
+      code: 'ONEFOP-2026-T4',
+      collectionType: SubmissionModule.ONEFOP,
+      purpose: 'COLLECTION',
+      status: 'ACTIVE',
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-12-31T23:59:59Z'),
+      referenceYear: 2026,
+      referenceQuarter: 4,
+      ...overrides,
+    };
+  }
+
+  const names: Record<string, string> = {
+    'r-centre': 'Centre',
+    'r-littoral': 'Littoral',
+    'd-mfoundi': 'Mfoundi',
+    'd-lekie': 'Lékié',
+    'd-wouri': 'Wouri',
+  };
+
+  function company(
+    id: string,
+    regionId: string | null,
+    departmentId: string | null,
+    overrides?: Record<string, unknown>,
+  ) {
+    return {
+      id,
+      name: `Établissement ${id}`,
+      entityType: OnefopEntityType.ENTREPRISE,
+      regionId,
+      departmentId,
+      establishmentId: `EST-${id}`,
+      establishmentIdGeneratedAt: new Date('2026-01-15'),
+      createdAt: new Date('2026-01-15'),
+      regionRef: regionId ? { name: names[regionId] } : null,
+      departmentRef: departmentId && regionId ? { regionId, name: names[departmentId] } : null,
+      user: { status: 'ACTIVE', isActive: true, approvedAt: new Date('2026-01-20') },
+      ...overrides,
+    };
+  }
+
+  function file(id: string, companyId: string, status: OnefopStatus, createdAt: string, campaignId = 'c1') {
+    return {
+      id,
+      campaignId,
+      companyId,
+      formType: OnefopEntityType.ENTREPRISE,
+      status,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      createdAt: new Date(createdAt),
+    };
+  }
+
+  it('rejects an unknown campaign, a non-ONEFOP one and a registration one', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(
+      campaign('dsmo-1', { collectionType: SubmissionModule.DSMO }),
+      campaign('reg-1', { purpose: 'REGISTRATION', status: 'DRAFT' }),
+    );
+    await expect(harness.service.getCampaignNonRespondents(national, 'unknown')).rejects.toThrow(NotFoundException);
+    await expect(harness.service.getCampaignNonRespondents(national, 'dsmo-1')).rejects.toThrow(BadRequestException);
+    await expect(harness.service.getCampaignNonRespondents(national, 'reg-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('lists the registered establishments without a received file, with the state of their file', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'), campaign('c-other'));
+    harness.companies.push(
+      company('received', 'r-centre', 'd-mfoundi'),
+      company('resubmitted', 'r-centre', 'd-mfoundi'),
+      company('correction', 'r-centre', 'd-lekie'),
+      company('none', 'r-littoral', 'd-wouri'),
+      company('draft', 'r-centre', 'd-lekie'),
+      company('rejected', 'r-centre', 'd-mfoundi'),
+      company('superseded-only', 'r-centre', 'd-mfoundi'),
+      company('other-campaign', 'r-centre', 'd-mfoundi'),
+      // Not registered: never listed.
+      company('pending', 'r-centre', 'd-mfoundi', { user: { status: 'PENDING_APPROVAL', isActive: true, approvedAt: null } }),
+      company('inactive', 'r-centre', 'd-mfoundi', { user: { status: 'ACTIVE', isActive: false, approvedAt: null } }),
+      company('no-id', 'r-centre', 'd-mfoundi', { establishmentId: '  ' }),
+    );
+    harness.onefopSubmissions.push(
+      file('s1', 'received', OnefopStatus.PENDING_REVIEW, '2026-10-05'),
+      // A rejected file followed by an approved one counts as received once.
+      file('s2', 'resubmitted', OnefopStatus.REJECTED, '2026-10-02'),
+      file('s3', 'resubmitted', OnefopStatus.APPROVED, '2026-10-06'),
+      file('s4', 'correction', OnefopStatus.CORRECTION_REQUESTED, '2026-10-03'),
+      // A draft started after a rejection: the draft is what stands.
+      file('s5', 'draft', OnefopStatus.REJECTED, '2026-10-02'),
+      file('s6', 'draft', OnefopStatus.DRAFT, '2026-10-08'),
+      file('s7', 'rejected', OnefopStatus.REJECTED, '2026-10-04'),
+      file('s8', 'superseded-only', OnefopStatus.SUPERSEDED, '2026-10-04'),
+      file('s9', 'other-campaign', OnefopStatus.APPROVED, '2026-10-04', 'c-other'),
+    );
+
+    const result = await harness.service.getCampaignNonRespondents(national, 'c1');
+
+    expect(result.registered).toBe(8);
+    expect(result.establishments.map((row) => [row.companyId, row.fileState])).toEqual([
+      // Sorted by region, department, then name.
+      ['draft', 'DRAFT'],
+      ['other-campaign', 'NONE'],
+      ['rejected', 'REJECTED'],
+      ['superseded-only', 'NONE'],
+      ['none', 'NONE'],
+    ]);
+    expect(result.establishments[0]).toEqual({
+      companyId: 'draft',
+      name: 'Établissement draft',
+      establishmentId: 'EST-draft',
+      entityType: OnefopEntityType.ENTREPRISE,
+      bucket: 'department',
+      regionId: 'r-centre',
+      regionName: 'Centre',
+      departmentId: 'd-lekie',
+      departmentName: 'Lékié',
+      fileState: 'DRAFT',
+    });
+    expect(result.campaign).toMatchObject({ id: 'c1', code: 'ONEFOP-2026-T4' });
+  });
+
+  it('matches the returns endpoint: registered minus received', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.companies.push(
+      company('a', 'r-centre', 'd-mfoundi'),
+      company('b', 'r-centre', 'd-lekie'),
+      company('c', 'r-littoral', 'd-wouri'),
+      company('admin', null, null, { entityType: OnefopEntityType.ADMINISTRATION }),
+    );
+    harness.onefopSubmissions.push(file('s1', 'a', OnefopStatus.APPROVED, '2026-10-05'));
+
+    const returns = await harness.service.getCampaignReturns(national, 'c1');
+    const list = await harness.service.getCampaignNonRespondents(national, 'c1');
+
+    expect(list.registered).toBe(returns.totals.registeredStock);
+    expect(list.establishments).toHaveLength(returns.totals.registeredStock - returns.totals.received);
+    expect(list.establishments.find((row) => row.companyId === 'admin')).toMatchObject({
+      bucket: 'central',
+      regionName: null,
+    });
+  });
+
+  it("scopes the list to the caller's territory, and fails closed without one", async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.companies.push(
+      company('mfoundi', 'r-centre', 'd-mfoundi'),
+      company('lekie', 'r-centre', 'd-lekie'),
+      company('wouri', 'r-littoral', 'd-wouri'),
+    );
+
+    const ids = (result: { establishments: Array<{ companyId: string }> }) =>
+      result.establishments.map((row) => row.companyId);
+    expect(ids(await harness.service.getCampaignNonRespondents(national, 'c1'))).toEqual(['lekie', 'mfoundi', 'wouri']);
+    expect(ids(await harness.service.getCampaignNonRespondents(regional, 'c1'))).toEqual(['lekie', 'mfoundi']);
+    expect(ids(await harness.service.getCampaignNonRespondents(divisional, 'c1'))).toEqual(['mfoundi']);
+    const none = await harness.service.getCampaignNonRespondents(null, 'c1');
+    expect(none).toMatchObject({ registered: 0, establishments: [], lastReminder: null });
+  });
+
+  it("reports the campaign's latest reminder send, campaign-wide", async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.campaignReminders.push(
+      { campaignId: 'c1', sentAt: new Date('2026-10-05T08:00:00Z'), reminderType: 'INITIAL', recipientCount: 7 },
+      { campaignId: 'c1', sentAt: new Date('2026-10-12T08:00:00Z'), reminderType: 'FOLLOW_UP', recipientCount: 3 },
+      { campaignId: 'c-other', sentAt: new Date('2026-10-15T08:00:00Z'), reminderType: 'INITIAL', recipientCount: 9 },
+    );
+
+    const result = await harness.service.getCampaignNonRespondents(national, 'c1');
+
+    expect(result.lastReminder).toEqual({
+      sentAt: '2026-10-12T08:00:00.000Z',
+      reminderType: 'FOLLOW_UP',
+      recipientCount: 3,
+    });
+  });
+
+  it("is served by the controller from the caller's token territory", async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.companies.push(company('mfoundi', 'r-centre', 'd-mfoundi'), company('wouri', 'r-littoral', 'd-wouri'));
+    const controller = new PilotageController(harness.service);
+
+    const result = await controller.getCampaignNonRespondents('c1', { user: regional });
+
+    expect(result.establishments.map((row) => row.companyId)).toEqual(['mfoundi']);
   });
 });

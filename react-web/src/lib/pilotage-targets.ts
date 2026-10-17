@@ -104,6 +104,71 @@ export interface EntityTypeReturnRow {
   responseRate: number | null;
 }
 
+/** Where a registered establishment that has not declared stands with its file. */
+export type NonRespondentFileState = "NONE" | "DRAFT" | "REJECTED";
+export type NonRespondentBucket = "department" | "central" | "unassigned" | "nullEntityType";
+
+export interface NonRespondentRow {
+  companyId: string;
+  name: string;
+  establishmentId: string;
+  entityType: string | null;
+  bucket: NonRespondentBucket;
+  regionId: string | null;
+  regionName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  fileState: NonRespondentFileState;
+}
+
+export interface CampaignNonRespondentsResponse {
+  campaign: CampaignReturnsSummary;
+  /** Campaign-wide: reminders are not recorded per establishment. */
+  lastReminder: { sentAt: string; reminderType: string; recipientCount: number } | null;
+  registered: number;
+  establishments: NonRespondentRow[];
+}
+
+export interface NonRespondentGroup {
+  key: string;
+  bucket: NonRespondentBucket;
+  regionName: string | null;
+  departmentName: string | null;
+  rows: NonRespondentRow[];
+}
+
+const OUT_OF_TERRITORY_ORDER: NonRespondentBucket[] = ["central", "unassigned", "nullEntityType"];
+
+/**
+ * One group per department, in the server's order (region, department,
+ * name), then the establishments that belong to no department: central
+ * administrations, unassigned ones, and those without an entity type.
+ */
+export function groupNonRespondents(rows: NonRespondentRow[]): NonRespondentGroup[] {
+  const groups = new Map<string, NonRespondentGroup>();
+  for (const row of rows) {
+    const key = row.bucket === "department" ? `d:${row.regionId}:${row.departmentId}` : row.bucket;
+    const group = groups.get(key) ?? {
+      key,
+      bucket: row.bucket,
+      regionName: row.bucket === "department" ? row.regionName : null,
+      departmentName: row.bucket === "department" ? row.departmentName : null,
+      rows: [],
+    };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+  const all = [...groups.values()];
+  return [
+    ...all.filter((group) => group.bucket === "department"),
+    ...OUT_OF_TERRITORY_ORDER.flatMap((bucket) => all.filter((group) => group.bucket === bucket)),
+  ];
+}
+
+export function nonRespondentsHref(campaignId: string): string {
+  return `/admin/cibles?vue=relances&campagne=${encodeURIComponent(campaignId)}`;
+}
+
 export interface TargetPutEntry {
   regionId: string;
   departmentId?: string | null;
@@ -244,5 +309,11 @@ export function putCampaignQuotas(campaignId: string, body: TargetPutBody) {
 export function getCampaignReturns(campaignId: string) {
   return apiFetch<CampaignReturnsResponse>(
     `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/returns`,
+  );
+}
+
+export function getCampaignNonRespondents(campaignId: string) {
+  return apiFetch<CampaignNonRespondentsResponse>(
+    `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/non-respondents`,
   );
 }

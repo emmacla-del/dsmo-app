@@ -1944,6 +1944,37 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   gap: 16px;
 }
 
+/* Review pace: one line of figures under the "À traiter" tiles, no box. */
+.cam-dash-pace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-2) var(--cam-space-5);
+  margin-top: var(--cam-space-3);
+}
+
+.cam-dash-pace-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-pace-facts strong {
+  font-weight: 600;
+  color: var(--cam-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-pace-facts strong.is-overdue {
+  color: var(--cam-warning);
+}
+
 .cam-dash-pipeline {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2242,6 +2273,139 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 .cam-dash-table-foot {
   margin: var(--cam-space-4) 0 0;
+}
+
+/* Pilotage progress: cumulative declarations per Douala day, a steady-pace
+   reference and the deadlines. One green series; everything else is grey
+   ink, so the line is the only thing that carries colour. */
+.cam-dash-progress {
+  margin-top: var(--cam-space-6);
+  padding-top: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-dash-progress-title {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-dash-progress-plot {
+  position: relative;
+  margin-top: var(--cam-space-3);
+}
+
+.cam-dash-progress-svg {
+  display: block;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.cam-dash-progress-grid {
+  stroke: var(--cam-border);
+  stroke-width: 1;
+}
+
+.cam-dash-progress-axis,
+.cam-dash-progress-label {
+  font-size: var(--cam-font-size-3xs);
+  fill: var(--cam-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-progress-label {
+  fill: var(--cam-text);
+}
+
+.cam-dash-progress-value {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  fill: var(--cam-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-progress-deadline {
+  stroke: var(--cam-text-muted);
+  stroke-width: 1;
+}
+
+.cam-dash-progress-pace {
+  stroke: var(--cam-border-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.cam-dash-progress-line {
+  fill: none;
+  stroke: var(--cam-green);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cam-dash-progress-cross {
+  stroke: var(--cam-text-muted);
+  stroke-width: 1;
+}
+
+.cam-dash-progress-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-md);
+  box-shadow: var(--cam-shadow-sm);
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cam-dash-progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-5);
+  margin: var(--cam-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-progress-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-progress-key {
+  width: 16px;
+  border-top: 2px solid var(--cam-green);
+}
+
+.cam-dash-progress-key--pace {
+  border-top: 2px dashed var(--cam-border-strong);
+}
+
+.cam-dash-progress-details {
+  margin-top: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-dash-progress-details > summary {
+  cursor: pointer;
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-dash-progress-details[open] > summary {
+  margin-bottom: var(--cam-space-3);
 }
 
 @media (max-width: 639px) {
