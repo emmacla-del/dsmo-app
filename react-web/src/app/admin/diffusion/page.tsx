@@ -11,10 +11,13 @@ import {
   downloadSpssSavBlob,
   downloadSpssCsvBlob,
   downloadExcelWorkbookBlob,
+  downloadVtContactCsvBlob,
+  downloadVtContactSavBlob,
   downloadVtRosterCsvBlob,
   downloadVtRosterSavBlob,
   getDataManagementStats,
   getExportHistory,
+  getVtContactManifest,
   getVtRosterManifest,
   countExport,
 } from "@/lib/api-client";
@@ -85,6 +88,10 @@ function formatExportFormat(fmt: string, t: Translate): string {
       return t("adminDiffusionPage.rosterHistoryFormat", { ext: ".sav" });
     case "ROSTER_CSV":
       return t("adminDiffusionPage.rosterHistoryFormat", { ext: ".csv" });
+    case "CONTACT_SAV":
+      return t("adminDiffusionPage.contactHistoryFormat", { ext: ".sav" });
+    case "CONTACT_CSV":
+      return t("adminDiffusionPage.contactHistoryFormat", { ext: ".csv" });
     case "SPSS_SAV":
       return "SPSS (.sav)";
     case "SPSS_CSV":
@@ -208,6 +215,8 @@ export default function DiffusionPage() {
   // 8.8 named staff list: its own file and format, same filters.
   const [rosterFormat, setRosterFormat] = useState<".sav" | ".csv">(".sav");
   const [isExportingRoster, setIsExportingRoster] = useState(false);
+  const [contactFormat, setContactFormat] = useState<".sav" | ".csv">(".sav");
+  const [isExportingContact, setIsExportingContact] = useState(false);
 
   // Download states
   const [isExporting, setIsExporting] = useState(false);
@@ -418,6 +427,36 @@ export default function DiffusionPage() {
       setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
     } finally {
       setIsExportingRoster(false);
+    }
+  };
+
+  /**
+   * Downloads the VT contact details (1.15, 1.16, 2.1.12; one row per file)
+   * for the files the current filters select, out of the anonymous dataset
+   * since v11. Source: POST /data-management/export/vt-contact/{sav,csv}; a
+   * CSV comes with its .sps (…/vt-contact/manifest). The server limits it to
+   * central ONEFOP admins and refuses a download it cannot record (§21).
+   */
+  const handleContactExport = async () => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const base = `onefop_coordonnees_${selectedCampaign}_${timestamp}`;
+    try {
+      setIsExportingContact(true);
+      setErrorAlert(null);
+      if (contactFormat === ".sav") {
+        triggerFileDownload(await downloadVtContactSavBlob(currentFilters), `${base}.sav`);
+      } else {
+        const names = csvExportNames(base);
+        triggerFileDownload(await downloadVtContactCsvBlob(currentFilters), names.csv);
+        const manifest = await getVtContactManifest(names.csv);
+        if (manifest?.sps) triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), names.sps);
+      }
+      recordExport();
+      showSuccess(t("contactDownloaded"));
+    } catch (err: unknown) {
+      setErrorAlert(t("exportFailed", { message: err instanceof Error ? err.message : t("unknownError") }));
+    } finally {
+      setIsExportingContact(false);
     }
   };
 
@@ -763,6 +802,35 @@ export default function DiffusionPage() {
                   disabled={isExportingRoster}
                 >
                   {isExportingRoster ? t("generating") : t("rosterButton")}
+                </button>
+              </fieldset>
+            )}
+
+            {/* Contact details (1.15, 1.16, 2.1.12) name and reach people, so
+                they left the file above in v11: their own download, same
+                filters (spss/vt-contact-export.ts). */}
+            {selectedQuestionnaire === "TVET" && (
+              <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+                <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("contactTitle")}</legend>
+                <p className="cam-admin-meta" style={{ margin: 0 }}>{t("contactHint")}</p>
+                {([".sav", ".csv"] as const).map((fmt) => (
+                  <label key={fmt} className="cam-admin-choice">
+                    <input
+                      type="radio"
+                      name="contact-format"
+                      checked={contactFormat === fmt}
+                      onChange={() => setContactFormat(fmt)}
+                    />
+                    <span>{fmt === ".sav" ? t("planSav") : t("planCsv")}</span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  className="cam-button cam-button-secondary"
+                  onClick={handleContactExport}
+                  disabled={isExportingContact}
+                >
+                  {isExportingContact ? t("generating") : t("contactButton")}
                 </button>
               </fieldset>
             )}
