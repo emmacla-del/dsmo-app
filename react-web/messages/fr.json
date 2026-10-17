@@ -1736,7 +1736,20 @@
     "registrationTargetsNoteBefore": "Quotas d'inscription : ils alimentent la vue",
     "registrationTargetsNoteLink": "Couverture",
     "registrationTargetsNoteAfter": "de la page Inscriptions.",
-    "declarationQuotasNote": "Quotas de déclarations : ils alimentent le Suivi des retours."
+    "declarationQuotasNote": "Quotas de déclarations : ils alimentent le Suivi des retours.",
+    "viewNonRespondents": "À relancer",
+    "loadingNonRespondents": "Chargement des établissements à relancer…",
+    "nonRespSummary": "{count, plural, =0 {Les {registered} établissements inscrits de votre territoire ont tous déclaré.} one {# établissement inscrit sur {registered} n'a pas encore déclaré.} other {# établissements inscrits sur {registered} n'ont pas encore déclaré.}}",
+    "nonRespNoRegistered": "Aucun établissement inscrit dans votre territoire.",
+    "nonRespLastReminder": "Dernière relance de la campagne : {date} ({count, plural, one {# envoi} other {# envois}}).",
+    "nonRespNoReminder": "Aucune relance n'a encore été envoyée pour cette campagne.",
+    "nonRespEstablishmentColumn": "Établissement",
+    "nonRespIdColumn": "Identifiant",
+    "nonRespTypeColumn": "Type",
+    "nonRespFileColumn": "Dossier",
+    "nonRespFileNONE": "Aucun dossier",
+    "nonRespFileDRAFT": "Brouillon commencé",
+    "nonRespFileREJECTED": "Dossier rejeté"
   },
   "adminDossiersPage": {
     "period7d": "7 derniers jours",

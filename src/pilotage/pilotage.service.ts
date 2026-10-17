@@ -5,15 +5,18 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CampaignPurpose, Prisma, SubmissionModule } from '@prisma/client';
+import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { DOUALA_TIME_ZONE } from '../common/utils/douala-date';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
 import {
+  CampaignNonRespondentsResponse,
   CampaignReturnsResponse,
   CampaignReturnsSummary,
+  NonRespondentRow,
+  nonRespondentFileState,
   DepartmentReturnRow,
   EntityTypeTally,
   RegionReturnRow,
@@ -25,6 +28,7 @@ import {
   buildTimelineDays,
   countedReturns,
   isApprovedStatus,
+  isReceivedStatus,
 } from './pilotage-returns';
 import {
   addCounts,
@@ -608,6 +612,110 @@ export class PilotageService {
     const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
     const days = buildTimelineDays(deliveries, { startDate: campaign.startDate, lastDay, now });
     return { campaign: summary, timeZone, total: deliveries.length, days };
+  }
+
+  /**
+   * The registered establishments of the caller's territory that have not
+   * declared for a collection campaign: getCampaignReturns' registeredStock
+   * minus its received, as a list to chase. Same predicates: registered is
+   * isRegistered, received is a file in a received status (a resubmission
+   * counts once). Files are matched to the company by companyId, not by the
+   * file's own territory. No contact data: each row leads to the
+   * establishment's page, which keeps its own access rules.
+   */
+  async getCampaignNonRespondents(
+    territory: Territory | null | undefined,
+    campaignId: string,
+  ): Promise<CampaignNonRespondentsResponse> {
+    const campaign = await this.requireOnefopCampaign(campaignId);
+    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
+      throw new BadRequestException(
+        "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
+      );
+    }
+    const summary = returnsSummary(campaign);
+    const scope = await resolveTargetScope(this.prisma, territory);
+    if (scope.kind === 'none') {
+      return { campaign: summary, lastReminder: null, registered: 0, establishments: [] };
+    }
+
+    const [companies, reminder] = await Promise.all([
+      this.prisma.company.findMany({
+        where: companyWhere(scope),
+        select: {
+          id: true,
+          name: true,
+          entityType: true,
+          regionId: true,
+          departmentId: true,
+          establishmentId: true,
+          establishmentIdGeneratedAt: true,
+          createdAt: true,
+          regionRef: { select: { name: true } },
+          departmentRef: { select: { regionId: true, name: true } },
+          user: { select: { status: true, isActive: true, approvedAt: true } },
+        },
+      }),
+      this.prisma.campaignReminder.findFirst({
+        where: { campaignId },
+        orderBy: { sentAt: 'desc' },
+        select: { sentAt: true, reminderType: true, recipientCount: true },
+      }),
+    ]);
+
+    const registered = companies.filter((company) => isRegistered(toStockRow(company)));
+    const files = registered.length === 0
+      ? []
+      : await this.prisma.onefopSubmission.findMany({
+          where: { campaignId, companyId: { in: registered.map((company) => company.id) } },
+          select: { companyId: true, status: true, createdAt: true },
+        });
+    const filesByCompany = new Map<string, Array<{ status: OnefopStatus; createdAt: Date }>>();
+    for (const file of files) {
+      if (!file.companyId) continue;
+      const list = filesByCompany.get(file.companyId) ?? [];
+      list.push(file);
+      filesByCompany.set(file.companyId, list);
+    }
+
+    const establishments: NonRespondentRow[] = [];
+    for (const company of registered) {
+      const own = filesByCompany.get(company.id) ?? [];
+      if (own.some((file) => isReceivedStatus(file.status))) continue;
+      const bucket = classifyBucket(toStockRow(company));
+      establishments.push({
+        companyId: company.id,
+        name: company.name,
+        establishmentId: company.establishmentId as string,
+        entityType: company.entityType,
+        bucket: bucket.kind,
+        regionId: bucket.kind === 'department' ? bucket.regionId : company.regionId,
+        regionName: company.regionRef?.name ?? null,
+        departmentId: company.departmentId,
+        departmentName: company.departmentRef?.name ?? null,
+        fileState: nonRespondentFileState(own),
+      });
+    }
+    const label = (value: string | null) => value ?? '￿';
+    establishments.sort(
+      (a, b) =>
+        label(a.regionName).localeCompare(label(b.regionName), 'fr') ||
+        label(a.departmentName).localeCompare(label(b.departmentName), 'fr') ||
+        a.name.localeCompare(b.name, 'fr'),
+    );
+
+    return {
+      campaign: summary,
+      lastReminder: reminder
+        ? {
+            sentAt: reminder.sentAt.toISOString(),
+            reminderType: reminder.reminderType,
+            recipientCount: reminder.recipientCount,
+          }
+        : null,
+      registered: registered.length,
+      establishments,
+    };
   }
 
   async putCampaignQuotas(

@@ -392,3 +392,52 @@ export class EntityTypeTally {
 function emptyCell(): TypeCell {
   return { received: 0, approved: 0, onTime: 0, late: 0, registeredStock: 0 };
 }
+
+/**
+ * Where a registered establishment that has not declared stands with its
+ * file for the campaign: none at all, a draft started, or a file rejected.
+ * A SUPERSEDED file was replaced by a newer one and says nothing on its own.
+ */
+export type NonRespondentFileState = 'NONE' | 'DRAFT' | 'REJECTED';
+
+export interface NonRespondentRow {
+  companyId: string;
+  name: string;
+  establishmentId: string;
+  entityType: OnefopEntityType | null;
+  /** The returns bucket the establishment counts in: classifyBucket's kind. */
+  bucket: 'department' | 'central' | 'unassigned' | 'nullEntityType';
+  regionId: string | null;
+  regionName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  fileState: NonRespondentFileState;
+}
+
+export interface CampaignNonRespondentsResponse {
+  campaign: CampaignReturnsSummary;
+  /**
+   * The campaign's latest reminder send. Reminders are recorded per send,
+   * not per establishment, so this is campaign-wide.
+   */
+  lastReminder: { sentAt: string; reminderType: string; recipientCount: number } | null;
+  /** Registered establishments in the caller's territory. */
+  registered: number;
+  establishments: NonRespondentRow[];
+}
+
+/**
+ * The file state of a company that has no received file, from its files for
+ * the campaign: the latest one that is not SUPERSEDED decides.
+ */
+export function nonRespondentFileState(
+  files: Array<{ status: OnefopStatus; createdAt: Date }>,
+): NonRespondentFileState {
+  const latest = files
+    .filter((file) => file.status !== OnefopStatus.SUPERSEDED)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  if (!latest) return 'NONE';
+  if (latest.status === OnefopStatus.DRAFT) return 'DRAFT';
+  if (latest.status === OnefopStatus.REJECTED) return 'REJECTED';
+  return 'NONE';
+}
