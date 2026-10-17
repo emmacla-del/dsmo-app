@@ -981,6 +981,26 @@ export function getVtRosterManifest(csvFilename?: string) {
   });
 }
 
+// VT contact details (1.15, 1.16, 2.1.12): a separate file, one row per
+// submission, out of the anonymous dataset since v11. Same rules as 8.8: the
+// server allows SUPER_ADMIN and ADMIN_ONEFOP only, and refuses a download it
+// cannot record (§21).
+export function downloadVtContactSavBlob(filters: Record<string, unknown> = {}): Promise<Blob> {
+  return downloadExportBlob("/data-management/export/vt-contact/sav", filters, "contacts (.sav)");
+}
+
+export function downloadVtContactCsvBlob(filters: Record<string, unknown> = {}): Promise<Blob> {
+  return downloadExportBlob("/data-management/export/vt-contact/csv", filters, "contacts (.csv)");
+}
+
+/** `csvFilename`: the name the CSV is saved under, which the .sps opens. */
+export function getVtContactManifest(csvFilename?: string) {
+  return apiFetch<{ sps: string; contactVersion: number }>("/data-management/export/vt-contact/manifest", {
+    method: "POST",
+    body: JSON.stringify(csvFilename ? { csvFilename } : {}),
+  });
+}
+
 /**
  * How many files an export with these filters holds, in total and per
  * questionnaire type: the export's own selection (filters, statistical
