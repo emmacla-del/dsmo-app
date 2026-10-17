@@ -2254,6 +2254,16 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   .cam-dash-table .is-wide-only {
     display: none;
   }
+
+  /* Narrower side padding: "administration" and "professionnelle" are
+     single words the type table's first column cannot wrap, and at 12px
+     they pushed it past the card at 375px. */
+  .cam-dash-table thead th,
+  .cam-dash-table tbody th,
+  .cam-dash-table tbody td {
+    padding-left: var(--cam-space-2);
+    padding-right: var(--cam-space-2);
+  }
 }
 
 @media (max-width: 1199px) {
