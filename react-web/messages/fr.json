@@ -1053,6 +1053,8 @@
     "selectAllThatApply": "Sélectionnez toutes les options applicables",
     "selectAnOption": "Sélectionner une option",
     "graduates": "Diplômés",
+    "errorSummaryTitle": "Il y a un problème",
+    "errorSummaryLead": "{count, plural, one {# réponse à corriger avant de continuer :} other {# réponses à corriger avant de continuer :}}",
     "rowsFilledNote": "Avancement : {count} sur {total} {noun}. Les lignes peuvent être modifiées ou supprimées avant validation.",
     "countOfTotalNoun": "{count} {noun} sur {total}.",
     "totalAdded": "{count} {noun} ajoutés",

@@ -1053,6 +1053,8 @@
     "selectAllThatApply": "Select all that apply",
     "selectAnOption": "Select an option",
     "graduates": "Graduates",
+    "errorSummaryTitle": "There is a problem",
+    "errorSummaryLead": "{count, plural, one {# answer to fix before you continue:} other {# answers to fix before you continue:}}",
     "rowsFilledNote": "{count} of {total} {noun} filled in. Rows can be edited or removed before validation.",
     "countOfTotalNoun": "{count} of {total} {noun}.",
     "totalAdded": "{count} {noun} added",

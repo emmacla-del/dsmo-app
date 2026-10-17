@@ -1,4 +1,5 @@
-import { renderWithProviders } from "@/test/render";
+import { fireEvent, renderWithProviders, screen } from "@/test/render";
+import { validateSectionData } from "@/lib/onefop-validation";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { schemaEntity } from "@/test/schema";
@@ -84,4 +85,46 @@ test("a section's title is its one h1", () => {
   const h1 = container.querySelectorAll("h1");
   assert.equal(h1.length, 1);
   assert.equal(h1[0].className, "cam-step-title");
+});
+
+// Audit R4: after Next with answers missing, a "There is a problem" summary
+// at the top lists each one as a link to its question.
+
+const s1 = vt.sections.find((s) => s.id === "section1_vocationalTraining")!;
+
+test("the error summary lists the section's missing answers once Next was pressed", () => {
+  const issues = validateSectionData(s1, {}, "en");
+  assert.ok(issues.length > 1, "an empty Section 1 has several missing answers");
+  const { unmount } = renderWithProviders(
+    <VtWizardSectionScreen section={s1} data={{}} issues={issues} showErrorSummary onChange={() => {}} isFirst isLast={false} onBack={() => {}} onNext={() => {}} />,
+    { locale: "en" },
+  );
+  const alert = document.querySelector(".flow-missing-notice") as HTMLElement;
+  assert.ok(alert, "the summary is shown");
+  assert.equal(alert.getAttribute("role"), "alert");
+  assert.ok(screen.getByRole("heading", { level: 2, name: "There is a problem" }));
+  assert.match(alert.textContent ?? "", new RegExp(`${issues.length} answers to fix before you continue`));
+  const links = alert.querySelectorAll("a");
+  assert.equal(links.length, issues.length);
+  assert.equal(links[0].getAttribute("href"), `#${issues[0].fieldId}`);
+  assert.equal(links[0].textContent, issues[0].message);
+  fireEvent.click(links[0]);
+  unmount();
+});
+
+test("no error summary before Next, even with entry warnings passed in", () => {
+  const issues = validateSectionData(s1, {}, "fr");
+  const { container } = renderWithProviders(
+    <VtWizardSectionScreen section={s1} data={{}} issues={issues} onChange={() => {}} isFirst isLast={false} onBack={() => {}} onNext={() => {}} />,
+  );
+  assert.equal(container.querySelector(".flow-missing-notice"), null);
+});
+
+test("one missing answer reads in the singular, in French", () => {
+  const issues = validateSectionData(s1, {}, "fr").slice(0, 1);
+  renderWithProviders(
+    <VtWizardSectionScreen section={s1} data={{}} issues={issues} showErrorSummary onChange={() => {}} isFirst isLast={false} onBack={() => {}} onNext={() => {}} />,
+  );
+  assert.ok(screen.getByRole("heading", { level: 2, name: "Il y a un problème" }));
+  assert.ok(screen.getByText("1 réponse à corriger avant de continuer :"));
 });
