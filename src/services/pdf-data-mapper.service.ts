@@ -456,8 +456,8 @@ const CSP_SUBTOTAL_LABELS_EN: Record<string, string> = {
 
 export function getOfficialBannerText(locale?: 'fr' | 'en'): string {
     return locale === 'en'
-        ? 'Official ONEFOP Form · Document generated via the CAM-LEAP platform'
-        : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAM-LEAP';
+        ? 'Official ONEFOP Form · Document generated via the CAMLEAP platform'
+        : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAMLEAP';
 }
 
 const DIPLOMA_TO_DEFAULT_CSP: Record<string, string> = {

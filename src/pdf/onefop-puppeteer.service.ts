@@ -233,8 +233,8 @@ export class OnefopPuppeteerService {
         const isVocationalTraining = isVocationalTrainingFormType(formType);
         const isEnglish = locale === 'en';
         const footerBanner = isEnglish
-            ? 'Official ONEFOP Form · Document generated via the CAM-LEAP platform'
-            : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAM-LEAP';
+            ? 'Official ONEFOP Form · Document generated via the CAMLEAP platform'
+            : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAMLEAP';
         const pageText = isEnglish
             ? '"Page " counter(page) " of " counter(pages)'
             : `"Page " counter(page) "${isVocationalTraining ? ' sur ' : ' / '}" counter(pages)`;

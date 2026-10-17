@@ -532,7 +532,7 @@ export class NotificationService {
      */
     async sendRegistrationApprovedEmail(to: string, companyName: string, establishmentId: string) {
         const message =
-            `Votre inscription à CAM-LEAP a été validée.
+            `Votre inscription à CAMLEAP a été validée.
 ` +
             `Identifiant d'établissement : ${establishmentId}
 ` +
@@ -540,7 +540,7 @@ export class NotificationService {
         await this.transporter.sendMail({
             from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
             to,
-            subject: '[CAM-LEAP] Inscription validée',
+            subject: '[CAMLEAP] Inscription validée',
             text: `${companyName}
 
 ${message}`,
@@ -550,7 +550,7 @@ ${message}`,
 
     async sendRegistrationRejectedEmail(to: string, companyName: string, reason: string) {
         const message =
-            `Votre inscription à CAM-LEAP a été rejetée.
+            `Votre inscription à CAMLEAP a été rejetée.
 ` +
             `Motif : ${reason}
 ` +
@@ -558,7 +558,7 @@ ${message}`,
         await this.transporter.sendMail({
             from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
             to,
-            subject: '[CAM-LEAP] Inscription rejetée',
+            subject: '[CAMLEAP] Inscription rejetée',
             text: `${companyName}
 
 ${message}`,
@@ -568,7 +568,7 @@ ${message}`,
 
     async sendRegistrationComplementsEmail(to: string, companyName: string, complements: string) {
         const message =
-            `Des compléments sont demandés pour votre inscription à CAM-LEAP.
+            `Des compléments sont demandés pour votre inscription à CAMLEAP.
 ` +
             `${complements}
 ` +
@@ -576,7 +576,7 @@ ${message}`,
         await this.transporter.sendMail({
             from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
             to,
-            subject: '[CAM-LEAP] Compléments demandés pour votre inscription',
+            subject: '[CAMLEAP] Compléments demandés pour votre inscription',
             text: `${companyName}
 
 ${message}`,

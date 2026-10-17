@@ -249,7 +249,7 @@ describe('PDF Data Mapper - S22Q03 (Option A CSP-Grouped)', () => {
         it('should localize enterprise mapped data and banner for English (EN)', () => {
             const mappedEn = mapEnterpriseData(mock4dFlatData, '2026-Q1', 'en');
             expect(mappedEn.officialBannerText).toBe(
-                'Official ONEFOP Form · Document generated via the CAM-LEAP platform',
+                'Official ONEFOP Form · Document generated via the CAMLEAP platform',
             );
             expect(mappedEn.recruitmentsByDiplomaGroups![0].label).toBe('1. Managers');
             expect(mappedEn.recruitmentsByDiplomaGroups![0].totals.label).toBe('SUBTOTAL MANAGERS');
@@ -269,7 +269,7 @@ describe('PDF Data Mapper - S22Q03 (Option A CSP-Grouped)', () => {
         it('should localize enterprise mapped data and banner for French (FR)', () => {
             const mappedFr = mapEnterpriseData(mock4dFlatData, '2026-Q1', 'fr');
             expect(mappedFr.officialBannerText).toBe(
-                'Formulaire officiel ONEFOP · Document généré via la plateforme CAM-LEAP',
+                'Formulaire officiel ONEFOP · Document généré via la plateforme CAMLEAP',
             );
             expect(mappedFr.recruitmentsByDiplomaGroups![0].label).toBe('1. Cadres');
             expect(mappedFr.recruitmentsByDiplomaGroups![0].totals.label).toBe('SOUS-TOTAL CADRES');
