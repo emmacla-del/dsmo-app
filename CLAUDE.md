@@ -707,6 +707,12 @@ Approved changes on record:
   instant. » and nothing is streamed. Every other export keeps best-effort
   `logExport`, which now logs a failed write. The .sps manifests carry no
   personal data and are unchanged. Approved by the owner in chat, 2026-10-17.
+- 2026-10-17 — .sav producer field says CAMLEAP
+  (`src/data-management/spss/sav-writer.ts`). Issue: the 60-byte product
+  field of every .sav header read "CAM-LEAP"; the platform name is CAMLEAP.
+  Fix: "@(#) SPSS DATA FILE CAMLEAP ONEFOP". File metadata only: variables,
+  values, labels, order and DATASET_SCHEMA_VERSION unchanged; the golden-digest
+  test proves no other byte moved. Approved by the owner in chat, 2026-10-17.
 
 ---
 
