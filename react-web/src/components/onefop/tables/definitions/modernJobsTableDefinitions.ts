@@ -72,8 +72,15 @@ export function resolveTableScope(
     return { activeAgeIndices: [0, 1, 2, 3], cspRows: defaultCspRows, rawAgeScope: null };
   }
 
+  // Project/Program Section 4 tables (PP_S4Q01–Q06) are headcounts and recruitments
+  // governed by the ProjectProgramScopeQuiz and table-level _RESPONSE_STATUS; they
+  // are never narrowed by Enterprise applications or job-seeker interview questions.
+  if (tid.startsWith("pp_s4")) {
+    return { activeAgeIndices: [0, 1, 2, 3], cspRows: defaultCspRows, rawAgeScope: null };
+  }
+
   if (scopeConfig) {
-    if (tid.includes("s21q01") || tid.includes("pp_s4q01")) {
+    if (tid.includes("s21q01")) {
       // Demandes d'emploi reçues
       if (scopeConfig.applications) {
         targetAges = Array.isArray(scopeConfig.application_age) && scopeConfig.application_age.length > 0
@@ -90,9 +97,7 @@ export function resolveTableScope(
       tid.includes("s22q02") ||
       tid.includes("s22q03") ||
       tid.includes("s22q04") ||
-      tid.includes("s22q05") ||
-      tid.includes("pp_s4q02") ||
-      tid.includes("pp_s4q03")
+      tid.includes("s22q05")
     ) {
       // Recrutements (permanent, temporaire, diplôme, handicap, vulnérable)
       if (scopeConfig.recruit) {
@@ -103,7 +108,7 @@ export function resolveTableScope(
           ? scopeConfig.recruit_csp
           : null;
       }
-    } else if (tid.includes("s23q01") || tid.includes("pp_s4q04")) {
+    } else if (tid.includes("s23q01")) {
       // Primo-demandeurs
       if (scopeConfig.primo_seekers) {
         targetAges = Array.isArray(scopeConfig.primo_seekers_age) && scopeConfig.primo_seekers_age.length > 0
