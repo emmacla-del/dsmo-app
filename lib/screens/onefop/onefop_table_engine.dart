@@ -239,10 +239,12 @@ class TableCellEngine {
             ]);
       case 's22q04':
       case 'pp_s4q05':
-      case 'pp_s4q06':
         return sg(p, ['cadres', 'foremen', 'workers']);
       case 's22q05_ent':
       case 's22q05_oth':
+      // Project/programme 4.6 asks the nature of the vulnerability too
+      // (owner 2026-10-18, CLAUDE.md §21); it was in the CSP group above.
+      case 'pp_s4q06':
         return sg(p, ['deplaces_internes', 'refugies', 'orphelins']);
       // Administration S21Q03 / S21Q04 — rows × sex, no status dimension.
       case 's21q03':
