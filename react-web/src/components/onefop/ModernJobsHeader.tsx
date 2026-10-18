@@ -4,6 +4,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
+import { formatDoualaDate } from "@/lib/douala-date";
+import { useCampaignPeriod } from "./CampaignPeriodContext";
 import type { ServerSaveState } from "@/lib/use-onefop-server-save";
 
 export interface ModernJobsHeaderProps {
@@ -120,9 +122,19 @@ export function ModernJobsHeader({
   }, []);
 
   const isEn = locale.startsWith("en");
-  const campaign =
+  // The questions name the round (« au cours du trimestre ») instead of
+  // printing its dates (lib/campaign-period.ts, owner 2026-10-18), so the
+  // bounds are stated here, once: "Campagne du 4e trimestre 2026
+  // (01/10/2026 – 31/12/2026)". No period, no parenthesis.
+  const period = useCampaignPeriod();
+  const campaignName =
     // "Campagne du 4e trimestre 2026"; an unknown code keeps the plain "Campagne <code>".
     referencePeriodPhrases(quarterCode, asUiLocale(locale))?.campaign ?? t("campaign", { code: quarterCode || "—" });
+  const bounds =
+    period.start && period.end
+      ? `${formatDoualaDate(period.start) ?? ""} – ${formatDoualaDate(period.end) ?? ""}`
+      : null;
+  const campaign = bounds ? `${campaignName} (${bounds})` : campaignName;
 
   const buttonStyle = {
     display: "inline-flex",
