@@ -481,7 +481,10 @@ Fixes, in the order above:
 
 ## Not covered
 
-- Enterprise survey: opened on 2026-10-17 to verify B5 and B7 — the
+- Enterprise survey: run end to end on 2026-10-18 and it does not complete —
+  the server refuses the submission for 46 cells the wizard never shows. See
+  [e2e-2026-10-18-enterprise-journey.md](e2e-2026-10-18-enterprise-journey.md).
+  The earlier note stands: opened on 2026-10-17 to verify B5 and B7 — the
   preliminary quiz was answered (applications Yes / executives / under 25,
   everything else No) and Section 2 opened with S21Q01 only. Nothing was
   typed into a table and nothing was submitted, so EN26000201 now holds a
