@@ -145,3 +145,18 @@ test("text without a placeholder is left as the same object", () => {
     Object.values(s.entities).flatMap((e) => e.sections.flatMap((x) => x.fields)).find((f) => f.id === id)!;
   assert.equal(find(out), find(schema));
 });
+
+test("from a round's code alone, the kind is named and no other year is touched", () => {
+  // What the admin file view has: the round's code, not its bounds.
+  const codeOnly = campaignPeriodFrom({ code: "QUARTERLY_2026_T4_001" });
+  const fields = Object.values(withCampaignPeriod(loadSchema(), codeOnly).entities).flatMap((e) =>
+    e.sections.flatMap((s) => s.fields),
+  );
+  const field = (id: string) => fields.find((f) => f.id === id)!;
+  assert.match(field("PP_S4Q01").label!.fr, /au cours du trimestre/);
+  assert.match(field("PP_S4Q01").label!.en, /during the quarter/);
+  // VT's prior academic year comes from the period's end date: with no
+  // date it keeps the AST's own year rather than reading « non définie ».
+  assert.match(field("VT4_10").label!.fr, /pour l'année antérieur \(2024-2025\)/);
+  assert.doesNotMatch(field("VT4_10").label!.fr, /non définie/);
+});

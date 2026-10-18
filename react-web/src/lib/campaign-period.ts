@@ -109,9 +109,16 @@ const FR_PRIOR_ACADEMIC_YEAR = /pour l'année antérieur \(\d{4}-\d{4}\)/g;
 function rewrite(text: LocalizedText | null, period: CampaignPeriod): LocalizedText | null {
   if (!text) return text;
   const phrase = inPeriodPhrase(period);
+  // The prior academic year is derived from the period's end date, so with
+  // no end date the AST's own year stands: a label that named a year must
+  // not come back naming « non définie » instead (the admin file view
+  // rewrites from the round's code alone, with no bounds).
   const year = period.end ? doualaYear(period.end) : null;
-  const prior = year ? `pour l'année antérieur (${year - 2}-${year - 1})` : `pour l'année antérieur (${NOT_SET.fr})`;
-  const fr = text.fr.replace(FR_PLACEHOLDER, phrase.fr).replace(FR_PRIOR_ACADEMIC_YEAR, prior);
+  const fr = year
+    ? text.fr
+        .replace(FR_PLACEHOLDER, phrase.fr)
+        .replace(FR_PRIOR_ACADEMIC_YEAR, `pour l'année antérieur (${year - 2}-${year - 1})`)
+    : text.fr.replace(FR_PLACEHOLDER, phrase.fr);
   const en = text.en.replace(EN_PLACEHOLDER, phrase.en);
   return fr === text.fr && en === text.en ? text : { fr, en };
 }

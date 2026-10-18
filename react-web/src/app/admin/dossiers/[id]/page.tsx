@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -39,7 +39,8 @@ import {
   shortRecordId,
   stamp,
 } from "@/lib/admin-data-state";
-import { referencePeriodPhrases } from "@/lib/onefop-period-label";
+import { referencePeriodKind, referencePeriodPhrases } from "@/lib/onefop-period-label";
+import { withCampaignPeriod } from "@/lib/campaign-period";
 import { asUiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel } from "@/lib/display-labels";
 import {
@@ -321,11 +322,23 @@ function SubmissionDetailContent() {
   // a static file, fetched once and cached.
   const isVt = formType === "VOCATIONAL_TRAINING";
   const schemaQuery = useOnefopSchema();
+  // The reviewer reads the same question the respondent answered: the AST's
+  // placeholder date becomes the file's own round, named
+  // (« au cours du trimestre » — lib/campaign-period.ts). The round's code
+  // is enough to name its kind, so the file's period bounds are not needed
+  // here. A code that names no kind is left alone: the schema's own wording
+  // beats a period this page cannot state.
+  const reviewedSchema = useMemo(() => {
+    if (!schemaQuery.data) return undefined;
+    const code = dossier?.quarterCode ?? null;
+    if (!referencePeriodKind(code)) return schemaQuery.data;
+    return withCampaignPeriod(schemaQuery.data, { start: null, end: null, code });
+  }, [schemaQuery.data, dossier?.quarterCode]);
   // The questionnaire this file was filled on. Every section heading, the
   // identity questions it asks and the correction-request options come from
   // it, so a project/programme file is never described with another type's
   // sections.
-  const entity = dossierEntity(schemaQuery.data, formType);
+  const entity = dossierEntity(reviewedSchema, formType);
   // Section 1 is the identity disclosure below; the rest are listed after it.
   const [section1, ...laterSections] = dossierSections(entity, locale);
   /** A structure or identity answer: the option the respondent chose, in the
