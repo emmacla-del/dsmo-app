@@ -82,8 +82,9 @@ export function getActiveScopeTags(
   const tags: string[] = [];
   const tid = definition.id.toLowerCase();
 
-  // Recruitment / S21 / S22
-  if (tid.includes("s21") || tid.includes("s22") || tid.includes("pp_s4q01") || tid.includes("pp_s4q02") || tid.includes("pp_s4q03")) {
+  // Recruitment / S21 / S22. Project/Programme Section 4 is not narrowed by
+  // the enterprise quiz (resolveTableScope), so it shows no CSP tags either.
+  if (!tid.startsWith("pp_s4") && (tid.includes("s21") || tid.includes("s22"))) {
     const csps = (tid.includes("s21q01") ? scopeConfig.application_csp : scopeConfig.recruit_csp) || [];
     csps.forEach((c) => {
       const label = CSP_TAG_LABELS[c]?.[locale];
@@ -206,8 +207,129 @@ function buildConversationalPrompt(
     };
   }
 
+  // PP_S4Q01: Recensement des permanents par CSP
+  // Official form: "Combien de permanents avez-vous recensé selon la CSP, le sexe et la tranche d'âge..."
+  if (tid.includes("pp_s4q01")) {
+    const age = agePhrase(dimLabel, locale);
+    return {
+      contractType: "permanent",
+      prompt:
+        locale === "fr"
+          ? age
+            ? `Combien de permanents de la catégorie « ${rowLabel} » ${age} avez-vous recensé ?`
+            : `Combien de permanents de la catégorie « ${rowLabel} » avez-vous recensé ?`
+          : age
+            ? `How many permanent workers in the "${rowLabel}" category ${age} did you count?`
+            : `How many permanent workers in the "${rowLabel}" category did you count?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces permanents (${rowLabel}), combien sont des femmes ?`
+          : `Among these permanent workers (${rowLabel}), how many are women?`,
+    };
+  }
+
+  // PP_S4Q02: Recensement des temporaires par CSP
+  // Official form: "Combien de temporaires avez-vous recensé selon la CSP, le sexe et la tranche d'âge..."
+  if (tid.includes("pp_s4q02")) {
+    const age = agePhrase(dimLabel, locale);
+    return {
+      contractType: "temporary",
+      prompt:
+        locale === "fr"
+          ? age
+            ? `Combien de temporaires de la catégorie « ${rowLabel} » ${age} avez-vous recensé ?`
+            : `Combien de temporaires de la catégorie « ${rowLabel} » avez-vous recensé ?`
+          : age
+            ? `How many temporary workers in the "${rowLabel}" category ${age} did you count?`
+            : `How many temporary workers in the "${rowLabel}" category did you count?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces temporaires (${rowLabel}), combien sont des femmes ?`
+          : `Among these temporary workers (${rowLabel}), how many are women?`,
+    };
+  }
+
+  // PP_S4Q03: Recrutements de permanents par CSP
+  // Official form: "Combien de permanents avez-vous recruté selon la CSP, le sexe et la tranche d'âge..."
+  if (tid.includes("pp_s4q03")) {
+    const age = agePhrase(dimLabel, locale);
+    return {
+      contractType: "permanent",
+      prompt:
+        locale === "fr"
+          ? age
+            ? `Combien de permanents de la catégorie « ${rowLabel} » ${age} avez-vous recruté ?`
+            : `Combien de permanents de la catégorie « ${rowLabel} » avez-vous recruté ?`
+          : age
+            ? `How many permanent workers in the "${rowLabel}" category ${age} did you recruit?`
+            : `How many permanent workers in the "${rowLabel}" category did you recruit?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces permanents recrutés (${rowLabel}), combien sont des femmes ?`
+          : `Among these recruited permanent workers (${rowLabel}), how many are women?`,
+    };
+  }
+
+  // PP_S4Q04: Recrutements de temporaires par CSP
+  // Official form: "Combien de temporaires avez-vous recruté selon la CSP, le sexe et la tranche d'âge..."
+  if (tid.includes("pp_s4q04")) {
+    const age = agePhrase(dimLabel, locale);
+    return {
+      contractType: "temporary",
+      prompt:
+        locale === "fr"
+          ? age
+            ? `Combien de temporaires de la catégorie « ${rowLabel} » ${age} avez-vous recruté ?`
+            : `Combien de temporaires de la catégorie « ${rowLabel} » avez-vous recruté ?`
+          : age
+            ? `How many temporary workers in the "${rowLabel}" category ${age} did you recruit?`
+            : `How many temporary workers in the "${rowLabel}" category did you recruit?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces temporaires recrutés (${rowLabel}), combien sont des femmes ?`
+          : `Among these recruited temporary workers (${rowLabel}), how many are women?`,
+    };
+  }
+
+  // PP_S4Q05: Personnes en situation de handicap par CSP × statut (Permanent | Temporaire)
+  // Official form: "Combien de personnes en situation de handicap avez-vous recruté selon la CSP, le sexe et le statut..."
+  if (tid.includes("pp_s4q05")) {
+    const isTemp = /tempor/i.test(dimLabel ?? "");
+    return {
+      contractType: isTemp ? "temporary" : "permanent",
+      prompt:
+        locale === "fr"
+          ? `Combien de personnes en situation de handicap de la catégorie « ${rowLabel} » avez-vous recruté en tant que ${isTemp ? "temporaires" : "permanents"} ?`
+          : `How many workers with a disability in the "${rowLabel}" category did you recruit as ${isTemp ? "temporary" : "permanent"} workers?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces travailleurs en situation de handicap (${rowLabel}), combien sont des femmes ?`
+          : `Among these workers with disabilities (${rowLabel}), how many are women?`,
+    };
+  }
+
+  // PP_S4Q06: Personnes vulnérables par nature de la vulnérabilité × statut
+  // (Permanent | Temporaire). Since 2026-10-18 the rows are the natures
+  // themselves — déplacés internes, réfugiés, orphelins — as S22Q05's are in
+  // the other questionnaires (CLAUDE.md §21), so the prompt names the group,
+  // not a category it belongs to.
+  if (tid.includes("pp_s4q06")) {
+    const isTemp = /tempor/i.test(dimLabel ?? "");
+    return {
+      contractType: isTemp ? "temporary" : "permanent",
+      prompt:
+        locale === "fr"
+          ? `Combien ${deGroup(rowLabel)} avez-vous recruté en tant que ${isTemp ? "temporaires" : "permanents"} ?`
+          : `How many ${rowLabel.toLocaleLowerCase("en")} did you recruit as ${isTemp ? "temporary" : "permanent"} workers?`,
+      subPrompt:
+        locale === "fr"
+          ? `Parmi ces personnes vulnérables (${rowLabel}), combien sont des femmes ?`
+          : `Among these vulnerable people (${rowLabel}), how many are women?`,
+    };
+  }
+
   // S21Q01: Demandes d'emploi
-  if (tid.includes("s21q01") || tid.includes("pp_s4q01")) {
+  if (tid.includes("s21q01")) {
     const dimSuffix = dimLabel ? (locale === "fr" ? ` (${dimLabel})` : ` (${dimLabel})`) : "";
     const age = agePhrase(dimLabel, locale);
     const lower = rowLabel.toLocaleLowerCase(locale);
@@ -229,7 +351,7 @@ function buildConversationalPrompt(
   }
 
   // S22Q01: Recrutements permanents (CDI)
-  if (tid.includes("s22q01") || tid.includes("pp_s4q02")) {
+  if (tid.includes("s22q01")) {
     const dimSuffix = dimLabel ? (locale === "fr" ? ` (${dimLabel})` : ` (${dimLabel})`) : "";
     const age = agePhrase(dimLabel, locale);
     const lower = rowLabel.toLocaleLowerCase(locale);
@@ -251,7 +373,7 @@ function buildConversationalPrompt(
   }
 
   // S22Q02: Recrutements temporaires (CDD)
-  if (tid.includes("s22q02") || tid.includes("pp_s4q03")) {
+  if (tid.includes("s22q02")) {
     const dimSuffix = dimLabel ? (locale === "fr" ? ` (${dimLabel})` : ` (${dimLabel})`) : "";
     const age = agePhrase(dimLabel, locale);
     const lower = rowLabel.toLocaleLowerCase(locale);
