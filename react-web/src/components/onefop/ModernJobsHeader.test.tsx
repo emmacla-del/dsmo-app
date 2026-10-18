@@ -2,6 +2,8 @@ import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ModernJobsHeader } from "./ModernJobsHeader";
+import { CampaignPeriodContext } from "./CampaignPeriodContext";
+import { campaignPeriodFrom } from "@/lib/campaign-period";
 
 test("VT masthead: establishment and its number, then the survey and round on one line", () => {
   renderWithProviders(
@@ -79,4 +81,28 @@ test("a failed save offers the retry, and says nothing was saved", async () => {
   assert.ok(screen.getByText(/Non enregistré/));
   await user.click(screen.getByRole("button", { name: "réessayer" }));
   assert.equal(retried, 1);
+});
+
+// ── The round's exact bounds ────────────────────────────────────────────
+// The questions name the round (« au cours du trimestre ») instead of
+// printing its dates (lib/campaign-period.ts, owner 2026-10-18), so the
+// masthead is where the respondent reads the bounds.
+test("the masthead states the round's dates once, and nothing when there is no period", () => {
+  renderWithProviders(
+    <CampaignPeriodContext.Provider
+      value={campaignPeriodFrom({
+        code: "QUARTERLY_2026_T4_001",
+        periodStart: "2026-09-30T23:00:00.000Z",
+        periodEnd: "2026-12-31T22:59:59.000Z",
+      })}
+    >
+      <ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />
+    </CampaignPeriodContext.Provider>,
+  );
+  assert.ok(screen.getByText(/4e trimestre 2026 \(01\/10\/2026 – 31\/12\/2026\)$/));
+});
+
+test("with no period the campaign line carries no parenthesis", () => {
+  renderWithProviders(<ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />);
+  assert.ok(screen.getByText(/4e trimestre 2026$/));
 });

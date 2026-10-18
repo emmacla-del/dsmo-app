@@ -31,6 +31,19 @@ function parsePeriod(code: string | null | undefined): Period | null {
 }
 
 /**
+ * What kind of period a code covers — a quarter, a half-year or a year —
+ * without its year or number. The question labels name the period that way
+ * (« au cours du trimestre »), so they do not have to print its dates; null
+ * for an unknown code, which keeps the caller from naming a kind it does
+ * not know.
+ */
+export function referencePeriodKind(
+  code: string | null | undefined,
+): "quarter" | "semester" | "annual" | null {
+  return parsePeriod(code)?.kind ?? null;
+}
+
+/**
  * The period a code stands for, independent of its campaign sequence:
  * "QUARTERLY_2026_T4_001", "QUARTERLY_2026_T4_002" and the no-campaign
  * fallback "2026-T4" all give "Q-2026-4". Null for an unknown code, so two
