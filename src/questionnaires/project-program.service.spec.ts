@@ -52,18 +52,30 @@ describe('QuestionnairesService — Projects & Programs (Phase 1 structural)', (
     ]));
   });
 
-  it('buildCspVulnerableRows (S4Q06) maps CSP rows onto the existing '
-    + 'CADRES_VULN/FOREMEN_VULN/WORKERS_VULN/TOTAL_VULN VulnerableType values '
-    + '(no schema change needed — these were unused, not new)', () => {
+  // Owner's decision 2026-10-18 (CLAUDE.md §21): 4.6 asks the nature of the
+  // vulnerability, like S22Q05 everywhere else. It used to be read by CSP
+  // into CADRES_VULN/FOREMEN_VULN/WORKERS_VULN; nothing writes those now.
+  it('buildVulnerableNamedRows (S4Q06) writes the natures of vulnerability, '
+    + 'never the CSP values it used to', () => {
     const flat = {
-      pp_s4q06_cadres_permanent_male: 2,
+      pp_s4q06_deplaces_internes_permanent_male: 2,
+      pp_s4q06_orphelins_temporary_female: 3,
       pp_s4q06_total_temporary_female: 5,
     };
-    const rows: any[] = (service as any).buildCspVulnerableRows(flat, 'pp_s4q06');
+    const rows: any[] = (service as any).buildVulnerableNamedRows(flat, 'pp_s4q06');
     expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ vulnerableType: 'CADRES_VULN', status: 'PERMANENT', gender: 'MALE', value: 2 }),
+      expect.objectContaining({ vulnerableType: 'DEPLACES_INTERNES', status: 'PERMANENT', gender: 'MALE', value: 2 }),
+      expect.objectContaining({ vulnerableType: 'ORPHELINS', status: 'TEMPORARY', gender: 'FEMALE', value: 3 }),
       expect.objectContaining({ vulnerableType: 'TOTAL_VULN', status: 'TEMPORARY', gender: 'FEMALE', value: 5 }),
     ]));
+    for (const dead of ['CADRES_VULN', 'FOREMEN_VULN', 'WORKERS_VULN']) {
+      expect(rows.some((r) => r.vulnerableType === dead)).toBe(false);
+    }
+  });
+
+  it('S4Q06 writes nothing for a table the quiz closed', () => {
+    const flat = { PP_S4Q06_RESPONSE_STATUS: 'NONE', pp_s4q06_refugies_permanent_male: 4 };
+    expect((service as any).buildVulnerableNamedRows(flat, 'pp_s4q06')).toEqual([]);
   });
 });
 

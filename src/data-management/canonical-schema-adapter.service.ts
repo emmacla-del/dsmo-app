@@ -172,8 +172,18 @@ const ORDINAL_WHITELIST_KEYWORDS = [
  *     hold codes ("1".."6"), gain the VALUE LABELS they never had
  *     (PP_ACTIVITY_VALUE_LABELS). Variable names, widths, order and every
  *     other value unchanged.
+ * 13: (2026-10-18) Project/Programme table 4.6 now collects the NATURE of the
+ *     vulnerability, as S22Q05 does in the five other questionnaires, instead
+ *     of the socio-professional category (owner's decision, CLAUDE.md §21).
+ *     The 18 pp_s4q06_{cadres,foremen,workers}_* variables are retired —
+ *     names reserved, never reused — and replaced by
+ *     pp_s4q06_{deplaces_internes,refugies,orphelins}_<status>_<sex>, with
+ *     the pp_s4q06_total_* row gaining its total-status cells like S22Q05's.
+ *     A file submitted before this version holds its answers under the
+ *     retired names and is therefore blank in the new columns; nothing is
+ *     converted, since the two are not the same variable.
  */
-export const DATASET_SCHEMA_VERSION = 12;
+export const DATASET_SCHEMA_VERSION = 13;
 
 /**
  * Every multiple-choice (checkbox) question with options is also exported as
@@ -1776,7 +1786,20 @@ export class CanonicalSchemaAdapterService {
     }
 
     // 7. vulnerableData (S22Q05 and PP_S4Q06)
-    if (cellId.startsWith('s22q05_ent_') || cellId.startsWith('s22q05_oth_')) {
+    //
+    // One branch for both: since 2026-10-18 the project/programme's 4.6 asks
+    // the same question with the same rows as S22Q05 (owner's decision,
+    // CLAUDE.md §21), and its cell ids have the same shape —
+    // <two-token prefix>_<nature>_<status>_<sex>, the nature itself holding
+    // an underscore in deplaces_internes. It used to be read by CSP
+    // (CADRES_VULN, FOREMEN_VULN, WORKERS_VULN): those rows stay in the
+    // database for the files that hold them, and no cell id asks for them
+    // any more, so they are no longer exported.
+    if (
+      cellId.startsWith('s22q05_ent_') ||
+      cellId.startsWith('s22q05_oth_') ||
+      cellId.startsWith('pp_s4q06_')
+    ) {
       const items = (submission.vulnerableData ?? submission.onefopVulnerableData) as any[] | undefined;
       if (!items) return undefined;
       const parts = cellId.split('_');
@@ -1784,28 +1807,6 @@ export class CanonicalSchemaAdapterService {
       const status = parts[parts.length - 2]?.toUpperCase();
       const vulnType = parts.slice(2, parts.length - 2).join('_').toUpperCase();
 
-      const match = items.find((i) =>
-        i.gender?.toUpperCase() === gender &&
-        i.status?.toUpperCase() === status &&
-        (i.vulnerableType?.toUpperCase() === vulnType || i.type?.toUpperCase() === vulnType),
-      );
-      return match ? match.value : undefined;
-    }
-
-    if (cellId.startsWith('pp_s4q06_')) {
-      const items = (submission.vulnerableData ?? submission.onefopVulnerableData) as any[] | undefined;
-      if (!items) return undefined;
-      const parts = cellId.split('_');
-      const csp = parts[2]?.toLowerCase();
-      const status = parts[3]?.toUpperCase();
-      const gender = parts[4]?.toUpperCase();
-      const vulnTypeMap: Record<string, string> = {
-        cadres: 'CADRES_VULN',
-        foremen: 'FOREMEN_VULN',
-        workers: 'WORKERS_VULN',
-        total: 'TOTAL_VULN',
-      };
-      const vulnType = vulnTypeMap[csp];
       const match = items.find((i) =>
         i.gender?.toUpperCase() === gender &&
         i.status?.toUpperCase() === status &&

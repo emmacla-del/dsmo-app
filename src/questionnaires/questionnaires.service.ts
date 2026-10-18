@@ -1252,13 +1252,12 @@ export class QuestionnairesService {
       : normalizedEntityType === 'ADMINISTRATION'
         ? this.buildStatuslessDisabilityRows(flat, 's21q03', factRowCspCategoriesWithTotal)
         : this.buildDisabilityRows(flat, 's22q04', factRowCspCategoriesWithTotal);
-    // S4Q06 (vulnerable) is ALSO csp_status_gender_table-shaped for this
-    // entity, unlike the other four entities' named-vulnerability-type
-    // S22Q05 — VulnerableType already has CADRES_VULN/FOREMEN_VULN/
-    // WORKERS_VULN/TOTAL_VULN (unused until now), so no schema change is
-    // needed; see buildCspVulnerableRows below.
+    // S4Q06 (vulnerable) asks the nature of the vulnerability, like S22Q05
+    // in the other questionnaires, and is stored the same way — the
+    // DEPLACES_INTERNES/REFUGIES/ORPHELINS values VulnerableType already
+    // had; see buildVulnerableNamedRows below (owner 2026-10-18, §21).
     const vulnerableRows = normalizedEntityType === 'PROJECT_PROGRAM'
-      ? this.buildCspVulnerableRows(flat, 'pp_s4q06')
+      ? this.buildVulnerableNamedRows(flat, 'pp_s4q06')
       : normalizedEntityType === 'ENTREPRISE'
         ? this.buildVulnerableEnterpriseRows(flat)
         : normalizedEntityType === 'ADMINISTRATION'
@@ -2542,8 +2541,8 @@ export class QuestionnairesService {
       return keys;
     }
 
-    // 5. S22Q04 (Disability) / PP_S4Q05 (Disability) / PP_S4Q06 (Vulnerable)
-    if (tableId === 's22q04' || tableId === 'pp_s4q05' || tableId === 'pp_s4q06') {
+    // 5. S22Q04 (Disability) / PP_S4Q05 (Disability)
+    if (tableId === 's22q04' || tableId === 'pp_s4q05') {
       const prefix = tableId;
       const csps = scopeConfig.recruit_csp && scopeConfig.recruit_csp.length > 0 && tableId === 's22q04'
         ? scopeConfig.recruit_csp
@@ -2561,8 +2560,11 @@ export class QuestionnairesService {
       return keys;
     }
 
-    // 6. S22Q05 (Vulnerable)
-    if (tableId.startsWith('s22q05')) {
+    // 6. S22Q05 (Vulnerable) and PP_S4Q06, which since 2026-10-18 asks the
+    // same natures of vulnerability (owner's decision, CLAUDE.md §21). Ask
+    // for the cells the wizard writes, never the CSP ones it used to: that
+    // mismatch is what refused the enterprise submission in C1–C3.
+    if (tableId.startsWith('s22q05') || tableId === 'pp_s4q06') {
       const prefix = tableId;
       const types = ['deplaces_internes', 'refugies', 'orphelins'];
       const statuses = ['permanent', 'temporary'];
@@ -2962,24 +2964,22 @@ export class QuestionnairesService {
     return records;
   }
 
-  // Projects & Programs' S4Q06 — csp_status_gender_table shaped (unlike
-  // the other four entities' named-vulnerability-type S22Q05), so this
-  // mirrors buildDisabilityRows's loop exactly but writes into
-  // OnefopVulnerableData's vulnerableType column using its existing
-  // CADRES_VULN/FOREMEN_VULN/WORKERS_VULN/TOTAL_VULN values.
-  private buildCspVulnerableRows(flat: FlatFormData, prefix: string): object[] {
-    // Gateway guard: skip entirely if the table is absent or not reported.
+  // Projects & Programs' S4Q06 — the nature of the vulnerability × status ×
+  // sex, the shape S22Q05 has in every other questionnaire (owner's
+  // decision, 2026-10-18, CLAUDE.md §21). It used to be read by CSP into
+  // VulnerableType's CADRES_VULN/FOREMEN_VULN/WORKERS_VULN: those rows stay
+  // in the database for the files that already hold them, and nothing
+  // writes them any more.
+  //
+  // Unlike the enterprise-family builders below, this one keeps the gateway
+  // guard the project quiz relies on: a table the respondent was never shown,
+  // or answered "nothing to report" for, writes no rows at all.
+  private buildVulnerableNamedRows(flat: FlatFormData, prefix: string): object[] {
     const statusKey = `${prefix.toUpperCase()}_RESPONSE_STATUS`;
     const statusVal = (flat[statusKey] ?? flat[`${prefix}_RESPONSE_STATUS`]) as string | undefined;
     if (statusVal === 'NONE' || statusVal === 'NOT_APPLICABLE') return [];
 
-    const rows = ['cadres', 'foremen', 'workers', 'total'];
-    const vulnerableTypeMap: Record<string, string> = {
-      cadres: 'CADRES_VULN',
-      foremen: 'FOREMEN_VULN',
-      workers: 'WORKERS_VULN',
-      total: 'TOTAL_VULN',
-    };
+    const rows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
@@ -2989,7 +2989,8 @@ export class QuestionnairesService {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
           if (value !== 0) {
             records.push({
-              vulnerableType: vulnerableTypeMap[row],
+              // TOTAL belongs to DisabilityStatus; the row total is TOTAL_VULN.
+              vulnerableType: row === 'total' ? 'TOTAL_VULN' : this.up(row),
               status: this.up(status),
               gender: this.up(gender),
               value,

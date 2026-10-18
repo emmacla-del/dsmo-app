@@ -1204,10 +1204,17 @@ function buildS2S4ProjectProgram(f: FlatData, locale?: 'fr' | 'en') {
         recruitedPermanentTotals: buildCspAgeTotals(f, 'pp_s4q03'),
         recruitedTemporaryRows: buildCspAgeRows(f, 'pp_s4q04', CSP_ROWS, cspLabels, locale),
         recruitedTemporaryTotals: buildCspAgeTotals(f, 'pp_s4q04'),
-        // S4Q05 — disability, S4Q06 — vulnerable
+        // S4Q05 — disability, by CSP. S4Q06 — vulnerable, by nature of the
+        // vulnerability, as S22Q05 is in every other questionnaire (owner's
+        // decision 2026-10-18, CLAUDE.md §21); it printed CSP rows before.
         disabledRecruitmentsRows: buildPermTempRows(f, 'pp_s4q05', CSP_ROWS, cspLabels),
         disabledRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q05'),
-        vulnerableRecruitmentsRows: buildPermTempRows(f, 'pp_s4q06', CSP_ROWS, cspLabels),
+        vulnerableRecruitmentsRows: buildPermTempRows(
+            f,
+            'pp_s4q06',
+            VULNERABLE_ENT_ROWS,
+            isEn ? VULNERABLE_ENT_LABELS_EN : VULNERABLE_ENT_LABELS_FR,
+        ),
         vulnerableRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q06'),
     };
 }
