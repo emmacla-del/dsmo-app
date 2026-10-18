@@ -5,9 +5,21 @@ which registered an enterprise but never filed for it. Local backend
 (`localhost:3001`) and react-web (`localhost:3000`) against the shared
 database, driven through the real UI in the desktop browser pane.
 
-**The journey does not complete.** The wizard reports the declaration
-complete and lets the respondent confirm, and the server then refuses it for
-46 cells the respondent was never shown. Review and export were not reached.
+**The journey did not complete on the first pass.** The wizard reported the
+declaration complete and let the respondent confirm, and the server then
+refused it for 46 cells the respondent was never shown.
+
+**Fixed the same day** (commit `64f499a1`): C1, C2 and C3 below. The same
+declaration now submits — 201, reference
+`3466bc96-d95b-4d60-bfdf-99bfbdaf1325`, submitted 18/10/2026 09:53, Q4 2026,
+status « Awaiting review by ONEFOP ». The cause was vocabulary, not scope:
+the completeness check asked for cell names in a language neither the wizard
+nor the persistence layer uses, so correcting the check changed nothing
+stored, normalized or exported. The third fix stops a free-text slot being
+treated as in use because of the zeros the table opens with.
+
+Still not reached: the administrative review and endorsement, and the SPSS
+export of an enterprise record. C4 to C7 are untouched.
 
 ## What was declared
 
