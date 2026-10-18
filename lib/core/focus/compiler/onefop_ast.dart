@@ -2856,6 +2856,21 @@ const ppS4Q05 = FormQuestionAst(
   },
 );
 
+// PDF rows: Déplacés internes | Réfugiés | Orphelins (named vulnerability
+// types), as S22Q05 has for every other questionnaire.
+//
+// The printed project/programme form contradicts itself here: its row stub
+// reads « Nature de vulnérabilité / Nature of vulnerability » and its French
+// question asks « selon le statut et la nature de la vulnérabilité », but the
+// three rows printed under them are S4Q05's CSP, and its English question is
+// S4Q05's line pasted again. The enterprise form's identical question settles
+// it — same French wording, rows Déplacés internes / Réfugiés / Orphelins — so
+// the CSP rows are the paper's copy-paste and the question is what ONEFOP
+// asks. Collected by CSP, the indicator was also incomparable with the five
+// other questionnaires and never captured the nature of the vulnerability at
+// all, which is the variable itself. Owner's decision, 2026-10-18
+// (CLAUDE.md §21); the same correction FIX-9 already made for cooperative,
+// CTD and NGO. The label is unchanged: it was right all along.
 const ppS4Q06 = FormQuestionAst(
   id: "PP_S4Q06",
   paperCode: "S4Q06",
@@ -2872,9 +2887,16 @@ const ppS4Q06 = FormQuestionAst(
   type: AstFieldType.table,
   entityTypes: ["projectProgram"],
   tableSpec: {
-    "template": "csp_status_gender_table",
+    "template": "vulnerable_named_rows_table",
+    // Kept, so the variable family stays pp_s4q06_*; the row keys change.
     "prefix": "pp_s4q06",
-    "rows": ["cadres", "foremen", "workers"],
+    "rows": [
+      "Déplacés internes/ Internal displaced",
+      "Réfugiés/ Refugees",
+      "Orphelins/ Orphans",
+    ],
+    "statuses": ["permanent", "temporary"],
+    "genders": ["male", "female", "total"],
   },
 );
 
