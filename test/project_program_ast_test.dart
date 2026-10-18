@@ -103,7 +103,7 @@ void main() {
     });
   });
 
-  group('Section 4 — S4Q01-S4Q06 reuse CSP rows (not SFP)', () {
+  group('Section 4 — CSP rows for 4.1-4.5, natures of vulnerability for 4.6', () {
     late final schema = OnefopFormLoader.loadForEntity(
         entityTypeForSchema(EntityType.projectProgram));
 
@@ -118,12 +118,27 @@ void main() {
       }
     });
 
-    test('S4Q05/S4Q06 (csp_status_gender_table) use cadres/foremen/workers',
-        () {
-      for (final id in ['PP_S4Q05', 'PP_S4Q06']) {
-        final f = schema.fields.firstWhere((f) => f.id == id);
-        expect(f.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
-      }
+    test('S4Q05 (csp_status_gender_table) uses cadres/foremen/workers', () {
+      final f = schema.fields.firstWhere((f) => f.id == 'PP_S4Q05');
+      expect(f.tableSpec!['template'], 'csp_status_gender_table');
+      expect(f.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
+    });
+
+    // Owner's decision 2026-10-18 (CLAUDE.md §21): 4.6 asks the nature of the
+    // vulnerability, as S22Q05 does in the other questionnaires. It used to
+    // carry 4.5's CSP rows, which the printed form pasted under a stub
+    // reading « Nature de vulnérabilité ».
+    test('S4Q06 asks the natures of vulnerability, like S22Q05', () {
+      final f = schema.fields.firstWhere((f) => f.id == 'PP_S4Q06');
+      expect(f.tableSpec!['template'], 'vulnerable_named_rows_table');
+      expect(f.tableSpec!['rows'], [
+        'Déplacés internes/ Internal displaced',
+        'Réfugiés/ Refugees',
+        'Orphelins/ Orphans',
+      ]);
+      final cellIds = TableCellEngine.cellIds(f);
+      expect(cellIds.any((c) => c.contains('_deplaces_internes_')), isTrue);
+      expect(cellIds.any((c) => c.contains('_cadres_')), isFalse);
     });
 
     test('S4Q01 and S4Q03 are distinct questions (counted vs recruited)', () {
