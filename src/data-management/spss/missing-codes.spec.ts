@@ -163,6 +163,27 @@ describe('E1 — -98 « non applicable » user-missing code', () => {
       expect(sps).toContain(`* Version du schéma du jeu de données : ${DATASET_SCHEMA_VERSION}.`);
       expect(sps).not.toMatch(/ F[12]\.0$/m);
     });
+
+    // B11.5 (E2E 2026-10-17): a blank text cell is "not asked" or "not
+    // answered" and the header could not say which, because SPSS declares a
+    // user-missing value only on a text of at most 8 characters and the
+    // narrowest here is A10. The header names formType and now shows how to
+    // use it.
+    it('tells the analyst how to read a blank text cell, with formType', () => {
+      const sps = adapter.buildSpssSyntax(adapter.getVariablesForPartition('ALL'), 'onefop_submissions.csv');
+      expect(sps).toContain("Un texte vide ne distingue donc pas");
+      expect(sps).toContain("C'est formType qui tranche");
+      expect(sps).toContain("SELECT IF formType = 'ENTREPRISE'.");
+    });
+
+    it('leaves the formType recipe out of a file that has no formType', () => {
+      const withoutFormType = adapter
+        .getVariablesForPartition('ALL')
+        .filter((v) => v.variableName !== 'formType');
+      const sps = adapter.buildSpssSyntax(withoutFormType, 'onefop_submissions.csv');
+      expect(sps).toContain("Un texte vide ne distingue donc pas");
+      expect(sps).not.toContain('SELECT IF formType');
+    });
   });
 
   describe('DataManagementService exports', () => {
