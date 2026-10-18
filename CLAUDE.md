@@ -776,6 +776,51 @@ Approved changes on record:
   in the file. Dictionary wording only, like defect 21: variable names,
   values, widths, order and DATASET_SCHEMA_VERSION (12) unchanged. Approved
   by the owner in chat, 2026-10-18.
+- 2026-10-18 — the reference period is named, not printed as dates
+  (`react-web/src/lib/campaign-period.ts`, `inPeriodPhrase`;
+  `referencePeriodKind` in `onefop-period-label.ts`). Issue: the AST carries
+  « du 1er Janvier 2026 à ce jour » as a placeholder and the React wizard
+  replaced it with the round's date range, so some thirty question labels
+  read « du 01/10/2026 au 31/12/2026 ». Decision: the placeholder becomes the
+  round NAMED — « au cours du trimestre » / "during the quarter", the wording
+  the official PDF already uses for the project outcomes column
+  (`src/pdf/i18n/{fr,en}.json` projectProgram.outcomes.current) — for every
+  form type, with the kind of period read from the round's own code
+  (quarter / semester / year) and the date range kept as the fallback when
+  that code names no kind. The exact bounds are printed once, on the wizard
+  masthead. The project KPI column follows (« Réalisations au cours du
+  trimestre »); its two outlook columns still name no year, which is still
+  ONEFOP's to answer. The admin file view rewrites from the file's own round
+  code, so a reviewer reads the question the respondent answered. No
+  statistical semantics, cell key, variable or dataset version change.
+  Approved by the owner in chat, 2026-10-18.
+- 2026-10-18 — dataset v13: project table 4.6 collects the nature of the
+  vulnerability (`lib/core/focus/compiler/onefop_ast.dart`, `ppS4Q06`;
+  `QuestionnairesService.buildVulnerableNamedRows`;
+  `canonical-schema-adapter.service.ts`; `pdf-data-mapper.service.ts`;
+  `react-web/src/components/onefop/tables/resolveGuidedScope.ts`). Issue: the
+  printed project form contradicts itself — its row stub reads « Nature de
+  vulnérabilité » and its French question asks « selon le statut et la nature
+  de la vulnérabilité », but the three rows printed under them are 4.5's CSP
+  and its English question is 4.5's line pasted again. The enterprise form's
+  identical question (S22Q05), same French wording, prints Déplacés internes
+  / Réfugiés / Orphelins, which is what the platform collects for enterprise,
+  cooperative, CTD and NGO (FIX-9). Collected by CSP the indicator was
+  comparable with no other questionnaire, and the nature of the vulnerability
+  — the variable itself — was never collected for projects. Decision: 4.6
+  becomes a `vulnerable_named_rows_table` with those three rows; the question
+  label is unchanged, since it already asked for this. Cell keys become
+  `pp_s4q06_<nature>_<status>_<sex>`; the 18 `pp_s4q06_{cadres,foremen,
+  workers}_*` variables are retired in the frozen registry (names reserved,
+  never reused) and DATASET_SCHEMA_VERSION = 13. No Prisma migration:
+  `VulnerableType` already held DEPLACES_INTERNES, REFUGIES and ORPHELINS,
+  and its CSP members stay for rows already stored. A file submitted before
+  v13 keeps its answers under the retired names and is blank in the new
+  columns: the two are not the same variable, so nothing is converted. 4.5
+  (handicap) stays by CSP. The submit-time completeness check asks for the
+  cells the wizard writes, the mismatch that refused the enterprise
+  submission in C1–C3. Approved by the owner in chat, 2026-10-18. Analyst
+  note: `docs/reference/jeu-de-donnees-onefop-version-13.md`.
 
 ---
 
