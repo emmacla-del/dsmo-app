@@ -757,6 +757,25 @@ Approved changes on record:
   mirrored by hand in `react-web/src/lib/onefop-activities.ts` and the new
   server module; a change to the Dart list must be carried to both. Approved
   by the owner in chat, 2026-10-17.
+- 2026-10-18 — .sps header says how to read a blank text cell (E2E defect
+  B11.5; `CanonicalSchemaAdapterService.buildSpssSyntax`). Issue: the run
+  reported enterprise companion variables (S4Q02_SLOT*_DESC,
+  S4Q02_DOMAIN_*_TEXT, S4Q03_*) exported as "" for a project file « instead
+  of the not-applicable code ». Investigation: not a defect in the data. The
+  scoping is right (those variables list enterprise/cooperative/CTD/NGO, not
+  projectProgram), the blank is the documented v5 convention, and it cannot
+  be otherwise — SPSS declares a user-missing value only on a text of at
+  most 8 characters, and of the 479 text variables the narrowest is A10
+  (widths A10…A2000); `sav-writer.ts` carries missing values for numeric
+  variables only. Writing a sentinel such as "-98" would be ordinary data in
+  371 columns of a project file: a category in every frequency table, and a
+  break for any syntax testing `= ""`. Decision: no value changes. The header
+  instead states that a blank text cell does not distinguish « non posée »
+  from « sans réponse », says why, and gives the formType recipe
+  (`TEMPORARY. / SELECT IF formType = '…'.`), printed only when formType is
+  in the file. Dictionary wording only, like defect 21: variable names,
+  values, widths, order and DATASET_SCHEMA_VERSION (12) unchanged. Approved
+  by the owner in chat, 2026-10-18.
 
 ---
 
