@@ -12804,37 +12804,50 @@
               "visibility": null,
               "table": {
                 "id": "pp_s4q06",
-                "template": "csp_status_gender_table",
+                "template": "vulnerable_named_rows_table",
                 "rowKeys": [
-                  "cadres",
-                  "foremen",
-                  "workers"
+                  "Déplacés internes/ Internal displaced",
+                  "Réfugiés/ Refugees",
+                  "Orphelins/ Orphans"
+                ],
+                "statuses": [
+                  "permanent",
+                  "temporary"
                 ],
                 "rowCapacity": null,
                 "matrix": [
                   [
-                    "pp_s4q06_cadres_permanent_male",
-                    "pp_s4q06_cadres_permanent_female",
-                    "pp_s4q06_cadres_permanent_total",
-                    "pp_s4q06_cadres_temporary_male",
-                    "pp_s4q06_cadres_temporary_female",
-                    "pp_s4q06_cadres_temporary_total"
+                    "pp_s4q06_deplaces_internes_permanent_male",
+                    "pp_s4q06_deplaces_internes_permanent_female",
+                    "pp_s4q06_deplaces_internes_permanent_total",
+                    "pp_s4q06_deplaces_internes_temporary_male",
+                    "pp_s4q06_deplaces_internes_temporary_female",
+                    "pp_s4q06_deplaces_internes_temporary_total",
+                    "pp_s4q06_deplaces_internes_total_male",
+                    "pp_s4q06_deplaces_internes_total_female",
+                    "pp_s4q06_deplaces_internes_total_total"
                   ],
                   [
-                    "pp_s4q06_foremen_permanent_male",
-                    "pp_s4q06_foremen_permanent_female",
-                    "pp_s4q06_foremen_permanent_total",
-                    "pp_s4q06_foremen_temporary_male",
-                    "pp_s4q06_foremen_temporary_female",
-                    "pp_s4q06_foremen_temporary_total"
+                    "pp_s4q06_refugies_permanent_male",
+                    "pp_s4q06_refugies_permanent_female",
+                    "pp_s4q06_refugies_permanent_total",
+                    "pp_s4q06_refugies_temporary_male",
+                    "pp_s4q06_refugies_temporary_female",
+                    "pp_s4q06_refugies_temporary_total",
+                    "pp_s4q06_refugies_total_male",
+                    "pp_s4q06_refugies_total_female",
+                    "pp_s4q06_refugies_total_total"
                   ],
                   [
-                    "pp_s4q06_workers_permanent_male",
-                    "pp_s4q06_workers_permanent_female",
-                    "pp_s4q06_workers_permanent_total",
-                    "pp_s4q06_workers_temporary_male",
-                    "pp_s4q06_workers_temporary_female",
-                    "pp_s4q06_workers_temporary_total"
+                    "pp_s4q06_orphelins_permanent_male",
+                    "pp_s4q06_orphelins_permanent_female",
+                    "pp_s4q06_orphelins_permanent_total",
+                    "pp_s4q06_orphelins_temporary_male",
+                    "pp_s4q06_orphelins_temporary_female",
+                    "pp_s4q06_orphelins_temporary_total",
+                    "pp_s4q06_orphelins_total_male",
+                    "pp_s4q06_orphelins_total_female",
+                    "pp_s4q06_orphelins_total_total"
                   ],
                   [
                     "pp_s4q06_total_permanent_male",
@@ -12842,10 +12855,13 @@
                     "pp_s4q06_total_permanent_total",
                     "pp_s4q06_total_temporary_male",
                     "pp_s4q06_total_temporary_female",
-                    "pp_s4q06_total_temporary_total"
+                    "pp_s4q06_total_temporary_total",
+                    "pp_s4q06_total_total_male",
+                    "pp_s4q06_total_total_female",
+                    "pp_s4q06_total_total_total"
                   ]
                 ],
-                "limitation": "Non-VT table template \"csp_status_gender_table\": column/row/gender/age-band labels and per-cell kind are not represented as AST/schema data — they are hardcoded inside FormSchemaCompiler's private _build*Grid() methods. Only the cell-id topology (matrix), template name, prefix, and row keys (when declared in tableSpec) are extractable today."
+                "limitation": "Non-VT table template \"vulnerable_named_rows_table\": column/row/gender/age-band labels and per-cell kind are not represented as AST/schema data — they are hardcoded inside FormSchemaCompiler's private _build*Grid() methods. Only the cell-id topology (matrix), template name, prefix, and row keys (when declared in tableSpec) are extractable today."
               }
             },
             {
