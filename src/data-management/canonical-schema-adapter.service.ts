@@ -766,6 +766,24 @@ export class CanonicalSchemaAdapterService {
       `*   ${SPSS_MISSING_NOT_ANSWERED} = Non renseigné (réservé, pas encore produit).`,
       '*   vide = valeur manquante système : question applicable mais sans réponse.',
       "*   Les variables texte restent vides lorsqu'elles ne sont pas applicables.",
+      // A text variable cannot carry -98: SPSS declares user-missing values
+      // only on strings of at most 8 characters, and the narrowest one here
+      // is A10. So a blank text cell is ambiguous unless the reader filters
+      // on formType, which the header only hinted at (B11.5 of the
+      // 2026-10-17 run). The recipe is printed only when formType is in the
+      // file, since without it the advice cannot be followed.
+      "*   Un texte vide ne distingue donc pas « non posée » de « sans réponse » :",
+      "*   SPSS n'accepte de valeur manquante déclarée que sur un texte d'au plus",
+      "*   8 caractères, et aucune variable texte du fichier n'est aussi courte.",
+      ...(hasFormType
+        ? [
+            "*   C'est formType qui tranche (ses modalités sont étiquetées plus bas).",
+            '*   Pour ne lire une variable texte que là où la question est posée :',
+            '*     TEMPORARY.',
+            "*     SELECT IF formType = 'ENTREPRISE'.",
+            '*     FREQUENCIES VARIABLES=<variable texte>.',
+          ]
+        : []),
       '* Hors SPSS (lecture directe du CSV), traitez -98 et -99 comme manquants',
       "* (R : na = c('', '-98', '-99') ; pandas : na_values=[-98, -99]).",
       '',
