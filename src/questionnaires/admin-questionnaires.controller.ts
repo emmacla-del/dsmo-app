@@ -193,8 +193,10 @@ export class AdminQuestionnairesController {
         region: optionalText(region),
         search: optionalText(search),
         companyId: optionalText(companyId),
-        limit: parseIntParam(limit, LIST_MAX_LIMIT, 1, LIST_MAX_LIMIT,
-          `Le paramètre « limit » doit être un entier entre 1 et ${LIST_MAX_LIMIT}.`),
+        // limit=0 asks for the count alone: the caller wants `total` and no
+        // rows, and a listed row is a whole declaration with its rawData.
+        limit: parseIntParam(limit, LIST_MAX_LIMIT, 0, LIST_MAX_LIMIT,
+          `Le paramètre « limit » doit être un entier entre 0 et ${LIST_MAX_LIMIT}.`),
         offset: parseIntParam(offset, 0, 0, Number.MAX_SAFE_INTEGER,
           'Le paramètre « offset » doit être un entier positif ou nul.'),
       },

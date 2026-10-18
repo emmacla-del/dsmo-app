@@ -267,6 +267,9 @@ export default function RegisterPage() {
   const [departmentName, setDepartmentName] = useState("");
   const [subdivisionName, setSubdivisionName] = useState("");
   const [sectorName, setSectorName] = useState("");
+  // Kept beside the French name so the review can show the sector in the
+  // reader's language, as the picker does (B10).
+  const [sectorNameEn, setSectorNameEn] = useState("");
 
   const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions });
   const departmentsQuery = useQuery({
@@ -733,6 +736,8 @@ export default function RegisterPage() {
   const resolvedDepartmentName = departmentName || departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
   const resolvedSubdivisionName = subdivisionName || subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
   const resolvedSectorName = sectorName || sectorsQuery.data?.find((s) => s.id === sectorId)?.name;
+  const resolvedSectorNameEn =
+    sectorNameEn || sectorsQuery.data?.find((s) => s.id === sectorId)?.nameEn || "";
 
   async function submit() {
     if (!entityType || !config) {
@@ -856,6 +861,7 @@ export default function RegisterPage() {
     departmentName: resolvedDepartmentName || "",
     subdivisionName: resolvedSubdivisionName || "",
     sectorName: resolvedSectorName || "",
+    sectorNameEn: resolvedSectorNameEn,
   };
 
   // One line per section for the rail's tooltips, from the same rows the
@@ -1182,6 +1188,7 @@ export default function RegisterPage() {
     setArea(draft.area);
     setSectorId(draft.sectorId);
     setSectorName(draft.sectorName);
+    setSectorNameEn(draft.sectorNameEn ?? "");
 
     // Recomputed from the restored answers rather than taken from the draft
     // alone: the password is never stored, so security comes back incomplete
@@ -1238,6 +1245,7 @@ export default function RegisterPage() {
       departmentName: resolvedDepartmentName || "",
       subdivisionName: resolvedSubdivisionName || "",
       sectorName: resolvedSectorName || "",
+      sectorNameEn: resolvedSectorNameEn,
     })
   );
 
@@ -1599,7 +1607,7 @@ export default function RegisterPage() {
                     </span>
                   )}
                   {emailCheckFailed && (
-                    <span className="field-status is-muted">
+                    <span className="field-status is-warn">
                       {t("registerPage.emailCheckFailed")}
                     </span>
                   )}
@@ -1856,7 +1864,9 @@ export default function RegisterPage() {
                       // says the respondent is done with the location.
                       armFromField(true);
                       setSectorId(id);
-                      setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
+                      const picked = sectorsQuery.data?.find((s) => s.id === id);
+                      setSectorName(picked?.name || "");
+                      setSectorNameEn(picked?.nameEn || "");
                     }}
                   >
                     <option value="">

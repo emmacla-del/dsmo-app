@@ -178,7 +178,16 @@ function InscriptionsContent() {
   const done = (text: string, id: string, status: RegistrationDecisionStatus) => {
     const queue = { queryKey: ["auth", "company-registrations"] };
     void queryClient.cancelQueries(queue).then(() => {
-      queryClient.setQueriesData<CompanyRegistrationsResult>(queue, (page) => applyRegistrationDecision(page, id, status));
+      // Per cached page, not setQueriesData: each one was fetched under its
+      // own status filter — key[3], the `statusFilter` in the key built
+      // above — and a decision that moves the file out of that view has to
+      // take it off that page, not restyle it in place.
+      for (const query of queryClient.getQueryCache().findAll(queue)) {
+        const view = query.queryKey[3];
+        queryClient.setQueryData<CompanyRegistrationsResult>(query.queryKey, (page) =>
+          applyRegistrationDecision(page, id, status, typeof view === "string" ? view : undefined),
+        );
+      }
       void queryClient.invalidateQueries(queue);
     });
     setNotice({ tone: "success", text });

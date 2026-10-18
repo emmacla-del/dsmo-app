@@ -114,7 +114,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
           inscriptionsCount={pendingRegistrations ?? 0}
           onLogout={() => {
-            logout();
+            logout({ intentional: true });
             router.push("/login");
           }}
         />

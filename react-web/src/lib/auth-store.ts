@@ -38,7 +38,14 @@ interface AuthState {
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   verifyTwoFactorCode: (code: string) => Promise<void>;
   cancelTwoFactorChallenge: () => void;
-  logout: () => void;
+  /**
+   * `intentional` marks the user pressing "Log out", as opposed to the 401
+   * handler below signing them out. Only the second should send them to
+   * /login with a returnTo (see useRequireAuth): after a deliberate logout
+   * that returnTo would sit in the URL and send whoever signs in next on
+   * that browser to the previous user's screen.
+   */
+  logout: (options?: { intentional?: boolean }) => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -162,7 +169,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ twoFactorChallengeToken: null, error: null });
   },
 
-  logout() {
+  logout(options?: { intentional?: boolean }) {
+    if (options?.intentional) intentionalLogout = true;
     logoutRequest();
     // D8 fix: Purge local drafts upon logout so user B on a shared computer
     // cannot see or submit user A's figures
@@ -183,6 +191,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+// Set by a deliberate logout and read once by the route guard, which then
+// sends the user to the public portal instead of a /login?returnTo=… that
+// would outlive their session.
+let intentionalLogout = false;
+
+export function consumeIntentionalLogout(): boolean {
+  const was = intentionalLogout;
+  intentionalLogout = false;
+  return was;
+}
 
 // Defect 8: when any API request receives a 401, reset the in-memory auth store
 // so the screen guards immediately redirect to /login and polling loops halt.

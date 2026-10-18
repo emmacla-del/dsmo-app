@@ -28,15 +28,32 @@ function bucket(status: string): keyof Omit<Counts, "overdue"> | null {
 }
 
 /**
+ * Whether a file in `status` still belongs in a list filtered by `view`.
+ * "" is the unfiltered list and keeps everything; "OVERDUE" is a view of the
+ * queue rather than a stored status, and a decided file is never overdue.
+ */
+function stillInView(view: string | undefined, status: RegistrationDecisionStatus): boolean {
+  if (!view) return true;
+  if (view === "OVERDUE") return false;
+  return view === status;
+}
+
+/**
  * One page of the queue with the decided file in its new status and the
  * counters moved accordingly. A page that does not hold the file is
  * returned unchanged: its counters cannot be adjusted without knowing the
  * file's previous status, and the refetch corrects them.
+ *
+ * `view` is the status the list was filtered by, from that page's own query
+ * key. A file the decision moves out of the view is taken off the page
+ * rather than left sitting in it under its new status, which is what the
+ * reviewer saw until the refetch answered (B11 of the 2026-10-17 run).
  */
 export function applyRegistrationDecision(
   page: CompanyRegistrationsResult | undefined,
   id: string,
   status: RegistrationDecisionStatus,
+  view?: string,
 ): CompanyRegistrationsResult | undefined {
   if (!page) return page;
   const item = page.items.find((i) => i.id === id);
@@ -49,6 +66,14 @@ export function applyRegistrationDecision(
   // A decided file is no longer the reviewers' move (complements requested:
   // it is the company's), so it is not overdue (src/auth/registration-overdue.ts).
   if (item.overdue) counts.overdue = Math.max(0, counts.overdue - 1);
+  if (!stillInView(view, status)) {
+    return {
+      ...page,
+      counts,
+      total: Math.max(0, page.total - 1),
+      items: page.items.filter((i) => i.id !== id),
+    };
+  }
   return {
     ...page,
     counts,

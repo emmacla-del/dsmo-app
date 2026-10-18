@@ -561,7 +561,7 @@
     "professionalEmailLabel": "Email professionnel",
     "emailUnavailable": "Un compte utilise déjà cette adresse.",
     "emailAvailable": "Disponible",
-    "emailCheckFailed": "Disponibilité non vérifiée pour le moment.",
+    "emailCheckFailed": "Disponibilité non vérifiée pour le moment. Vous pouvez continuer ; si l'adresse est déjà utilisée, l'inscription sera refusée à l'envoi.",
     "phone1Label": "Téléphone du répondant",
     "phone2Label": "Autre téléphone du répondant",
     "locationTitle": "Localisation",
@@ -2572,7 +2572,7 @@
     "autoReminders": "Activer les rappels automatiques (relances envoyées à J-7, J-3 et J-1 de l'échéance)"
   },
   "adminQuestionnairesPage": {
-    "subtitle": "Modèles nationaux de fiches d'enquête et de déclaration pour le recueil statistique DSMO",
+    "subtitle": "Modèles nationaux de fiches d'enquête et de déclaration pour le recueil statistique ONEFOP",
     "schemaError": "Le schéma ONEFOP n'a pas pu être chargé : {message}",
     "questionnaireColumn": "Questionnaire",
     "sectionsColumn": "Sections",

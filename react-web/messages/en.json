@@ -561,7 +561,7 @@
     "professionalEmailLabel": "Professional email",
     "emailUnavailable": "An account already uses this address.",
     "emailAvailable": "Available",
-    "emailCheckFailed": "Availability could not be checked right now.",
+    "emailCheckFailed": "Availability could not be checked right now. You can continue; if the address is already in use, the registration will be refused when you submit.",
     "phone1Label": "Respondent's phone",
     "phone2Label": "Other respondent phone",
     "locationTitle": "Location",
@@ -2572,7 +2572,7 @@
     "autoReminders": "Enable automatic reminders (sent 7, 3 and 1 days before the deadline)"
   },
   "adminQuestionnairesPage": {
-    "subtitle": "National survey and declaration form templates for DSMO statistical collection",
+    "subtitle": "National survey and declaration form templates for ONEFOP statistical collection",
     "schemaError": "The ONEFOP schema could not be loaded: {message}",
     "questionnaireColumn": "Questionnaire",
     "sectionsColumn": "Sections",

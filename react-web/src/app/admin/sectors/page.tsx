@@ -65,7 +65,7 @@ export default function AdminSectorsPage() {
         />
         {forbidden && (
           <div>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={logout}>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => logout()}>
               {t("adminSectorsPage.logoutButton")}
             </button>
           </div>

@@ -414,6 +414,13 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   // ── Team monitoring (actor summary, nudges) ──────────────────────────
   { fr: 'Aucun dossier en attente depuis plus de {0} jours pour cet administrateur.', en: 'No file has been pending for more than {0} days for this administrator.' },
   { fr: 'Le paramètre « period » doit valoir {0}.', en: 'The "period" parameter must be {0}.' },
+  // Paging parameters (admin list routes, audit log). They reach the thrown
+  // exception through a parameter, so the catalogue walker cannot see them
+  // ('message' is in its RESOLVED_ELSEWHERE set) and they were answered in
+  // French whatever the reader's locale.
+  { fr: 'Le paramètre « limit » doit être un entier entre 0 et {0}.', en: 'The "limit" parameter must be a whole number between 0 and {0}.' },
+  { fr: 'Le paramètre « limit » doit être un entier entre 1 et {0}.', en: 'The "limit" parameter must be a whole number between 1 and {0}.' },
+  { fr: 'Le paramètre « offset » doit être un entier positif ou nul.', en: 'The "offset" parameter must be a non-negative whole number.' },
   { fr: 'Le paramètre « role » doit valoir {0}.', en: 'The "role" parameter must be {0}.' },
   { fr: '« userId » est requis.', en: '"userId" is required.' },
   { fr: '« template » doit valoir {0}.', en: '"template" must be {0}.' },

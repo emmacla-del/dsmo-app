@@ -54,7 +54,10 @@ export default function QuestionnairesPage() {
   const totals = useQueries({
     queries: QUESTIONNAIRES.map((q) => ({
       queryKey: ["admin", "questionnaires", "total", q.formType],
-      queryFn: () => listAdminQuestionnaires({ formType: q.formType, limit: 1 }),
+      // limit: 0 returns the count and no rows. With limit: 1 each of these
+      // seven queries pulled back a whole declaration, rawData included,
+      // only to read `total`.
+      queryFn: () => listAdminQuestionnaires({ formType: q.formType, limit: 0 }),
       enabled: canReadSubmissions,
     })),
   });
