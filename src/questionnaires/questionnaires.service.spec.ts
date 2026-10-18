@@ -1682,11 +1682,13 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         }
       }
 
+      // 4.6's rows are the natures of vulnerability, not the CSP of 4.5
+      // (owner's decision 2026-10-18, CLAUDE.md §21).
       const ppS4q06Keys: string[] = [];
-      for (const c of csps) {
+      for (const t of ['deplaces_internes', 'refugies', 'orphelins']) {
         for (const s of statuses) {
           for (const g of genders) {
-            ppS4q06Keys.push(`pp_s4q06_${c}_${s}_${g}`);
+            ppS4q06Keys.push(`pp_s4q06_${t}_${s}_${g}`);
           }
         }
       }

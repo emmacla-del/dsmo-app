@@ -628,8 +628,11 @@
     <div class="qt">{{t "projectProgram.s4q05" collectionPeriod=collectionPeriod}}</div>
     {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
 
+    {{! 4.6's rows are the natures of vulnerability, as S22Q05's are in the
+        other questionnaires and as the printed form's own stub says (owner's
+        decision 2026-10-18, CLAUDE.md §21) — not the CSP of 4.5 above. }}
     <div class="qt">{{t "projectProgram.s4q06" collectionPeriod=collectionPeriod}}</div>
-    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals}}
+    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals headerLabel=(t "common.table.nature_of_vulnerability")}}
 
   </div>
 

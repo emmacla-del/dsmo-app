@@ -713,14 +713,19 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(adapter.extractValue(zeroVar, subNone)).toBeUndefined();
     });
 
+    // 4.6 asks the nature of the vulnerability, like S22Q05 in the other
+    // questionnaires (owner's decision 2026-10-18, CLAUDE.md §21): the
+    // nature itself holds an underscore, which the shared branch parses.
     it('extracts PP_S4Q06 vulnerable recruitments from both relational vulnerableData and rawData', () => {
-      const ppVar = adapter.getAllVariables().find((v) => v.variableName === 'pp_s4q06_cadres_permanent_male')!;
+      const ppVar = adapter
+        .getAllVariables()
+        .find((v) => v.variableName === 'pp_s4q06_deplaces_internes_permanent_male')!;
       expect(ppVar).toBeDefined();
 
       // Relation extraction
       const subRel = {
         vulnerableData: [
-          { vulnerableType: 'CADRES_VULN', status: 'PERMANENT', gender: 'MALE', value: 7 },
+          { vulnerableType: 'DEPLACES_INTERNES', status: 'PERMANENT', gender: 'MALE', value: 7 },
         ],
       };
       expect(adapter.extractValue(ppVar, subRel)).toBe(7);
@@ -728,10 +733,15 @@ describe('CanonicalSchemaAdapterService', () => {
       // rawData extraction
       const subRaw = {
         rawData: {
-          pp_s4q06_cadres_permanent_male: 4,
+          pp_s4q06_deplaces_internes_permanent_male: 4,
         },
       };
       expect(adapter.extractValue(ppVar, subRaw)).toBe(4);
+
+      // The CSP variables it used to emit are retired: no longer exported.
+      expect(
+        adapter.getAllVariables().some((v) => v.variableName === 'pp_s4q06_cadres_permanent_male'),
+      ).toBe(false);
     });
 
     it('extracts dynamic indexed slots (S3Q02, S4Q02, S4Q03) from relations and both rawData naming conventions', () => {

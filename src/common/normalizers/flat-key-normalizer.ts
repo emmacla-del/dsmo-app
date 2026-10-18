@@ -330,7 +330,9 @@ export function buildNestedDto(
         out['recruitedPermanent'] = buildCspTable(normalized, 'pp_s4q03');
         out['recruitedTemporary'] = buildCspTable(normalized, 'pp_s4q04');
         out['disabledRecruitments'] = buildPermTempTable(normalized, 'pp_s4q05');
-        out['vulnerableRecruitments'] = buildPermTempTable(normalized, 'pp_s4q06');
+        // 4.6 is the nature of the vulnerability, like S22Q05 everywhere else
+        // (owner 2026-10-18, CLAUDE.md §21), not the CSP it used to read.
+        out['vulnerableRecruitments'] = buildVulnerableTable(normalized, 'pp_s4q06');
         return out;
     }
 
@@ -398,7 +400,7 @@ export function buildNestedDto(
         : buildPermTempTable(normalized, 's22q04', disabledRowKeyPairs);
     out['vulnerableRecruitments'] = isAdministration
         ? buildStatuslessPermTempTable(normalized, 's21q04', VULNERABLE_ROW_KEY_PAIRS)
-        : buildVulnerableTable(normalized, entityType);
+        : buildVulnerableTable(normalized, entityType === 'entreprise' ? 's22q05_ent' : 's22q05_oth');
     out['firstTimeJobSeekers'] = buildCspTable(normalized, 's23q01');
     out['firstTimeRecruitments'] = buildFirstTimeTable(normalized);
     out['departures'] = buildDeparturesTable(normalized, departureRowKeys);
@@ -1336,8 +1338,14 @@ function buildStatuslessPermTempTable(
     return result;
 }
 
-function buildVulnerableTable(n: Record<string, unknown>, entityType: string): Record<string, unknown> {
-    const prefix = entityType === 'entreprise' ? 's22q05_ent' : 's22q05_oth';
+/**
+ * The vulnerable-recruitment table, by nature of vulnerability × status ×
+ * sex. The prefix is the caller's: s22q05_ent / s22q05_oth for the
+ * enterprise family, pp_s4q06 for a project/programme, whose table 4.6 asks
+ * the same question with the same rows (owner's decision 2026-10-18,
+ * CLAUDE.md §21 — it used to be read by CSP).
+ */
+function buildVulnerableTable(n: Record<string, unknown>, prefix: string): Record<string, unknown> {
     const rows = ['internalDisplaced', 'refugees', 'orphans', 'total'] as const;
     const rowKeys = ['deplaces_internes', 'refugies', 'orphelins', 'total'] as const;
     const statuses = ['permanent', 'temporary', 'total'] as const;

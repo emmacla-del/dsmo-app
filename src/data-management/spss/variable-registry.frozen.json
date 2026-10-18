@@ -6256,75 +6256,93 @@
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_permanent_male": {
       "variableName": "pp_s4q06_cadres_permanent_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_permanent_female": {
       "variableName": "pp_s4q06_cadres_permanent_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_permanent_total": {
       "variableName": "pp_s4q06_cadres_permanent_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_temporary_male": {
       "variableName": "pp_s4q06_cadres_temporary_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_temporary_female": {
       "variableName": "pp_s4q06_cadres_temporary_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_cadres_temporary_total": {
       "variableName": "pp_s4q06_cadres_temporary_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_permanent_male": {
       "variableName": "pp_s4q06_foremen_permanent_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_permanent_female": {
       "variableName": "pp_s4q06_foremen_permanent_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_permanent_total": {
       "variableName": "pp_s4q06_foremen_permanent_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_temporary_male": {
       "variableName": "pp_s4q06_foremen_temporary_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_temporary_female": {
       "variableName": "pp_s4q06_foremen_temporary_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_foremen_temporary_total": {
       "variableName": "pp_s4q06_foremen_temporary_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_permanent_male": {
       "variableName": "pp_s4q06_workers_permanent_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_permanent_female": {
       "variableName": "pp_s4q06_workers_permanent_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_permanent_total": {
       "variableName": "pp_s4q06_workers_permanent_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_temporary_male": {
       "variableName": "pp_s4q06_workers_temporary_male",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_temporary_female": {
       "variableName": "pp_s4q06_workers_temporary_female",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_workers_temporary_total": {
       "variableName": "pp_s4q06_workers_temporary_total",
-      "valueLabels": null
+      "valueLabels": null,
+      "retired": "4.6 asks the nature of the vulnerability, not the CSP (owner 2026-10-18, CLAUDE.md §21); name reserved, never reused."
     },
     "matrix.PP_S4Q06.pp_s4q06_total_permanent_male": {
       "variableName": "pp_s4q06_total_permanent_male",
@@ -11661,6 +11679,126 @@
     },
     "listSlot.VT9_4.5": {
       "variableName": "VT9_4_5",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_permanent_male": {
+      "variableName": "pp_s4q06_deplaces_internes_permanent_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_permanent_female": {
+      "variableName": "pp_s4q06_deplaces_internes_permanent_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_permanent_total": {
+      "variableName": "pp_s4q06_deplaces_internes_permanent_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_temporary_male": {
+      "variableName": "pp_s4q06_deplaces_internes_temporary_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_temporary_female": {
+      "variableName": "pp_s4q06_deplaces_internes_temporary_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_temporary_total": {
+      "variableName": "pp_s4q06_deplaces_internes_temporary_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_total_male": {
+      "variableName": "pp_s4q06_deplaces_internes_total_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_total_female": {
+      "variableName": "pp_s4q06_deplaces_internes_total_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_deplaces_internes_total_total": {
+      "variableName": "pp_s4q06_deplaces_internes_total_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_permanent_male": {
+      "variableName": "pp_s4q06_refugies_permanent_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_permanent_female": {
+      "variableName": "pp_s4q06_refugies_permanent_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_permanent_total": {
+      "variableName": "pp_s4q06_refugies_permanent_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_temporary_male": {
+      "variableName": "pp_s4q06_refugies_temporary_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_temporary_female": {
+      "variableName": "pp_s4q06_refugies_temporary_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_temporary_total": {
+      "variableName": "pp_s4q06_refugies_temporary_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_total_male": {
+      "variableName": "pp_s4q06_refugies_total_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_total_female": {
+      "variableName": "pp_s4q06_refugies_total_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_refugies_total_total": {
+      "variableName": "pp_s4q06_refugies_total_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_permanent_male": {
+      "variableName": "pp_s4q06_orphelins_permanent_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_permanent_female": {
+      "variableName": "pp_s4q06_orphelins_permanent_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_permanent_total": {
+      "variableName": "pp_s4q06_orphelins_permanent_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_temporary_male": {
+      "variableName": "pp_s4q06_orphelins_temporary_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_temporary_female": {
+      "variableName": "pp_s4q06_orphelins_temporary_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_temporary_total": {
+      "variableName": "pp_s4q06_orphelins_temporary_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_total_male": {
+      "variableName": "pp_s4q06_orphelins_total_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_total_female": {
+      "variableName": "pp_s4q06_orphelins_total_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_orphelins_total_total": {
+      "variableName": "pp_s4q06_orphelins_total_total",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_total_total_male": {
+      "variableName": "pp_s4q06_total_total_male",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_total_total_female": {
+      "variableName": "pp_s4q06_total_total_female",
+      "valueLabels": null
+    },
+    "matrix.PP_S4Q06.pp_s4q06_total_total_total": {
+      "variableName": "pp_s4q06_total_total_total",
       "valueLabels": null
     }
   }
