@@ -370,8 +370,28 @@ Fixes, in the order above:
    every detail relation included, to read `total`.
 4. **Subtitle** — says ONEFOP; the page lists the seven ONEFOP questionnaires
    and no DSMO form.
-5. **SPSS companion variables** — not fixed. It changes what an official
-   export writes, so it needs §21 approval first.
+5. **SPSS companion variables** — investigated 2026-10-18 and found not to
+   be a defect in the data; the dictionary was improved instead. The scoping
+   is right: S4Q02_DOMAIN_1_TEXT and S4Q02_SLOT1_DESC apply to enterprise,
+   cooperative, CTD, NGO and administration, S4Q03_DOMAIN_1_TEXT to the
+   first four, and none lists projectProgram, which is exactly what
+   `isNotApplicableToRecord` reads. The blank is the v5 convention
+   (`exportValue` returns early for anything non-numeric) and the header
+   already stated it. It also cannot be otherwise: SPSS declares a
+   user-missing value only on a text of at most 8 characters, and of the 479
+   text variables in the dataset the narrowest is A10 — the widths run A10,
+   A20, A25, A32, A36, A50, A80, A100, A120, A254, A2000 — while
+   `sav-writer.ts` carries missing values for numeric variables only. A
+   sentinel string would therefore be ordinary data in 371 columns of a
+   project file: a category in every frequency table and a break for any
+   syntax testing `= ""`. What was missing was the instruction, not the
+   code: the header named formType without saying what to do with it, and
+   now states that a blank text cell does not distinguish « non posée » from
+   « sans réponse », says why, and gives the `TEMPORARY. / SELECT IF
+   formType = '…'.` recipe, printed only when formType is in the file.
+   Dictionary wording only — no value, name, width, order or version
+   changed. Recorded in CLAUDE.md §21, approved by the owner in chat on
+   2026-10-18.
 6. **Logout** — the button's own navigation stands. The route guard used to
    win the race and add `/login?returnTo=<the page just left>`, and that
    returnTo outlived the session. `logout({ intentional: true })` marks the
