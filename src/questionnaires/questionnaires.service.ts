@@ -2378,6 +2378,31 @@ export class QuestionnairesService {
     return undefined;
   }
 
+  /**
+   * Whether a free-text slot (a dismissal reason, a skill, a training need)
+   * is in use, and so has to be described.
+   *
+   * A zero does not put a slot in use. The wizard opens these tables with
+   * every count cell reading 0, so `isEnteredMatrixValue` was true for slots
+   * the respondent never touched and their description became compulsory —
+   * with nothing on screen saying so (C3 of the 2026-10-18 enterprise run).
+   * A slot counts as used when it is named, or when one of its counts is
+   * anything other than zero.
+   */
+  private isSlotInUse(flat: Record<string, unknown>, slotKeys: readonly string[]): boolean {
+    for (const key of slotKeys) {
+      const value = this.findCellValue(flat, key);
+      if (!this.isEnteredMatrixValue(value)) continue;
+      if (key.endsWith('_desc')) {
+        if (String(value).trim() !== '') return true;
+        continue;
+      }
+      const num = Number(value);
+      if (!Number.isNaN(num) && num !== 0) return true;
+    }
+    return false;
+  }
+
   private getExpectedMatrixCellKeys(tableStatusField: string, flat: Record<string, unknown>, entityType: string): string[] {
     const scopeConfig = (flat._scopeConfig as Record<string, any>) ?? {};
     let tableId = tableStatusField.replace(/_RESPONSE_STATUS$/i, '').toLowerCase();
@@ -2605,7 +2630,12 @@ export class QuestionnairesService {
       const csps = isAdm
         ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
         : ['cadres', 'foremen', 'workers'];
-      const reasons = ['licenciement', 'demission', 'retraite', 'deces', 'fin_contrat', 'autres'];
+      // The wizard writes these keys and buildDepartureRows() below reads
+      // them back; the French list this used to carry matched neither, so
+      // every cell of a reported S3Q01 was reported missing however the
+      // respondent filled it (C1/C2 of the 2026-10-18 enterprise run).
+      // 'ensemble' is the computed total group and is not required.
+      const reasons = ['dismissal', 'resignation', 'retirement', 'other'];
       const genders = ['male', 'female'];
       const keys: string[] = [];
       for (const c of csps) {
@@ -2623,10 +2653,10 @@ export class QuestionnairesService {
       const keys = ['s3q02_slot1_desc', 's3q02_slot1_male', 's3q02_slot1_female'];
       const slot2Keys = ['s3q02_slot2_desc', 's3q02_slot2_male', 's3q02_slot2_female'];
       const slot3Keys = ['s3q02_slot3_desc', 's3q02_slot3_male', 's3q02_slot3_female'];
-      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot2Keys)) {
         keys.push(...slot2Keys);
       }
-      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot3Keys)) {
         keys.push(...slot3Keys);
       }
       return keys;
@@ -2652,7 +2682,10 @@ export class QuestionnairesService {
     // 12. S4Q01 (Internships)
     if (tableId === 's4q01') {
       const prefix = tableId;
-      const types = ['academique', 'professionnel', 'pre_emploi', 'vacances'];
+      // INTERNSHIP_ROW_KEYS in the wizard and buildInternshipsTable() here
+      // both use these keys; the French ones this used to carry matched
+      // neither (C2 of the 2026-10-18 enterprise run).
+      const types = ['vacation', 'academic', 'professional', 'pre_employment'];
       const genders = ['male', 'female'];
       const keys: string[] = [];
       for (const t of types) {
@@ -2668,10 +2701,10 @@ export class QuestionnairesService {
       const keys = ['s4q02_slot1_desc', 's4q02_slot1_total'];
       const slot2Keys = ['s4q02_slot2_desc', 's4q02_slot2_total'];
       const slot3Keys = ['s4q02_slot3_desc', 's4q02_slot3_total'];
-      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot2Keys)) {
         keys.push(...slot2Keys);
       }
-      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot3Keys)) {
         keys.push(...slot3Keys);
       }
       return keys;
@@ -2682,10 +2715,10 @@ export class QuestionnairesService {
       const keys = ['s4q03_slot1_desc', 's4q03_slot1_male', 's4q03_slot1_female'];
       const slot2Keys = ['s4q03_slot2_desc', 's4q03_slot2_male', 's4q03_slot2_female'];
       const slot3Keys = ['s4q03_slot3_desc', 's4q03_slot3_male', 's4q03_slot3_female'];
-      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot2Keys)) {
         keys.push(...slot2Keys);
       }
-      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+      if (this.isSlotInUse(flat, slot3Keys)) {
         keys.push(...slot3Keys);
       }
       return keys;
