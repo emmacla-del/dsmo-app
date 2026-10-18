@@ -322,12 +322,19 @@ it is not test data from this run.
   locally and on the server. Only a draft started after the change opens
   empty.
 
-### B10 — Registration review shows the sector in French in the English UI (low)
+### B10 — Registration review shows the sector in French in the English UI (low) — fixed 2026-10-18
 - Picker shows « Public administration and defence », review shows
   « Administration publique et défense »: `register-summary.ts:133` prints
   `state.sectorName` (the French DB name) instead of `sectorLabel(…)`.
+- Fix: the registration state carries the sector's English name beside the
+  French one (`sectorNameEn`, set when the sector is picked and kept in the
+  saved draft), and the review prints `sectorLabel(…)` in the reader's
+  language, as the picker already did. A sector is a select answer, so this
+  follows the rule the module's own header states: select answers are shown
+  with their own label, never as the stored wire value. A draft saved before
+  this change has no English name and falls back to the French one.
 
-### B11 — Smaller items (low)
+### B11 — Smaller items (low) — five of six fixed 2026-10-18
 - Registration: with the backend down, the e-mail availability check fails
   silently and the respondent continues (only noticed because the backend
   was still booting).
@@ -342,6 +349,34 @@ it is not test data from this run.
   instead of the not-applicable code.
 - Logout from the respondent home lands on `/login?returnTo=/home`, so the
   next person to sign in on that browser is sent to the respondent home.
+
+Fixes, in the order above:
+
+1. **E-mail check** — the failure was reported, but as a muted footnote that
+   reads as a hint. It is now a warning (`field-status is-warn`, the amber
+   `--cam-warning` token) and says what it means for the respondent: they may
+   continue, and an address already in use is refused at submit. Blocking was
+   considered and rejected: the server enforces uniqueness anyway, and
+   stopping a legitimate registration because the API was briefly unreachable
+   would be the worse failure.
+2. **Queue row** — `applyRegistrationDecision` takes the status the list was
+   filtered by, read from each cached page's own query key, and drops a file
+   the decision moves out of that view instead of restyling it in place. The
+   unfiltered list still only restyles; the overdue view drops it, since no
+   decided file is overdue. The refetch still has the last word.
+3. **Counts** — `GET /admin/questionnaires` accepts `limit=0`, a count-only
+   request: the row query is not made at all, and the page asks for its seven
+   totals that way. Each one used to return a whole declaration, rawData and
+   every detail relation included, to read `total`.
+4. **Subtitle** — says ONEFOP; the page lists the seven ONEFOP questionnaires
+   and no DSMO form.
+5. **SPSS companion variables** — not fixed. It changes what an official
+   export writes, so it needs §21 approval first.
+6. **Logout** — the button's own navigation stands. The route guard used to
+   win the race and add `/login?returnTo=<the page just left>`, and that
+   returnTo outlived the session. `logout({ intentional: true })` marks the
+   user's own sign-out so the guard stays out of the way; a 401 still sends
+   them to /login with a returnTo, which is what it is for.
 
 ## Fixes applied (2026-10-17)
 
@@ -388,6 +423,21 @@ it is not test data from this run.
   reads « Nom et prénom(s) du répondant », not « S0Q01 Nom… ». B9 could not
   be checked live: both test accounts already hold a draft, and a draft wins
   over registration, so only a fresh account would show it.
+- B10 and B11, 2026-10-18: `register-summary.ts`, `register-draft.ts`,
+  `app/register/page.tsx`, `registration-queue-cache.ts`,
+  `app/admin/inscriptions/page.tsx`, `app/admin/questionnaires/page.tsx`,
+  `auth-store.ts`, `use-require-auth.ts`, `app/home/layout.tsx`,
+  `app/admin/layout.tsx`, `app/admin/sectors/page.tsx`, `globals.css`,
+  both message files; backend `admin-questionnaires.controller.ts`,
+  `questionnaires.service.ts`, `common/i18n/error-messages.ts`. Gates:
+  `npm test` 887/887, `check:ui-grammar` passes with no baseline change,
+  `npx jest --runInBand` 1817/1817. `npx tsc --noEmit` reports one error, in
+  `FieldRenderer.tsx`, from another session's uncommitted work in this shared
+  checkout — not in any file of this change, and left for its author.
+  While adding `limit=0` the two paging messages gained their English forms:
+  they reach the exception through a parameter, so the catalogue walker never
+  saw them ('message' is in its RESOLVED_ELSEWHERE set) and they answered in
+  French whatever the reader's locale.
 - Gates, backend: `npx jest --runInBand` 1814/1814 pass. Four assertions
   pinned the previous dataset version: the two that exist to make a bump a
   deliberate act keep their literal (now 12), and the two that only wanted
