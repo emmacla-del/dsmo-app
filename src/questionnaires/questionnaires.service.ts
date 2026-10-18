@@ -3437,8 +3437,11 @@ export class QuestionnairesService {
     const where = buildAdminListWhere(filters, territory);
     const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
 
+    // limit=0 is a count-only request (the admin questionnaires page shows
+    // seven totals): the row query is skipped rather than asked to return
+    // nothing, since each row carries a whole declaration including rawData.
     const [items, total] = await Promise.all([
-      (this.prisma as any).onefopSubmission.findMany({
+      filters.limit === 0 ? Promise.resolve([] as any[]) : (this.prisma as any).onefopSubmission.findMany({
         where,
         // id breaks createdAt ties so offset paging never repeats or skips rows.
         orderBy: [{ createdAt: direction }, { id: direction }],

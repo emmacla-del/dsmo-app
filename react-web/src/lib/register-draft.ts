@@ -45,6 +45,10 @@ export interface RegisterDraft {
   area: string;
   sectorId: string;
   sectorName: string;
+  // The sector's English name, so an English reader's review does not fall
+  // back to the French one after a restore (B10). Absent on a draft saved
+  // before 2026-10-17.
+  sectorNameEn?: string;
 }
 
 // The administrative names are stored alongside the ids because submit() sends
@@ -55,6 +59,7 @@ export interface RegisterDraftNames {
   departmentName: string;
   subdivisionName: string;
   sectorName: string;
+  sectorNameEn?: string;
 }
 
 export function toDraft(state: RegState, reached: number, names: RegisterDraftNames): RegisterDraft {
@@ -81,6 +86,7 @@ export function toDraft(state: RegState, reached: number, names: RegisterDraftNa
     area: state.area,
     sectorId: state.sectorId,
     sectorName: names.sectorName,
+    sectorNameEn: names.sectorNameEn,
   };
 }
 
@@ -134,6 +140,7 @@ export function parseDraft(raw: unknown): RegisterDraft | null {
     area: asString(d.area),
     sectorId: asString(d.sectorId),
     sectorName: asString(d.sectorName),
+    sectorNameEn: asString(d.sectorNameEn),
   };
 }
 

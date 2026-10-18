@@ -27,6 +27,7 @@ import {
 } from "./register-constants";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, RESPONDENT_FUNCTION_OTHER, registerOptionLabel } from "./register-options";
 import { localized, type UiLocale } from "./register-i18n";
+import { sectorLabel } from "./display-labels";
 import { isSecurityComplete, type RegState } from "./register-completeness";
 
 export interface SummaryRow {
@@ -41,6 +42,11 @@ export interface SummaryState extends RegState {
   departmentName: string;
   subdivisionName: string;
   sectorName: string;
+  // The sector's English name, when it has one. The picker shows the sector
+  // in the reader's language; without this the review printed the French DB
+  // name back to an English reader (B10 of the 2026-10-17 run). Absent on a
+  // draft saved before that fix, which falls back to `sectorName`.
+  sectorNameEn?: string | null;
 }
 
 export type TranslateFn = (key: string) => string;
@@ -130,7 +136,12 @@ export function summaryRows(
           t("registerPage.areaLabel"),
           state.area ? registerOptionLabel(AREA_OPTIONS, state.area, locale) : ""
         ),
-        row(t("registerPage.sectorLabel"), state.sectorName),
+        // A sector is a select answer: shown with its own label, like the
+        // other selects above, not as the stored French name.
+        row(
+          t("registerPage.sectorLabel"),
+          sectorLabel({ name: state.sectorName, nameEn: state.sectorNameEn }, locale)
+        ),
       ]);
 
     case "security":

@@ -1467,6 +1467,13 @@ html:has(.cam-masthead) {
   font-weight: var(--cam-font-weight-regular);
 }
 
+/* Something the respondent should read but that does not stop them — the
+   e-mail availability check when the API cannot be reached. Muted read as a
+   footnote and went unnoticed (B11 of the 2026-10-17 run). */
+.field-status.is-warn {
+  color: var(--cam-warning);
+}
+
 /* The once-per-step cascade note on the location section. */
 .cam-auth-page--wizard .cascade-note {
   font-size: var(--cam-field-hint-size);

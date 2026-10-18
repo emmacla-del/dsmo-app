@@ -394,7 +394,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => {
-                logout();
+                logout({ intentional: true });
                 router.replace("/");
               }}
               className="cam-text-button"

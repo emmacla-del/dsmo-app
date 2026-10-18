@@ -40,15 +40,24 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
 
   it('answers 400 with a French message for invalid paging, before querying', async () => {
     const invalid: ListArgs[] = [
-      { limit: '0' }, { limit: '101' }, { limit: 'abc' }, { limit: '1.5' }, { limit: '-1' },
+      { limit: '101' }, { limit: 'abc' }, { limit: '1.5' }, { limit: '-1' },
       { offset: '-5' }, { offset: 'x' },
     ];
     for (const args of invalid) {
       await expect(getAll(args)).rejects.toThrow(BadRequestException);
     }
-    await expect(getAll({ limit: '0' })).rejects.toThrow('Le paramètre « limit » doit être un entier entre 1 et 100.');
+    await expect(getAll({ limit: '101' })).rejects.toThrow('Le paramètre « limit » doit être un entier entre 0 et 100.');
     await expect(getAll({ offset: '-5' })).rejects.toThrow('Le paramètre « offset » doit être un entier positif ou nul.');
     expect(service.listForAdmin).not.toHaveBeenCalled();
+  });
+
+  // limit=0 is the count-only request the admin questionnaires page makes for
+  // each of its seven totals: it was rejected until 2026-10-18, so the page
+  // asked for one row and received a whole declaration, rawData included,
+  // only to read `total` (B11 of the 2026-10-17 run).
+  it('accepts limit 0 and passes it through as a count-only request', async () => {
+    await getAll({ limit: '0', formType: 'PROJECT_PROGRAM' });
+    expect(service.listForAdmin.mock.calls[0][0]).toMatchObject({ formType: 'PROJECT_PROGRAM', limit: 0, offset: 0 });
   });
 
   it('rejects unknown statuses, and DRAFT, with 400', async () => {

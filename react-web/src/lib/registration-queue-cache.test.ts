@@ -33,3 +33,36 @@ test("a page without the file, or no page yet, is left as it is", () => {
   assert.equal(applyRegistrationDecision(p, "zzz", "ACTIVE"), p);
   assert.equal(applyRegistrationDecision(undefined, "a", "ACTIVE"), undefined);
 });
+
+// B11 (E2E 2026-10-17): with the list filtered to the review queue, an
+// approved row stayed on the page under its new status until the refetch
+// answered — in a list that, by its own filter, no longer held it.
+
+test("a decided file leaves a list filtered to the queue it was in", () => {
+  const next = applyRegistrationDecision(page(), "a", "ACTIVE", "PENDING_APPROVAL")!;
+  assert.deepEqual(next.items.map((i) => i.id), ["b"]);
+  assert.equal(next.total, 1);
+  assert.deepEqual(next.counts, { pending: 3, complements: 0, approved: 6, rejected: 1, overdue: 0 });
+});
+
+test("a decided file stays in a list filtered to the status it moves into", () => {
+  const next = applyRegistrationDecision(page(), "a", "ACTIVE", "ACTIVE")!;
+  assert.deepEqual(next.items.map((i) => i.id), ["a", "b"]);
+  assert.equal(next.items[0].status, "ACTIVE");
+  assert.equal(next.total, 2);
+});
+
+test("a decided file leaves the overdue view, which no decided file belongs to", () => {
+  for (const status of ["ACTIVE", "REJECTED", "COMPLEMENTS_REQUESTED"] as const) {
+    const next = applyRegistrationDecision(page(), "a", status, "OVERDUE")!;
+    assert.deepEqual(next.items.map((i) => i.id), ["b"], status);
+  }
+});
+
+test("the unfiltered list keeps the row and only restyles it", () => {
+  for (const view of [undefined, ""]) {
+    const next = applyRegistrationDecision(page(), "a", "ACTIVE", view)!;
+    assert.deepEqual(next.items.map((i) => i.id), ["a", "b"], String(view));
+    assert.equal(next.total, 2);
+  }
+});
