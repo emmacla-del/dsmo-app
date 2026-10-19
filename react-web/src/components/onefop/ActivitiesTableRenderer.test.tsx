@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { renderWithProviders, within } from "@/test/render";
+import { renderWithProviders, screen, within } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { schemaField } from "@/test/schema";
@@ -32,9 +32,9 @@ function renderTable(data: Record<string, unknown> = {}, attemptedContinue = fal
 test("an empty table offers one line, not thirteen", () => {
   const { rows, controls, unmount } = renderTable();
   assert.equal(rows, 1);
-  // One control per column, and one more: « Date de début » is a month and a
-  // year side by side.
-  assert.equal(controls, ACTIVITIES_TABLE_FIELDS.length + 1);
+  // One control per column, less the date, whose one box is a button that
+  // opens the month panel rather than an input.
+  assert.equal(controls, ACTIVITIES_TABLE_FIELDS.length - 1);
   unmount();
 });
 
@@ -99,7 +99,7 @@ test("the table's question is a heading, and every cell has a name", () => {
 // while nothing on the grid was marked — this table was passed no
 // attemptedContinue at all.
 const invalidCells = (container: Element) =>
-  [...container.querySelectorAll("tbody [aria-invalid='true']")].map((el) => el.id.replace("cell-input-", "")).sort();
+  [...container.querySelectorAll("tbody [aria-invalid='true'], tbody [data-invalid='true']")].map((el) => el.id.replace("cell-input-", "")).sort();
 
 test("a half-filled line marks the boxes it still owes, once Continue was pressed", () => {
   const half = { s2_row1_description: "Formation" };
@@ -112,8 +112,6 @@ test("a half-filled line marks the boxes it still owes, once Continue was presse
     "s2_row1_duration",
     "s2_row1_scope",
     "s2_row1_startDate",
-    // Both halves of the date are marked, not just the month.
-    "s2_row1_startDate-year",
     "s2_row1_supportType",
     "s2_row1_targetPopulation",
   ]);
@@ -162,30 +160,67 @@ function renderLive(initial: Record<string, unknown> = {}) {
 // (type="date") would have the respondent pick a day the form does not ask for;
 // a month input leaves the year behind an arrow, one click per year. So: the
 // month is chosen from a list, the year typed, and MM/AAAA is what is stored.
-test("the month is picked and the year typed, and MM/AAAA is stored", async () => {
+test("the box opens a panel, and a month picked there stores MM/AAAA", async () => {
   const { container, user, unmount } = renderLive({ s2_row1_description: "Formation" });
-  const month = container.querySelector("#cell-input-s2_row1_startDate") as HTMLSelectElement;
-  const year = container.querySelector("#cell-input-s2_row1_startDate-year") as HTMLInputElement;
-  assert.equal(month.tagName, "SELECT");
-  assert.ok([...month.options].some((o) => o.textContent === "Mars"), "the months are not named");
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  assert.equal(box.tagName, "BUTTON", "the cell is not one box");
+  assert.equal(box.getAttribute("aria-expanded"), "false");
+  assert.match(box.textContent ?? "", /MM\/AAAA/);
 
-  await user.selectOptions(month, "03");
-  await user.type(year, "2026");
-  assert.equal(month.value, "03");
-  assert.equal(year.value, "2026");
+  await user.click(box);
+  const panel = screen.getByRole("dialog");
+  const year = within(panel).getByRole("combobox") as HTMLSelectElement;
+  // Most recent first, and from the round, never the reader's clock.
+  assert.deepEqual([...year.options].slice(0, 3).map((o) => o.value), ["2027", "2026", "2025"]);
+
+  await user.selectOptions(year, "2024");
+  await user.click(within(panel).getByRole("button", { name: "Mars" }));
+  assert.equal(box.textContent, "Mars 2024");
+  assert.equal(screen.queryByRole("dialog"), null, "the panel stayed open after a month was picked");
   unmount();
 });
 
-test("a stored date fills both halves, and the year takes digits only", async () => {
-  const { container, user, unmount } = renderLive({ s2_row1_startDate: "03/2026" });
-  const month = container.querySelector("#cell-input-s2_row1_startDate") as HTMLSelectElement;
-  const year = container.querySelector("#cell-input-s2_row1_startDate-year") as HTMLInputElement;
-  assert.equal(month.value, "03");
-  assert.equal(year.value, "2026");
-  assert.equal(year.maxLength, 4);
+test("a stored date reads back in the box, and a year outside the list is kept", async () => {
+  const { container, user, unmount } = renderLive({ s2_row1_startDate: "07/1960" });
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  assert.equal(box.textContent, "Juillet 1960");
 
-  await user.clear(year);
-  await user.type(year, "a1");
-  assert.equal(year.value, "1", "a letter reached the year box");
+  // A service that began before the list reaches still finds its own year.
+  await user.click(box);
+  const year = within(screen.getByRole("dialog")).getByRole("combobox") as HTMLSelectElement;
+  assert.equal(year.value, "1960");
+  unmount();
+});
+
+test("a date the line still owes says so, where a button can carry it", async () => {
+  const { container, unmount } = renderLive({ s2_row1_description: "Formation" });
+  // aria-invalid is not a thing on a <button>: the state is in the name and
+  // in data-invalid, which globals.css draws like every other owed cell.
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  assert.equal(box.getAttribute("aria-invalid"), null);
+  unmount();
+
+  const { container: marked, unmount: close } = renderWithProviders(
+    <ActivitiesTableRenderer
+      field={schemaField("projectProgram", "PP_S2_ACTIVITIES")}
+      data={{ s2_row1_description: "Formation" }}
+      onChange={() => {}}
+      attemptedContinue
+    />,
+  );
+  const owed = marked.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  assert.equal(owed.getAttribute("data-invalid"), "true");
+  assert.match(owed.getAttribute("aria-label") ?? "", /à renseigner$/);
+  close();
+});
+
+test("Escape closes the panel and gives the box back its focus", async () => {
+  const { container, user, unmount } = renderLive();
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  await user.click(box);
+  assert.ok(screen.getByRole("dialog"));
+  await user.keyboard("{Escape}");
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(document.activeElement, box);
   unmount();
 });

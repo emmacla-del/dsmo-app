@@ -3909,13 +3909,17 @@ textarea.sovereign-text-input {
 }
 
 /* A cell a started line still owes. aria-invalid carries it, so the mark and
-   what a screen reader is told can never say different things. */
-.cam-dt .cam-cell-input[aria-invalid="true"] {
+   what a screen reader is told can never say different things — except on the
+   month box, which is a <button>: aria-invalid says nothing there, so it
+   carries data-invalid and names its state in its own label. */
+.cam-dt .cam-cell-input[aria-invalid="true"],
+.cam-dt .cam-cell-input[data-invalid="true"] {
   background: var(--cam-error-bg);
   box-shadow: inset 0 0 0 2px var(--cam-error);
 }
 
-.cam-dt .cam-cell-input[aria-invalid="true"]:focus {
+.cam-dt .cam-cell-input[aria-invalid="true"]:focus,
+.cam-dt .cam-cell-input[data-invalid="true"]:focus {
   background: transparent;
   box-shadow: inset 0 0 0 2px var(--cam-error);
 }
