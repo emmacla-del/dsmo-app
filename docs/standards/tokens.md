@@ -88,7 +88,7 @@ One row per token, in the order `tokens.css` defines them. A second value is the
 | `--cam-space-6` | `32px` | Spacing | Space step. Admin page padding. |
 | `--cam-space-7` | `48px` | Spacing | Largest space step. |
 | `--cam-font-sans` | `var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif` | Font family | UI text. |
-| `--cam-font-serif` | `var(--font-zilla-slab), "Zilla Slab", Georgia, "Times New Roman", serif` | Font family | Serif display, where a screen already uses it. |
+| `--cam-font-serif` | `var(--font-newsreader), "Newsreader", Georgia, "Times New Roman", serif` | Font family | The public portal's headings only (`portal.module.css`: `.page h1/h2/h3`, card, FAQ and closing headings). Zilla Slab, and this token with it, were dropped on 2026-10-11 when Inter became the app's only typeface; Newsreader re-introduced it for the front door alone. The respondent wizard, the staff console and the registration wizard use `--cam-font-sans`. |
 | `--cam-font-mono` | `ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace` | Font family | Codes and identifiers only: NIU, CNPS, row codes. Table numbers use the UI font with tabular figures. |
 | `--cam-font-size-4xs` | `0.5625rem` (9px) | Font size | The star in the flag circle. The admin rail's brand sub-label left it for 12px on 2026-10-10. Nothing new uses it. |
 | `--cam-font-size-3xs` | `0.6875rem` (11px) | Font size | Smallest body step above the sidebar micro-copy. |
