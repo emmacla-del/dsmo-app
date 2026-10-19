@@ -832,6 +832,7 @@
     "example": "e.g. {example}",
     "placeholderName": "e.g. John Doe",
     "placeholderJobTitle": "e.g. HR Director",
+    "placeholderJobTitleProject": "e.g. Project Coordinator",
     "placeholderEmail": "e.g. contact@company.com",
     "exampleHint": "Example: {example}"
   },

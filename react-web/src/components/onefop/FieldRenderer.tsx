@@ -81,6 +81,8 @@ interface FieldRendererProps {
   /** Parent section's id — determines whether the official paper question
    * code prefixes the label (see fieldDisplayLabel/isSimpleSection). */
   sectionId: string;
+  /** Entity type being declared (enterprise, projectProgram, administration, etc.) */
+  entityType?: string;
   /** Tighter spacing for a field rendered inside a paired 2-per-row slot
    * (see pairShortFields in SectionRenderer.tsx) — same control, just no
    * bottom margin of its own since the row itself carries that. */
@@ -119,6 +121,7 @@ export function FieldRenderer({
   data,
   onChange,
   sectionId,
+  entityType,
   noBottomMargin = false,
   controlMaxWidth,
   errorMessage,
@@ -140,9 +143,26 @@ export function FieldRenderer({
   // matching section0 branch for the card treatment.
   const isRespondentSection = sectionId === "section0";
 
+  // S0Q02 names the organisation the respondent works in. ModernJobsWizard
+  // (the only renderer of Section 0) passes the schema entity key; without
+  // it the generic "établissement" wording stays.
+  const resolvedEntityType = entityType;
+
+  const respondentFunctionLabels: Record<string, { fr: string; en: string }> = {
+    projectProgram: { fr: "Fonction / Titre dans le projet", en: "Function / Title in the project" },
+    administration: { fr: "Fonction / Titre dans l'administration", en: "Function / Title in the administration" },
+    ong: { fr: "Fonction / Titre dans l'ONG", en: "Function / Title in the NGO" },
+    cooperative: { fr: "Fonction / Titre dans la coopérative", en: "Function / Title in the cooperative" },
+    ctd: { fr: "Fonction / Titre dans la collectivité", en: "Function / Title in the local authority" },
+  };
+
   const respondentLabels: Record<string, { fr: string; en: string }> = {
     S0Q01: { fr: "Nom et prénom(s) du répondant", en: "Respondent's full name" },
-    S0Q02: { fr: "Fonction / Titre dans l'établissement", en: "Function / Title in the establishment" },
+    S0Q02:
+      (resolvedEntityType ? respondentFunctionLabels[resolvedEntityType] : undefined) ?? {
+        fr: "Fonction / Titre dans l'établissement",
+        en: "Function / Title in the establishment",
+      },
     S0Q03_TEL1: { fr: "Numéro de téléphone principal", en: "Primary phone number" },
     S0Q03_TEL2: { fr: "Numéro de téléphone secondaire", en: "Secondary phone number" },
     S0Q03_EMAIL: { fr: "Adresse email professionnelle", en: "Professional email address" },
@@ -207,7 +227,15 @@ export function FieldRenderer({
     );
   }
 
-  const tooltip = getModernJobsTooltip(field.id) ?? (field.paperCode ? getModernJobsTooltip(field.paperCode) : null);
+  const tooltip =
+    (resolvedEntityType === "projectProgram" && field.id === "S0Q02"
+      ? {
+          fr: "Fonction officielle au sein du projet (ex: Coordonnateur de Projet, Responsable Suivi-Évaluation, Chef de Projet).",
+          en: "Official job title within the project (e.g. Project Coordinator, M&E Specialist, Project Manager).",
+        }
+      : null) ??
+    getModernJobsTooltip(field.id) ??
+    (field.paperCode ? getModernJobsTooltip(field.paperCode) : null);
   const tooltipText = tooltip ? (locale === "en" ? tooltip.en : tooltip.fr) : null;
 
   // Radio/checkbox fields are never in a short-pairable pair (see
@@ -260,7 +288,10 @@ export function FieldRenderer({
   const computedPlaceholder = (() => {
     if (isRespondentSection) {
       if (field.id === "S0Q01") return t("fieldRenderer.placeholderName");
-      if (field.id === "S0Q02") return t("fieldRenderer.placeholderJobTitle");
+      if (field.id === "S0Q02") {
+        if (resolvedEntityType === "projectProgram") return t("fieldRenderer.placeholderJobTitleProject");
+        return t("fieldRenderer.placeholderJobTitle");
+      }
       if (field.id === "S0Q03_TEL1") return t("fieldRenderer.example", { example: "677 12 34 56" });
       if (field.id === "S0Q03_TEL2") return t("fieldRenderer.example", { example: "699 12 34 56" });
       if (field.id === "S0Q03_EMAIL") return t("fieldRenderer.placeholderEmail");

@@ -37,6 +37,7 @@ interface SectionRendererProps {
   section: OnefopSection;
   data: FormData;
   onChange: (fieldId: string, value: unknown) => void;
+  entityType?: string;
   issues?: ValidationIssue[];
   /** Respondent Identification (Section 0) only: field ids the user has
    * blurred at least once. Gates whether a required-field error is shown
@@ -106,6 +107,7 @@ export function SectionRenderer({
   section,
   data,
   onChange,
+  entityType,
   issues = [],
   touchedFields,
   onFieldTouch,
@@ -630,6 +632,7 @@ export function SectionRenderer({
                   data={data}
                   onChange={onChange}
                   sectionId={section.id}
+                  entityType={entityType}
                   errorMessage={
                     field.type === "table" || field.type === "repeating_table"
                       ? (attemptedContinue ? gatewayErrorForTable(field) : undefined)
@@ -951,6 +954,7 @@ export function SectionRenderer({
                     data={data}
                     onChange={onChange}
                     sectionId={section.id}
+                    entityType={entityType}
                     errorMessage={shouldShowError(nameField.id) ? issueByFieldId.get(nameField.id) : undefined}
                     onFieldTouch={onFieldTouch}
                     attemptedContinue={attemptedContinue}
@@ -964,6 +968,7 @@ export function SectionRenderer({
                     data={data}
                     onChange={onChange}
                     sectionId={section.id}
+                    entityType={entityType}
                     errorMessage={shouldShowError(functionField.id) ? issueByFieldId.get(functionField.id) : undefined}
                     onFieldTouch={onFieldTouch}
                     attemptedContinue={attemptedContinue}
@@ -986,6 +991,7 @@ export function SectionRenderer({
                         data={data}
                         onChange={onChange}
                         sectionId={section.id}
+                        entityType={entityType}
                         errorMessage={shouldShowError(tel1Field.id) ? issueByFieldId.get(tel1Field.id) : undefined}
                         onFieldTouch={onFieldTouch}
                         noBottomMargin
@@ -999,6 +1005,7 @@ export function SectionRenderer({
                         data={data}
                         onChange={onChange}
                         sectionId={section.id}
+                        entityType={entityType}
                         errorMessage={shouldShowError(tel2Field.id) ? issueByFieldId.get(tel2Field.id) : undefined}
                         onFieldTouch={onFieldTouch}
                         noBottomMargin
@@ -1015,6 +1022,7 @@ export function SectionRenderer({
                     data={data}
                     onChange={onChange}
                     sectionId={section.id}
+                    entityType={entityType}
                     errorMessage={shouldShowError(emailField.id) ? issueByFieldId.get(emailField.id) : undefined}
                     onFieldTouch={onFieldTouch}
                     attemptedContinue={attemptedContinue}
@@ -1029,6 +1037,7 @@ export function SectionRenderer({
                     data={data}
                     onChange={onChange}
                     sectionId={section.id}
+                    entityType={entityType}
                     errorMessage={shouldShowError(f.id) ? issueByFieldId.get(f.id) : undefined}
                     onFieldTouch={onFieldTouch}
                     attemptedContinue={attemptedContinue}
