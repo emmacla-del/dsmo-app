@@ -4,7 +4,7 @@ import { WizardRail } from "@/components/wizard/WizardRail";
 import { WizardStepList, type WizardStep, type WizardStepState } from "@/components/wizard/WizardStepList";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
-import { localized, computeSubsectionLayout, isFieldVisible } from "@/lib/onefop-schema";
+import { localized, isFieldVisible, sectionChunkStarterIds } from "@/lib/onefop-schema";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "@/components/modern-jobs/conditional/gateway-catalog";
 import {
@@ -213,9 +213,13 @@ export function ModernJobsSidebar({
 
   // "Tableau 1 sur 2" under the section in hand when it holds several tables.
   const tableProgress = (section: OnefopSection): string | undefined => {
-    const { startsHeadingFieldIds } = computeSubsectionLayout(section, locale);
+    // The same rule the renderer cuts the section with, so the rail counts
+    // the screens the respondent actually walks through — including the
+    // sections the paper form gives no subsections (Project/Programme
+    // Section 4 and its six tables).
+    const starters = sectionChunkStarterIds(section);
     const tableFields = section.fields.filter(
-      (f) => startsHeadingFieldIds.has(f.id) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
+      (f) => starters.has(f.id) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
     );
     if (tableFields.length <= 1) return undefined;
     const active = activeTableId

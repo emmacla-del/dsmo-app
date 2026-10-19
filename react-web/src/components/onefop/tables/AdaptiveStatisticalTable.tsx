@@ -41,7 +41,7 @@ import { CoherenceChip, useCoherence } from "../coherence/Coherence";
  */
 export function tableHeadingText(
   definition: { title: LocalizedText; caption?: LocalizedText },
-  locale: string,
+  locale?: "fr" | "en",
 ): string {
   return localized(definition.title, locale);
 }
@@ -449,15 +449,21 @@ export function AdaptiveStatisticalTable({
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--cam-space-4, 16px)", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flex: 1, minWidth: 260 }}>
               {!headingShown && (
-                <span
+                // A heading, not a <span>: in Tableau view this is the only
+                // thing on the screen that says what the table counts, and
+                // one table now fills a screen of its own. Guided view below
+                // already used an <h2>; the two agree.
+                <h2
                   style={{
                     fontSize: "var(--cam-font-size-lg, 1.125rem)",
+                    fontWeight: "var(--cam-font-weight-bold)",
                     color: "var(--cam-text)",
                     lineHeight: 1.4,
+                    margin: 0,
                   }}
                 >
                   <CodedLabel code={definition.paperCode} text={tableHeadingText(definition, locale)} />
-                </span>
+                </h2>
               )}
             </div>
 

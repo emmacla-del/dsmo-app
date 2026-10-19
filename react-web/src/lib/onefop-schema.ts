@@ -307,3 +307,26 @@ export function computeSubsectionLayout(section: OnefopSection, locale?: "fr" | 
 
   return { headingByFieldId, startsHeadingFieldIds };
 }
+
+function isTableShapedField(field: OnefopField): boolean {
+  return field.type === "table" || field.type === "repeating_table" || !!field.table;
+}
+
+/**
+ * Which fields begin a screen of their own in a section — the single rule
+ * the renderer and the wizard rail both read, so the table list, the
+ * table-by-table Previous/Next and the rail's "Tableau n sur m" cannot
+ * disagree about how many screens a section has.
+ *
+ * A section the paper form divides into subsections is cut along those. One
+ * that declares none but carries several tables (Project/Programme Section
+ * 4 and its six; Sections 3 and 4 of the other employer forms) is cut at
+ * each table — they used to be stacked on one screen.
+ */
+export function sectionChunkStarterIds(section: OnefopSection): Set<string> {
+  const { startsHeadingFieldIds } = computeSubsectionLayout(section);
+  if (section.subsections.length > 0) return startsHeadingFieldIds;
+  const tables = section.fields.filter(isTableShapedField);
+  if (tables.length <= 1) return startsHeadingFieldIds;
+  return new Set([...startsHeadingFieldIds, ...tables.map((f) => f.id)]);
+}
