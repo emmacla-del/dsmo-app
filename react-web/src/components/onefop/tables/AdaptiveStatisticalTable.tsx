@@ -26,6 +26,26 @@ import {
 } from "./tableLayout";
 import { CoherenceChip, useCoherence } from "../coherence/Coherence";
 
+/**
+ * The heading a table shows above itself: its own question, from the AST
+ * label the definition carries as `title`.
+ *
+ * Until 2026-10-19 both heading sites rendered `caption || title`, so a
+ * definition that carried a caption showed it INSTEAD of its question — and
+ * the five captions in modernJobsTableDefinitions.ts all describe the column
+ * structure ("Répartition selon le statut d'emploi …") rather than the
+ * population counted. Project 4.5 therefore asked the respondent to count
+ * people by CSP with the word "handicap" nowhere on screen
+ * (docs/audit/e2e-2026-10-19-project-table-4.6.md, D3). The caption is kept:
+ * StatisticalGridRenderer renders it as the table's sr-only <caption>.
+ */
+export function tableHeadingText(
+  definition: { title: LocalizedText; caption?: LocalizedText },
+  locale: string,
+): string {
+  return localized(definition.title, locale);
+}
+
 /** A run of consecutive columns sharing one header group (e.g. "Licenciement" → H/F/T). */
 interface ColumnBlock {
   key: string;
@@ -436,7 +456,7 @@ export function AdaptiveStatisticalTable({
                     lineHeight: 1.4,
                   }}
                 >
-                  <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
+                  <CodedLabel code={definition.paperCode} text={tableHeadingText(definition, locale)} />
                 </span>
               )}
             </div>
@@ -457,7 +477,7 @@ export function AdaptiveStatisticalTable({
                   lineHeight: 1.35,
                 }}
               >
-                <CodedLabel code={definition.paperCode} text={(definition.caption ? localized(definition.caption, locale) : null) || localized(definition.title, locale)} />
+                <CodedLabel code={definition.paperCode} text={tableHeadingText(definition, locale)} />
               </h2>
             )}
             <CoherenceChip tableFieldId={tableFieldId} />
