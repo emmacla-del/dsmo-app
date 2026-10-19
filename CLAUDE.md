@@ -821,6 +821,31 @@ Approved changes on record:
   cells the wizard writes, the mismatch that refused the enterprise
   submission in C1–C3. Approved by the owner in chat, 2026-10-18. Analyst
   note: `docs/reference/jeu-de-donnees-onefop-version-13.md`.
+- 2026-10-19 — project Section 3 is checked, and its two forecast columns are
+  not (`missingOutcomeCells` / `validateOutcomesTable` in
+  `react-web/src/lib/onefop-validation.ts`). Issue: the outcomes grid
+  (`kpi_period_table`, `s3kpi_*`) carries no `_RESPONSE_STATUS` — the paper
+  form prints no selector for it — so `isReported` was never true in the
+  wizard, and the server's completeness check, which walks the tables marked
+  REPORTED, never saw it either. A project could tick an outcome in the
+  preliminary questionnaire and file the section blank, refused by nothing.
+  Decision: the « Réalisations » figure of every outcome the quiz opened is
+  required, and blocks Suivant and submission in the wizard; a row the quiz
+  did not open already holds the 0 the quiz wrote for it, and « aucun
+  bénéficiaire » zeroes all four, so neither is asked for anything. The two
+  outlook columns (`outlook_dec`, `outlook_june`) are NOT required, because
+  which December and which June they name is still ONEFOP's to answer (E2E
+  2026-10-19): a column whose reference period is undecided cannot be demanded
+  of a respondent. They are still checked for a whole, non-negative count when
+  one is given. When ONEFOP names those periods, this entry is what to
+  revisit. The preliminary questionnaire also reads an outcome from any of its
+  three columns, not the realised one alone, so a file carrying only a
+  forecast is no longer read as « aucun bénéficiaire » and zeroed (§9).
+  Server-side enforcement is deliberately NOT added: that check is driven by
+  the REPORTED statuses, and giving this table a synthetic status would put a
+  key in the submitted data that the canonical form has no question for — that
+  half needs a decision of its own. No schema, cell key, variable or dataset
+  version change. Approved by the owner in chat, 2026-10-19.
 
 ---
 
