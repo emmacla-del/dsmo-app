@@ -242,6 +242,27 @@ Blocking checks currently in force:
   compared row by row. Warned on entry, blocks Suivant and submission in
   the wizard and on the server. Confirmed by the owner in chat, 2026-10-16.
 
+Considered for blocking and deliberately left advisory:
+
+- 2026-10-19 — the employer "of which" subsets: recruitment of people with a
+  disability and of vulnerable people against the permanent and temporary
+  recruitment totals — project 4.5 / 4.6 against 4.3 / 4.4
+  (`pp_s4q0{5,6}_total_<status>_<sex>`), and their equivalents on the
+  enterprise, cooperative, CTD and NGO forms (S22Q04 / S22Q05 against
+  S22Q01 / S22Q02), in `react-web/src/lib/onefop-coherence.ts` and
+  `QuestionnairesService.checkCoherence`. They are the class this section
+  allows to block — a part of a count cannot exceed the count it belongs to,
+  the same logic as the VT subsets above. They stay ADVISORY on purpose: the
+  check has been advisory on the four employer forms since before the project
+  form had any check at all, and blocking it for projects alone would stop a
+  project over an error that waves an enterprise through. Whether the family
+  should block is one decision for all five forms; until it is taken, nobody
+  should raise one form on its own. Owner's decision in chat, 2026-10-19, on
+  adding the project rules. The project's 4.1-versus-S1Q15 check added the
+  same day is advisory for the other reason this section gives: it compares
+  two reference moments (the permanents counted over the period, and the
+  headcount as it stands), so it awaits domain review in any case.
+
 ---
 
 # 8. UX PRINCIPLES
