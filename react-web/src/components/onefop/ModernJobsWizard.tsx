@@ -1248,6 +1248,7 @@ export function ModernJobsWizard({
                   // table and then snapping to table 1 a frame later.
                   key={currentSection.id}
                   section={currentSection}
+                  entityType={entity.entityType}
                   data={data}
                   onChange={onChange}
                   issues={sectionIssues}

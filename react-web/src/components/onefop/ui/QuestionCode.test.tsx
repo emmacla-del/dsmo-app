@@ -33,3 +33,47 @@ test("a training-centre question keeps its form number", () => {
   assert.deepEqual(codes, ["1.3"]);
   assert.ok(text.trim().length > "1.3".length, "the question itself is still rendered");
 });
+
+test("S0Q02 respondent function adapts to projectProgram (dans le projet, not etablissement)", () => {
+  const ppField = schemaField("projectProgram", "S0Q02");
+  const { container: ppContainer, unmount: unmountPP } = renderWithProviders(
+    <FieldRenderer
+      field={ppField}
+      value=""
+      data={{}}
+      onChange={() => {}}
+      sectionId="section0"
+      entityType="projectProgram"
+    />,
+  );
+  const ppText = ppContainer.textContent ?? "";
+  assert.ok(
+    ppText.includes("Fonction / Titre dans le projet"),
+    `expected 'Fonction / Titre dans le projet', got: ${ppText}`
+  );
+  assert.ok(
+    !ppText.includes("dans l'établissement"),
+    `unexpected 'dans l\'établissement' in project text: ${ppText}`
+  );
+  unmountPP();
+
+  const enField = schemaField("enterprise", "S0Q02");
+  const { container: enContainer, unmount: unmountEN } = renderWithProviders(
+    <FieldRenderer
+      field={enField}
+      value=""
+      data={{}}
+      onChange={() => {}}
+      sectionId="section0"
+      entityType="enterprise"
+    />,
+  );
+  const enText = enContainer.textContent ?? "";
+  assert.ok(
+    enText.includes("Fonction / Titre dans l'établissement"),
+    `expected 'Fonction / Titre dans l'établissement', got: ${enText}`
+  );
+  unmountEN();
+});
+
+
