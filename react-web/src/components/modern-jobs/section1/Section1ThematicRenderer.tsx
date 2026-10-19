@@ -351,6 +351,10 @@ export function Section1ThematicRenderer({
                       data={data}
                       onChange={onChange}
                       sectionId={section.id}
+                      // Read off the section's own id rather than threaded
+                      // from the wizard: a tooltip may differ by form (see
+                      // ENTITY_TOOLTIPS in modern-jobs-tooltips.ts).
+                      entityType={entityOfSection(section.id) || undefined}
                       errorMessage={err}
                       onFieldTouch={onFieldTouch}
                       noBottomMargin={noBottomMargin}

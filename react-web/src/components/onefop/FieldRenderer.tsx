@@ -227,15 +227,11 @@ export function FieldRenderer({
     );
   }
 
-  const tooltip =
-    (resolvedEntityType === "projectProgram" && field.id === "S0Q02"
-      ? {
-          fr: "Fonction officielle au sein du projet (ex: Coordonnateur de Projet, Responsable Suivi-Évaluation, Chef de Projet).",
-          en: "Official job title within the project (e.g. Project Coordinator, M&E Specialist, Project Manager).",
-        }
-      : null) ??
-    getModernJobsTooltip(field.id) ??
-    (field.paperCode ? getModernJobsTooltip(field.paperCode) : null);
+  // By field id and form, never by paper code: every form numbers its
+  // Section 1 questions S1Q01, S1Q10, S1Q11, so a paper-code fallback served
+  // the enterprise's definitions on whatever question carried the same
+  // number elsewhere (see modern-jobs-tooltips.ts).
+  const tooltip = getModernJobsTooltip(field.id, resolvedEntityType);
   const tooltipText = tooltip ? (locale === "en" ? tooltip.en : tooltip.fr) : null;
 
   // Radio/checkbox fields are never in a short-pairable pair (see
