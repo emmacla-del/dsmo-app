@@ -624,9 +624,8 @@ export function StatisticalGridRenderer({
                             handleCellKeyDown(e, rowIdx, colIdx)
                           }
                           onFocus={(e) => e.target.select()}
-                          className={`w-full h-full min-h-[34px] px-2 py-1 bg-transparent border-0 outline-none rounded-none focus:ring-2 focus:ring-inset focus:ring-[var(--cam-table-focus)] focus:bg-transparent transition-colors ${
-                            isMissing ? "ring-2 ring-inset ring-[var(--cam-error)] bg-[rgba(179,38,30,0.06)]" : ""
-                          }`}
+                          // The mark comes from aria-invalid above (globals.css).
+                          className="cam-cell-input"
                         />
                       </CoherenceTd>
                     );

@@ -66,14 +66,10 @@ const CONTROL_MIN_WIDTH: Record<string, number> = {
 
 const controlStyle = (key: string): LayoutStyle => ({ minWidth: CONTROL_MIN_WIDTH[key] ?? 130 });
 
-/** Same in-cell control as the statistical grids: no edge of its own, an inset
- *  ring on focus, and a red ring on a cell a started line still owes. */
-const CELL_INPUT_CLASS =
-  "w-full h-full min-h-[34px] px-2 py-1 bg-transparent border-0 outline-none rounded-none " +
-  "focus:ring-2 focus:ring-inset focus:ring-[var(--cam-table-focus)] focus:bg-transparent transition-colors";
-const MISSING_CELL_CLASS = "ring-2 ring-inset ring-[var(--cam-error)] bg-[rgba(179,38,30,0.06)]";
-const cellInputClass = (missing: boolean) =>
-  missing ? `${CELL_INPUT_CLASS} ${MISSING_CELL_CLASS}` : CELL_INPUT_CLASS;
+/** The same in-cell control every other grid uses (globals.css): no edge of
+ *  its own, a tint under the pointer, an inset ring on focus, and the red
+ *  ring of a cell a started line still owes, drawn from its aria-invalid. */
+const CELL_INPUT_CLASS = "cam-cell-input";
 
 interface ActivitiesTableRendererProps {
   field: OnefopField;
@@ -198,7 +194,7 @@ export function ActivitiesTableRenderer({
                           id={`cell-input-${cellId}`}
                           aria-label={cellLabel}
                           aria-invalid={missing.has(cellId) ? true : undefined}
-                          className={cellInputClass(missing.has(cellId))}
+                          className={CELL_INPUT_CLASS}
                           style={controlStyle(f.key)}
                           value={value}
                           onChange={(e) => onChange(cellId, e.target.value)}
@@ -219,10 +215,16 @@ export function ActivitiesTableRenderer({
                           type={f.key === "duration" ? "number" : "text"}
                           aria-label={cellLabel}
                           aria-invalid={missing.has(cellId) ? true : undefined}
-                          className={cellInputClass(missing.has(cellId))}
+                          className={CELL_INPUT_CLASS}
                           placeholder={localized(f.hint, locale)}
                           style={controlStyle(f.key)}
                           value={value}
+                          // What the statistical grids give a cell: typing
+                          // replaces what is there, and the wheel scrolls the
+                          // page rather than changing a number under the
+                          // pointer.
+                          onFocus={(e) => e.target.select()}
+                          onWheel={(e) => e.currentTarget.blur()}
                           onChange={(e) => onChange(cellId, e.target.value)}
                         />
                       )}

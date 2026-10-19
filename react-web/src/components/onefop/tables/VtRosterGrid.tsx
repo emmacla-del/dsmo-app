@@ -118,10 +118,9 @@ export function VtRosterGrid({
   // the row is removed.
   const hint = isEn ? "Select…" : "Sélectionner…";
   const hintCls = (value: unknown) => (entered(value) ? "" : " text-[var(--cam-text-muted)]");
-  const inputCls = (id: string) =>
-    `w-full h-full min-h-[34px] px-2 py-1 bg-transparent border-0 outline-none rounded-none focus:ring-2 focus:ring-inset focus:ring-[var(--cam-table-focus)] focus:bg-transparent transition-colors${
-      missing.has(id) ? " ring-2 ring-inset ring-[var(--cam-error)]" : ""
-    }`;
+  // One cell input for every grid (globals.css); a cell still owed is marked
+  // from its aria-invalid, so the colour and the screen reader agree.
+  const inputCls = "cam-cell-input";
 
   // The bands the paper prints over the columns (8.8: "Si formateur" over
   // the two qualifications, field.group). Consecutive fields that share one
@@ -208,7 +207,7 @@ export function VtRosterGrid({
                             <TextInput
                               id={`cell-input-${id}`}
                               type="text"
-                              className={inputCls(id)}
+                              className={inputCls}
                               aria-invalid={missing.has(id) ? true : undefined}
                               aria-label={label}
                               placeholder={localized(f.placeholder ?? null, locale)}
@@ -230,7 +229,7 @@ export function VtRosterGrid({
                           <Cell key={f.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
                             <SelectInput
                               id={`cell-input-${id}`}
-                              className={inputCls(id) + hintCls(value)}
+                              className={inputCls + hintCls(value)}
                               aria-invalid={missing.has(id) ? true : undefined}
                               aria-label={label}
                               value={value}
@@ -251,7 +250,7 @@ export function VtRosterGrid({
                         <Cell key={f.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
                           <SelectInput
                             id={`cell-input-${id}`}
-                            className={inputCls(id) + hintCls(raw)}
+                            className={inputCls + hintCls(raw)}
                             aria-invalid={missing.has(id) ? true : undefined}
                             aria-label={label}
                             value={entered(raw) ? String(raw) : ""}
