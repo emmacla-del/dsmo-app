@@ -739,12 +739,16 @@ export class QuestionnairesService {
       entityForGeo.enterprise?.permanentWorkers ??
       entityForGeo.cooperative?.permanentWorkers ??
       entityForGeo.ctd?.permanentWorkers ??
-      entityForGeo.ong?.permanentWorkers ?? null;
+      entityForGeo.ong?.permanentWorkers ??
+      // Without this a project's S1Q15 reached no check at all, not even the
+      // stray-digit ceiling below.
+      entityForGeo.projectProgram?.permanentWorkers ?? null;
     const headlineVacancies =
       entityForGeo.enterprise?.vacancies ??
       entityForGeo.cooperative?.vacancies ??
       entityForGeo.ctd?.vacancies ??
-      entityForGeo.ong?.vacancies ?? null;
+      entityForGeo.ong?.vacancies ??
+      entityForGeo.projectProgram?.vacancies ?? null;
 
     // Coherence flags are non-blocking and are only computed for final
     // submissions. VT uses its own numeric cross-table rules from design
@@ -1629,10 +1633,12 @@ export class QuestionnairesService {
     const nested = buildNestedDto(normalized, toLowerEntityType(type)) as any;
     const headlineWorkers =
       nested.enterprise?.permanentWorkers ?? nested.cooperative?.permanentWorkers ??
-      nested.ctd?.permanentWorkers ?? nested.ong?.permanentWorkers ?? null;
+      nested.ctd?.permanentWorkers ?? nested.ong?.permanentWorkers ??
+      nested.projectProgram?.permanentWorkers ?? null;
     const headlineVacancies =
       nested.enterprise?.vacancies ?? nested.cooperative?.vacancies ??
-      nested.ctd?.vacancies ?? nested.ong?.vacancies ?? null;
+      nested.ctd?.vacancies ?? nested.ong?.vacancies ??
+      nested.projectProgram?.vacancies ?? null;
     return this.checkCoherence(flat, type, headlineWorkers, headlineVacancies);
   }
 
@@ -1777,6 +1783,60 @@ export class QuestionnairesService {
         });
       }
     });
+
+    // ── Project/Programme, Section 4 ───────────────────────────────────
+    // The project form had no coherence edit at all: every rule above is
+    // keyed to the employer forms' s22q0x / s3q0x cells, which a project
+    // file never holds. 4.5 and 4.6 count recruits of 4.3 / 4.4 (« avez-vous
+    // recruté », same population, same reference period), so each is an
+    // "of which" of its contract's total — the same rule as S22Q04 / S22Q05
+    // above, under the project's own codes. Advisory, like every flag here
+    // (CLAUDE.md §7; owner's decision of 2026-10-19). The wizard shows the
+    // same three as dismissible chips (react-web/src/lib/onefop-coherence.ts).
+    if (entityType === 'PROJECT_PROGRAM') {
+      const subsets = [
+        { code: 'PP_S4Q05', table: '4.5', what: 'de personnes en situation de handicap', prefix: 'pp_s4q05' },
+        { code: 'PP_S4Q06', table: '4.6', what: 'de personnes vulnérables', prefix: 'pp_s4q06' },
+      ];
+      (['male', 'female'] as const).forEach((gender) => {
+        const recruits = {
+          permanent: { count: n(`pp_s4q03_total_${gender}_total`), table: '4.3', label: 'permanents' },
+          temporary: { count: n(`pp_s4q04_total_${gender}_total`), table: '4.4', label: 'temporaires' },
+        };
+        for (const subset of subsets) {
+          (['permanent', 'temporary'] as const).forEach((contract) => {
+            const subsetCount = n(`${subset.prefix}_total_${contract}_${gender}`);
+            const total = recruits[contract];
+            if (subsetCount <= total.count) return;
+            flags.push({
+              code: `${subset.code}_${contract.toUpperCase()}_EXCEEDS_TOTAL`,
+              message:
+                `Recrutements ${total.label} ${subset.what} (${subset.table}: ${subsetCount}, ${gender}) ` +
+                `supérieurs au total des recrutements ${total.label} (${total.table}: ${total.count}, ${gender}).`,
+            });
+          });
+        }
+      });
+
+      // 4.1 counts the permanents recensés over the reference period; S1Q15
+      // is the structure's permanent headcount as it stands. A project that
+      // recruited or lost staff mid-period can legitimately differ, so this
+      // stays a hint across two reference moments (§7) — and it waits for
+      // 4.1's grand total, which is blank while any cell of the table is.
+      const censusTotal = flat['pp_s4q01_total_total_total'];
+      const censusGiven = censusTotal !== undefined && censusTotal !== null && censusTotal !== '';
+      if (censusGiven && headlineWorkers != null) {
+        const counted = n('pp_s4q01_total_total_total');
+        if (counted !== headlineWorkers) {
+          flags.push({
+            code: 'PP_S4Q01_HEADCOUNT_MISMATCH',
+            message:
+              `Permanents recensés (4.1: ${counted}) différents de l'effectif permanent déclaré ` +
+              `(S1Q15: ${headlineWorkers}).`,
+          });
+        }
+      }
+    }
 
     // Headline sanity ceiling — catches a stray extra digit typo.
     if (headlineWorkers != null && headlineWorkers > 50000) {

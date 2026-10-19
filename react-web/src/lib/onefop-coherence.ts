@@ -120,12 +120,14 @@ const WORKERS_FIELD_ID: Record<string, string> = {
   cooperative: "COOP_S1Q11",
   ctd: "CTD_S1Q09",
   ong: "ONG_S1Q10",
+  projectProgram: "PP_S1Q15",
 };
 const VACANCIES_FIELD_ID: Record<string, string> = {
   enterprise: "S1Q11",
   cooperative: "COOP_S1Q12",
   ctd: "CTD_S1Q10",
   ong: "ONG_S1Q11",
+  projectProgram: "PP_S1Q16",
 };
 
 /**
@@ -141,9 +143,15 @@ function subsetExceedsTotal(opts: {
   subsetName: LocalizedText; // e.g. "en situation de handicap"
   subsetGroup: LocalizedText; // e.g. "Les personnes en situation de handicap"
   subsetCell: CoherenceCell;
+  /** The table holding the total, when it is not the employer forms' own
+   *  S22Q01 / S22Q02 — the project form counts the same recruits in 4.3 / 4.4. */
+  totalTableFieldId?: { permanent: string; temporary: string };
+  /** The total's own cell, when it is not `<totalTable>_total_<sex>_total`. */
+  totalCellKey?: string;
 }): CoherenceFlag {
   const { code, gender, contract, subsetCount, totalCount, subsetName, subsetGroup, subsetCell } = opts;
-  const totalTable = contract === "permanent" ? "S22Q01" : "S22Q02";
+  const totalTable =
+    opts.totalTableFieldId?.[contract] ?? (contract === "permanent" ? "S22Q01" : "S22Q02");
   const post = contract === "permanent" ? { fr: "poste permanent", en: "permanent post" } : { fr: "poste temporaire", en: "temporary post" };
   const totalName = contract === "permanent"
     ? { fr: "le total des recrutements permanents", en: "total permanent recruitment" }
@@ -167,7 +175,13 @@ function subsetExceedsTotal(opts: {
       en: `${subsetGroup.en} are part of that total, so one of the two figures probably needs correcting.`,
     },
     fieldId: subsetCell.tableFieldId,
-    cells: [subsetCell, { fieldKey: `${totalTable.toLowerCase()}_total_${gender}_total`, tableFieldId: totalTable }],
+    cells: [
+      subsetCell,
+      {
+        fieldKey: opts.totalCellKey ?? `${totalTable.toLowerCase()}_total_${gender}_total`,
+        tableFieldId: totalTable,
+      },
+    ],
   };
 }
 
@@ -490,10 +504,99 @@ export function checkCoherence(data: FormData, entityType: string): CoherenceFla
     }
   }
 
-  // Headline sanity ceiling — catches a stray extra digit typo. Entity
-  // types with no headline worker/vacancy field mapped here (vocational
-  // training, projectProgram) resolve to n('') === 0, so this never fires
-  // for them — matching Flutter's own comment on this section.
+  // ── Project/Programme, Section 4 ─────────────────────────────────────
+  // The project form had no coherence edit at all: every check above is
+  // keyed to the employer forms' own s22q0x / s3q0x cells, which a project
+  // file never holds, so 4.5 handicap > 4.3 permanents recruited passed in
+  // silence while the identical mistake was flagged on an enterprise.
+  //
+  // 4.5 and 4.6 count recruits of 4.3 / 4.4 — « avez-vous recruté », same
+  // population, same reference period — so each is an "of which" of its
+  // contract's total. Advisory, exactly as the enterprise equivalents are on
+  // both sides (§7); the owner's decision of 2026-10-19 was parity first,
+  // and whether this family should block is one decision for all five forms.
+  if (entityType === "projectProgram") {
+    const PP_TOTAL_TABLES = { permanent: "PP_S4Q03", temporary: "PP_S4Q04" };
+    for (const gender of ["male", "female"] as const) {
+      const recruits = {
+        permanent: get(`pp_s4q03_total_${gender}_total`),
+        temporary: get(`pp_s4q04_total_${gender}_total`),
+      };
+      const subsets = [
+        {
+          table: "PP_S4Q05",
+          prefix: "pp_s4q05",
+          code: "PP_S4Q05",
+          subsetName: { fr: "en situation de handicap", en: "with disabilities" },
+          subsetGroup: { fr: "Les personnes en situation de handicap", en: "People with disabilities" },
+        },
+        {
+          table: "PP_S4Q06",
+          prefix: "pp_s4q06",
+          code: "PP_S4Q06",
+          subsetName: { fr: "parmi les personnes vulnérables", en: "among vulnerable people" },
+          subsetGroup: { fr: "Les personnes vulnérables", en: "Vulnerable people" },
+        },
+      ];
+      for (const subset of subsets) {
+        for (const contract of ["permanent", "temporary"] as const) {
+          const subsetCount = get(`${subset.prefix}_total_${contract}_${gender}`);
+          if (subsetCount <= recruits[contract]) continue;
+          flags.push(subsetExceedsTotal({
+            code: `${subset.code}_${contract.toUpperCase()}_EXCEEDS_TOTAL`,
+            gender,
+            contract,
+            subsetCount,
+            totalCount: recruits[contract],
+            subsetName: subset.subsetName,
+            subsetGroup: subset.subsetGroup,
+            subsetCell: { fieldKey: `${subset.prefix}_total_${contract}_${gender}`, tableFieldId: subset.table },
+            totalTableFieldId: PP_TOTAL_TABLES,
+            totalCellKey: `pp_s4q0${contract === "permanent" ? 3 : 4}_total_${gender}_total`,
+          }));
+        }
+      }
+    }
+
+    // 4.1 counts the permanents recensés over the reference period; S1Q15 is
+    // the structure's permanent headcount as it stands. A project that
+    // recruited or lost staff mid-period can legitimately differ, so this is
+    // a hint and nothing more — §7 keeps a check across two reference
+    // moments advisory until domain review. It waits for 4.1 to be complete:
+    // its grand total is blank while any cell of the table is (T4).
+    const censusTotal = data["pp_s4q01_total_total_total"];
+    const headcount = data["PP_S1Q15"];
+    const bothAnswered = [censusTotal, headcount].every(
+      (v) => v !== undefined && v !== null && v !== "",
+    );
+    if (bothAnswered && get("pp_s4q01_total_total_total") !== get("PP_S1Q15")) {
+      const counted = get("pp_s4q01_total_total_total");
+      const declared = get("PP_S1Q15");
+      flags.push({
+        code: "PP_S4Q01_HEADCOUNT_MISMATCH",
+        key: "PP_S4Q01_HEADCOUNT_MISMATCH",
+        title: { fr: "Vérifiez l'effectif permanent", en: "Check the permanent headcount" },
+        message: {
+          fr: `Le tableau 4.1 recense ${counted} permanents, et la section 1 en déclare ${declared}.`,
+          en: `Table 4.1 counts ${counted} permanent staff, while section 1 declares ${declared}.`,
+        },
+        why: {
+          fr: "Les deux chiffres décrivent le même personnel : un écart est possible si l'effectif a changé au cours de la période, sinon l'un des deux est à corriger.",
+          en: "Both figures describe the same staff: a gap is possible if the headcount changed during the period, otherwise one of the two needs correcting.",
+        },
+        fieldId: "PP_S4Q01",
+        cells: [
+          { fieldKey: "pp_s4q01_total_total_total", tableFieldId: "PP_S4Q01" },
+          { fieldKey: "PP_S1Q15", tableFieldId: "PP_S1Q15" },
+        ],
+      });
+    }
+  }
+
+  // Headline sanity ceiling — catches a stray extra digit typo. An entity
+  // with no headline worker/vacancy field mapped here (vocational training)
+  // resolves to n('') === 0, so this never fires for it — matching Flutter's
+  // own comment on this section.
   const workersFieldId = WORKERS_FIELD_ID[entityType] ?? "";
   const vacanciesFieldId = VACANCIES_FIELD_ID[entityType] ?? "";
   const workers = get(workersFieldId);
