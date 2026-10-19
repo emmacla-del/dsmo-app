@@ -929,6 +929,7 @@
     "notYetRendered": "VT table not yet rendered — {template} ({fieldId}).",
     "defaultRowLabel": "Row {number}",
     "addRowButton": "+ Add row ({current}/{total})",
+    "rowsShown": "{shown, plural, one {# row} other {# rows}} of {capacity} at most",
     "removeRowButton": "Remove last row"
   },
   "vtValidationScreen": {
@@ -1416,19 +1417,21 @@
       },
       "cards": {
         "identity": {
-          "title": "1.1 Legal identity",
-          "description": "Official name, legal status, acronym and registration details of the organisation."
+          "title": "Legal identity",
+          "description": "Official name, legal status, acronym and registration details of the organisation.",
+   "description_projectProgram": "Nature, name, acronym, person in charge and supervising ministry or body."
         },
         "location": {
-          "title": "1.2 Administrative location",
-          "description": "Area of residence and official administrative attachment (Region, Department, Subdivision, Locality)."
+          "title": "Administrative location",
+          "description": "Area of residence and official administrative attachment (Region, Department, Subdivision, Locality).",
+   "description_projectProgram": "Area of residence, head office and administrative attachment (Region, Department, Subdivision, Locality)."
         },
         "contact": {
-          "title": "1.3 Official contacts",
+          "title": "Official contacts",
           "description": "Official telephone and postal contact details of the organisation."
         },
         "activity": {
-          "title": "1.4 Activity & overall workforce",
+          "title": "Activity & overall workforce",
           "description": "Sector of activity, branch, main missions and declared permanent workforce."
         }
       }

@@ -929,6 +929,7 @@
     "notYetRendered": "Tableau VT pas encore disponible — {template} ({fieldId}).",
     "defaultRowLabel": "Ligne {number}",
     "addRowButton": "+ Ajouter une ligne ({current}/{total})",
+    "rowsShown": "{shown, plural, one {# ligne} other {# lignes}} sur {capacity} au maximum",
     "removeRowButton": "Supprimer la dernière ligne"
   },
   "vtValidationScreen": {
@@ -1416,19 +1417,21 @@
       },
       "cards": {
         "identity": {
-          "title": "1.1 Identité légale",
-          "description": "Dénomination officielle, statut juridique, sigle et immatriculation de la structure."
+          "title": "Identité légale",
+          "description": "Dénomination officielle, statut juridique, sigle et immatriculation de la structure.",
+   "description_projectProgram": "Nature, nom, sigle, responsable et ministère ou organisme de tutelle."
         },
         "location": {
-          "title": "1.2 Localisation administrative",
-          "description": "Milieu de résidence et rattachement administratif territorial officiel (Région, Département, Arrondissement, Localité)."
+          "title": "Localisation administrative",
+          "description": "Milieu de résidence et rattachement administratif territorial officiel (Région, Département, Arrondissement, Localité).",
+   "description_projectProgram": "Milieu de résidence, siège social et rattachement administratif (Région, Département, Arrondissement, Localité)."
         },
         "contact": {
-          "title": "1.3 Contacts officiels",
+          "title": "Contacts officiels",
           "description": "Coordonnées téléphoniques et postales officielles de la structure."
         },
         "activity": {
-          "title": "1.4 Activité et effectifs globaux",
+          "title": "Activité et effectifs globaux",
           "description": "Secteur d’activité, branche, missions principales et effectifs permanents déclarés."
         }
       }

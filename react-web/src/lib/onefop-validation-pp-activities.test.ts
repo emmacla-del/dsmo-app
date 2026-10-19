@@ -107,3 +107,32 @@ test("PP_S2_ACTIVITIES: multiple rows validate independently (Row 1 complete, Ro
     "s2_row2_duration",
   ]);
 });
+
+// « Date de début » is free text with an MM/AAAA hint, and nothing used to
+// check it: « l'an dernier » reached the dataset as typed.
+const startedRow = (startDate: string): FormData => ({
+  s2_row1_description: "Formation en couture",
+  s2_row1_targetPopulation: "1",
+  s2_row1_supportType: "1",
+  s2_row1_scope: "3",
+  s2_row1_startDate: startDate,
+  s2_row1_duration: "6",
+});
+
+test("PP_S2_ACTIVITIES: the start date is written MM/AAAA", () => {
+  const section = getPpActivitiesSection();
+  for (const good of ["01/2026", "12/1998", "03/2026"]) {
+    assert.deepEqual(validateSectionData(section, startedRow(good), "fr"), [], good);
+  }
+  for (const bad of ["l'an dernier", "3/2026", "13/2026", "00/2026", "03-2026", "2026", "03/26"]) {
+    const issues = validateSectionData(section, startedRow(bad), "fr");
+    assert.equal(issues.length, 1, `${bad} was accepted`);
+    assert.equal(issues[0].fieldId, "s2_row1_startDate");
+    assert.match(issues[0].message, /MM\/AAAA/);
+  }
+});
+
+test("PP_S2_ACTIVITIES: a line nobody started is not asked for a date", () => {
+  const section = getPpActivitiesSection();
+  assert.deepEqual(validateSectionData(section, { s2_row2_startDate: "" }, "fr"), []);
+});

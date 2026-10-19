@@ -506,7 +506,7 @@ export function VtProgressiveRowGrid({
           {isEn ? "Add a specialty" : "Ajouter une spécialité"}
         </button>
         <span style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-          {isEn ? `${shown.length} of ${capacity} rows at most` : `${shown.length} ligne(s) sur ${capacity} au maximum`}
+          {t("vtTableRenderer.rowsShown", { shown: shown.length, capacity })}
         </span>
       </div>
     </div>
