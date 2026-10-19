@@ -5,7 +5,7 @@ import { WizardStepList, type WizardStep, type WizardStepState } from "@/compone
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, sectionChunkStarterIds } from "@/lib/onefop-schema";
-import { sectionTitleWithoutNumber } from "@/lib/onefop-section-title";
+import { sectionNavTitle } from "@/lib/onefop-section-title";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "@/components/modern-jobs/conditional/gateway-catalog";
 import {
@@ -166,8 +166,10 @@ export function ModernJobsSidebar({
   const statuses = sections.map((sec) => getSectionStatus(sec, data, issues, isValidationStage));
   const completedCount = statuses.filter((st) => st === "complete").length;
 
-  // Sidebar titles without the "Section N." prefix -- the number sits in the circle.
-  const stepTitle = (rawTitle: string, idx: number) => sectionTitleWithoutNumber(rawTitle, idx);
+  // Sidebar titles without the "Section N." prefix -- the number sits in the
+  // circle -- and short of the project form's paragraph-long ones.
+  const stepTitle = (section: OnefopSection, idx: number) =>
+    sectionNavTitle(section.id, localized(section.title, locale), idx, locale);
 
   const stateLabel = (state: WizardStepState) =>
     t(
@@ -226,7 +228,7 @@ export function ModernJobsSidebar({
       key: section.id,
       // Modern Jobs numbers its sections from 0, as the paper form does.
       marker: idx,
-      name: stepTitle(localized(section.title, locale), idx),
+      name: stepTitle(section, idx),
       state,
       stateLabel: stateLabel(state),
       detail: state === "error" ? t("stateError") : isCurrent ? tableProgress(section) : undefined,

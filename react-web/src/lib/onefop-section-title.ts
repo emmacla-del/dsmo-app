@@ -43,6 +43,54 @@ export function sectionTitleWithoutNumber(rawTitle: string, index: number): stri
   return formatSectionTitle(rawTitle, index).replace(/^Section\s+\d+\.\s*/, "");
 }
 
+/**
+ * The name a section carries where it is navigated rather than answered:
+ * the rail, the review list, the list of sections already transmitted.
+ *
+ * Five of the six Modern Jobs forms name their sections in two or three
+ * words — « Emploi et travail », « Départs », « Stage et formation ». The
+ * project/programme form does not: its AST titles run to 127 characters
+ * because each one repeats « de la structure sous-tutelle / projet /
+ * programme », so the rail read as three paragraphs and the respondent had
+ * to parse a sentence to find where they were.
+ *
+ * So the rail quotes the head of each of those three titles, in the form's
+ * own vocabulary, and nothing else changes: the section screen still heads
+ * itself with the official title in full (SectionRenderer), and the PDF,
+ * the exports and the AST are untouched. Section 2 says « le projet »
+ * where the paper says « la structure sous-tutelle / projet et programme »,
+ * because « la structure » alone is Section 1's name.
+ */
+const SECTION_NAV_TITLES: Record<string, { fr: string; en: string }> = {
+  section2_projectProgram: {
+    fr: "Renseignements sur le projet",
+    en: "Project information",
+  },
+  section3_projectProgram: {
+    fr: "Emploi et travail",
+    en: "Employment and labour",
+  },
+  section4_projectProgram: {
+    // « Recensements », which the paper form misspells « RESENCEMENTS » —
+    // its English says "appointments", where its own questions ask what the
+    // respondent counted ("did you count").
+    fr: "Recensements et recrutements",
+    en: "Headcount and recruitment",
+  },
+};
+
+/** The rail's name for a section: the short one where there is one, the
+ *  title without its "Section N." prefix everywhere else. */
+export function sectionNavTitle(
+  sectionId: string,
+  rawTitle: string,
+  index: number,
+  locale: "fr" | "en",
+): string {
+  const short = SECTION_NAV_TITLES[sectionId];
+  return short ? short[locale] : sectionTitleWithoutNumber(rawTitle, index);
+}
+
 /** The section's own number, read off its id ("section4_projectProgram"). */
 export function sectionNumberFromId(sectionId: string, fallback: number): number {
   const match = /section(\d+)/i.exec(sectionId);
