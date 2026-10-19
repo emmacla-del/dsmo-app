@@ -76,7 +76,10 @@ export const ACTIVITIES_TABLE_FIELDS: ActivitiesField[] = [
   {
     key: "duration",
     label: { fr: "Durée (mois)", en: "Duration (months)" },
-    hint: { fr: "0", en: "0" },
+    // No placeholder: "0" sat in the empty box looking like an answer already
+    // given, and the column header says the unit (§9 — an unanswered cell must
+    // not present itself as answered).
+    hint: { fr: "", en: "" },
     options: null,
   },
 ];

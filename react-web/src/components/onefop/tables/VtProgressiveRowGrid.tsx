@@ -293,11 +293,10 @@ export function VtProgressiveRowGrid({
   const capacity = matrix.length;
   // Same cell input as StatisticalGridRenderer, marked the same way when the
   // wizard is showing which cells a started row still owes.
-  const inputCls =
-    "w-full h-full min-h-[34px] px-2 py-1 bg-transparent border-0 outline-none rounded-none focus:ring-2 focus:ring-inset focus:ring-[var(--cam-table-focus)] focus:bg-transparent transition-colors";
+  // One cell input for every grid (globals.css); the mark on a cell still
+  // owed comes from the aria-invalid each call site already sets.
+  const cellCls = "cam-cell-input";
   const missing = new Set(missingCells ?? []);
-  const cellCls = (id: string) =>
-    missing.has(id) ? `${inputCls} ring-2 ring-inset ring-[var(--cam-error)] bg-[rgba(179,38,30,0.06)]` : inputCls;
 
   return (
     <div>
@@ -380,7 +379,7 @@ export function VtProgressiveRowGrid({
                       <TextInput
                         id={`cell-input-${ids[0]}`}
                         type="text"
-                        className={cellCls(ids[0])}
+                        className={cellCls}
                         aria-invalid={missing.has(ids[0]) ? true : undefined}
                         value={entered(data[ids[0]]) ? String(data[ids[0]]) : ""}
                         // An empty white cell gave no cue that the name is
@@ -429,7 +428,7 @@ export function VtProgressiveRowGrid({
                           <Cell key={c.key} className={`p-0 bg-[var(--cam-surface)] ${cellBorder}`}>
                             <SelectInput
                               id={`cell-input-${id}`}
-                              className={cellCls(id) + (entered(raw) ? "" : " text-[var(--cam-text-muted)]")}
+                              className={cellCls + (entered(raw) ? "" : " text-[var(--cam-text-muted)]")}
                               aria-invalid={missing.has(id) ? true : undefined}
                               aria-label={cellName}
                               value={entered(raw) ? (isTrue(raw) ? "true" : "false") : ""}
@@ -453,7 +452,7 @@ export function VtProgressiveRowGrid({
                           <NumberInput
                             id={`cell-input-${id}`}
                             type="number"
-                            className={cellCls(id)}
+                            className={cellCls}
                             aria-invalid={missing.has(id) ? true : undefined}
                             min={0}
                             inputMode="numeric"
