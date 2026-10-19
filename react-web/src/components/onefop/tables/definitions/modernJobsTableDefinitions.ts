@@ -258,10 +258,11 @@ export function buildModernJobsRecruitmentTableDefinition(
       fr: "Recrutements selon la catégorie socio-professionnelle, le sexe et la tranche d'âge",
       en: "Recruitments by occupational category, sex, and age group",
     },
-    // No caption: the heading shows a caption in place of the title, and
-    // this template serves applications (S21Q01), first-job seekers
-    // (S23Q01) and headcounts (PP_S4Q01/02) as well as recruitments, each
-    // over the period its own question names. The AST label says which.
+    // No caption: this template serves applications (S21Q01), first-job
+    // seekers (S23Q01) and headcounts (PP_S4Q01/02) as well as recruitments,
+    // each over the period its own question names. The AST label says which.
+    // (Since 2026-10-19 the heading always shows the title, so a caption no
+    // longer hides it; a caption is the table's sr-only <caption> only.)
     type: "fixed-matrix",
     rowHeaderLabel: {
       fr: "Catégorie Socio-Professionnelle",
