@@ -128,3 +128,16 @@ test("a nil declaration is confirmed in a named dialog", async () => {
   assert.ok((dialog.textContent ?? "").includes("Confirmer une déclaration à néant"));
   unmount();
 });
+
+// A file carrying only a forecast for an outcome used to read as « aucun
+// bénéficiaire »: the quiz looked at the realised column alone, so re-opening
+// it offered to write a 0 over a row the respondent had never said was empty.
+test("an outcome is recognised from any of its three columns, not the realised one alone", () => {
+  const { container, unmount } = renderQuiz({ s3kpi_employed_outlook_dec: 40 });
+  const q = within(container);
+  const boxes = q.getAllByRole("checkbox");
+  // The four outcomes, then « Aucun bénéficiaire… » last.
+  assert.equal((boxes[0] as HTMLInputElement).checked, true, "the forecast row is not ticked");
+  assert.equal((boxes.at(-1) as HTMLInputElement).checked, false, "read as a nil declaration");
+  unmount();
+});

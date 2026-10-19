@@ -26,6 +26,7 @@ import type { PrimaryQuestionId, ScopeState } from "@/components/modern-jobs/sco
 import { vtCrossTableIssues } from "./vt-cross-table";
 import { vt53Issue } from "./vt-infrastructure-check";
 import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY, type ActivitiesField } from "./onefop-activities";
+import { KPI_PERIODS, KPI_ROW_KEYS, KPI_ROW_LABELS } from "./onefop-tables";
 
 export interface ValidationIssue {
   fieldId: string;
@@ -461,12 +462,106 @@ function validateActivitiesTable(
   return issues;
 }
 
+/**
+ * The project's Section 3 outcomes table (kpi_period_table) is the one table
+ * nothing used to check. It carries no response status of its own — the paper
+ * form has no selector for it — so `isReported` below was never true, the
+ * untemplated fallback never ran, and the server's own completeness check,
+ * which walks the REPORTED tables, never saw it either. A project could tick
+ * « Demandeurs d'emploi insérés en emploi salarié » in the preliminary
+ * questionnaire and file Section 3 blank.
+ *
+ * What it owes is what the quiz says happened: the « Réalisations » figure of
+ * every outcome ticked there. A row that was not ticked already holds the 0
+ * the quiz wrote for it, and « aucun bénéficiaire » zeroes all four.
+ *
+ * The two outlook columns are NOT required. They are forecasts, and which
+ * December and which June they mean is still ONEFOP's to say (E2E 2026-10-19):
+ * a column whose reference period is undecided cannot be demanded of a
+ * respondent. They stay blank until that is settled.
+ */
+export function missingOutcomeCells(field: OnefopField, data: FormData): string[] {
+  if (field.table?.template !== "kpi_period_table") return [];
+  const prefix = field.table.id ?? field.id;
+  const scope = (data._scopeConfig as Record<string, unknown> | undefined)?.projectProgram as
+    | { completedAt?: string; noOutcomes?: boolean; outcomes?: string[] }
+    | undefined;
+  // An unfinished quiz is reported once, by validateEntityData; until it is
+  // answered there is nothing to say this table owes.
+  if (!scope?.completedAt || scope.noOutcomes) return [];
+  const ticked = Array.isArray(scope.outcomes) ? scope.outcomes : [];
+  return KPI_ROW_KEYS
+    .filter((row) => ticked.includes(row))
+    .map((row) => `${prefix}_${row}_current`)
+    .filter((cellId) => !isEnteredValue(data[cellId]));
+}
+
+function validateOutcomesTable(
+  field: OnefopField,
+  data: FormData,
+  locale?: ValidationLocale,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const prefix = field.table?.id ?? field.id;
+  const label = fieldLabel(field, locale);
+
+  for (const row of KPI_ROW_KEYS) {
+    for (const period of KPI_PERIODS) {
+      const cellId = `${prefix}_${row}_${period}`;
+      const val = data[cellId];
+      if (!isEnteredValue(val)) continue;
+      const num = Number(val);
+      if (Number.isNaN(num) || num < 0) {
+        issues.push({
+          fieldId: cellId,
+          message: labelled(label, "La valeur ne peut pas être négative", "Value cannot be negative", locale),
+          cleanMessage: msg("La valeur ne peut pas être négative", "Value cannot be negative", locale),
+        });
+      } else if (!isWholeCount(val)) {
+        issues.push({
+          fieldId: cellId,
+          message: labelled(label, WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale),
+          cleanMessage: msg(WHOLE_NUMBER_FR, WHOLE_NUMBER_EN, locale),
+        });
+      }
+    }
+  }
+
+  const missing = missingOutcomeCells(field, data);
+  if (missing.length > 0) {
+    // The rows by name, not a cell count: there are four of them and the
+    // respondent named them in the quiz a screen ago.
+    const names = missing
+      .map((cellId) => KPI_ROW_KEYS.findIndex((row) => cellId.endsWith(`_${row}_current`)))
+      .filter((i) => i >= 0)
+      .map((i) => textIn(KPI_ROW_LABELS[i], locale).toLowerCase());
+    const list = names.join(locale === "en" ? ", " : ", ");
+    issues.push({
+      fieldId: field.id,
+      message:
+        locale === "en"
+          ? `${label}: enter the achievements for the period (${list}). Enter 0 where there was nothing.`
+          : `${label} : indiquez les réalisations de la période (${list}). Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+      cleanMessage:
+        locale === "en"
+          ? `Enter the achievements for the period (${list}). Enter 0 where there was nothing.`
+          : `Indiquez les réalisations de la période (${list}). Saisissez 0 lorsqu'il n'y a rien à déclarer.`,
+    });
+  }
+
+  return issues;
+}
+
 function validateTableField(field: OnefopField, data: FormData, locale?: ValidationLocale): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!isFieldVisible(field, data)) return issues;
 
   if (field.table?.template === "activities_table") {
     return validateActivitiesTable(field, data, locale);
+  }
+
+  if (field.table?.template === "kpi_period_table") {
+    return validateOutcomesTable(field, data, locale);
   }
 
   const prefix = field.table?.id ?? field.id;
