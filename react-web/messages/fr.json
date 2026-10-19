@@ -834,6 +834,7 @@
     "placeholderJobTitle": "ex. Directeur des Ressources Humaines",
     "placeholderJobTitleProject": "ex. Coordonnateur de projet",
     "placeholderEmail": "ex. contact@entreprise.com",
+    "placeholderEmailProject": "ex. contact@projet.cm",
     "exampleHint": "Exemple : {example}"
   },
   "coherenceHints": {
@@ -1383,6 +1384,11 @@
       "topicsSummary": "{total, plural, one {# thématique} other {# thématiques}} • {completed, plural, one {# renseignée} other {# renseignées}}",
       "tablesSummary": "{total, plural, one {# tableau statistique} other {# tableaux statistiques}} • {completed, plural, one {# complété} other {# complétés}}",
       "section0Intro": "Informations sur la personne remplissant ce questionnaire pour le compte de l’établissement.",
+      "section0IntroProject": "Informations sur la personne remplissant ce questionnaire pour le compte du projet ou du programme.",
+      "section0IntroAdministration": "Informations sur la personne remplissant ce questionnaire pour le compte de l’administration.",
+      "section0IntroNgo": "Informations sur la personne remplissant ce questionnaire pour le compte de l’ONG.",
+      "section0IntroCooperative": "Informations sur la personne remplissant ce questionnaire pour le compte de la coopérative.",
+      "section0IntroCtd": "Informations sur la personne remplissant ce questionnaire pour le compte de la collectivité.",
       "shortcutsTitle": "Raccourcis clavier",
       "shortcutsAria": "Aide clavier",
       "shortcutNextCell": "cellule suivante",
@@ -1393,7 +1399,6 @@
       "keyCtrlEnter": "Ctrl + Entrée",
       "shortcutJumpNext": "tableau suivant immédiat",
       "shortcutArrows": "naviguer dans la grille",
-      "section0Eyebrow": "Section 0 — Identification du répondant",
       "allNone": "Toutes les rubriques de cette section sont déclarées à néant.",
       "noTablesFromQuiz": "Selon vos réponses au quiz préalable de déclaration, aucun tableau n’est à renseigner pour cette section.",
       "editQuiz": "Modifier le quiz préalable"
@@ -1424,7 +1429,7 @@
           "description": "Coordonnées téléphoniques et postales officielles de la structure."
         },
         "activity": {
-          "title": "1.4 Activité & effectifs globaux",
+          "title": "1.4 Activité et effectifs globaux",
           "description": "Secteur d’activité, branche, missions principales et effectifs permanents déclarés."
         }
       }
@@ -1450,7 +1455,7 @@
       "sectionsListAria": "Liste des sections",
       "sectionsDrawerTitle": "Sections du questionnaire",
       "close": "Fermer",
-      "reviewHeading": "Récapitulatif et Dépôt de la Déclaration",
+      "reviewHeading": "Récapitulatif et dépôt de la déclaration",
       "reviewIntro": "Vérifiez la conformité de vos déclarations avant de procéder à la transmission officielle au MINEFOP.",
       "edit": "Modifier",
       "pdfPreview": "Aperçu PDF Officiel",

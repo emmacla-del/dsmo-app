@@ -248,7 +248,7 @@ export function FieldRenderer({
         <legend style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span><CodedLabel code={coded.code} text={coded.text} /></span>
           <OptionalSuffix field={field} />
-          {tooltip && <InfoTooltip content={tooltipText ?? tooltip.fr} ariaLabel={label} />}
+          {tooltip && <InfoTooltip content={tooltipText ?? tooltip.fr} />}
         </legend>
         <FieldControl field={field} value={value} onChange={onChange} hasError={hasError} locale={locale} />
         {hasError && (
@@ -294,7 +294,10 @@ export function FieldRenderer({
       }
       if (field.id === "S0Q03_TEL1") return t("fieldRenderer.example", { example: "677 12 34 56" });
       if (field.id === "S0Q03_TEL2") return t("fieldRenderer.example", { example: "699 12 34 56" });
-      if (field.id === "S0Q03_EMAIL") return t("fieldRenderer.placeholderEmail");
+      if (field.id === "S0Q03_EMAIL") {
+        if (resolvedEntityType === "projectProgram") return t("fieldRenderer.placeholderEmailProject");
+        return t("fieldRenderer.placeholderEmail");
+      }
     }
     if (rawHint) {
       const stripped = stripExampleLeadIn(rawHint);

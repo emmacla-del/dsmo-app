@@ -21,6 +21,7 @@ import { quizGovernsEntry, missingQuizFieldKeys } from "./tables/quizRequired";
 import { isRowTextEmbeddedInTable } from "@/lib/onefop-tables";
 import { TABLE_MAX_WIDTH_PX } from "./tables/tableLayout";
 import { resetScroll } from "@/lib/reset-scroll";
+import { formatSectionTitle, sectionNumberFromId } from "@/lib/onefop-section-title";
 import { ppSection4TableName } from "@/lib/pp-section4-tables";
 import { GuidedReviewGateContext, type GuidedReviewHandle, type GuidedReviewRegistry } from "./tables/GuidedReviewGate";
 
@@ -64,6 +65,19 @@ interface SectionRendererProps {
   entryMode?: "grid" | "guided";
   onEntryModeChange?: (mode: "grid" | "guided") => void;
 }
+
+/**
+ * Section 0's intro line, by entity: it says who the respondent is
+ * answering for, and « pour le compte de l'établissement » is not what a
+ * project, an NGO or a council is. Same rule as S0Q02's own label.
+ */
+const RESPONDENT_INTRO_KEYS: Record<string, string> = {
+  projectProgram: "section0IntroProject",
+  administration: "section0IntroAdministration",
+  ong: "section0IntroNgo",
+  cooperative: "section0IntroCooperative",
+  ctd: "section0IntroCtd",
+};
 
 function isTableShaped(field: OnefopField): boolean {
   return field.type === "table" || field.type === "repeating_table" || !!field.table;
@@ -761,7 +775,10 @@ export function SectionRenderer({
             >
               {section.id === "section0"
                 ? t("section0Heading")
-                : (localized(section.title, locale) || section.id)}
+                : formatSectionTitle(
+                    localized(section.title, locale),
+                    sectionNumberFromId(section.id, 0),
+                  ) || section.id}
             </h1>
             <p
               style={{
@@ -778,7 +795,10 @@ export function SectionRenderer({
                   t("tablesSummary", { total: validChunks.length, completed: completedChunksCount })
                 )
               ) : section.id === "section0" ? (
-                t("section0Intro")
+                // Who the respondent is answering for, in the words of their
+                // own body — the rule S0Q02's label already follows. An
+                // entity with no wording of its own keeps "l'établissement".
+                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro")
               ) : section.description ? (
                 localized(section.description, locale)
               ) : null}
@@ -821,7 +841,6 @@ export function SectionRenderer({
           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
           {validChunks.map((chunk, cIdx) => {
             const isCurrent = cIdx === clampedIndex;
-            const chunkTable = chunk.fields.find((f) => f.type === "table" || !!f.table);
             const chunkHasError = chunk.fields.some((f) => issueByFieldId.has(f.id));
             const chunkAllAnswered = chunk.fields.every(isFieldSatisfied);
             // A chunk that is one table carries its own name (it may hold a
@@ -967,17 +986,6 @@ export function SectionRenderer({
             boxShadow: "var(--cam-shadow-sm, 0 1px 2px rgba(20, 30, 20, 0.04))",
           }}
         >
-          <div
-            style={{
-              fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-              fontWeight: 500,
-              color: "var(--cam-text-muted)",
-              marginBottom: "var(--cam-space-3, 12px)",
-            }}
-          >
-            {t("section0Eyebrow")}
-          </div>
-
           {(() => {
             const allSec0Fields = section.fields.filter(
               (f) => !isStandaloneStatusField(f) && !isHandledByGeography(f)
