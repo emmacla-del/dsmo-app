@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField, OnefopSection } from "@/lib/onefop-schema";
-import { computeSubsectionLayout, isFieldVisible, localized } from "@/lib/onefop-schema";
+import { computeSubsectionLayout, isFieldVisible, localized, sectionChunkStarterIds } from "@/lib/onefop-schema";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { FieldRenderer } from "./FieldRenderer";
@@ -21,6 +21,7 @@ import { quizGovernsEntry, missingQuizFieldKeys } from "./tables/quizRequired";
 import { isRowTextEmbeddedInTable } from "@/lib/onefop-tables";
 import { TABLE_MAX_WIDTH_PX } from "./tables/tableLayout";
 import { resetScroll } from "@/lib/reset-scroll";
+import { ppSection4TableName } from "@/lib/pp-section4-tables";
 import { GuidedReviewGateContext, type GuidedReviewHandle, type GuidedReviewRegistry } from "./tables/GuidedReviewGate";
 
 export interface SectionTableNavState {
@@ -62,6 +63,33 @@ interface SectionRendererProps {
   /** Tableau / Guidé choice shared by every section and table (owned by the wizard). */
   entryMode?: "grid" | "guided";
   onEntryModeChange?: (mode: "grid" | "guided") => void;
+}
+
+function isTableShaped(field: OnefopField): boolean {
+  return field.type === "table" || field.type === "repeating_table" || !!field.table;
+}
+
+/** Longest a table's name may be in the table list before it is cut. */
+const TABLE_CHUNK_NAME_MAX = 46;
+
+/**
+ * What a table is called in the table list and in the Previous / Next
+ * labels, when it is a screen of its own. The Project/Programme Section 4
+ * tables have names of their own, the ones the preliminary quiz already
+ * uses; any other table is named by its own question, shortened at a word
+ * boundary. Never the paper code (S3Q01 …): that is an internal id, and §8
+ * keeps it off a respondent's screen.
+ */
+function tableChunkName(field: OnefopField, locale: "fr" | "en"): string | undefined {
+  const named = ppSection4TableName(field.id, field.paperCode, locale);
+  if (named) return named;
+
+  const question = localized(field.label, locale).trim();
+  if (!question) return undefined;
+  if (question.length <= TABLE_CHUNK_NAME_MAX) return question.replace(/\s*\?$/, "");
+  const cut = question.slice(0, TABLE_CHUNK_NAME_MAX);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 20 ? cut.slice(0, lastSpace) : cut).trim()}…`;
 }
 
 function isShortField(field: OnefopField): boolean {
@@ -123,7 +151,7 @@ export function SectionRenderer({
 }: SectionRendererProps) {
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.section");
-  const { headingByFieldId, startsHeadingFieldIds } = computeSubsectionLayout(section, locale);
+  const { headingByFieldId } = computeSubsectionLayout(section, locale);
   const issueByFieldId = new Map(issues.map((issue) => [issue.fieldId, issue.message]));
 
   const shouldShowError = (fieldId: string) => {
@@ -179,8 +207,23 @@ export function SectionRenderer({
   interface SubsectionChunk {
     headingId: string;
     title: string | null;
+    /** The table list's own label, when the chunk is one table rather than a
+     *  subsection of the paper form. Shown verbatim, so a chunk that already
+     *  carries a form number ("4.1 …") is not renumbered by its position. */
+    pillLabel?: string;
     fields: OnefopField[];
   }
+
+  // A section the paper form divides into subsections (Section 2 of the
+  // employer forms: 2.1, 2.2, 2.3) is cut along those. A section that
+  // declares none but carries several tables — Project/Programme Section 4
+  // and its six tables, Sections 3 and 4 of the other employer forms — used
+  // to render every one of them stacked on a single screen: no table list,
+  // no table-by-table Previous/Next, and no "table n of m". It is cut at
+  // each table instead, which is the one-table-per-screen reading the
+  // training-centre wizard and the subsectioned sections already give.
+  const chunkStarterIds = sectionChunkStarterIds(section);
+  const splitAtEachTable = section.subsections.length === 0 && section.fields.filter(isTableShaped).length > 1;
 
   const chunks: SubsectionChunk[] = [];
   let currentChunk: SubsectionChunk = {
@@ -190,13 +233,16 @@ export function SectionRenderer({
   };
 
   for (const field of visibleFields) {
-    if (startsHeadingFieldIds.has(field.id)) {
+    const startsTableChunk = splitAtEachTable && isTableShaped(field);
+    if (chunkStarterIds.has(field.id)) {
       if (currentChunk.fields.length > 0) {
         chunks.push(currentChunk);
       }
+      const tableName = startsTableChunk ? tableChunkName(field, locale) : undefined;
       currentChunk = {
         headingId: field.id,
-        title: headingByFieldId.get(field.id) ?? null,
+        title: headingByFieldId.get(field.id) ?? tableName ?? null,
+        pillLabel: tableName,
         fields: [field],
       };
     } else {
@@ -442,11 +488,7 @@ export function SectionRenderer({
       const prevChunk = clampedIndex > 0 ? validChunks[clampedIndex - 1] : undefined;
       const nextChunk = clampedIndex < validChunks.length - 1 ? validChunks[clampedIndex + 1] : undefined;
 
-      const getChunkTitle = (c?: typeof currentChunk) => {
-        if (!c) return undefined;
-        const chunkTable = c.fields.find((f) => f.type === "table" || !!f.table);
-        return c.title || chunkTable?.paperCode || undefined;
-      };
+      const getChunkTitle = (c?: typeof currentChunk) => c?.pillLabel ?? c?.title ?? undefined;
 
       onTableNavStateChange({
         current: clampedIndex + 1,
@@ -782,8 +824,11 @@ export function SectionRenderer({
             const chunkTable = chunk.fields.find((f) => f.type === "table" || !!f.table);
             const chunkHasError = chunk.fields.some((f) => issueByFieldId.has(f.id));
             const chunkAllAnswered = chunk.fields.every(isFieldSatisfied);
-            const rawTitle = chunk.title || chunkTable?.paperCode || `T${cIdx + 1}`;
-            const cleanTitle = formatCleanTitle(rawTitle) || rawTitle;
+            // A chunk that is one table carries its own name (it may hold a
+            // form number of its own); a subsection chunk keeps the list's
+            // running number in front of its cleaned-up heading.
+            const rawTitle = chunk.title || `T${cIdx + 1}`;
+            const label = chunk.pillLabel ?? `${cIdx + 1}. ${formatCleanTitle(rawTitle) || rawTitle}`;
 
             return (
               <button
@@ -826,7 +871,7 @@ export function SectionRenderer({
                 }}
               >
                 {chunkAllAnswered && !chunkHasError && <span aria-hidden="true">✓</span>}
-                <span>{`${cIdx + 1}. ${cleanTitle}`}</span>
+                <span>{label}</span>
               </button>
             );
           })}
