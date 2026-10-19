@@ -1139,7 +1139,9 @@ export function ProjectProgramScopeQuiz({
             <dd style={{ display: "inline", margin: 0, color: noOutcomes ? "var(--cam-text-muted)" : "var(--cam-green)" }}>
               {noOutcomes
                 ? (isEn ? "None (0)" : "Néant (0)")
-                : `${outcomes.length} ${isEn ? "outcome(s)" : "résultat(s)"}`}
+                : isEn
+                  ? `${outcomes.length} ${outcomes.length === 1 ? "outcome" : "outcomes"}`
+                  : `${outcomes.length} ${outcomes.length === 1 ? "résultat" : "résultats"}`}
             </dd>
           </div>
           {PP_SECTION4_TABLES.map((table) => {

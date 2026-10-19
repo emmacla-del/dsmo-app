@@ -88,3 +88,27 @@ export const ACTIVITIES_TABLE_FIELDS: ActivitiesField[] = [
  * Section 2 shows exactly 13 blank rows) — a display capacity, not a hard
  * cap, matching PP_S2_ACTIVITIES's own tableSpec.rowCapacity. */
 export const ACTIVITIES_ROW_CAPACITY = 13;
+
+/** The month the column asks for, as the paper form writes it: MM/AAAA. */
+export const ACTIVITY_START_DATE_PATTERN = /^(0[1-9]|1[0-2])\/\d{4}$/;
+
+/**
+ * « 03/2026 » → « 2026-03 », the value an `<input type="month">` speaks, so a
+ * respondent can pick the month from the browser's own calendar instead of
+ * typing it. Returns "" for anything that is not MM/AAAA — an older file may
+ * hold free text, and that cell keeps the text box rather than showing empty
+ * where an answer exists.
+ */
+export function toMonthInput(stored: unknown): string {
+  const value = String(stored ?? "").trim();
+  if (!ACTIVITY_START_DATE_PATTERN.test(value)) return "";
+  const [month, year] = value.split("/");
+  return `${year}-${month}`;
+}
+
+/** « 2026-03 » → « 03/2026 ». What is stored, printed and exported never
+ *  changes shape, whichever control the browser gave the respondent. */
+export function fromMonthInput(value: string): string {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value.trim());
+  return match ? `${match[2]}/${match[1]}` : "";
+}

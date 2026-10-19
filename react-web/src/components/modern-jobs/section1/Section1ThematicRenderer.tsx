@@ -31,6 +31,26 @@ export interface ThematicCardConfig {
   id: ThematicCardId;
 }
 
+/**
+ * Cards whose wording is the employer forms' and does not describe what
+ * another form asks in the same card: the project's identity card holds a
+ * nature, a name, an acronym, a person in charge and a supervising ministry
+ * — no legal status and no registration number — and its location card also
+ * carries the head office. One key per card and entity, the rule
+ * RESPONDENT_INTRO_KEYS already follows for Section 0's opening line.
+ */
+const CARD_DESCRIPTION_OVERRIDES = new Set(["identity:projectProgram", "location:projectProgram"]);
+
+/** "section1_projectProgram" → "projectProgram"; "section1" → "". */
+function entityOfSection(sectionId: string): string {
+  return sectionId.startsWith("section1_") ? sectionId.slice("section1_".length) : "";
+}
+
+export function cardDescriptionKey(cardId: ThematicCardId, entityType: string): string {
+  const base = `cards.${cardId}.description`;
+  return CARD_DESCRIPTION_OVERRIDES.has(`${cardId}:${entityType}`) ? `${base}_${entityType}` : base;
+}
+
 export const THEMATIC_CARDS: ThematicCardConfig[] = [
   { id: "identity" },
   { id: "location" },
@@ -53,6 +73,11 @@ export function classifySection1Field(fieldId: string): ThematicCardId {
     id === "ONG_S1Q04" ||
     id === "ADMIN_S1Q03" ||
     id === "PP_S1Q05" ||
+    // « Siège social »: an address, so it belongs with the other address
+    // questions rather than between the acronym and the supervising
+    // ministry. (The employer forms' own S1Q11 is a different question and
+    // is listed under "activity" below.)
+    id === "PP_S1Q11" ||
     id === "VT1_8_REGION" ||
     id === "VT1_8_DEPT" ||
     id === "VT1_8_SUBDIV" ||
@@ -288,7 +313,7 @@ export function Section1ThematicRenderer({
         if (!cardFields || cardFields.length === 0) return null;
 
         const title = t(`cards.${config.id}.title`);
-        const description = t(`cards.${config.id}.description`);
+        const description = t(cardDescriptionKey(config.id, entityOfSection(section.id)));
 
         // Helper to check if field is downstream geography
         const isDownstreamGeo = (f: OnefopField) =>

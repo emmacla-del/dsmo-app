@@ -25,7 +25,12 @@ import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vt
 import type { PrimaryQuestionId, ScopeState } from "@/components/modern-jobs/scope/ScopeTypes";
 import { vtCrossTableIssues } from "./vt-cross-table";
 import { vt53Issue } from "./vt-infrastructure-check";
-import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY, type ActivitiesField } from "./onefop-activities";
+import {
+  ACTIVITIES_TABLE_FIELDS,
+  ACTIVITIES_ROW_CAPACITY,
+  ACTIVITY_START_DATE_PATTERN,
+  type ActivitiesField,
+} from "./onefop-activities";
 import { KPI_PERIODS, KPI_ROW_KEYS, KPI_ROW_LABELS } from "./onefop-tables";
 
 export interface ValidationIssue {
@@ -453,6 +458,27 @@ function validateActivitiesTable(
           label,
           `Ligne ${n} : la durée doit être un nombre ≥ 0`,
           `Row ${n}: duration must be a number ≥ 0`,
+          locale,
+        ),
+      });
+    }
+  }
+
+  // The start date is free text with an MM/AAAA hint and nothing checking it,
+  // so « l'an dernier » or « 12-24 » reached PP_S2_ACT_nn_START as typed. The
+  // month is 01–12 and the year has four digits; a year is not guessed at or
+  // bounded — a project may have begun long before the platform did.
+  for (let n = 1; n <= rowCount; n++) {
+    const cellId = `${prefix}_row${n}_startDate`;
+    const val = data[cellId];
+    if (!(isEnteredValue(val) && String(val).trim() !== "")) continue;
+    if (!ACTIVITY_START_DATE_PATTERN.test(String(val).trim())) {
+      issues.push({
+        fieldId: cellId,
+        message: labelled(
+          label,
+          `Ligne ${n} : la date de début s'écrit MM/AAAA (ex. 03/2026)`,
+          `Row ${n}: the start date is written MM/YYYY (e.g. 03/2026)`,
           locale,
         ),
       });

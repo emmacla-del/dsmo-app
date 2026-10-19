@@ -120,3 +120,43 @@ test("a line nobody started is never marked, however many are open", () => {
   assert.deepEqual(invalidCells(container), []);
   unmount();
 });
+
+// « 1 ligne(s) sur 13 » — the parenthetical plural the wizard avoids
+// everywhere else (vt-progress-plural.test.tsx).
+test("the line counter is a real plural", () => {
+  const one = renderTable();
+  assert.match(one.container.textContent ?? "", /1 ligne sur 13 au maximum/);
+  one.unmount();
+
+  const two = renderTable({ s2_row1_description: "A", s2_row2_description: "B" });
+  assert.match(two.container.textContent ?? "", /2 lignes sur 13 au maximum/);
+  two.unmount();
+});
+
+// « Date de début » asks for a month and a year. Where the browser has a month
+// picker the respondent chooses from it instead of typing; what is stored is
+// MM/AAAA either way, so nothing downstream sees the difference.
+test("the start date offers the browser's month picker, and still stores MM/AAAA", async () => {
+  const { container, changes, user, unmount } = renderTable({ s2_row1_description: "Formation" });
+  const cell = container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
+  assert.equal(cell.type, "month", "no month picker in a browser that supports one");
+  assert.equal(cell.value, "");
+  await user.type(cell, "2026-03");
+  assert.deepEqual(changes.filter(([id]) => id === "s2_row1_startDate").at(-1), ["s2_row1_startDate", "03/2026"]);
+  unmount();
+});
+
+test("a stored month shows in the picker, and free text keeps the text box", () => {
+  const picked = renderTable({ s2_row1_startDate: "03/2026" });
+  const month = picked.container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
+  assert.equal(month.value, "2026-03");
+  picked.unmount();
+
+  // An older file typed free: showing it empty in a month input would hide an
+  // answer from the person who gave it.
+  const free = renderTable({ s2_row1_startDate: "l'an dernier" });
+  const text = free.container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
+  assert.equal(text.type, "text");
+  assert.equal(text.value, "l'an dernier");
+  free.unmount();
+});

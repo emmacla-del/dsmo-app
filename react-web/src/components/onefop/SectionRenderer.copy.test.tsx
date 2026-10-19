@@ -85,7 +85,13 @@ test("Section 1 asks its questions in the form's own order", () => {
 test("a group heading is a heading, in the page's own voice", () => {
   const { container, unmount } = render("projectProgram", "section1_projectProgram");
   const groupHeadings = [...container.querySelectorAll("h2")].map((h) => h.textContent?.trim() ?? "");
-  assert.ok(groupHeadings.includes("1.1 Identité légale"), groupHeadings.join(" | "));
+  // No invented number in front of it: "1.1" would read as a form number,
+  // and the form's own numbers are 4.1–4.6 in Section 4.
+  assert.ok(groupHeadings.includes("Identité légale"), groupHeadings.join(" | "));
+  assert.ok(
+    !groupHeadings.some((h) => /^\d+\.\d+\s/.test(h)),
+    `a card is numbered like a form question: ${groupHeadings.join(" | ")}`,
+  );
   for (const heading of groupHeadings) {
     assert.notEqual(heading, heading.toUpperCase(), `still shouting: ${heading}`);
   }
