@@ -25,7 +25,7 @@ import { isVtCentreClosed, isVtQuizComplete, missingVtTableCells, readVtQuiz, vt
 import type { PrimaryQuestionId, ScopeState } from "@/components/modern-jobs/scope/ScopeTypes";
 import { vtCrossTableIssues } from "./vt-cross-table";
 import { vt53Issue } from "./vt-infrastructure-check";
-import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY } from "./onefop-activities";
+import { ACTIVITIES_TABLE_FIELDS, ACTIVITIES_ROW_CAPACITY, type ActivitiesField } from "./onefop-activities";
 
 export interface ValidationIssue {
   fieldId: string;
@@ -375,6 +375,42 @@ function validateField(
   return null;
 }
 
+/** A cell of a started activities line that is still blank. */
+export interface MissingActivitiesCell {
+  /** Row slot, 1…rowCapacity (the id's own number, not its position on screen). */
+  row: number;
+  /** Column definition, for the name to put in the message. */
+  field: ActivitiesField;
+  cellId: string;
+}
+
+/**
+ * The cells the activities table (project Section 2) still owes: a line counts
+ * as started once any of its cells holds something, and a started line must be
+ * complete. One rule, two readers — the validator below for its messages and
+ * ActivitiesTableRenderer to mark the boxes, so what the summary names and what
+ * the grid highlights cannot drift apart.
+ */
+export function missingActivitiesCells(field: OnefopField, data: FormData): MissingActivitiesCell[] {
+  const prefix = field.table?.id ?? field.id;
+  const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
+  const missing: MissingActivitiesCell[] = [];
+
+  for (let n = 1; n <= rowCount; n++) {
+    const rowCells = ACTIVITIES_TABLE_FIELDS.map((f) => {
+      const cellId = `${prefix}_row${n}_${f.key}`;
+      const val = data[cellId];
+      return { field: f, cellId, isEntered: isEnteredValue(val) && String(val).trim() !== "" };
+    });
+    if (!rowCells.some((c) => c.isEntered)) continue;
+    for (const cell of rowCells) {
+      if (!cell.isEntered) missing.push({ row: n, field: cell.field, cellId: cell.cellId });
+    }
+  }
+
+  return missing;
+}
+
 /**
  * Validates a table-shaped field:
  *  1. Non-negative values across all numeric cells
@@ -391,43 +427,34 @@ function validateActivitiesTable(
   const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
   const label = fieldLabel(field, locale);
 
-  for (let n = 1; n <= rowCount; n++) {
-    const rowCells = ACTIVITIES_TABLE_FIELDS.map((f) => {
-      const cellId = `${prefix}_row${n}_${f.key}`;
-      const val = data[cellId];
-      const isEntered = isEnteredValue(val) && String(val).trim() !== "";
-      return { field: f, cellId, val, isEntered };
+  for (const cell of missingActivitiesCells(field, data)) {
+    const fieldName = textIn(cell.field.label, locale);
+    issues.push({
+      fieldId: cell.cellId,
+      message: labelled(
+        label,
+        `Ligne ${cell.row} : le champ « ${fieldName} » est requis`,
+        `Row ${cell.row}: the field "${fieldName}" is required`,
+        locale,
+      ),
     });
+  }
 
-    const hasAny = rowCells.some((c) => c.isEntered);
-    if (!hasAny) continue;
-
-    for (const cell of rowCells) {
-      if (!cell.isEntered) {
-        const fieldName = textIn(cell.field.label, locale);
-        issues.push({
-          fieldId: cell.cellId,
-          message: labelled(
-            label,
-            `Ligne ${n} : le champ « ${fieldName} » est requis`,
-            `Row ${n}: the field "${fieldName}" is required`,
-            locale,
-          ),
-        });
-      } else if (cell.field.key === "duration") {
-        const num = Number(cell.val);
-        if (Number.isNaN(num) || num < 0) {
-          issues.push({
-            fieldId: cell.cellId,
-            message: labelled(
-              label,
-              `Ligne ${n} : la durée doit être un nombre ≥ 0`,
-              `Row ${n}: duration must be a number ≥ 0`,
-              locale,
-            ),
-          });
-        }
-      }
+  for (let n = 1; n <= rowCount; n++) {
+    const cellId = `${prefix}_row${n}_duration`;
+    const val = data[cellId];
+    if (!(isEnteredValue(val) && String(val).trim() !== "")) continue;
+    const num = Number(val);
+    if (Number.isNaN(num) || num < 0) {
+      issues.push({
+        fieldId: cellId,
+        message: labelled(
+          label,
+          `Ligne ${n} : la durée doit être un nombre ≥ 0`,
+          `Row ${n}: duration must be a number ≥ 0`,
+          locale,
+        ),
+      });
     }
   }
 

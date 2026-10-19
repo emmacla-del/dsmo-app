@@ -47,7 +47,14 @@ export function AnyTableRenderer({
   attemptedContinue = false,
 }: AnyTableRendererProps) {
   if (field.table?.template === "activities_table") {
-    return <ActivitiesTableRenderer field={field} data={data} onChange={onChange} />;
+    return (
+      <ActivitiesTableRenderer
+        field={field}
+        data={data}
+        onChange={onChange}
+        attemptedContinue={attemptedContinue}
+      />
+    );
   }
   if (field.table?.vt) {
     return <VtTableRenderer field={field} data={data} onChange={onChange} />;

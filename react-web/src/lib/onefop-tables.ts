@@ -13,6 +13,19 @@
 // be replaced by reading it, not kept in parallel.
 import type { LocalizedText, OnefopField } from "./onefop-schema";
 
+/**
+ * The last row of a statistical grid: the table's own grand total.
+ *
+ * It had three spellings — « TOTAL GÉNÉRAL » in the adaptive definitions
+ * (4.1–4.5 and every enterprise matrix), « TOTAL » and « Total » in
+ * TableRenderer's own configs — so the project form's 4.6 read TOTAL in
+ * Tableau and TOTAL GÉNÉRAL in Guidé, for the same row of the same table.
+ * Both renderers read this now. A *sub*-total inside a row block
+ * (first_time_workers_table's per-contract line) is not this row and keeps
+ * its own « Total ».
+ */
+export const GRAND_TOTAL_ROW_LABEL: LocalizedText = { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" };
+
 export const CSP_ROW_LABELS: Record<string, LocalizedText> = {
   cadres: { fr: "Cadres", en: "Executives" },
   foremen: { fr: "Agents de Maîtrise", en: "Foremen" },

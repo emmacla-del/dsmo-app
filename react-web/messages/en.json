@@ -915,7 +915,6 @@
     "quarterLoadError": "Could not verify the active period. Reload the page before submitting."
   },
   "tableRenderer": {
-    "totalRowLabelUpper": "TOTAL",
     "totalRowLabelTitleCase": "Total",
     "tableNotYetRendered": "Table not yet rendered — {template} ({fieldId})."
   },

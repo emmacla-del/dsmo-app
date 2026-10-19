@@ -5,7 +5,7 @@ import { TableHeadingShownContext } from "../table-heading-context";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { CodedLabel } from "../ui/QuestionCode";
+import { TableQuestionHeading } from "../table/TableQuestionHeading";
 import { isComputedCspCell } from "@/lib/onefop-formulas";
 import { CSP_ROW_LABELS } from "@/lib/onefop-tables";
 import {
@@ -451,19 +451,13 @@ export function AdaptiveStatisticalTable({
               {!headingShown && (
                 // A heading, not a <span>: in Tableau view this is the only
                 // thing on the screen that says what the table counts, and
-                // one table now fills a screen of its own. Guided view below
-                // already used an <h2>; the two agree.
-                <h2
-                  style={{
-                    fontSize: "var(--cam-font-size-lg, 1.125rem)",
-                    fontWeight: "var(--cam-font-weight-bold)",
-                    color: "var(--cam-text)",
-                    lineHeight: 1.4,
-                    margin: 0,
-                  }}
-                >
-                  <CodedLabel code={definition.paperCode} text={tableHeadingText(definition, locale)} />
-                </h2>
+                // one table now fills a screen of its own. Guided view below,
+                // the classic grids and the project's activities table all
+                // draw it from TableQuestionHeading, so the four agree.
+                <TableQuestionHeading
+                  code={definition.paperCode}
+                  text={tableHeadingText(definition, locale)}
+                />
               )}
             </div>
 
@@ -474,17 +468,10 @@ export function AdaptiveStatisticalTable({
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
             {!headingShown && (
-              <h2
-                style={{
-                  fontSize: "var(--cam-font-size-lg, 1.125rem)",
-                  fontWeight: 700,
-                  color: "var(--cam-text)",
-                  margin: 0,
-                  lineHeight: 1.35,
-                }}
-              >
-                <CodedLabel code={definition.paperCode} text={tableHeadingText(definition, locale)} />
-              </h2>
+              <TableQuestionHeading
+                code={definition.paperCode}
+                text={tableHeadingText(definition, locale)}
+              />
             )}
             <CoherenceChip tableFieldId={tableFieldId} />
           </div>
