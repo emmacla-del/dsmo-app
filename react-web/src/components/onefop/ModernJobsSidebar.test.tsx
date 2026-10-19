@@ -1,10 +1,11 @@
+import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FormData, OnefopSchema, OnefopSection } from "@/lib/onefop-schema";
 import { validateSectionData } from "@/lib/onefop-validation";
-import { getSectionStatus } from "./ModernJobsSidebar";
+import { getSectionStatus, ModernJobsSidebar } from "./ModernJobsSidebar";
 import { getModernJobsTableDefinition } from "./tables/definitions/modernJobsTableDefinitions";
 
 const root = process.env.REACT_WEB_ROOT ?? process.cwd();
@@ -69,4 +70,30 @@ test("PP Section 4: each csp × sex × age table is titled by its own question",
   assert.equal(new Set(titles).size, 4);
   assert.match(titles[0], /permanent workers .* count/);
   assert.match(titles[3], /temporary workers .* recruit/);
+});
+
+// The rail named the project form's last three sections with a paragraph
+// each ("Details sur les resencements et recrutements concernant l'activite
+// de la structure sous-tutelle / projet / programme"), where the five other
+// forms name theirs in two or three words.
+test("the project rail names its sections in a few words", () => {
+  const entity = schema.entities["projectProgram"];
+  const { container, unmount } = renderWithProviders(
+    <ModernJobsSidebar
+      entity={entity}
+      data={{}}
+      currentSectionIndex={0}
+      onSelectSection={() => {}}
+    />,
+  );
+  const names = [...container.querySelectorAll("li")].map((li) => li.textContent ?? "");
+  const named = (text: string) => names.some((n) => n.includes(text));
+
+  assert.ok(named("Renseignements sur le projet"), names.join(" | "));
+  assert.ok(named("Emploi et travail"), names.join(" | "));
+  assert.ok(named("Recensements et recrutements"), names.join(" | "));
+  assert.ok(!named("sous-tutelle"), "the rail still repeats the paper form's long tail");
+  // Section 1 keeps the title the questionnaire gives it.
+  assert.ok(named("Identification de la structure"), names.join(" | "));
+  unmount();
 });
