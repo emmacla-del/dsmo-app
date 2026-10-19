@@ -15,8 +15,9 @@ for — does not occur here: the schema matrix, the wizard's input ids and
 
 Two incidental findings are worth acting on (D1, D3). Neither is in the 4.6
 change; D1 is a build-artifact trap that silently serves a stale official PDF,
-D3 is a pre-existing display rule that hides table 4.5's question from the
-respondent. **No code was changed by this run** — see "Not fixed, and why".
+D3 is a pre-existing display rule that hid table 4.5's question from the
+respondent. **D3 was fixed on the owner's word the same day** (`934ba5c8`);
+see "Fixed, and not fixed".
 
 ## Test data created (shared DB)
 
@@ -140,7 +141,7 @@ Quiz Part 3 extended from 4.3/4.4 to also open **4.5** (disability) and
 - §9: an unanswered value must not be presented as an answer. This is the
   same family as C4 of the 2026-10-18 run, reached by a different route.
 
-### D3 — Table 4.5 never shows the respondent what it is asking (medium)
+### D3 — Table 4.5 never shows the respondent what it is asking (medium) — fixed 2026-10-19 (`934ba5c8`)
 
 - Seen: in Section 4, 4.1–4.4 and 4.6 each display their question, and 4.5
   displays only « Répartition selon le statut d'emploi (Permanent,
@@ -161,9 +162,17 @@ Quiz Part 3 extended from 4.3/4.4 to also open **4.5** (disability) and
   its own question, which is what commit `17e96868` set out to achieve for
   Section 4 ("each of the six now asks what its label asks"); 4.5 was the one
   it did not reach.
-- Not applied here: the same builder serves the **enterprise** S22Q04, so the
-  change is visible in a second questionnaire and is a UX decision (§19).
-  The other four captions (lines 398, 526, 671, 934) deserve the same question.
+- **Fixed** the same day, on the owner's word in chat (`934ba5c8`), and
+  extended to the other four captioned tables — interns (S4Q01), departures
+  (S3Q01), diplomas (S22Q03), first-time entrants (S23Q02) — which hid their
+  questions the same way. The fix is at the heading, not in the builders: both
+  sites now call a named seam `tableHeadingText`, which returns the title. The
+  `caption` fields are **kept** rather than deleted, because
+  `StatisticalGridRenderer:332` renders a caption as the table's sr-only
+  `<caption>`; deleting them would have shown the question but silently
+  removed the accessible caption. One test per captioned table asserts the
+  heading is the title and not the caption, in both locales; each was checked
+  red against the old expression first. react-web 905/905.
 
 ### D4 — The Section 4 heading is misspelt in French (low)
 
@@ -224,17 +233,19 @@ Quiz Part 3 extended from 4.3/4.4 to also open **4.5** (disability) and
   persons"). The French is correct. Changing it is an AST label change (§21),
   and it is shared with S22Q05 in the other questionnaires.
 
-## Not fixed, and why
+## Fixed, and not fixed
 
-No commit was made by this run. Nothing in the 4.6 change itself failed, so
-there was no defect of the kind the task invited fixing (a wrong row label, a
-missing cell key, a mapper reading the old rows). Of what was found: D1 is a
-build artifact, not source; D3, D4 and D9 change what a respondent reads in
-more than one questionnaire or touch the canonical AST, so they belong to the
-owner and the UX/ONEFOP specialists (§19, §21); D2, D5, D6, D7 and D8 are real
-but outside this series, and §20 asks for no unrelated changes in one task.
-Each is written above with its file and line so any of them can be picked up
-directly.
+Nothing in the 4.6 change itself failed, so none of the defects the task
+invited fixing (a wrong row label, a missing cell key, a mapper reading the
+old rows) exists. **D3 was fixed** after the run, on the owner's word in chat
+(`934ba5c8`): it is respondent-facing, it hid a statistical variable's meaning
+from the person entering it, and it had a precedent in the file itself.
+
+The rest stand: D1 is a build artifact, not source; D4 and D9 touch the
+canonical AST and need §21; D2, D5, D6, D7 and D8 are real but outside this
+series, and §20 asks for no unrelated changes in one task. Each is written
+above with its file and line so any of them can be picked up directly. D1 is
+proposed as its own session.
 
 ## State left behind
 
