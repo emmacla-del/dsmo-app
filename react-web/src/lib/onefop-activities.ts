@@ -92,23 +92,36 @@ export const ACTIVITIES_ROW_CAPACITY = 13;
 /** The month the column asks for, as the paper form writes it: MM/AAAA. */
 export const ACTIVITY_START_DATE_PATTERN = /^(0[1-9]|1[0-2])\/\d{4}$/;
 
+/** The twelve months, as the month half of « Date de début » offers them. */
+export const ACTIVITY_MONTHS: { value: string; label: LocalizedText }[] = [
+  { value: "01", label: { fr: "Janvier", en: "January" } },
+  { value: "02", label: { fr: "Février", en: "February" } },
+  { value: "03", label: { fr: "Mars", en: "March" } },
+  { value: "04", label: { fr: "Avril", en: "April" } },
+  { value: "05", label: { fr: "Mai", en: "May" } },
+  { value: "06", label: { fr: "Juin", en: "June" } },
+  { value: "07", label: { fr: "Juillet", en: "July" } },
+  { value: "08", label: { fr: "Août", en: "August" } },
+  { value: "09", label: { fr: "Septembre", en: "September" } },
+  { value: "10", label: { fr: "Octobre", en: "October" } },
+  { value: "11", label: { fr: "Novembre", en: "November" } },
+  { value: "12", label: { fr: "Décembre", en: "December" } },
+];
+
 /**
- * « 03/2026 » → « 2026-03 », the value an `<input type="month">` speaks, so a
- * respondent can pick the month from the browser's own calendar instead of
- * typing it. Returns "" for anything that is not MM/AAAA — an older file may
- * hold free text, and that cell keeps the text box rather than showing empty
- * where an answer exists.
+ * « 03/2026 » → { month: "03", year: "2026" }, the two halves the cell shows.
+ * A half-finished answer ("03/", "/2026") splits the same way, so what the
+ * respondent has chosen survives a saved draft; validation refuses the row
+ * until both halves are there, and a submitted file never carries one.
  */
-export function toMonthInput(stored: unknown): string {
-  const value = String(stored ?? "").trim();
-  if (!ACTIVITY_START_DATE_PATTERN.test(value)) return "";
-  const [month, year] = value.split("/");
-  return `${year}-${month}`;
+export function splitStartDate(stored: unknown): { month: string; year: string } {
+  const [month = "", year = ""] = String(stored ?? "").trim().split("/");
+  return { month: month.trim(), year: year.trim() };
 }
 
-/** « 2026-03 » → « 03/2026 ». What is stored, printed and exported never
- *  changes shape, whichever control the browser gave the respondent. */
-export function fromMonthInput(value: string): string {
-  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value.trim());
-  return match ? `${match[2]}/${match[1]}` : "";
+/** The two halves back into what is stored, printed and exported: MM/AAAA. */
+export function joinStartDate(month: string, year: string): string {
+  const m = month.trim();
+  const y = year.trim();
+  return m === "" && y === "" ? "" : `${m}/${y}`;
 }

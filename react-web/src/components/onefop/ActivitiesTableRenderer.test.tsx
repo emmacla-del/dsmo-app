@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { renderWithProviders, within } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +32,9 @@ function renderTable(data: Record<string, unknown> = {}, attemptedContinue = fal
 test("an empty table offers one line, not thirteen", () => {
   const { rows, controls, unmount } = renderTable();
   assert.equal(rows, 1);
-  assert.equal(controls, ACTIVITIES_TABLE_FIELDS.length);
+  // One control per column, and one more: « Date de début » is a month and a
+  // year side by side.
+  assert.equal(controls, ACTIVITIES_TABLE_FIELDS.length + 1);
   unmount();
 });
 
@@ -109,6 +112,8 @@ test("a half-filled line marks the boxes it still owes, once Continue was presse
     "s2_row1_duration",
     "s2_row1_scope",
     "s2_row1_startDate",
+    // Both halves of the date are marked, not just the month.
+    "s2_row1_startDate-year",
     "s2_row1_supportType",
     "s2_row1_targetPopulation",
   ]);
@@ -133,30 +138,54 @@ test("the line counter is a real plural", () => {
   two.unmount();
 });
 
-// « Date de début » asks for a month and a year. Where the browser has a month
-// picker the respondent chooses from it instead of typing; what is stored is
-// MM/AAAA either way, so nothing downstream sees the difference.
-test("the start date offers the browser's month picker, and still stores MM/AAAA", async () => {
-  const { container, changes, user, unmount } = renderTable({ s2_row1_description: "Formation" });
-  const cell = container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
-  assert.equal(cell.type, "month", "no month picker in a browser that supports one");
-  assert.equal(cell.value, "");
-  await user.type(cell, "2026-03");
-  assert.deepEqual(changes.filter(([id]) => id === "s2_row1_startDate").at(-1), ["s2_row1_startDate", "03/2026"]);
+/** The wizard's own loop: what onChange writes comes back as the value. The
+ *  flat renderTable above keeps its data still, which is enough for one
+ *  keystroke but not for an answer typed character by character. */
+function LiveTable({ initial }: { initial: Record<string, unknown> }) {
+  const [data, setData] = useState<Record<string, unknown>>(initial);
+  return (
+    <ActivitiesTableRenderer
+      field={schemaField("projectProgram", "PP_S2_ACTIVITIES")}
+      data={data}
+      onChange={(id, value) => setData((d) => ({ ...d, [id]: value }))}
+    />
+  );
+}
+
+function renderLive(initial: Record<string, unknown> = {}) {
+  const result = renderWithProviders(<LiveTable initial={initial} />);
+  const cell = (id: string) => result.container.querySelector(`#cell-input-${id}`) as HTMLInputElement;
+  return { ...result, cell, stored: () => cell("s2_row1_startDate") };
+}
+
+// « Date de début » asks for a month and a year, and nothing more. A calendar
+// (type="date") would have the respondent pick a day the form does not ask for;
+// a month input leaves the year behind an arrow, one click per year. So: the
+// month is chosen from a list, the year typed, and MM/AAAA is what is stored.
+test("the month is picked and the year typed, and MM/AAAA is stored", async () => {
+  const { container, user, unmount } = renderLive({ s2_row1_description: "Formation" });
+  const month = container.querySelector("#cell-input-s2_row1_startDate") as HTMLSelectElement;
+  const year = container.querySelector("#cell-input-s2_row1_startDate-year") as HTMLInputElement;
+  assert.equal(month.tagName, "SELECT");
+  assert.ok([...month.options].some((o) => o.textContent === "Mars"), "the months are not named");
+
+  await user.selectOptions(month, "03");
+  await user.type(year, "2026");
+  assert.equal(month.value, "03");
+  assert.equal(year.value, "2026");
   unmount();
 });
 
-test("a stored month shows in the picker, and free text keeps the text box", () => {
-  const picked = renderTable({ s2_row1_startDate: "03/2026" });
-  const month = picked.container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
-  assert.equal(month.value, "2026-03");
-  picked.unmount();
+test("a stored date fills both halves, and the year takes digits only", async () => {
+  const { container, user, unmount } = renderLive({ s2_row1_startDate: "03/2026" });
+  const month = container.querySelector("#cell-input-s2_row1_startDate") as HTMLSelectElement;
+  const year = container.querySelector("#cell-input-s2_row1_startDate-year") as HTMLInputElement;
+  assert.equal(month.value, "03");
+  assert.equal(year.value, "2026");
+  assert.equal(year.maxLength, 4);
 
-  // An older file typed free: showing it empty in a month input would hide an
-  // answer from the person who gave it.
-  const free = renderTable({ s2_row1_startDate: "l'an dernier" });
-  const text = free.container.querySelector("#cell-input-s2_row1_startDate") as HTMLInputElement;
-  assert.equal(text.type, "text");
-  assert.equal(text.value, "l'an dernier");
-  free.unmount();
+  await user.clear(year);
+  await user.type(year, "a1");
+  assert.equal(year.value, "1", "a letter reached the year box");
+  unmount();
 });
