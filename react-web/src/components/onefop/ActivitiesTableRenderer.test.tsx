@@ -175,7 +175,7 @@ test("the box opens a panel, and a month picked there stores MM/AAAA", async () 
 
   await user.selectOptions(year, "2024");
   await user.click(within(panel).getByRole("button", { name: "Mars" }));
-  assert.equal(box.textContent, "Mars 2024");
+  assert.equal(box.textContent, "03/2024");
   assert.equal(screen.queryByRole("dialog"), null, "the panel stayed open after a month was picked");
   unmount();
 });
@@ -183,12 +183,39 @@ test("the box opens a panel, and a month picked there stores MM/AAAA", async () 
 test("a stored date reads back in the box, and a year outside the list is kept", async () => {
   const { container, user, unmount } = renderLive({ s2_row1_startDate: "07/1960" });
   const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
-  assert.equal(box.textContent, "Juillet 1960");
+  assert.equal(box.textContent, "07/1960");
 
   // A service that began before the list reaches still finds its own year.
   await user.click(box);
   const year = within(screen.getByRole("dialog")).getByRole("combobox") as HTMLSelectElement;
   assert.equal(year.value, "1960");
+  unmount();
+});
+
+// A draft saved by the two-box version could hold a month and no year
+// ("10/"). Half a date is not an answer — validation refuses it — so the box
+// reads as the placeholder rather than a finished-looking « 10 », and the
+// panel still writes both halves when the respondent picks there.
+test("a month without a year reads as unanswered, and can still be answered", async () => {
+  const { container, user, unmount } = renderLive({ s2_row1_startDate: "10/" });
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+  assert.equal(box.textContent, "MM/AAAA");
+
+  await user.click(box);
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Octobre" }));
+  assert.equal(box.textContent, "10/2026");
+  unmount();
+});
+
+// Correcting only the year is an answer on its own: the month stays, and the
+// respondent does not have to click it again for the new year to be stored.
+test("the year can be changed on its own, once a month is there", async () => {
+  const { container, user, unmount } = renderLive({ s2_row1_startDate: "07/1960" });
+  const box = container.querySelector("#cell-input-s2_row1_startDate") as HTMLButtonElement;
+
+  await user.click(box);
+  await user.selectOptions(within(screen.getByRole("dialog")).getByRole("combobox"), "2023");
+  assert.equal(box.textContent, "07/2023");
   unmount();
 });
 
