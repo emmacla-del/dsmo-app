@@ -19,51 +19,61 @@ import {
   type LayoutStyle,
 } from "./table/DataTable";
 
-// One frame per box, not two.
+// One frame per answer, and it is the cell's.
 //
-// This table's cells used to carry a border of their own AND each control a
-// second one inside it, a millimetre apart — a double frame around every
-// answer, and the row so tight that a text box and the dropdown next to it
-// read as one broken control. The frame belongs to the control here: unlike
-// the statistical grids, these cells are a form (free text and coded
-// dropdowns, no numbers, no totals), so they wear the wizard's own control —
-// .sovereign-text-input / .sovereign-select, the same height, edge, radius
-// and green focus as the boxes of Sections 0 and 1 — and the cells space
-// them out with border-spacing, the table's own version of a flex gap.
-// Typography still comes from DataTable's classes, so the entries keep the
-// size and weight every other table's entries have (npm run check:tables).
+// Every cell here used to carry a border AND the control inside it a second
+// one, a millimetre apart: a double frame around every answer, and a text box
+// that read as one broken control with the dropdown beside it. Free-standing
+// framed boxes, spaced like a form, were worse — a row of six is wider than
+// the screen and the grid stops being a grid. So the table keeps its cells and
+// the controls lose their own edge: each one fills its cell, transparent and
+// borderless, and shows an inset ring on focus — the same cell input
+// StatisticalGridRenderer and VtProgressiveRowGrid use, which is what every
+// other table in the wizard looks like.
 
 const thStyle: LayoutStyle = {
-  // No rule under the header: with the boxes framed and spaced, a line per
-  // column drew six loose dashes across the top (§8, no decoration).
-  padding: 0,
-  color: "var(--cam-table-muted)",
+  border: "1px solid var(--cam-table-line)",
+  padding: "var(--cam-space-2)",
+  background: "var(--cam-table-head-bg)",
+  color: "var(--cam-table-text)",
   whiteSpace: "nowrap",
 };
 
-const tdStyle: LayoutStyle = { padding: 0 };
+/** The control fills the cell, so the cell keeps no padding of its own. */
+const tdStyle: LayoutStyle = {
+  border: "1px solid var(--cam-table-line)",
+  padding: 0,
+};
 
-/** The line's number, beside its boxes — muted, no rule of its own. */
+/** The line's number, in the cell the row header occupies. */
 const rowNumberStyle: LayoutStyle = {
-  padding: 0,
-  color: "var(--cam-table-muted)",
+  border: "1px solid var(--cam-table-line)",
+  padding: "var(--cam-space-2)",
+  background: "var(--cam-table-head-bg)",
+  color: "var(--cam-table-text)",
   whiteSpace: "nowrap",
 };
 
-/** A box as wide as the answer it expects (GOV.UK sizes a box to its answer). */
-const CONTROL_WIDTH: Record<string, number> = {
-  description: 260,
-  targetPopulation: 180,
-  supportType: 190,
-  scope: 160,
-  startDate: 130,
-  duration: 110,
+/** A column as wide as the answer it expects, and no wider. */
+const CONTROL_MIN_WIDTH: Record<string, number> = {
+  description: 220,
+  targetPopulation: 150,
+  supportType: 160,
+  scope: 130,
+  startDate: 110,
+  duration: 90,
 };
 
-const controlStyle = (key: string): LayoutStyle => ({
-  width: CONTROL_WIDTH[key] ?? 160,
-  maxWidth: "100%",
-});
+const controlStyle = (key: string): LayoutStyle => ({ minWidth: CONTROL_MIN_WIDTH[key] ?? 130 });
+
+/** Same in-cell control as the statistical grids: no edge of its own, an inset
+ *  ring on focus, and a red ring on a cell a started line still owes. */
+const CELL_INPUT_CLASS =
+  "w-full h-full min-h-[34px] px-2 py-1 bg-transparent border-0 outline-none rounded-none " +
+  "focus:ring-2 focus:ring-inset focus:ring-[var(--cam-table-focus)] focus:bg-transparent transition-colors";
+const MISSING_CELL_CLASS = "ring-2 ring-inset ring-[var(--cam-error)] bg-[rgba(179,38,30,0.06)]";
+const cellInputClass = (missing: boolean) =>
+  missing ? `${CELL_INPUT_CLASS} ${MISSING_CELL_CLASS}` : CELL_INPUT_CLASS;
 
 interface ActivitiesTableRendererProps {
   field: OnefopField;
@@ -152,18 +162,7 @@ export function ActivitiesTableRenderer({
         style={{ marginBottom: "var(--cam-space-3)" }}
       />
       <div style={{ overflowX: "auto" }}>
-        {/* separate + border-spacing: the gap between two answer boxes, the
-            table's own version of a flex gap (a <tr> cannot be a flex row
-            without losing what a row and a cell mean to a screen reader). */}
-        <DataTable
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: "var(--cam-space-4) var(--cam-space-2)",
-            // border-spacing also pads the table's own edges; pull that back
-            // so the first box lines up with the question above it.
-            margin: "0 calc(-1 * var(--cam-space-4))",
-          }}
-        >
+        <DataTable style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
             <tr>
               <CornerHeader style={thStyle} />
@@ -199,7 +198,7 @@ export function ActivitiesTableRenderer({
                           id={`cell-input-${cellId}`}
                           aria-label={cellLabel}
                           aria-invalid={missing.has(cellId) ? true : undefined}
-                          className={`sovereign-select${missing.has(cellId) ? " has-error" : ""}`}
+                          className={cellInputClass(missing.has(cellId))}
                           style={controlStyle(f.key)}
                           value={value}
                           onChange={(e) => onChange(cellId, e.target.value)}
@@ -220,7 +219,7 @@ export function ActivitiesTableRenderer({
                           type={f.key === "duration" ? "number" : "text"}
                           aria-label={cellLabel}
                           aria-invalid={missing.has(cellId) ? true : undefined}
-                          className={`sovereign-text-input${missing.has(cellId) ? " has-error" : ""}`}
+                          className={cellInputClass(missing.has(cellId))}
                           placeholder={localized(f.hint, locale)}
                           style={controlStyle(f.key)}
                           value={value}
