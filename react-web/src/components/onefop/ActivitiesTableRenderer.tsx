@@ -5,13 +5,9 @@ import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import { TableQuestionHeading } from "@/components/onefop/table/TableQuestionHeading";
-import {
-  ACTIVITIES_ROW_CAPACITY,
-  ACTIVITIES_TABLE_FIELDS,
-  ACTIVITY_MONTHS,
-  joinStartDate,
-  splitStartDate,
-} from "@/lib/onefop-activities";
+import { ACTIVITIES_ROW_CAPACITY, ACTIVITIES_TABLE_FIELDS } from "@/lib/onefop-activities";
+import { MonthYearPicker } from "@/components/onefop/table/MonthYearPicker";
+import { useCampaignPeriod } from "@/components/onefop/CampaignPeriodContext";
 import { missingActivitiesCells } from "@/lib/onefop-validation";
 import { tableCellLabel } from "@/lib/table-cell-label";
 import {
@@ -104,6 +100,10 @@ export function ActivitiesTableRenderer({
   attemptedContinue = false,
 }: ActivitiesTableRendererProps) {
   const t = useTranslations();
+  // The round being declared decides which years the list offers, so it does
+  // not shift with the reader's clock; without one, this year.
+  const campaignPeriod = useCampaignPeriod();
+  const referenceYear = (campaignPeriod.end ?? campaignPeriod.start ?? new Date()).getFullYear();
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const isEn = locale === "en";
   const label = localized(field.label, locale);
@@ -215,48 +215,19 @@ export function ActivitiesTableRenderer({
                           ))}
                         </SelectInput>
                       ) : f.key === "startDate" ? (
-                        // The month is chosen and the year typed: a calendar
-                        // would have the respondent pick a day the form does
-                        // not ask for, and a month input leaves the year
-                        // behind an arrow, one click per year. What is stored,
-                        // printed and exported stays MM/AAAA.
-                        <div style={{ display: "flex", alignItems: "stretch" }}>
-                          <SelectInput
-                            id={`cell-input-${cellId}`}
-                            aria-label={`${cellLabel} — ${isEn ? "month" : "mois"}`}
-                            aria-invalid={missing.has(cellId) ? true : undefined}
-                            className={CELL_INPUT_CLASS}
-                            style={{ minWidth: 118 }}
-                            value={splitStartDate(value).month}
-                            onChange={(e) => onChange(cellId, joinStartDate(e.target.value, splitStartDate(value).year))}
-                          >
-                            <option value="" disabled>
-                              {isEn ? "Month" : "Mois"}
-                            </option>
-                            {ACTIVITY_MONTHS.map((month) => (
-                              <option key={month.value} value={month.value}>
-                                {localized(month.label, locale)}
-                              </option>
-                            ))}
-                          </SelectInput>
-                          <TextInput
-                            id={`cell-input-${cellId}-year`}
-                            short
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={4}
-                            aria-label={`${cellLabel} — ${isEn ? "year" : "année"}`}
-                            aria-invalid={missing.has(cellId) ? true : undefined}
-                            className={CELL_INPUT_CLASS}
-                            placeholder={isEn ? "YYYY" : "AAAA"}
-                            style={{ minWidth: 72, borderLeft: "1px solid var(--cam-table-line)" }}
-                            value={splitStartDate(value).year}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) =>
-                              onChange(cellId, joinStartDate(splitStartDate(value).month, e.target.value.replace(/\D/g, "")))
-                            }
-                          />
-                        </div>
+                        // One box, one panel: see table/MonthYearPicker.tsx
+                        // for why it is neither a calendar nor two pickers.
+                        <MonthYearPicker
+                          id={`cell-input-${cellId}`}
+                          value={value}
+                          onChange={(next) => onChange(cellId, next)}
+                          label={cellLabel}
+                          invalid={missing.has(cellId)}
+                          referenceYear={referenceYear}
+                          locale={locale}
+                          className={CELL_INPUT_CLASS}
+                          style={controlStyle(f.key)}
+                        />
                       ) : (
                         <TextInput
                           id={`cell-input-${cellId}`}

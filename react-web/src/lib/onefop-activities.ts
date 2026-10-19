@@ -125,3 +125,27 @@ export function joinStartDate(month: string, year: string): string {
   const y = year.trim();
   return m === "" && y === "" ? "" : `${m}/${y}`;
 }
+
+/** How far back the year list goes. A project's service may have begun long
+ *  before the round being declared; forty years covers that without a list
+ *  nobody can scroll. A year outside it that a file already holds is added
+ *  rather than hidden, so no stored answer disappears from its own box. */
+export const ACTIVITY_YEAR_SPAN = 40;
+
+/**
+ * The years « Date de début » offers, most recent first — the round's own
+ * year plus the next one (a service may be announced before it starts), then
+ * back through ACTIVITY_YEAR_SPAN.
+ */
+export function activityYearOptions(referenceYear: number, stored?: string): string[] {
+  const years: string[] = [];
+  for (let year = referenceYear + 1; year >= referenceYear - ACTIVITY_YEAR_SPAN; year -= 1) {
+    years.push(String(year));
+  }
+  const held = String(stored ?? "").trim();
+  if (/^\d{4}$/.test(held) && !years.includes(held)) {
+    years.push(held);
+    years.sort((a, b) => Number(b) - Number(a));
+  }
+  return years;
+}
