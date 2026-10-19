@@ -60,9 +60,19 @@ export function MonthYearPicker({
   const panelId = useId();
 
   const monthName = ACTIVITY_MONTHS.find((m) => m.value === month);
-  const shown = monthName && year ? `${localized(monthName.label, locale)} ${year}` : monthName
-    ? localized(monthName.label, locale)
-    : year || "";
+  // The box reads as what it holds and what it asks for: MM/AAAA, the form's
+  // own shape and the shape of the stored answer. A half of one is not an
+  // answer — validation refuses it and no submitted file carries it — so a
+  // month with no year ("10/", left by the two-box version this replaced)
+  // reads as the placeholder, not as « 10 » or « Octobre », which would look
+  // finished. Nothing is erased: the panel still opens, and picking there
+  // writes both halves at once.
+  const shown =
+    monthName && /^\d{4}$/.test(year) ? (
+      `${monthName.value}/${year}`
+    ) : (
+      <span style={{ color: "var(--cam-table-muted)" }}>{isEn ? "MM/YYYY" : "MM/AAAA"}</span>
+    );
 
   const close = useCallback((returnFocus = true) => {
     setOpen(false);
@@ -143,7 +153,13 @@ export function MonthYearPicker({
           autoFocus
           aria-label={`${label} — ${isEn ? "year" : "année"}`}
           value={panelYear || String(referenceYear)}
-          onChange={(e) => setPanelYear(e.target.value)}
+          // Changing the year is an answer on its own once the month is
+          // there: it is stored as it is picked, so a respondent correcting
+          // only the year does not have to click the month again to keep it.
+          onChange={(e) => {
+            setPanelYear(e.target.value);
+            if (month) onChange(joinStartDate(month, e.target.value));
+          }}
           style={{
             flex: 1,
             height: 32,
@@ -208,7 +224,7 @@ export function MonthYearPicker({
         className={className}
         style={{ textAlign: "center", cursor: "pointer", ...style }}
       >
-        {shown || <span style={{ color: "var(--cam-table-muted)" }}>{isEn ? "MM/YYYY" : "MM/AAAA"}</span>}
+        {shown}
       </button>
       {panel && typeof document !== "undefined" ? createPortal(panel, document.body) : null}
     </>
