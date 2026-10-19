@@ -77,6 +77,40 @@ test("the summary names the six tables as the table list does", () => {
   unmount();
 });
 
+// D2 of the 2026-10-19 E2E run: a table switched to "Aucun" is zero-filled,
+// and switching it back to "A remplir" used to leave those zeros, so the
+// table presented itself as answered before anything was typed.
+test("re-opening a closed table clears the zeros it was given", async () => {
+  const closed: Record<string, unknown> = {
+    S4Q01_RESPONSE_STATUS: "NONE",
+    S4Q02_RESPONSE_STATUS: "NONE",
+    S4Q03_RESPONSE_STATUS: "NONE",
+    S4Q04_RESPONSE_STATUS: "NONE",
+    S4Q05_RESPONSE_STATUS: "NONE",
+    S4Q06_RESPONSE_STATUS: "NONE",
+    pp_s4q01_cadres_male_15_24: 0,
+    pp_s4q01_cadres_female_15_24: 0,
+  };
+  const { container, user, changes, unmount } = renderQuiz(closed);
+  const q = within(container);
+  await user.click(q.getAllByRole("checkbox").at(-1)!); // "Aucun bénéficiaire…"
+  const groups = q.getAllByRole("radiogroup");
+  await user.click(within(groups[0]).getByRole("radio", { name: "Oui" })); // permanent staff: yes
+  await user.click(within(groups[1]).getByRole("radio", { name: "Non" }));
+  await user.click(within(groups[2]).getByRole("radio", { name: "Non" }));
+  await user.click(q.getByRole("button", { name: /Ouvrir les tableaux/ }));
+
+  assert.ok(
+    changes.some(([id, v]) => id === "S4Q01_RESPONSE_STATUS" && v === "REPORTED"),
+    "4.1 was not re-opened",
+  );
+  const cleared = changes.filter(([id, v]) => id.startsWith("pp_s4q01_") && v === "");
+  assert.ok(cleared.length >= 2, `zeros left behind: ${JSON.stringify(changes.filter(([id]) => id.startsWith("pp_s4q01_")))}`);
+  // A table left closed keeps being zero-filled, as before.
+  assert.ok(changes.some(([id, v]) => id === "S4Q02_RESPONSE_STATUS" && v === "NONE"));
+  unmount();
+});
+
 test("a nil declaration is confirmed in a named dialog", async () => {
   const { container, user, unmount } = renderQuiz();
   const q = within(container);

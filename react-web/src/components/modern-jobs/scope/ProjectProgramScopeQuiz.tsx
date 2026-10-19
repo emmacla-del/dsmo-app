@@ -442,6 +442,17 @@ export function ProjectProgramScopeQuiz({
     );
   };
 
+  /** The configuration this file was last saved with, if any — used to tell
+   *  a table (or an outcome row) that is being re-opened from one that was
+   *  already open. */
+  const previousConfig = useMemo<Partial<ProjectProgramScopeConfig> | undefined>(() => {
+    const raw = data._scopeConfig;
+    if (raw && typeof raw === "object" && "projectProgram" in raw) {
+      return (raw as Record<string, unknown>).projectProgram as Partial<ProjectProgramScopeConfig>;
+    }
+    return undefined;
+  }, [data._scopeConfig]);
+
   /** True when the quiz's current answers open this Section 4 table. */
   const tableIsOpen = useCallback((paperCode: string): boolean => {
     switch (paperCode) {
@@ -541,6 +552,49 @@ export function ProjectProgramScopeQuiz({
     [data, entity, onChange]
   );
 
+  /**
+   * The other half of zeroTableCells: a table switched back from "Aucun" to
+   * "A remplir" kept the zeros it was given when it was closed, so it
+   * presented itself as answered before the respondent had typed anything
+   * (E2E 2026-10-19, D2 — and section 9: an unanswered value must never be
+   * shown as an answer). Only a cell still holding exactly 0 is cleared, and
+   * it is cleared to blank — the "not entered" value the tables and the
+   * export already use — never to another number.
+   */
+  const clearZeroedTableCells = useCallback(
+    (tablePaperCode: string) => {
+      const isZero = (v: unknown) => v === 0 || v === "0";
+      const s4 = entity.sections.find((s) => s.id === "section4_projectProgram");
+      const field = s4?.fields.find(
+        (f) =>
+          f.paperCode?.toUpperCase() === tablePaperCode.toUpperCase() ||
+          f.id.toUpperCase() === `PP_${tablePaperCode.toUpperCase()}`
+      );
+      if (field?.table?.matrix) {
+        for (const row of field.table.matrix) {
+          for (const cellKey of row) {
+            if (isZero(data[cellKey])) onChange(cellKey, "");
+          }
+        }
+        return;
+      }
+      const rawPrefix = tablePaperCode.toLowerCase() + "_";
+      const ppPrefix = "pp_" + rawPrefix;
+      Object.keys(data).forEach((k) => {
+        const lk = k.toLowerCase();
+        if ((lk.startsWith(rawPrefix) || lk.startsWith(ppPrefix)) && isZero(data[k])) onChange(k, "");
+      });
+    },
+    [data, entity, onChange]
+  );
+
+  /** The status this table carried before this pass of the quiz. */
+  const previousStatusOf = useCallback(
+    (tablePaperCode: string): unknown =>
+      data[`${tablePaperCode}_RESPONSE_STATUS`] ?? data[`PP_${tablePaperCode}_RESPONSE_STATUS`],
+    [data]
+  );
+
   // Commit all quiz settings and table statuses
   const commitScopeData = useCallback(() => {
     // 1. Commit _scopeConfig
@@ -558,34 +612,47 @@ export function ProjectProgramScopeQuiz({
       projectProgram: config,
     });
 
-    // 2. Section 3 Outcome cells: zero unselected rows
+    // 2. Section 3 outcome cells: an unselected row is zeroed, and a row
+    //    selected again after being zeroed is cleared back to blank, for
+    //    the same reason as the Section 4 tables below (D2).
     const allOutcomes: OutcomeKey[] = ["employed", "self_employed", "jobs_created", "trained"];
+    const wasSelected = (ok: OutcomeKey) =>
+      !previousConfig?.noOutcomes && (previousConfig?.outcomes ?? []).includes(ok);
     for (const ok of allOutcomes) {
+      const cellId = `s3kpi_${ok}_current`;
       if (noOutcomes || !outcomes.includes(ok)) {
-        onChange(`s3kpi_${ok}_current`, 0);
+        onChange(cellId, 0);
+      } else if (!wasSelected(ok) && (data[cellId] === 0 || data[cellId] === "0")) {
+        onChange(cellId, "");
       }
     }
 
-    // 3. Section 4: S4Q01 to S4Q06 table statuses & cell zeroing — one
-    //    rule for the six, read off the shared table list.
+    // 3. Section 4: S4Q01 to S4Q06 table statuses & cell zeroing. Closing a
+    //    table zero-fills it; re-opening one that was closed clears those
+    //    zeros again, so it opens unanswered (D2).
     const commitTable = (paperCode: string, isOpen: boolean) => {
+      const wasNone = previousStatusOf(paperCode) === "NONE";
       const status = isOpen ? "REPORTED" : "NONE";
       onChange(`${paperCode}_RESPONSE_STATUS`, status);
       onChange(`PP_${paperCode}_RESPONSE_STATUS`, status);
       if (!isOpen) zeroTableCells(paperCode);
+      else if (wasNone) clearZeroedTableCells(paperCode);
     };
 
     for (const table of PP_SECTION4_TABLES) {
       commitTable(table.paperCode, tableIsOpen(table.paperCode));
     }
   }, [
-    data._scopeConfig,
+    clearZeroedTableCells,
+    data,
     hasPermanentStaff,
     hasRecruitment,
     hasTemporaryStaff,
     noOutcomes,
     onChange,
     outcomes,
+    previousConfig,
+    previousStatusOf,
     recruitmentTypes,
     tableIsOpen,
     zeroTableCells,
