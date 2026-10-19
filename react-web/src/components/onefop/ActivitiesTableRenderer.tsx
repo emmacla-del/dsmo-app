@@ -8,8 +8,9 @@ import { TableQuestionHeading } from "@/components/onefop/table/TableQuestionHea
 import {
   ACTIVITIES_ROW_CAPACITY,
   ACTIVITIES_TABLE_FIELDS,
-  fromMonthInput,
-  toMonthInput,
+  ACTIVITY_MONTHS,
+  joinStartDate,
+  splitStartDate,
 } from "@/lib/onefop-activities";
 import { missingActivitiesCells } from "@/lib/onefop-validation";
 import { tableCellLabel } from "@/lib/table-cell-label";
@@ -65,7 +66,7 @@ const CONTROL_MIN_WIDTH: Record<string, number> = {
   targetPopulation: 150,
   supportType: 160,
   scope: 130,
-  startDate: 110,
+  startDate: 190,
   duration: 90,
 };
 
@@ -117,17 +118,6 @@ export function ActivitiesTableRenderer({
   // only half filled is an error (validateActivitiesTable), which is easier
   // to avoid when the lines are deliberate.
   const [opened, setOpened] = useState<number[]>([]);
-  // Firefox and Safari still render <input type="month"> as a plain text box,
-  // and a cell holding something that is not MM/AAAA (an older file, typed
-  // free) would show empty in a month input — an answer hidden from the
-  // person who gave it (§9). Both keep the text box and its MM/AAAA rule.
-  const [monthInputWorks, setMonthInputWorks] = useState(false);
-  useEffect(() => {
-    const probe = document.createElement("input");
-    probe.setAttribute("type", "month");
-    setMonthInputWorks(probe.type === "month");
-  }, []);
-  const monthPicker = (value: string) => monthInputWorks && (value === "" || toMonthInput(value) !== "");
   const focusRow = useRef<number | null>(null);
 
   const rowCells = (n: number) => ACTIVITIES_TABLE_FIELDS.map((f) => `${prefix}_row${n}_${f.key}`);
@@ -224,31 +214,55 @@ export function ActivitiesTableRenderer({
                             </option>
                           ))}
                         </SelectInput>
-                      ) : f.key === "startDate" && monthPicker(value) ? (
-                        // The browser's own month calendar, where there is
-                        // one: « Date de début » asks for a month and a year,
-                        // not a day, so this is <input type="month"> and never
-                        // type="date", which would make the respondent pick a
-                        // day the form does not ask for and the dataset does
-                        // not hold. What is stored stays MM/AAAA either way.
-                        <TextInput
-                          id={`cell-input-${cellId}`}
-                          short
-                          type="month"
-                          aria-label={cellLabel}
-                          aria-invalid={missing.has(cellId) ? true : undefined}
-                          className={CELL_INPUT_CLASS}
-                          style={controlStyle(f.key)}
-                          value={toMonthInput(value)}
-                          onChange={(e) => onChange(cellId, fromMonthInput(e.target.value))}
-                        />
+                      ) : f.key === "startDate" ? (
+                        // The month is chosen and the year typed: a calendar
+                        // would have the respondent pick a day the form does
+                        // not ask for, and a month input leaves the year
+                        // behind an arrow, one click per year. What is stored,
+                        // printed and exported stays MM/AAAA.
+                        <div style={{ display: "flex", alignItems: "stretch" }}>
+                          <SelectInput
+                            id={`cell-input-${cellId}`}
+                            aria-label={`${cellLabel} — ${isEn ? "month" : "mois"}`}
+                            aria-invalid={missing.has(cellId) ? true : undefined}
+                            className={CELL_INPUT_CLASS}
+                            style={{ minWidth: 118 }}
+                            value={splitStartDate(value).month}
+                            onChange={(e) => onChange(cellId, joinStartDate(e.target.value, splitStartDate(value).year))}
+                          >
+                            <option value="" disabled>
+                              {isEn ? "Month" : "Mois"}
+                            </option>
+                            {ACTIVITY_MONTHS.map((month) => (
+                              <option key={month.value} value={month.value}>
+                                {localized(month.label, locale)}
+                              </option>
+                            ))}
+                          </SelectInput>
+                          <TextInput
+                            id={`cell-input-${cellId}-year`}
+                            short
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
+                            aria-label={`${cellLabel} — ${isEn ? "year" : "année"}`}
+                            aria-invalid={missing.has(cellId) ? true : undefined}
+                            className={CELL_INPUT_CLASS}
+                            placeholder={isEn ? "YYYY" : "AAAA"}
+                            style={{ minWidth: 72, borderLeft: "1px solid var(--cam-table-line)" }}
+                            value={splitStartDate(value).year}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              onChange(cellId, joinStartDate(splitStartDate(value).month, e.target.value.replace(/\D/g, "")))
+                            }
+                          />
+                        </div>
                       ) : (
                         <TextInput
                           id={`cell-input-${cellId}`}
                           short={f.key !== "description"}
                           type={f.key === "duration" ? "number" : "text"}
                           // MM/AAAA and nothing longer; validation says so too.
-                          {...(f.key === "startDate" ? { inputMode: "numeric" as const, maxLength: 7 } : {})}
                           aria-label={cellLabel}
                           aria-invalid={missing.has(cellId) ? true : undefined}
                           className={CELL_INPUT_CLASS}
