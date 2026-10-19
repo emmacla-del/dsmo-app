@@ -109,6 +109,18 @@ describe('createCompanyRegistration — ID generated at registration', () => {
     expect(prisma.establishment.create).not.toHaveBeenCalled();
   });
 
+  // The project form's PP_S1Q01 is pre-filled from this column, so a
+  // registration that dropped it would ask the respondent again.
+  it("stores a project's type of entity on the company", async () => {
+    const prisma = makePrisma();
+    await makeService(prisma).registerCompany('contact@projet.cm', 'password123', {
+      ...COMPANY_DATA,
+      entityType: 'PROJECT_PROGRAM',
+      projectNature: 'Programme/ Program',
+    });
+    expect(prisma.company.create.mock.calls[0][0].data.projectNature).toBe('Programme/ Program');
+  });
+
   it('gives an assisted file its ID at creation too', async () => {
     const prisma = makePrisma();
     const result = await makeService(prisma).adminRegisterCompany(

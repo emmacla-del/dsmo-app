@@ -1,5 +1,5 @@
 import { ArgumentMetadata, BadRequestException, ValidationPipe } from '@nestjs/common';
-import { RegisterCompanyDto } from './dto/register-company.dto';
+import { PROJECT_NATURE_VALUES, RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
 
 // The global pipe from main.ts, options copied verbatim. skipMissingProperties
@@ -30,6 +30,8 @@ function body(overrides: Record<string, unknown> = {}) {
     cfpType: 'Public',
     educationSystem: 'Francophone',
     functionalStatus: 'Fonctionnelle',
+    // Only read when entityType is PROJECT_PROGRAM.
+    projectNature: 'Programme/ Program',
     ...overrides,
   };
   for (const k of Object.keys(b)) if (b[k] === undefined) delete b[k];
@@ -176,5 +178,35 @@ describe('RegisterCompanyDto — VOCATIONAL_TRAINING fields', () => {
     await expect(
       pipe.transform(vt({ cfpType: undefined, password: undefined }), assistedBody),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('RegisterCompanyDto — PROJECT_PROGRAM nature', () => {
+  const pp = { entityType: 'PROJECT_PROGRAM', cnpsNumber: undefined };
+
+  it('accepts each of PP_S1Q01 option strings', async () => {
+    for (const projectNature of PROJECT_NATURE_VALUES) {
+      await expect(
+        pipe.transform(body({ ...pp, projectNature }), publicBody),
+      ).resolves.toMatchObject({ projectNature });
+    }
+  });
+
+  it('refuses a project or programme with no nature, or one the question does not offer', async () => {
+    await expect(
+      pipe.transform(body({ ...pp, projectNature: undefined }), publicBody),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      pipe.transform(body({ ...pp, projectNature: 'Projet' }), publicBody),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      pipe.transform(body({ ...pp, projectNature: undefined, password: undefined }), assistedBody),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('does not ask the other types for it', async () => {
+    await expect(
+      pipe.transform(body({ projectNature: undefined }), publicBody),
+    ).resolves.toMatchObject({ entityType: 'ENTREPRISE' });
   });
 });

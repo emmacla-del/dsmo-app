@@ -141,6 +141,7 @@ export interface CompanyRegistrationData {
   legalStatus?: string;
   cooperativeType?: string;
   ctdType?: string;
+  projectNature?: string;
   yearOfCreation?: string;
   mainMission?: string;
   registrationNumber?: string;
@@ -748,6 +749,7 @@ export class AuthService {
           legalStatus: companyData.legalStatus,
           cooperativeType: companyData.cooperativeType,
           ctdType: companyData.ctdType,
+          projectNature: companyData.projectNature,
           yearOfCreation: companyData.yearOfCreation,
           mainMission: companyData.mainMission,
           registrationNumber: companyData.registrationNumber,

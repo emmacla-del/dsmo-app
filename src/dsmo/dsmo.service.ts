@@ -118,6 +118,7 @@ export class DsmoService {
         // Entity-specific registration fields
         cooperativeType: true,
         ctdType: true,
+        projectNature: true,
         mainMission: true,
         socialCapital: true,
         fax: true,

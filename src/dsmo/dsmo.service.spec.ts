@@ -81,7 +81,7 @@ describe('DsmoService.getMyCompany', () => {
     }
 
     const additionalFields = [
-      'cooperativeType', 'ctdType', 'mainMission', 'socialCapital', 'fax', 'sectorId', 'trainingDomains'
+      'cooperativeType', 'ctdType', 'projectNature', 'mainMission', 'socialCapital', 'fax', 'sectorId', 'trainingDomains'
     ];
     for (const field of additionalFields) {
       expect(call.select[field]).toBe(true);
