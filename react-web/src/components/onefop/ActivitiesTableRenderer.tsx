@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -66,15 +67,56 @@ interface ActivitiesTableRendererProps {
 export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTableRendererProps) {
   const t = useTranslations();
   const locale = useLocale().startsWith("en") ? "en" : "fr";
+  const isEn = locale === "en";
   const label = localized(field.label, locale);
   const prefix = field.table?.id ?? field.id;
-  const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
+  const capacity = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
+
+  // The respondent adds the lines they need, as in the training-centre
+  // tables (VtProgressiveRowGrid): a row is on screen once one of its cells
+  // holds something, plus whatever "Add a line" has opened, plus the first
+  // line, which the paper form offers straight away. All thirteen slots at
+  // once meant seventy-eight empty controls on a first visit — and a row
+  // only half filled is an error (validateActivitiesTable), which is easier
+  // to avoid when the lines are deliberate.
+  const [opened, setOpened] = useState<number[]>([]);
+  const focusRow = useRef<number | null>(null);
+
+  const rowCells = (n: number) => ACTIVITIES_TABLE_FIELDS.map((f) => `${prefix}_row${n}_${f.key}`);
+  const entered = (cellId: string) => {
+    const v = data[cellId];
+    return v !== undefined && v !== null && String(v).trim() !== "";
+  };
+
+  const started = Array.from({ length: capacity }, (_, i) => i + 1).filter((n) => rowCells(n).some(entered));
+  const shownSet = new Set([...started, ...opened]);
+  if (shownSet.size === 0) shownSet.add(1);
+  const shown = [...shownSet].sort((a, b) => a - b);
+  const nextFree = Array.from({ length: capacity }, (_, i) => i + 1).find((n) => !shownSet.has(n)) ?? null;
+
+  useEffect(() => {
+    if (focusRow.current === null) return;
+    document.getElementById(`cell-input-${prefix}_row${focusRow.current}_description`)?.focus();
+    focusRow.current = null;
+  });
+
+  const addRow = () => {
+    if (nextFree === null) return;
+    focusRow.current = nextFree;
+    // Keep every line already on screen, the untouched first one included.
+    setOpened((o) => [...new Set([...o, ...shown, nextFree])]);
+  };
+
+  const clearRow = (n: number) => {
+    for (const id of rowCells(n)) if (entered(id)) onChange(id, "");
+    setOpened((o) => o.filter((s) => s !== n));
+  };
 
   return (
     <div style={{ marginBottom: "var(--cam-form-gap)" }}>
-      <p style={labelStyle}>
+      <h2 style={labelStyle}>
         <CodedLabel code={field.paperCode} text={label} />
-      </p>
+      </h2>
       <div style={{ overflowX: "auto" }}>
         <DataTable style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
@@ -85,19 +127,22 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                   {localized(f.label, locale)}
                 </LeafHeader>
               ))}
+              <LeafHeader style={thStyle}>
+                <span className="sr-only">{isEn ? "Action" : "Action"}</span>
+              </LeafHeader>
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: rowCount }, (_, i) => i + 1).map((n) => (
+            {shown.map((n, i) => (
               <tr key={n}>
                 <RowHeader style={thStyle}>
-                  {n}
+                  {i + 1}
                 </RowHeader>
                 {ACTIVITIES_TABLE_FIELDS.map((f) => {
                   const cellId = `${prefix}_row${n}_${f.key}`;
                   const value = (data[cellId] as string) ?? "";
                   const cellLabel = tableCellLabel(
-                    [t("vtTableRenderer.defaultRowLabel", { number: n }), localized(f.label, locale)],
+                    [t("vtTableRenderer.defaultRowLabel", { number: i + 1 }), localized(f.label, locale)],
                     cellId,
                   );
                   return (
@@ -134,10 +179,39 @@ export function ActivitiesTableRenderer({ field, data, onChange }: ActivitiesTab
                     </Cell>
                   );
                 })}
+                <Cell style={tdStyle}>
+                  <button
+                    type="button"
+                    className="cam-text-button is-danger"
+                    onClick={() => clearRow(n)}
+                    disabled={shown.length === 1 && started.length === 0}
+                    aria-label={isEn ? `Clear line ${i + 1}` : `Vider la ligne ${i + 1}`}
+                  >
+                    {isEn ? "Clear" : "Vider"}
+                  </button>
+                </Cell>
               </tr>
             ))}
           </tbody>
         </DataTable>
+      </div>
+      <div
+        style={{
+          marginTop: "var(--cam-space-3)",
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--cam-space-3)",
+          flexWrap: "wrap",
+        }}
+      >
+        <button type="button" className="cam-text-button" onClick={addRow} disabled={nextFree === null}>
+          {isEn ? "Add a line" : "Ajouter une ligne"}
+        </button>
+        <span style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
+          {isEn
+            ? `${shown.length} of ${capacity} lines at most`
+            : `${shown.length} ligne(s) sur ${capacity} au maximum`}
+        </span>
       </div>
     </div>
   );
