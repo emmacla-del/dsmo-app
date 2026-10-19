@@ -834,6 +834,7 @@
     "placeholderJobTitle": "e.g. HR Director",
     "placeholderJobTitleProject": "e.g. Project Coordinator",
     "placeholderEmail": "e.g. contact@company.com",
+    "placeholderEmailProject": "e.g. contact@project.cm",
     "exampleHint": "Example: {example}"
   },
   "coherenceHints": {
@@ -1383,6 +1384,11 @@
       "topicsSummary": "{total, plural, one {# topic} other {# topics}} • {completed} completed",
       "tablesSummary": "{total, plural, one {# statistical table} other {# statistical tables}} • {completed} completed",
       "section0Intro": "Information about the person completing this questionnaire on behalf of the establishment.",
+      "section0IntroProject": "Information about the person completing this questionnaire on behalf of the project or programme.",
+      "section0IntroAdministration": "Information about the person completing this questionnaire on behalf of the administration.",
+      "section0IntroNgo": "Information about the person completing this questionnaire on behalf of the NGO.",
+      "section0IntroCooperative": "Information about the person completing this questionnaire on behalf of the cooperative.",
+      "section0IntroCtd": "Information about the person completing this questionnaire on behalf of the local authority.",
       "shortcutsTitle": "Keyboard shortcuts",
       "shortcutsAria": "Keyboard help",
       "shortcutNextCell": "next cell",
@@ -1393,7 +1399,6 @@
       "keyCtrlEnter": "Ctrl + Enter",
       "shortcutJumpNext": "jump to next table",
       "shortcutArrows": "move around the grid",
-      "section0Eyebrow": "Section 0 — Respondent identification",
       "allNone": "All items in this section are reported as none.",
       "noTablesFromQuiz": "Based on your answers to the preliminary declaration quiz, no tables need to be filled in for this section.",
       "editQuiz": "Edit preliminary quiz"

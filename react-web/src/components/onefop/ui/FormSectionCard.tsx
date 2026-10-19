@@ -74,19 +74,23 @@ export function FormSectionCard({
                 {badge}
               </span>
             )}
+            {/* The group's own heading. It was a muted <div> in small
+                capitals, smaller than the questions under it — so it ranked
+                below what it headed and shouted while doing it. A heading
+                element in the page's own voice, as afbd0ed5 set for the
+                wizards' group headings. */}
             {title && (
-              <div
+              <h2
                 style={{
-                  fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                  fontWeight: 600,
-                  color: "var(--cam-text-muted)",
+                  fontSize: "var(--cam-font-size-base)",
+                  fontWeight: "var(--cam-font-weight-bold)",
+                  lineHeight: "var(--cam-line-height-title)",
+                  color: "var(--cam-text)",
                   margin: 0,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.02em",
                 }}
               >
                 {title}
-              </div>
+              </h2>
             )}
             {description && (
               <p

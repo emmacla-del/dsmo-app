@@ -34,6 +34,7 @@ import {
   type WizardStep,
 } from "@/lib/wizard-rail-gate";
 import { readWizardPosition, writeWizardPosition } from "@/lib/wizard-position";
+import { sectionTitleWithoutNumber } from "@/lib/onefop-section-title";
 
 /** Heading ids the wizard moves focus to on each step change. */
 const SCOPE_HEADING_ID = "mj-scope-heading";
@@ -883,7 +884,7 @@ export function ModernJobsWizard({
                               ✓
                             </span>
                             <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                              {(sec.title && localized(sec.title, locale)) || sec.id}
+                              {(sec.title && sectionTitleWithoutNumber(localized(sec.title, locale), sIdx)) || sec.id}
                             </span>
                           </div>
                           <span style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-green)" }}>
@@ -995,7 +996,7 @@ export function ModernJobsWizard({
                             {isDone ? "✓" : isErr ? "!" : sIdx}
                           </span>
                           <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                            {(sec.title && localized(sec.title, locale)) || sec.id}
+                            {(sec.title && sectionTitleWithoutNumber(localized(sec.title, locale), sIdx)) || sec.id}
                           </span>
                         </div>
                         <button

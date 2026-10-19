@@ -339,7 +339,13 @@ export function Section1ThematicRenderer({
               const renderableFields = cardFields.filter((f) => !isDownstreamGeo(f));
 
               if (config.id === "identity") {
-                const yearFields = renderableFields.filter((f) => {
+                // The questions stay in the form's own order. Grouping them
+                // by control type — texts, then years, then radios — put the
+                // first question of Section 1 last (« Nature de la
+                // structure » after five text boxes), so a respondent
+                // copying from the paper had to hunt for it. A year still
+                // gets its narrow box; only the order changes.
+                const isYearField = (f: (typeof renderableFields)[number]) => {
                   const id = f.id.toUpperCase();
                   return (
                     f.type === "number" ||
@@ -347,31 +353,13 @@ export function Section1ThematicRenderer({
                     id.includes("CREATION") ||
                     id.includes("ANNEE")
                   );
-                });
-                const radioFields = renderableFields.filter(
-                  (f) => f.type === "radio" || f.type === "checkbox"
-                );
-                const textFields = renderableFields.filter(
-                  (f) => !yearFields.includes(f) && !radioFields.includes(f)
-                );
+                };
 
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {textFields.map((f) => (
+                    {renderableFields.map((f) => (
                       <div key={f.id} style={{ width: "100%" }}>
-                        {renderField(f)}
-                      </div>
-                    ))}
-
-                    {yearFields.map((f) => (
-                      <div key={f.id} style={{ width: "100%" }}>
-                        {renderField(f, false, 180)}
-                      </div>
-                    ))}
-
-                    {radioFields.map((f) => (
-                      <div key={f.id} style={{ width: "100%" }}>
-                        {renderField(f)}
+                        {isYearField(f) ? renderField(f, false, 180) : renderField(f)}
                       </div>
                     ))}
                   </div>

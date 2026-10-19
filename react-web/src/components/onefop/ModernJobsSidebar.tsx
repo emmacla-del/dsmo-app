@@ -5,6 +5,7 @@ import { WizardStepList, type WizardStep, type WizardStepState } from "@/compone
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
 import { localized, isFieldVisible, sectionChunkStarterIds } from "@/lib/onefop-schema";
+import { sectionTitleWithoutNumber } from "@/lib/onefop-section-title";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "@/components/modern-jobs/conditional/gateway-catalog";
 import {
@@ -135,33 +136,6 @@ export function getSectionStatus(
   return "in-progress";
 }
 
-export function formatSidebarSectionTitle(rawTitle: string, index: number): string {
-  if (!rawTitle) {
-    return `Section ${index}`;
-  }
-
-  // Strip existing "SECTION X." or "Section X." or "SECTION X :" or "Section X -" prefix
-  let cleaned = rawTitle.replace(/^section\s+\d+\s*[\.\:\-]?\s*/i, "").trim();
-  if (!cleaned) {
-    cleaned = rawTitle;
-  }
-
-  // Convert to sentence case / lowercase
-  cleaned = cleaned.toLowerCase();
-  cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-
-  // Preserve well-known acronyms / abbreviations
-  cleaned = cleaned
-    .replace(/\bctd\b/gi, "CTD")
-    .replace(/\bong\b/gi, "ONG")
-    .replace(/\bngos?\b/gi, (m) => m.toUpperCase().replace(/S$/, "s"))
-    .replace(/\bminefop\b/gi, "MINEFOP")
-    .replace(/\bonefop\b/gi, "ONEFOP")
-    .replace(/\bdsmo\b/gi, "DSMO");
-
-  return `Section ${index}. ${cleaned}`;
-}
-
 /**
  * The Modern Jobs wizard's side navigation (all non-VT entities): the shared
  * WizardRail and WizardStepList, so it looks and behaves like the
@@ -193,8 +167,7 @@ export function ModernJobsSidebar({
   const completedCount = statuses.filter((st) => st === "complete").length;
 
   // Sidebar titles without the "Section N." prefix -- the number sits in the circle.
-  const stepTitle = (rawTitle: string, idx: number) =>
-    formatSidebarSectionTitle(rawTitle, idx).replace(/^Section\s+\d+\.\s*/, "");
+  const stepTitle = (rawTitle: string, idx: number) => sectionTitleWithoutNumber(rawTitle, idx);
 
   const stateLabel = (state: WizardStepState) =>
     t(
