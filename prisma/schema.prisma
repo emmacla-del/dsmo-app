@@ -269,6 +269,7 @@ model Company {
   area                       String?
   cooperativeType            String?
   ctdType                    String?
+  projectNature              String?
   legalStatus                String?
   mainMission                String?
   phone                      String?

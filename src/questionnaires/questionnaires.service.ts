@@ -218,7 +218,7 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
     'Existence de structures sous tutelle / Existence of supervised structures',
   'administration.supervisedStructureCount':
     'Combien de structures sous tutelle / Number of supervised structures',
-  'projectProgram.nature': 'Nature de la structure / Nature of the structure',
+  'projectProgram.nature': "Type d'entité / Type of entity",
   'projectProgram.name': 'Nom / Name',
   'projectProgram.sigle': 'Sigle / Acronym',
   'projectProgram.personInCharge': 'Nom du Responsable / Name of the person in charge',

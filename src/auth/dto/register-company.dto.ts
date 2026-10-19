@@ -2,6 +2,17 @@ import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min,
 import { Type } from 'class-transformer';
 import { CNPS_REQUIRED_ENTITY_TYPES } from '../registration-verification';
 
+// PP_S1Q01 « Type d'entité », in the questionnaire's option order
+// (lib/core/focus/compiler/onefop_ast.dart). Registration stores the option
+// string itself, the value OnefopProjectProgramDetail.nature holds (dataset
+// v12), so the wizard can pre-fill the question with no mapping.
+export const PROJECT_NATURE_VALUES = [
+  'Projet/ Project',
+  'Programme/ Program',
+  'Structure sous-tutelle/ Structure under supervision',
+  'Autres/ Other',
+];
+
 /**
  * Every company-registration field except the password.
  *
@@ -138,6 +149,14 @@ export class CompanyRegistrationFieldsDto {
   @IsOptional() @IsString() promoterSex?: string;
   @IsOptional() @IsString() promoterPhone1?: string;
   @IsOptional() @IsString() promoterPhone2?: string;
+
+  // Required for PROJECT_PROGRAM only: the registration form asks it there,
+  // and the wizard pre-fills PP_S1Q01 from it. @IsDefined because the global
+  // pipe runs with skipMissingProperties; @ValidateIf gates it by type.
+  @ValidateIf((o) => o.entityType === 'PROJECT_PROGRAM')
+  @IsDefined()
+  @IsIn(PROJECT_NATURE_VALUES)
+  projectNature?: string;
 }
 
 /** The public POST /auth/register-company body: the fields plus a password. */
