@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized, tableHasStatusDimension, type LocalizedText } from "@/lib/onefop-schema";
 import { TableQuestionHeading } from "@/components/onefop/table/TableQuestionHeading";
+import { missingOutcomeCells } from "@/lib/onefop-validation";
 import { tableCellLabel } from "@/lib/table-cell-label";
 import {
   AGE_BAND_LABELS,
@@ -655,10 +656,13 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
     [field, data]
   );
 
-  const missingFieldKeys = useMemo(
-    () => (attemptedContinue && isReported && definition ? missingQuizFieldKeys(definition, data) : []),
-    [attemptedContinue, isReported, definition, data]
-  );
+  const missingFieldKeys = useMemo(() => {
+    if (!attemptedContinue) return [];
+    // The outcomes table has no response status to be REPORTED by — what it
+    // owes comes from the preliminary questionnaire (missingOutcomeCells).
+    if (field.table?.template === "kpi_period_table") return missingOutcomeCells(field, data);
+    return isReported && definition ? missingQuizFieldKeys(definition, data) : [];
+  }, [attemptedContinue, isReported, definition, field, data]);
   const missingKeysSet = useMemo(() => new Set(missingFieldKeys), [missingFieldKeys]);
 
   const config: TableConfig | undefined = (() => {

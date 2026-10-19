@@ -383,13 +383,17 @@ export function ProjectProgramScopeQuiz({
     if (s4q05Status === "REPORTED") recTypes.push("disability");
     if (s4q06Status === "REPORTED") recTypes.push("vulnerable");
 
-    // Check outcome cells
+    // Check outcome cells — all three periods, not the realised one alone. A
+    // file carrying only a forecast for a row read as « aucun bénéficiaire »,
+    // and committing the quiz then wrote a 0 over a row the respondent had
+    // never said was empty.
     const detectedOutcomes: OutcomeKey[] = [];
     (["employed", "self_employed", "jobs_created", "trained"] as OutcomeKey[]).forEach((k) => {
-      const v = data[`s3kpi_${k}_current`];
-      if (v !== undefined && v !== null && v !== "" && v !== 0 && v !== "0") {
-        detectedOutcomes.push(k);
-      }
+      const answered = ["current", "outlook_dec", "outlook_june"].some((period) => {
+        const v = data[`s3kpi_${k}_${period}`];
+        return v !== undefined && v !== null && v !== "" && v !== 0 && v !== "0";
+      });
+      if (answered) detectedOutcomes.push(k);
     });
 
     return {
