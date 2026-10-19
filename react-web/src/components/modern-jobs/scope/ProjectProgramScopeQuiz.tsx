@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useId, useRef } from "react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import { TABLE_PREFIX_MAP, findKeysMatchingPrefixes, hasEnteredData } from "./ScopeDataManagement";
+import { PP_SECTION4_TABLES } from "@/lib/pp-section4-tables";
 
 export interface ProjectProgramScopeQuizProps {
   entity: OnefopEntity;
@@ -96,6 +98,228 @@ const RECRUITMENT_OPTIONS: { id: RecruitmentTypeKey; tableCode: string; titleFr:
     descEn: "Internally displaced persons, refugees, orphans, or vulnerable groups.",
   },
 ];
+
+/**
+ * One option in a quiz list. The whole label is the control (§9), the border
+ * stays 1px whether or not it is ticked — a 2px selected border shifted the
+ * row by a pixel on every click — and the selected fill is the shared
+ * --cam-success-bg rather than a one-off rgba() green.
+ */
+function OptionRow({
+  checked,
+  onToggle,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "var(--cam-space-3)",
+        padding: "var(--cam-space-2) var(--cam-space-3)",
+        borderRadius: "var(--cam-radius-control, 6px)",
+        border: `1px solid ${checked ? "var(--cam-green)" : "var(--cam-border)"}`,
+        background: checked ? "var(--cam-success-bg)" : "var(--cam-surface)",
+        cursor: "pointer",
+        transition: "border-color 0.12s ease, background-color 0.12s ease",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        style={{ marginTop: 3, width: 18, height: 18, accentColor: "var(--cam-green)", cursor: "pointer" }}
+      />
+      <span>
+        <span style={{ display: "block", fontSize: "var(--cam-answer-size)", fontWeight: 600, color: "var(--cam-text)" }}>
+          {title}
+        </span>
+        <span style={{ display: "block", fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
+          {description}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+/**
+ * The Oui / Non pair, with the same markup the other employer forms' quiz
+ * uses (EventQuestion.renderYesNo): a labelled radiogroup of two radios, so
+ * the pair is announced as one question with one answer. Unanswered is a
+ * third state — neither is checked — and never reads as "Non" (§9).
+ */
+function YesNo({
+  value,
+  onSelect,
+  ariaLabel,
+  isEn,
+}: {
+  value: boolean | null;
+  onSelect: (val: boolean) => void;
+  ariaLabel: string;
+  isEn: boolean;
+}) {
+  const button = (val: boolean, label: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={value === val}
+      onClick={() => onSelect(val)}
+      style={{
+        minWidth: 92,
+        padding: "var(--cam-space-2) var(--cam-space-4)",
+        borderRadius: "var(--cam-radius-control, 6px)",
+        border: `1px solid ${value === val ? "var(--cam-green)" : "var(--cam-border)"}`,
+        background: value === val ? "var(--cam-success-bg)" : "var(--cam-surface)",
+        color: value === val ? "var(--cam-green)" : "var(--cam-text)",
+        fontSize: "var(--cam-answer-size)",
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "border-color 0.12s ease, background-color 0.12s ease",
+        textAlign: "center",
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div role="radiogroup" aria-label={ariaLabel} style={{ display: "flex", gap: "var(--cam-space-2)" }}>
+      {button(true, isEn ? "Yes" : "Oui")}
+      {button(false, isEn ? "No" : "Non")}
+    </div>
+  );
+}
+
+/**
+ * The quiz's two confirmations. Both were the same markup twice over, with
+ * a ⚠️ glyph, hardcoded sizes and a dialog that announced no name and could
+ * not be dismissed with Escape. One component now, named by its own
+ * heading, focus moved into it and returned on close (useDialogFocus, the
+ * hook the wizard's own sheets use).
+ */
+function ConfirmDialog({
+  open,
+  title,
+  body,
+  cancelLabel,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  body: string;
+  cancelLabel: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const bodyId = useId();
+  useDialogFocus(open, panelRef, onCancel);
+
+  if (!open) return null;
+
+  return (
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0, 0, 0, 0.55)",
+        display: "grid",
+        placeItems: "center",
+        padding: "var(--cam-space-4)",
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+        style={{
+          background: "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
+          borderRadius: "var(--cam-radius-md, 8px)",
+          padding: "clamp(20px, 4vw, 28px)",
+          maxWidth: 520,
+          width: "100%",
+          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.18)",
+        }}
+      >
+        <h2
+          id={titleId}
+          style={{
+            margin: "0 0 var(--cam-space-3)",
+            fontSize: "var(--cam-font-size-lg)",
+            fontWeight: "var(--cam-font-weight-bold)",
+            lineHeight: "var(--cam-line-height-title)",
+            color: "var(--cam-text)",
+          }}
+        >
+          {title}
+        </h2>
+        <p
+          id={bodyId}
+          style={{
+            fontSize: "var(--cam-font-size-sm)",
+            color: "var(--cam-text-muted)",
+            lineHeight: "var(--cam-line-height-copy)",
+            margin: "0 0 var(--cam-space-5)",
+          }}
+        >
+          {body}
+        </p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--cam-border)",
+              borderRadius: "var(--cam-radius-control, 6px)",
+              padding: "var(--cam-space-2) var(--cam-space-4)",
+              fontSize: "var(--cam-font-size-sm)",
+              fontWeight: 600,
+              color: "var(--cam-text)",
+              cursor: "pointer",
+            }}
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            style={{
+              background: "var(--cam-green)",
+              border: "none",
+              borderRadius: "var(--cam-radius-control, 6px)",
+              padding: "var(--cam-space-2) var(--cam-space-4)",
+              fontSize: "var(--cam-font-size-sm)",
+              fontWeight: 600,
+              color: "var(--cam-white)",
+              cursor: "pointer",
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ProjectProgramScopeQuiz({
   entity,
@@ -218,6 +442,26 @@ export function ProjectProgramScopeQuiz({
     );
   };
 
+  /** True when the quiz's current answers open this Section 4 table. */
+  const tableIsOpen = useCallback((paperCode: string): boolean => {
+    switch (paperCode) {
+      case "S4Q01":
+        return hasPermanentStaff === true;
+      case "S4Q02":
+        return hasTemporaryStaff === true;
+      case "S4Q03":
+        return hasRecruitment === true && recruitmentTypes.includes("permanent");
+      case "S4Q04":
+        return hasRecruitment === true && recruitmentTypes.includes("temporary");
+      case "S4Q05":
+        return hasRecruitment === true && recruitmentTypes.includes("disability");
+      case "S4Q06":
+        return hasRecruitment === true && recruitmentTypes.includes("vulnerable");
+      default:
+        return false;
+    }
+  }, [hasPermanentStaff, hasRecruitment, hasTemporaryStaff, recruitmentTypes]);
+
   // Validation: check if all 3 parts have been answered
   const isPart1Complete = noOutcomes || outcomes.length > 0;
   const isPart2Complete = hasPermanentStaff !== null && hasTemporaryStaff !== null;
@@ -322,36 +566,18 @@ export function ProjectProgramScopeQuiz({
       }
     }
 
-    // 3. Section 4: S4Q01 to S4Q06 table statuses & cell zeroing
-    const s4q01Status = hasPermanentStaff ? "REPORTED" : "NONE";
-    onChange("S4Q01_RESPONSE_STATUS", s4q01Status);
-    onChange("PP_S4Q01_RESPONSE_STATUS", s4q01Status);
-    if (!hasPermanentStaff) zeroTableCells("S4Q01");
+    // 3. Section 4: S4Q01 to S4Q06 table statuses & cell zeroing — one
+    //    rule for the six, read off the shared table list.
+    const commitTable = (paperCode: string, isOpen: boolean) => {
+      const status = isOpen ? "REPORTED" : "NONE";
+      onChange(`${paperCode}_RESPONSE_STATUS`, status);
+      onChange(`PP_${paperCode}_RESPONSE_STATUS`, status);
+      if (!isOpen) zeroTableCells(paperCode);
+    };
 
-    const s4q02Status = hasTemporaryStaff ? "REPORTED" : "NONE";
-    onChange("S4Q02_RESPONSE_STATUS", s4q02Status);
-    onChange("PP_S4Q02_RESPONSE_STATUS", s4q02Status);
-    if (!hasTemporaryStaff) zeroTableCells("S4Q02");
-
-    const s4q03Status = hasRecruitment && recruitmentTypes.includes("permanent") ? "REPORTED" : "NONE";
-    onChange("S4Q03_RESPONSE_STATUS", s4q03Status);
-    onChange("PP_S4Q03_RESPONSE_STATUS", s4q03Status);
-    if (s4q03Status === "NONE") zeroTableCells("S4Q03");
-
-    const s4q04Status = hasRecruitment && recruitmentTypes.includes("temporary") ? "REPORTED" : "NONE";
-    onChange("S4Q04_RESPONSE_STATUS", s4q04Status);
-    onChange("PP_S4Q04_RESPONSE_STATUS", s4q04Status);
-    if (s4q04Status === "NONE") zeroTableCells("S4Q04");
-
-    const s4q05Status = hasRecruitment && recruitmentTypes.includes("disability") ? "REPORTED" : "NONE";
-    onChange("S4Q05_RESPONSE_STATUS", s4q05Status);
-    onChange("PP_S4Q05_RESPONSE_STATUS", s4q05Status);
-    if (s4q05Status === "NONE") zeroTableCells("S4Q05");
-
-    const s4q06Status = hasRecruitment && recruitmentTypes.includes("vulnerable") ? "REPORTED" : "NONE";
-    onChange("S4Q06_RESPONSE_STATUS", s4q06Status);
-    onChange("PP_S4Q06_RESPONSE_STATUS", s4q06Status);
-    if (s4q06Status === "NONE") zeroTableCells("S4Q06");
+    for (const table of PP_SECTION4_TABLES) {
+      commitTable(table.paperCode, tableIsOpen(table.paperCode));
+    }
   }, [
     data._scopeConfig,
     hasPermanentStaff,
@@ -361,6 +587,7 @@ export function ProjectProgramScopeQuiz({
     onChange,
     outcomes,
     recruitmentTypes,
+    tableIsOpen,
     zeroTableCells,
   ]);
 
@@ -405,8 +632,10 @@ export function ProjectProgramScopeQuiz({
   return (
     <div
       style={{
-        maxWidth: 960,
-        margin: "0 auto",
+        // Width and centring belong to the wizard's content column
+        // (ModernJobsWizard caps the quiz stage at --vt-content-max); the
+        // quiz adding a second, slightly different maximum only made the
+        // two disagree.
         padding: "clamp(16px, 3vw, 28px) 0 48px",
         fontFamily: "var(--cam-font-sans, system-ui, sans-serif)",
       }}
@@ -418,28 +647,12 @@ export function ProjectProgramScopeQuiz({
           border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 28px)",
-          marginBottom: 24,
+          marginBottom: "var(--cam-space-5)",
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--cam-space-4)", flexWrap: "wrap" }}>
           <div>
-            <div
-              style={{
-                display: "inline-block",
-                padding: "3px 10px",
-                borderRadius: "var(--cam-radius-full, 9999px)",
-                background: "rgba(30, 107, 58, 0.12)",
-                color: "var(--cam-green)",
-                fontSize: "var(--cam-font-size-2xs)",
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                marginBottom: 10,
-              }}
-            >
-              {isEn ? "Period Declaration Quiz" : "Quiz préalable de déclaration"}
-            </div>
             <h1
               // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
               id="mj-scope-heading"
@@ -448,7 +661,7 @@ export function ProjectProgramScopeQuiz({
                 outline: "none",
                 fontSize: "clamp(20px, 3vw, 24px)",
                 fontWeight: 800,
-                margin: "0 0 8px",
+                margin: "0 0 var(--cam-space-2)",
                 color: "var(--cam-text)",
                 lineHeight: 1.25,
               }}
@@ -472,49 +685,33 @@ export function ProjectProgramScopeQuiz({
             </p>
           </div>
 
+          {/* Who is declaring, as a line of text: a grey-filled chip in
+              small capitals is decoration the masthead above already
+              carries (§8). */}
           {establishmentName && (
-            <div
-              style={{
-                background: "var(--cam-surface-subtle)",
-                border: "1px solid var(--cam-border)",
-                borderRadius: "var(--cam-radius-control, 6px)",
-                padding: "8px 14px",
-                fontSize: "var(--cam-font-size-2xs)",
-                color: "var(--cam-text-muted)",
-              }}
-            >
-              <div style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                {isEn ? "Structure" : "Structure"}
-              </div>
-              <div style={{ fontWeight: 700, color: "var(--cam-text)", marginTop: 2 }}>
-                {establishmentName}
-              </div>
-            </div>
+            <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
+              {isEn ? "Structure: " : "Structure : "}
+              <span style={{ color: "var(--cam-text)", fontWeight: 600 }}>{establishmentName}</span>
+            </p>
           )}
         </div>
 
+        {/* The headcount already declared in Section 1, as a plain line of
+            context — no tinted panel, no icon, and no paper code (S1Q15 is
+            an internal id; §8 keeps it off the respondent's screen). */}
         {s1PermanentCount !== null && (
-          <div
+          <p
             style={{
-              marginTop: 16,
-              padding: "10px 14px",
-              borderRadius: "var(--cam-radius-sm, 6px)",
-              background: "rgba(30, 107, 58, 0.08)",
-              border: "1px solid rgba(30, 107, 58, 0.25)",
+              marginTop: "var(--cam-space-4)",
+              marginBottom: 0,
               fontSize: "var(--cam-font-size-xs)",
-              color: "var(--cam-green-dark)",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              color: "var(--cam-text-muted)",
             }}
           >
-            <span>ℹ️</span>
-            <span>
-              {isEn
-                ? `Permanent staff declared in Section 1 (S1Q15): ${s1PermanentCount} employee(s).`
-                : `Effectif permanent déclaré en Section 1 (S1Q15) : ${s1PermanentCount} employé(s).`}
-            </span>
-          </div>
+            {isEn
+              ? `Permanent staff declared in Section 1: ${s1PermanentCount}.`
+              : `Effectif permanent déclaré en Section 1 : ${s1PermanentCount}.`}
+          </p>
         )}
       </div>
 
@@ -526,46 +723,32 @@ export function ProjectProgramScopeQuiz({
           border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
-          marginBottom: 20,
+          marginBottom: "var(--cam-space-5)",
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart1Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart1Complete ? "var(--cam-white)" : "var(--cam-text)",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 800,
-            }}
-          >
-            {isPart1Complete ? "✓" : "1"}
-          </span>
+        <div style={{ marginBottom: "var(--cam-space-2)" }}>
           <h2
             id="quiz-part1-title"
             style={{
-              fontSize: 17,
-              fontWeight: 800,
+              fontSize: "var(--cam-font-size-lg)",
+              fontWeight: "var(--cam-font-weight-bold)",
+              lineHeight: "var(--cam-line-height-title)",
               color: "var(--cam-text)",
               margin: 0,
             }}
           >
             {isEn
-              ? "Part 1: Placement & Training Outcomes (Section 3)"
-              : "Partie 1 : Résultats et réalisations d'insertion / formation (Section 3)"}
+              ? "Part 1: placement and training results (Section 3)"
+              : "Partie 1 : résultats d'insertion et de formation (section 3)"}
           </h2>
         </div>
         <p
           style={{
-            fontSize: 13.5,
+            fontSize: "var(--cam-font-size-sm)",
             color: "var(--cam-text-muted)",
             lineHeight: 1.5,
-            margin: "0 0 16px 38px",
+            margin: "0 0 var(--cam-space-4)",
           }}
         >
           {isEn
@@ -573,91 +756,33 @@ export function ProjectProgramScopeQuiz({
             : "Au cours de la période, votre structure ou projet a-t-il enregistré des résultats parmi les catégories suivantes ? (Les catégories non cochées seront enregistrées à zéro)."}
         </p>
 
-        <div style={{ display: "grid", gap: 10, marginLeft: 38 }}>
-          {OUTCOME_OPTIONS.map((opt) => {
-            const isChecked = outcomes.includes(opt.id);
-            return (
-              <label
-                key={opt.id}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  padding: "12px 14px",
-                  borderRadius: "var(--cam-radius-control, 6px)",
-                  border: isChecked
-                    ? "2px solid var(--cam-green)"
-                    : "1px solid var(--cam-border)",
-                  background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleOutcome(opt.id)}
-                  style={{
-                    marginTop: 3,
-                    width: 18,
-                    height: 18,
-                    accentColor: "var(--cam-green)",
-                    cursor: "pointer",
-                  }}
-                />
-                <div>
-                  <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
-                    {isEn ? opt.titleEn : opt.titleFr}
-                  </div>
-                  <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
-                    {isEn ? opt.descEn : opt.descFr}
-                  </div>
-                </div>
-              </label>
-            );
-          })}
-
-          {/* Exclusive "None" option */}
-          <label
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12,
-              padding: "12px 14px",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              border: noOutcomes
-                ? "2px solid var(--cam-green)"
-                : "1px dashed var(--cam-border-strong)",
-              background: noOutcomes ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface-subtle)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={noOutcomes}
-              onChange={handleSelectNoOutcomes}
-              style={{
-                marginTop: 3,
-                width: 18,
-                height: 18,
-                accentColor: "var(--cam-green)",
-                cursor: "pointer",
-              }}
+        <div style={{ display: "grid", gap: "var(--cam-space-2)" }}>
+          {OUTCOME_OPTIONS.map((opt) => (
+            <OptionRow
+              key={opt.id}
+              checked={outcomes.includes(opt.id)}
+              onToggle={() => toggleOutcome(opt.id)}
+              title={isEn ? opt.titleEn : opt.titleFr}
+              description={isEn ? opt.descEn : opt.descFr}
             />
-            <div>
-              <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
-                {isEn
-                  ? "No beneficiaries placed or trained during this period"
-                  : "Aucun bénéficiaire inséré ou formé au cours de la période"}
-              </div>
-              <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
-                {isEn
-                  ? "Select this option if no outcome has been recorded yet. Realizations will be initialized to 0."
-                  : "Sélectionnez cette option si aucun résultat n'a été enregistré. Les réalisations de la période seront initialisées à 0."}
-              </div>
-            </div>
-          </label>
+          ))}
+
+          {/* Exclusive "None" option — same row grammar as the four above,
+              so it does not read as a different kind of control. */}
+          <OptionRow
+            checked={noOutcomes}
+            onToggle={handleSelectNoOutcomes}
+            title={
+              isEn
+                ? "No beneficiaries placed or trained during this period"
+                : "Aucun bénéficiaire inséré ou formé au cours de la période"
+            }
+            description={
+              isEn
+                ? "Select this option if no outcome has been recorded yet. Realizations will be initialized to 0."
+                : "Sélectionnez cette option si aucun résultat n'a été enregistré. Les réalisations de la période seront initialisées à 0."
+            }
+          />
         </div>
       </section>
 
@@ -669,46 +794,32 @@ export function ProjectProgramScopeQuiz({
           border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
-          marginBottom: 20,
+          marginBottom: "var(--cam-space-5)",
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart2Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart2Complete ? "var(--cam-white)" : "var(--cam-text)",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 800,
-            }}
-          >
-            {isPart2Complete ? "✓" : "2"}
-          </span>
+        <div style={{ marginBottom: "var(--cam-space-2)" }}>
           <h2
             id="quiz-part2-title"
             style={{
-              fontSize: 17,
-              fontWeight: 800,
+              fontSize: "var(--cam-font-size-lg)",
+              fontWeight: "var(--cam-font-weight-bold)",
+              lineHeight: "var(--cam-line-height-title)",
               color: "var(--cam-text)",
               margin: 0,
             }}
           >
             {isEn
-              ? "Part 2: Structure Staff Headcount (Census — Section 4.1 & 4.2)"
-              : "Partie 2 : Effectifs en poste dans la structure / le projet (Section 4.1 & 4.2)"}
+              ? "Part 2: staff in post (tables 4.1 and 4.2)"
+              : "Partie 2 : effectifs en poste (tableaux 4.1 et 4.2)"}
           </h2>
         </div>
         <p
           style={{
-            fontSize: 13.5,
+            fontSize: "var(--cam-font-size-sm)",
             color: "var(--cam-text-muted)",
             lineHeight: 1.5,
-            margin: "0 0 18px 38px",
+            margin: "0 0 var(--cam-space-4)",
           }}
         >
           {isEn
@@ -716,22 +827,15 @@ export function ProjectProgramScopeQuiz({
             : "Précisez si votre structure ou équipe de projet emploie actuellement du personnel selon les statuts suivants :"}
         </p>
 
-        <div style={{ display: "grid", gap: 16, marginLeft: 38 }}>
+        <div style={{ display: "grid", gap: "var(--cam-space-4)" }}>
           {/* Question 2.1: Permanent staff */}
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border)",
-              background: "var(--cam-surface-subtle)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-4)", flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
                 <div style={{ fontSize: "var(--cam-question-size)", fontWeight: "var(--cam-question-weight)", lineHeight: "var(--cam-question-line-height)", color: "var(--cam-text)" }}>
                   {isEn
-                    ? "2.1 Permanent staff (open-ended contract or civil servant) — Table 4.1"
-                    : "2.1 Personnel permanent (CDI ou statutaire) — Tableau 4.1"}
+                    ? "4.1 Permanent staff (open-ended contract or civil servant)"
+                    : "4.1 Personnel permanent (CDI ou statutaire)"}
                 </div>
                 <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
@@ -739,78 +843,37 @@ export function ProjectProgramScopeQuiz({
                     : "Personnel titulaire d'un contrat à durée indéterminée ou d'un statut permanent dans la structure."}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setHasPermanentStaff(true)}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "var(--cam-radius-sm, 6px)",
-                    border: hasPermanentStaff === true
-                      ? "2px solid var(--cam-green)"
-                      : "1px solid var(--cam-border)",
-                    background: hasPermanentStaff === true ? "var(--cam-green)" : "var(--cam-white)",
-                    color: hasPermanentStaff === true ? "var(--cam-white)" : "var(--cam-text)",
-                    fontSize: "var(--cam-answer-size)",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {isEn ? "Yes" : "Oui"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHasPermanentStaff(false)}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "var(--cam-radius-sm, 6px)",
-                    border: hasPermanentStaff === false
-                      ? "2px solid var(--cam-green)"
-                      : "1px solid var(--cam-border)",
-                    background: hasPermanentStaff === false ? "var(--cam-green)" : "var(--cam-white)",
-                    color: hasPermanentStaff === false ? "var(--cam-white)" : "var(--cam-text)",
-                    fontSize: "var(--cam-answer-size)",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {isEn ? "No" : "Non"}
-                </button>
-              </div>
+              <YesNo
+                value={hasPermanentStaff}
+                onSelect={setHasPermanentStaff}
+                ariaLabel={isEn ? "Permanent staff" : "Personnel permanent"}
+                isEn={isEn}
+              />
             </div>
             {hasPermanentStaff === true && (
-              <div style={{ marginTop: 10, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-green)", fontWeight: 600 }}>
+              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                 {isEn
-                  ? "✓ Table 4.1 will be open for breakdown by CSP, sex, and age."
-                  : "✓ Le tableau 4.1 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
-              </div>
+                  ? "Table 4.1 will be open for breakdown by CSP, sex, and age."
+                  : "Le tableau 4.1 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
+              </p>
             )}
             {hasPermanentStaff === false && (
-              <div style={{ marginTop: 10, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                 {isEn
                   ? "Table 4.1 will be recorded as None (cells initialized to zero)."
                   : "Le tableau 4.1 sera enregistré à Néant (cellules initialisées à zéro)."}
-              </div>
+              </p>
             )}
           </div>
 
           {/* Question 2.2: Temporary staff */}
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border)",
-              background: "var(--cam-surface-subtle)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ borderTop: "1px solid var(--cam-border)", paddingTop: "var(--cam-space-4)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-4)", flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 300px" }}>
                 <div style={{ fontSize: "var(--cam-question-size)", fontWeight: "var(--cam-question-weight)", lineHeight: "var(--cam-question-line-height)", color: "var(--cam-text)" }}>
                   {isEn
-                    ? "2.2 Temporary staff (fixed-term, seasonal, consultant) — Table 4.2"
-                    : "2.2 Personnel temporaire (CDD, vacataires, consultants) — Tableau 4.2"}
+                    ? "4.2 Temporary staff (fixed-term, seasonal, consultant)"
+                    : "4.2 Personnel temporaire (CDD, vacataires, consultants)"}
                 </div>
                 <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
                   {isEn
@@ -818,60 +881,26 @@ export function ProjectProgramScopeQuiz({
                     : "Personnel sous contrat à durée déterminée, vacataires, consultants ou saisonniers."}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setHasTemporaryStaff(true)}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "var(--cam-radius-sm, 6px)",
-                    border: hasTemporaryStaff === true
-                      ? "2px solid var(--cam-green)"
-                      : "1px solid var(--cam-border)",
-                    background: hasTemporaryStaff === true ? "var(--cam-green)" : "var(--cam-white)",
-                    color: hasTemporaryStaff === true ? "var(--cam-white)" : "var(--cam-text)",
-                    fontSize: "var(--cam-answer-size)",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {isEn ? "Yes" : "Oui"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHasTemporaryStaff(false)}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "var(--cam-radius-sm, 6px)",
-                    border: hasTemporaryStaff === false
-                      ? "2px solid var(--cam-green)"
-                      : "1px solid var(--cam-border)",
-                    background: hasTemporaryStaff === false ? "var(--cam-green)" : "var(--cam-white)",
-                    color: hasTemporaryStaff === false ? "var(--cam-white)" : "var(--cam-text)",
-                    fontSize: "var(--cam-answer-size)",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {isEn ? "No" : "Non"}
-                </button>
-              </div>
+              <YesNo
+                value={hasTemporaryStaff}
+                onSelect={setHasTemporaryStaff}
+                ariaLabel={isEn ? "Temporary staff" : "Personnel temporaire"}
+                isEn={isEn}
+              />
             </div>
             {hasTemporaryStaff === true && (
-              <div style={{ marginTop: 10, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-green)", fontWeight: 600 }}>
+              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                 {isEn
-                  ? "✓ Table 4.2 will be open for breakdown by CSP, sex, and age."
-                  : "✓ Le tableau 4.2 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
-              </div>
+                  ? "Table 4.2 will be open for breakdown by CSP, sex, and age."
+                  : "Le tableau 4.2 sera ouvert pour ventiler les effectifs par CSP, sexe et âge."}
+              </p>
             )}
             {hasTemporaryStaff === false && (
-              <div style={{ marginTop: 10, fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
                 {isEn
                   ? "Table 4.2 will be recorded as None (cells initialized to zero)."
                   : "Le tableau 4.2 sera enregistré à Néant (cellules initialisées à zéro)."}
-              </div>
+              </p>
             )}
           </div>
         </div>
@@ -885,54 +914,36 @@ export function ProjectProgramScopeQuiz({
           border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
           padding: "clamp(20px, 3vw, 26px)",
-          marginBottom: 24,
+          marginBottom: "var(--cam-space-5)",
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "var(--cam-radius-full, 9999px)",
-              background: isPart3Complete ? "var(--cam-green)" : "rgba(11, 31, 20, 0.12)",
-              color: isPart3Complete ? "var(--cam-white)" : "var(--cam-text)",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 800,
-            }}
-          >
-            {isPart3Complete ? "✓" : "3"}
-          </span>
+        <div style={{ marginBottom: "var(--cam-space-2)" }}>
           <h2
             id="quiz-part3-title"
             style={{
-              fontSize: 17,
-              fontWeight: 800,
+              fontSize: "var(--cam-font-size-lg)",
+              fontWeight: "var(--cam-font-weight-bold)",
+              lineHeight: "var(--cam-line-height-title)",
               color: "var(--cam-text)",
               margin: 0,
             }}
           >
             {isEn
-              ? "Part 3: Period Recruitments (Section 4.3 to 4.6)"
-              : "Partie 3 : Recrutements de la période (Section 4.3 à 4.6)"}
+              ? "Part 3: recruitments during the period (tables 4.3 to 4.6)"
+              : "Partie 3 : recrutements de la période (tableaux 4.3 à 4.6)"}
           </h2>
         </div>
 
         {/* Master Gate */}
-        <div style={{ marginLeft: 38 }}>
+        <div>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              gap: 16,
-              padding: "16px",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              border: "1px solid var(--cam-border)",
-              background: "var(--cam-surface-subtle)",
-              marginBottom: 16,
+              gap: "var(--cam-space-4)",
+              marginBottom: "var(--cam-space-4)",
               flexWrap: "wrap",
             }}
           >
@@ -948,142 +959,67 @@ export function ProjectProgramScopeQuiz({
                   : "Recrutements de nouveaux collaborateurs (permanents, temporaires, handicapés, vulnérables)."}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setHasRecruitment(true)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  border: hasRecruitment === true
-                    ? "2px solid var(--cam-green)"
-                    : "1px solid var(--cam-border)",
-                  background: hasRecruitment === true ? "var(--cam-green)" : "var(--cam-white)",
-                  color: hasRecruitment === true ? "var(--cam-white)" : "var(--cam-text)",
-                  fontSize: "var(--cam-answer-size)",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {isEn ? "Yes" : "Oui"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setHasRecruitment(false);
-                  setRecruitmentTypes([]);
-                }}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  border: hasRecruitment === false
-                    ? "2px solid var(--cam-green)"
-                    : "1px solid var(--cam-border)",
-                  background: hasRecruitment === false ? "var(--cam-green)" : "var(--cam-white)",
-                  color: hasRecruitment === false ? "var(--cam-white)" : "var(--cam-text)",
-                  fontSize: "var(--cam-answer-size)",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {isEn ? "No" : "Non"}
-              </button>
-            </div>
+            <YesNo
+              value={hasRecruitment}
+              onSelect={(val) => {
+                setHasRecruitment(val);
+                if (!val) setRecruitmentTypes([]);
+              }}
+              ariaLabel={isEn ? "Recruitments during the period" : "Recrutements au cours de la période"}
+              isEn={isEn}
+            />
           </div>
 
           {hasRecruitment === false && (
-            <div
+            <p
               style={{
-                padding: "12px 14px",
-                borderRadius: "var(--cam-radius-sm, 6px)",
-                background: "rgba(30, 107, 58, 0.08)",
-                border: "1px solid rgba(30, 107, 58, 0.2)",
+                margin: 0,
                 fontSize: "var(--cam-font-size-xs)",
-                color: "var(--cam-green-dark)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
+                color: "var(--cam-text-muted)",
               }}
             >
-              <span>✓</span>
-              <span>
-                {isEn
-                  ? "No recruitments to report. All recruitment tables (4.3 to 4.6) will be automatically set to None."
-                  : "Aucun recrutement à déclarer pour la période. Les 4 tableaux de recrutement (4.3 à 4.6) seront automatiquement enregistrés à néant."}
-              </span>
-            </div>
+              {isEn
+                ? "No recruitments to report. All recruitment tables (4.3 to 4.6) will be automatically set to None."
+                : "Aucun recrutement à déclarer pour la période. Les 4 tableaux de recrutement (4.3 à 4.6) seront automatiquement enregistrés à néant."}
+            </p>
           )}
 
           {hasRecruitment === true && (
             <div>
               <p
                 style={{
-                  fontSize: 13.5,
+                  fontSize: "var(--cam-font-size-sm)",
                   fontWeight: 600,
                   color: "var(--cam-text)",
-                  margin: "0 0 12px",
+                  margin: "0 0 var(--cam-space-3)",
                 }}
               >
                 {isEn
                   ? "Select the recruitment categories carried out:"
                   : "Sélectionnez les catégories de recrutement effectuées :"}
               </p>
-              <div style={{ display: "grid", gap: 10 }}>
-                {RECRUITMENT_OPTIONS.map((opt) => {
-                  const isChecked = recruitmentTypes.includes(opt.id);
-                  return (
-                    <label
-                      key={opt.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 12,
-                        padding: "12px 14px",
-                        borderRadius: "var(--cam-radius-control, 6px)",
-                        border: isChecked
-                          ? "2px solid var(--cam-green)"
-                          : "1px solid var(--cam-border)",
-                        background: isChecked ? "rgba(30, 107, 58, 0.05)" : "var(--cam-surface)",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleRecruitmentType(opt.id)}
-                        style={{
-                          marginTop: 3,
-                          width: 18,
-                          height: 18,
-                          accentColor: "var(--cam-green)",
-                          cursor: "pointer",
-                        }}
-                      />
-                      <div>
-                        <div style={{ fontSize: "var(--cam-answer-size)", fontWeight: 700, color: "var(--cam-text)" }}>
-                          {isEn ? opt.titleEn : opt.titleFr}
-                        </div>
-                        <div style={{ fontSize: "var(--cam-microcopy-size)", color: "var(--cam-text-muted)", marginTop: 2 }}>
-                          {isEn ? opt.descEn : opt.descFr}
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
+              <div style={{ display: "grid", gap: "var(--cam-space-2)" }}>
+                {RECRUITMENT_OPTIONS.map((opt) => (
+                  <OptionRow
+                    key={opt.id}
+                    checked={recruitmentTypes.includes(opt.id)}
+                    onToggle={() => toggleRecruitmentType(opt.id)}
+                    title={isEn ? opt.titleEn : opt.titleFr}
+                    description={isEn ? opt.descEn : opt.descFr}
+                  />
+                ))}
               </div>
               {hasRecruitment && recruitmentTypes.length === 0 && (
                 <div
+                  role="alert"
                   style={{
-                    marginTop: 10,
-                    padding: "8px 12px",
+                    marginTop: "var(--cam-space-2)",
+                    padding: "var(--cam-space-2) var(--cam-space-3)",
                     borderRadius: "var(--cam-radius-sm, 4px)",
-                    background: "rgba(179, 38, 30, 0.08)",
-                    border: "1px solid rgba(179, 38, 30, 0.3)",
+                    background: "var(--cam-error-bg)",
+                    border: "1px solid var(--cam-error-border)",
                     color: "var(--cam-error)",
-                    fontSize: 12.5,
+                    fontSize: "var(--cam-microcopy-size)",
                     fontWeight: 600,
                   }}
                 >
@@ -1097,82 +1033,94 @@ export function ProjectProgramScopeQuiz({
         </div>
       </section>
 
-      {/* Scope Summary Preview Box */}
+      {/* What the quiz has configured — the same names Section 4's table
+          list uses (PP_SECTION4_TABLES), so one table is called one thing
+          throughout the declaration. */}
       <div
         style={{
-          background: "var(--cam-surface-subtle)",
           border: "1px solid var(--cam-border)",
           borderRadius: "var(--cam-radius-md, 8px)",
-          padding: "16px 20px",
-          marginBottom: 24,
+          padding: "var(--cam-space-4) var(--cam-space-5)",
+          marginBottom: "var(--cam-space-5)",
         }}
       >
-        <div style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--cam-text-muted)", marginBottom: 8 }}>
-          {isEn ? "Statistical tables configuration" : "Configuration des tableaux statistiques"}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, fontSize: 12.5 }}>
+        <h2
+          style={{
+            fontSize: "var(--cam-font-size-sm)",
+            fontWeight: "var(--cam-font-weight-bold)",
+            color: "var(--cam-text)",
+            margin: "0 0 var(--cam-space-3)",
+          }}
+        >
+          {isEn ? "Statistical tables to be filled" : "Tableaux statistiques à renseigner"}
+        </h2>
+        <dl
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "var(--cam-space-2) var(--cam-space-4)",
+            margin: 0,
+            fontSize: "var(--cam-microcopy-size)",
+          }}
+        >
           <div>
-            <strong>{isEn ? "Section 3:" : "Section 3 :"}</strong>{" "}
-            {noOutcomes
-              ? <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None (0)" : "Néant (0)"}</span>
-              : <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{outcomes.length} {isEn ? "outcome(s) active" : "objectif(s) actif(s)"}</span>}
+            <dt style={{ display: "inline", color: "var(--cam-text)" }}>{isEn ? "Section 3" : "Section 3"} : </dt>
+            <dd style={{ display: "inline", margin: 0, color: noOutcomes ? "var(--cam-text-muted)" : "var(--cam-green)" }}>
+              {noOutcomes
+                ? (isEn ? "None (0)" : "Néant (0)")
+                : `${outcomes.length} ${isEn ? "outcome(s)" : "résultat(s)"}`}
+            </dd>
           </div>
-          <div>
-            <strong>{isEn ? "4.1 Permanent workers:" : "4.1 Permanents :"}</strong>{" "}
-            {hasPermanentStaff === true
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-          <div>
-            <strong>{isEn ? "4.2 Temporary workers:" : "4.2 Temporaires :"}</strong>{" "}
-            {hasTemporaryStaff === true
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-          <div>
-            <strong>{isEn ? "4.3 Permanent recruits:" : "4.3 Recrut. permanents :"}</strong>{" "}
-            {hasRecruitment && recruitmentTypes.includes("permanent")
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-          <div>
-            <strong>{isEn ? "4.4 Temporary recruits:" : "4.4 Recrut. temporaires :"}</strong>{" "}
-            {hasRecruitment && recruitmentTypes.includes("temporary")
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-          <div>
-            <strong>{isEn ? "4.5 Recruits with a disability:" : "4.5 Recrut. handicapés :"}</strong>{" "}
-            {hasRecruitment && recruitmentTypes.includes("disability")
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-          <div>
-            <strong>{isEn ? "4.6 Vulnerable recruits:" : "4.6 Recrut. vulnérables :"}</strong>{" "}
-            {hasRecruitment && recruitmentTypes.includes("vulnerable")
-              ? <span style={{ color: "var(--cam-green)", fontWeight: 700 }}>{isEn ? "To fill" : "À renseigner"}</span>
-              : <span style={{ color: "var(--cam-text-muted)" }}>{isEn ? "None" : "Néant"}</span>}
-          </div>
-        </div>
+          {PP_SECTION4_TABLES.map((table) => {
+            const open = tableIsOpen(table.paperCode);
+            return (
+              <div key={table.paperCode}>
+                <dt style={{ display: "inline", color: "var(--cam-text)" }}>
+                  {`${table.number} ${table.name[isEn ? "en" : "fr"]}`} :{" "}
+                </dt>
+                <dd style={{ display: "inline", margin: 0, color: open ? "var(--cam-green)" : "var(--cam-text-muted)" }}>
+                  {open ? (isEn ? "To fill" : "À renseigner") : (isEn ? "None" : "Néant")}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
       </div>
 
-      {/* Bottom Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+      {/* Précédent / Continuer, in the grammar the other employer forms'
+          quiz already uses (EventQuestion's pinned footer): a quiet text
+          button back, one green action forward. */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "var(--cam-space-4)",
+          flexWrap: "wrap",
+          paddingTop: "var(--cam-space-3)",
+          borderTop: "1px solid var(--cam-border)",
+        }}
+      >
         <button
           type="button"
           onClick={onBack}
+          className="cam-hoverable"
           style={{
             background: "transparent",
-            border: "1px solid var(--cam-border)",
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "10px 20px",
+            border: "none",
+            color: "var(--cam-text-muted)",
             fontSize: "var(--cam-font-size-sm)",
             fontWeight: 600,
-            color: "var(--cam-text)",
             cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "var(--cam-space-1)",
+            padding: "var(--cam-space-2) var(--cam-space-3)",
+            borderRadius: "var(--cam-radius-control, 6px)",
           }}
         >
-          {isEn ? "← Back to Section 1" : "← Retour à la Section 1"}
+          <span aria-hidden="true">←</span>
+          <span>{isEn ? "Previous" : "Précédent"}</span>
         </button>
 
         <button
@@ -1180,183 +1128,60 @@ export function ProjectProgramScopeQuiz({
           onClick={handleProceed}
           disabled={!isFormComplete}
           style={{
-            background: isFormComplete ? "var(--cam-green)" : "var(--cam-border-strong)",
+            background: isFormComplete ? "var(--cam-green)" : "var(--cam-border)",
+            color: isFormComplete ? "var(--cam-white)" : "var(--cam-text-muted)",
             border: "none",
-            borderRadius: "var(--cam-radius-sm, 6px)",
-            padding: "11px 26px",
+            borderRadius: "var(--cam-radius-control, 6px)",
+            height: "var(--cam-button-height, 42px)",
+            padding: "0 22px",
             fontSize: "var(--cam-font-size-sm)",
-            fontWeight: 700,
-            color: "var(--cam-white)",
+            fontWeight: 600,
             cursor: isFormComplete ? "pointer" : "not-allowed",
-            boxShadow: isFormComplete ? "0 2px 4px rgba(30, 107, 58, 0.25)" : "none",
-            transition: "all 0.15s ease",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {isEn ? "Validate & Continue to Tables →" : "Valider et passer aux tableaux →"}
+          <span>{isEn ? "Open tables" : "Ouvrir les tableaux"}</span>
+          <span aria-hidden="true">→</span>
         </button>
       </div>
 
-      {/* Modal: Plausibility Confirmation for Global None */}
-      {showPlausibilityModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.55)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md, 8px)",
-              padding: "clamp(20px, 4vw, 28px)",
-              maxWidth: 520,
-              width: "100%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: "var(--cam-font-size-xl)" }} aria-hidden="true">
-                ⚠️
-              </span>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}>
-                {isEn ? "Confirm Nil Declaration" : "Confirmation d'une déclaration à néant"}
-              </h3>
-            </div>
-            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", lineHeight: 1.5, margin: "0 0 20px" }}>
-              {isEn
-                ? "You have indicated no beneficiaries placed or trained, no permanent or temporary staff, and no recruitments during this period. All official statistical tables in Sections 3 and 4 will be recorded as None. Do you confirm this situation?"
-                : "Vous avez indiqué aucun bénéficiaire inséré ou formé, aucun personnel permanent ou temporaire, et aucun recrutement au cours de cette période. Tous les tableaux statistiques officiels des sections 3 et 4 seront enregistrés à néant. Confirmez-vous cette situation ?"}
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button
-                type="button"
-                onClick={() => setShowPlausibilityModal(false)}
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--cam-border)",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {isEn ? "Modify Answers" : "Modifier mes réponses"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPlausibilityModal(false);
-                  commitScopeData();
-                  onComplete();
-                }}
-                style={{
-                  background: "var(--cam-green)",
-                  border: "none",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 700,
-                  color: "var(--cam-white)",
-                  cursor: "pointer",
-                }}
-              >
-                {isEn ? "Confirm & Open Tables" : "Confirmer la déclaration à néant"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showPlausibilityModal}
+        title={isEn ? "Confirm a nil declaration" : "Confirmer une déclaration à néant"}
+        body={
+          isEn
+            ? "You have indicated no beneficiaries placed or trained, no permanent or temporary staff, and no recruitments during this period. All official statistical tables in Sections 3 and 4 will be recorded as None. Do you confirm this situation?"
+            : "Vous avez indiqué aucun bénéficiaire inséré ou formé, aucun personnel permanent ou temporaire, et aucun recrutement au cours de cette période. Tous les tableaux statistiques officiels des sections 3 et 4 seront enregistrés à néant. Confirmez-vous cette situation ?"
+        }
+        cancelLabel={isEn ? "Modify my answers" : "Modifier mes réponses"}
+        confirmLabel={isEn ? "Confirm the nil declaration" : "Confirmer la déclaration à néant"}
+        onCancel={() => setShowPlausibilityModal(false)}
+        onConfirm={() => {
+          setShowPlausibilityModal(false);
+          commitScopeData();
+          onComplete();
+        }}
+      />
 
-      {/* Modal: Dropped Data Warning */}
-      {showDroppedDataModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.55)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md, 8px)",
-              padding: "clamp(20px, 4vw, 28px)",
-              maxWidth: 520,
-              width: "100%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: "var(--cam-font-size-xl)" }} aria-hidden="true">
-                ⚠️
-              </span>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}>
-                {isEn ? "Previously Entered Figures Will Be Cleared" : "Données déjà saisies non retenues"}
-              </h3>
-            </div>
-            <p style={{ fontSize: 13.5, color: "var(--cam-text-muted)", lineHeight: 1.5, margin: "0 0 20px" }}>
-              {isEn
-                ? "Certain tables or outcome categories for which numbers were previously entered are now deselected according to your quiz choices. These numbers will be cleared to zero. Do you wish to proceed?"
-                : "Certaines rubriques pour lesquelles des chiffres ont été saisis précédemment ne seront plus déposées conformément à vos choix dans le quiz. Ces chiffres seront réinitialisés à zéro. Souhaitez-vous continuer ?"}
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button
-                type="button"
-                onClick={() => setShowDroppedDataModal(false)}
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--cam-border)",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {isEn ? "Modify Answers" : "Modifier mes choix"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDroppedDataModal(false);
-                  commitScopeData();
-                  onComplete();
-                }}
-                style={{
-                  background: "var(--cam-green)",
-                  border: "none",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 700,
-                  color: "var(--cam-white)",
-                  cursor: "pointer",
-                }}
-              >
-                {isEn ? "Confirm & Clear" : "Confirmer et réinitialiser"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDroppedDataModal}
+        title={isEn ? "Figures already entered will be cleared" : "Des chiffres déjà saisis seront effacés"}
+        body={
+          isEn
+            ? "Certain tables or outcome categories for which numbers were previously entered are now deselected according to your quiz choices. These numbers will be cleared to zero. Do you wish to proceed?"
+            : "Certaines rubriques pour lesquelles des chiffres ont été saisis précédemment ne seront plus déposées conformément à vos choix dans le quiz. Ces chiffres seront réinitialisés à zéro. Souhaitez-vous continuer ?"
+        }
+        cancelLabel={isEn ? "Modify my choices" : "Modifier mes choix"}
+        confirmLabel={isEn ? "Confirm and clear" : "Confirmer et réinitialiser"}
+        onCancel={() => setShowDroppedDataModal(false)}
+        onConfirm={() => {
+          setShowDroppedDataModal(false);
+          commitScopeData();
+          onComplete();
+        }}
+      />
     </div>
   );
 }
