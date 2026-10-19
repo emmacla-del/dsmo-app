@@ -4,7 +4,7 @@ import { useMemo, type KeyboardEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized, tableHasStatusDimension, type LocalizedText } from "@/lib/onefop-schema";
-import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
+import { TableQuestionHeading } from "@/components/onefop/table/TableQuestionHeading";
 import { tableCellLabel } from "@/lib/table-cell-label";
 import {
   AGE_BAND_LABELS,
@@ -13,6 +13,7 @@ import {
   DIPLOMA_ROW_LABELS,
   DISMISSAL_TYPE_LABELS,
   GENDER_LABELS,
+  GRAND_TOTAL_ROW_LABEL,
   INTERNSHIP_ROW_KEYS,
   INTERNSHIP_ROW_LABELS,
   KPI_PERIODS,
@@ -92,12 +93,6 @@ interface RowTextColumn {
  * a maximised window.
  */
 const ROW_TEXT_COLUMN_WIDTH = 360;
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "var(--cam-font-size-sm)",
-  fontWeight: 600,
-  marginBottom: "var(--cam-space-2)",
-};
 
 // Layout only — typography comes from DataTable (see table/DataTable.tsx).
 const thStyle: LayoutStyle = {
@@ -686,7 +681,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
           rows: filteredCsp,
           rowLabels: [
             ...filteredCsp.map(rowLabel),
-            { fr: t("tableRenderer.totalRowLabelUpper"), en: t("tableRenderer.totalRowLabelUpper") },
+            GRAND_TOTAL_ROW_LABEL,
           ],
           buildMatrix: (rows) => [
             ...rows.map((r) => buildFilteredRow(r)),
@@ -722,7 +717,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
 
         return {
           rows: activeDiplomaKeys,
-          rowLabels: [...activeDiplomaLabels, { fr: "TOTAL", en: "TOTAL" }],
+          rowLabels: [...activeDiplomaLabels, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [
             ...rows.map((r) => buildFilteredRow(r)),
             buildFilteredRow("total"),
@@ -738,7 +733,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
           // Administration S21Q03: catégorie × sexe, no permanent/temporary.
           return {
             rows: filteredCsp,
-            rowLabels: [...filteredCsp.map(rowLabel), { fr: "TOTAL", en: "TOTAL" }],
+            rowLabels: [...filteredCsp.map(rowLabel), GRAND_TOTAL_ROW_LABEL],
             buildMatrix: (rows) => [...rows.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
             groupLabels: [{ fr: "", en: "" }],
             subLabels: MFT_LABELS,
@@ -747,7 +742,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
         }
         return {
           rows: filteredCsp,
-          rowLabels: [...filteredCsp.map(rowLabel), { fr: "TOTAL", en: "TOTAL" }],
+          rowLabels: [...filteredCsp.map(rowLabel), GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [
             ...rows.map((r) => statusGenderRow(table.id, r)),
             statusGenderRow(table.id, "total"),
@@ -762,7 +757,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
           // Administration S21Q04: nature de la vulnérabilité × sexe.
           return {
             rows: VULNERABLE_ROW_KEYS,
-            rowLabels: [...VULNERABLE_ROW_LABELS, { fr: "TOTAL", en: "TOTAL" }],
+            rowLabels: [...VULNERABLE_ROW_LABELS, GRAND_TOTAL_ROW_LABEL],
             buildMatrix: (rows) => [...rows.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
             groupLabels: [{ fr: "", en: "" }],
             subLabels: MFT_LABELS,
@@ -771,7 +766,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
         }
         return {
           rows: VULNERABLE_ROW_KEYS,
-          rowLabels: [...VULNERABLE_ROW_LABELS, { fr: "TOTAL", en: "TOTAL" }],
+          rowLabels: [...VULNERABLE_ROW_LABELS, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [
             ...rows.map((r) => statusGenderRow(table.id, r)),
             statusGenderRow(table.id, "total"),
@@ -801,7 +796,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
 
         return {
           rows: filteredCsp,
-          rowLabels: [...filteredCsp.map(rowLabel), { fr: "TOTAL", en: "TOTAL" }],
+          rowLabels: [...filteredCsp.map(rowLabel), GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [
             ...rows.map((r) => typeGenderRow(table.id, r, departureTypes)),
             typeGenderRow(table.id, "total", departureTypes),
@@ -815,7 +810,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
         const { cspRows: filteredCsp } = resolveTableScope(field, data, cspRows);
         return {
           rows: filteredCsp,
-          rowLabels: [...filteredCsp.map(rowLabel), { fr: "TOTAL", en: "TOTAL" }],
+          rowLabels: [...filteredCsp.map(rowLabel), GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [
             ...rows.map((r) => typeGenderRow(table.id, r, ["dismissal", "technical_unemployment", "total"])),
             typeGenderRow(table.id, "total", ["dismissal", "technical_unemployment", "total"]),
@@ -845,7 +840,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
 
         return {
           rows,
-          rowLabels: [...activeInternLabels, { fr: "Total", en: "Total" }],
+          rowLabels: [...activeInternLabels, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rws) => [...rws.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
           groupLabels: [{ fr: "", en: "" }],
           subLabels: MFT_LABELS,
@@ -855,7 +850,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
       case "reasons_table":
         return {
           rows: REASONS_ROW_KEYS,
-          rowLabels: [...REASONS_ROW_LABELS, { fr: "Total", en: "Total" }],
+          rowLabels: [...REASONS_ROW_LABELS, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [...rows.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
           groupLabels: [{ fr: "", en: "" }],
           subLabels: MFT_LABELS,
@@ -864,7 +859,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
       case "skills_table":
         return {
           rows: SKILLS_ROW_KEYS,
-          rowLabels: [...SKILLS_ROW_LABELS, { fr: "Total", en: "Total" }],
+          rowLabels: [...SKILLS_ROW_LABELS, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [...rows.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
           groupLabels: [{ fr: "", en: "" }],
           subLabels: MFT_LABELS,
@@ -873,7 +868,7 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
       case "training_table":
         return {
           rows: TRAINING_ROW_KEYS,
-          rowLabels: [...TRAINING_ROW_LABELS, { fr: "Total", en: "Total" }],
+          rowLabels: [...TRAINING_ROW_LABELS, GRAND_TOTAL_ROW_LABEL],
           buildMatrix: (rows) => [...rows.map((r) => genderRow(table.id, r)), genderRow(table.id, "total")],
           groupLabels: [{ fr: "", en: "" }],
           subLabels: MFT_LABELS,
@@ -898,9 +893,11 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
     if (!table || !config) {
       return (
         <div style={{ marginBottom: "var(--cam-form-gap)" }}>
-          <p style={labelStyle}>
-            <CodedLabel code={field.paperCode} text={label} />
-          </p>
+          <TableQuestionHeading
+            code={field.paperCode}
+            text={label}
+            style={{ marginBottom: "var(--cam-space-3)" }}
+          />
           <div style={placeholderStyle}>
             {t("tableRenderer.tableNotYetRendered", { template: table?.template ?? "unknown template", fieldId: field.id })}
           </div>
@@ -951,9 +948,11 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
 
     return (
       <div style={{ marginBottom: "var(--cam-form-gap)" }}>
-        <p style={labelStyle}>
-          <CodedLabel code={field.paperCode} text={label} />
-        </p>
+        <TableQuestionHeading
+          code={field.paperCode}
+          text={label}
+          style={{ marginBottom: "var(--cam-space-3)" }}
+        />
         <CoherenceChip tableFieldId={field.id} style={{ marginBottom: "var(--cam-space-2)" }} />
         <GenericGrid
           matrix={matrix}
@@ -1023,9 +1022,11 @@ export function TableRenderer({ field, data, onChange, attemptedContinue = false
 
   return (
     <div style={{ marginBottom: "var(--cam-form-gap)" }}>
-      <p style={labelStyle}>
-        <CodedLabel code={field.paperCode} text={label} />
-      </p>
+      <TableQuestionHeading
+        code={field.paperCode}
+        text={label}
+        style={{ marginBottom: "var(--cam-space-3)" }}
+      />
       <ContractGroupedGrid
         matrix={matrix}
         rowKeys={rows}

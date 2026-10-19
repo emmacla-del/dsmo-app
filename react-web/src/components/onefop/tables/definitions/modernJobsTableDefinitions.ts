@@ -11,6 +11,7 @@ import {
   GENDER_LABELS,
   INTERNSHIP_ROW_KEYS,
   INTERNSHIP_ROW_LABELS,
+  GRAND_TOTAL_ROW_LABEL,
   MFT_LABELS,
   SEX_COLUMN_LABELS,
   REASONS_ROW_KEYS,
@@ -272,7 +273,7 @@ export function buildModernJobsRecruitmentTableDefinition(
     columns,
     rows,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -408,7 +409,7 @@ export function buildModernJobsInternshipTableDefinition(
     columns,
     rows: rowDefs,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -537,7 +538,7 @@ export function buildModernJobsDepartureTableDefinition(
     columns,
     rows,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -682,7 +683,7 @@ export function buildModernJobsDiplomaTableDefinition(
     columns,
     rows,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -803,7 +804,7 @@ export function buildModernJobsCspStatusGenderTableDefinition(
     columns,
     rows,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -1090,7 +1091,7 @@ function buildCategoryGenderDefinition(field: OnefopField, tableId: string, rowK
     columns: sexColumns(),
     rows: sexRows(rowKeys, rowKeys.map(rowLabel), tableId),
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided",
     calculationMode: "materialized",
     adaptive: {
@@ -1117,7 +1118,7 @@ export function getGuidedOnlyTableDefinition(field: OnefopField, data?: FormData
     title: field.label ?? { fr: tableId, en: tableId },
     type: "fixed-matrix" as const,
     hasTotalRow: true,
-    totalRowLabel: { fr: "TOTAL GÉNÉRAL", en: "GRAND TOTAL" },
+    totalRowLabel: GRAND_TOTAL_ROW_LABEL,
     defaultMobileView: "guided" as const,
     calculationMode: "materialized" as const,
     adaptive: GUIDED_ONLY_ADAPTIVE,

@@ -915,7 +915,6 @@
     "quarterLoadError": "Impossible de vérifier la période active. Rechargez la page avant de soumettre."
   },
   "tableRenderer": {
-    "totalRowLabelUpper": "TOTAL",
     "totalRowLabelTitleCase": "Total",
     "tableNotYetRendered": "Tableau pas encore disponible — {template} ({fieldId})."
   },

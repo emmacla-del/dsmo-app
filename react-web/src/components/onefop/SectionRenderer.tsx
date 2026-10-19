@@ -616,7 +616,15 @@ export function SectionRenderer({
         id={chunk.headingId !== "init" ? `subsection-${chunk.headingId}` : undefined}
         title={
           isGuided
-            ? (chunk.title ? formatCleanTitle(chunk.title) : undefined)
+            ? // A chunk that is one table carries the table's own name
+              // (pillLabel), and the table under it already heads with the
+              // question it asks — so in Guidé the card title said the same
+              // thing twice, once with its form number stripped. A real
+              // subsection heading still shows: it names something the table
+              // does not (§8, duplicated headings).
+              chunk.pillLabel || !chunk.title
+              ? undefined
+              : formatCleanTitle(chunk.title)
             : (chunkHasTable ? undefined : (chunk.title ?? undefined))
         }
         status={isGuided ? undefined : (chunkHasTable ? undefined : (chunk.title ? status : undefined))}
