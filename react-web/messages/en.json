@@ -267,6 +267,8 @@
     "approvedCounter": "{count} endorsed",
     "draftCounter": "{count} drafts",
     "recentSubmissionsHeading": "Recent Filings & Receipts",
+    "earlierDeclarationsHeading": "Earlier declarations",
+    "dsmoDeclarationLabel": "Workforce declaration (DSMO)",
     "viewAllSubmissions": "Full history →",
     "emptyRecentSubmissions": "No filings submitted yet. Your first submission will appear here.",
     "submissionDsmo": "DSMO",
