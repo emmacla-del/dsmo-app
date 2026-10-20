@@ -120,3 +120,18 @@ test("without a chrome the control still renders where it stands", () => {
   );
   assert.ok(container.querySelector(GROUP), "no provider must not swallow the control");
 });
+
+// A phone is Guidé and nothing else (use-entry-mode.ts): offering a switch
+// there would offer a mode the store refuses to return.
+test("nothing is offered on a phone", async () => {
+  const realMatchMedia = window.matchMedia;
+  window.matchMedia = ((query: string) =>
+    ({ ...realMatchMedia(query), matches: query.includes("max-width: 767px") })) as typeof window.matchMedia;
+  try {
+    const { container } = renderWithProviders(<Chrome />);
+    await waitFor(() => assert.equal(container.querySelector('[data-testid="chrome"]')?.textContent, ""));
+    assert.equal(container.querySelector(GROUP), null, "the control is on a phone screen");
+  } finally {
+    window.matchMedia = realMatchMedia;
+  }
+});

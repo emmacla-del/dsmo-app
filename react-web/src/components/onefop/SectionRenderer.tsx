@@ -970,7 +970,11 @@ export function SectionRenderer({
                         : "1px solid var(--cam-border-strong)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
-                  whiteSpace: "nowrap",
+                  // A long name wraps inside its own pill rather than
+                  // running off the page: "3. PRIMO DEMANDEUR (personne à
+                  // la recherche de son premier emploi)" is 459px, and at
+                  // 375px it took the page sideways with it (§13).
+                  textAlign: "left",
                 }}
               >
                 {chunkAllAnswered && !chunkHasError && <span aria-hidden="true">✓</span>}

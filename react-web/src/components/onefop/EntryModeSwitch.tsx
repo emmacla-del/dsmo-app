@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { useIsPhoneViewport } from "@/lib/use-entry-mode";
 
 /**
  * Tableau / Guidé control, shared by the Modern Jobs sections and the VT
@@ -96,6 +97,8 @@ export function EntryModeSwitchSlot(props: {
   const id = useId();
   const register = slot?.register;
   const unregister = slot?.unregister;
+  // A phone has one mode, so it is told rather than asked (use-entry-mode).
+  const phone = useIsPhoneViewport();
 
   useEffect(() => {
     if (!register || !unregister) return;
@@ -103,6 +106,7 @@ export function EntryModeSwitchSlot(props: {
     return () => unregister(id);
   }, [register, unregister, id]);
 
+  if (phone) return null;
   if (!slot) return <EntryModeSwitch {...props} />;
   // Not this screen's first table, or the bar has not been measured yet.
   if (slot.claimantId !== id || !slot.element) return null;

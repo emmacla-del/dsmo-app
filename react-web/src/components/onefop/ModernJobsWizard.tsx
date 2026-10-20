@@ -6,6 +6,7 @@ import { localized, type FormData, type OnefopEntity, type OnefopField } from "@
 import { QUIZ_ISSUE_FIELD_ID, type ValidationIssue } from "@/lib/onefop-validation";
 import { ModernJobsHeader } from "./ModernJobsHeader";
 import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
+import { useEntryMode } from "@/lib/use-entry-mode";
 import { ModernJobsSidebar, getSectionStatus } from "./ModernJobsSidebar";
 import { ModernJobsNavigation } from "./ModernJobsNavigation";
 import { SectionRenderer, type SectionTableNavState } from "./SectionRenderer";
@@ -592,29 +593,13 @@ export function ModernJobsWizard({
 
   const canAdvance = true;
 
-  // Tableau / Guidé: one choice for the whole declaration — every section and
-  // table follows it until the user switches again. Remembered in this
-  // browser (a convenience only; never part of the declaration data).
-  // First visit: Guidé on phones, Tableau otherwise.
-  const ENTRY_MODE_KEY = "camleap.onefop.entryMode";
-  const [entryMode, setEntryMode] = useState<"grid" | "guided">(() => {
-    if (typeof window === "undefined") return "grid";
-    try {
-      const saved = window.localStorage.getItem(ENTRY_MODE_KEY);
-      if (saved === "grid" || saved === "guided") return saved;
-    } catch {
-      /* storage unavailable — fall through to the default */
-    }
-    return window.matchMedia?.("(max-width: 767px)").matches ? "guided" : "grid";
-  });
-  const handleEntryModeChange = useCallback((mode: "grid" | "guided") => {
-    setEntryMode(mode);
-    try {
-      window.localStorage.setItem(ENTRY_MODE_KEY, mode);
-    } catch {
-      /* storage unavailable — the choice still applies for this session */
-    }
-  }, []);
+  // Tableau / Guidé: one choice for the whole declaration — every section
+  // and table follows it until the user switches again. This wizard kept a
+  // copy of the store the training-centre wizard uses, on the same storage
+  // key: two readings of one setting, and the phone rule had to be written
+  // in both. It reads the store itself now (use-entry-mode.ts), which is
+  // also where Guidé being a phone's only mode is decided.
+  const [entryMode, handleEntryModeChange] = useEntryMode();
 
   // Mobile sections drawer: Escape closes it, focus moves in on open, Tab
   // stays inside, and focus returns to the opener on close.
