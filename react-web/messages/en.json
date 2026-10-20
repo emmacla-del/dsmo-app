@@ -628,6 +628,7 @@
     "summaryFullNameLabel": "Full name",
     "summaryLoginLabel": "Sign-in identifier",
     "summaryPasswordSet": "Password set",
+    "summaryPasswordValue": "Set",
     "editSectionButton": "Edit",
     "sectionCompleteLabel": "Section complete",
     "entityChangeTitle": "Change the entity type?",
