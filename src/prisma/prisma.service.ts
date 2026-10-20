@@ -1,5 +1,6 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { retryLostConnectionReads } from './transient-db-error';
 
 // Prisma's own default connection_limit, when DATABASE_URL doesn't specify
 // one, is `num_physical_cpus * 2 + 1` — on a small Render instance (1 vCPU)
@@ -36,6 +37,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         db: { url: withPoolDefaults(connectionUrl) },
       },
     });
+    // A read sent on a connection the pooler has already closed fails with
+    // P1017; sent again, it gets a fresh connection. Once, reads only, and
+    // never inside a transaction (transient-db-error.ts says why).
+    this.$use(retryLostConnectionReads(new Logger('Database')));
   }
 
   async onModuleInit() {
