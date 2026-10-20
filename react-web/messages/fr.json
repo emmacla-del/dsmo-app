@@ -267,6 +267,8 @@
     "approvedCounter": "{count} visés",
     "draftCounter": "{count} brouillons",
     "recentSubmissionsHeading": "Dépôts récents & Récépissés",
+    "earlierDeclarationsHeading": "Déclarations précédentes",
+    "dsmoDeclarationLabel": "Déclaration de main-d'œuvre (DSMO)",
     "viewAllSubmissions": "Tout l'historique →",
     "emptyRecentSubmissions": "Aucun dossier transmis pour le moment. Votre premier dépôt apparaîtra ici.",
     "submissionDsmo": "DSMO",

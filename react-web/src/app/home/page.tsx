@@ -7,8 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import {
   getCachedUser,
-  getMyDeclarations,
-  getMyOnefopSubmissions,
   getDeclarationPdfUrl,
   type DsmoDeclaration,
   type OnefopSubmission,
@@ -17,7 +15,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions, mySubmissionsQueryOptions, myNotificationsQueryOptions } from "@/lib/shared-queries";
-import { campaignPhrase, declaredWorkforce, respondentNiu, respondentTypeLabel } from "@/lib/respondent-identity";
+import { campaignPhrase, respondentTypeLabel } from "@/lib/respondent-identity";
 import { formatCampaignDate } from "@/lib/campaigns";
 import { formatDoualaDate } from "@/lib/douala-date";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -70,6 +68,31 @@ const STATUS_BADGE_CLASS: Record<SubmissionGroup, string> = {
   correction: "cam-badge-warning",
   rejected: "cam-badge-error",
 };
+
+// The respondent home's sections share one rhythm: a hairline above, a
+// heading, then content. No cards (CLAUDE.md §8).
+const SECTION_STYLE = {
+  borderTop: "var(--cam-border-width) solid var(--cam-border)",
+  padding: "var(--cam-space-5) 0 var(--cam-space-6)",
+} as const;
+const H2_STYLE = {
+  fontSize: "var(--cam-font-size-lg)",
+  fontWeight: "var(--cam-font-weight-bold)",
+  margin: "0 0 var(--cam-space-3)",
+  color: "var(--cam-text)",
+} as const;
+const BODY_STYLE = { fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", lineHeight: "var(--cam-line-height-base)" } as const;
+const MUTED_STYLE = { fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" } as const;
+const LINK_STYLE = { fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-green)", whiteSpace: "nowrap" } as const;
+const ROW_STYLE = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "var(--cam-space-3)",
+  padding: "var(--cam-space-3) 0",
+  borderTop: "var(--cam-border-width) solid var(--cam-border)",
+} as const;
 
 function groupStatusLabel(t: ReturnType<typeof useTranslations>, group: SubmissionGroup): string {
   switch (group) {
@@ -174,8 +197,6 @@ export default function HomeLandingPage() {
     });
   }, [submissionsQuery.data, locale, t]);
 
-  const recentEntries = useMemo(() => allEntries.slice(0, 3), [allEntries]);
-
   function handleOpenPdf(entry: SubmissionSummary) {
     if (entry.stream === "DSMO") {
       window.open(getDeclarationPdfUrl(entry.id), "_blank");
@@ -254,341 +275,181 @@ export default function HomeLandingPage() {
 
   const locationParts = [company?.subdivision, company?.department, company?.region].filter(Boolean);
   const locationText = locationParts.length > 0 ? locationParts.join(", ") : null;
-  // Identity strip: only what this account actually declared (B6).
-  const niu = respondentNiu(company?.taxNumber);
-  const workforce = declaredWorkforce(company);
+  // Identity line: what the respondent is and the number they sign in with.
+  // The NIU and CNPS live on the Establishment page, and the "verified"
+  // badge said nothing: an account that is not active never reaches here
+  // (tidy pass, owner 2026-10-20).
+  const identity = [typeLabel, company?.establishmentId, locationText].filter(Boolean);
+
+  // The campaign's own filing is the survey block above; the list below holds
+  // the others, so the same filing is not shown, with the same button, twice.
+  const earlierEntries = allEntries
+    .filter((e) => e !== campaignSubmission && e !== endorsedAlongside)
+    .slice(0, 3);
 
   return (
-    <div style={{ maxWidth: "var(--vt-content-max-wide)", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--cam-space-6)" }}>
-      {/* ── 1. Clean, Airy Header ── */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
-          <h1 style={{ fontSize: "var(--cam-font-size-2xl)", fontWeight: "var(--cam-font-weight-bold)", margin: 0, color: "var(--cam-text)" }}>
-            {company?.name || t("homeLandingPage.welcomeTitle")}
-          </h1>
-          <span className="cam-badge cam-badge-success" style={{ display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}>
-            <span aria-hidden="true">✓</span>
-            <span>{t("homeLandingPage.verifiedAccount")}</span>
+    <div style={{ maxWidth: "var(--vt-content-max)", display: "flex", flexDirection: "column" }}>
+      {/* ── Who this is ── */}
+      <header style={{ marginBottom: "var(--cam-space-6)" }}>
+        <h1 style={{ fontSize: "var(--cam-font-size-2xl)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 var(--cam-space-1)", color: "var(--cam-text)" }}>
+          {company?.name || t("homeLandingPage.welcomeTitle")}
+        </h1>
+        {identity.length > 0 && (
+          <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
+            {identity.join(" · ")}
+          </p>
+        )}
+      </header>
+
+      {/* ── The one thing to do: this campaign's survey ──
+          Its state and a single action that follows it. No box: sections are
+          told apart by their headings and a hairline (CLAUDE.md §8). */}
+      <section aria-labelledby="home-survey-heading" style={SECTION_STYLE}>
+        <h2 id="home-survey-heading" style={H2_STYLE}>
+          {campaign || (quarter?.label ?? t("homeLandingPage.campaignStatusTitle"))}
+        </h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap", marginBottom: "var(--cam-space-2)" }}>
+          {quarter && !quarter.isOpen && (
+            <span className="cam-badge cam-badge-neutral">{t("homeLandingPage.campaignClosedBadge")}</span>
+          )}
+          {quarter?.isOpen && !surveyLoading && campaignSubmission && (
+            <span className={`cam-badge ${STATUS_BADGE_CLASS[campaignSubmission.group]}`}>
+              {groupStatusLabel(t, campaignSubmission.group)}
+            </span>
+          )}
+          <span style={BODY_STYLE}>
+            {!quarter?.isOpen
+              ? t("homeLandingPage.campaignClosedNotice")
+              : surveyLoading
+              ? t("common.loading")
+              : surveyState === "none"
+              ? t("homeLandingPage.submissionStatusNone")
+              : surveyState === "draft"
+              ? t("homeLandingPage.surveyDraft")
+              : surveyState === "pending"
+              ? t("homeLandingPage.surveyPending")
+              : surveyState === "approved"
+              ? t("homeLandingPage.surveyApproved")
+              : surveyState === "correction"
+              ? t("homeLandingPage.surveyCorrection")
+              : t("homeLandingPage.surveyRejected")}
           </span>
         </div>
-
-        {/* Lightweight meta strip */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-1) var(--cam-space-3)", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-          {typeLabel && <span style={{ fontWeight: 600, color: "var(--cam-text)" }}>{typeLabel}</span>}
-          {/* Shown only when the account declared one: an administration and
-              a project/programme are never asked for a NIU, and their row
-              carries an internal `NA-<uuid>` placeholder (B6). */}
-          {niu && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{t("homeLandingPage.niuLabel")} <strong style={{ color: "var(--cam-text)" }}>{niu}</strong></span>
-            </>
-          )}
-          {company?.cnpsNumber && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{t("homeLandingPage.cnpsLabel")} <strong style={{ color: "var(--cam-text)" }}>{company.cnpsNumber}</strong></span>
-            </>
-          )}
-          {locationText && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{locationText}</span>
-            </>
-          )}
-          {/* The DSMO company profile's headcount, shown only when someone
-              entered one. ONEFOP never asks for it, so it stayed at 0 and the
-              header read « 0 declared employees » beside a declaration of 12
-              (B6); a training centre declares trainees, not employees. */}
-          {workforce !== null && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{t("homeLandingPage.employeesCount", { count: workforce })}</span>
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* ── 2. Survey status: the one thing this respondent has to do ──
-          The campaign and the survey's state for it, with a single action
-          that follows that state. Replaces the campaign banner and the
-          three "Key actions" cards: the attestation and the new-filing
-          entry already live in the rail (home/layout.tsx), and the
-          history lives in the filings list below. */}
-      <section style={{
-        background: "var(--cam-surface)",
-        border: "var(--cam-border-width) solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-lg)",
-        padding: "var(--cam-space-5) var(--cam-space-6)",
-        boxShadow: "var(--cam-shadow-sm)",
-      }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-3)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text-muted)" }}>
-              {campaign || (quarter?.label ?? t("homeLandingPage.campaignStatusTitle"))}
-            </span>
-            {quarter && !quarter.isOpen && (
-              <span className="cam-badge cam-badge-neutral">{t("homeLandingPage.campaignClosedBadge")}</span>
-            )}
-            {quarter?.isOpen && campaignSubmission && (
-              <span className={`cam-badge ${STATUS_BADGE_CLASS[campaignSubmission.group]}`}>
-                {groupStatusLabel(t, campaignSubmission.group)}
-              </span>
-            )}
-          </div>
-          {quarter?.deadline && quarter.isOpen && (
-            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-primary-dark)", background: "var(--cam-primary-tint)", padding: "var(--cam-space-1) var(--cam-space-3)", borderRadius: "var(--cam-radius-full)" }}>
-              {t("homeLandingPage.deadlineBadge", { date: formatCampaignDate(quarter.deadline) })}
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-4)" }}>
-          <div style={{ flex: "1 1 24rem" }}>
-            <h2 style={{ fontSize: "var(--cam-font-size-xl)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 var(--cam-space-2)", color: "var(--cam-text)" }}>
-              {t("homeLandingPage.surveyCardTitle")}
-            </h2>
-            <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-              {!quarter?.isOpen
-                ? t("homeLandingPage.campaignClosedNotice")
-                : surveyLoading
-                ? t("common.loading")
-                : surveyState === "none"
-                ? t("homeLandingPage.submissionStatusNone")
-                : surveyState === "draft"
-                ? t("homeLandingPage.surveyDraft")
-                : surveyState === "pending"
-                ? t("homeLandingPage.surveyPending")
-                : surveyState === "approved"
-                ? t("homeLandingPage.surveyApproved")
-                : surveyState === "correction"
-                ? t("homeLandingPage.surveyCorrection")
-                : t("homeLandingPage.surveyRejected")}
-            </p>
-            {quarter?.isOpen && surveyState === "correction" && correctionReason && (
-              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", lineHeight: "var(--cam-line-height-base)" }}>
-                {correctionReason}
-              </p>
-            )}
-            {quarter?.isOpen && endorsedAlongside && (
-              <p style={{ margin: "var(--cam-space-2) 0 0", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", lineHeight: "var(--cam-line-height-base)" }}>
-                {t("homeLandingPage.surveyAlsoEndorsed")}
-              </p>
-            )}
-          </div>
-
-          {quarter?.isOpen && !surveyLoading && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "var(--cam-space-2)", flexShrink: 0 }}>
-              {surveyState === "none" && (
-                <button
-                  type="button"
-                  // The campaign's survey is the account's own questionnaire,
-                  // as the rail's button opens it: no chooser offering a
-                  // training centre the employers' DSMO declaration.
-                  onClick={() =>
-                    company?.entityType
-                      ? router.push(`/onefop/preview?entity=${encodeURIComponent(company.entityType)}`)
-                      : setIsDialogOpen(true)
-                  }
-                  className="cam-button cam-button-primary"
-                  style={{ padding: "var(--cam-space-2) var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)" }}
-                >
-                  {t("homeLandingPage.takeSurveyButton")} →
-                </button>
-              )}
-              {(surveyState === "draft" || surveyState === "correction") && campaignSubmission && (
-                <button
-                  type="button"
-                  onClick={() => router.push(wizardHref(campaignSubmission))}
-                  className="cam-button cam-button-primary"
-                  style={{ padding: "var(--cam-space-2) var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)" }}
-                >
-                  {surveyState === "draft" ? t("homeLandingPage.resumeDraftButton") : t("homeLandingPage.correctSurveyButton")} →
-                </button>
-              )}
-              {endorsedAlongside && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenPdf(endorsedAlongside)}
-                  className="cam-button cam-button-secondary"
-                  style={{ padding: "var(--cam-space-2) var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)" }}
-                >
-                  {t("homeLandingPage.downloadReceipt")}
-                </button>
-              )}
-              {(surveyState === "pending" || surveyState === "approved" || surveyState === "rejected") && campaignSubmission && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenPdf(campaignSubmission)}
-                  className="cam-button cam-button-secondary"
-                  style={{ padding: "var(--cam-space-2) var(--cam-space-5)", fontSize: "var(--cam-font-size-sm)" }}
-                >
-                  {surveyState === "rejected" ? t("homeLandingPage.viewFilingButton") : t("homeLandingPage.downloadReceipt")}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── 3. Recent Filings & Official Receipts ── */}
-      <section style={{
-        background: "var(--cam-surface)",
-        border: "var(--cam-border-width) solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-lg)",
-        padding: "var(--cam-space-5) var(--cam-space-6)",
-        boxShadow: "var(--cam-shadow-sm)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--cam-space-3)" }}>
-          <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-bold)", margin: 0, color: "var(--cam-text)" }}>
-            {t("homeLandingPage.recentSubmissionsHeading")}
-          </h2>
-          <Link
-            href="/home/declarations"
-            style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-primary)", textDecoration: "none" }}
-          >
-            {t("homeLandingPage.viewAllSubmissions")}
-          </Link>
-        </div>
-
-        {submissionsQuery.isLoading && (
-          <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: 0 }}>
-            {t("common.loading")}
+        {quarter?.isOpen && surveyState === "correction" && correctionReason && (
+          <p style={{ ...BODY_STYLE, margin: "0 0 var(--cam-space-2)" }}>{correctionReason}</p>
+        )}
+        {quarter?.isOpen && endorsedAlongside && (
+          <p style={{ ...BODY_STYLE, margin: "0 0 var(--cam-space-2)" }}>{t("homeLandingPage.surveyAlsoEndorsed")}</p>
+        )}
+        {quarter?.deadline && quarter.isOpen && (
+          <p style={{ ...MUTED_STYLE, margin: "0 0 var(--cam-space-4)" }}>
+            {t("homeLandingPage.deadlineBadge", { date: formatCampaignDate(quarter.deadline) })}
           </p>
         )}
 
-        {!submissionsQuery.isLoading && recentEntries.length === 0 && (
-          <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: 0 }}>
-            {t("homeLandingPage.emptyRecentSubmissions")}
-          </p>
-        )}
-
-        {!submissionsQuery.isLoading && recentEntries.length > 0 && (
-          <div>
-            {recentEntries.map((entry) => (
-              <div
-                key={entry.id}
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "var(--cam-space-3)",
-                  padding: "var(--cam-space-3) 0",
-                  borderTop: "var(--cam-border-width) solid var(--cam-border)",
-                }}
+        {quarter?.isOpen && !surveyLoading && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-2)" }}>
+            {surveyState === "none" && (
+              <button
+                type="button"
+                // The campaign's survey is the account's own questionnaire,
+                // as the rail's button opens it: no chooser offering a
+                // training centre the employers' DSMO declaration.
+                onClick={() =>
+                  company?.entityType
+                    ? router.push(`/onefop/preview?entity=${encodeURIComponent(company.entityType)}`)
+                    : setIsDialogOpen(true)
+                }
+                className="cam-button cam-button-primary"
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", minWidth: 0 }}>
-                  <span className="cam-badge cam-badge-neutral" style={{ flexShrink: 0 }}>
-                    {entry.stream}
-                  </span>
-                  <div>
-                    <div style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                      {entry.period}
-                    </div>
-                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                      {formatSubmissionDate(entry.date)}
-                    </div>
+                {t("homeLandingPage.takeSurveyButton")} →
+              </button>
+            )}
+            {(surveyState === "draft" || surveyState === "correction") && campaignSubmission && (
+              <button
+                type="button"
+                onClick={() => router.push(wizardHref(campaignSubmission))}
+                className="cam-button cam-button-primary"
+              >
+                {surveyState === "draft" ? t("homeLandingPage.resumeDraftButton") : t("homeLandingPage.correctSurveyButton")} →
+              </button>
+            )}
+            {endorsedAlongside && (
+              <button type="button" onClick={() => handleOpenPdf(endorsedAlongside)} className="cam-button cam-button-secondary">
+                {t("homeLandingPage.downloadReceipt")}
+              </button>
+            )}
+            {(surveyState === "pending" || surveyState === "approved" || surveyState === "rejected") && campaignSubmission && (
+              <button type="button" onClick={() => handleOpenPdf(campaignSubmission)} className="cam-button cam-button-secondary">
+                {surveyState === "rejected" ? t("homeLandingPage.viewFilingButton") : t("homeLandingPage.downloadReceipt")}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── Earlier declarations: only when there are some ── */}
+      {!submissionsQuery.isLoading && earlierEntries.length > 0 && (
+        <section aria-labelledby="home-earlier-heading" style={SECTION_STYLE}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-3)" }}>
+            <h2 id="home-earlier-heading" style={H2_STYLE}>{t("homeLandingPage.earlierDeclarationsHeading")}</h2>
+            <Link href="/home/declarations" style={LINK_STYLE}>{t("homeLandingPage.viewAllSubmissions")}</Link>
+          </div>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {earlierEntries.map((entry) => (
+              <li key={entry.id} style={ROW_STYLE}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>{entry.period}</div>
+                  <div style={MUTED_STYLE}>
+                    {entry.stream === "DSMO" ? `${t("homeLandingPage.dsmoDeclarationLabel")} · ` : ""}
+                    {formatSubmissionDate(entry.date)}
                   </div>
                 </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
-                  <span className={`cam-badge ${STATUS_BADGE_CLASS[entry.group]}`}>
-                    {groupStatusLabel(t, entry.group)}
-                  </span>
-                  {(!liveCampaignEntry || !sameCampaign(entry, quarter?.code ?? "")) &&
-                  (entry.group === "draft" || entry.group === "correction") ? (
-                    <button
-                      type="button"
-                      onClick={() => router.push(wizardHref(entry))}
-                      className="cam-button cam-button-secondary cam-button-sm"
-                    >
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexShrink: 0 }}>
+                  <span className={`cam-badge ${STATUS_BADGE_CLASS[entry.group]}`}>{groupStatusLabel(t, entry.group)}</span>
+                  {entry.group === "draft" || entry.group === "correction" ? (
+                    <button type="button" onClick={() => router.push(wizardHref(entry))} className="cam-button cam-button-secondary cam-button-sm">
                       {entry.group === "draft" ? t("homeLandingPage.continueDraft") : t("homeLandingPage.correctButton")}
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenPdf(entry)}
-                      className="cam-button cam-button-secondary cam-button-sm"
-                    >
+                    <button type="button" onClick={() => handleOpenPdf(entry)} className="cam-button cam-button-secondary cam-button-sm">
                       {t("homeLandingPage.downloadReceipt")}
                     </button>
                   )}
                 </div>
-              </div>
+              </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Messages: only when there are some; the rail links to the box ── */}
+      {recentMessages.length > 0 && (
+        <section aria-labelledby="home-messages-heading" style={SECTION_STYLE}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-3)" }}>
+            <h2 id="home-messages-heading" style={H2_STYLE}>{t("homeLandingPage.latestMessagesHeading")}</h2>
+            <Link href="/home/messages" style={LINK_STYLE}>{t("homeLandingPage.viewAllMessages")}</Link>
           </div>
-        )}
-      </section>
-
-      {/* ── 4. Derniers messages MINEFOP ── */}
-      <section style={{
-        background: "var(--cam-surface)",
-        border: "var(--cam-border-width) solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-lg)",
-        padding: "var(--cam-space-5) var(--cam-space-6)",
-        boxShadow: "var(--cam-shadow-sm)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--cam-space-3)" }}>
-          <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-bold)", margin: 0, color: "var(--cam-text)" }}>
-            {t("homeLandingPage.latestMessagesHeading")}
-          </h2>
-          <Link
-            href="/home/messages"
-            style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-primary)", textDecoration: "none" }}
-          >
-            {t("homeLandingPage.viewAllMessages")}
-          </Link>
-        </div>
-
-        {notificationsQuery.isLoading && (
-          <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: 0 }}>
-            {t("common.loading")}
-          </p>
-        )}
-
-        {!notificationsQuery.isLoading && recentMessages.length === 0 && (
-          <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: 0 }}>
-            {t("homeLandingPage.noMessages")}
-          </p>
-        )}
-
-        {!notificationsQuery.isLoading && recentMessages.length > 0 && (
-          <div>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {recentMessages.map((msg) => (
-              <div
-                key={msg.id}
-                style={{
-                  padding: "var(--cam-space-3) 0",
-                  borderTop: "var(--cam-border-width) solid var(--cam-border)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--cam-space-1)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
+              <li key={msg.id} style={{ ...ROW_STYLE, flexDirection: "column", alignItems: "stretch", gap: "var(--cam-space-1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: msg.readAt ? 600 : 700, color: "var(--cam-text)" }}>
                     {!msg.readAt && (
-                      <span className="cam-badge cam-badge-success" style={{ fontSize: "var(--cam-font-size-2xs)" }}>
+                      <span className="cam-badge cam-badge-success" style={{ marginRight: "var(--cam-space-2)" }}>
                         {t("homeMessagesPage.unreadBadge")}
                       </span>
                     )}
-                    <span style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: !msg.readAt ? 700 : 600, color: "var(--cam-text)" }}>
-                      {msg.subject}
-                    </span>
-                  </div>
-                  <time style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                    {formatDoualaDate(msg.createdAt) ?? msg.createdAt.slice(0, 10)}
-                  </time>
+                    {msg.subject}
+                  </span>
+                  <time style={MUTED_STYLE}>{formatDoualaDate(msg.createdAt) ?? msg.createdAt.slice(0, 10)}</time>
                 </div>
-                <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-                  {msg.body.length > 180 ? `${msg.body.slice(0, 180)}…` : msg.body}
-                </p>
-              </div>
+                <p style={{ ...MUTED_STYLE, margin: 0 }}>{msg.body.length > 180 ? `${msg.body.slice(0, 180)}…` : msg.body}</p>
+              </li>
             ))}
-          </div>
-        )}
-      </section>
+          </ul>
+        </section>
+      )}
 
       <NewDeclarationDialog
         isOpen={isDialogOpen}
