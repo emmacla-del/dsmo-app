@@ -1,7 +1,7 @@
 import { act, renderHook } from "@/test/render";
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { ENTRY_MODE_STORAGE_KEY, useEntryMode } from "./use-entry-mode";
+import { ENTRY_MODE_STORAGE_KEY, useEntryMode, useIsPhoneViewport } from "./use-entry-mode";
 
 const realMatchMedia = window.matchMedia;
 afterEach(() => {
@@ -19,17 +19,28 @@ test("first visit: Tableau on a wide screen", () => {
   assert.equal(result.current[0], "grid");
 });
 
-test("first visit: Guidé on a phone", () => {
+test("a phone is Guidé", () => {
   phoneViewport();
   const { result } = renderHook(() => useEntryMode());
   assert.equal(result.current[0], "guided");
+  assert.equal(renderHook(() => useIsPhoneViewport()).result.current, true, "and says so, so the switch is not offered");
 });
 
-test("a remembered choice wins over the viewport default", () => {
+// A phone has one mode, not a default one: a grid of cells is not a form a
+// thumb can fill, whatever this browser last chose on a bigger screen.
+test("a remembered Tableau is ignored on a phone, and kept for a wider screen", () => {
   phoneViewport();
   localStorage.setItem(ENTRY_MODE_STORAGE_KEY, "grid");
   const { result } = renderHook(() => useEntryMode());
-  assert.equal(result.current[0], "grid");
+  assert.equal(result.current[0], "guided");
+  assert.equal(localStorage.getItem(ENTRY_MODE_STORAGE_KEY), "grid", "the choice is left alone");
+});
+
+test("a remembered choice wins over the default on a wider screen", () => {
+  localStorage.setItem(ENTRY_MODE_STORAGE_KEY, "guided");
+  const { result } = renderHook(() => useEntryMode());
+  assert.equal(result.current[0], "guided");
+  assert.equal(renderHook(() => useIsPhoneViewport()).result.current, false);
 });
 
 test("switching is remembered and every table on the page follows it", () => {

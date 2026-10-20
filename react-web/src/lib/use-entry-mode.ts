@@ -6,10 +6,17 @@ import { useCallback, useSyncExternalStore } from "react";
  * Tableau / Guidé: one entry-mode choice for the whole declaration. Every
  * table that offers both modes follows it until the respondent switches
  * again. Remembered in this browser only — a convenience, never part of the
- * declaration data. First visit: Guidé on phones, Tableau otherwise.
+ * declaration data.
  *
- * Same storage key as ModernJobsWizard's own copy of this choice, so a
- * respondent who picked a mode there finds it again here.
+ * On a phone there is no choice: Guidé is the only mode (owner,
+ * 2026-10-20). A cross-tabulation grid is four columns of cells wide before
+ * its row labels, and no amount of sideways scrolling makes that a form a
+ * thumb can fill. Below the breakpoint the switch is not shown and the
+ * stored choice is ignored — not overwritten, so the same browser on a
+ * wider screen finds it again.
+ *
+ * One store for both wizards, so the choice and the phone rule cannot
+ * differ between them.
  */
 export type EntryMode = "grid" | "guided";
 
@@ -33,12 +40,20 @@ function readStored(): EntryMode | null {
   return sessionChoice;
 }
 
-function viewportDefault(): EntryMode {
-  return window.matchMedia?.("(max-width: 767px)").matches ? "guided" : "grid";
+/** Narrower than a tablet's portrait width: a phone. */
+export const PHONE_VIEWPORT_QUERY = "(max-width: 767px)";
+
+function phoneQuery(): MediaQueryList | null {
+  return window.matchMedia?.(PHONE_VIEWPORT_QUERY) ?? null;
+}
+
+function onPhone(): boolean {
+  return phoneQuery()?.matches ?? false;
 }
 
 function getSnapshot(): EntryMode {
-  return readStored() ?? viewportDefault();
+  if (onPhone()) return "guided";
+  return readStored() ?? "grid";
 }
 
 function getServerSnapshot(): EntryMode {
@@ -49,10 +64,23 @@ function subscribe(onChange: () => void): () => void {
   window.addEventListener(CHANGE_EVENT, onChange);
   // Another tab of the same browser changed it.
   window.addEventListener("storage", onChange);
+  // A phone turned to landscape, or a window dragged past the breakpoint,
+  // changes which mode applies.
+  const mq = phoneQuery();
+  mq?.addEventListener?.("change", onChange);
   return () => {
     window.removeEventListener(CHANGE_EVENT, onChange);
     window.removeEventListener("storage", onChange);
+    mq?.removeEventListener?.("change", onChange);
   };
+}
+
+/**
+ * True while the viewport is a phone's, where Guidé is the only mode and
+ * the switch is not offered.
+ */
+export function useIsPhoneViewport(): boolean {
+  return useSyncExternalStore(subscribe, onPhone, () => false);
 }
 
 export function useEntryMode(): [EntryMode, (mode: EntryMode) => void] {
