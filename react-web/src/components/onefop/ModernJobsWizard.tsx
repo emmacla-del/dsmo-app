@@ -1,5 +1,7 @@
 "use client";
 
+import { SubmissionErrorItems } from "./SubmissionErrorItems";
+import type { SubmissionErrorDetail, SubmissionErrorTarget } from "@/lib/onefop-submission";
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { localized, type FormData, type OnefopEntity, type OnefopField } from "@/lib/onefop-schema";
@@ -57,7 +59,9 @@ export interface ModernJobsWizardProps {
   submissionResult?: string | null;
   /** The submission reference the server returned, for the receipt. */
   submissionId?: string | null;
-  submissionError?: { summary: string; items: string[] } | null;
+  submissionError?: SubmissionErrorDetail | null;
+  /** A refused table or question picked in the review window, to open (audit C5). */
+  goToRequest?: { target: SubmissionErrorTarget; at: number } | null;
   onPreviewPdf?: (locale?: "fr" | "en") => void;
   isGeneratingPdf?: boolean;
   canSubmit?: boolean;
@@ -103,6 +107,7 @@ export function ModernJobsWizard({
   submissionResult = null,
   submissionId = null,
   submissionError = null,
+  goToRequest = null,
   onPreviewPdf,
   isGeneratingPdf = false,
   canSubmit = true,
@@ -512,6 +517,21 @@ export function ModernJobsWizard({
     openStep(gatedStep(gateModel, { kind: "section", index: clamped }, currentStep));
   };
 
+  const goToRefused = (target: SubmissionErrorTarget) => {
+    handleSelectSection(target.sectionIndex);
+    setActiveTableId(target.fieldId);
+  };
+
+  // The review window was closed on a table it named: open that table, once
+  // per pick (opening it scrolls and moves focus, so not during render).
+  const goToRefusedRef = useRef(goToRefused);
+  useEffect(() => {
+    goToRefusedRef.current = goToRefused;
+  });
+  useEffect(() => {
+    if (goToRequest) goToRefusedRef.current(goToRequest.target);
+  }, [goToRequest]);
+
   const handleSelectScope = () => {
     openStep(gatedStep(gateModel, { kind: "quiz" }, currentStep));
   };
@@ -786,13 +806,10 @@ export function ModernJobsWizard({
                 }}
               >
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>{submissionError.summary}</div>
-                {submissionError.items.length > 0 && (
-                  <ul style={{ margin: 0, paddingLeft: 20 }}>
-                    {submissionError.items.map((it, i) => (
-                      <li key={i}>{it}</li>
-                    ))}
-                  </ul>
-                )}
+                <SubmissionErrorItems
+                  detail={submissionError}
+                  onGoTo={goToRefused}
+                />
               </div>
             )}
 

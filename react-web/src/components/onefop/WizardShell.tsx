@@ -1,5 +1,6 @@
 "use client";
 
+import { SubmissionErrorItems } from "./SubmissionErrorItems";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import {
   previewCoherence,
   submitDeclaration,
   supportsBackendSubmission,
+  type SubmissionErrorTarget,
 } from "@/lib/onefop-submission";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { clearDraft } from "@/lib/onefop-drafts";
@@ -232,6 +234,10 @@ export function WizardShell({
     }
   };
 
+  // A table or question a refused submission names, picked in the review
+  // window: the Modern Jobs wizard behind it opens it (audit C5).
+  const [goToRequest, setGoToRequest] = useState<{ target: SubmissionErrorTarget; at: number } | null>(null);
+
   const submitMutation = useMutation({
     mutationFn: () => {
       if (!effectiveQuarter) {
@@ -285,6 +291,7 @@ export function WizardShell({
       ? formatSubmissionError(
         pdfMutation.error ?? submitMutation.error,
         locale.startsWith("en") ? "en" : "fr",
+        { entity, data },
       )
       : null;
 
@@ -755,6 +762,7 @@ export function WizardShell({
           submissionResult={submissionResult}
           submissionId={submissionId}
           submissionError={submissionError}
+          goToRequest={goToRequest}
           onPreviewPdf={
             submissionResult
               ? () => pdfMutation.mutate(formLocale)
@@ -804,6 +812,10 @@ export function WizardShell({
           validationErrorCount={validationIssues.length}
           submissionResult={submissionResult}
           submissionError={submissionError}
+          onGoToTarget={(target) => {
+            setPreviewModalOpen(false);
+            setGoToRequest({ target, at: Date.now() });
+          }}
           establishmentName={effectiveEstablishment}
         />
       </>
@@ -915,18 +927,10 @@ export function WizardShell({
                     <p style={{ margin: 0, fontWeight: 600 }}>
                       {submissionError.summary}
                     </p>
-                    {submissionError.items.length > 0 && (
-                      <ul
-                        style={{
-                          margin: "var(--cam-space-2) 0 0",
-                          paddingLeft: "var(--cam-space-5)",
-                        }}
-                      >
-                        {submissionError.items.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    )}
+                    <SubmissionErrorItems
+                      detail={submissionError}
+                      onGoTo={(target) => openSectionFromReview(target.sectionIndex)}
+                    />
                   </div>
                 )}
 
@@ -961,6 +965,10 @@ export function WizardShell({
               validationErrorCount={validationIssues.length}
               submissionResult={submissionResult}
               submissionError={submissionError}
+              onGoToTarget={(target) => {
+                setPreviewModalOpen(false);
+                openSectionFromReview(target.sectionIndex);
+              }}
               establishmentName={effectiveEstablishment}
             />
           </div>
@@ -1190,6 +1198,10 @@ export function WizardShell({
         validationErrorCount={validationIssues.length}
         submissionResult={submissionResult}
         submissionError={submissionError}
+        onGoToTarget={(target) => {
+          setPreviewModalOpen(false);
+          openSectionFromReview(target.sectionIndex);
+        }}
         establishmentName={effectiveEstablishment}
       />
     </div>

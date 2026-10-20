@@ -4,8 +4,10 @@
 // onefop.controller.ts (draft) and src/questionnaires/
 // questionnaires.controller.ts (submit), both read directly this session.
 import { API_BASE_URL, ApiError, apiFetch, getToken, localeHeader } from "./api-client";
-import { cleanHiddenDependentFields, type FormData, type OnefopEntity } from "./onefop-schema";
-import { applyQuizDerivedTableSemantics } from "@/components/modern-jobs/scope/QuizSemantics";
+import { cleanHiddenDependentFields, localized, type FormData, type OnefopEntity } from "./onefop-schema";
+import { locateIssue } from "./wizard-navigation";
+import { sectionNavTitle, sectionNumberFromId } from "./onefop-section-title";
+import { applyQuizDerivedTableSemantics, tableNumericCellKeys } from "@/components/modern-jobs/scope/QuizSemantics";
 
 export interface ActiveQuarter {
   isOpen: boolean;
@@ -354,9 +356,106 @@ function flattenValidationErrors(errors: RawValidationError[], prefix = ""): str
   return out;
 }
 
+/** A place in the form a refused submission points to: one table. */
+export interface SubmissionErrorTarget {
+  sectionIndex: number;
+  fieldId: string;
+  /** What the respondent reads: the question or table, and its section. */
+  label: string;
+}
+
 export interface SubmissionErrorDetail {
   summary: string;
   items: string[];
+  /** The tables the server refused, when they can be found in the form. */
+  targets?: SubmissionErrorTarget[];
+}
+
+/** The form the refused declaration came from, to name what the server lists by key. */
+export interface SubmissionErrorContext {
+  entity?: OnefopEntity | null;
+  data?: FormData;
+}
+
+/**
+ * The server lists the table cells it refused by internal key
+ * (s3q01_cadres_demission_male). Section 8 keeps those keys off a respondent's screen, so each one is
+ * located in the form and named by its own question or table, once per table,
+ * with its section — the wizard links each to the place to correct (audit C5).
+ * A key that is not in the form, or a table cell the wizard does not show
+ * under the quiz answers given, cannot be corrected by the respondent: they
+ * are told so and pointed to ONEFOP, never shown the key.
+ */
+function describeRefusedKeys(
+  keys: readonly string[],
+  locale: "fr" | "en",
+  { entity, data }: SubmissionErrorContext,
+): { targets: SubmissionErrorTarget[]; unreachable: number } {
+  const targets: SubmissionErrorTarget[] = [];
+  const byField = new Map<string, SubmissionErrorTarget>();
+  let unreachable = 0;
+  if (!entity) return { targets, unreachable: keys.length };
+  const shownCells = new Map<string, Set<string>>();
+  for (const key of keys) {
+    const location = locateIssue(entity.sections, key);
+    if (!location) {
+      unreachable++;
+      continue;
+    }
+    const { field, sectionIndex } = location;
+    const isCell = key.toLowerCase() !== field.id.toLowerCase() && key.toLowerCase() !== (field.paperCode ?? "").toLowerCase();
+    if (isCell && field.table && data && !/_(desc|text)$|_domain/i.test(key)) {
+      let shown = shownCells.get(field.id);
+      if (!shown) {
+        shown = new Set(tableNumericCellKeys(field, data, true).map((k) => k.toLowerCase()));
+        shownCells.set(field.id, shown);
+      }
+      if (shown.size > 0 && !shown.has(key.toLowerCase())) {
+        unreachable++;
+        continue;
+      }
+    }
+    if (byField.has(field.id)) continue;
+    const section = entity.sections[sectionIndex];
+    const number = sectionNumberFromId(section.id, sectionIndex);
+    const sectionName = sectionNavTitle(section.id, section.title ? localized(section.title, locale) : "", number, locale, data);
+    const name = field.label ? localized(field.label, locale) : "";
+    const where = `Section ${number}, ${sectionName}`;
+    const target = {
+      sectionIndex,
+      fieldId: field.id,
+      label: name ? `${where}${locale === "fr" ? " : " : ": "}${name}` : where,
+    };
+    byField.set(field.id, target);
+    targets.push(target);
+  }
+  // In the order of the form, not of the server's list.
+  const position = (t: SubmissionErrorTarget) =>
+    entity.sections[t.sectionIndex].fields.findIndex((f) => f.id === t.fieldId);
+  targets.sort((a, b) => a.sectionIndex - b.sectionIndex || position(a) - position(b));
+  return { targets, unreachable };
+}
+
+function refusedCellsDetail(
+  keys: readonly string[],
+  locale: "fr" | "en" | undefined,
+  context: SubmissionErrorContext,
+): SubmissionErrorDetail {
+  const lang = locale === "en" ? "en" : "fr";
+  const { targets, unreachable } = describeRefusedKeys(keys, lang, context);
+  const summary =
+    lang === "en"
+      ? "Your declaration was not sent: some cells are still empty in the tables below. Enter 0 where there is nothing to declare."
+      : "Votre déclaration n'a pas été transmise : des cases restent vides dans les tableaux ci-dessous. Saisissez 0 lorsqu'il n'y a rien à déclarer.";
+  const items = targets.map((t) => t.label);
+  if (unreachable > 0) {
+    items.push(
+      lang === "en"
+        ? `${unreachable} item(s) the form does not show you were also refused. If everything above is complete, contact ONEFOP support: you cannot correct them yourself.`
+        : `${unreachable} élément(s) que le formulaire ne vous présente pas ont aussi été refusés. Si tout ce qui précède est complet, contactez l'assistance ONEFOP : vous ne pouvez pas les corriger vous-même.`,
+    );
+  }
+  return { summary, items, targets };
 }
 
 /**
@@ -364,8 +463,14 @@ export interface SubmissionErrorDetail {
  * field list, covering both known backend error shapes (see
  * RawValidationError above) rather than the single opaque line
  * `ApiError.message` gave before api-client.ts started keeping the raw body.
+ * With the form as context, what the server lists by key is named in the
+ * respondent's words (describeRefusedKeys).
  */
-export function formatSubmissionError(error: unknown, locale?: "fr" | "en"): SubmissionErrorDetail {
+export function formatSubmissionError(
+  error: unknown,
+  locale?: "fr" | "en",
+  context: SubmissionErrorContext = {},
+): SubmissionErrorDetail {
   if (!(error instanceof ApiError)) {
     return { summary: error instanceof Error ? error.message : String(error), items: [] };
   }
@@ -391,6 +496,10 @@ export function formatSubmissionError(error: unknown, locale?: "fr" | "en"): Sub
             : `Formulaire invalide (${n} problème${n > 1 ? "s" : ""}) / Invalid form (${n} issue${n > 1 ? "s" : ""}).`,
       items,
     };
+  }
+  const cells = body && typeof body === "object" ? (body as { missingMatrixCells?: unknown }).missingMatrixCells : undefined;
+  if (Array.isArray(cells) && cells.length > 0) {
+    return refusedCellsDetail(cells.map(String), locale, context);
   }
   if (body && typeof body === "object" && Array.isArray((body as { missingFields?: unknown }).missingFields)) {
     return { summary: error.message, items: (body as { missingFields: string[] }).missingFields };

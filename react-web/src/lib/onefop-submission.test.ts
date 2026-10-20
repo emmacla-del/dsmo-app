@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ApiError } from "./api-client";
-import { saveDraftToBackend, submitDeclaration } from "./onefop-submission";
+import { formatSubmissionError, saveDraftToBackend, submitDeclaration } from "./onefop-submission";
 
 function respondWith(status: number, body: unknown) {
   globalThis.fetch = (async () =>
@@ -112,4 +112,57 @@ test("a draft saved to the account carries no zeros the quiz derived", async () 
   } finally {
     globalThis.fetch = original;
   }
+});
+
+// ── A refused submission names its tables, never their keys (audit C5) ────
+
+test("C5. refused cells are named by table and section, with no internal key", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const schema = JSON.parse(
+    readFileSync(join(process.env.REACT_WEB_ROOT ?? process.cwd(), "public", "schemas", "onefop.schema.json"), "utf-8"),
+  );
+  const entity = schema.entities.enterprise;
+  const { DEFAULT_SCOPE } = await import("@/components/modern-jobs/scope/ScopeTypes");
+  const scope = {
+    ...DEFAULT_SCOPE,
+    applications: true, application_csp: ["execution"], application_age: ["25_34"],
+    recruit: false, primo_seekers: false, primo_workers: false,
+    departures: true, departure_reasons: ["demission"],
+    interns: false, skills_needs: false, training_needs: false,
+  };
+  const data = { _scopeConfig: scope, _scopeCsp: ["execution"], _scopeAge: ["25_34"] };
+  const refused = [
+    "s21q01_workers_male_25_34",
+    "s21q01_workers_female_25_34",
+    "s3q01_cadres_dismissal_male", // a category the quiz did not keep: never on screen
+    "zz_not_in_the_form",
+  ];
+  const error = new ApiError(400, "Le formulaire contient des tableaux … (4 cellule(s) : s21q01_workers_male_25_34, +3)", {
+    statusCode: 400,
+    missingMatrixCells: refused,
+  });
+
+  const detail = formatSubmissionError(error, "fr", { entity, data });
+  assert.match(detail.summary, /n'a pas été transmise/);
+  assert.equal(detail.targets?.length, 1, "the two S2.1 cells are one table");
+  assert.equal(detail.targets?.[0].fieldId, "S21Q01");
+  assert.equal(detail.items.length, 2);
+  assert.match(detail.items[1], /^2 élément\(s\)/, "the two cells the respondent cannot reach are counted, not listed");
+  assert.match(detail.items[1], /assistance ONEFOP/);
+  for (const line of [detail.summary, ...detail.items]) {
+    assert.doesNotMatch(line, /s21q01|s3q01|zz_/i, `a key reached the screen: ${line}`);
+  }
+
+  const en = formatSubmissionError(error, "en", { entity, data });
+  assert.match(en.summary, /was not sent/);
+  assert.match(en.items[1], /ONEFOP support/);
+});
+
+test("C5. without the form, refused cells are counted, still never listed by key", () => {
+  const error = new ApiError(400, "…", { missingMatrixCells: ["s3q01_cadres_dismissal_male"] });
+  const detail = formatSubmissionError(error, "fr");
+  assert.deepEqual(detail.targets, []);
+  assert.equal(detail.items.length, 1);
+  assert.doesNotMatch(detail.items[0], /s3q01/);
 });
