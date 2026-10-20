@@ -23,6 +23,7 @@ import { TABLE_MAX_WIDTH_PX } from "./tables/tableLayout";
 import { resetScroll } from "@/lib/reset-scroll";
 import { formatSectionTitle, sectionNumberFromId } from "@/lib/onefop-section-title";
 import { ppSection4TableName } from "@/lib/pp-section4-tables";
+import { ppIdentificationTitle, ppNatureKindOf, ppWording } from "@/lib/pp-nature-wording";
 import { GuidedReviewGateContext, type GuidedReviewHandle, type GuidedReviewRegistry } from "./tables/GuidedReviewGate";
 
 export interface SectionTableNavState {
@@ -82,6 +83,11 @@ const RESPONDENT_INTRO_KEYS: Record<string, string> = {
 function isTableShaped(field: OnefopField): boolean {
   return field.type === "table" || field.type === "repeating_table" || !!field.table;
 }
+
+/** Where a jump from the table list puts a card: clear of the pinned
+ *  wizard header and of the list itself. */
+const CHUNK_SCROLL_MARGIN =
+  "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px) + var(--cam-space-4, 16px))";
 
 /** Longest a table's name may be in the table list before it is cut. */
 const TABLE_CHUNK_NAME_MAX = 46;
@@ -172,10 +178,6 @@ export function SectionRenderer({
     return (touchedFields?.has(fieldId) || attemptedContinue) && issueByFieldId.has(fieldId);
   };
 
-  // One table at a time (the "Tout afficher" view was removed); kept as a
-  // constant so the existing focus/all branches stay readable.
-  const deckMode = "focus" as "focus" | "all";
-
   // Tableau/Guidé: the wizard owns one choice for the whole declaration, so
   // it carries across sections and tables until the user changes it. The
   // local state is only a fallback when rendered outside the wizard.
@@ -184,6 +186,13 @@ export function SectionRenderer({
   );
   const sectionEntryMode = entryModeProp ?? localEntryMode;
   const setSectionEntryMode = onEntryModeChange ?? setLocalEntryMode;
+
+  // Tableau shows the whole section at once: every table the preliminary
+  // questionnaire kept for it stands in one continuous column, which the
+  // respondent fills by scrolling rather than by walking six screens.
+  // Guidé keeps one table at a time — asking one question per screen is
+  // what it is for, and a column of guided flows would not be one.
+  const deckMode: "focus" | "all" = sectionEntryMode === "guided" ? "focus" : "all";
 
   // The pinned table-pills bar publishes its height as --mj-pills-h on the
   // wizard root, so the block/category tabs above each table can pin just
@@ -231,11 +240,10 @@ export function SectionRenderer({
   // A section the paper form divides into subsections (Section 2 of the
   // employer forms: 2.1, 2.2, 2.3) is cut along those. A section that
   // declares none but carries several tables — Project/Programme Section 4
-  // and its six tables, Sections 3 and 4 of the other employer forms — used
-  // to render every one of them stacked on a single screen: no table list,
-  // no table-by-table Previous/Next, and no "table n of m". It is cut at
-  // each table instead, which is the one-table-per-screen reading the
-  // training-centre wizard and the subsectioned sections already give.
+  // and its six tables, Sections 3 and 4 of the other employer forms — is
+  // cut at each table. The cut is not a screen: in Tableau the chunks stand
+  // under each other in one column, and it is what the table list names and
+  // jumps to. Guidé walks them one at a time.
   const chunkStarterIds = sectionChunkStarterIds(section);
   const splitAtEachTable = section.subsections.length === 0 && section.fields.filter(isTableShaped).length > 1;
 
@@ -363,6 +371,23 @@ export function SectionRenderer({
     chunk.fields.every(isFieldSatisfied)
   ).length;
 
+  // What the section's summary counts in Tableau: the tables themselves,
+  // not the parts the list is cut into. The two are the same for a section
+  // the paper form gives no subsections (Project/Programme Section 4 and
+  // its six), but one part of enterprise Section 2 holds five tables, and
+  // with the whole column on screen "3 tableaux" over eight of them is
+  // plainly wrong. Guidé walks the parts, so it still counts those.
+  const sectionTableFields = validChunks.flatMap((chunk) =>
+    chunk.fields.filter(
+      (f) =>
+        isTableShaped(f) &&
+        !isShownInsideTable(f) &&
+        !isCompanionHiddenByGateway(f, data, section.fields) &&
+        !isTableFieldHiddenByScope(f),
+    ),
+  );
+  const completedTablesCount = sectionTableFields.filter(isFieldSatisfied).length;
+
   const formatCleanTitle = (raw?: string): string => {
     if (!raw) return "";
     let t = raw
@@ -399,7 +424,7 @@ export function SectionRenderer({
   const activeDeckChunk = validChunks[clampedIndex];
   const activeTableField = activeDeckChunk?.fields.find((f) => f.type === "table" || !!f.table);
 
-  const handleSelectDeckIndex = (idx: number) => {
+  const handleSelectDeckIndex = (idx: number, carryCursor = false) => {
     setFocusedIndex(idx);
     const targetChunk = validChunks[idx];
     const targetField = targetChunk?.fields.find((f) => f.type === "table" || !!f.table);
@@ -410,24 +435,35 @@ export function SectionRenderer({
       const el = document.getElementById(targetChunk.headingId !== "init" ? `subsection-${targetChunk.headingId}` : "");
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Tab out of a table's last cell has to land in the next table:
+        // the keystroke is handled here, so without this the cursor would
+        // stay behind while the column scrolled away from it.
+        if (carryCursor) {
+          const first = el.querySelector<HTMLElement>(
+            "input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled])",
+          );
+          first?.focus({ preventScroll: true });
+        }
       }
     }
   };
 
 
-  const handleAdvance = () => {
-    if (clampedIndex < validChunks.length - 1) {
-      handleSelectDeckIndex(clampedIndex + 1);
-      resetScroll(80);
+  /** `from` is the table the request came out of — in one continuous column
+   *  that is not necessarily the one the table list last pointed at. */
+  const handleAdvance = (from: number = clampedIndex) => {
+    if (from < validChunks.length - 1) {
+      handleSelectDeckIndex(from + 1, deckMode === "all");
+      if (deckMode === "focus") resetScroll(80);
     } else if (onSectionComplete) {
       onSectionComplete();
     }
   };
 
-  const handlePrevious = () => {
-    if (clampedIndex > 0) {
-      handleSelectDeckIndex(clampedIndex - 1);
-      resetScroll(80);
+  const handlePrevious = (from: number = clampedIndex) => {
+    if (from > 0) {
+      handleSelectDeckIndex(from - 1, deckMode === "all");
+      if (deckMode === "focus") resetScroll(80);
     }
   };
 
@@ -615,17 +651,22 @@ export function SectionRenderer({
         key={chunk.headingId || index}
         id={chunk.headingId !== "init" ? `subsection-${chunk.headingId}` : undefined}
         title={
+          // A chunk that is one table carries the table's own name
+          // (pillLabel), and the table under it already heads with the
+          // question it asks — so a card title would say the same thing
+          // twice, once with its form number stripped. A real subsection
+          // heading still shows: it names something the table does not, and
+          // in one continuous column it is what says where one group of
+          // tables ends and the next begins (§8, duplicated headings).
           isGuided
-            ? // A chunk that is one table carries the table's own name
-              // (pillLabel), and the table under it already heads with the
-              // question it asks — so in Guidé the card title said the same
-              // thing twice, once with its form number stripped. A real
-              // subsection heading still shows: it names something the table
-              // does not (§8, duplicated headings).
-              chunk.pillLabel || !chunk.title
+            ? chunk.pillLabel || !chunk.title
               ? undefined
               : formatCleanTitle(chunk.title)
-            : (chunkHasTable ? undefined : (chunk.title ?? undefined))
+            : chunkHasTable
+              ? deckMode === "all" && chunk.title && !chunk.pillLabel
+                ? formatCleanTitle(chunk.title)
+                : undefined
+              : (chunk.title ?? undefined)
         }
         status={isGuided ? undefined : (chunkHasTable ? undefined : (chunk.title ? status : undefined))}
         statusLabel={statusLabel}
@@ -640,10 +681,28 @@ export function SectionRenderer({
                 marginBottom: "var(--cam-space-5)",
                 borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
                 maxWidth: "840px",
+                scrollMarginTop: CHUNK_SCROLL_MARGIN,
               }
             : chunkHasTable
-              ? { maxWidth: `calc(${TABLE_MAX_WIDTH_PX}px + 2 * var(--cam-space-5) + 2px)` }
-              : undefined
+              ? deckMode === "all"
+                ? // In one column, six bordered cards would be six boxes
+                  // down the page: the tables are separated by a rule and
+                  // the space around it instead (§8, unnecessary cards).
+                  {
+                    background: "transparent",
+                    border: "none",
+                    boxShadow: "none",
+                    borderRadius: 0,
+                    padding: "0 0 var(--cam-space-6) 0",
+                    marginBottom: "var(--cam-space-6)",
+                    borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
+                    maxWidth: `${TABLE_MAX_WIDTH_PX}px`,
+                    scrollMarginTop: CHUNK_SCROLL_MARGIN,
+                  }
+                : { maxWidth: `calc(${TABLE_MAX_WIDTH_PX}px + 2 * var(--cam-space-5) + 2px)` }
+              : deckMode === "all"
+                ? { scrollMarginTop: CHUNK_SCROLL_MARGIN }
+                : undefined
         }
       >
         {chunkHasTable && tableField && renderCoherenceBadge(tableField.id)}
@@ -705,8 +764,8 @@ export function SectionRenderer({
                         : undefined
                   }
                   onFieldTouch={onFieldTouch}
-                  onAdvanceTable={handleAdvance}
-                  onPreviousTable={handlePrevious}
+                  onAdvanceTable={() => handleAdvance(index)}
+                  onPreviousTable={() => handlePrevious(index)}
                   autoFocusFirstCell={isFocusView}
                   entryMode={sectionEntryMode}
                   onEntryModeChange={setSectionEntryMode}
@@ -733,10 +792,12 @@ export function SectionRenderer({
       }}
     >
       {/* ── Section Masthead ──
-          For table sections on desktop the sidebar already names the section
-          and the pinned pills bar below names the tables, so this block is
-          kept for screen readers only (it still labels the <section>). On
-          smaller screens, where the sidebar is hidden, it stays visible. */}
+          Guidé fills a screen with one question, and the sidebar and the
+          pinned table list already say where that question is, so there the
+          block is kept for screen readers only (it still labels the
+          <section>). A column of tables says what section it is and how many
+          tables it holds, so in Tableau it stays visible. On smaller screens,
+          where the sidebar is hidden, it is always visible. */}
       <style>{`
         @media (min-width: 1024px) {
           .mj-section-masthead[data-collapse="true"] {
@@ -747,7 +808,7 @@ export function SectionRenderer({
       `}</style>
       <div
         className="mj-section-masthead"
-        data-collapse={isMultiTableSection ? "true" : "false"}
+        data-collapse={isMultiTableSection && deckMode === "focus" ? "true" : "false"}
         style={{
           borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-4, 16px)",
@@ -783,7 +844,11 @@ export function SectionRenderer({
             >
               {section.id === "section0"
                 ? t("section0Heading")
-                : formatSectionTitle(
+                : section.id === "section1_projectProgram"
+                  // « Identification de la structure » named one of the
+                  // three bodies; this names the one PP_S1Q01 says it is.
+                  ? `Section 1. ${ppIdentificationTitle(ppNatureKindOf(data), locale)}`
+                  : formatSectionTitle(
                     localized(section.title, locale),
                     sectionNumberFromId(section.id, 0),
                   ) || section.id}
@@ -800,13 +865,19 @@ export function SectionRenderer({
                 sectionEntryMode === "guided" ? (
                   t("topicsSummary", { total: validChunks.length, completed: completedChunksCount })
                 ) : (
-                  t("tablesSummary", { total: validChunks.length, completed: completedChunksCount })
+                  t("tablesSummary", { total: sectionTableFields.length, completed: completedTablesCount })
                 )
               ) : section.id === "section0" ? (
                 // Who the respondent is answering for, in the words of their
                 // own body — the rule S0Q02's label already follows. An
                 // entity with no wording of its own keeps "l'établissement".
-                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro")
+                // The project form names the body PP_S1Q01 says it is.
+                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro", {
+                  entity: (() => {
+                    const w = ppWording(ppNatureKindOf(data), locale);
+                    return locale === "fr" ? w.of : w.the;
+                  })(),
+                })
               ) : section.description ? (
                 localized(section.description, locale)
               ) : null}
@@ -826,8 +897,10 @@ export function SectionRenderer({
         <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
       )}
 
-      {/* Step Pills Row — pinned under the header while the tables scroll
-          (a direct child of <section> so it stays pinned for the whole section). */}
+      {/* The section's table list — pinned under the header while the column
+          scrolls (a direct child of <section> so it stays pinned for the
+          whole section). In Tableau it jumps to a table in the column; in
+          Guidé it switches the table on screen. */}
       {isMultiTableSection && (
         <div
           ref={pillsRef}
@@ -848,7 +921,10 @@ export function SectionRenderer({
         >
           <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
           {validChunks.map((chunk, cIdx) => {
-            const isCurrent = cIdx === clampedIndex;
+            // Stacked in one column the list is an outline, not a switch:
+            // marking a pill current would point at a table the respondent
+            // may have scrolled well past.
+            const isCurrent = deckMode === "focus" && cIdx === clampedIndex;
             const chunkHasError = chunk.fields.some((f) => issueByFieldId.has(f.id));
             const chunkAllAnswered = chunk.fields.every(isFieldSatisfied);
             // A chunk that is one table carries its own name (it may hold a
@@ -1167,7 +1243,9 @@ export function SectionRenderer({
 
           return (
             <div>
-              {/* Render tables in Focus Deck (one table at a time, both modes) or stacked for single-table sections */}
+              {/* Guidé walks the section one table at a time; Tableau puts
+                  every one of them in a single column, as a section with
+                  one table has always been rendered. */}
               <div
                 key={isMultiTableSection && deckMode === "focus" ? `${section.id}-focus-${clampedIndex}` : `${section.id}-all`}
                 className="deck-view-transition"
@@ -1177,7 +1255,6 @@ export function SectionRenderer({
                   gap: 0,
                 }}
               >
-                {/* Guidé also shows one table at a time (one question per screen inside it). */}
                 {isMultiTableSection && deckMode === "focus" ? (
                   activeDeckChunk && renderChunkCard(activeDeckChunk, clampedIndex, true)
                 ) : (

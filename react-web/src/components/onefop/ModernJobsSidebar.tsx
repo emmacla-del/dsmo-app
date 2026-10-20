@@ -4,7 +4,7 @@ import { WizardRail } from "@/components/wizard/WizardRail";
 import { WizardStepList, type WizardStep, type WizardStepState } from "@/components/wizard/WizardStepList";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/onefop-schema";
-import { localized, isFieldVisible, sectionChunkStarterIds } from "@/lib/onefop-schema";
+import { localized, isFieldVisible } from "@/lib/onefop-schema";
 import { sectionNavTitle } from "@/lib/onefop-section-title";
 import type { ValidationIssue } from "@/lib/onefop-validation";
 import { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "@/components/modern-jobs/conditional/gateway-catalog";
@@ -153,7 +153,6 @@ export function ModernJobsSidebar({
   onGoToValidation,
   isScopeStage = false,
   onSelectScope,
-  activeTableId,
   sheet = false,
 }: ModernJobsSidebarProps & { sheet?: boolean }) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
@@ -169,7 +168,7 @@ export function ModernJobsSidebar({
   // Sidebar titles without the "Section N." prefix -- the number sits in the
   // circle -- and short of the project form's paragraph-long ones.
   const stepTitle = (section: OnefopSection, idx: number) =>
-    sectionNavTitle(section.id, localized(section.title, locale), idx, locale);
+    sectionNavTitle(section.id, localized(section.title, locale), idx, locale, data);
 
   const stateLabel = (state: WizardStepState) =>
     t(
@@ -186,25 +185,18 @@ export function ModernJobsSidebar({
                 : "stateTodo",
     );
 
-  // "Tableau 1 sur 2" under the section in hand when it holds several tables.
-  const tableProgress = (section: OnefopSection): string | undefined => {
-    // The same rule the renderer cuts the section with, so the rail counts
-    // the screens the respondent actually walks through — including the
-    // sections the paper form gives no subsections (Project/Programme
-    // Section 4 and its six tables).
-    const starters = sectionChunkStarterIds(section);
+  // How many tables the section in hand holds, when it holds several. It
+  // used to read "Tableau 1 sur 6", from the table the respondent last
+  // opened: the section's tables now stand in one continuous column, so
+  // there is no table they are "on" and a position would be wrong as soon
+  // as they scrolled. The count is the same rule the renderer cuts the
+  // section with, so the rail and the section's own list agree.
+  const tableCount = (section: OnefopSection): string | undefined => {
     const tableFields = section.fields.filter(
-      (f) => starters.has(f.id) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
+      (f) => isTableField(f) && !isTableNoneOrNa(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
     );
     if (tableFields.length <= 1) return undefined;
-    const active = activeTableId
-      ? tableFields.findIndex(
-          (f) =>
-            f.id.toLowerCase() === activeTableId.toLowerCase() ||
-            (f.paperCode && f.paperCode.toLowerCase() === activeTableId.toLowerCase())
-        )
-      : -1;
-    return t("tableProgress", { current: active >= 0 ? active + 1 : 1, total: tableFields.length });
+    return t("tableCount", { total: tableFields.length });
   };
 
   const steps: WizardStep[] = [];
@@ -231,7 +223,7 @@ export function ModernJobsSidebar({
       name: stepTitle(section, idx),
       state,
       stateLabel: stateLabel(state),
-      detail: state === "error" ? t("stateError") : isCurrent ? tableProgress(section) : undefined,
+      detail: state === "error" ? t("stateError") : isCurrent ? tableCount(section) : undefined,
       lockReason,
       onSelect: lockReason ? undefined : () => onSelectSection(idx),
     });

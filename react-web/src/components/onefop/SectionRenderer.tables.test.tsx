@@ -5,11 +5,12 @@ import { schemaEntity } from "@/test/schema";
 import { SectionRenderer } from "./SectionRenderer";
 import { PP_SECTION4_TABLES } from "@/lib/pp-section4-tables";
 
-// A section with several tables and no subsections of its own used to put
-// every one of them on a single screen: Project/Programme Section 4 stacked
-// six CSP x sex x age grids with no table list, no table-by-table
-// Previous/Next and no "table n of m". It is cut at each table now, the
-// reading the subsectioned sections and the training-centre wizard give.
+// Tableau shows a whole section at once: every table the preliminary
+// questionnaire kept stands in one continuous column, which the respondent
+// fills by scrolling. The section is still cut at each table (or at the
+// paper form's own subsections) so the pinned list can name them and jump
+// to one; Guidé still shows one table at a time, since asking one question
+// per screen is what it is for.
 
 function renderSection(
   entityName: string,
@@ -33,20 +34,28 @@ function renderSection(
     .queryAllByRole("button")
     .map((b) => (b.textContent ?? "").replace(/\s+/g, " ").trim())
     .filter((label) => label && label !== "Tableau" && label !== "Guidé");
-  return { ...result, pills, tableCount: result.container.querySelectorAll("table").length };
+  return {
+    ...result,
+    pills,
+    tableCount: result.container.querySelectorAll("table").length,
+    // Guidé draws a table as a question-by-question flow, with no <table>
+    // element of its own, so counting the mounted tables is what tells the
+    // continuous column and the one-at-a-time flow apart.
+    mountedTables: result.container.querySelectorAll('[data-testid^="adaptive-table-"]').length,
+  };
 }
 
 const reported = (codes: string[]) => Object.fromEntries(codes.map((c) => [`${c}_RESPONSE_STATUS`, "REPORTED"]));
 
 const ALL_PP_S4 = ["S4Q01", "S4Q02", "S4Q03", "S4Q04", "S4Q05", "S4Q06"];
 
-test("project Section 4 shows one table at a time, listed by name", () => {
+test("project Section 4 shows its six tables in one column, listed by name", () => {
   const { pills, tableCount, unmount } = renderSection(
     "projectProgram",
     "section4_projectProgram",
     reported(ALL_PP_S4),
   );
-  assert.equal(tableCount, 1, "more than one table is on screen");
+  assert.equal(tableCount, 6, "the section's tables are not all on screen");
   assert.deepEqual(
     pills.map((p) => p.replace(/^✓\s*/, "")),
     PP_SECTION4_TABLES.map((t) => `${t.number} ${t.name.fr}`),
@@ -80,7 +89,7 @@ test("the table list never shows a paper code", () => {
     ["administration", "section2", ["S21Q01", "S21Q02", "S21Q03", "S21Q04"]],
   ] as const) {
     const { pills, tableCount, unmount } = renderSection(entity, section, reported([...codes]));
-    assert.equal(tableCount, 1, `${entity}/${section} shows ${tableCount} tables at once`);
+    assert.equal(tableCount, codes.length, `${entity}/${section} shows ${tableCount} of ${codes.length} tables`);
     assert.equal(pills.length, codes.length, `${entity}/${section} lists ${pills.length} tables`);
     for (const pill of pills) {
       assert.ok(!/S[0-9]+Q[0-9]+/.test(pill), `${entity}/${section}: "${pill}" is a paper code`);
@@ -99,6 +108,20 @@ test("enterprise Section 2 keeps the paper form's own three parts", () => {
     reported(["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]),
   );
   assert.deepEqual(pills.map((p) => p.replace(/^✓\s*/, "").slice(0, 2)), ["1.", "2.", "3."]);
+  unmount();
+});
+
+// The summary counts the tables themselves, not the parts the list is cut
+// into: one part of enterprise Section 2 (« Recrutements ») holds five of
+// them, and the whole column is on screen to be counted.
+test("the section summary counts the tables, not the parts of the list", () => {
+  const { container, pills, unmount } = renderSection(
+    "enterprise",
+    "section2",
+    reported(["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]),
+  );
+  assert.equal(pills.length, 3, "the paper form's own three parts are not the list");
+  assert.match(container.textContent ?? "", /8 tableaux statistiques/);
   unmount();
 });
 
@@ -147,6 +170,17 @@ test("the grand-total row has one name, whichever renderer draws the table", () 
 // In Guidé the chunk card carried the table's own name as its title — with the
 // form number stripped by formatCleanTitle — above a table that already heads
 // with the question it asks, so the screen named the same table twice.
+// Guidé is the one place a section is still walked table by table.
+test("Guidé keeps one table at a time", () => {
+  const guided = renderSection("projectProgram", "section4_projectProgram", reported(ALL_PP_S4), "guided");
+  assert.equal(guided.mountedTables, 1, `Guidé mounts ${guided.mountedTables} tables at once`);
+  guided.unmount();
+
+  const grid = renderSection("projectProgram", "section4_projectProgram", reported(ALL_PP_S4));
+  assert.equal(grid.mountedTables, 5, `Tableau mounts ${grid.mountedTables} adaptive tables`);
+  grid.unmount();
+});
+
 test("Guidé names the table once, not once as a card title and once as its question", () => {
   const { container, unmount } = renderSection(
     "projectProgram",

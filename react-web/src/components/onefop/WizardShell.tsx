@@ -24,12 +24,7 @@ import {
 import {
   VT_STEPPED_SECTION_IDS,
   vtFirstStep,
-  vtLastStep,
-  vtNextStep,
-  vtPreviousStep,
   vtStepForIssue,
-  vtStepIssues,
-  vtStepPosition,
 } from "@/lib/vt-table-steps";
 import { VtWizardSidebar } from "./VtWizardSidebar";
 import { getVtSectionShortLabel } from "./vt-wizard-utils";
@@ -165,7 +160,7 @@ export function WizardShell({
   // Sections 4 and 8, one table per screen (vt-table-steps.ts): the table
   // shown, or where to land on entering the section — its first table, or
   // its last when coming back from the next section.
-  const [vtStepTarget, setVtStepTarget] = useState<number | "first" | "last">("first");
+  const [vtStepTarget, setVtStepTarget] = useState<number | "first">("first");
   const [isValidationStage, setIsValidationStage] = useState(false);
   // Training centres: the preliminary quiz stage, between Sections 1 and 2.
   const [isVtQuizStage, setIsVtQuizStage] = useState(false);
@@ -349,21 +344,16 @@ export function WizardShell({
     ? 0
     : vtStepTarget === "first"
       ? vtFirstStep(vtSteps, data)
-      : vtStepTarget === "last"
-        ? vtLastStep(vtSteps, data)
-        : Math.min(Math.max(vtStepTarget, 0), Math.max(0, vtSteps.length - 1));
-  const vtStepPos = vtStepped ? vtStepPosition(vtSteps, vtStepIndex, data) : null;
-
+      : Math.min(Math.max(vtStepTarget, 0), Math.max(0, vtSteps.length - 1));
   // The column hugs what is actually on this screen (owner, 2026-10-11):
   // the reading measure (--vt-content-max, 760px: 600px answers plus
-  // padding) as a floor, growing only as far as the table shown needs now
-  // that tables take their columns' own width, and never past the table
-  // frame's own cap. It used to jump to a flat 1100px for any section
-  // holding a table. Sections 4 and 8 show one table per screen, so this
-  // follows the step rather than the section: sizing section 4 by its
-  // widest table left 4.1's 610px grid in a 1071px pod.
+  // padding) as a floor, growing only as far as the widest table of the
+  // section needs now that tables take their columns' own width, and never
+  // past the table frame's own cap. It used to jump to a flat 1100px for
+  // any section holding a table. It followed the step while Sections 4 and
+  // 8 showed one table per screen; their tables are in one column now
+  // (owner, 2026-10-19), so the whole section is what has to fit.
   const contentMax = useMemo(() => {
-    const visible = vtStepped ? new Set(vtSteps[vtStepIndex]?.fieldIds ?? []) : null;
     // Each table at its real column widths, the renderer's own rule: a
     // fixed-row grid sizes its columns from its headings (5.3: 142px a
     // column in English). Assuming 89px a column left 5.3 scrolling inside
@@ -371,7 +361,6 @@ export function WizardShell({
     const widest = widestTableFromColumnWidthsPx(
       (currentSection?.fields ?? [])
         .filter((f) => f.type === "table" || f.type === "repeating_table")
-        .filter((f) => !visible || visible.has(f.id))
         .map((f) =>
           isVtFixedRowTable(f)
             ? matrixDataColumnWidthsPx(buildVtFixedRowGridDefinition(f), formLocale)
@@ -381,7 +370,7 @@ export function WizardShell({
     return widest === 0
       ? "var(--vt-content-max)"
       : `clamp(var(--vt-content-max), ${widest}px, ${TABLE_MAX_WIDTH_PX}px)`;
-  }, [currentSection, vtStepped, vtSteps, vtStepIndex, formLocale]);
+  }, [currentSection, formLocale]);
 
   // ── A1: focus, scroll and announcement on every VT step change ──────────
   // (non-VT entities render ModernJobsWizard, which does its own.)
@@ -391,7 +380,7 @@ export function WizardShell({
       ? "validation"
       : isVtQuizStage
         ? "quiz"
-        : `section:${currentSection?.id ?? clampedSectionIndex}${vtStepped ? `:${vtStepIndex}` : ""}`;
+        : `section:${currentSection?.id ?? clampedSectionIndex}`;
   const vtHeadingId = !isVt
     ? null
     : isValidationStage
@@ -420,24 +409,14 @@ export function WizardShell({
           ? { kind: "label", label: t("vtWizardSidebar.validationLink") }
           : isVtQuizStage
             ? { kind: "label", label: t("wizardShell.quizAnnouncement") }
-            : currentSection && vtStepPos
+            : currentSection
               ? {
-                  // "Trainees, table 3 of 9"
-                  kind: "label",
-                  label: `${vtSectionName}, ${
-                    formLocale === "en"
-                      ? `table ${vtStepPos.number} of ${vtStepPos.total}`
-                      : `tableau ${vtStepPos.number} sur ${vtStepPos.total}`
-                  }`,
+                  kind: "section",
+                  index: clampedSectionIndex,
+                  total: sections.length,
+                  title: vtSectionName,
                 }
-              : currentSection
-                ? {
-                    kind: "section",
-                    index: clampedSectionIndex,
-                    total: sections.length,
-                    title: vtSectionName,
-                  }
-                : { kind: "none" },
+              : { kind: "none" },
         (values) => t("wizardShell.stepAnnouncement", values),
       );
   // Rendered first in both the section tree and the Validation tree below,
@@ -607,26 +586,10 @@ export function WizardShell({
   }
 
   function handleNext() {
-    // VT is section-level pagination, except in Sections 4 and 8, where Next
-    // checks the table on screen only and moves on to the next table
-    // (vt-table-steps.ts). The section check below still runs before leaving
-    // the section, so a table skipped with the table list cannot be passed.
-    if (vtStepped) {
-      const stepIssues = vtStepIssues(vtSteps, vtStepIndex, sectionIssues, data);
-      if (stepIssues.length > 0) {
-        setAttemptedAdvance(true);
-        revealIssue(stepIssues[0].fieldId);
-        return;
-      }
-      const next = vtNextStep(vtSteps, vtStepIndex, data);
-      if (next !== null) {
-        setAttemptedAdvance(false);
-        setVtStepTarget(next);
-        requestStepFocus();
-        return;
-      }
-    }
-
+    // VT is section-level pagination throughout: Sections 4 and 8 showed one
+    // table per screen and had Next walk them, and now carry their tables in
+    // one column like every other section (owner, 2026-10-19), so Next
+    // checks the section and leaves it.
     if (sectionIssues.length > 0) {
       setAttemptedAdvance(true);
       revealIssue(sectionIssues[0].fieldId);
@@ -670,16 +633,6 @@ export function WizardShell({
   function handlePrev() {
     setAttemptedAdvance(false);
 
-    // Sections 4 and 8: the previous table first.
-    if (vtStepped) {
-      const previous = vtPreviousStep(vtSteps, vtStepIndex, data);
-      if (previous !== null) {
-        setVtStepTarget(previous);
-        requestStepFocus();
-        return;
-      }
-    }
-
     // Section 2 → back to the preliminary quiz.
     if (vtQuizApplies && clampedSectionIndex === 1) {
       openVtQuiz();
@@ -688,8 +641,9 @@ export function WizardShell({
 
     if (clampedSectionIndex > 0) {
       setSectionIndex((index) => index - 1);
-      // Back into Section 4 from Section 5 lands on its last table.
-      setVtStepTarget("last");
+      // The section opens at the top of its column, the way it opens coming
+      // the other way; its table list is there to go further down.
+      setVtStepTarget("first");
       requestStepFocus();
       return;
     }

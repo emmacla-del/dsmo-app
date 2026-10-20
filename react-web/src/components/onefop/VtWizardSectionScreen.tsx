@@ -46,7 +46,6 @@ import {
   isVtStepApplicable,
   vtFirstStep,
   vtStepForIssue,
-  vtStepPosition,
 } from "@/lib/vt-table-steps";
 import { VtProgressiveRowGrid, isVtProgressiveRowTable } from "./tables/VtProgressiveRowGrid";
 import type { ValidationIssue } from "@/lib/onefop-validation";
@@ -1192,15 +1191,47 @@ export function VtWizardSectionScreen({
 
   const rowColumns = vtWizardRowColumnsFor();
 
-  // Sections 4 and 8: one table per screen (lib/vt-table-steps.ts).
+  // Sections 4 and 8 carry their tables in one continuous column, as every
+  // other section does (owner, 2026-10-19). The step still exists — it is
+  // the table the list points at, and where the Validation screen opens the
+  // section — but it hides nothing: selecting one scrolls to it.
   const tabbed = VT_STEPPED_SECTION_IDS.has(sectionId);
 
   const [ownStep, setOwnStep] = useState(() => vtFirstStep(groups, data));
   const activeTab = Math.min(Math.max(activeStep ?? ownStep, 0), Math.max(0, groups.length - 1));
+  /** Brings a table of the column under the pinned masthead. (The sidebar
+   *  outline has a jump of its own, scrollToBlock, for the sections that
+   *  show one; a section with a table list shows no outline.) */
+  const scrollToTable = (index: number) => {
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`vt-outline-block-${sectionId}-${index}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+  const scrolledToStep = useRef<number | null>(null);
   const setActiveTab = (index: number) => {
     setOwnStep(index);
     onStepChange?.(index);
+    scrolledToStep.current = index;
+    scrollToTable(index);
   };
+
+  // The shell opens the section on a table of its own: the Validation
+  // screen opens the one holding the first problem. Entering a section the
+  // ordinary way lands on its first table, which is the top of the column,
+  // so that one is not scrolled to.
+  useEffect(() => {
+    if (!tabbed || groups.length < 2 || activeStep === undefined) return;
+    if (scrolledToStep.current === activeStep) return;
+    const first = scrolledToStep.current === null;
+    scrolledToStep.current = activeStep;
+    if (first && activeStep === vtFirstStep(groups, data)) return;
+    scrollToTable(activeStep);
+    // `data` only decides which table is the first one; scrolling again on
+    // every keystroke is what the guard above prevents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStep, tabbed, groups]);
 
   // ── §7 cross-table disagreements, all of them at once (audit R5) ────────
   // The shell passes `issues` only once it is showing errors, so a mismatch
@@ -1222,13 +1253,12 @@ export function VtWizardSectionScreen({
     return listed.size === 0 ? issues : issues.filter((i) => !listed.has(i.fieldId));
   }, [issues, shownCrossTableIssues]);
 
-  // The summary lists what blocks Next on this screen: in Sections 4 and 8
-  // that is the table shown (Next checks it alone), elsewhere the section.
+  // The summary lists what blocks Next on this screen, which is the whole
+  // section: every section now shows all of itself at once.
   const summaryIssues = useMemo(() => {
     if (!showErrorSummary) return [];
-    const inView = tabbed && groups.length > 1 ? (groups[activeTab]?.fields ?? []) : section.fields;
-    return fieldIssues.filter((i) => findIssueOwner(inView, i.fieldId));
-  }, [showErrorSummary, fieldIssues, tabbed, groups, activeTab, section.fields]);
+    return fieldIssues.filter((i) => findIssueOwner(section.fields, i.fieldId));
+  }, [showErrorSummary, fieldIssues, section.fields]);
 
   const openIssue = (issue: ValidationIssue) => {
     const owner = findIssueOwner(section.fields, issue.fieldId);
@@ -1362,38 +1392,31 @@ export function VtWizardSectionScreen({
               sectionId={sectionId}
               isEn={normalizedLocale === "en"}
             />
-            {(() => {
-              const position = vtStepPosition(groups, activeTab, data);
-              return position ? (
-                <p
-                  style={{
-                    margin: "0 0 var(--cam-space-2)",
-                    fontSize: "var(--cam-font-size-sm)",
-                    color: "var(--cam-text-muted)",
-                  }}
-                >
-                  {normalizedLocale === "en"
-                    ? `Table ${position.number} of ${position.total}`
-                    : `Tableau ${position.number} sur ${position.total}`}
-                </p>
-              ) : null;
-            })()}
-            {groups[activeTab] && (
-              <TableHeadingShownContext.Provider value={true}>
-              <FormSection>
-                <VtWizardCardForGroup
-                  group={groups[activeTab]}
-                  sectionId={sectionId}
-                  data={data}
-                  onChange={onChange}
-                  issues={fieldIssues}
-                  compact={compact}
-                  columns={rowColumns}
-                  headingTextOverride={groups[activeTab].title ?? undefined}
-                />
-              </FormSection>
-              </TableHeadingShownContext.Provider>
-            )}
+            <TableHeadingShownContext.Provider value={true}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {groups.map((group, i) => (
+                  <FormSection key={i}>
+                    <div
+                      id={`vt-outline-block-${sectionId}-${i}`}
+                      // Under the pinned masthead, as the rule globals.css
+                      // gives every field and heading of the wizard.
+                      style={{ scrollMarginTop: "calc(var(--mj-header-h, 0px) + var(--cam-space-4))" }}
+                    >
+                      <VtWizardCardForGroup
+                        group={group}
+                        sectionId={sectionId}
+                        data={data}
+                        onChange={onChange}
+                        issues={fieldIssues}
+                        compact={compact}
+                        columns={rowColumns}
+                        headingTextOverride={group.title ?? undefined}
+                      />
+                    </div>
+                  </FormSection>
+                ))}
+              </div>
+            </TableHeadingShownContext.Provider>
           </div>
         ) : groups.length > 1 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1456,7 +1479,7 @@ export function VtWizardSectionScreen({
         {/* The advisory ones (§7), after the blocking list and apart from it. */}
         <VtAdvisoryCoherenceNotice
           issues={advisoryIssues}
-          tableFieldIds={tabbed && groups.length > 1 ? (groups[activeTab]?.fieldIds ?? []) : groups.flatMap((g) => g.fieldIds)}
+          tableFieldIds={groups.flatMap((g) => g.fieldIds)}
           onOpenTable={openTableForField}
         />
       </div>

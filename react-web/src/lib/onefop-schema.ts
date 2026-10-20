@@ -313,15 +313,16 @@ function isTableShapedField(field: OnefopField): boolean {
 }
 
 /**
- * Which fields begin a screen of their own in a section — the single rule
- * the renderer and the wizard rail both read, so the table list, the
- * table-by-table Previous/Next and the rail's "Tableau n sur m" cannot
- * disagree about how many screens a section has.
+ * Where a section is cut into parts — the single rule the renderer and the
+ * wizard rail both read, so the section's own table list and the rail's
+ * count of its tables cannot disagree.
  *
  * A section the paper form divides into subsections is cut along those. One
  * that declares none but carries several tables (Project/Programme Section
  * 4 and its six; Sections 3 and 4 of the other employer forms) is cut at
- * each table — they used to be stacked on one screen.
+ * each table. In Tableau the parts stand under each other in one continuous
+ * column and the cut is what the table list jumps to; in Guidé the section
+ * is walked one part at a time.
  */
 export function sectionChunkStarterIds(section: OnefopSection): Set<string> {
   const { startsHeadingFieldIds } = computeSubsectionLayout(section);

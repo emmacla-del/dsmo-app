@@ -1,16 +1,18 @@
 "use client";
 
-// The advisory disagreements of the table on screen (4.2/4.7, 4.2/4.8,
+// The advisory disagreements of the tables on screen (4.2/4.7, 4.2/4.8,
 // 4.7/4.10: lib/vt-advisory-coherence.ts), shown the moment both tables of
-// a pair are complete, while the respondent is still on the table.
+// a pair are complete, while the respondent is still filling the section.
 //
 // Advisory (CLAUDE.md §7): it never blocks Next or submission, so it must
 // not look like the blocking cross-table list above it (VtCrossTableNotice,
 // red, role="alert"). It is an amber left rule, the wizard's
 // .section-notice shape, with no box and no fill, and role="status". Each
-// disagreement is one short line with the figures and a link to the other
-// table; "Pourquoi ?" opens the explanation in place (a disclosure rather
-// than a hover tooltip, which a finger or a keyboard cannot reach).
+// disagreement is one short line with the figures and a link to each of its
+// two tables, as the blocking list has (a section stands in one column, so
+// neither table is "the other one", and both are a scroll away);
+// "Pourquoi ?" opens the explanation in place (a disclosure rather than a
+// hover tooltip, which a finger or a keyboard cannot reach).
 
 import { useContext } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -29,7 +31,7 @@ export function VtAdvisoryCoherenceNotice({
   issues: VtAdvisoryIssue[];
   /** The tables on screen: only their disagreements are shown. */
   tableFieldIds: string[];
-  /** Opens the table with this field id (its step, in Section 4). */
+  /** Brings the table with this field id into view. */
   onOpenTable: (fieldId: string) => void;
 }) {
   const t = useTranslations("vtWizard");
@@ -72,23 +74,34 @@ export function VtAdvisoryCoherenceNotice({
             }),
           )
           .join(lang === "fr" ? " ; " : "; ");
-        const other = issue.tables.find((id) => !onScreen.has(id));
+        // A table the questionnaire switched off is not filled in by hand:
+        // the answer to change, if any, is in the questionnaire.
+        const askable = issue.tables.filter((id) => !issue.offTables.includes(id));
+        const anyOff = issue.offTables.some((id) => issue.tables.includes(id));
+        const codes = issue.tables.map((id) => VT_ADVISORY_TABLE_CODES[id]).join(lang === "en" ? " and " : " et ");
         return (
           <li key={issue.code}>
             <p style={{ margin: 0 }}>
               <strong style={{ color: "var(--cam-warning)" }}>{t("advisoryTitle")}</strong>
               {lang === "fr" ? " : " : ": "}
               {figures}
-              {other && !issue.offTables.includes(other) && (
-                <>
+              {askable.map((id) => (
+                <span key={id}>
                   {" "}
-                  <button type="button" className="cam-text-button" onClick={() => onOpenTable(other)}>
-                    {t("crossTableOpen", { code: VT_ADVISORY_TABLE_CODES[other] })}
+                  <button
+                    type="button"
+                    className="cam-text-button"
+                    // A table named in two disagreements gets two links:
+                    // each says which comparison it belongs to, so no two
+                    // links read alike (the blocking list's own rule).
+                    aria-label={t("crossTableOpenFull", { code: VT_ADVISORY_TABLE_CODES[id], tables: codes })}
+                    onClick={() => onOpenTable(id)}
+                  >
+                    {t("crossTableOpen", { code: VT_ADVISORY_TABLE_CODES[id] })}
                   </button>
-                </>
-              )}
-              {/* The other table is not asked: the answer to change, if any, is in the questionnaire. */}
-              {other && issue.offTables.includes(other) && openQuiz && (
+                </span>
+              ))}
+              {anyOff && openQuiz && (
                 <>
                   {" "}
                   <button type="button" className="cam-text-button" onClick={openQuiz}>

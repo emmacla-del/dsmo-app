@@ -5,7 +5,8 @@ import { VtAdvisoryCoherenceNotice } from "./VtAdvisoryCoherenceNotice";
 import { VtQuizContext } from "./VtScopeQuiz";
 import { VT_ADVISORY_RULES, type VtAdvisoryIssue } from "@/lib/vt-advisory-coherence";
 
-// The advisory coherence notice under a Section 4 table (CLAUDE.md §7).
+// The advisory coherence notice under Section 4's column (CLAUDE.md §7).
+// Each line links to both of its tables, which are a scroll apart.
 
 const rule = VT_ADVISORY_RULES[0];
 const AGE: VtAdvisoryIssue = {
@@ -20,7 +21,7 @@ const AGE: VtAdvisoryIssue = {
   why: rule.why,
 };
 
-test("one short line with the figures and a link to the other table; the explanation behind 'Why?'", async () => {
+test("one short line with the figures and a link to each of its tables; the explanation behind 'Why?'", async () => {
   const opened: string[] = [];
   const { user } = renderWithProviders(
     <VtAdvisoryCoherenceNotice issues={[AGE]} tableFieldIds={["VT4_7"]} onOpenTable={(id) => opened.push(id)} />,
@@ -39,14 +40,23 @@ test("one short line with the figures and a link to the other table; the explana
   assert.equal(details.open, true);
   assert.match(details.textContent ?? "", /it does not stop your declaration/);
 
-  await user.click(screen.getByRole("button", { name: "Open table 4.2" }));
+  // Each link is named for the comparison it belongs to, so a table named
+  // in two disagreements has no two links reading alike.
+  assert.deepEqual(
+    screen.getAllByRole("button", { name: /^Open table/ }).map((b) => b.getAttribute("aria-label")),
+    [
+      "Open table 4.2 — comparison of tables 4.2 and 4.7",
+      "Open table 4.7 — comparison of tables 4.2 and 4.7",
+    ],
+  );
+  await user.click(screen.getByRole("button", { name: /^Open table 4\.2/ }));
   assert.deepEqual(opened, ["VT4_2"]);
 });
 
 test("in French by default, pointing from 4.2 to 4.7", () => {
   renderWithProviders(<VtAdvisoryCoherenceNotice issues={[AGE]} tableFieldIds={["VT4_2"]} onOpenTable={() => {}} />);
   assert.match(screen.getByRole("status").textContent ?? "", /^Entrées incohérentes : hommes : 4\.2 = 10, 4\.7 entrants = 8 ; femmes/);
-  assert.ok(screen.getByRole("button", { name: "Ouvrir le tableau 4.7" }));
+  assert.ok(screen.getByRole("button", { name: /^Ouvrir le tableau 4\.7/ }));
   assert.ok(screen.getByText("Pourquoi ?"));
 });
 
@@ -76,7 +86,7 @@ test("a table switched off by the preliminary questionnaire is named as such, an
     </VtQuizContext.Provider>,
   );
   assert.match(screen.getByRole("status").textContent ?? "", /hommes : 4\.7 sortants = 3, 4\.10 \(sans objet\) = 0/);
-  assert.equal(screen.queryByRole("button", { name: "Ouvrir le tableau 4.10" }), null);
+  assert.equal(screen.queryByRole("button", { name: /^Ouvrir le tableau 4\.10/ }) === null, true, "4.10 is not asked");
   await user.click(screen.getByRole("button", { name: "Revoir le questionnaire préliminaire" }));
   assert.equal(opened, 1);
 });

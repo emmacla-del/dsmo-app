@@ -7,10 +7,10 @@ import type { FormData, OnefopEntity, OnefopField, OnefopSection } from "@/lib/o
 import { VT_QUIZ_QUESTIONS } from "@/lib/vt-quiz";
 import { writeWizardPosition } from "@/lib/wizard-position";
 
-// The advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 disagreements, shown under the
-// table the moment both tables of a pair are complete, while Section 4 is
-// filled rather than only on the review screen. Advisory (CLAUDE.md §7):
-// they never block Next.
+// The advisory 4.2/4.7, 4.2/4.8 and 4.7/4.10 disagreements, listed under the
+// section's column the moment both tables of a pair are complete, while
+// Section 4 is filled rather than only on the review screen. Advisory
+// (CLAUDE.md §7): they never block Next.
 
 const vt = schemaEntity("vocationalTraining");
 const s4 = vt.sections.find((s) => s.id === "section4_vocationalTraining")!;
@@ -80,6 +80,9 @@ const currentTable = () => {
   return current?.textContent?.match(/^\d+\.\d+/)?.[0] ?? null;
 };
 const advisoryNotice = () => document.querySelector("[data-vt-advisory-coherence]") as HTMLElement | null;
+/** Its text, or "" — never the element itself in an assertion: a failed
+ *  comparison of a DOM node serializes the whole section. */
+const advisoryText = () => advisoryNotice()?.textContent ?? "";
 /** 4.1, 4.2 and 4.7 complete; 4.2 counts 10 men, 4.7 counts 8 entering men. */
 const mismatched = (): FormData => ({
   ...quiz(),
@@ -91,28 +94,51 @@ const mismatched = (): FormData => ({
   s4q7_age_18_entrant_male: 8,
 });
 
-test("4.7 complete and off from 4.2: the line is there at once, amber, with a link to 4.2, and Next still goes on", async () => {
-  const { user } = renderAt(mismatched(), STEP_4_7);
-  assert.equal(currentTable(), "4.7");
+test("4.7 complete and off from 4.2: the line is there at once, amber, with a link to 4.2", () => {
+  renderAt(mismatched(), STEP_4_7);
   const notice = advisoryNotice();
   assert.ok(notice, "shown on the first render, with no wait");
   assert.equal(notice.getAttribute("role"), "status");
   assert.match(notice.textContent ?? "", /Entrées incohérentes : hommes : 4\.2 = 10, 4\.7 entrants = 8/);
-  assert.ok(within(notice).getByRole("button", { name: "Ouvrir le tableau 4.2" }));
-  assert.equal(screen.queryByRole("alert"), null, "nothing red");
+  assert.ok(within(notice).getByRole("button", { name: /^Ouvrir le tableau 4\.2/ }));
+  assert.equal(screen.queryByRole("alert") === null, true, "nothing red");
+  assert.equal(previewCalls, 0, "no server request while the tables are filled");
+});
+
+/** Section 4 complete but for the advisory disagreement: the tables the
+ *  questionnaire leaves on are filled, 4.1, 4.2 and 4.5 agree on 10 men,
+ *  and 4.7 counts 8 of them entering. */
+const completeButAdvisory = (): FormData => ({
+  ...quiz({ unemployedQualified: false, informalSector: false, vulnerable: false, formerStudents: false, scholarships: false }),
+  VT2_18: ["Formation Continue (FC)"], // 4.6 off: no initial training
+  ...filled("VT4_1"),
+  ...filled("VT4_2"),
+  ...filled("VT4_5"),
+  ...filled("VT4_7"),
+  ...filled("VT4_8"),
+  s4q1_bepc_male: 10,
+  s4q2_cap_male: 10,
+  s4q5_row1_fcMale: 10,
+  s4q7_age_18_entrant_male: 8,
+});
+
+test("the line does not stop Next: a section complete but for it is left", async () => {
+  const { user } = renderAt(completeButAdvisory(), STEP_4_7);
+  assert.match(advisoryText(), /4\.2 = 10, 4\.7 entrants = 8/);
 
   await user.click(next());
   await wait(20);
-  assert.equal(currentTable(), "4.8", "the advisory line does not stop Next");
+
+  assert.equal(screen.queryByText("Tableaux de cette section") === null, true, "Section 4 is behind");
   assert.equal(previewCalls, 0, "no server request while the tables are filled");
 });
 
 test("the link opens table 4.2, where the same line points back to 4.7", async () => {
   const { user } = renderAt(mismatched(), STEP_4_7);
-  await user.click(screen.getByRole("button", { name: "Ouvrir le tableau 4.2" }));
+  await user.click(screen.getByRole("button", { name: /^Ouvrir le tableau 4\.2/ }));
   await wait(20);
   assert.equal(currentTable(), "4.2");
-  assert.ok(within(advisoryNotice()!).getByRole("button", { name: "Ouvrir le tableau 4.7" }));
+  assert.ok(within(advisoryNotice()!).getByRole("button", { name: /^Ouvrir le tableau 4\.7/ }));
 });
 
 test("the line follows the figures as they are typed", () => {
@@ -120,23 +146,26 @@ test("the line follows the figures as they are typed", () => {
   const { rerender } = renderAt(data, STEP_4_7);
   assert.ok(advisoryNotice());
   rerender(shell({ ...data, s4q7_age_19_entrant_male: 2 }));
-  assert.equal(advisoryNotice(), null, "8 + 2 = 10: gone as soon as the totals agree");
+  assert.equal(advisoryNotice() === null, true, "8 + 2 = 10: gone as soon as the totals agree");
   rerender(shell({ ...data, s4q7_age_19_entrant_male: 3 }));
-  assert.match(advisoryNotice()?.textContent ?? "", /4\.7 entrants = 11/);
+  assert.match(advisoryText(), /4\.7 entrants = 11/);
 });
 
 test("nothing while a compared table is incomplete, or when the totals agree", () => {
   const { unmount } = renderAt({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), s4q1_cap_male: 10, s4q2_cap_male: 10 }, STEP_4_7);
-  assert.equal(advisoryNotice(), null);
+  assert.equal(advisoryNotice() === null, true);
   unmount();
   renderAt({ ...quiz(), ...filled("VT4_1"), ...filled("VT4_2"), ...filled("VT4_7") }, STEP_4_7);
-  assert.equal(advisoryNotice(), null);
+  assert.equal(advisoryNotice() === null, true);
 });
 
-test("a table the rules do not compare shows nothing", () => {
+// The section's tables are all on screen, so its advisory lines are listed
+// under the column whichever table the list points at — the blocking §7
+// mismatches of the section are listed there too.
+test("the line is the section's, not the table the list points at", () => {
   renderAt(mismatched(), 0);
   assert.equal(currentTable(), "4.1");
-  assert.equal(advisoryNotice(), null);
+  assert.match(advisoryText(), /4\.2 = 10, 4\.7 entrants = 8/);
 });
 
 test("4.10 switched off by the questionnaire: 4.7 leavers are compared with 0, and the line offers the questionnaire", async () => {
