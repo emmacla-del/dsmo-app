@@ -23,7 +23,6 @@ import { TABLE_MAX_WIDTH_PX } from "./tables/tableLayout";
 import { resetScroll } from "@/lib/reset-scroll";
 import { formatSectionTitle, sectionNumberFromId } from "@/lib/onefop-section-title";
 import { ppSection4TableName } from "@/lib/pp-section4-tables";
-import { ppIdentificationTitle, ppNatureKindOf, ppWording } from "@/lib/pp-nature-wording";
 import { GuidedReviewGateContext, type GuidedReviewHandle, type GuidedReviewRegistry } from "./tables/GuidedReviewGate";
 
 export interface SectionTableNavState {
@@ -844,11 +843,7 @@ export function SectionRenderer({
             >
               {section.id === "section0"
                 ? t("section0Heading")
-                : section.id === "section1_projectProgram"
-                  // « Identification de la structure » named one of the
-                  // three bodies; this names the one PP_S1Q01 says it is.
-                  ? `Section 1. ${ppIdentificationTitle(ppNatureKindOf(data), locale)}`
-                  : formatSectionTitle(
+                : formatSectionTitle(
                     localized(section.title, locale),
                     sectionNumberFromId(section.id, 0),
                   ) || section.id}
@@ -871,13 +866,7 @@ export function SectionRenderer({
                 // Who the respondent is answering for, in the words of their
                 // own body — the rule S0Q02's label already follows. An
                 // entity with no wording of its own keeps "l'établissement".
-                // The project form names the body PP_S1Q01 says it is.
-                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro", {
-                  entity: (() => {
-                    const w = ppWording(ppNatureKindOf(data), locale);
-                    return locale === "fr" ? w.of : w.the;
-                  })(),
-                })
+                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro")
               ) : section.description ? (
                 localized(section.description, locale)
               ) : null}

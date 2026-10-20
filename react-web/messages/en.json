@@ -547,7 +547,7 @@
     "entityOptionAdministrationHint": "ministry, public institution",
     "entityOptionCtd": "Local authority",
     "entityOptionCtdHint": "region, council",
-    "entityOptionProjectProgram": "Project, programme or supervised structure",
+    "entityOptionProjectProgram": "Project or programme",
     "entityOptionVocationalTraining": "Vocational training centre",
     "continueButton": "Continue",
     "alreadyRegisteredSignIn": "Already registered? Sign in",
@@ -833,20 +833,8 @@
     "placeholderName": "e.g. John Doe",
     "placeholderJobTitle": "e.g. HR Director",
     "placeholderJobTitleProject": "e.g. Project Coordinator",
-    "placeholderJobTitleProgramme": "e.g. Programme Coordinator",
-    "placeholderJobTitleStructure": "e.g. Director of the structure",
-    "placeholderJobTitleAdministration": "e.g. Head of personnel",
-    "placeholderJobTitleOng": "e.g. Executive Director",
-    "placeholderJobTitleCooperative": "e.g. Manager",
-    "placeholderJobTitleCtd": "e.g. Secretary General",
     "placeholderEmail": "e.g. contact@company.com",
     "placeholderEmailProject": "e.g. contact@project.cm",
-    "placeholderEmailProgramme": "e.g. contact@programme.cm",
-    "placeholderEmailStructure": "e.g. contact@structure.cm",
-    "placeholderEmailAdministration": "e.g. contact@administration.cm",
-    "placeholderEmailOng": "e.g. contact@ngo.cm",
-    "placeholderEmailCooperative": "e.g. contact@cooperative.cm",
-    "placeholderEmailCtd": "e.g. contact@council.cm",
     "exampleHint": "Example: {example}"
   },
   "coherenceHints": {
@@ -1396,7 +1384,7 @@
       "topicsSummary": "{total, plural, one {# topic} other {# topics}} • {completed} completed",
       "tablesSummary": "{total, plural, one {# statistical table} other {# statistical tables}} • {completed} completed",
       "section0Intro": "Information about the person completing this questionnaire on behalf of the establishment.",
-      "section0IntroProject": "Information about the person completing this questionnaire on behalf of {entity}.",
+      "section0IntroProject": "Information about the person completing this questionnaire on behalf of the project or programme.",
       "section0IntroAdministration": "Information about the person completing this questionnaire on behalf of the administration.",
       "section0IntroNgo": "Information about the person completing this questionnaire on behalf of the NGO.",
       "section0IntroCooperative": "Information about the person completing this questionnaire on behalf of the cooperative.",
@@ -1430,14 +1418,13 @@
       "cards": {
         "identity": {
           "title": "Legal identity",
-          "title_projectProgram": "Name and supervision",
           "description": "Official name, legal status, acronym and registration details of the organisation.",
-          "description_projectProgram": "Type, name, acronym, person in charge and supervising ministry or body."
+   "description_projectProgram": "Nature, name, acronym, person in charge and supervising ministry or body."
         },
         "location": {
           "title": "Administrative location",
-          "description": "Area of operation and official administrative attachment (Region, Department, Subdivision, Locality).",
-          "description_projectProgram": "Area of operation, head office and administrative attachment (Region, Department, Subdivision, Locality)."
+          "description": "Area of residence and official administrative attachment (Region, Department, Subdivision, Locality).",
+   "description_projectProgram": "Area of residence, head office and administrative attachment (Region, Department, Subdivision, Locality)."
         },
         "contact": {
           "title": "Official contacts",

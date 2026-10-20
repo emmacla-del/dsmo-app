@@ -168,7 +168,7 @@ export function ModernJobsSidebar({
   // Sidebar titles without the "Section N." prefix -- the number sits in the
   // circle -- and short of the project form's paragraph-long ones.
   const stepTitle = (section: OnefopSection, idx: number) =>
-    sectionNavTitle(section.id, localized(section.title, locale), idx, locale, data);
+    sectionNavTitle(section.id, localized(section.title, locale), idx, locale);
 
   const stateLabel = (state: WizardStepState) =>
     t(
