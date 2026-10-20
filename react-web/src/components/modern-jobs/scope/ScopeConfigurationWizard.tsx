@@ -37,6 +37,7 @@ import {
   isAdministrationLayout,
   isQuizQuestionComplete,
   quizQuestionsFor,
+  zeroedCellsBackInView,
 } from "./QuizSemantics";
 import { FactsReview } from "./FactsReview";
 import { EventProgress, ProgressGroup } from "./EventProgress";
@@ -212,6 +213,16 @@ export function EventFactInterview({
       onChange("_scopeCsp", Array.from(activeCsps));
       onChange("_scopeAge", Array.from(activeAges));
 
+      // A table or category the quiz opens again comes back blank, not with
+      // the 0 it was given while it was closed (audit C4).
+      const next: FormData = {
+        ...data,
+        _scopeConfig: finalScope,
+        _scopeCsp: Array.from(activeCsps),
+        _scopeAge: Array.from(activeAges),
+      };
+      for (const key of zeroedCellsBackInView(entity, data, next)) onChange(key, "");
+
       // Statuses follow the quiz answers (QuizSemantics). A question still
       // unanswered writes nothing: it must never become NONE by default.
       const written = new Set<string>();
@@ -228,7 +239,7 @@ export function EventFactInterview({
         }
       }
     },
-    [data, getTable, hasTable, onChange]
+    [data, entity, getTable, hasTable, onChange]
   );
 
   const handleUpdateScope = (partial: Partial<ScopeState>) => {
