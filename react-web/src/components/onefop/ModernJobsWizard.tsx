@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { localized, type FormData, type OnefopEntity, type OnefopField } from "@/lib/onefop-schema";
 import { QUIZ_ISSUE_FIELD_ID, type ValidationIssue } from "@/lib/onefop-validation";
@@ -71,6 +71,10 @@ export interface ModernJobsWizardProps {
   /** N3: the tenant-scoped draft key once its draft is loaded; the wizard
    *  position is restored from / kept in sessionStorage under it. */
   positionKey?: string | null;
+  /** The live PDF preview to show beside the form (WizardShell's
+   *  OnefopSidePreviewPanel), as the training-centre wizard does. While it
+   *  is open the section rail steps aside, as it does there. */
+  sidePreview?: ReactNode;
 }
 
 /**
@@ -108,6 +112,7 @@ export function ModernJobsWizard({
   niu,
   quarterCode,
   positionKey = null,
+  sidePreview,
 }: ModernJobsWizardProps) {
   const tShell = useTranslations("wizardShell");
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
@@ -628,12 +633,13 @@ export function ModernJobsWizard({
         onExit={onCancel}
         onPreviewPdf={onPreviewPdf ? () => onPreviewPdf(locale) : undefined}
         isGeneratingPdf={isGeneratingPdf}
+        isPreviewActive={Boolean(sidePreview)}
         entryModeSlot={entryModeSlot.row}
       />
 
       <div style={{ flex: 1, display: "flex", alignItems: "stretch", minHeight: 0 }}>
         {/* ── Desktop Sidebar Outline ── */}
-        {isDesktop && (
+        {isDesktop && !sidePreview && (
           <ModernJobsSidebar
             entity={entity}
             data={data}
@@ -1254,6 +1260,8 @@ export function ModernJobsWizard({
             )}
           </div>
         </main>
+
+        {sidePreview}
       </div>
 
       {/* ── Sticky Bottom Navigation Bar ──
@@ -1338,7 +1346,9 @@ export function ModernJobsWizard({
             isScopeStage={isScopeStage}
             isValidationStage={isValidationStage}
             isWideLayout={isTableSection}
-            isDesktop={isDesktop}
+            isDesktop={isDesktop && !sidePreview}
+            // The panel's own width (OnefopSidePreviewPanel: 50%, 420-760px).
+            rightInset={sidePreview ? "clamp(420px, 50%, 760px)" : undefined}
             stepIndicator={navStepIndicator}
             nextLabel={navNextLabel}
             prevLabel={navPrevLabel}
