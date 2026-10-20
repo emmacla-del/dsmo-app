@@ -19,8 +19,8 @@ stored, normalized or exported. The third fix stops a free-text slot being
 treated as in use because of the zeros the table opens with.
 
 Still not reached: the administrative review and endorsement, and the SPSS
-export of an enterprise record. C4 was fixed on 2026-10-20 (commit
-`1c6b2e3e`); C5 to C7 are untouched.
+export of an enterprise record. C4 and C5 were fixed on 2026-10-20 (commits
+`1c6b2e3e` and `0dfff468`); C6 and C7 are untouched.
 
 ## What was declared
 
@@ -114,13 +114,28 @@ against all five sections, with no issue listed.
   Verified by unit tests only: not re-run in the browser, as EN26000201's
   declaration is already submitted.
 
-### C5 — A refused submission says nothing the respondent can act on (medium)
+### C5 — A refused submission says nothing the respondent can act on (medium) — fixed 2026-10-20
 
 - The 400 appears as a single line of text naming three cell keys and « +43 ».
   Those keys are internal (`s3q01_cadres_licenciement_male`), §8 keeps such
   codes off a respondent's screen, and the review screen continues to show
   every section complete. There is no link to the offending table and no way
   to reach the cells, because the wizard does not render them.
+- Fix (commit `0dfff468`, no server change): the server already sent the
+  refused cells as `missingMatrixCells` beside its message. The wizard now
+  locates each one in the form and names it once per table, by section and
+  question, in the form's order, under « Votre déclaration n'a pas été
+  transmise : des cases restent vides dans les tableaux ci-dessous… ». Each
+  table is a link to it, from the Modern Jobs wizard, the training-centre
+  review and the review window (which closes and opens the table). A cell
+  the wizard does not show under the quiz answers given — the C1 kind — or
+  a key the form does not have is counted, not listed, and the respondent is
+  pointed to ONEFOP support. No key reaches the screen.
+- Not covered: the « Informations obligatoires manquantes » refusal still
+  lists `missingFields` as DTO paths (`enterprise.companyName`), which do
+  not match the form's question ids; naming those needs a mapping on the
+  server side. Verified by unit and component tests only: a refusal could
+  not be produced in the browser now that C1–C3 are fixed.
 
 ### C6 — A stale database connection surfaces as « Internal server error » (low)
 
