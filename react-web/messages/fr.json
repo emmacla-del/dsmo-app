@@ -628,6 +628,7 @@
     "summaryFullNameLabel": "Nom et prénom",
     "summaryLoginLabel": "Identifiant de connexion",
     "summaryPasswordSet": "Mot de passe défini",
+    "summaryPasswordValue": "Défini",
     "editSectionButton": "Modifier",
     "sectionCompleteLabel": "Section terminée",
     "entityChangeTitle": "Changer le type d'entité ?",

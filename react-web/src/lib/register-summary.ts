@@ -34,6 +34,9 @@ import { isSecurityComplete, type RegState } from "./register-completeness";
 export interface SummaryRow {
   label: string;
   value: string;
+  // What the step list shows for this row, when the value alone would not
+  // read on its own there: the list prints values without their labels.
+  brief?: string;
 }
 
 // RegState plus the administrative names, which the wizard resolves from its
@@ -148,11 +151,17 @@ export function summaryRows(
     case "security":
       // The password is never summarised, shown or stored, and neither is the
       // email: that already has its own row under the respondent. One line
-      // says the password was chosen, and only once it actually was.
+      // says the password was chosen, and only once it actually was. The
+      // review prints « Mot de passe | Défini »; the step list, which has no
+      // label column, keeps the whole phrase.
       if (!isSecurityComplete(state)) return [];
-      return compact([
-        row(t("registerPage.passwordLabel"), t("registerPage.summaryPasswordSet")),
-      ]);
+      return [
+        {
+          label: t("registerPage.passwordLabel"),
+          value: t("registerPage.summaryPasswordValue"),
+          brief: t("registerPage.summaryPasswordSet"),
+        },
+      ];
 
     case "review":
       // The review section summarises the others; it has nothing of its own,
@@ -169,7 +178,7 @@ export function sectionSummary(
   maxValues: number = SECTION_SUMMARY_MAX_VALUES
 ): string {
   return rows
-    .map((r) => r.value.trim())
+    .map((r) => (r.brief ?? r.value).trim())
     .filter((v) => v.length > 0)
     .slice(0, maxValues)
     .join(", ");

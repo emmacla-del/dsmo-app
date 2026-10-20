@@ -281,7 +281,10 @@ test("security says the password is set and never shows it or the email", () => 
   const rows = summaryRows("security", baseState(), t, LOCALE);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].label, "registerPage.passwordLabel");
-  assert.equal(rows[0].value, "registerPage.summaryPasswordSet");
+  // The review reads « Mot de passe | Défini », not the label twice; the
+  // step list, which prints no label, keeps the whole phrase.
+  assert.equal(rows[0].value, "registerPage.summaryPasswordValue");
+  assert.equal(sectionSummary(rows), "registerPage.summaryPasswordSet");
   const serialized = JSON.stringify(rows);
   assert.equal(serialized.includes("Motdepasse1!"), false);
   assert.equal(serialized.includes("contact@organisation.cm"), false);
@@ -331,11 +334,12 @@ test("sectionSummary of an empty section is an empty string", () => {
 
 test("the collapsed line is derived from the review rows, not a second source", () => {
   // The guarantee the single-source rule exists for: whatever the review card
-  // shows first is what the collapsed line shows.
+  // shows first is what the collapsed line shows -- or the row's own brief,
+  // carried on the same row, where its value needs the label to be read.
   for (const step of ["respondent", "entityInfo", "location", "security"] as const) {
     const rows = summaryRows(step, baseState(), t, LOCALE);
     const expected = rows
-      .map((r) => r.value)
+      .map((r) => r.brief ?? r.value)
       .filter(Boolean)
       .slice(0, SECTION_SUMMARY_MAX_VALUES)
       .join(", ");
