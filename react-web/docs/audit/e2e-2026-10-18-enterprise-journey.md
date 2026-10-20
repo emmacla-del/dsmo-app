@@ -19,8 +19,9 @@ stored, normalized or exported. The third fix stops a free-text slot being
 treated as in use because of the zeros the table opens with.
 
 Still not reached: the administrative review and endorsement, and the SPSS
-export of an enterprise record. C4, C5 and C6 were fixed on 2026-10-20
-(commits `1c6b2e3e`, `0dfff468` and `e61791a5`); C7 is untouched.
+export of an enterprise record. C4 to C7 were fixed on 2026-10-20 (commits
+`1c6b2e3e`, `0dfff468`, `e61791a5` and `2e039fd9`), so every bug of this run
+is now fixed.
 
 ## What was declared
 
@@ -158,7 +159,7 @@ against all five sections, with no issue listed.
   errors are still a logged 500. Verified by unit tests and an HTTP-level
   test; a real dropped connection could not be produced on demand.
 
-### C7 — The review screen's action bar has four unnamed buttons (low)
+### C7 — The review screen's action bar has four unnamed buttons (low) — fixed 2026-10-20
 
 - `read_page` reports four buttons with no accessible name where the screen
   shows « Previous », « Official PDF preview », « Edit » and « Review &
@@ -166,6 +167,18 @@ against all five sections, with no issue listed.
   that files the declaration. « Review & Submit » is also odd wording on the
   review screen itself, and it sits beside five per-section « Edit » links
   plus a sixth bare « Edit ».
+- Correction: the four buttons were never nameless. An accessibility-tree
+  query (Testing Library `getByRole`) finds each one by its visible text;
+  `read_page` misread the `<span>`s inside them. The rest of this finding
+  was real.
+- Fix (commit `2e039fd9`): each section's « Modifier » names its section
+  (« Modifier la section « Départs » », starting with the visible word); the
+  bare « Modifier », which with nothing to correct only reopened Section 0,
+  now appears only as « Corriger (n) » when there are issues; the arrows are
+  hidden from screen readers; « Vérifier & Soumettre » reads « Soumettre la
+  déclaration », and opens the official copy where « Confirmer et
+  soumettre » sends it. Shared by every employer form and the project form.
+  Verified by a component test only, not in the browser.
 
 ## Not reached
 
