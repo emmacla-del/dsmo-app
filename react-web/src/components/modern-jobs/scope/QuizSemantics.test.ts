@@ -12,6 +12,7 @@ import {
   getZeroedTablesList,
   deriveQuizTableStatus,
   zeroedCellsBackInView,
+  quizQuestionsFor,
 } from "./QuizSemantics";
 import { cleanHiddenDependentFields } from "@/lib/onefop-schema";
 import { resolveTableStatusFieldId } from "../conditional/gateway-catalog";
@@ -549,4 +550,51 @@ test("C4. a category added to an open table comes back blank; a 0 already in vie
   assert.ok(newlyVisible.length > 0, "adding a category shows new cells");
   assert.deepEqual(cleared.sort(), newlyVisible.filter((k) => after[k] === 0).sort());
   for (const key of visibleBefore) assert.ok(!cleared.includes(key), `${key} was already in view and is the respondent's`);
+});
+
+// ── C4 holds on every form the employer quiz governs ───────────────────────
+
+test("C4. on every quiz-governed form, a draft's zeros never reopen as answers", async () => {
+  const types = await import("./ScopeTypes");
+  const ids = (opts: { id: string }[]) => opts.map((o) => o.id);
+  const ALL_YES: ScopeState = {
+    ...DEFAULT_SCOPE,
+    applications: true, application_csp: ids(types.CSP_OPTIONS), application_age: ids(types.AGE_BAND_OPTIONS),
+    recruit: true, recruit_types: ids(types.RECRUITMENT_TYPE_OPTIONS), recruit_csp: ids(types.CSP_OPTIONS),
+    recruit_age: ids(types.AGE_BAND_OPTIONS), recruit_diploma: ids(types.DIPLOMA_OPTIONS), disability: true, vulnerable: true,
+    primo_seekers: true, primo_seekers_csp: ids(types.CSP_OPTIONS), primo_seekers_age: ids(types.AGE_BAND_OPTIONS),
+    primo_workers: true, primo_workers_types: ids(types.RECRUITMENT_TYPE_OPTIONS), primo_workers_csp: ids(types.CSP_OPTIONS),
+    primo_workers_age: ids(types.AGE_BAND_OPTIONS),
+    departures: true, departure_reasons: ids(types.DEPARTURE_REASON_OPTIONS), dismissal_technical: true,
+    interns: true, intern_types: ids(types.INTERNSHIP_TYPE_OPTIONS), skills_needs: true, training_needs: true,
+  };
+  for (const name of ["enterprise", "cooperative", "ctd", "ong", "administration"]) {
+    const e = entity(name);
+    const index = buildEntityTableIndex(e);
+    const asked = quizQuestionsFor((c) => index.has(c.toUpperCase()));
+    // A question the form does not ask stays unanswered, never « Non »
+    // (administration's census, S21Q01, is outside the quiz).
+    const onlyAsked = (s: ScopeState): ScopeState => (asked.includes("applications") ? s : { ...s, applications: null });
+    const closed = onlyAsked(ALL_NO);
+    const open = onlyAsked(ALL_YES);
+    // Every table closed, and the draft saved with the zeros (before 2026-10-20).
+    const stale = { ...prepareSubmissionData(e, withScope(closed)), _scopeConfig: closed };
+    const after: FormData = {
+      ...stale,
+      _scopeConfig: open,
+      _scopeCsp: ids(types.CSP_OPTIONS),
+      _scopeAge: ids(types.AGE_BAND_OPTIONS),
+    };
+    const cleared = new Set(zeroedCellsBackInView(e, stale, after));
+    let reopened = 0;
+    for (const field of new Set(index.values())) {
+      const code = (field.paperCode || field.id).toUpperCase();
+      if (deriveQuizTableStatus(code, open, (c) => index.has(c.toUpperCase())) !== "REPORTED") continue;
+      for (const key of tableNumericCellKeys(field, after, true)) {
+        if (after[key] === 0) assert.ok(cleared.has(key), `${name}: ${key} would reopen as 0`);
+      }
+      reopened++;
+    }
+    assert.ok(reopened > 0, `${name}: no table reopened, the test proves nothing`);
+  }
 });

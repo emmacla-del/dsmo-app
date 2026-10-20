@@ -166,3 +166,22 @@ test("C5. without the form, refused cells are counted, still never listed by key
   assert.equal(detail.items.length, 1);
   assert.doesNotMatch(detail.items[0], /s3q01/);
 });
+
+test("C5. every form names a refused table, never its key", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const schema = JSON.parse(
+    readFileSync(join(process.env.REACT_WEB_ROOT ?? process.cwd(), "public", "schemas", "onefop.schema.json"), "utf-8"),
+  );
+  for (const name of ["enterprise", "cooperative", "ctd", "ong", "administration", "projectProgram", "vocationalTraining"]) {
+    const entity = schema.entities[name];
+    const table = entity.sections
+      .flatMap((s: { fields: { id: string; table?: { matrix?: string[][] } }[] }) => s.fields)
+      .find((f: { table?: { matrix?: string[][] } }) => f.table?.matrix?.[0]?.[0]);
+    assert.ok(table, `${name} has no table`);
+    const key = table.table.matrix[0][0];
+    const detail = formatSubmissionError(new ApiError(400, "…", { missingMatrixCells: [key] }), "fr", { entity });
+    assert.equal(detail.targets?.[0]?.fieldId, table.id, `${name}: ${key} not located`);
+    assert.doesNotMatch(detail.items.join(" "), new RegExp(key, "i"), `${name}: the key reached the screen`);
+  }
+});
