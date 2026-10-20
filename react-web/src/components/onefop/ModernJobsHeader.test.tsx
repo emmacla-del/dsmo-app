@@ -23,7 +23,23 @@ test("VT masthead: establishment and its number, then the survey and round on on
   // The entity is already in VT's title, so that line does not repeat it.
   assert.equal(screen.queryByText(/Centres de formation professionnelle/), null);
   assert.ok(screen.getByRole("button", { name: /Aperçu PDF/ }));
-  assert.ok(screen.getByRole("button", { name: /Quitter/ }));
+  assert.ok(screen.getByRole("button", { name: "Mon espace" }));
+});
+
+// Owner, 2026-10-20: every ONEFOP form's masthead offers the way back to the
+// respondent's workspace, by name; it runs the wizard's exit (save, then /home).
+test("every form's masthead has a « Mon espace » button that runs the exit", () => {
+  for (const entityType of ["vocationalTraining", "enterprise", "cooperative", "ctd", "ong", "administration", "projectProgram"]) {
+    let exits = 0;
+    const { unmount } = renderWithProviders(
+      <ModernJobsHeader entityType={entityType} quarterCode="QUARTERLY_2026_T4_001" onExit={() => { exits += 1; }} />,
+    );
+    const button = screen.getByRole("button", { name: "Mon espace" });
+    assert.equal(button.textContent, "Mon espace", entityType);
+    button.click();
+    assert.equal(exits, 1, entityType);
+    unmount();
+  }
 });
 
 test("the masthead carries no language switcher and no Save button", () => {

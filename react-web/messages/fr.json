@@ -1377,7 +1377,7 @@
       "savedOnDevice": "Enregistré sur cet appareil",
       "notSaved": "Non enregistré —",
       "retrySave": "réessayer",
-      "exit": "Quitter"
+      "workspace": "Mon espace"
     },
     "nav": {
       "ariaLabel": "Navigation du questionnaire",
