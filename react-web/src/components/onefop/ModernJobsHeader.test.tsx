@@ -35,7 +35,22 @@ test("the masthead carries no language switcher and no Save button", () => {
 
 test("other surveys keep the general title and name the entity on the same line", () => {
   renderWithProviders(<ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />);
-  assert.ok(screen.getByText(/^Enquête Emploi & Main-d'œuvre · Entreprises · .*4e trimestre 2026$/));
+  assert.ok(screen.getByText(/^Recensement emplois modernes · Entreprises · .*4e trimestre 2026$/));
+});
+
+test("PP masthead omits the redundant entity label, keeping survey and round only", () => {
+  renderWithProviders(
+    <ModernJobsHeader
+      entityType="projectProgram"
+      establishmentName="Projet PAREC"
+      establishmentId="PP26000045"
+      quarterCode="QUARTERLY_2026_T4_001"
+    />,
+  );
+  assert.ok(screen.getByText("Projet PAREC"));
+  assert.ok(screen.getByText(/PP26000045/));
+  assert.ok(screen.getByText(/^Recensement emplois modernes · .*4e trimestre 2026$/));
+  assert.equal(screen.queryByText(/Projets \/ Programmes/), null);
 });
 
 // ── The bar reports only a save that did NOT land ───────────────────────

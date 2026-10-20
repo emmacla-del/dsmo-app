@@ -206,6 +206,7 @@ export default function NouvelleInscriptionPage() {
       cooperativeType: data.cooperativeType,
       yearOfCreation: data.yearOfCreation,
       ctdType: data.ctdType,
+      projectNature: data.projectNature,
       mainMission: data.mainMission,
       registrationNumber: data.registrationNumber,
       branch: data.branch,

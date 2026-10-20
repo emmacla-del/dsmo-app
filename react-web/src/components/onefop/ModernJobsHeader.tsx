@@ -68,6 +68,7 @@ export function ModernJobsHeader({
   const tLanding = useTranslations("landingPage");
 
   const isVt = ["vt", "vocationaltraining", "vocational_training"].includes(entityType.toLowerCase());
+  const isPp = ["project", "projectprogram", "project_program"].includes(entityType.toLowerCase());
 
   const entityLabel = (() => {
     switch (entityType.toLowerCase()) {
@@ -244,10 +245,11 @@ export function ModernJobsHeader({
           {/* The survey and the round on one line, not two: both answer the
               same question -- which declaration is this -- and the
               establishment above is the fact the respondent reads first
-              (owner, 2026-10-12). VT's title already names the entity; the
-              other surveys name it here. */}
+              (owner, 2026-10-12). VT's title already names the entity, and
+              PP is identified by its PP prefix and project/programme name;
+              both omit the redundant entity label to prevent a crowded bar. */}
           <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-            {[isVt ? t("vtSurveyTitle") : t("surveyTitle"), isVt ? null : entityLabel, campaign]
+            {[isVt ? t("vtSurveyTitle") : t("surveyTitle"), isVt || isPp ? null : entityLabel, campaign]
               .filter(Boolean)
               .join(" · ")}
           </div>

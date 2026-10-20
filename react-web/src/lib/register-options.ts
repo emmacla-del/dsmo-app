@@ -63,6 +63,17 @@ export const CTD_TYPE_OPTIONS: RegisterOption[] = [
   { value: "Commune", label: { fr: "Commune", en: "Municipality" } },
 ];
 
+// PP_S1Q01 « Type d'entité », asked at registration for a project or
+// programme and pre-filled into the wizard. `value` is the questionnaire's
+// option string (onefop_ast.dart), what the wizard stores, so the pre-fill
+// needs no mapping; the server accepts these four only.
+export const PROJECT_NATURE_OPTIONS: RegisterOption[] = [
+  { value: "Projet/ Project", label: { fr: "Projet", en: "Project" } },
+  { value: "Programme/ Program", label: { fr: "Programme", en: "Programme" } },
+  { value: "Structure sous-tutelle/ Structure under supervision", label: { fr: "Structure sous-tutelle", en: "Structure under supervision" } },
+  { value: "Autres/ Other", label: { fr: "Autre", en: "Other" } },
+];
+
 export const AREA_OPTIONS: RegisterOption[] = [
   { value: "Urbain", label: { fr: "Urbain", en: "Urban" } },
   { value: "Rural", label: { fr: "Rural", en: "Rural" } },

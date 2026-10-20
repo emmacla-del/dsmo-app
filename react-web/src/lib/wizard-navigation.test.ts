@@ -90,11 +90,25 @@ test("the focus chain tries the issue's own element before its table", () => {
     { kind: "id", value: "VT4_1" },
     { kind: "id", value: "guided-table-VT4_1" },
     { kind: "id", value: "field-VT4_1" },
+    { kind: "id", value: "subsection-s4q1_doctorat_male" },
+    { kind: "id", value: "subsection-VT4_1" },
   ]);
   // A table-level issue is its own owner: no duplicate lookups.
   const own = issueFocusCandidates("VT4_1", "VT4_1");
   assert.equal(own.filter((c) => c.kind === "id" && c.value === "VT4_1").length, 1);
-  assert.equal(issueFocusCandidates("X", null).length, 5);
+  assert.equal(issueFocusCandidates("X", null).length, 6);
+});
+
+test("the chunk of a Modern Jobs column is the last thing the chain tries", () => {
+  // A table owing cells raises its issue under the table's own id, and in
+  // one continuous column only the chunk wrapper carries it.
+  const candidates = issueFocusCandidates("PP_S4Q02", "PP_S4Q02");
+  assert.deepEqual(candidates.at(-1), { kind: "id", value: "subsection-PP_S4Q02" });
+  const dom = new Map([["subsection-PP_S4Q02", "CHUNK"]]);
+  assert.equal(
+    resolveFirstCandidate(candidates, (c) => (c.kind === "id" ? dom.get(c.value) : undefined)),
+    "CHUNK",
+  );
 });
 
 test("resolveFirstCandidate returns the first lookup that resolves", () => {

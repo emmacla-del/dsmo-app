@@ -13,7 +13,7 @@ import { OnefopEntityType } from '../types/prisma.types';
 import { hasRealNiu, resolveTaxNumber } from './niu';
 import { CANONICAL_PII_EXCLUSIONS } from './canonical-exclusions';
 import { DEFAULT_VARIABLE_REGISTRY, VariableRegistry } from './spss/variable-registry';
-import { disambiguateDuplicateLabels, neutralizeReportingPeriod } from './spss/export-labels';
+import { disambiguateDuplicateLabels, EXPORT_LABEL_OVERRIDES, neutralizeReportingPeriod } from './spss/export-labels';
 import { collectionPeriodFromQuarterCode } from '../campaign/campaign-period.helper';
 import { PP_ACTIVITY_VALUE_LABELS } from '../common/pp-activity-options';
 
@@ -1301,12 +1301,13 @@ export class CanonicalSchemaAdapterService {
       sourcePath = `detail.${normalizedEntity}.${prop}`;
     }
     const variableName = this.assignVariableName(field.id, sourcePath, usedNames);
+    const exportLabel = EXPORT_LABEL_OVERRIDES[field.id] ?? field.label;
 
     return {
       variableName,
       paperCode: field.paperCode ?? field.id,
-      labelFr: field.label.fr,
-      labelEn: field.label.en,
+      labelFr: exportLabel.fr,
+      labelEn: exportLabel.en,
       sectionId: sec.id,
       entityApplicability: applicability,
       spssDataType,

@@ -147,8 +147,10 @@ import {
   FUNCTIONAL_STATUS_OPTIONS,
   LEGAL_STATUS_OPTIONS,
   NON_FUNCTIONAL_REASON_OPTIONS,
+  PROJECT_NATURE_OPTIONS,
   SEX_OPTIONS,
 } from "./register-options";
+import { ppNatureKind, ppWording } from "./pp-nature-wording";
 
 // Shared field definitions.
 //
@@ -329,9 +331,13 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   projectProgram: {
     type: "projectProgram",
-    identification: { fr: "Identification du projet ou programme", en: "Project or programme identification" },
-    title: { fr: "Projet / Programme", en: "Project / Programme" },
+    identification: { fr: "Identification de l'entité", en: "Entity identification" },
+    title: { fr: "Projet, programme ou structure sous-tutelle", en: "Project, programme or supervised structure" },
     fields: [
+      // PP_S1Q01, asked here first so the wizard can pre-fill it, as ctdType
+      // pre-fills CTD_S1Q01. The entity-type option covers projects,
+      // programmes and supervised structures; this says which.
+      { key: "projectNature", label: { fr: "Type d'entité", en: "Type of entity" }, required: true, kind: "radio", options: PROJECT_NATURE_OPTIONS },
       { key: "projectProgramName", label: { fr: "Nom", en: "Name" }, required: true, kind: "text" },
       // Was "Sigle ou acronyme" / "Abbreviation or acronym" -- the same field
       // every other type calls Sigle.
@@ -403,6 +409,18 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
     ],
   },
 };
+
+// The label a field is shown with. A project's name follows its type of
+// entity, once chosen just above it: « Nom du programme », « Nom de la
+// structure » (pp-nature-wording.ts, the wording the wizard uses).
+export function entityFieldLabel(field: EntityField, data: Record<string, string | undefined>): LocalizedText {
+  if (field.key !== "projectProgramName") return field.label;
+  const kind = ppNatureKind(data.projectNature);
+  return {
+    fr: `Nom ${ppWording(kind, "fr").of}`,
+    en: `Name ${ppWording(kind, "en").of}`,
+  };
+}
 
 // Drops the entity fields that do not belong to `nextType` when the respondent
 // changes their structure type mid-flow, keeping the values of fields the new

@@ -41,14 +41,31 @@ export interface ThematicCardConfig {
  */
 const CARD_DESCRIPTION_OVERRIDES = new Set(["identity:projectProgram", "location:projectProgram"]);
 
+/**
+ * Card titles in the same case as the descriptions above. « Identité légale »
+ * is the employer forms' heading: a project or a programme is not a legal
+ * person, and the card holds no legal identity — no legal status, no
+ * registration number. Nor « Identification du projet »: the Section 1 heading
+ * already says that (§8, no heading said twice). What is on it is the name,
+ * the type, the person in charge and the supervising body.
+ */
+const CARD_TITLE_OVERRIDES = new Set(["identity:projectProgram"]);
+
 /** "section1_projectProgram" → "projectProgram"; "section1" → "". */
 function entityOfSection(sectionId: string): string {
   return sectionId.startsWith("section1_") ? sectionId.slice("section1_".length) : "";
 }
 
+function cardKey(overrides: Set<string>, base: string, cardId: ThematicCardId, entityType: string): string {
+  return overrides.has(`${cardId}:${entityType}`) ? `${base}_${entityType}` : base;
+}
+
 export function cardDescriptionKey(cardId: ThematicCardId, entityType: string): string {
-  const base = `cards.${cardId}.description`;
-  return CARD_DESCRIPTION_OVERRIDES.has(`${cardId}:${entityType}`) ? `${base}_${entityType}` : base;
+  return cardKey(CARD_DESCRIPTION_OVERRIDES, `cards.${cardId}.description`, cardId, entityType);
+}
+
+export function cardTitleKey(cardId: ThematicCardId, entityType: string): string {
+  return cardKey(CARD_TITLE_OVERRIDES, `cards.${cardId}.title`, cardId, entityType);
 }
 
 export const THEMATIC_CARDS: ThematicCardConfig[] = [
@@ -61,7 +78,7 @@ export const THEMATIC_CARDS: ThematicCardConfig[] = [
 export function classifySection1Field(fieldId: string): ThematicCardId {
   const id = fieldId.toUpperCase();
 
-  // Location: Milieu de résidence & Cameroon geographic hierarchy
+  // Location: Milieu d'implantation & Cameroon geographic hierarchy
   if (
     id.includes("_REGION") ||
     id.includes("_DEPT") ||
@@ -201,6 +218,11 @@ export function getSection1ThematicInventory(
   };
 
   for (const field of section.fields) {
+    // The entity designation (PP_S1Q01: Projet, Programme, Structure sous-tutelle)
+    // was already chosen at registration and established in company.projectNature.
+    // It is preserved in formData for downstream dynamic wording and schema validity,
+    // but not re-asked as an interactive form question in Section 1.
+    if (field.id === "PP_S1Q01") continue;
     const cardId = classifySection1Field(field.id);
     fieldsByCard[cardId].push(field);
   }
@@ -312,8 +334,13 @@ export function Section1ThematicRenderer({
         const cardStatusLabel = t(`status.${cardStatus}`);
         if (!cardFields || cardFields.length === 0) return null;
 
-        const title = t(`cards.${config.id}.title`);
-        const description = t(cardDescriptionKey(config.id, entityOfSection(section.id)));
+        // The first card for PP ("identity") falls directly under the section's
+        // own H1 (« Section 1. Identification du projet / programme »). Repeating
+        // an H2, a status chip and an explanatory description paragraph listing
+        // the field names duplicates the page heading and creates visual clutter (§8).
+        const isPpIdentity = config.id === "identity" && entityOfSection(section.id) === "projectProgram";
+        const title = isPpIdentity ? undefined : t(cardTitleKey(config.id, entityOfSection(section.id)));
+        const description = isPpIdentity ? undefined : t(cardDescriptionKey(config.id, entityOfSection(section.id)));
 
         // Helper to check if field is downstream geography
         const isDownstreamGeo = (f: OnefopField) =>
@@ -324,20 +351,22 @@ export function Section1ThematicRenderer({
             key={config.id}
             id={`thematic-${config.id}`}
             title={title}
-            status={cardStatus}
-            statusLabel={cardStatusLabel}
+            status={isPpIdentity ? undefined : cardStatus}
+            statusLabel={isPpIdentity ? undefined : cardStatusLabel}
           >
-            <p
-              style={{
-                fontSize: "var(--cam-font-size-xs)",
-                color: "var(--cam-text-muted)",
-                marginTop: -4,
-                marginBottom: 16,
-                lineHeight: 1.4,
-              }}
-            >
-              {description}
-            </p>
+            {description && (
+              <p
+                style={{
+                  fontSize: "var(--cam-font-size-xs)",
+                  color: "var(--cam-text-muted)",
+                  marginTop: -4,
+                  marginBottom: 16,
+                  lineHeight: 1.4,
+                }}
+              >
+                {description}
+              </p>
+            )}
 
             {(() => {
               // Helper to render a field with delayed validation

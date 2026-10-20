@@ -104,7 +104,9 @@ const section0Questions = <FormQuestionAst>[
     entityTypes: _section0EntityTypes,
     requiredField: true,
     path: "respondent.function",
-    hint: LocalizedText(fr: "Ex: DRH", en: "E.g. HR Manager"),
+    // Not « Ex: DRH »: this question is asked on all six Modern Jobs forms,
+    // and a commune, an NGO or a project has no DRH.
+    hint: LocalizedText(fr: "Ex: Secrétaire général", en: "E.g. Secretary General"),
   ),
   FormQuestionAst(
     id: "S0Q03_TEL1",
@@ -140,9 +142,11 @@ const section0Questions = <FormQuestionAst>[
     entityTypes: _section0EntityTypes,
     requiredField: true, // FIX-7: Added required
     path: "respondent.email",
+    // Same reason as S0Q02 above: the address is the structure's, whatever
+    // kind of structure this form is for.
     hint: LocalizedText(
-      fr: "Ex: contact@entreprise.com",
-      en: "E.g. contact@company.com",
+      fr: "Ex: contact@structure.cm",
+      en: "E.g. contact@structure.cm",
     ),
   ),
 ];
@@ -208,7 +212,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q03",
     paperCode: "S1Q03",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_entreprise",
     order: 3,
     type: AstFieldType.radio,
@@ -460,7 +464,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q04",
     paperCode: "S1Q04",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_cooperative",
     order: 4,
     type: AstFieldType.radio,
@@ -739,7 +743,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q04",
     paperCode: "S1Q04",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_ctd",
     order: 4,
     type: AstFieldType.radio,
@@ -858,7 +862,7 @@ const section1CtdQuestions = <FormQuestionAst>[
     id: "CTD_S1Q09",
     paperCode: "S1Q09",
     label: LocalizedText(
-      fr: "Nombre d'employé permanent",
+      fr: "Nombre d'employés permanents",
       en: "Number of permanent workers",
     ),
     sectionId: "section1_ctd",
@@ -871,7 +875,7 @@ const section1CtdQuestions = <FormQuestionAst>[
     id: "CTD_S1Q10",
     paperCode: "S1Q10",
     label: LocalizedText(
-      fr: "Nombre de poste vacant",
+      fr: "Nombre de postes vacants",
       en: "Number of vacancies",
     ),
     sectionId: "section1_ctd",
@@ -947,7 +951,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q04",
     paperCode: "S1Q04",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_ong",
     order: 4,
     type: AstFieldType.radio,
@@ -1079,7 +1083,7 @@ const section1OngQuestions = <FormQuestionAst>[
     id: "ONG_S1Q10",
     paperCode: "S1Q10",
     label: LocalizedText(
-      fr: "Nombre d'employé permanent",
+      fr: "Nombre d'employés permanents",
       en: "Number of permanent workers",
     ),
     sectionId: "section1_ong",
@@ -1092,7 +1096,7 @@ const section1OngQuestions = <FormQuestionAst>[
     id: "ONG_S1Q11",
     paperCode: "S1Q11",
     label: LocalizedText(
-      fr: "Nombre de poste vacant",
+      fr: "Nombre de postes vacants",
       en: "Number of vacancies",
     ),
     sectionId: "section1_ong",
@@ -1165,7 +1169,7 @@ const section1AdministrationQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ADMIN_S1Q03",
     paperCode: "S1Q03",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_administration",
     order: 3,
     type: AstFieldType.radio,
@@ -2342,8 +2346,10 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "PP_S1Q01",
     paperCode: "S1Q01",
-    label: LocalizedText(
-        fr: "Nature de la structure", en: "Nature of the structure"),
+    // Was « Nature de la structure »: only one of the four answers is a
+    // structure. Label only, approved 2026-10-19 (CLAUDE.md §21); the id,
+    // path, options and the official PDF wording are unchanged.
+    label: LocalizedText(fr: "Type d'entité", en: "Type of entity"),
     sectionId: "section1_projectProgram",
     order: 1,
     type: AstFieldType.radio,
@@ -2363,7 +2369,15 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "PP_S1Q02",
     paperCode: "S1Q02",
-    label: LocalizedText(fr: "Nom", en: "Name"),
+    // The bare « Nom » left the respondent to work out whose name, between
+    // « Type d'entité » above and « Nom du responsable » below. This is the
+    // wording the official PDF already prints (projectProgram.s1q02);
+    // react-web narrows it further to the body PP_S1Q01 names
+    // (pp-nature-wording.ts). Label only: id, path and type unchanged.
+    label: LocalizedText(
+      fr: "Nom du projet / programme",
+      en: "Name of the project / program",
+    ),
     sectionId: "section1_projectProgram",
     order: 2,
     type: AstFieldType.text,
@@ -2384,7 +2398,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     id: "PP_S1Q04",
     paperCode: "S1Q04",
     label: LocalizedText(
-        fr: "Nom du Responsable", en: "Name of the person in charge"),
+        fr: "Nom du responsable", en: "Name of the person in charge"),
     sectionId: "section1_projectProgram",
     order: 4,
     type: AstFieldType.text,
@@ -2394,7 +2408,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "PP_S1Q05",
     paperCode: "S1Q05",
-    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    label: LocalizedText(fr: "Milieu d'implantation", en: "Area of operation"),
     sectionId: "section1_projectProgram",
     order: 5,
     type: AstFieldType.radio,
@@ -2533,8 +2547,8 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     id: "PP_S1Q12",
     paperCode: "S1Q12",
     label: LocalizedText(
-      fr: "Ministère/ Organisme tutelle",
-      en: "Ministry/ Organisation under supervision",
+      fr: "Ministère / organisme de tutelle",
+      en: "Ministry / supervising body",
     ),
     sectionId: "section1_projectProgram",
     order: 17,
@@ -2546,8 +2560,8 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     id: "PP_S1Q13",
     paperCode: "S1Q13",
     label: LocalizedText(
-      fr: "Situation du Projet / Programme",
-      en: "Project / Programme Status",
+      fr: "Statut du projet / programme",
+      en: "Project / programme status",
     ),
     sectionId: "section1_projectProgram",
     order: 18,
@@ -2597,7 +2611,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     id: "PP_S1Q15",
     paperCode: "S1Q15",
     label: LocalizedText(
-        fr: "Nombre d'employé permanent", en: "Number of permanent workers"),
+        fr: "Nombre d'employés permanents", en: "Number of permanent workers"),
     sectionId: "section1_projectProgram",
     order: 20,
     type: AstFieldType.number,
@@ -2607,7 +2621,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "PP_S1Q16",
     paperCode: "S1Q16",
-    label: LocalizedText(fr: "Nombre de poste vacant", en: "Number of vacancies"),
+    label: LocalizedText(fr: "Nombre de postes vacants", en: "Number of vacancies"),
     sectionId: "section1_projectProgram",
     order: 21,
     type: AstFieldType.number,

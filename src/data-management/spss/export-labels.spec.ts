@@ -91,6 +91,17 @@ describe('Canonical registry with E10 / E11 applied', () => {
     expect(vars.filter((x) => /1st (of )?January \d{4}/.test(x.labelEn))).toEqual([]);
   });
 
+  // E12: the questionnaire asks PP_S1Q01 as « Type d'entité », the
+  // dictionary keeps « Nature de la structure », and formType keeps its own
+  // « Type d'entité » untouched by the E10 pass.
+  it('PP_S1Q01 keeps its dictionary label and formType keeps « Type d\'entité »', () => {
+    const bySource = (sp: string) => adapter.getAllVariables().find((x) => x.sourcePath === sp)!;
+    const pp = adapter.getAllVariables().find((x) => x.variableName === 'PP_S1Q01')!;
+    expect([pp.labelFr, pp.labelEn]).toEqual(['Nature de la structure', 'Nature of the structure']);
+    expect(adapter.getAllVariables().find((x) => x.variableName === 'formType')!.labelFr).toBe("Type d'entité");
+    expect(bySource(pp.sourcePath)).toBe(pp);
+  });
+
   it('periodStart / periodEnd follow quarterCode as A10 DATE system variables', () => {
     const names = adapter.getAllVariables().map((x) => x.variableName);
     const q = names.indexOf('quarterCode');

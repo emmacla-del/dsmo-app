@@ -417,6 +417,7 @@ export interface RegisterCompanyPayload {
   cooperativeType?: string;
   yearOfCreation?: string;
   ctdType?: string;
+  projectNature?: string;
   mainMission?: string;
   registrationNumber?: string;
   branch?: string;

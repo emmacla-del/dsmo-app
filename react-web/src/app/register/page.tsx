@@ -21,6 +21,7 @@ import {
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
+  entityFieldLabel,
   pruneEntityDataForType,
   resolveAddress,
   resolveCompanyName,
@@ -492,7 +493,7 @@ export default function RegisterPage() {
       <FormRow
         key={field.key}
         htmlFor={id}
-        label={localized(field.label, locale)}
+        label={localized(entityFieldLabel(field, entityData), locale)}
         required={field.required}
         optionalLabel={field.required ? undefined : t("registerPage.optionalLabel")}
         size={entityFieldSize(field)}
@@ -793,6 +794,7 @@ export default function RegisterPage() {
         cooperativeType: visibleData.cooperativeType,
         yearOfCreation: visibleData.yearOfCreation,
         ctdType: visibleData.ctdType,
+        projectNature: visibleData.projectNature,
         mainMission: visibleData.mainMission,
         registrationNumber: visibleData.registrationNumber,
         branch: visibleData.branch,
@@ -1039,7 +1041,7 @@ export default function RegisterPage() {
   // questionnaire's own field set.
   const nameResolvers: NameResolvers = {
     t: (key) => t(key),
-    entityLabel: (field) => localized(field.label, locale),
+    entityLabel: (field) => localized(entityFieldLabel(field, entityData), locale),
   };
 
   const currentStep = STEPS[current];

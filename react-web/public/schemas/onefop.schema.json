@@ -151,8 +151,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -208,8 +208,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -299,8 +299,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -2664,8 +2664,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -2721,8 +2721,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -2802,8 +2802,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -5164,8 +5164,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -5221,8 +5221,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -5336,8 +5336,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -5533,7 +5533,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre d'employé permanent",
+                "fr": "Nombre d'employés permanents",
                 "en": "Number of permanent workers"
               },
               "hint": null,
@@ -5549,7 +5549,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre de poste vacant",
+                "fr": "Nombre de postes vacants",
                 "en": "Number of vacancies"
               },
               "hint": null,
@@ -7624,8 +7624,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -7681,8 +7681,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -7762,8 +7762,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -7975,7 +7975,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre d'employé permanent",
+                "fr": "Nombre d'employés permanents",
                 "en": "Number of permanent workers"
               },
               "hint": null,
@@ -7991,7 +7991,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre de poste vacant",
+                "fr": "Nombre de postes vacants",
                 "en": "Number of vacancies"
               },
               "hint": null,
@@ -10066,8 +10066,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -10123,8 +10123,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -10185,8 +10185,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -11533,8 +11533,8 @@
                 "en": "Respondent's function"
               },
               "hint": {
-                "fr": "Ex: DRH",
-                "en": "E.g. HR Manager"
+                "fr": "Ex: Secrétaire général",
+                "en": "E.g. Secretary General"
               },
               "instruction": null,
               "options": null,
@@ -11590,8 +11590,8 @@
                 "en": "E-mail"
               },
               "hint": {
-                "fr": "Ex: contact@entreprise.com",
-                "en": "E.g. contact@company.com"
+                "fr": "Ex: contact@structure.cm",
+                "en": "E.g. contact@structure.cm"
               },
               "instruction": null,
               "options": null,
@@ -11620,8 +11620,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Nature de la structure",
-                "en": "Nature of the structure"
+                "fr": "Type d'entité",
+                "en": "Type of entity"
               },
               "hint": null,
               "instruction": null,
@@ -11665,8 +11665,8 @@
               "type": "text",
               "required": true,
               "label": {
-                "fr": "Nom",
-                "en": "Name"
+                "fr": "Nom du projet / programme",
+                "en": "Name of the project / program"
               },
               "hint": null,
               "instruction": null,
@@ -11697,7 +11697,7 @@
               "type": "text",
               "required": true,
               "label": {
-                "fr": "Nom du Responsable",
+                "fr": "Nom du responsable",
                 "en": "Name of the person in charge"
               },
               "hint": null,
@@ -11713,8 +11713,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Milieu de résidence",
-                "en": "Area"
+                "fr": "Milieu d'implantation",
+                "en": "Area of operation"
               },
               "hint": null,
               "instruction": null,
@@ -11942,8 +11942,8 @@
               "type": "text",
               "required": true,
               "label": {
-                "fr": "Ministère/ Organisme tutelle",
-                "en": "Ministry/ Organisation under supervision"
+                "fr": "Ministère / organisme de tutelle",
+                "en": "Ministry / supervising body"
               },
               "hint": null,
               "instruction": null,
@@ -11958,8 +11958,8 @@
               "type": "radio",
               "required": true,
               "label": {
-                "fr": "Situation du Projet / Programme",
-                "en": "Project / Programme Status"
+                "fr": "Statut du projet / programme",
+                "en": "Project / programme status"
               },
               "hint": null,
               "instruction": null,
@@ -12045,7 +12045,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre d'employé permanent",
+                "fr": "Nombre d'employés permanents",
                 "en": "Number of permanent workers"
               },
               "hint": null,
@@ -12061,7 +12061,7 @@
               "type": "number",
               "required": true,
               "label": {
-                "fr": "Nombre de poste vacant",
+                "fr": "Nombre de postes vacants",
                 "en": "Number of vacancies"
               },
               "hint": null,

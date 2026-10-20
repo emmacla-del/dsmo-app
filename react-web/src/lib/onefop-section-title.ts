@@ -9,6 +9,8 @@
 // places and spoke normally in a third. One helper now, read by all three.
 //
 // Capitals that carry meaning — CTD, ONG, MINEFOP — are kept.
+import type { FormData } from "./onefop-schema";
+import { ppIdentificationTitle, ppInformationTitle, ppNatureKindOf } from "./pp-nature-wording";
 
 /** "Section 4. Details sur les resencements…" from the AST's own title. */
 export function formatSectionTitle(rawTitle: string, index: number): string {
@@ -62,10 +64,6 @@ export function sectionTitleWithoutNumber(rawTitle: string, index: number): stri
  * because « la structure » alone is Section 1's name.
  */
 const SECTION_NAV_TITLES: Record<string, { fr: string; en: string }> = {
-  section2_projectProgram: {
-    fr: "Renseignements sur le projet",
-    en: "Project information",
-  },
   section3_projectProgram: {
     fr: "Emploi et travail",
     en: "Employment and labour",
@@ -80,13 +78,24 @@ const SECTION_NAV_TITLES: Record<string, { fr: string; en: string }> = {
 };
 
 /** The rail's name for a section: the short one where there is one, the
- *  title without its "Section N." prefix everywhere else. */
+ *  title without its "Section N." prefix everywhere else.
+ *
+ *  `data` is the form's answers. With it, the project form's Sections 1
+ *  and 2 name the body PP_S1Q01 says it is — « Identification du
+ *  programme », « Renseignements sur la structure » (pp-nature-wording.ts). */
 export function sectionNavTitle(
   sectionId: string,
   rawTitle: string,
   index: number,
   locale: "fr" | "en",
+  data?: FormData,
 ): string {
+  if (sectionId === "section1_projectProgram") {
+    return ppIdentificationTitle(ppNatureKindOf(data), locale);
+  }
+  if (sectionId === "section2_projectProgram") {
+    return ppInformationTitle(ppNatureKindOf(data), locale);
+  }
   const short = SECTION_NAV_TITLES[sectionId];
   return short ? short[locale] : sectionTitleWithoutNumber(rawTitle, index);
 }

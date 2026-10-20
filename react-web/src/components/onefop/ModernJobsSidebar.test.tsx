@@ -93,7 +93,7 @@ test("the project rail names its sections in a few words", () => {
   assert.ok(named("Emploi et travail"), names.join(" | "));
   assert.ok(named("Recensements et recrutements"), names.join(" | "));
   assert.ok(!named("sous-tutelle"), "the rail still repeats the paper form's long tail");
-  // Section 1 keeps the title the questionnaire gives it.
-  assert.ok(named("Identification de la structure"), names.join(" | "));
+  // Section 1 names the body PP_S1Q01 says it is; unanswered, both of them.
+  assert.ok(named("Identification du projet ou du programme"), names.join(" | "));
   unmount();
 });
