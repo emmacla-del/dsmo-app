@@ -1,0 +1,778 @@
+/* Home hero visual: the CAMLEAP project journey. Six scenes of 5.5 s in a
+   33 s loop (1 s = 3.03 % of the loop; one scene = 16.67 %).
+
+   Timing: each scene sets --d, its start in the loop. An element inside it
+   that enters later sets --i, its offset within the scene. Every animation
+   inside a scene starts at calc(var(--d) + var(--i)) and is written as if
+   it began at 0 %; it holds its end state until its next cycle, by which
+   time the scene is hidden again.
+
+   Colours: white on --cam-portal-teal-dark (about 12:1) on the panel; ink
+   on white in the cards. Nothing is told by colour alone. */
+
+.panel {
+  --loop: 33s;
+  --d: 0s;
+  --i: 0s;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  padding: var(--cam-space-5);
+  border-radius: 16px;
+  background: var(--cam-portal-teal-dark);
+  color: var(--cam-on-dark);
+}
+
+/* ── Header: title and scene dots ────────────────────── */
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+}
+
+.kicker {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The current scene: filled and larger. */
+.dots li {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--cam-on-dark);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  animation: dot var(--loop) linear var(--d) infinite both;
+}
+
+.d2 { --d: 5.5s; }
+.d3 { --d: 11s; }
+.d4 { --d: 16.5s; }
+.d5 { --d: 22s; }
+.d6 { --d: 27.5s; }
+
+/* 0 % is the empty state: it is also what a dot shows before its scene. */
+@keyframes dot {
+  0% {
+    background: transparent;
+    color: var(--cam-on-dark);
+    transform: scale(1);
+  }
+  0.1%, 16.6% {
+    background: var(--cam-on-dark);
+    color: var(--cam-portal-teal-dark);
+    transform: scale(1.15);
+  }
+  16.67%, 100% {
+    background: transparent;
+    color: var(--cam-on-dark);
+    transform: scale(1);
+  }
+}
+
+/* ── Stage and scenes ─────────────────────────────────── */
+
+.stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  container-type: inline-size;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: scene var(--loop) ease-in-out var(--d) infinite both;
+}
+
+.s2 { --d: 5.5s; }
+.s3 { --d: 11s; }
+.s4 { --d: 16.5s; }
+.s5 { --d: 22s; }
+.s6 { --d: 27.5s; }
+
+@keyframes scene {
+  0% { opacity: 0; transform: translateX(18px); }
+  1.5%, 15.2% { opacity: 1; transform: none; }
+  16.67%, 100% { opacity: 0; transform: translateX(-18px); }
+}
+
+/* A late entrance inside a scene. */
+.in {
+  animation: in var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+}
+
+@keyframes in {
+  0% { opacity: 0; transform: translateY(6px); }
+  1.5%, 100% { opacity: 1; transform: none; }
+}
+
+.card {
+  border-radius: 10px;
+  background: var(--cam-white);
+  color: var(--cam-portal-ink);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+
+.cardTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: clamp(11px, 3cqi, 15px);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cardNote {
+  font-size: clamp(10px, 2.4cqi, 12px);
+  font-weight: 500;
+  color: var(--cam-portal-muted);
+}
+
+/* ── 1 · From paper… ─────────────────────────────────── */
+
+/* The whole page, then the camera moves in on Section 1 (page x 22–97 %,
+   y 45–64 %) and a pen writes the answers. Positions inside the page are
+   percentages of the page, read off the PDF; font sizes are in em of the
+   page, so the writing scales with the zoom. */
+.s1 {
+  overflow: hidden;
+}
+
+.paperBig {
+  position: absolute;
+  top: 1cqi;
+  left: 25cqi;
+  width: 50cqi;
+  font-size: 1.6cqi;
+  transform-origin: 0 0;
+  animation: paperZoom var(--loop) ease-in-out var(--d) infinite both;
+}
+
+.paperBig img,
+.paperSmall img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+}
+
+/* scale(2.667) shows page x 22–97 % across the stage; the translation puts
+   the middle of Section 1 (x 59.5 %, y 54.5 %) at the stage's centre. */
+@keyframes paperZoom {
+  0%, 2.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
+  5.4%, 100% { transform: translate(-54.3cqi, -66.3cqi) rotate(0) scale(2.667); }
+}
+
+@keyframes paperZoomTall {
+  0%, 2.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
+  5.4%, 100% { transform: translate(-54.3cqi, -58.8cqi) rotate(0) scale(2.667); }
+}
+
+.ink {
+  position: absolute;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--cam-info);
+  animation: var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+}
+
+/* S1Q01 legal status: 2 = SARL. */
+.ink1 { --i: 1.9s; left: 92.9%; top: 46.4%; animation-name: writeShort; }
+/* S1Q02 company name. */
+.ink2 { --i: 2.5s; left: 37%; top: 47.7%; animation-name: writeLong; }
+/* S1Q10 permanent workers: 24, in the last two boxes. */
+.ink3 { --i: 4s; left: 76.8%; top: 61.1%; animation-name: writeShort; }
+
+@keyframes writeShort {
+  0% { clip-path: inset(0 100% 0 0); }
+  1.2%, 100% { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes writeLong {
+  0% { clip-path: inset(0 100% 0 0); }
+  3.6%, 100% { clip-path: inset(0 0 0 0); }
+}
+
+/* The pen's tip sits at (left, top) and follows the writing. */
+.pen {
+  position: absolute;
+  width: 12%;
+  transform: translateY(-50%) rotate(-38deg);
+  transform-origin: 0 50%;
+  animation: pen var(--loop) ease-in-out var(--d) infinite both;
+}
+
+.panel .pen svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
+}
+
+.pen path { fill: var(--cam-portal-muted); }
+.pen rect:nth-of-type(1),
+.pen rect:nth-of-type(3) { fill: var(--cam-portal-rule); }
+.pen rect:nth-of-type(2) { fill: var(--cam-info); }
+
+@keyframes pen {
+  0%, 5.4% { left: 97%; top: 44%; opacity: 0; }
+  5.75% { left: 93%; top: 48.3%; opacity: 1; }
+  6.67% { left: 94.4%; top: 48.3%; opacity: 1; }
+  7.58% { left: 37%; top: 49.7%; opacity: 1; }
+  11.21% { left: 66%; top: 49.7%; opacity: 1; }
+  12.12% { left: 76.9%; top: 63%; opacity: 1; }
+  13.33% { left: 79.6%; top: 63%; opacity: 1; }
+  13.94% { left: 79.6%; top: 63%; opacity: 1; }
+  15.15%, 100% { left: 90%; top: 57%; opacity: 0; }
+}
+
+/* ── 2 · …to digital ─────────────────────────────────── */
+
+.paperSmall {
+  position: absolute;
+  top: 9cqi;
+  left: 0;
+  width: 34cqi;
+  transform: rotate(-4deg);
+}
+
+/* The laptop of the original animation: a dark lid around the screen and
+   an aluminium base. */
+.laptop {
+  position: absolute;
+  top: 1cqi;
+  right: 5cqi;
+  width: 66cqi;
+  filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.45));
+}
+
+.lid {
+  padding: 1.6cqi 1.6cqi 2cqi;
+  border-radius: 2.4cqi 2.4cqi 0 0;
+  background: var(--cam-portal-ink);
+}
+
+.base {
+  position: relative;
+  height: 2.6cqi;
+  margin: 0 -5cqi;
+  border-radius: 0 0 2.6cqi 2.6cqi;
+  background: linear-gradient(var(--cam-portal-hairline), var(--cam-portal-rule));
+}
+
+.base::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 12cqi;
+  height: 0.9cqi;
+  border-radius: 0 0 0.9cqi 0.9cqi;
+  background: var(--cam-portal-foot-muted);
+  transform: translateX(-50%);
+}
+
+.screen {
+  overflow: hidden;
+  border-radius: 0.6cqi;
+  background: var(--cam-white);
+  color: var(--cam-portal-ink);
+}
+
+.screenBar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1.6cqi 2.4cqi;
+  border-bottom: 1px solid var(--cam-portal-rule);
+  background: var(--cam-portal-bg);
+}
+
+.screenBar span {
+  width: 1.6cqi;
+  height: 1.6cqi;
+  border-radius: 50%;
+  background: var(--cam-portal-muted);
+}
+
+.screenBar strong {
+  margin-left: auto;
+  font-size: clamp(10px, 2.4cqi, 12px);
+  letter-spacing: 0.04em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 2cqi;
+  padding: 3cqi 3.4cqi 3.4cqi;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8cqi;
+}
+
+.fieldLabel {
+  font-size: clamp(10px, 2.4cqi, 12px);
+  line-height: 1.2;
+  color: var(--cam-portal-muted);
+}
+
+/* The field being filled gets a thick outline: a change of shape, not hue. */
+.fieldBox {
+  display: block;
+  padding: 1.2cqi 1.8cqi;
+  border: 1px solid var(--cam-portal-muted);
+  border-radius: 4px;
+  font-size: clamp(11px, 2.7cqi, 14px);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  animation: focus var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+}
+
+.fieldValue {
+  display: inline-block;
+  animation: type var(--loop) steps(16, end) calc(var(--d) + var(--i)) infinite both;
+}
+
+@keyframes focus {
+  0% { box-shadow: none; }
+  0.3%, 2.7% { box-shadow: 0 0 0 2px var(--cam-portal-ink); }
+  3%, 100% { box-shadow: none; }
+}
+
+@keyframes type {
+  0% { clip-path: inset(0 100% 0 0); }
+  0.3% { clip-path: inset(0 100% 0 0); }
+  2.4%, 100% { clip-path: inset(0 0 0 0); }
+}
+
+.formFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2cqi;
+  margin-top: 0.6cqi;
+}
+
+.submit {
+  padding: 1.3cqi 3cqi;
+  border-radius: 999px;
+  background: var(--cam-primary-dark);
+  color: var(--cam-on-dark);
+  font-size: clamp(11px, 2.6cqi, 13px);
+  font-weight: 700;
+  animation: press var(--loop) ease-in-out calc(var(--d) + 3.5s) infinite both;
+}
+
+@keyframes press {
+  0% { transform: scale(1); }
+  0.5% { transform: scale(0.92); }
+  1%, 100% { transform: scale(1); }
+}
+
+.toast {
+  font-size: clamp(11px, 2.7cqi, 14px);
+  font-weight: 700;
+  animation: in var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+}
+
+/* ── 3 · Curated data ────────────────────────────────── */
+
+.tableCard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 3cqi 3.4cqi;
+}
+
+.table {
+  width: 100%;
+  margin-top: 2cqi;
+  border-collapse: collapse;
+  font-size: clamp(10px, 2.6cqi, 13px);
+  line-height: 1.3;
+}
+
+.table th {
+  padding: 0 1.2cqi 1cqi 0;
+  border-bottom: 1px solid var(--cam-portal-rule);
+  font-size: clamp(9px, 2.2cqi, 11px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--cam-portal-muted);
+}
+
+.table td {
+  padding: 1.1cqi 1.2cqi 1.1cqi 0;
+  border-bottom: 1px solid var(--cam-portal-hairline);
+  white-space: nowrap;
+}
+
+.table td:first-child {
+  color: var(--cam-portal-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  font-weight: 700;
+}
+
+.swap {
+  display: inline-grid;
+}
+
+.swapBefore,
+.swapAfter {
+  grid-area: 1 / 1;
+}
+
+.swapBefore {
+  opacity: 0;
+  animation: swapOut var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+}
+
+.swapAfter {
+  animation: swapIn var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+}
+
+@keyframes swapOut {
+  0% { opacity: 1; }
+  1.2%, 100% { opacity: 0; }
+}
+
+@keyframes swapIn {
+  0% { opacity: 0; }
+  1.2%, 100% { opacity: 1; }
+}
+
+/* The duplicate is struck through and dimmed. */
+.org {
+  position: relative;
+}
+
+.dup .org::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 55%;
+  height: 2px;
+  background: var(--cam-portal-ink);
+  transform-origin: left;
+  animation: strike var(--loop) ease-out calc(var(--d) + 2.8s) infinite both;
+}
+
+.dup td {
+  animation: dim var(--loop) ease-out calc(var(--d) + 2.8s) infinite both;
+}
+
+@keyframes strike {
+  0% { transform: scaleX(0); }
+  1.5%, 100% { transform: scaleX(1); }
+}
+
+@keyframes dim {
+  0% { opacity: 1; }
+  1.5%, 100% { opacity: 0.7; }
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1cqi 3cqi;
+  margin: 2.4cqi 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: clamp(10px, 2.5cqi, 13px);
+  font-weight: 700;
+}
+
+/* ── 4 · Rigorous analysis ───────────────────────────── */
+
+.dashCard {
+  position: absolute;
+  top: 12cqi;
+  left: 0;
+  right: 0;
+  padding: 3.4cqi;
+}
+
+.chartTitle {
+  margin: 4cqi 0 3cqi;
+  font-size: clamp(11px, 2.8cqi, 14px);
+  font-weight: 600;
+}
+
+.bars {
+  display: grid;
+  gap: 3cqi;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: 22cqi 1fr 9cqi;
+  align-items: center;
+  gap: 2cqi;
+  font-size: clamp(11px, 2.7cqi, 14px);
+}
+
+.barTrack {
+  height: 6cqi;
+  border-radius: 3px;
+  background: var(--cam-portal-hairline);
+}
+
+.bar {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--cam-primary-dark);
+  transform-origin: left;
+  animation: grow var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+}
+
+@keyframes grow {
+  0% { transform: scaleX(0); }
+  3.6%, 100% { transform: scaleX(1); }
+}
+
+.barValue {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── 5 · Informing every stakeholder ─────────────────── */
+
+.bulletin {
+  position: absolute;
+  top: 7cqi;
+  left: 20cqi;
+  width: 60cqi;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8cqi;
+  padding: 3cqi;
+  text-align: center;
+  font-size: clamp(11px, 3cqi, 15px);
+}
+
+.bulletinKicker {
+  font-size: clamp(10px, 2.4cqi, 12px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cam-portal-muted);
+}
+
+.panel .links {
+  position: absolute;
+  top: 28cqi;
+  left: 0;
+  width: 100%;
+  height: 18cqi;
+  overflow: visible;
+}
+
+.links path {
+  fill: none;
+  stroke: var(--cam-on-dark);
+  stroke-width: 2;
+  stroke-dasharray: 1;
+  vector-effect: non-scaling-stroke;
+  animation: draw var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+}
+
+@keyframes draw {
+  0% { stroke-dashoffset: 1; }
+  3%, 100% { stroke-dashoffset: 0; }
+}
+
+.nodes {
+  position: absolute;
+  top: 46cqi;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2cqi;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nodes li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6cqi;
+  padding: 2.4cqi 2cqi;
+  text-align: center;
+  font-size: clamp(10px, 2.5cqi, 13px);
+  line-height: 1.3;
+}
+
+.nodes strong {
+  font-size: clamp(11px, 2.9cqi, 15px);
+}
+
+/* ── 6 · The programme ───────────────────────────────── */
+
+.phases {
+  display: grid;
+  gap: 5cqi;
+  margin: 0;
+  padding: 13cqi 4cqi 0;
+  list-style: none;
+}
+
+.phases li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2.4cqi;
+  font-size: clamp(14px, 3.6cqi, 18px);
+  line-height: 1.3;
+}
+
+.phaseDot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: clamp(26px, 7cqi, 34px);
+  height: clamp(26px, 7cqi, 34px);
+  border: 2px solid var(--cam-on-dark);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+/* The current phase: a filled dot, bold title and a labelled pill. */
+.phaseNow .phaseDot {
+  background: var(--cam-on-dark);
+  color: var(--cam-portal-teal-dark);
+}
+
+.phaseNow .phaseTitle {
+  font-weight: 700;
+}
+
+.pill {
+  padding: 0.6cqi 2cqi;
+  border-radius: 999px;
+  background: var(--cam-on-dark);
+  color: var(--cam-portal-teal-dark);
+  font-size: clamp(11px, 2.6cqi, 13px);
+  font-weight: 700;
+}
+
+/* ── Captions ────────────────────────────────────────── */
+
+.captions {
+  display: grid;
+}
+
+.caption {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  opacity: 0;
+  animation: caption var(--loop) ease-in-out var(--d) infinite both;
+}
+
+.caption strong {
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.caption span {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.c2 { --d: 5.5s; }
+.c3 { --d: 11s; }
+.c4 { --d: 16.5s; }
+.c5 { --d: 22s; }
+.c6 { --d: 27.5s; }
+
+@keyframes caption {
+  0% { opacity: 0; }
+  1.5%, 15.2% { opacity: 1; }
+  16.67%, 100% { opacity: 0; }
+}
+
+@media (max-width: 520px) {
+  .panel {
+    padding: var(--cam-space-4);
+  }
+
+  /* Text keeps its floor size, so the scenes need more height. */
+  .stage {
+    aspect-ratio: 10 / 9;
+  }
+
+  .paperBig {
+    animation-name: paperZoomTall;
+  }
+
+  .caption strong {
+    font-size: 17px;
+  }
+
+  .caption span {
+    font-size: 15px;
+  }
+}
+
+/* Without motion: the closing scene, as the original animation did. */
+@media (prefers-reduced-motion: reduce) {
+  .panel *,
+  .panel *::after {
+    animation: none !important;
+  }
+
+  .s6,
+  .c6 {
+    opacity: 1;
+  }
+
+  .d6 {
+    background: var(--cam-on-dark);
+    color: var(--cam-portal-teal-dark);
+  }
+}

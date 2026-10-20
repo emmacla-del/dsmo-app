@@ -732,14 +732,9 @@ export function EventFactInterview({
           // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
           id="mj-scope-heading"
           tabIndex={-1}
-          style={{
-            outline: "none",
-            fontSize: "clamp(20px, 2.5vw, 24px)",
-            fontWeight: 700,
-            color: "var(--cam-text)",
-            margin: "0 0 6px",
-            letterSpacing: "-0.01em",
-          }}
+          // The section heading's style, as the VT quiz's heading.
+          className="cam-step-title"
+          style={{ margin: "0 0 6px" }}
         >
           {t("title")}
         </h1>
@@ -828,14 +823,14 @@ export function EventFactInterview({
               </span>
               <h3
                 id="dropped-data-modal-title"
-                style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--cam-text)" }}
+                style={{ margin: 0, fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-text)" }}
               >
                 {t("excludedTitle")}
               </h3>
             </div>
             <p
               style={{
-                fontSize: 13.5,
+                fontSize: "var(--cam-font-size-sm)",
                 color: "var(--cam-text-muted)",
                 lineHeight: 1.5,
                 margin: "0 0 20px",
@@ -925,8 +920,8 @@ export function EventFactInterview({
             <h3
               id="plausibility-modal-title"
               style={{
-                fontSize: 17,
-                fontWeight: 800,
+                fontSize: "var(--cam-font-size-lg)",
+                fontWeight: "var(--cam-font-weight-bold)",
                 color: "var(--cam-text)",
                 margin: "0 0 10px",
               }}
@@ -935,7 +930,7 @@ export function EventFactInterview({
             </h3>
             <p
               style={{
-                fontSize: 13.5,
+                fontSize: "var(--cam-font-size-sm)",
                 color: "var(--cam-text-muted)",
                 lineHeight: 1.5,
                 margin: "0 0 20px",

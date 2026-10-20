@@ -741,7 +741,7 @@ export function ModernJobsWizard({
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t("sectionsDrawerTitle")}</h3>
+                    <h3 style={{ margin: 0, fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-bold)" }}>{t("sectionsDrawerTitle")}</h3>
                     <button
                       type="button"
                       onClick={closeMobileMenu}
@@ -834,7 +834,7 @@ export function ModernJobsWizard({
                         marginBottom: 20,
                       }}
                     >
-                      <h3 style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)" }}>
+                      <h3 style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 6px", color: "var(--cam-text)" }}>
                         {locale === "fr" ? "Copie conforme des données transmises" : "Certified copy of submitted data"}
                       </h3>
                       <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: 0 }}>
@@ -933,7 +933,9 @@ export function ModernJobsWizard({
                   <h2
                     id={REVIEW_HEADING_ID}
                     tabIndex={-1}
-                    style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: "var(--cam-text)", outline: "none" }}
+                    // The section heading's style, as the VT review's heading.
+                    className="cam-step-title"
+                    style={{ margin: "0 0 6px" }}
                   >
                     {t("reviewHeading")}
                   </h2>

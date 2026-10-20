@@ -210,7 +210,7 @@ export function OnefopPdfPreviewModal({
               <h2
                 id="preview-modal-title"
                 style={{
-                  fontSize: 16,
+                  fontSize: "var(--cam-font-size-base)",
                   fontWeight: 700,
                   margin: 0,
                   color: "var(--cam-text)",
@@ -289,7 +289,7 @@ export function OnefopPdfPreviewModal({
                 display: "grid",
                 placeItems: "center",
                 cursor: "pointer",
-                fontSize: 16,
+                fontSize: "var(--cam-font-size-base)",
                 fontWeight: 600,
               }}
             >

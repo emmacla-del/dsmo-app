@@ -30,7 +30,7 @@ function vtLocale(locale: string): "fr" | "en" {
 }
 
 // Every question label, whatever the control: the --cam-question-* tokens
-// every respondent form shares (15px semibold), under the subsection title
+// every respondent form shares (15px medium), under the subsection title
 // (18px) and set apart from the answer (--cam-answer-size, 14px regular).
 // Radio/checkbox questions used to be 16px bold and text inputs 15px, so
 // two questions side by side read as two levels.
@@ -625,7 +625,7 @@ function VtFiveSlotsField({
                 {slotPrefix} {i + 1}
                 {/* Required unless marked optional, the form's rule: no asterisk. */}
                 {!isSlotRequired && (
-                  <span style={{ color: "var(--cam-text-muted)", fontWeight: 400, marginLeft: "4px", fontSize: "11px" }}>
+                  <span style={{ color: "var(--cam-text-muted)", fontWeight: 400, marginLeft: "4px", fontSize: "var(--cam-font-size-3xs)" }}>
                     ({isEn ? "optional" : "facultatif"})
                   </span>
                 )}

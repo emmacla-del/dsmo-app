@@ -728,14 +728,9 @@ export function ProjectProgramScopeQuiz({
               // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
               id="mj-scope-heading"
               tabIndex={-1}
-              style={{
-                outline: "none",
-                fontSize: "clamp(20px, 3vw, 24px)",
-                fontWeight: 800,
-                margin: "0 0 var(--cam-space-2)",
-                color: "var(--cam-text)",
-                lineHeight: 1.25,
-              }}
+              // The section heading's style, as the VT quiz's heading.
+              className="cam-step-title"
+              style={{ margin: "0 0 var(--cam-space-2)" }}
             >
               {isEn
                 ? "Period Events — Projects, Programmes & Supervised Structures"

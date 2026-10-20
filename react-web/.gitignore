@@ -43,3 +43,19 @@ next-env.d.ts
 # scratch dumps
 .all_tsx.txt
 .next/
+
+# Mockups, test scripts, and test artifacts
+mockups/
+/docs/mockups/
+/public/mockups/
+*.sav
+*.png
+!public/images/**/*.png
+!public/images/*.png
+scripts/debug_*.mjs
+scripts/test_*.mjs
+scripts/vt_*.mjs
+vt-*.md
+.claude/
+docs/audit/
+docs/architecture/

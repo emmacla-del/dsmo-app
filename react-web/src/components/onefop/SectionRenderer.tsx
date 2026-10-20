@@ -578,7 +578,7 @@ export function SectionRenderer({
               background: "var(--vt-accent-soft)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
-              fontSize: 12.5,
+              fontSize: "var(--cam-font-size-xs)",
               fontWeight: 600,
             }}
           >
@@ -605,7 +605,7 @@ export function SectionRenderer({
               background: "var(--cam-success-bg)",
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
-              fontSize: 12.5,
+              fontSize: "var(--cam-font-size-xs)",
               fontWeight: 600,
             }}
           >
@@ -1123,7 +1123,7 @@ export function SectionRenderer({
               >
                 <h3
                   style={{
-                    fontSize: 16,
+                    fontSize: "var(--cam-font-size-base)",
                     fontWeight: 700,
                     margin: "0 0 8px",
                     color: "var(--cam-text)",

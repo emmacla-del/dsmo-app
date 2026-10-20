@@ -101,7 +101,7 @@ export function InfoTooltip({
         <div
           id={tooltipId}
           role="tooltip"
-          className="absolute z-50 bottom-full mb-2 left-1/2 w-64 max-w-[85vw] p-3 rounded-[4px] bg-[var(--cam-text)] text-white text-xs leading-relaxed shadow-lg border border-[var(--cam-green)]/40 cam-tooltip-pop-in"
+          className="absolute z-50 bottom-full mb-2 left-1/2 w-64 max-w-[85vw] p-3 rounded-[4px] bg-[var(--cam-text)] text-white text-[length:var(--cam-font-size-2xs)] leading-relaxed shadow-lg border border-[var(--cam-green)]/40 cam-tooltip-pop-in"
         >
           {/* Arrow */}
           <div
