@@ -1325,173 +1325,103 @@ export default function RegisterPage() {
     };
 
     return (
-      <main className="cam-auth-page">
+      <main className="cam-auth-page cam-auth-page--receipt">
         <div className="wrap" style={{ maxWidth: "560px", margin: "0 auto" }}>
           <AuthHeader />
-          <div className="card card--admin">
-            <div className="card-body">
-              <div className="receipt-hero">
-                <div
-                  className="receipt-disc"
-                  aria-hidden="true"
-                  style={{
-                    background: "var(--cam-success-bg, #ecfdf5)",
-                    color: "var(--cam-success, #059669)",
-                    border: "1px solid var(--cam-success-border, #a7f3d0)",
-                  }}
-                >
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                {/* Every file now has its ID at registration, so the wording follows
-                    the account status: only an active account is "registered". */}
-                <h1 className="brand-name receipt-title" ref={receiptTitleRef} tabIndex={-1}>
-                  {isActive ? t("registerPage.successTitle") : t("registerPage.pendingTitle")}
-                </h1>
-                <p className="brand-sub receipt-subtitle">
-                  {isActive
-                    ? t("registerPage.receiptSubtitleActive")
-                    : t("registerPage.receiptSubtitlePending")}
+          {/* Confirmation-page pattern (owner's decision, 2026-10-20): one
+              solid panel with the title and the ID, the one value to keep.
+              Every file has its ID at registration, so the wording follows
+              the account status: only an active account is "complete". */}
+          <div className="receipt-panel">
+            <h1 className="receipt-panel-title" ref={receiptTitleRef} tabIndex={-1}>
+              {isActive ? t("registerPage.successTitle") : t("registerPage.pendingTitle")}
+            </h1>
+            {establishmentId && (
+              <>
+                <p className="receipt-panel-label" id="receipt-id-label">
+                  {t("registerPage.receiptEstablishmentIdLabel")}
                 </p>
-              </div>
-
-              {/* The official Establishment ID Credential Card */}
-              {establishmentId && (
-                <div className="receipt-credential-box">
-                  <div className="receipt-credential-header">
-                    <span className="receipt-credential-title" id="receipt-id-label">
-                      {t("registerPage.receiptEstablishmentIdLabel")}
-                    </span>
-                    <button
-                      type="button"
-                      className="cam-button cam-button-secondary"
-                      style={{
-                        padding: "4px 10px",
-                        fontSize: "0.78rem",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                      onClick={copyEstablishmentId}
-                    >
-                      {idCopied ? (
-                        <>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          <span>{t("registerPage.receiptIdCopied")}</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
-                          <span>{t("registerPage.receiptCopyId")}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <div className="receipt-credential-value" aria-labelledby="receipt-id-label">
-                    {establishmentId}
-                  </div>
-                  <p className="receipt-note">
-                    {t("registerPage.receiptKeepIdNote")}
-                  </p>
-                </div>
-              )}
-
-              {/* Clean essential reference metadata (no harsh table grid) */}
-              <div className="receipt-summary-card">
-                <div className="receipt-summary-row">
-                  <span className="receipt-summary-label">{t("registerPage.receiptCompanyLabel")}</span>
-                  <span className="receipt-summary-value" style={{ fontWeight: 600 }}>
-                    {result.companyName} {config && <span style={{ fontWeight: 400, color: "var(--cam-text-muted)" }}>({localized(config.title, locale)})</span>}
-                  </span>
-                </div>
-                <div className="receipt-summary-row">
-                  <span className="receipt-summary-label">{t("registerPage.receiptRespondentLabel")}</span>
-                  <span className="receipt-summary-value">
-                    {respondent.firstName} {respondent.lastName} ({respondent.email})
-                  </span>
-                </div>
-                <div className="receipt-summary-row">
-                  <span className="receipt-summary-label">{t("registerPage.receiptDateLabel")}</span>
-                  <span className="receipt-summary-value">
-                    {new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
-                      result.registeredAt
-                    )}
-                  </span>
-                </div>
-                <div className="receipt-summary-row">
-                  <span className="receipt-summary-label">{t("registerPage.receiptStatusLabel")}</span>
-                  <span className="receipt-summary-value">
-                    {isActive ? (
-                      <span className="cam-badge cam-badge-success" style={{ fontWeight: 600 }}>
-                        ✓ {t("registerPage.receiptStatusActive")}
-                      </span>
-                    ) : (
-                      <span className="cam-badge cam-badge-warning" style={{ fontWeight: 600 }}>
-                        ⏳ {t("registerPage.receiptStatusPending")}
-                      </span>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* What happens next: concise official notice */}
-              <div className="receipt-alert">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: "2px", color: "var(--cam-info, #0284c7)" }}>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="16" x2="12" y2="12" />
-                  <line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-                <span>
-                  {isActive
-                    ? t("registerPage.receiptActiveAttestationNote")
-                    : t("registerPage.receiptPendingNote")}
-                </span>
-              </div>
-
-              {/* The one clear way forward */}
-              <div style={{ marginTop: "var(--cam-space-5)" }}>
-                <Link
-                  href="/login"
-                  className="btn-primary"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "center",
-                    padding: "12px 20px",
-                    textDecoration: "none",
-                  }}
-                  onClick={() => saveLoginIdentifier(respondent.email.trim())}
-                >
-                  {isActive ? t("registerPage.signInLink") : t("registerPage.receiptFollowButton")}
-                </Link>
-              </div>
-            </div>
+                <p className="receipt-panel-id" aria-labelledby="receipt-id-label">
+                  {establishmentId}
+                </p>
+              </>
+            )}
           </div>
-          <p className="help">
-            {t("loginPage.needHelpText")}{" "}
-            <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
-              {t("loginPage.whatsappLink")}
-            </a>
+          {establishmentId && (
+            <p className="receipt-keep">
+              {t("registerPage.receiptKeepIdNote")}{" "}
+              <button type="button" className="receipt-link" onClick={copyEstablishmentId}>
+                {idCopied ? t("registerPage.receiptIdCopied") : t("registerPage.receiptCopyId")}
+              </button>
+              <span className="sr-only" role="status">
+                {idCopied ? t("registerPage.receiptIdCopied") : ""}
+              </span>
+            </p>
+          )}
+
+          <dl className="receipt-list">
+            <div className="receipt-list-row">
+              <dt>{t("registerPage.receiptCompanyLabel")}</dt>
+              <dd>
+                {result.companyName}
+                {config && <span className="receipt-muted"> — {localized(config.title, locale)}</span>}
+              </dd>
+            </div>
+            <div className="receipt-list-row">
+              <dt>{t("registerPage.receiptRespondentLabel")}</dt>
+              <dd>
+                {respondent.firstName} {respondent.lastName}
+                <br />
+                <span className="receipt-muted">{respondent.email}</span>
+              </dd>
+            </div>
+            <div className="receipt-list-row">
+              <dt>{t("registerPage.receiptDateLabel")}</dt>
+              <dd>
+                {new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
+                  result.registeredAt
+                )}
+              </dd>
+            </div>
+            <div className="receipt-list-row">
+              <dt>{t("registerPage.receiptStatusLabel")}</dt>
+              <dd>
+                <span className={`receipt-tag ${isActive ? "receipt-tag--active" : "receipt-tag--pending"}`}>
+                  {isActive ? t("registerPage.receiptStatusActive") : t("registerPage.receiptStatusPending")}
+                </span>
+              </dd>
+            </div>
+          </dl>
+
+          <h2 className="receipt-next-title">{t("registerPage.receiptNextTitle")}</h2>
+          <p className="receipt-next-body">
+            {isActive
+              ? t("registerPage.receiptActiveAttestationNote")
+              : t("registerPage.receiptPendingNote", { email: respondent.email.trim() })}
           </p>
-          <div style={{ textAlign: "center", marginTop: "var(--cam-space-4)" }}>
+
+          {/* The one way forward, and a printed copy of the acknowledgement. */}
+          <div className="receipt-actions">
             <Link
-              href="/"
-              style={{
-                fontSize: "var(--cam-font-size-xs)",
-                color: "var(--cam-text-muted)",
-                textDecoration: "underline",
-              }}
+              href="/login"
+              className="btn-primary"
+              onClick={() => saveLoginIdentifier(respondent.email.trim())}
             >
-              {t("common.backToPortal")}
+              {isActive ? t("registerPage.signInLink") : t("registerPage.receiptFollowButton")}
             </Link>
+            <button type="button" className="receipt-link" onClick={() => window.print()}>
+              {t("registerPage.receiptPrint")}
+            </button>
+          </div>
+
+          <div className="receipt-footer">
+            <span>
+              {t("loginPage.needHelpText")}{" "}
+              <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
+                {t("loginPage.whatsappLink")}
+              </a>
+            </span>
+            <Link href="/">{t("common.backToPortal")}</Link>
           </div>
         </div>
       </main>
