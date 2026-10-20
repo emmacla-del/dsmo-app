@@ -19,7 +19,8 @@ stored, normalized or exported. The third fix stops a free-text slot being
 treated as in use because of the zeros the table opens with.
 
 Still not reached: the administrative review and endorsement, and the SPSS
-export of an enterprise record. C4 to C7 are untouched.
+export of an enterprise record. C4 was fixed on 2026-10-20 (commit
+`1c6b2e3e`); C5 to C7 are untouched.
 
 ## What was declared
 
@@ -81,7 +82,7 @@ against all five sections, with no issue listed.
   two of them apparently already answered with zeros, and no indication that
   naming them is now compulsory.
 
-### C4 — Applicable tables open already answered with 0 (medium, §9)
+### C4 — Applicable tables open already answered with 0 (medium, §9) — fixed 2026-10-20
 
 - Every table the quiz *opens* arrives with its cells pre-filled `0`:
   Section 2 recruitments, Section 3 departures, Section 4 interns and
@@ -95,6 +96,23 @@ against all five sections, with no issue listed.
 - §9: an unanswered value must not be presented as an answer. It also hides
   C1 and C3, since a respondent cannot see which cells they have really
   answered.
+- Cause: the zeros came from the draft saved to the account, not from the
+  tables. `saveDraftToBackend` sent the submission payload, which
+  `prepareSubmissionData` zero-fills for every table the quiz closed. Signing
+  out clears the local copy, so the wizard reloaded that account draft, and
+  a table the quiz then said Yes to opened with the zeros it had been given
+  while closed. That is this run: on 2026-10-17 the quiz said No to
+  recruitments, departures, interns and skills; on 2026-10-18, Yes.
+- Fix (commit `1c6b2e3e`): the account draft is the working form, quiz
+  answers included, with hidden follow-ups dropped; the derived zeros stay in
+  the submission payload only. And when the quiz reopens a table or adds a
+  category, a cell coming back into view still holding exactly 0 is cleared
+  to blank (`zeroedCellsBackInView` in `QuizSemantics.ts`, called from the
+  quiz), which also repairs drafts already saved with the zeros. A typed
+  figure is never touched. Same rule as the project form's D2 fix
+  (`cbb70b53`). Covers enterprise, cooperative, CTD, NGO and administration.
+  Verified by unit tests only: not re-run in the browser, as EN26000201's
+  declaration is already submitted.
 
 ### C5 — A refused submission says nothing the respondent can act on (medium)
 
