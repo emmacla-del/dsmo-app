@@ -46,7 +46,7 @@ export interface ModernJobsHeaderProps {
 /**
  * The sticky masthead of both respondent wizards (Modern Jobs and VT), on
  * white: the ONEFOP wordmark on the left; the establishment, the survey
- * and the campaign centred; the auto-save status, PDF preview and exit on
+ * and the campaign centred; the auto-save status, PDF preview and workspace on
  * the right. Saving on demand lives in each wizard's footer, and the
  * language is chosen before the wizard (login page, or the browser's
  * language), so the masthead carries neither.
@@ -144,11 +144,11 @@ export function ModernJobsHeader({
     // The border is declared here, transparent, so that a button setting
     // only borderColor below actually paints one: borderColor alone leaves
     // border-width at 0 and the outline never appears, which is why the PDF
-    // preview and Quitter were reading as the same weight.
+    // preview and the workspace button were reading as the same weight.
     border: "1px solid transparent",
     borderRadius: 6,
-    // One height for both controls, so the labelled PDF button and the
-    // square Quitter button line up on the same baseline; the padding no
+    // One height for both controls, so the PDF button and the workspace
+    // button line up on the same baseline; the padding no
     // longer decides the height.
     height: 32,
     padding: "0 12px",
@@ -202,12 +202,11 @@ export function ModernJobsHeader({
           white-space: nowrap;
         }
         .cam-masthead-title { grid-area: title; min-width: 0; text-align: center; }
-        /* The icon-only Quitter: a ghost control, so the brightness hover
-           shared with the labelled buttons has nothing to darken. It takes a
-           grey field and full-strength ink on hover instead, which is also
-           the only hover cue it has without a label. */
-        .cam-masthead-exit { background: none; }
-        .cam-masthead-exit:hover { background: var(--cam-surface-2); color: var(--cam-text); }
+        /* « Mon espace » keeps its words down to a phone, where it shows the
+           house alone; its name stays in aria-label. */
+        @media (max-width: 599px) {
+          .cam-masthead-workspace-label { display: none; }
+        }
         .cam-masthead-actions { grid-area: actions; justify-self: end; }
         /* Narrow viewports: wordmark and actions on the first line, the centre block below. */
         @media (max-width: 899px) {
@@ -255,7 +254,7 @@ export function ModernJobsHeader({
           </div>
         </div>
 
-        {/* Right: entry mode, a save that did not land, PDF preview, exit */}
+        {/* Right: entry mode, a save that did not land, PDF preview, workspace */}
         <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {entryModeSlot}
           {/* Saving is automatic and the respondent does not need telling it
@@ -298,32 +297,28 @@ export function ModernJobsHeader({
             </button>
           )}
 
-          {/* Leaving the form is the one masthead action whose symbol is
-              conventional — the door with the arrow out — and the one whose
-              words cost the most room, so it carries the icon alone (owner,
-              2026-10-12). Its name is still "Quitter": aria-label for a
-              screen reader, title for a hover. The PDF preview keeps its
-              label, because a respondent who declares once a year has to
-              find it without hovering. */}
+          {/* The way back to the respondent's workspace, named as such on
+              every ONEFOP form (owner, 2026-10-20). It replaces the
+              icon-only « Quitter » of 2026-10-12, which went to the same
+              place but did not say so. onExit saves what the server does not
+              have yet, then goes to /home; without one, it goes there
+              directly. */}
           <button
             type="button"
-            onClick={onExit ? onExit : () => window.history.back()}
-            className="cam-masthead-exit cam-hoverable"
-            aria-label={t("exit")}
-            title={t("exit")}
+            onClick={onExit ? onExit : () => window.location.assign("/home")}
+            className="cam-hoverable"
+            aria-label={t("workspace")}
             style={{
               ...buttonStyle,
-              width: 32,
-              padding: 0,
-              justifyContent: "center",
-              border: "1px solid transparent",
-              color: "var(--cam-text-muted)",
+              background: "var(--cam-surface)",
+              borderColor: "var(--cam-border)",
               cursor: "pointer",
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 10.5 12 3l9 7.5M5 9v11a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9" />
             </svg>
+            <span className="cam-masthead-workspace-label">{t("workspace")}</span>
           </button>
         </div>
       </div>

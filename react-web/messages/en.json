@@ -1377,7 +1377,7 @@
       "savedOnDevice": "Saved on this device",
       "notSaved": "Not saved —",
       "retrySave": "retry",
-      "exit": "Exit"
+      "workspace": "My workspace"
     },
     "nav": {
       "ariaLabel": "Questionnaire navigation",
