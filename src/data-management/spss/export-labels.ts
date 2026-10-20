@@ -21,6 +21,16 @@
 // Région »), and falling back to the variable name as a last resort.
 import type { AnalyticalVariableDefinition } from '../canonical-schema-adapter.service';
 
+// E12 — a question whose on-screen wording changed while its dictionary label
+// must not (CLAUDE.md §21, 2026-10-19). PP_S1Q01 reads « Type d'entité » in
+// the questionnaire, but the dictionary keeps « Nature de la structure », as
+// the Excel column and the official PDF do: « Type d'entité » is already the
+// label of the system variable formType, and sharing it would make the E10
+// pass relabel formType in every export, for every form. Keyed by field id.
+export const EXPORT_LABEL_OVERRIDES: Record<string, { fr: string; en: string }> = {
+  PP_S1Q01: { fr: 'Nature de la structure', en: 'Nature of the structure' },
+};
+
 const FR_PERIOD_PLACEHOLDER = /du (?:1er|premier) Janvier \d{4} à ce jour/g;
 const EN_PERIOD_PLACEHOLDER = /from (?:the )?1st (?:of )?January \d{4} to (?:the present day|date)/g;
 

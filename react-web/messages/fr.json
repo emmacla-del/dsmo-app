@@ -547,7 +547,7 @@
     "entityOptionAdministrationHint": "ministère, établissement public",
     "entityOptionCtd": "Collectivité territoriale",
     "entityOptionCtdHint": "région, commune",
-    "entityOptionProjectProgram": "Projet ou programme",
+    "entityOptionProjectProgram": "Projet, programme ou structure sous-tutelle",
     "entityOptionVocationalTraining": "Centre de formation professionnelle",
     "continueButton": "Continuer",
     "alreadyRegisteredSignIn": "Déjà inscrit ? Se connecter",
@@ -833,8 +833,20 @@
     "placeholderName": "ex. Jean Dupont",
     "placeholderJobTitle": "ex. Directeur des Ressources Humaines",
     "placeholderJobTitleProject": "ex. Coordonnateur de projet",
+    "placeholderJobTitleProgramme": "ex. Coordonnateur de programme",
+    "placeholderJobTitleStructure": "ex. Directeur de la structure",
+    "placeholderJobTitleAdministration": "ex. Chef de service du personnel",
+    "placeholderJobTitleOng": "ex. Directeur exécutif",
+    "placeholderJobTitleCooperative": "ex. Gérant",
+    "placeholderJobTitleCtd": "ex. Secrétaire général",
     "placeholderEmail": "ex. contact@entreprise.com",
     "placeholderEmailProject": "ex. contact@projet.cm",
+    "placeholderEmailProgramme": "ex. contact@programme.cm",
+    "placeholderEmailStructure": "ex. contact@structure.cm",
+    "placeholderEmailAdministration": "ex. contact@administration.cm",
+    "placeholderEmailOng": "ex. contact@ong.cm",
+    "placeholderEmailCooperative": "ex. contact@cooperative.cm",
+    "placeholderEmailCtd": "ex. contact@commune.cm",
     "exampleHint": "Exemple : {example}"
   },
   "coherenceHints": {
@@ -1355,7 +1367,7 @@
         "project": "Projets / Programmes",
         "vt": "Centres de formation professionnelle"
       },
-      "surveyTitle": "Enquête Emploi & Main-d'œuvre",
+      "surveyTitle": "Recensement emplois modernes",
       "vtSurveyTitle": "Recensement formation professionnelle",
       "campaign": "Campagne {code}",
       "saving": "Enregistrement…",
@@ -1384,7 +1396,7 @@
       "topicsSummary": "{total, plural, one {# thématique} other {# thématiques}} • {completed, plural, one {# renseignée} other {# renseignées}}",
       "tablesSummary": "{total, plural, one {# tableau statistique} other {# tableaux statistiques}} • {completed, plural, one {# complété} other {# complétés}}",
       "section0Intro": "Informations sur la personne remplissant ce questionnaire pour le compte de l’établissement.",
-      "section0IntroProject": "Informations sur la personne remplissant ce questionnaire pour le compte du projet ou du programme.",
+      "section0IntroProject": "Informations sur la personne remplissant ce questionnaire pour le compte {entity}.",
       "section0IntroAdministration": "Informations sur la personne remplissant ce questionnaire pour le compte de l’administration.",
       "section0IntroNgo": "Informations sur la personne remplissant ce questionnaire pour le compte de l’ONG.",
       "section0IntroCooperative": "Informations sur la personne remplissant ce questionnaire pour le compte de la coopérative.",
@@ -1418,13 +1430,14 @@
       "cards": {
         "identity": {
           "title": "Identité légale",
+          "title_projectProgram": "Identification et tutelle",
           "description": "Dénomination officielle, statut juridique, sigle et immatriculation de la structure.",
-   "description_projectProgram": "Nature, nom, sigle, responsable et ministère ou organisme de tutelle."
+          "description_projectProgram": "Nom, sigle, responsable et ministère ou organisme de tutelle."
         },
         "location": {
           "title": "Localisation administrative",
-          "description": "Milieu de résidence et rattachement administratif territorial officiel (Région, Département, Arrondissement, Localité).",
-   "description_projectProgram": "Milieu de résidence, siège social et rattachement administratif (Région, Département, Arrondissement, Localité)."
+          "description": "Milieu d'implantation et rattachement administratif territorial officiel (Région, Département, Arrondissement, Localité).",
+          "description_projectProgram": "Milieu d'implantation, siège social et rattachement administratif (Région, Département, Arrondissement, Localité)."
         },
         "contact": {
           "title": "Contacts officiels",

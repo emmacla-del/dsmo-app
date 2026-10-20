@@ -36,7 +36,7 @@ function infoButton(container: HTMLElement): HTMLElement | null {
 }
 
 const NO_DEFINITION = [
-  ["projectProgram", "PP_S1Q01", "Nature de la structure"],
+  ["projectProgram", "PP_S1Q01", "Type d'entité"],
   ["projectProgram", "PP_S1Q10", "Objectif ou mission principale"],
   ["projectProgram", "PP_S1Q11", "Siège social"],
   ["cooperative", "COOP_S1Q01", "Nom de la coopérative"],

@@ -23,6 +23,7 @@ import { TABLE_MAX_WIDTH_PX } from "./tables/tableLayout";
 import { resetScroll } from "@/lib/reset-scroll";
 import { formatSectionTitle, sectionNumberFromId } from "@/lib/onefop-section-title";
 import { ppSection4TableName } from "@/lib/pp-section4-tables";
+import { ppIdentificationTitle, ppNatureKindOf, ppWording } from "@/lib/pp-nature-wording";
 import { GuidedReviewGateContext, type GuidedReviewHandle, type GuidedReviewRegistry } from "./tables/GuidedReviewGate";
 
 export interface SectionTableNavState {
@@ -83,10 +84,10 @@ function isTableShaped(field: OnefopField): boolean {
   return field.type === "table" || field.type === "repeating_table" || !!field.table;
 }
 
-/** Where a jump from the table list puts a card: clear of the pinned
- *  wizard header and of the list itself. */
-const CHUNK_SCROLL_MARGIN =
-  "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px) + var(--cam-space-4, 16px))";
+/** Where a jump puts a table: clear of the pinned wizard header. Nothing
+ *  else is pinned over the column since the table list went (owner,
+ *  2026-10-20), so --mj-pills-h is nobody's any more and falls back to 0. */
+const CHUNK_SCROLL_MARGIN = "calc(var(--mj-header-h, 0px) + var(--cam-space-4, 16px))";
 
 /** Longest a table's name may be in the table list before it is cut. */
 const TABLE_CHUNK_NAME_MAX = 46;
@@ -193,23 +194,11 @@ export function SectionRenderer({
   // what it is for, and a column of guided flows would not be one.
   const deckMode: "focus" | "all" = sectionEntryMode === "guided" ? "focus" : "all";
 
-  // The pinned table-pills bar publishes its height as --mj-pills-h on the
-  // wizard root, so the block/category tabs above each table can pin just
-  // below it (see AdaptiveStatisticalTable).
-  const [pillsEl, setPillsEl] = useState<HTMLDivElement | null>(null);
-  const pillsRef = setPillsEl;
-  useEffect(() => {
-    const root = (pillsEl?.closest("[data-mj-root]") as HTMLElement | null) ?? null;
-    if (!pillsEl || !root || typeof ResizeObserver === "undefined") return;
-    const publish = () => root.style.setProperty("--mj-pills-h", `${pillsEl.offsetHeight}px`);
-    publish();
-    const observer = new ResizeObserver(publish);
-    observer.observe(pillsEl);
-    return () => {
-      observer.disconnect();
-      root.style.setProperty("--mj-pills-h", "0px");
-    };
-  }, [pillsEl]);
+  // The table list used to pin under the header and publish its height as
+  // --mj-pills-h, so a table's block tabs could pin below it. Nothing pins
+  // there now, so nobody sets the variable and AdaptiveStatisticalTable's
+  // `var(--mj-pills-h, 0px)` falls back to 0: its tabs sit straight under
+  // the header.
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const gateMapRef = useRef<Map<string, GuidedReviewHandle>>(new Map());
@@ -233,6 +222,9 @@ export function SectionRenderer({
      *  subsection of the paper form. Shown verbatim, so a chunk that already
      *  carries a form number ("4.1 …") is not renumbered by its position. */
     pillLabel?: string;
+    /** The label is the official form's own numbered name for this table
+     *  ("4.1 Permanents recensés"), not a cut-down copy of its question. */
+    pillNumbered?: boolean;
     fields: OnefopField[];
   }
 
@@ -259,11 +251,15 @@ export function SectionRenderer({
       if (currentChunk.fields.length > 0) {
         chunks.push(currentChunk);
       }
+      const numberedName = startsTableChunk
+        ? ppSection4TableName(field.id, field.paperCode, locale)
+        : undefined;
       const tableName = startsTableChunk ? tableChunkName(field, locale) : undefined;
       currentChunk = {
         headingId: field.id,
         title: headingByFieldId.get(field.id) ?? tableName ?? null,
         pillLabel: tableName,
+        pillNumbered: numberedName !== undefined,
         fields: [field],
       };
     } else {
@@ -650,22 +646,31 @@ export function SectionRenderer({
         key={chunk.headingId || index}
         id={chunk.headingId !== "init" ? `subsection-${chunk.headingId}` : undefined}
         title={
-          // A chunk that is one table carries the table's own name
-          // (pillLabel), and the table under it already heads with the
-          // question it asks — so a card title would say the same thing
+          // A table the official form numbers and names ("4.1 Permanents
+          // recensés") is headed by that name, beside the table, the way
+          // the form prints it (owner, 2026-10-20). It is not the question
+          // the table asks, so the two do not say the same thing twice, and
+          // it is what the table list names: without it, picking "4.2" in
+          // the list landed the respondent on a question with no sign of
+          // which table they had reached.
+          //
+          // A chunk whose label is only its own question cut to length
+          // keeps no heading: there the card title WOULD say the same thing
           // twice, once with its form number stripped. A real subsection
-          // heading still shows: it names something the table does not, and
-          // in one continuous column it is what says where one group of
+          // heading still shows — it names something the table does not,
+          // and in one continuous column it is what says where one group of
           // tables ends and the next begins (§8, duplicated headings).
-          isGuided
-            ? chunk.pillLabel || !chunk.title
-              ? undefined
-              : formatCleanTitle(chunk.title)
-            : chunkHasTable
-              ? deckMode === "all" && chunk.title && !chunk.pillLabel
-                ? formatCleanTitle(chunk.title)
-                : undefined
-              : (chunk.title ?? undefined)
+          chunk.pillNumbered && chunkHasTable
+            ? chunk.pillLabel
+            : isGuided
+              ? chunk.pillLabel || !chunk.title
+                ? undefined
+                : formatCleanTitle(chunk.title)
+              : chunkHasTable
+                ? deckMode === "all" && chunk.title && !chunk.pillLabel
+                  ? formatCleanTitle(chunk.title)
+                  : undefined
+                : (chunk.title ?? undefined)
         }
         status={isGuided ? undefined : (chunkHasTable ? undefined : (chunk.title ? status : undefined))}
         statusLabel={statusLabel}
@@ -843,7 +848,11 @@ export function SectionRenderer({
             >
               {section.id === "section0"
                 ? t("section0Heading")
-                : formatSectionTitle(
+                : section.id === "section1_projectProgram"
+                  // « Identification de la structure » named one of the
+                  // three bodies; this names the one PP_S1Q01 says it is.
+                  ? `Section 1. ${ppIdentificationTitle(ppNatureKindOf(data), locale)}`
+                  : formatSectionTitle(
                     localized(section.title, locale),
                     sectionNumberFromId(section.id, 0),
                   ) || section.id}
@@ -866,7 +875,13 @@ export function SectionRenderer({
                 // Who the respondent is answering for, in the words of their
                 // own body — the rule S0Q02's label already follows. An
                 // entity with no wording of its own keeps "l'établissement".
-                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro")
+                // The project form names the body PP_S1Q01 says it is.
+                t(RESPONDENT_INTRO_KEYS[entityType ?? ""] ?? "section0Intro", {
+                  entity: (() => {
+                    const w = ppWording(ppNatureKindOf(data), locale);
+                    return locale === "fr" ? w.of : w.the;
+                  })(),
+                })
               ) : section.description ? (
                 localized(section.description, locale)
               ) : null}
@@ -878,143 +893,59 @@ export function SectionRenderer({
 
       </div>
 
-      {/* Tableau/Guidé switch for single-table sections — the pills bar below
-          (which carries it for multi-table sections) is not rendered when the
-          quiz leaves a section with only one table, and the switch must stay
-          reachable in every table section. */}
-      {!isMultiTableSection && sectionHasAdaptiveTables && (
-        <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
-      )}
-
-      {/* The section's table list — pinned under the header while the column
-          scrolls (a direct child of <section> so it stays pinned for the
-          whole section). In Tableau it jumps to a table in the column; in
-          Guidé it switches the table on screen. */}
-      {isMultiTableSection && (
+      {/* The section's table list is gone: every table is headed by its own
+          name where it stands, so a pinned index of the same names said them
+          twice and took 50px off the top of every section (owner,
+          2026-10-20). What the bar also carried stays: one Tableau/Guidé
+          switch for the section (it portals to the app bar) and the keyboard
+          cheat sheet, on a line of their own that pins to nothing. */}
+      {sectionHasAdaptiveTables && (
         <div
-          ref={pillsRef}
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: "flex-end",
             gap: "var(--cam-space-2, 8px)",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            position: "sticky",
-            top: "var(--mj-header-h, 0px)",
-            zIndex: 30,
-            background: "var(--cam-bg)",
-            margin: "calc(-1 * var(--cam-space-3, 12px)) 0 var(--cam-space-3, 12px)",
-            padding: "var(--cam-space-2, 8px) 0",
-            borderBottom: "1px solid var(--cam-border)",
+            marginBottom: "var(--cam-space-3, 12px)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
-          {validChunks.map((chunk, cIdx) => {
-            // Stacked in one column the list is an outline, not a switch:
-            // marking a pill current would point at a table the respondent
-            // may have scrolled well past.
-            const isCurrent = deckMode === "focus" && cIdx === clampedIndex;
-            const chunkHasError = chunk.fields.some((f) => issueByFieldId.has(f.id));
-            const chunkAllAnswered = chunk.fields.every(isFieldSatisfied);
-            // A chunk that is one table carries its own name (it may hold a
-            // form number of its own); a subsection chunk keeps the list's
-            // running number in front of its cleaned-up heading.
-            const rawTitle = chunk.title || `T${cIdx + 1}`;
-            const label = chunk.pillLabel ?? `${cIdx + 1}. ${formatCleanTitle(rawTitle) || rawTitle}`;
-
-            return (
-              <button
-                key={chunk.headingId || cIdx}
-                type="button"
-                onClick={() => handleSelectDeckIndex(cIdx)}
-                className="cam-hoverable"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 14px",
-                  borderRadius: "var(--cam-radius-control, 6px)",
-                  fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                  fontWeight: isCurrent ? 600 : 500,
-                  background: isCurrent
-                    ? "var(--cam-green)"
-                    : chunkHasError
-                      ? "var(--cam-error-bg)"
-                      : chunkAllAnswered
-                        ? "var(--cam-success-bg)"
-                        : "var(--cam-surface)",
-                  color: isCurrent
-                    ? "var(--cam-white)"
-                    : chunkHasError
-                      ? "var(--cam-error)"
-                      : chunkAllAnswered
-                        ? "var(--cam-green)"
-                        : "var(--cam-text-muted)",
-                  border: isCurrent
-                    ? "1px solid var(--cam-green)"
-                    : chunkHasError
-                      ? "1px solid var(--cam-error-border)"
-                      : chunkAllAnswered
-                        ? "1px solid var(--cam-success-border)"
-                        : "1px solid var(--cam-border-strong)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  // A long name wraps inside its own pill rather than
-                  // running off the page: "3. PRIMO DEMANDEUR (personne à
-                  // la recherche de son premier emploi)" is 459px, and at
-                  // 375px it took the page sideways with it (§13).
-                  textAlign: "left",
-                }}
-              >
-                {chunkAllAnswered && !chunkHasError && <span aria-hidden="true">✓</span>}
-                <span>{label}</span>
-              </button>
-            );
-          })}
-          </div>
-
-          {/* Right: one Tableau/Guidé switch for the whole section + keyboard help */}
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2, 8px)", flex: "0 0 auto" }}>
-            {sectionHasAdaptiveTables && (
-              <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
-            )}
-            <button
-              type="button"
-              onClick={() => setShowShortcutsHelp((v) => !v)}
-              aria-expanded={showShortcutsHelp}
-              title={t("shortcutsTitle")}
-              aria-label={t("shortcutsAria")}
-              className="cam-hoverable"
-              style={{
-                background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
-                border: "1px solid var(--cam-border)",
-                borderRadius: "var(--cam-radius-control, 6px)",
-                width: 32,
-                height: 32,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--cam-text-muted)",
-                cursor: "pointer",
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-                <line x1="6" y1="8" x2="6" y2="8" />
-                <line x1="10" y1="8" x2="10" y2="8" />
-                <line x1="14" y1="8" x2="14" y2="8" />
-                <line x1="18" y1="8" x2="18" y2="8" />
-                <line x1="6" y1="12" x2="6" y2="12" />
-                <line x1="18" y1="12" x2="18" y2="12" />
-                <line x1="7" y1="16" x2="17" y2="16" />
-              </svg>
-            </button>
-          </div>
+          <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
+          <button
+            type="button"
+            onClick={() => setShowShortcutsHelp((v) => !v)}
+            aria-expanded={showShortcutsHelp}
+            title={t("shortcutsTitle")}
+            aria-label={t("shortcutsAria")}
+            className="cam-hoverable"
+            style={{
+              background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
+              border: "1px solid var(--cam-border)",
+              borderRadius: "var(--cam-radius-control, 6px)",
+              width: 32,
+              height: 32,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--cam-text-muted)",
+              cursor: "pointer",
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+              <line x1="6" y1="8" x2="6" y2="8" />
+              <line x1="10" y1="8" x2="10" y2="8" />
+              <line x1="14" y1="8" x2="14" y2="8" />
+              <line x1="18" y1="8" x2="18" y2="8" />
+              <line x1="6" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="18" y2="12" />
+              <line x1="7" y1="16" x2="17" y2="16" />
+            </svg>
+          </button>
         </div>
       )}
 
       {/* Shortcuts Help Box (if toggled) */}
-      {isMultiTableSection && showShortcutsHelp && (
+      {sectionHasAdaptiveTables && showShortcutsHelp && (
         <div
           className="cam-panel-fade-in"
           style={{

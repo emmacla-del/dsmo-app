@@ -875,7 +875,7 @@ export function ModernJobsWizard({
                               ✓
                             </span>
                             <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                              {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale)) || sec.id}
+                              {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id}
                             </span>
                           </div>
                           <span style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-green)" }}>
@@ -987,7 +987,7 @@ export function ModernJobsWizard({
                             {isDone ? "✓" : isErr ? "!" : sIdx}
                           </span>
                           <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                            {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale)) || sec.id}
+                            {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id}
                           </span>
                         </div>
                         <button

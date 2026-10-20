@@ -97,6 +97,22 @@ test("no permanent-headcount question opens on a figure registration never asked
   }
 });
 
+test("PP_S1Q01 is prefilled from the registration's type of entity", () => {
+  const ppField = schema.entities.projectProgram.sections
+    .flatMap((s) => s.fields)
+    .find((f) => f.id === "PP_S1Q01");
+  const values = (ppField?.options ?? []).map((o) => o.value);
+  assert.equal(values.length, 4);
+  // Every value registration can store is one the question offers.
+  for (const value of values) {
+    assert.equal(companyToInitialData({ ...registered, projectNature: value }, "projectProgram")["PP_S1Q01"], value);
+  }
+  // No registration answer, or one the question does not offer: unanswered,
+  // never a guess (§9).
+  assert.equal(companyToInitialData(registered, "projectProgram")["PP_S1Q01"], undefined);
+  assert.equal(companyToInitialData({ ...registered, projectNature: "Projet" }, "projectProgram")["PP_S1Q01"], undefined);
+});
+
 test("the identification fields registration does ask for are still prefilled", () => {
   const pp = companyToInitialData(registered, "projectProgram");
   assert.equal(pp["PP_S1Q06_REGION"], "Littoral");

@@ -57,7 +57,7 @@ const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: st
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   projectProgram: [
-    { title: { fr: "Identification du projet", en: "Project identification" }, keys: ["projectProgramName", "sigle", "mainMission"] },
+    { title: { fr: "Identification", en: "Identification" }, keys: ["projectNature", "projectProgramName", "sigle", "mainMission"] },
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   vocationalTraining: [

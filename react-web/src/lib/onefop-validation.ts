@@ -73,6 +73,10 @@ export const OPTIONAL_OVERRIDES = new Set([
   // pending — see docs/onefop-cross-form-hybrid-table-audit.md §K.
   "S3Q02_REASON_2_TEXT",
   "S3Q02_REASON_3_TEXT",
+  // PP_S1Q01: entity designation chosen at registration (comp.projectNature)
+  // and autofilled; omitted from Section 1 rendering so it does not block
+  // completion if somehow missing on a legacy record.
+  "PP_S1Q01",
 ]);
 
 /**

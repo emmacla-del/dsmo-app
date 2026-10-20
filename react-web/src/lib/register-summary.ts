@@ -22,6 +22,7 @@
 // "Non-fonctionnelle" as a bare code.
 import {
   ENTITY_CONFIGS,
+  entityFieldLabel,
   isFieldVisible,
   type RegistrationStepId,
 } from "./register-constants";
@@ -119,7 +120,7 @@ export function summaryRows(
         const raw = state.entityData[field.key];
         rows.push(
           row(
-            localized(field.label, locale),
+            localized(entityFieldLabel(field, state.entityData), locale),
             field.options && raw ? registerOptionLabel(field.options, raw, locale) : raw
           )
         );

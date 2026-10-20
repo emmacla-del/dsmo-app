@@ -15,6 +15,7 @@ import { ConditionalTable } from "@/components/modern-jobs/conditional/Condition
 import { tableHasGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 
 import { extractCleanErrorMessage } from "@/lib/onefop-validation";
+import { ppFieldLabel, ppNatureKindOf } from "@/lib/pp-nature-wording";
 
 /** Question text: the --cam-question-* tokens every respondent form shares
  *  (15px semibold); answers are --cam-answer-size (14px), hints 12px. */
@@ -156,6 +157,22 @@ export function FieldRenderer({
     ctd: { fr: "Fonction / Titre dans la collectivité", en: "Function / Title in the local authority" },
   };
 
+  /**
+   * Section 0's two example values, per form. Each form already had a label of
+   * its own and then the enterprise's examples underneath — « ex. Directeur
+   * des Ressources Humaines » and « ex. contact@entreprise.com » — so a
+   * commune's respondent was given a DRH as the example of their own job
+   * title. Same five keys as respondentFunctionLabels above; the enterprise
+   * keeps the unsuffixed pair, which is its own wording.
+   */
+  const respondentPlaceholderSuffix: Record<string, string> = {
+    projectProgram: "Project",
+    administration: "Administration",
+    ong: "Ong",
+    cooperative: "Cooperative",
+    ctd: "Ctd",
+  };
+
   const respondentLabels: Record<string, { fr: string; en: string }> = {
     S0Q01: { fr: "Nom et prénom(s) du répondant", en: "Respondent's full name" },
     S0Q02:
@@ -168,9 +185,17 @@ export function FieldRenderer({
     S0Q03_EMAIL: { fr: "Adresse email professionnelle", en: "Professional email address" },
   };
 
-  const rawLabel = isRespondentSection
-    ? (respondentLabels[field.id]?.[locale] ?? localized(field.label, locale))
-    : localized(field.label, locale);
+  // The project form names the body PP_S1Q01 says this is — « Nom du
+  // programme », « Fonction / Titre dans la structure » (pp-nature-wording.ts).
+  const ppLabel =
+    resolvedEntityType === "projectProgram"
+      ? ppFieldLabel(field.id, ppNatureKindOf(data), locale)
+      : null;
+  const rawLabel =
+    ppLabel ??
+    (isRespondentSection
+      ? (respondentLabels[field.id]?.[locale] ?? localized(field.label, locale))
+      : localized(field.label, locale));
   // A question shows its form number as a badge when it has one (see
   // CodedLabel); an internal code such as S0Q01 is never shown (§8).
   // `label` stays plain text for aria-labels, by the same rule.
@@ -284,16 +309,19 @@ export function FieldRenderer({
   const computedPlaceholder = (() => {
     if (isRespondentSection) {
       if (field.id === "S0Q01") return t("fieldRenderer.placeholderName");
-      if (field.id === "S0Q02") {
-        if (resolvedEntityType === "projectProgram") return t("fieldRenderer.placeholderJobTitleProject");
-        return t("fieldRenderer.placeholderJobTitle");
-      }
+      // A programme's or a supervised structure's respondent gets their own
+      // example, not a project coordinator's.
+      const ppKind = resolvedEntityType === "projectProgram" ? ppNatureKindOf(data) : null;
+      const suffix =
+        ppKind === "programme"
+          ? "Programme"
+          : ppKind === "structure"
+            ? "Structure"
+            : (resolvedEntityType && respondentPlaceholderSuffix[resolvedEntityType]) || "";
+      if (field.id === "S0Q02") return t(`fieldRenderer.placeholderJobTitle${suffix}`);
       if (field.id === "S0Q03_TEL1") return t("fieldRenderer.example", { example: "677 12 34 56" });
       if (field.id === "S0Q03_TEL2") return t("fieldRenderer.example", { example: "699 12 34 56" });
-      if (field.id === "S0Q03_EMAIL") {
-        if (resolvedEntityType === "projectProgram") return t("fieldRenderer.placeholderEmailProject");
-        return t("fieldRenderer.placeholderEmail");
-      }
+      if (field.id === "S0Q03_EMAIL") return t(`fieldRenderer.placeholderEmail${suffix}`);
     }
     if (rawHint) {
       const stripped = stripExampleLeadIn(rawHint);

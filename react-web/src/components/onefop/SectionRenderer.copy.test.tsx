@@ -33,6 +33,16 @@ test("Section 0 names the body the respondent answers for", () => {
   assert.ok(!/pour le compte de l’établissement/.test(project.text), project.text.slice(0, 200));
   project.unmount();
 
+  // Once PP_S1Q01 is answered (pre-filled from registration), the one body.
+  const programme = render("projectProgram", "section0", { PP_S1Q01: "Programme/ Program" });
+  assert.match(programme.text, /pour le compte du programme\./);
+  assert.match(programme.text, /Fonction \/ Titre dans le programme/);
+  assert.equal(
+    programme.container.querySelector<HTMLInputElement>("#S0Q02")?.placeholder,
+    "ex. Coordonnateur de programme",
+  );
+  programme.unmount();
+
   // An entity with no wording of its own is unchanged.
   const enterprise = render("enterprise", "section0");
   assert.match(enterprise.text, /pour le compte de l’établissement/);
@@ -58,7 +68,7 @@ test("the project e-mail example is a project address", () => {
 test("a section heading does not shout", () => {
   for (const [entity, sectionId, expected] of [
     ["projectProgram", "section4_projectProgram", /^Section 4\. Details sur les resencements/],
-    ["projectProgram", "section1_projectProgram", /^Section 1\. Identification de la structure/],
+    ["projectProgram", "section1_projectProgram", /^Section 1\. Identification du projet ou du programme/],
     ["enterprise", "section2", /^Section 2\. Emploi et travail/],
   ] as const) {
     const { container, unmount } = render(entity, sectionId);
@@ -69,16 +79,17 @@ test("a section heading does not shout", () => {
   }
 });
 
-// Grouping Section 1 by control type put its first question last.
-test("Section 1 asks its questions in the form's own order", () => {
+// Grouping Section 1 keeps questions in order without re-asking registration designation.
+test("Section 1 asks its questions in order and omits registration designation", () => {
   const { container, unmount } = render("projectProgram", "section1_projectProgram");
   const card = container.querySelector("h2")?.closest("div")?.parentElement;
   assert.ok(card, "no group card rendered");
   const text = (container.textContent ?? "").replace(/\s+/g, " ");
-  const nature = text.indexOf("Nature de la structure");
-  const name = text.indexOf("Sigle ou acronyme");
-  assert.ok(nature > -1 && name > -1, "questions missing");
-  assert.ok(nature < name, "« Nature de la structure » is still asked after the text boxes");
+  assert.equal(text.includes("Type d'entité"), false, "« Type d'entité » is not re-asked");
+  const name = text.indexOf("Nom");
+  const sigle = text.indexOf("Sigle ou acronyme");
+  assert.ok(name > -1 && sigle > -1, "questions missing");
+  assert.ok(name < sigle, "name appears before sigle");
   unmount();
 });
 
@@ -87,7 +98,10 @@ test("a group heading is a heading, in the page's own voice", () => {
   const groupHeadings = [...container.querySelectorAll("h2")].map((h) => h.textContent?.trim() ?? "");
   // No invented number in front of it: "1.1" would read as a form number,
   // and the form's own numbers are 4.1–4.6 in Section 4.
-  assert.ok(groupHeadings.includes("Identité légale"), groupHeadings.join(" | "));
+  assert.ok(groupHeadings.includes("Localisation administrative"), groupHeadings.join(" | "));
+  // The card does not repeat the section heading above it (§8).
+  const h1 = container.querySelector("h1")?.textContent ?? "";
+  for (const heading of groupHeadings) assert.ok(!h1.includes(heading), `"${heading}" repeats the heading`);
   assert.ok(
     !groupHeadings.some((h) => /^\d+\.\d+\s/.test(h)),
     `a card is numbered like a form question: ${groupHeadings.join(" | ")}`,

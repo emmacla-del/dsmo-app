@@ -30,13 +30,22 @@ function renderSection(
     />,
   );
   const q = within(result.container);
-  const pills = q
+  // What heads each table in the column: the official form's numbered name
+  // where there is one, the paper form's own subsection heading where the
+  // section has those, and otherwise the table's own question.
+  const chunkTitles = [...result.container.querySelectorAll('[id^="subsection-"]')].map((el) =>
+    (el.querySelector("h2")?.textContent ?? "").replace(/\s+/g, " ").trim(),
+  );
+  // The pinned table list is gone (owner, 2026-10-20): nothing may offer the
+  // headings again as a clickable index.
+  const listButtons = q
     .queryAllByRole("button")
-    .map((b) => (b.textContent ?? "").replace(/\s+/g, " ").trim())
-    .filter((label) => label && label !== "Tableau" && label !== "Guidé");
+    .map((b) => (b.textContent ?? "").replace(/\s+/g, " ").replace(/^✓\s*/, "").trim())
+    .filter((label) => chunkTitles.includes(label));
   return {
     ...result,
-    pills,
+    chunkTitles,
+    listButtons,
     tableCount: result.container.querySelectorAll("table").length,
     // Guidé draws a table as a question-by-question flow, with no <table>
     // element of its own, so counting the mounted tables is what tells the
@@ -49,17 +58,15 @@ const reported = (codes: string[]) => Object.fromEntries(codes.map((c) => [`${c}
 
 const ALL_PP_S4 = ["S4Q01", "S4Q02", "S4Q03", "S4Q04", "S4Q05", "S4Q06"];
 
-test("project Section 4 shows its six tables in one column, listed by name", () => {
-  const { pills, tableCount, unmount } = renderSection(
+test("project Section 4 shows its six tables in one column, each headed by name", () => {
+  const { chunkTitles, listButtons, tableCount, unmount } = renderSection(
     "projectProgram",
     "section4_projectProgram",
     reported(ALL_PP_S4),
   );
   assert.equal(tableCount, 6, "the section's tables are not all on screen");
-  assert.deepEqual(
-    pills.map((p) => p.replace(/^✓\s*/, "")),
-    PP_SECTION4_TABLES.map((t) => `${t.number} ${t.name.fr}`),
-  );
+  assert.deepEqual(chunkTitles, PP_SECTION4_TABLES.map((t) => `${t.number} ${t.name.fr}`));
+  assert.deepEqual(listButtons, [], "the table list is back, saying the headings a second time");
   unmount();
 });
 
@@ -71,65 +78,74 @@ test("project Section 4 counts its tables in the section summary", () => {
 
 test("a table the quiz closed is not one of the screens", () => {
   const data = { ...reported(["S4Q01", "S4Q03"]), S4Q02_RESPONSE_STATUS: "NONE", S4Q04_RESPONSE_STATUS: "NONE", S4Q05_RESPONSE_STATUS: "NONE", S4Q06_RESPONSE_STATUS: "NONE" };
-  const { pills, unmount } = renderSection("projectProgram", "section4_projectProgram", data);
-  assert.deepEqual(
-    pills.map((p) => p.replace(/^✓\s*/, "")),
-    ["4.1 Permanents recensés", "4.3 Permanents recrutés"],
-  );
+  const { chunkTitles, unmount } = renderSection("projectProgram", "section4_projectProgram", data);
+  assert.deepEqual(chunkTitles, ["4.1 Permanents recensés", "4.3 Permanents recrutés"]);
   unmount();
 });
 
 // §8: a paper code is internal and never reaches a respondent's screen, so a
-// table with no name of its own is listed by its own question instead.
-test("the table list never shows a paper code", () => {
+// table with no name of its own is headed by its own question instead.
+test("no table is headed by a paper code", () => {
   for (const [entity, section, codes] of [
     ["projectProgram", "section4_projectProgram", ALL_PP_S4],
     ["enterprise", "section3", ["S3Q01", "S3Q02", "S3Q03"]],
     ["enterprise", "section4", ["S4Q01", "S4Q02", "S4Q03"]],
     ["administration", "section2", ["S21Q01", "S21Q02", "S21Q03", "S21Q04"]],
   ] as const) {
-    const { pills, tableCount, unmount } = renderSection(entity, section, reported([...codes]));
+    const { chunkTitles, tableCount, unmount } = renderSection(entity, section, reported([...codes]));
     assert.equal(tableCount, codes.length, `${entity}/${section} shows ${tableCount} of ${codes.length} tables`);
-    assert.equal(pills.length, codes.length, `${entity}/${section} lists ${pills.length} tables`);
-    for (const pill of pills) {
-      assert.ok(!/S[0-9]+Q[0-9]+/.test(pill), `${entity}/${section}: "${pill}" is a paper code`);
-      assert.ok(pill.replace(/^✓\s*/, "").length > 3, `${entity}/${section}: "${pill}" says nothing`);
+    assert.equal(chunkTitles.length, codes.length, `${entity}/${section} has ${chunkTitles.length} tables`);
+    for (const title of chunkTitles) {
+      assert.ok(!/S[0-9]+Q[0-9]+/.test(title), `${entity}/${section}: "${title}" is a paper code`);
+      assert.ok(title.length > 3, `${entity}/${section}: "${title}" says nothing`);
     }
     unmount();
   }
 });
 
 // The sections the paper form does divide are still cut along its own
-// divisions, with the list's running number in front of each.
+// divisions, and each part is headed by the name the form gives it.
 test("enterprise Section 2 keeps the paper form's own three parts", () => {
-  const { pills, unmount } = renderSection(
+  const { chunkTitles, unmount } = renderSection(
     "enterprise",
     "section2",
     reported(["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]),
   );
-  assert.deepEqual(pills.map((p) => p.replace(/^✓\s*/, "").slice(0, 2)), ["1.", "2.", "3."]);
+  assert.equal(chunkTitles.length, 3, `the three parts are ${JSON.stringify(chunkTitles)}`);
+  for (const title of chunkTitles) {
+    assert.ok(title.length > 3, `a part has no heading: ${JSON.stringify(chunkTitles)}`);
+  }
   unmount();
 });
 
 // The summary counts the tables themselves, not the parts the list is cut
 // into: one part of enterprise Section 2 (« Recrutements ») holds five of
 // them, and the whole column is on screen to be counted.
-test("the section summary counts the tables, not the parts of the list", () => {
-  const { container, pills, unmount } = renderSection(
+test("the section summary counts the tables, not the parts of the column", () => {
+  const { container, chunkTitles, unmount } = renderSection(
     "enterprise",
     "section2",
     reported(["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]),
   );
-  assert.equal(pills.length, 3, "the paper form's own three parts are not the list");
+  assert.equal(chunkTitles.length, 3, "the paper form's own three parts are not the column's parts");
   assert.match(container.textContent ?? "", /8 tableaux statistiques/);
   unmount();
 });
 
-// A section with a single table has nothing to navigate between.
-test("a one-table section has no table list", () => {
-  const { pills, unmount } = renderSection("projectProgram", "section3_projectProgram");
-  assert.deepEqual(pills, []);
-  unmount();
+// Every table is headed where it stands, so a pinned index of the same names
+// said them twice and cost 50px at the top of every section.
+test("no section offers its headings again as a table list", () => {
+  for (const [entity, section, codes] of [
+    ["projectProgram", "section4_projectProgram", ALL_PP_S4],
+    ["enterprise", "section2", ["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]],
+    ["projectProgram", "section3_projectProgram", []],
+  ] as const) {
+    for (const mode of ["grid", "guided"] as const) {
+      const { listButtons, unmount } = renderSection(entity, section, reported([...codes]), mode);
+      assert.deepEqual(listButtons, [], `${entity}/${section} in ${mode} still lists its tables`);
+      unmount();
+    }
+  }
 });
 
 // 4.6 is the one Section 4 table the adaptive renderer does not draw in
@@ -167,9 +183,38 @@ test("the grand-total row has one name, whichever renderer draws the table", () 
   permanent.unmount();
 });
 
-// In Guidé the chunk card carried the table's own name as its title — with the
-// form number stripped by formatCleanTitle — above a table that already heads
-// with the question it asks, so the screen named the same table twice.
+// A table the official form numbers and names is headed by that name, beside
+// the table, the way the form prints it (owner, 2026-10-20): the respondent who
+// picks "4.2" in the table list has to land on something that says 4.2. The old
+// card title was the same name with its form number stripped by
+// formatCleanTitle, which did read as the question said twice.
+test("each table in the column is headed by its numbered name from the form", () => {
+  const { container, unmount } = renderSection(
+    "projectProgram",
+    "section4_projectProgram",
+    reported(ALL_PP_S4),
+  );
+  const h = headings(container);
+  for (const t of PP_SECTION4_TABLES) {
+    assert.ok(h.includes(`${t.number} ${t.name.fr}`), `${t.number} does not head its table: ${JSON.stringify(h)}`);
+  }
+  unmount();
+});
+
+test("a table the form does not name keeps no heading of its own", () => {
+  // Enterprise Section 2 is cut at the paper form's own subsections, whose
+  // labels are headings; its tables carry no form-numbered name, so nothing
+  // repeats the question each one already heads with.
+  const { container, unmount } = renderSection(
+    "enterprise",
+    "section2",
+    reported(["S21Q01", "S22Q01", "S22Q02", "S22Q03", "S22Q04", "S22Q05", "S23Q01", "S23Q02"]),
+  );
+  const h = headings(container);
+  assert.ok(!h.some((x) => /^\d+\.\d+\s/.test(x)), `a table was given a number it has no name for: ${JSON.stringify(h)}`);
+  unmount();
+});
+
 // Guidé is the one place a section is still walked table by table.
 test("Guidé keeps one table at a time", () => {
   const guided = renderSection("projectProgram", "section4_projectProgram", reported(ALL_PP_S4), "guided");
@@ -181,16 +226,17 @@ test("Guidé keeps one table at a time", () => {
   grid.unmount();
 });
 
-test("Guidé names the table once, not once as a card title and once as its question", () => {
+test("Guidé heads the table with the same numbered name the column gives it", () => {
   const { container, unmount } = renderSection(
     "projectProgram",
     "section4_projectProgram",
     onlyTable("S4Q01"),
     "guided",
   );
-  assert.ok(
-    !headings(container).includes("Permanents recensés"),
-    `the table's name is repeated as a card title: ${JSON.stringify(headings(container))}`,
-  );
+  const h = headings(container);
+  assert.ok(h.includes("4.1 Permanents recensés"), `4.1 does not head its flow: ${JSON.stringify(h)}`);
+  // The number is what keeps it from being the question said twice: the
+  // name without it is never drawn on its own.
+  assert.ok(!h.includes("Permanents recensés"), `the unnumbered name is drawn as well: ${JSON.stringify(h)}`);
   unmount();
 });

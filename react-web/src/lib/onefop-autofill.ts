@@ -25,6 +25,7 @@
 import type { FormData } from "./onefop-schema";
 import type { CompanyProfile } from "./api-client";
 import type { User } from "./user-types";
+import { PROJECT_NATURE_OPTIONS } from "./register-options";
 
 function setIfPresent(data: FormData, key: string, value: unknown) {
   if (value === null || value === undefined) return;
@@ -455,6 +456,14 @@ export function companyToInitialData(
     case "projectprogram":
     case "project_program":
     case "project": {
+      // PP_S1Q01 « Type d'entité », asked at registration. Registration stores
+      // the questionnaire's own option string; anything else is not an answer
+      // to this question and leaves it unanswered.
+      const nature = comp.projectNature;
+      if (typeof nature === "string" && PROJECT_NATURE_OPTIONS.some((o) => o.value === nature)) {
+        data["PP_S1Q01"] = nature;
+      }
+
       setIfPresent(
         data,
         "PP_S1Q02",

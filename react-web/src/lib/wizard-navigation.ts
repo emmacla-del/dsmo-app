@@ -75,7 +75,16 @@ export type IssueFocusCandidate = { kind: "id"; value: string } | { kind: "name"
  * The ordered lookups that find the element to focus for a validation
  * issue: the issue's own element first (plain field, `field-` wrapper, form
  * control name, table cell input, guided table), then the owning table's
- * wrapper and guided view. Duplicates are removed, order is kept.
+ * wrapper and guided view, and last its chunk in a Modern Jobs column.
+ * Duplicates are removed, order is kept.
+ *
+ * The `subsection-` lookups are the column's: a table that owes cells
+ * raises its issue under the table's own id (PP_S4Q02), and while a
+ * section showed one table per screen, reaching it meant switching the
+ * deck to it — nothing had to be found. In one continuous column nothing
+ * carries that id but the chunk wrapper SectionRenderer draws, so without
+ * these a blocked Continue found no element, and scrolled and focused
+ * nothing at all.
  */
 export function issueFocusCandidates(issueFieldId: string, ownerId?: string | null): IssueFocusCandidate[] {
   const out: IssueFocusCandidate[] = [];
@@ -96,6 +105,8 @@ export function issueFocusCandidates(issueFieldId: string, ownerId?: string | nu
     push({ kind: "id", value: `guided-table-${ownerId}` });
     push({ kind: "id", value: `field-${ownerId}` });
   }
+  push({ kind: "id", value: `subsection-${issueFieldId}` });
+  if (ownerId) push({ kind: "id", value: `subsection-${ownerId}` });
   return out;
 }
 

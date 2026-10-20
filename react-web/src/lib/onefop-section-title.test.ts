@@ -41,12 +41,13 @@ test("the project form's long sections have a short name in the rail", () => {
   }
 });
 
-// Only those three. Every other section keeps the questionnaire's own title,
-// so nothing is renamed that the paper form names briefly already.
+// Only those three, and Section 1, which names the body PP_S1Q01 says it is
+// (pp-nature-wording.test.ts). Every other section keeps the questionnaire's
+// own title, so nothing is renamed that the paper form names briefly already.
 test("every other section still carries the title the AST gives it", () => {
   for (const [entity, body] of Object.entries(schema.entities)) {
     for (const [index, section] of body.sections.entries()) {
-      if (section.id.endsWith("_projectProgram") && /section[234]/.test(section.id)) continue;
+      if (section.id.endsWith("_projectProgram") && /section[1234]/.test(section.id)) continue;
       const raw = title(entity, section.id, "fr");
       assert.equal(
         sectionNavTitle(section.id, raw, index, "fr"),
