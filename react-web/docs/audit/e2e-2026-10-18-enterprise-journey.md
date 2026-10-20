@@ -19,8 +19,8 @@ stored, normalized or exported. The third fix stops a free-text slot being
 treated as in use because of the zeros the table opens with.
 
 Still not reached: the administrative review and endorsement, and the SPSS
-export of an enterprise record. C4 and C5 were fixed on 2026-10-20 (commits
-`1c6b2e3e` and `0dfff468`); C6 and C7 are untouched.
+export of an enterprise record. C4, C5 and C6 were fixed on 2026-10-20
+(commits `1c6b2e3e`, `0dfff468` and `e61791a5`); C7 is untouched.
 
 ## What was declared
 
@@ -110,8 +110,8 @@ against all five sections, with no issue listed.
   to blank (`zeroedCellsBackInView` in `QuizSemantics.ts`, called from the
   quiz), which also repairs drafts already saved with the zeros. A typed
   figure is never touched. Same rule as the project form's D2 fix
-  (`cbb70b53`). Covers enterprise, cooperative, CTD, NGO and administration.
-  Verified by unit tests only: not re-run in the browser, as EN26000201's
+  (`cbb70b53`). Covers enterprise, cooperative, CTD, NGO and administration,
+  each checked by its own test (`e40ee724`). Verified by unit tests only: not re-run in the browser, as EN26000201's
   declaration is already submitted.
 
 ### C5 — A refused submission says nothing the respondent can act on (medium) — fixed 2026-10-20
@@ -137,7 +137,7 @@ against all five sections, with no issue listed.
   server side. Verified by unit and component tests only: a refusal could
   not be produced in the browser now that C1–C3 are fixed.
 
-### C6 — A stale database connection surfaces as « Internal server error » (low)
+### C6 — A stale database connection surfaces as « Internal server error » (low) — fixed 2026-10-20
 
 - The first « Confirm & Submit » returned 500. The backend log shows Prisma
   `P1017 Server has closed the connection` in `submitQuestionnaire` at
@@ -145,6 +145,18 @@ against all five sections, with no issue listed.
   session-mode pool note in the project memory). The retry got past it.
 - Nothing distinguishes this from a genuine fault for the respondent, and a
   submission is exactly where a retry matters.
+- Fix (commit `e61791a5`, backend only): a read that fails because its
+  connection was lost (P1001, P1002, P1008, P1017, P2024) is sent once more
+  on a fresh connection, outside a transaction only (`PrismaService`,
+  `src/prisma/transient-db-error.ts`); this is the case seen here. A write is
+  never retried, since the connection may have dropped after the database
+  committed it. What still fails that way is answered 503 « Le service est
+  momentanément indisponible : la base de données n'a pas répondu. Réessayez
+  dans un instant. », in the client's language
+  (`TransientDbExceptionFilter`), and the wizard shows that line. Retrying a
+  submission is safe: the same formId gets its first result. Other database
+  errors are still a logged 500. Verified by unit tests and an HTTP-level
+  test; a real dropped connection could not be produced on demand.
 
 ### C7 — The review screen's action bar has four unnamed buttons (low)
 
