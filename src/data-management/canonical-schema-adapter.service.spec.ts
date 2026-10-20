@@ -232,6 +232,54 @@ describe('CanonicalSchemaAdapterService', () => {
       expect(adapter.extractValue(reasonTotal, sub)).toBe(3);
     });
 
+    // 2026-10-20 E2E: table 2.2.3 is stored by staff category (4D), the
+    // dataset has no category dimension (3D). Every S22Q03 variable came out
+    // blank for every employer file. §21 entry of 2026-10-20.
+    it('S22Q03: diploma cells are the sum over staff categories of the stored rows', () => {
+      const cell = (id: string) => {
+        const v = adapter.getAllVariables().find((x) => x.sourcePath === `matrix.S22Q03.${id}`);
+        expect(v).toBeDefined();
+        return v!;
+      };
+      const sub = {
+        formType: 'ENTREPRISE',
+        rawData: { S22Q03_RESPONSE_STATUS: 'REPORTED' },
+        diplomaData: [
+          { cspCategory: 'WORKERS', diploma: 'BAC', gender: 'MALE', ageBand: 'AGE_25_34', value: 2 },
+          { cspCategory: 'WORKERS', diploma: 'BAC', gender: 'FEMALE', ageBand: 'AGE_25_34', value: 1 },
+          { cspCategory: 'CADRES', diploma: 'BAC', gender: 'MALE', ageBand: 'AGE_25_34', value: 4 },
+          { cspCategory: 'CADRES', diploma: 'MASTER', gender: 'FEMALE', ageBand: 'AGE_35_PLUS', value: 3 },
+        ],
+      };
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_male_25_34'), sub)).toBe(6);
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_female_25_34'), sub)).toBe(1);
+      // Totals never stored are summed from the detail cells.
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_male_total'), sub)).toBe(6);
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_total_25_34'), sub)).toBe(7);
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_total_total'), sub)).toBe(7);
+      expect(adapter.extractValue(cell('s22q03_master_bacplus5__master_2_female_35_plus'), sub)).toBe(3);
+      expect(adapter.extractValue(cell('s22q03_total_male_25_34'), sub)).toBe(6);
+      expect(adapter.extractValue(cell('s22q03_total_total_total'), sub)).toBe(10);
+      // A reported table counts what was not entered as 0.
+      expect(adapter.extractValue(cell('s22q03_cep__cepe__fslc_male_15_24'), sub)).toBe(0);
+    });
+
+    it('S22Q03: stored totals win, 3D rows are read, a table declared NONE stays blank', () => {
+      const cell = (id: string) => adapter.getAllVariables().find((x) => x.sourcePath === `matrix.S22Q03.${id}`)!;
+      const threeD = {
+        rawData: { S22Q03_RESPONSE_STATUS: 'REPORTED' },
+        diplomaData: [
+          { cspCategory: null, diploma: 'BEPC', gender: 'MALE', ageBand: 'AGE_15_24', value: 5 },
+          { cspCategory: null, diploma: 'BEPC', gender: 'MALE', ageBand: 'TOTAL', value: 5 },
+        ],
+      };
+      expect(adapter.extractValue(cell('s22q03_bepc__cap__gce-ol_male_15_24'), threeD)).toBe(5);
+      expect(adapter.extractValue(cell('s22q03_bepc__cap__gce-ol_male_total'), threeD)).toBe(5);
+      const none = { rawData: { S22Q03_RESPONSE_STATUS: 'NONE' }, diplomaData: [] };
+      expect(adapter.extractValue(cell('s22q03_bac__gce-al_male_25_34'), none)).toBeUndefined();
+      expect(adapter.extractValue(cell('s22q03_total_total_total'), none)).toBeUndefined();
+    });
+
     it('extractValue exports a synthetic NA-<uuid> taxpayer number (SYS_07) as missing', () => {
       const taxNumber = adapter.getAllVariables().find((v) => v.paperCode === 'SYS_07')!;
       expect(taxNumber.sourcePath).toBe('submission.taxNumber');

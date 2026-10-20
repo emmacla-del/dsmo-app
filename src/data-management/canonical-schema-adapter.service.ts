@@ -253,6 +253,24 @@ export const REGION_NAMES = [
 ] as const;
 const REGION_VALUE_LABELS: Record<string, string> = Object.fromEntries(REGION_NAMES.map((n) => [n, n]));
 
+/// Row slug of a S22Q03 dataset cell (onefop.schema.json matrix) → the
+/// DiplomaType the row is stored under (OnefopDiplomaData.diploma).
+const S22Q03_DIPLOMA_BY_SLUG: Record<string, string> = {
+  'cep__cepe__fslc': 'CEP',
+  'bepc__cap__gce-ol': 'BEPC',
+  'probatoire__lower_sixth': 'PROBATOIRE',
+  'bac__gce-al': 'BAC',
+  'bts__dut__hnd': 'BTS',
+  'licence_bacplus3__bachelor': 'LICENCE',
+  'maitrise_bacplus4__master_1': 'MAITRISE',
+  'master_bacplus5__master_2': 'MASTER',
+  'dqp__pqd': 'DQP',
+  'cqp__cpq': 'CQP',
+  'autres__others': 'AUTRES',
+  'sans_diplome__without_diploma': 'SANS_DIPLOME',
+  total: 'TOTAL',
+};
+
 @Injectable()
 export class CanonicalSchemaAdapterService {
   private readonly logger = new Logger(CanonicalSchemaAdapterService.name);
@@ -1727,15 +1745,7 @@ export class CanonicalSchemaAdapterService {
 
     // 2. diplomaData
     if (cellId.startsWith('s22q03_')) {
-      const items = submission.diplomaData as any[] | undefined;
-      if (!items) return undefined;
-      const match = items.find((i) => {
-        const dipKey = i.cspCategory
-          ? `s22q03_${i.cspCategory.toLowerCase()}_${i.diploma.toLowerCase()}_${i.gender.toLowerCase()}_${i.ageBand?.toLowerCase()}`
-          : `s22q03_${i.diploma.toLowerCase()}_${i.gender.toLowerCase()}_${i.ageBand?.toLowerCase()}`;
-        return cellId.toLowerCase() === dipKey;
-      });
-      return match ? match.value : undefined;
+      return this.s22q03Cell(cellId, submission);
     }
 
     // 3. disabilityData
@@ -2118,6 +2128,44 @@ export class CanonicalSchemaAdapterService {
     }
 
     return undefined;
+  }
+
+  /// Table 2.2.3 (S22Q03). The wizard stores it by staff category
+  /// (OnefopDiplomaData.cspCategory), the dataset carries diploma × sex × age
+  /// only, so a cell is the sum over categories. A total the file did not
+  /// store is the sum of its detail cells. A reported table counts an absent
+  /// cell as 0; a table declared NONE stays blank.
+  /// §21 entry of 2026-10-20 — before it, every S22Q03 cell was blank.
+  private s22q03Cell(cellId: string, submission: any): number | undefined {
+    const m = /^s22q03_(.+)_(male|female|total)_(15_24|25_34|35_plus|total)$/.exec(cellId.toLowerCase());
+    const diploma = m ? S22Q03_DIPLOMA_BY_SLUG[m[1]] : undefined;
+    if (!m || !diploma) return undefined;
+    const items = (submission.diplomaData as any[] | undefined) ?? [];
+    if (items.length === 0 && submission.rawData?.S22Q03_RESPONSE_STATUS !== 'REPORTED') return undefined;
+
+    const gender = m[2].toUpperCase();
+    const ageBand = this.mapAgeBandToEnum(m[3]);
+    const byCsp = new Map<string | null, any[]>();
+    for (const i of items) {
+      const csp = i.cspCategory ?? null;
+      byCsp.set(csp, [...(byCsp.get(csp) ?? []), i]);
+    }
+    let sum = 0;
+    for (const rows of byCsp.values()) sum += this.s22q03Value(rows, diploma, gender, ageBand);
+    return sum;
+  }
+
+  private s22q03Value(rows: any[], diploma: string, gender: string, ageBand: string): number {
+    const hit = rows.find((i) => i.diploma === diploma && i.gender === gender && (i.ageBand ?? 'TOTAL') === ageBand);
+    if (hit) return Number(hit.value) || 0;
+    const sumOf = (parts: string[], cell: (p: string) => number) => parts.reduce((s, p) => s + cell(p), 0);
+    if (ageBand === 'TOTAL') return sumOf(['AGE_15_24', 'AGE_25_34', 'AGE_35_PLUS'], (a) => this.s22q03Value(rows, diploma, gender, a));
+    if (gender === 'TOTAL') return sumOf(['MALE', 'FEMALE'], (g) => this.s22q03Value(rows, diploma, g, ageBand));
+    if (diploma === 'TOTAL') {
+      const detail = Object.values(S22Q03_DIPLOMA_BY_SLUG).filter((d) => d !== 'TOTAL');
+      return sumOf(detail, (d) => this.s22q03Value(rows, d, gender, ageBand));
+    }
+    return 0;
   }
 
   private mapAgeBandToEnum(ageKey: string): string {
