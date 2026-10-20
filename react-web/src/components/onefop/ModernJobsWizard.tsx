@@ -967,6 +967,8 @@ export function ModernJobsWizard({
                     const status = getSectionStatus(sec, data, validationIssues, true);
                     const isDone = status === "complete";
                     const isErr = status === "has-errors";
+                    const sectionName =
+                      (sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id;
                     return (
                       <div
                         key={sec.id}
@@ -1006,12 +1008,15 @@ export function ModernJobsWizard({
                             {isDone ? "✓" : isErr ? "!" : sIdx}
                           </span>
                           <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                            {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id}
+                            {sectionName}
                           </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleSelectSection(sIdx)}
+                          // Five « Modifier » in a row say nothing to a screen
+                          // reader: each names its section (audit C7).
+                          aria-label={t("editSectionAria", { section: sectionName })}
                           style={{
                             background: "none",
                             border: "none",
@@ -1160,7 +1165,7 @@ export function ModernJobsWizard({
                       padding: "8px 4px",
                     }}
                   >
-                    <span>←</span>
+                    <span aria-hidden="true">←</span>
                     <span>{locale === "fr" ? "Précédent" : "Previous"}</span>
                   </button>
 
@@ -1193,29 +1198,29 @@ export function ModernJobsWizard({
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={handleCorriger}
-                      style={{
-                        background: "var(--cam-surface)",
-                        border: "1px solid var(--cam-border)",
-                        borderRadius: "var(--cam-radius-sm)",
-                        padding: "10px 18px",
-                        fontSize: "var(--cam-font-size-xs)",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        color: "var(--cam-text)",
-                      }}
-                    >
-                      <span>
-                        {locale === "fr"
-                          ? (validationIssues.length > 0 ? `Corriger (${validationIssues.length})` : "Corriger")
-                          : (validationIssues.length > 0 ? `Edit (${validationIssues.length})` : "Edit")}
-                      </span>
-                    </button>
+                    {/* With nothing to correct it only reopened Section 0, a sixth
+                        « Modifier » beside the five above (audit C7). */}
+                    {validationIssues.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleCorriger}
+                        style={{
+                          background: "var(--cam-surface)",
+                          border: "1px solid var(--cam-border)",
+                          borderRadius: "var(--cam-radius-sm)",
+                          padding: "10px 18px",
+                          fontSize: "var(--cam-font-size-xs)",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          color: "var(--cam-text)",
+                        }}
+                      >
+                        <span>{t("fixIssues", { count: validationIssues.length })}</span>
+                      </button>
+                    )}
 
                     {onSubmitFinal && (
                       <button
@@ -1242,8 +1247,11 @@ export function ModernJobsWizard({
                           t("submitting")
                         ) : (
                           <>
-                            <span>{locale === "fr" ? "Vérifier & Soumettre" : "Review & Submit"}</span>
-                            <span>→</span>
+                            {/* « Vérifier » was this screen's own name: the button
+                                opens the official copy, where « Confirmer et
+                                soumettre » sends it (audit C7). */}
+                            <span>{t("submitDeclaration")}</span>
+                            <span aria-hidden="true">→</span>
                           </>
                         )}
                       </button>

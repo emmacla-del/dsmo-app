@@ -79,3 +79,35 @@ test("the review screen numbers a section as the rail does", () => {
     `no section is numbered past the last index, saw ${badges.join(", ")}`,
   );
 });
+
+// C7 (E2E 2026-10-18): the employer review screen read « Edit » five times
+// with no section, a sixth bare « Edit » that only reopened Section 0, the
+// arrows as part of the button names, and « Review & Submit » on the review
+// screen itself.
+
+const en = schemaEntity("enterprise");
+const enField = schemaField("enterprise", "S1Q03");
+const enEntity: OnefopEntity = {
+  ...en,
+  sections: en.sections.map((s) => ({ ...s, fields: [enField], subsections: [] })),
+};
+
+test("C7. every button on the review screen says what it does, once", () => {
+  writeWizardPosition(KEY, { stage: "review", sectionIndex: 0 });
+  const { container, unmount } = renderWithProviders(
+    <WizardShell entity={enEntity} data={{}} onChange={() => {}} positionKey={KEY} />,
+    { locale: "en", queryData: [[["onefop", "active-quarter"], { code: "QUARTERLY_2026_T4_001", isOpen: true }]] },
+  );
+  const q = within(container);
+  // One per section, each naming it.
+  assert.ok(q.getByRole("button", { name: "Edit the Departures section" }));
+  assert.ok(q.getByRole("button", { name: "Edit the Employment and labour section" }));
+  assert.equal(q.queryAllByRole("button", { name: "Edit" }).length, 0, "an « Edit » that names nothing is back");
+  // Nothing to correct, so no « Fix » either.
+  assert.equal(q.queryAllByRole("button", { name: /^Fix/ }).length, 0);
+  // The arrows are decoration, not part of the name.
+  assert.ok(q.getByRole("button", { name: "Previous" }));
+  assert.ok(q.getByRole("button", { name: "Submit the declaration" }));
+  assert.equal(q.queryAllByRole("button", { name: /Review & Submit/ }).length, 0);
+  unmount();
+});
