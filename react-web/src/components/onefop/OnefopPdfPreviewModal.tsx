@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { fetchDeclarationPreviewHtml, fetchDeclarationPreviewPdf } from "@/lib/onefop-submission";
+import { fetchDeclarationPreviewHtml, fetchDeclarationPreviewPdf, type SubmissionErrorDetail, type SubmissionErrorTarget } from "@/lib/onefop-submission";
+import { SubmissionErrorItems } from "./SubmissionErrorItems";
 import type { OnefopEntity } from "@/lib/onefop-schema";
 import { getZeroedTablesList, type ZeroedTableInfo } from "@/components/modern-jobs/scope/QuizSemantics";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
@@ -21,7 +22,9 @@ interface OnefopPdfPreviewModalProps {
   hasErrors?: boolean;
   validationErrorCount?: number;
   submissionResult?: string | null;
-  submissionError?: { summary: string; items: string[] } | null;
+  submissionError?: SubmissionErrorDetail | null;
+  /** Takes the respondent to a table or question a refused submission names. */
+  onGoToTarget?: (target: SubmissionErrorTarget) => void;
   establishmentName?: string;
 }
 
@@ -40,6 +43,7 @@ export function OnefopPdfPreviewModal({
   validationErrorCount = 0,
   submissionResult,
   submissionError,
+  onGoToTarget,
   establishmentName,
 }: OnefopPdfPreviewModalProps) {
   const [activeLocale, setActiveLocale] = useState<"fr" | "en">(locale);
@@ -503,13 +507,7 @@ export function OnefopPdfPreviewModal({
             }}
           >
             <strong>{submissionError.summary}</strong>
-            {submissionError.items?.length > 0 && (
-              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                {submissionError.items.map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))}
-              </ul>
-            )}
+            <SubmissionErrorItems detail={submissionError} onGoTo={onGoToTarget} />
           </div>
         )}
 
