@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../registration-messages';
 import { ESTABLISHMENT_ID_EXHAUSTED_MESSAGE } from '../utils/establishment-id.generator';
+import { DB_UNAVAILABLE_MESSAGE } from '../../prisma/transient-db-error';
 import { emptyValueRefusalMessage, verificationRefusalMessage } from '../../auth/registration-verification';
 import { ERROR_MESSAGES, errorLocaleFrom, findErrorMessage, translateErrorMessage } from './error-messages';
 import { LocalizedHttpExceptionFilter, localizeErrorBody } from './localized-http-exception.filter';
@@ -61,6 +62,7 @@ function forms(node: ts.Node, sf: ts.SourceFile, consts: Map<string, ts.Expressi
 const RESOLVED_ELSEWHERE = new Set([
   'REGISTRATION_REJECTED_LOGIN_MESSAGE',
   'ESTABLISHMENT_ID_EXHAUSTED_MESSAGE',
+  'DB_UNAVAILABLE_MESSAGE',
   'emptyValueRefusalMessage(emptyRows)',
   'verificationRefusalMessage(missingFlags)',
   'message', // staff-invitation-link boundedInt: callers pass the two range messages
@@ -124,6 +126,7 @@ describe('error message catalogue covers the backend', () => {
     for (const text of [
       REGISTRATION_REJECTED_LOGIN_MESSAGE,
       ESTABLISHMENT_ID_EXHAUSTED_MESSAGE,
+      DB_UNAVAILABLE_MESSAGE,
       emptyValueRefusalMessage(['cnpsVerified']),
       emptyValueRefusalMessage(['nameVerified', 'cnpsVerified']),
       verificationRefusalMessage(['nameVerified', 'phoneVerified']),

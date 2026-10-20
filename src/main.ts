@@ -1,5 +1,5 @@
 ﻿// main.ts
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
@@ -7,6 +7,7 @@ import compression from 'compression';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
 import { LocalizedHttpExceptionFilter } from './common/i18n/localized-http-exception.filter';
+import { TransientDbExceptionFilter } from './prisma/transient-db-exception.filter';
 
 async function bootstrap() {
   // Render's network has no outbound IPv6 route, but hosts like Gmail's SMTP
@@ -75,7 +76,12 @@ async function bootstrap() {
 
   // Error messages in the client's language (X-Locale: fr | en; French by
   // default). Translates `message` only; status and other fields unchanged.
-  app.useGlobalFilters(new LocalizedHttpExceptionFilter());
+  // A lost database connection is answered 503 « réessayez », not 500
+  // (prisma/transient-db-exception.filter.ts); other errors are unchanged.
+  app.useGlobalFilters(
+    new LocalizedHttpExceptionFilter(),
+    new TransientDbExceptionFilter(app.get(HttpAdapterHost).httpAdapter),
+  );
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');

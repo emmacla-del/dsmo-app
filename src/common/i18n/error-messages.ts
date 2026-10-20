@@ -41,6 +41,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     fr: "Le téléchargement n'a pas pu être enregistré ; réessayez dans un instant.",
     en: 'The download could not be recorded; try again in a moment.',
   },
+  {
+    fr: "Le service est momentanément indisponible : la base de données n'a pas répondu. Réessayez dans un instant.",
+    en: 'The service is briefly unavailable: the database did not respond. Try again in a moment.',
+  },
   // ── Authentication and accounts ──────────────────────────────────────
   { fr: 'Authentification requise.', en: 'Authentication required.' },
   { fr: 'Votre compte est en attente d\'approbation par un administrateur.', en: 'Your account is awaiting approval by an administrator.' },
