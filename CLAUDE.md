@@ -867,6 +867,41 @@ Approved changes on record:
   key in the submitted data that the canonical form has no question for — that
   half needs a decision of its own. No schema, cell key, variable or dataset
   version change. Approved by the owner in chat, 2026-10-19.
+- 2026-10-19 — a project's type of entity is asked at registration, and the
+  project form names that body (schema change; migration
+  `20261024120000_company_project_nature`). Issue: PP_S1Q01 read « Nature de
+  la structure » though only one of its four answers is a structure, and
+  registration offered « Projet ou programme », which a supervised structure
+  could not recognise itself in. Decision: the registration option reads
+  « Projet, programme ou structure sous-tutelle » and asks « Type d'entité »
+  (required for PROJECT_PROGRAM, server-side `@IsIn` on PP_S1Q01's four option
+  strings); `Company.projectNature` (nullable) stores that string, and the
+  wizard pre-fills PP_S1Q01 from it (`onefop-autofill.ts`), as `ctdType` does
+  CTD_S1Q01; the respondent's answer still wins. PP_S1Q01's AST label becomes
+  « Type d'entité » / "Type of entity"; id, path, options and stored values are
+  unchanged. Once PP_S1Q01 is answered, Sections 0 and 1 name that body
+  (`react-web/src/lib/pp-nature-wording.ts`): S0Q02, the Section 0 intro and
+  examples, PP_S1Q02 « Nom du programme », PP_S1Q13, the Section 1 heading
+  and rail, and the Section 2 rail entry (the identity card under that heading
+  reads « Désignation et tutelle », so it does not repeat it); unanswered or « Autres », they
+  say « du projet ou du programme ». NOT changed: the official PDF (its
+  S1Q01/S1Q02 wording), the Excel « Nature de la structure » column, and
+  PP_S1Q01's .sps variable label, held at « Nature de la structure » by
+  `EXPORT_LABEL_OVERRIDES` (`src/data-management/spss/export-labels.ts`, E12)
+  — « Type d'entité » is formType's label, and sharing it would make the E10
+  pass relabel formType in every export. Registrations made before this have
+  no value and are asked PP_S1Q01 as before. Approved by the owner in chat,
+  2026-10-19. Committed 2026-10-20 on the owner's instruction, after being
+  told that the .sps VARIABLE LABELS are read from the AST
+  (`labelFr: field.label.fr`), so the same pass's other AST wording edits DO
+  change the dictionary: « Milieu de résidence » → « Milieu d'implantation »
+  (S1Q03, COOP/CTD/ONG_S1Q04, ADMIN_S1Q03, PP_S1Q05; "Area" → "Area of
+  operation"), « Nombre d'employé(s) permanent(s) » / « de poste(s)
+  vacant(s) » made plural (CTD_S1Q09–10, ONG_S1Q10–11, PP_S1Q15–16),
+  PP_S1Q02 « Nom du projet / programme », PP_S1Q04, PP_S1Q12 « Ministère /
+  organisme de tutelle », PP_S1Q13 « Statut du projet / programme ». Variable
+  names, values, value labels and DATASET_SCHEMA_VERSION are unchanged
+  (`spss:registry` reports no change).
 
 ---
 
