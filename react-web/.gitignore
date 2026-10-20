@@ -52,6 +52,8 @@ mockups/
 *.png
 !public/images/**/*.png
 !public/images/*.png
+# App Router icon and share-preview files (icon, apple-icon, opengraph-image).
+!src/app/**/*.png
 scripts/debug_*.mjs
 scripts/test_*.mjs
 scripts/vt_*.mjs
