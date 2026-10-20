@@ -1,9 +1,39 @@
 # VT wizard — one table per screen in Sections 4 and 8
 
 **Date:** 2026-10-11
-**Status:** done 2026-10-11. Approved with the recommended option for
-D1–D4 (see "Decisions (resolved)"); all phases committed (see "Phases").
+**Status:** SUPERSEDED 2026-10-19 — see "Superseded" below. Done 2026-10-11,
+approved with the recommended option for D1–D4 (see "Decisions (resolved)");
+all phases committed (see "Phases").
 **Source:** VT wizard audit, finding R8 and §D1 (`docs/ui-ux/VT_WIZARD_AUDIT.md`).
+
+## Superseded (2026-10-19)
+
+The owner asked for the opposite of D2: everything a section keeps after the
+preliminary questionnaire is shown at once, in one continuous column, so a
+respondent fills a section by scrolling it. This was asked for the
+project/programme and employer wizards first (`SectionRenderer`), then for
+Sections 4 and 8 here.
+
+What changed, against the design below:
+
+- **D2** — the tables of Sections 4 and 8 stand in one column. The step list
+  (D1) stays, above the column: it is an outline that jumps to a table and
+  marks the one last jumped to, not a switch between screens.
+- **D3** — Next and Previous move between sections, not between tables, and
+  Next checks the whole section, as it does in every other section. A table
+  the questionnaire switched off is a one-line note in the column, where it
+  was a step Next skipped. `lib/vt-table-steps.ts` keeps the rules about
+  steps it still answers (which one owns an issue, which one applies, which
+  is first); `vtNextStep`, `vtPreviousStep` and `vtStepIssues` have no
+  caller while the column stands.
+- The advisory and blocking cross-table lines are the section's: every table
+  being on screen, each line links to both of its tables rather than to "the
+  other one".
+- The column's width follows the section's widest table again, not the step's.
+
+What stays: everything under "What stays the same" below — the same data,
+the same validation rules, the same preliminary questionnaire, the same
+section-level gating, Tableau/Guidé, and Sections 1–3, 5–7 and 9.
 
 ## Goal
 
