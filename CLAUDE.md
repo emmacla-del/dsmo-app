@@ -902,6 +902,24 @@ Approved changes on record:
   organisme de tutelle », PP_S1Q13 « Statut du projet / programme ». Variable
   names, values, value labels and DATASET_SCHEMA_VERSION are unchanged
   (`spss:registry` reports no change).
+- 2026-10-20 — employer table 2.2.3 (S22Q03, recruitment by diploma) reaches
+  the SPSS/CSV dataset (`CanonicalSchemaAdapterService.s22q03Cell`,
+  `S22Q03_DIPLOMA_BY_SLUG` in `canonical-schema-adapter.service.ts`). Issue:
+  every s22q03_* variable was blank for every employer file (E2E 2026-10-20,
+  submission b6bd2eaa). The wizard stores the table by staff category
+  (`s22q03_<csp>_<diploma>_<sex>_<age>`, OnefopDiplomaData.cspCategory), the
+  dataset carries diploma × sex × age only (`s22q03_bac__gce-al_male_25_34`),
+  and the resolver matched neither the category, the diploma code (BAC vs
+  bac__gce-al) nor the age band (AGE_25_34 vs 25_34). Fix: a dataset cell is
+  the SUM over staff categories of the stored rows for its diploma, sex and
+  age band; a total the file did not store is summed from its detail cells; a
+  REPORTED table counts an absent cell as 0, a NONE table stays blank (as
+  2.2.1 does). Variable names, labels, order, the frozen registry and
+  DATASET_SCHEMA_VERSION (13) are unchanged; only values that were wrongly
+  blank are filled. The per-category breakdown stays out of the dataset — adding
+  it would be a new dataset version and a decision of its own. The official PDF
+  and the Excel export already read this table correctly and are unchanged.
+  Approved by the owner in chat, 2026-10-20.
 
 ---
 
