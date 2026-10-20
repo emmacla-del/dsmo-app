@@ -755,13 +755,39 @@ export function WizardShell({
           submissionResult={submissionResult}
           submissionId={submissionId}
           submissionError={submissionError}
-          onPreviewPdf={submissionResult ? () => pdfMutation.mutate(formLocale) : () => setPreviewModalOpen(true)}
+          onPreviewPdf={
+            submissionResult
+              ? () => pdfMutation.mutate(formLocale)
+              // Beside the form on a wide screen, as for a training centre;
+              // the full-screen window on a narrower one.
+              : showFullRail
+                ? () => setSidePreviewOpen((prev) => !prev)
+                : () => setPreviewModalOpen(true)
+          }
           isGeneratingPdf={pdfMutation.isPending}
           establishmentName={effectiveEstablishment}
           establishmentId={establishmentId}
           niu={niu}
           quarterCode={effectiveQuarter}
           positionKey={positionKey}
+          sidePreview={
+            sidePreviewOpen && !submissionResult ? (
+              <OnefopSidePreviewPanel
+                isOpen
+                onClose={() => setSidePreviewOpen(false)}
+                onExpandModal={() => {
+                  setSidePreviewOpen(false);
+                  setPreviewModalOpen(true);
+                }}
+                entityType={entityType}
+                data={data}
+                quarterCode={effectiveQuarter}
+                locale={formLocale}
+                entity={entity}
+                establishmentName={effectiveEstablishment}
+              />
+            ) : undefined
+          }
         />
         <OnefopPdfPreviewModal
           entity={entity}

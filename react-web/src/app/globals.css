@@ -4391,3 +4391,38 @@ textarea.sovereign-text-input {
 .cam-language-link[aria-busy="true"] {
   cursor: progress;
 }
+
+/* The Modern Jobs rail (ModernJobsSidebar: project, enterprise, CTD,
+   cooperative, NGO, administration) holds seven to nine steps, not VT's
+   eleven, so it keeps the registration panel's 12px rows down to a 700px
+   viewport instead of the 760px squeeze written for VT (owner, 2026-10-20:
+   the project rail read cramped). One class heavier than that rule. */
+.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) {
+  gap: var(--cam-space-6);
+  padding-top: var(--cam-space-6);
+}
+
+.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step-button {
+  padding: var(--cam-space-3) 0;
+}
+
+.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
+  top: calc(var(--cam-space-3) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+  bottom: calc(var(--cam-space-hairline) - var(--cam-space-3));
+}
+
+@media (max-height: 700px) {
+  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) {
+    gap: var(--cam-space-4);
+    padding-top: var(--cam-space-4);
+  }
+
+  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step-button {
+    padding: var(--cam-space-2) 0;
+  }
+
+  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
+    top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+    bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
+  }
+}

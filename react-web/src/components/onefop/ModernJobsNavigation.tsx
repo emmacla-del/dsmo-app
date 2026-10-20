@@ -19,6 +19,9 @@ interface ModernJobsNavigationProps {
   nextLabel?: string;
   prevLabel?: string;
   stepIndicator?: string;
+  /** Room left at the right for the live PDF preview beside the form, so
+   *  the bar ends where the form does instead of covering the preview. */
+  rightInset?: string;
 }
 
 /**
@@ -41,6 +44,7 @@ export function ModernJobsNavigation({
   nextLabel,
   prevLabel,
   stepIndicator,
+  rightInset,
 }: ModernJobsNavigationProps) {
   const t = useTranslations("modernJobs.nav");
   const isFirst = !isScopeStage && !isValidationStage && currentSectionIndex === 0;
@@ -53,7 +57,7 @@ export function ModernJobsNavigation({
         position: "fixed",
         bottom: 0,
         left: 0,
-        right: 0,
+        right: rightInset ?? 0,
         zIndex: 40,
         background: "var(--cam-surface)",
         borderTop: "1px solid var(--cam-border)",
