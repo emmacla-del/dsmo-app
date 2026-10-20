@@ -109,7 +109,7 @@
 
 .container {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 0 var(--cam-space-6);
 }
@@ -365,12 +365,6 @@
   background: var(--cam-portal-bg);
 }
 
-.heroContainer {
-  max-width: 1380px;
-  padding-left: var(--cam-space-6);
-  padding-right: var(--cam-space-3);
-}
-
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(440px, 0.9fr);
@@ -542,7 +536,7 @@
 /* Title in the aside column, content beside it. */
 .sectionGrid {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 0 var(--cam-space-6);
   display: grid;

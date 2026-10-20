@@ -35,7 +35,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
     <>
       {/* 01 · Hero */}
       <section className={styles.hero}>
-        <div className={`${styles.container} ${styles.heroContainer} ${styles.heroGrid}`}>
+        <div className={`${styles.container} ${styles.heroGrid}`}>
           <div>
             <span className={styles.kicker}>{t("homeEyebrow")}</span>
             <h1>{t("homeH1")}</h1>
