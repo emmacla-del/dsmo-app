@@ -310,7 +310,7 @@ export function CameroonGeographySelector({
         <div style={{ marginTop: 14, display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span
             style={{
-              fontSize: 16,
+              fontSize: "var(--cam-font-size-base)",
               color: !selectedRegionId ? "var(--cam-placeholder)" : "var(--cam-text-muted)",
               lineHeight: 1,
               marginTop: 30,
@@ -378,7 +378,7 @@ export function CameroonGeographySelector({
         <div style={{ marginTop: 14, display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span
             style={{
-              fontSize: 16,
+              fontSize: "var(--cam-font-size-base)",
               color: !selectedDeptId ? "var(--cam-placeholder)" : "var(--cam-text-muted)",
               lineHeight: 1,
               marginTop: 30,

@@ -118,7 +118,7 @@ export function FactsTracker({
             padding: "28px 12px",
             textAlign: "center",
             color: "var(--cam-text-muted)",
-            fontSize: 12.5,
+            fontSize: "var(--cam-font-size-xs)",
             lineHeight: 1.5,
             flex: 1,
             display: "grid",
@@ -166,7 +166,7 @@ export function FactsTracker({
                       padding: "8px 10px",
                       fontWeight: 700,
                       color: "var(--cam-text-muted)",
-                      fontSize: 12.5,
+                      fontSize: "var(--cam-font-size-xs)",
                       whiteSpace: "nowrap",
                       width: col.width,
                       minWidth: col.minWidth,
@@ -200,7 +200,7 @@ export function FactsTracker({
                           padding: "2px 7px",
                           borderRadius: 4,
                           fontWeight: 700,
-                          fontSize: 12.5,
+                          fontSize: "var(--cam-font-size-xs)",
                           background: isYes ? "var(--cam-success-bg)" : "var(--cam-surface-subtle)",
                           color: isYes ? "var(--cam-green)" : "var(--cam-text-muted)",
                         }}
@@ -335,7 +335,7 @@ export function FactsTracker({
                 background: "var(--cam-surface-subtle)",
                 padding: "1px 5px",
                 borderRadius: 3,
-                fontSize: 10,
+                fontSize: "var(--cam-font-size-3xs)",
                 color: "var(--cam-text-muted)",
               }}
             >

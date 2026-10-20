@@ -224,13 +224,9 @@ export function VtValidationScreen({
         // Focus target of WizardShell when Validation opens (useStepFocus).
         id={VT_VALIDATION_HEADING_ID}
         tabIndex={-1}
-        style={{
-          fontSize: "22px",
-          fontWeight: 700,
-          color: "var(--cam-text)",
-          margin: "0 0 var(--cam-space-3)",
-          outline: "none",
-        }}
+        // The section heading's style, as the employer review's heading.
+        className="cam-step-title"
+        style={{ margin: "0 0 var(--cam-space-3)" }}
       >
         {/* Not "Thank you": nothing is submitted yet (audit R1). */}
         {t("vtValidationScreen.checkAnswersTitle")}
@@ -325,7 +321,7 @@ export function VtValidationScreen({
           aria-labelledby={`${COHERENCE_PANEL_ID}-title`}
           style={{ ...noticeStyle, background: "var(--cam-notice-surface)", border: "1px solid var(--cam-gold)", outline: "none" }}
         >
-          <h2 id={`${COHERENCE_PANEL_ID}-title`} style={{ margin: "0 0 var(--cam-space-2)", fontSize: "15px", fontWeight: 600 }}>
+          <h2 id={`${COHERENCE_PANEL_ID}-title`} style={{ margin: "0 0 var(--cam-space-2)", fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-semibold)" }}>
             {t("vtValidationScreen.coherence.title")}
           </h2>
           <p style={{ margin: "0 0 var(--cam-space-3)" }}>{t("vtValidationScreen.coherence.intro")}</p>
@@ -352,7 +348,7 @@ export function VtValidationScreen({
         {sectionSummaries.map(({ index, section, stats }) => (
           <li key={section.id} style={{ borderTop: "1px solid var(--cam-border)", padding: "var(--cam-space-4) 0" }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "var(--cam-space-2) var(--cam-space-4)" }}>
-              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "var(--cam-text)" }}>
+              <h2 style={{ margin: 0, fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>
                 {t("vtValidationScreen.sectionLabel", {
                   number: index,
                   name: getVtSectionShortLabel(section.id, locale) ?? localized(section.title, locale.startsWith("en") ? "en" : "fr"),

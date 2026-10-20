@@ -50,7 +50,7 @@ export function SkipLogicBanner({
           color: "var(--cam-green)",
           display: "grid",
           placeItems: "center",
-          fontSize: 16,
+          fontSize: "var(--cam-font-size-base)",
           fontWeight: 700,
           flexShrink: 0,
         }}

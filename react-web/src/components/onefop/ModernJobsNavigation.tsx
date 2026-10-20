@@ -104,55 +104,30 @@ export function ModernJobsNavigation({
               justifyContent: "space-between",
             }}
           >
-            {/* Left Action: Plain text Previous button aligned under card left edge */}
+            {/* Previous and Next: the .cam-button pair the VT wizard uses
+                (WizardShell), so every form's buttons share one size. */}
             <button
               type="button"
               onClick={onPrev}
               disabled={isFirst}
-              className="cam-hoverable"
+              className="cam-button cam-button-secondary"
               style={{
-                background: "transparent",
-                border: "none",
-                color: isFirst ? "var(--cam-border-strong)" : "var(--cam-text-muted)",
-                fontSize: "var(--cam-font-size-sm, 14px)",
-                fontWeight: 600,
-                fontFamily: "var(--cam-font-sans)",
-                cursor: isFirst ? "not-allowed" : "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "8px 4px",
-                transition: "color 0.15s ease",
+                ...(isFirst ? { opacity: 0.6, cursor: "not-allowed" } : null),
               }}
             >
               <span aria-hidden="true">←</span>
               <span>{prevLabel ?? t("previous")}</span>
             </button>
 
-            {/* Right Action: Primary Continue button aligned under card right edge */}
             <button
               type="button"
               onClick={onNext}
               disabled={!canAdvance || isSubmitting}
-              className="cam-hoverable"
-              style={{
-                background: "var(--cam-green)",
-                border: "none",
-                color: "var(--cam-white)",
-                borderRadius: "var(--cam-radius-control, 6px)",
-                height: "var(--cam-button-height, 44px)",
-                padding: "0 24px",
-                fontSize: "var(--cam-font-size-sm, 14px)",
-                fontWeight: 600,
-                fontFamily: "var(--cam-font-sans)",
-                cursor: (!canAdvance || isSubmitting) ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                opacity: (!canAdvance || isSubmitting) ? 0.6 : 1,
-                boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
-                transition: "background-color 0.15s ease, opacity 0.15s ease",
-              }}
+              className="cam-button cam-button-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
             >
               <span>
                 {nextLabel ?? (

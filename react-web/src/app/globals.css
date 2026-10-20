@@ -231,13 +231,6 @@ body {
   padding: 0;
 }
 
-.cam-question-label {
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
-  color: var(--cam-text);
-  margin-bottom: var(--cam-space-2);
-}
-
 /* ── CAM-LEAP authentication styling (Login/Register/Verify Email/Forgot
    Password) ──────────────────────────────────────────────────────────
    Auth-scoped styles faithfully reproducing the visual source of truth
@@ -389,6 +382,92 @@ body {
   padding: var(--cam-space-hairline) var(--cam-space-2);
   border-radius: var(--cam-radius-md);
   display: inline-block;
+}
+
+/* Modern Official Credential Box */
+.cam-auth-page .receipt-credential-box {
+  background: var(--cam-surface-subtle);
+  border: 1px solid var(--cam-border);
+  border-left: 4px solid var(--cam-primary);
+  border-radius: var(--cam-radius-md);
+  padding: var(--cam-space-4);
+  margin-bottom: var(--cam-space-5);
+  text-align: left;
+}
+
+.cam-auth-page .receipt-credential-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-auth-page .receipt-credential-title {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--cam-tracking-label);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page .receipt-credential-value {
+  font-family: var(--cam-font-mono, monospace);
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  letter-spacing: 0.05em;
+  color: var(--cam-primary-dark);
+  margin-bottom: var(--cam-space-2);
+  user-select: all;
+  word-break: break-all;
+}
+
+.cam-auth-page .receipt-summary-card {
+  border-top: 1px solid var(--cam-border);
+  border-bottom: 1px solid var(--cam-border);
+  padding: var(--cam-space-2) 0;
+  margin-bottom: var(--cam-space-5);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-auth-page .receipt-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--cam-space-2) 0;
+  gap: var(--cam-space-3);
+}
+
+.cam-auth-page .receipt-summary-row:not(:last-child) {
+  border-bottom: 1px solid var(--cam-border-subtle, rgba(0, 0, 0, 0.05));
+}
+
+.cam-auth-page .receipt-summary-label {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  flex-shrink: 0;
+}
+
+.cam-auth-page .receipt-summary-value {
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  text-align: right;
+  word-break: break-word;
+}
+
+.cam-auth-page .receipt-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-2);
+  background: var(--cam-info-bg);
+  border: 1px solid var(--cam-info-border);
+  border-radius: var(--cam-radius-md);
+  padding: var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text);
+  line-height: var(--cam-line-height-ui);
+  margin-bottom: var(--cam-space-5);
+  text-align: left;
 }
 
 /* The establishment ID on its own, above the receipt table: the one value
@@ -3956,7 +4035,7 @@ textarea.sovereign-text-input {
 
 .cam-dt .cam-dt-rowcode {
   font-family: var(--cam-font-mono);
-  font-size: 0.75rem;
+  font-size: var(--cam-font-size-2xs);
   font-weight: 600;
   color: var(--cam-table-frame);
 }

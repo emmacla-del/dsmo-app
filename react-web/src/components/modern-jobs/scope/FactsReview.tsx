@@ -57,8 +57,8 @@ export function FactsReview({
       >
         <h2
           style={{
-            fontSize: 20,
-            fontWeight: 800,
+            fontSize: "var(--cam-font-size-lg)",
+            fontWeight: "var(--cam-font-weight-bold)",
             margin: "0 0 6px",
             color: "var(--cam-text)",
           }}
@@ -95,7 +95,7 @@ export function FactsReview({
             gap: 10,
           }}
         >
-          <span style={{ fontSize: 16 }}>⚠️</span>
+          <span style={{ fontSize: "var(--cam-font-size-base)" }}>⚠️</span>
           <span>{warningText}</span>
         </div>
       )}

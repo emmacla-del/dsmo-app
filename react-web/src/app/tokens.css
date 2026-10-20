@@ -673,6 +673,13 @@
   background: var(--vt-bg);
 }
 
+/* The employer and project questionnaires (ModernJobsWizard) sit outside
+   .vt-wizard, so their boxes and buttons drew at the 40px admin height:
+   36px on every respondent form, as VT. */
+[data-mj-root] {
+  --cam-form-field-height: var(--cam-respondent-field-height);
+}
+
 /* The registration wizard's boxes, the same height as the questionnaires'. */
 .cam-auth-page--wizard {
   --cam-field-height: var(--cam-respondent-field-height);

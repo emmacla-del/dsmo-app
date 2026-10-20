@@ -18,7 +18,7 @@ import { extractCleanErrorMessage } from "@/lib/onefop-validation";
 import { ppFieldLabel, ppNatureKindOf } from "@/lib/pp-nature-wording";
 
 /** Question text: the --cam-question-* tokens every respondent form shares
- *  (15px semibold); answers are --cam-answer-size (14px), hints 12px. */
+ *  (15px medium); answers are --cam-answer-size (14px), hints 12px. */
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "var(--cam-question-size)",

@@ -26,9 +26,7 @@ import {
 } from "./vt-wizard-utils";
 import {
   VT_COMPACT_TOGGLE_SECTION_IDS,
-  VT_ACCENT,
   VT_CARD_BORDER,
-  VT_INK_SOFT,
   vtWizardTabLabel,
   vtWizardTranslateGroupTitle,
   vtWizardGetFineGroups,
@@ -1506,17 +1504,7 @@ export function VtWizardSectionScreen({
           <button
             type="button"
             onClick={onBack}
-            style={{
-              height: 40,
-              padding: "0 20px",
-              borderRadius: 6,
-              fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 600,
-              border: `1px solid ${VT_CARD_BORDER}`,
-              background: "var(--cam-white)",
-              color: VT_INK_SOFT,
-              cursor: "pointer",
-            }}
+            className="cam-button cam-button-secondary"
           >
             ←{" "}
             {isFirst && onSaveAndExit
@@ -1529,17 +1517,7 @@ export function VtWizardSectionScreen({
               type="button"
               onClick={onSaveAndExit}
               disabled={saving}
-              style={{
-                height: 40,
-                padding: "0 20px",
-                borderRadius: 6,
-                fontSize: "var(--cam-font-size-xs)",
-                fontWeight: 600,
-                border: `1px solid ${VT_CARD_BORDER}`,
-                background: "var(--cam-white)",
-                color: VT_INK_SOFT,
-                cursor: "pointer",
-              }}
+              className="cam-button cam-button-secondary"
             >
               {t("vtWizard.saveAndExit", { default: "Enregistrer et quitter" })}
             </button>
@@ -1547,17 +1525,7 @@ export function VtWizardSectionScreen({
           <button
             type="button"
             onClick={onNext}
-            style={{
-              height: 40,
-              padding: "0 24px",
-              borderRadius: 6,
-              fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 800,
-              border: "none",
-              background: VT_ACCENT,
-              color: "var(--cam-white)",
-              cursor: "pointer",
-            }}
+            className="cam-button cam-button-primary"
           >
             {isLast
               ? t("vtWizard.proceedToValidation", { default: "Passer à la Validation" })

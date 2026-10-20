@@ -525,17 +525,17 @@ export function GuidedStatisticalEntry({
         className={`w-full flex flex-col items-center justify-center p-8 bg-[var(--cam-surface-subtle)] border border-[var(--cam-border)] rounded-[6px] text-center gap-3 font-sans ${className}`}
         data-testid={`guided-empty-${definition.id}`}
       >
-        <h4 className="text-base font-bold text-[var(--cam-text)]">
+        <h4 className="text-[length:var(--cam-font-size-base)] font-bold text-[var(--cam-text)]">
           {t("noActiveCategories")}
         </h4>
-        <p className="text-xs text-[var(--cam-text-muted)] max-w-md">
+        <p className="text-[length:var(--cam-font-size-2xs)] text-[var(--cam-text-muted)] max-w-md">
           {t("excludedByQuiz")}
         </p>
         {onOpenScope && (
           <button
             type="button"
             onClick={onOpenScope}
-            className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-xs font-semibold bg-white border border-[var(--cam-green)] text-[var(--cam-green)] hover:bg-[var(--cam-success-bg)] transition-colors cursor-pointer"
+            className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[length:var(--cam-font-size-2xs)] font-semibold bg-white border border-[var(--cam-green)] text-[var(--cam-green)] hover:bg-[var(--cam-success-bg)] transition-colors cursor-pointer"
           >
             {t("modifyScope")}
           </button>
@@ -587,16 +587,16 @@ export function GuidedStatisticalEntry({
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 data-guided-review-heading tabIndex={-1} className="text-base font-bold text-[var(--cam-text)] m-0 outline-none">
+            <h3 data-guided-review-heading tabIndex={-1} className="text-[length:var(--cam-font-size-base)] font-bold text-[var(--cam-text)] m-0 outline-none">
               {t("checkAnswers")}
             </h3>
-            <p className="text-xs text-[var(--cam-text-muted)] mt-1 mb-0">
+            <p className="text-[length:var(--cam-font-size-2xs)] text-[var(--cam-text-muted)] mt-1 mb-0">
               {t("checkAnswersHint")}
             </p>
           </div>
           {contractLabel && (
             <span
-              className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-[3px] border ${
+              className={`text-[length:var(--cam-font-size-3xs)] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-[3px] border ${
                 contract === "permanent"
                   ? "text-emerald-800 bg-emerald-50 border-emerald-200"
                   : "text-amber-800 bg-amber-50 border-amber-200"
@@ -610,7 +610,7 @@ export function GuidedStatisticalEntry({
         {!allAnswered && (
           <div
             role="status"
-            className="flex flex-wrap items-center justify-between gap-3 text-[13px] font-semibold px-3.5 py-2.5 rounded-[6px] border bg-[var(--cam-warning-bg)] border-[var(--cam-warning-border)] text-[var(--cam-text)]"
+            className="flex flex-wrap items-center justify-between gap-3 text-[length:var(--cam-font-size-xs)] font-semibold px-3.5 py-2.5 rounded-[6px] border bg-[var(--cam-warning-bg)] border-[var(--cam-warning-border)] text-[var(--cam-text)]"
           >
             <span>
               {t("unansweredCount", { count: unansweredQuestions.length })}
@@ -628,7 +628,7 @@ export function GuidedStatisticalEntry({
         <div className="bg-white border border-[var(--cam-border)] rounded-[8px] divide-y divide-[var(--cam-border-subtle)]">
           {groups.map((g) => (
             <div key={g.title} className="px-4 sm:px-5 py-3">
-              <div className="text-[13px] font-bold text-[var(--cam-text)] mb-1">{g.title}</div>
+              <div className="text-[length:var(--cam-font-size-xs)] font-bold text-[var(--cam-text)] mb-1">{g.title}</div>
               {g.items.map(({ q: qq, idx }) => {
                 const answered = isQuestionAnswered(qq);
                 const total = qq.getCurrentTotal(data);
@@ -642,22 +642,22 @@ export function GuidedStatisticalEntry({
                 const detail = answered && total > 0 ? splitText(qq) : "";
                 return (
                   <div key={qq.id} className="flex items-baseline justify-between gap-3 py-1.5">
-                    <span className="text-[13px] text-[var(--cam-text-muted)] min-w-0">{label}</span>
+                    <span className="text-[length:var(--cam-font-size-xs)] text-[var(--cam-text-muted)] min-w-0">{label}</span>
                     <span className="flex items-baseline gap-3 shrink-0">
                       {answered ? (
-                        <span className="text-[13px] text-[var(--cam-text)] text-right">
+                        <span className="text-[length:var(--cam-font-size-xs)] text-[var(--cam-text)] text-right">
                           <b className="tabular-nums">{people(total)}</b>
                           {detail && <span className="text-[var(--cam-text-muted)]"> ({detail})</span>}
                         </span>
                       ) : (
-                        <span className="text-[13px] font-semibold text-[var(--cam-warning)]">
+                        <span className="text-[length:var(--cam-font-size-xs)] font-semibold text-[var(--cam-warning)]">
                           {t("notAnswered")}
                         </span>
                       )}
                       <button
                         type="button"
                         onClick={() => goTo(idx)}
-                        className="text-xs font-semibold text-[var(--cam-green)] underline bg-transparent border-none p-0 cursor-pointer"
+                        className="text-[length:var(--cam-font-size-2xs)] font-semibold text-[var(--cam-green)] underline bg-transparent border-none p-0 cursor-pointer"
                       >
                         {t("change")}
                         {/* "Change" alone is ambiguous in a list of links. */}
@@ -673,8 +673,8 @@ export function GuidedStatisticalEntry({
             </div>
           ))}
           <div className="px-4 sm:px-5 py-3 flex items-baseline justify-between gap-3 bg-[var(--cam-surface-subtle)] rounded-b-[8px]">
-            <span className="text-[13px] font-bold text-[var(--cam-text)]">{t("total")}</span>
-            <b className="text-[13px] tabular-nums text-[var(--cam-text)]">{people(grandTotal)}</b>
+            <span className="text-[length:var(--cam-font-size-xs)] font-bold text-[var(--cam-text)]">{t("total")}</span>
+            <b className="text-[length:var(--cam-font-size-xs)] tabular-nums text-[var(--cam-text)]">{people(grandTotal)}</b>
           </div>
         </div>
       </div>
@@ -741,7 +741,7 @@ export function GuidedStatisticalEntry({
             style={{ width: `${(answeredCount / questions.length) * 100}%` }}
           />
         </div>
-        <span className="text-xs font-semibold text-[var(--cam-text-muted)] whitespace-nowrap">
+        <span className="text-[length:var(--cam-font-size-2xs)] font-semibold text-[var(--cam-text-muted)] whitespace-nowrap">
           {t("questionOf", { current: safeIdx + 1, total: questions.length })}
         </span>
       </div>
@@ -753,13 +753,13 @@ export function GuidedStatisticalEntry({
         {/* ── Context: group being asked about. A muted line, not a grey
             box inside a card (owner, 2026-10-10: no decoration). ── */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-[var(--cam-text-muted)]">
+          <div className="text-[length:var(--cam-font-size-sm)] text-[var(--cam-text-muted)]">
             {q.categoryTag || q.rowLabel}
             {q.dimensionTag && <span className="font-semibold"> · {q.dimensionTag}</span>}
           </div>
           <div className="flex items-center gap-3">
             {contractBadgeLabel && (
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-[var(--cam-radius-sm)] border ${contractBadgeClass}`}>
+              <span className={`text-[length:var(--cam-font-size-2xs)] font-semibold px-2 py-0.5 rounded-[var(--cam-radius-sm)] border ${contractBadgeClass}`}>
                 {contractBadgeLabel}
               </span>
             )}
@@ -768,7 +768,7 @@ export function GuidedStatisticalEntry({
                 type="button"
                 onClick={() => handleClearQuestion(q)}
                 disabled={disabled}
-                className="text-xs font-medium text-[var(--cam-error)] hover:underline cursor-pointer bg-transparent border-none p-0"
+                className="text-[length:var(--cam-font-size-2xs)] font-medium text-[var(--cam-error)] hover:underline cursor-pointer bg-transparent border-none p-0"
               >
                 {t("clear")}
               </button>
@@ -782,7 +782,7 @@ export function GuidedStatisticalEntry({
           <h3 className="text-[length:var(--cam-font-size-lg)] font-bold text-[var(--cam-text)] leading-snug m-0">
             {q.prompt}
           </h3>
-          <p className="text-xs text-[var(--cam-text-muted)] m-0">
+          <p className="text-[length:var(--cam-font-size-2xs)] text-[var(--cam-text-muted)] m-0">
             {q.textField
               ? t("fewerThanThree")
               : t("zeroIsValid")}
@@ -794,7 +794,7 @@ export function GuidedStatisticalEntry({
           <div className="flex flex-col gap-2">
             <label
               htmlFor={`${baseId}_text_${q.id}`}
-              className="text-xs font-bold text-[var(--cam-text-muted)]"
+              className="text-[length:var(--cam-font-size-2xs)] font-bold text-[var(--cam-text-muted)]"
             >
               {q.textField.label}
             </label>
@@ -819,7 +819,7 @@ export function GuidedStatisticalEntry({
         <div className="flex flex-col gap-2">
           <label
             htmlFor={`${baseId}_total_${q.id}`}
-            className="text-xs font-bold text-[var(--cam-text-muted)]"
+            className="text-[length:var(--cam-font-size-2xs)] font-bold text-[var(--cam-text-muted)]"
           >
             {t("totalNumber")}
           </label>
@@ -839,7 +839,7 @@ export function GuidedStatisticalEntry({
               onFocus={(e) => e.target.select()}
               className={`${inputBase} ${inputBorder((Boolean(error) && displayTotal === "") || rejectedInput === "total")}`}
             />
-            <span className="text-sm text-[var(--cam-text-muted)]">{t("persons")}</span>
+            <span className="text-[length:var(--cam-font-size-sm)] text-[var(--cam-text-muted)]">{t("persons")}</span>
           </div>
           {(targetNum === null || targetNum === 0) && (
             <div className="flex items-center gap-2.5 flex-wrap mt-1">
@@ -852,7 +852,7 @@ export function GuidedStatisticalEntry({
                 {t("none0")}
               </button>
               {targetNum === 0 && (
-                <span className="text-xs font-semibold text-[var(--cam-green)]">
+                <span className="text-[length:var(--cam-font-size-2xs)] font-semibold text-[var(--cam-green)]">
                   {t("declaredZero")}
                 </span>
               )}
@@ -865,7 +865,7 @@ export function GuidedStatisticalEntry({
           <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle)] flex flex-col gap-2.5">
             <label
               htmlFor={`${baseId}_${q.id}_split`}
-              className="text-sm sm:text-base font-semibold text-[var(--cam-text)]"
+              className="cam-question"
             >
               {firstGender === "female"
                 ? t("howManyWomen")
@@ -886,12 +886,12 @@ export function GuidedStatisticalEntry({
                 onFocus={(e) => e.target.select()}
                 className={`${inputBase} !w-28 ${inputBorder(Boolean(error) && displayTotal !== "" && rejectedInput !== "total")}`}
               />
-              <span className="text-sm text-[var(--cam-text-muted)]">
+              <span className="text-[length:var(--cam-font-size-sm)] text-[var(--cam-text-muted)]">
                 {firstGender === "female" ? t("women") : t("men")}
               </span>
               {deduced !== null && (
-                <span className="inline-flex items-center gap-2 text-[13px] px-3 py-2 rounded-[6px] bg-[var(--cam-success-bg)] border border-[var(--cam-success-border)] text-[var(--cam-text)]">
-                  <b className="text-lg text-[var(--cam-green)]">{deduced}</b>
+                <span className="inline-flex items-center gap-2 text-[length:var(--cam-font-size-xs)] px-3 py-2 rounded-[6px] bg-[var(--cam-success-bg)] border border-[var(--cam-success-border)] text-[var(--cam-text)]">
+                  <b className="text-[length:var(--cam-font-size-lg)] text-[var(--cam-green)]">{deduced}</b>
                   {firstGender === "female"
                     ? t("menDeduced")
                     : t("womenDeduced")}
@@ -909,7 +909,7 @@ export function GuidedStatisticalEntry({
                 });
                 setError(null);
               }}
-              className="self-start text-[11px] font-semibold text-[var(--cam-text-muted)] hover:text-[var(--cam-green)] underline cursor-pointer bg-transparent border-none p-0"
+              className="self-start text-[length:var(--cam-font-size-3xs)] font-semibold text-[var(--cam-text-muted)] hover:text-[var(--cam-green)] underline cursor-pointer bg-transparent border-none p-0"
             >
               {firstGender === "female"
                 ? t("enterMenFirst")
@@ -924,26 +924,26 @@ export function GuidedStatisticalEntry({
           return (
             <div className="pl-4 sm:pl-5 border-l-2 border-[var(--cam-border-subtle)] flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-                <p className="text-sm font-semibold text-[var(--cam-text)] m-0">{q.subPrompt}</p>
+                <p className="cam-question m-0">{q.subPrompt}</p>
                 {sum === targetNum ? (
-                  <span className="text-xs font-bold text-[var(--cam-green)]">
+                  <span className="text-[length:var(--cam-font-size-2xs)] font-bold text-[var(--cam-green)]">
                     {t("totalReached", { sum })}
                   </span>
                 ) : sum < targetNum ? (
                   <span className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[var(--cam-warning)]">
+                    <span className="text-[length:var(--cam-font-size-2xs)] font-semibold text-[var(--cam-warning)]">
                       {t("remainingToDistribute", { count: targetNum - sum })}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleAutoFillRemainder(q, targetNum, sum)}
-                      className="px-2 py-0.5 rounded-[3px] text-xs font-bold bg-white text-[var(--cam-green)] border border-[var(--cam-green)] hover:bg-[var(--cam-success-bg)] cursor-pointer"
+                      className="px-2 py-0.5 rounded-[3px] text-[length:var(--cam-font-size-2xs)] font-bold bg-white text-[var(--cam-green)] border border-[var(--cam-green)] hover:bg-[var(--cam-success-bg)] cursor-pointer"
                     >
                       {t("fillRest")}
                     </button>
                   </span>
                 ) : (
-                  <span className="text-xs font-bold text-[var(--cam-error)]">
+                  <span className="text-[length:var(--cam-font-size-2xs)] font-bold text-[var(--cam-error)]">
                     {t("exceedsBy", { count: sum - targetNum })}
                   </span>
                 )}
@@ -953,7 +953,7 @@ export function GuidedStatisticalEntry({
                   const inputId = `${baseId}_${q.id}_${b.fieldKey}`;
                   return (
                     <div key={b.fieldKey} className="flex items-center justify-between max-w-sm gap-4">
-                      <label htmlFor={inputId} className="text-sm font-medium text-[var(--cam-text)]">
+                      <label htmlFor={inputId} className="text-[length:var(--cam-font-size-sm)] font-medium text-[var(--cam-text)]">
                         {b.label}
                       </label>
                       <input
@@ -969,7 +969,7 @@ export function GuidedStatisticalEntry({
                         onChange={(e) => handleGeneralBreakdownChange(q, b.fieldKey, e.target.value)}
                         onKeyDown={handleKeyDown}
                         onFocus={(e) => e.target.select()}
-                        className={`w-20 h-10 px-2.5 text-center font-bold text-lg tabular-nums text-[var(--cam-text)] bg-white border rounded-[4px] outline-none focus:border-[var(--cam-green)] ${
+                        className={`w-20 h-10 px-2.5 text-center font-bold text-[length:var(--cam-font-size-lg)] tabular-nums text-[var(--cam-text)] bg-white border rounded-[4px] outline-none focus:border-[var(--cam-green)] ${
                           rejectedInput === b.fieldKey ? "border-[var(--cam-error)]" : "border-[var(--cam-border-strong)]"
                         }`}
                       />
@@ -985,13 +985,13 @@ export function GuidedStatisticalEntry({
           <div
             id={`${baseId}_error`}
             role="alert"
-            className="text-[13px] font-semibold px-3.5 py-2.5 rounded-[6px] border bg-[var(--cam-error-bg)] border-[var(--cam-error-border)] text-[var(--cam-error)]"
+            className="text-[length:var(--cam-font-size-xs)] font-semibold px-3.5 py-2.5 rounded-[6px] border bg-[var(--cam-error-bg)] border-[var(--cam-error-border)] text-[var(--cam-error)]"
           >
             {error}
           </div>
         )}
 
-        <p className="text-[11px] text-[var(--cam-text-muted)] m-0 hidden sm:block">
+        <p className="text-[length:var(--cam-font-size-3xs)] text-[var(--cam-text-muted)] m-0 hidden sm:block">
           {t("pressEnter")}
         </p>
       </div>

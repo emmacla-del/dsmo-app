@@ -1910,7 +1910,7 @@ a.cam-kpi-tile:focus-visible {
 }
 
 .cam-kpi-tile-arrow {
-  font-size: 20px;
+  font-size: var(--cam-font-size-lg);
   color: var(--cam-placeholder);
   flex-shrink: 0;
   transition: transform 0.15s ease;

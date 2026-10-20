@@ -393,11 +393,8 @@
 }
 
 .heroVisual {
-  background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-hairline);
-  border-radius: 20px;
-  padding: 8px;
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--cam-portal-teal-dark) 7%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--cam-portal-teal-dark) 18%, transparent);
   justify-self: end;
   width: 100%;
 }
