@@ -61,7 +61,12 @@ import {
   saveStoredDraftJson,
   toDraft,
 } from "@/lib/register-draft";
-import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, RESPONDENT_FUNCTION_OTHER } from "@/lib/register-options";
+import {
+  AREA_OPTIONS,
+  RESPONDENT_FUNCTION_OTHER,
+  functionFitsEntityType,
+  getRespondentFunctionOptions,
+} from "@/lib/register-options";
 import { saveLoginIdentifier } from "@/lib/login-handoff";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
 import {
@@ -952,6 +957,13 @@ export default function RegisterPage() {
       setEntityData((prev) => pruneEntityDataForType(prev, next));
     }
     setEntityType(next);
+    // Each type has its own list of functions: a title the new type does not
+    // offer is cleared, not left selected in a list that no longer shows it.
+    setRespondent((prev) =>
+      functionFitsEntityType(prev.function, next)
+        ? prev
+        : { ...prev, function: "", functionOther: "" },
+    );
     setSubmitError(null);
   }
 
@@ -1552,7 +1564,7 @@ export default function RegisterPage() {
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
                     <option value=""></option>
-                    {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
+                    {getRespondentFunctionOptions(entityType).map((o) => (
                       <option key={o.value} value={o.value}>
                         {localized(o.label, locale)}
                       </option>
