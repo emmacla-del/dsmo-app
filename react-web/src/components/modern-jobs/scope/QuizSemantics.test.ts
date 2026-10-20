@@ -11,6 +11,7 @@ import {
   tableNumericCellKeys,
   getZeroedTablesList,
   deriveQuizTableStatus,
+  zeroedCellsBackInView,
 } from "./QuizSemantics";
 import { cleanHiddenDependentFields } from "@/lib/onefop-schema";
 import { resolveTableStatusFieldId } from "../conditional/gateway-catalog";
@@ -515,4 +516,37 @@ test("Continue gate: once the quiz has written its statuses, tables answered No 
       );
     }
   }
+});
+
+// ── Audit C4: a table the quiz opens again comes back blank, not 0 ─────────
+
+test("C4. reopening a table lists the zeros it was given while closed, never a figure", () => {
+  const e = entity("enterprise");
+  const closed = withScope(ALL_NO);
+  // A draft saved before 2026-10-20 carried the submission's derived zeros.
+  const stale = { ...prepareSubmissionData(e, closed), _scopeConfig: ALL_NO, s21q01_cadres_male_15_24: 7 };
+  const opened: ScopeState = { ...ALL_NO, recruit: true, recruit_types: ["permanent"], recruit_csp: ["execution"], recruit_age: ["25_34"], recruit_diploma: ["bepc"], disability: false, vulnerable: false };
+  const after = { ...stale, _scopeConfig: opened, _scopeCsp: ["execution"], _scopeAge: ["25_34"] };
+  const cleared = new Set(zeroedCellsBackInView(e, stale, after));
+  const visible = tableNumericCellKeys(tableField(e, "S22Q01"), after, true);
+  assert.ok(visible.length > 0);
+  for (const key of visible) assert.ok(cleared.has(key), `${key} would reopen as 0`);
+  assert.ok(!cleared.has("s21q01_cadres_male_15_24"), "a typed figure is never cleared");
+  for (const key of tableNumericCellKeys(tableField(e, "S22Q02"), after, false)) {
+    assert.ok(!cleared.has(key), `${key} belongs to a table still closed`);
+  }
+});
+
+test("C4. a category added to an open table comes back blank; a 0 already in view stays", () => {
+  const e = entity("enterprise");
+  const base: ScopeState = { ...ALL_NO, applications: true, application_csp: ["execution"], application_age: ["25_34"] };
+  const before = { ...prepareSubmissionData(e, withScope(base)), _scopeConfig: base, s21q01_workers_male_25_34: 0 };
+  const widened: ScopeState = { ...base, application_csp: ["execution", "cadres"] };
+  const after: FormData = { ...before, _scopeConfig: widened };
+  const cleared = zeroedCellsBackInView(e, before, after);
+  const visibleBefore = new Set(tableNumericCellKeys(tableField(e, "S21Q01"), before, true));
+  const newlyVisible = tableNumericCellKeys(tableField(e, "S21Q01"), after, true).filter((k) => !visibleBefore.has(k));
+  assert.ok(newlyVisible.length > 0, "adding a category shows new cells");
+  assert.deepEqual(cleared.sort(), newlyVisible.filter((k) => after[k] === 0).sort());
+  for (const key of visibleBefore) assert.ok(!cleared.includes(key), `${key} was already in view and is the respondent's`);
 });

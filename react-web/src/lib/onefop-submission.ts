@@ -103,13 +103,12 @@ export function saveDraftToBackend(
    */
   options?: { keepalive?: boolean },
 ) {
-  // D7 fix: In drafts, preserve working quiz state (_scopeConfig, _scopeCsp, _scopeAge)
-  // so remote draft recovery preserves respondent interview answers.
-  // Full quiz derivation & stripping only runs on final submission.
-  const prepared = entity ? { ...prepareSubmissionData(entity, draftData) } : { ...draftData };
-  if (draftData._scopeConfig) prepared._scopeConfig = draftData._scopeConfig;
-  if (draftData._scopeCsp) prepared._scopeCsp = draftData._scopeCsp;
-  if (draftData._scopeAge) prepared._scopeAge = draftData._scopeAge;
+  // The draft is the respondent's working form, as the local copy holds it,
+  // quiz answers included (D7). Only hidden follow-ups are dropped. The
+  // quiz's derived zeros are NOT written here: they belong to the submission
+  // payload alone (QuizSemantics), and a draft carrying them reopened a table
+  // already "answered" with 0 once the quiz said Yes to it (audit C4).
+  const prepared = entity ? cleanHiddenDependentFields(entity, draftData) : { ...draftData };
 
   const body = JSON.stringify({
     quarterCode,

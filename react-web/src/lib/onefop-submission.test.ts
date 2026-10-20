@@ -83,3 +83,33 @@ test("a draft too big for a keepalive body is sent as an ordinary request, not d
     globalThis.fetch = original;
   }
 });
+
+// ── The draft holds the working form, not the submission payload (audit C4) ─
+
+test("a draft saved to the account carries no zeros the quiz derived", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const schema = JSON.parse(
+    readFileSync(join(process.env.REACT_WEB_ROOT ?? process.cwd(), "public", "schemas", "onefop.schema.json"), "utf-8"),
+  );
+  const { DEFAULT_SCOPE } = await import("@/components/modern-jobs/scope/ScopeTypes");
+  const scope = {
+    ...DEFAULT_SCOPE,
+    applications: true, application_csp: ["cadres"], application_age: ["15_24"],
+    recruit: false, primo_seekers: false, primo_workers: false, departures: false,
+    interns: false, skills_needs: false, training_needs: false,
+  };
+  const original = globalThis.fetch;
+  try {
+    const calls = recordRequest();
+    await saveDraftToBackend("enterprise", "QUARTERLY_2026_T4", { _scopeConfig: scope, s21q01_cadres_male_15_24: 4 }, schema.entities.enterprise);
+    const sent = JSON.parse(String(calls[0].body)).draftData as Record<string, unknown>;
+    assert.deepEqual(sent._scopeConfig, scope, "the quiz answers are kept");
+    assert.equal(sent.s21q01_cadres_male_15_24, 4, "a typed figure is kept");
+    const zeros = Object.entries(sent).filter(([, v]) => v === 0).map(([k]) => k);
+    assert.deepEqual(zeros, [], "the recruitment table the quiz closed was zero-filled into the draft");
+    assert.equal(sent.S22Q01_RESPONSE_STATUS, undefined, "no status was invented that the form did not hold");
+  } finally {
+    globalThis.fetch = original;
+  }
+});

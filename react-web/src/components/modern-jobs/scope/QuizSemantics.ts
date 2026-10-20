@@ -235,6 +235,55 @@ export function tableNumericCellKeys(field: OnefopField, data: FormData, scoped:
   return [...keys];
 }
 
+/**
+ * Cells to clear to blank because a quiz change brings them back into view
+ * still holding the 0 the quiz gave them while they were out of it (audit C4,
+ * 2026-10-18 — section 9: an unanswered value is never shown as an answer).
+ *
+ * A cell is out of view when its table is not REPORTED or its category was
+ * de-selected. The respondent cannot type into such a cell, so a 0 there is
+ * one the quiz derived — a draft saved before 2026-10-20 carried those zeros,
+ * and reopening the table showed them as figures. Only a cell holding exactly
+ * 0 that was out of view before and is in view after is listed; a figure is
+ * never touched. A table reopened also loses the zeros left in its canonical
+ * cells that the grid writes under other keys.
+ */
+export function zeroedCellsBackInView(entity: OnefopEntity, before: FormData, after: FormData): string[] {
+  if (!isQuizGovernedEntity(entity)) return [];
+  const afterScope = readQuizScope(after);
+  if (!afterScope) return [];
+  const beforeScope = readQuizScope(before);
+  const index = buildEntityTableIndex(entity);
+  const hasTable = (code: string) => index.has(code.toUpperCase());
+  const isZero = (v: unknown) => v === 0 || v === "0";
+  const out = new Set<string>();
+
+  for (const field of new Set(index.values())) {
+    const codes = [field.id.toUpperCase(), (field.paperCode ?? "").toUpperCase()].filter(Boolean);
+    const tableCode = codes.find((c) => quizQuestionForTable(c) !== null);
+    if (!tableCode) continue;
+    if (deriveQuizTableStatus(tableCode, afterScope, hasTable) !== "REPORTED") continue;
+
+    const statusBefore =
+      before[resolveTableStatusFieldId(field, before)] ??
+      (beforeScope ? deriveQuizTableStatus(tableCode, beforeScope, hasTable) : null);
+    const wasOpen = statusBefore === "REPORTED";
+    const visibleBefore = new Set(wasOpen ? tableNumericCellKeys(field, before, true) : []);
+    const visibleAfter = tableNumericCellKeys(field, after, true);
+
+    for (const key of visibleAfter) {
+      if (!visibleBefore.has(key) && isZero(after[key])) out.add(key);
+    }
+    if (!wasOpen) {
+      const grid = new Set(tableNumericCellKeys(field, after, false));
+      for (const key of (field.table?.matrix ?? []).flat()) {
+        if (!grid.has(key) && isZero(after[key])) out.add(key);
+      }
+    }
+  }
+  return [...out];
+}
+
 // ── Project/Programme quiz semantics ─────────────────────────────────────────
 
 interface PpScopeConfig {
