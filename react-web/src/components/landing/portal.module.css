@@ -302,12 +302,13 @@
 }
 
 /* Sign-in and the language switch stay one control. Wrapped as a unit,
-   they never land on different rows. */
+   they never land on different rows. They sit as far apart as the tabs,
+   so "Connexion English" does not read as one phrase. */
 .mastheadTools {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  gap: var(--cam-space-2);
+  gap: var(--cam-space-5);
 }
 
 /* The language control is LanguageLink: a plain text link, no ground. */
