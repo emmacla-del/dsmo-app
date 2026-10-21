@@ -84,6 +84,7 @@
     "backToPublicPortal": "Retour au portail public"
   },
   "homeDeclarationsNewPage": {
+    "stepIndicator": "Étape {current} sur {total}",
     "appTitle": "Déclaration DSMO",
     "stepIdentification": "Identification",
     "stepWorkforce": "Effectifs",

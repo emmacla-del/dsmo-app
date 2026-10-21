@@ -165,6 +165,24 @@ Before Phase 1 (commit `a34d0462`), `src/app/register/page.tsx` was already insi
 
 It is not the admin reference, and must not be copied as one. Its classes are unprefixed (`.input-row`, not `.cam-field`). Its frame is `--cam-container-wizard` (600px), against `.cam-admin-main`'s `max-width: 1360px`. It does not use the four staff-console building blocks (filtered list, `.cam-table`, `AdminDialog`, status badges). Its review table is `.table-official`. G2–G6, G8–G11 and G15 are staff-console recipes. On the wizard globs, ESLint errors on a literal `fontSize`, on `position: "fixed"`, on `toLocale*`, and on a Tailwind palette class. The grammar script blocks a new hex, a new `fontSize`, a bare `<table>` other than `.table-official`, an `rgba()`, and a raw `fontWeight`, `lineHeight`, or `letterSpacing`. `spacing-off-scale` and `card-proxy` stay advisory. `datastate-adoption` does not scan these globs. The shell those rules sit on is §Respondent composition.
 
+### Mon espace (`app/home/**`)
+
+The respondent workspace's pages share one vocabulary, the `.cam-home-*` classes in `globals.css` (2026-10-21, from the home page's tidy pass of 2026-10-20). A new page under `app/home` is built from them, not from inline style:
+
+| Need | Class |
+|---|---|
+| Page root: one 760px column aligned with the rail | `.cam-home-page` |
+| Title, one muted line, page action on the right | `.cam-home-head` › `.cam-home-title` + `.cam-home-lede` |
+| Section: a heading under a hairline, no card | `.cam-home-section` › `.cam-home-h2` (or `.cam-home-section-head` with a `.cam-home-link`) |
+| Text | `.cam-home-body` (14px), `.cam-home-meta` (13px muted), `.cam-home-intro` (meta before a list), `.cam-home-footnote` |
+| Records | `.cam-home-list` › `.cam-home-row` › `.cam-home-row-main` (`.cam-home-row-title` + meta) and `.cam-home-row-side` (badge, button) |
+| Facts about the establishment | `<dl className="cam-home-facts">`: label left, value right, stacked on a phone |
+| Views of one page | `.cam-home-tabs` › `.cam-home-tab` with `role="tab"` and `aria-selected`: text, green underline, never buttons |
+| Loading, empty | `.cam-home-state` (plain text, `<strong>` for the title line) |
+| Buttons under a section | `.cam-home-actions` |
+
+The page padding is `.cam-home-main`'s (layout); a page never sets its own. At most one green button per page: row actions are `cam-button-secondary cam-button-sm`. Notices are `.cam-admin-notice`, fields `.cam-field` / `.cam-label` / `.cam-input`. No emoji in headings or buttons, no technical codes (DSMO, ONEFOP, `ACTIVE`) shown to the respondent, no « compte vérifié » badge: an account that is not active never reaches these pages.
+
 ---
 
 ## Public portal
