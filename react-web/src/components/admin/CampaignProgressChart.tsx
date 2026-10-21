@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { DataState } from "@/components/admin/DataState";
@@ -21,11 +21,20 @@ const BOX: Omit<ChartBox, "width"> = { height: 200, left: 36, right: 40, top: 30
 
 /**
  * The container's width in pixels, so text stays at its real size. A
- * callback ref: the plot mounts only once the data has loaded.
+ * callback ref: the plot mounts only once the data has loaded. 0 until
+ * measured: a guessed width wider than a narrow column pushed the page
+ * sideways until the first measurement.
  */
 function useWidth(): [(node: HTMLDivElement | null) => void, number] {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(640);
+  const [width, setWidth] = useState(0);
+  // Measured once on mount: a background tab may hold the observer's first
+  // callback back, and the plot waits for a width before it draws.
+  const ref = useCallback((next: HTMLDivElement | null) => {
+    setNode(next);
+    const initial = next ? Math.round(next.getBoundingClientRect().width) : 0;
+    if (initial > 0) setWidth(initial);
+  }, []);
   useEffect(() => {
     if (!node || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver((entries) => {
@@ -35,7 +44,7 @@ function useWidth(): [(node: HTMLDivElement | null) => void, number] {
     observer.observe(node);
     return () => observer.disconnect();
   }, [node]);
-  return [setNode, width];
+  return [ref, width];
 }
 
 /** A YYYY-MM-DD Douala day as dd/MM/yyyy. */
@@ -112,6 +121,8 @@ export function CampaignProgressChart({
       <div ref={wrapRef} className="cam-dash-progress-plot">
         <svg
           className="cam-dash-progress-svg"
+          // Drawn once the plot's width is known (the plot keeps its height).
+          style={width > 0 ? undefined : { display: "none" }}
           width={width}
           height={box.height}
           role="img"

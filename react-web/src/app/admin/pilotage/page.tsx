@@ -183,125 +183,88 @@ function CampaignCoverage({
           <DataState dense state="loading" resource={resource} title={t("loadingCoverage")} />
         ) : (
           <>
-            <div>
-              <div className="cam-dash-coverage">
-                <p className="cam-dash-coverage-figure">{percent(responsePct, 1, locale, 0)}</p>
+            {/* Wide screens: the figures beside the curve, not each
+                stretched across the page. */}
+            <div className="cam-dash-coverage-top">
+              <div className="cam-dash-coverage-figures">
                 <div>
-                  <p className="cam-dash-coverage-label">{t("responseRateLabel")}</p>
-                  <p className="cam-dash-card-sub">
-                    {t("responseRateCaption", { received: totals.received, stock: totals.registeredStock })}
-                  </p>
+                  <div className="cam-dash-coverage">
+                    <p className="cam-dash-coverage-figure">{percent(responsePct, 1, locale, 0)}</p>
+                    <div>
+                      <p className="cam-dash-coverage-label">{t("responseRateLabel")}</p>
+                      <p className="cam-dash-card-sub">
+                        {t("responseRateCaption", { received: totals.received, stock: totals.registeredStock })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="cam-dash-bar" aria-hidden="true">
+                    <span style={{ width: meterWidth(responsePct) }} />
+                  </div>
                 </div>
-              </div>
-              <div className="cam-dash-bar" aria-hidden="true">
-                <span style={{ width: meterWidth(responsePct) }} />
-              </div>
-            </div>
 
-            <dl className="cam-dash-stats">
-              <div>
-                <dt>{t("onTimeLabel")}</dt>
-                <dd>{count(totals.onTime, locale)}</dd>
-              </div>
-              <div>
-                <dt>{t("lateLabel")}</dt>
-                <dd>{count(totals.late, locale)}</dd>
-              </div>
-              <div>
-                <dt>{t("endorsedLabel")}</dt>
-                <dd>{count(totals.approved, locale)}</dd>
-              </div>
-              <div>
-                <dt>{t("quotaRateLabel")}</dt>
-                {/* The quota rate exists only once quotas are set; until then
-                    the absence is named, with the way to set them. */}
-                <dd>
-                  {totals.quota != null
-                    ? percent(ratioToPercent(totals.quotaRate), 1, locale, 0)
-                    : <span className="cam-admin-muted">{t("noQuota")}</span>}
-                </dd>
-                {totals.quota == null && canSetQuotas && (
-                  <Link href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaign.id)}`} className="cam-dash-link">
-                    {t("setQuotasLink")}
-                  </Link>
-                )}
-              </div>
-            </dl>
-
-            {/* Is the campaign on pace? The curve ends on totals.received. */}
-            <CampaignProgressChart campaignId={campaign.id} registeredStock={totals.registeredStock} />
-
-            <div>
-              <div className="cam-dash-table-wrap">
-                <table className="cam-dash-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t("territoryColumn")}</th>
-                      <th scope="col" className="is-num">{t("receivedColumn")}</th>
-                      <th scope="col" className="is-num is-wide-only">{t("lateColumn")}</th>
-                      <th scope="col" className="is-num">{t("responseRateColumn")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={4}>
-                          <p className="cam-dash-empty">{tTargets("noTerritory")}</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      rows.map((row) => {
-                        const pct = ratioToPercent(row.responseRate);
-                        return (
-                          <tr key={row.key}>
-                            <th scope="row">{row.kind === "central" ? t("centralLevel") : row.name}</th>
-                            <td className="is-num">{count(row.received, locale)}</td>
-                            <td className="is-num is-wide-only">{count(row.late, locale)}</td>
-                            <td className="is-num">
-                              <span className="cam-dash-meter-cell">
-                                <span>{percent(pct, 1, locale, 0)}</span>
-                                <span className="cam-dash-bar" aria-hidden="true">
-                                  <span style={{ width: meterWidth(pct) }} />
-                                </span>
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
+                <dl className="cam-dash-stats">
+                  <div>
+                    <dt>{t("onTimeLabel")}</dt>
+                    <dd>{count(totals.onTime, locale)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("lateLabel")}</dt>
+                    <dd>{count(totals.late, locale)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("endorsedLabel")}</dt>
+                    <dd>{count(totals.approved, locale)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("quotaRateLabel")}</dt>
+                    {/* The quota rate exists only once quotas are set; until then
+                        the absence is named, with the way to set them. */}
+                    <dd>
+                      {totals.quota != null
+                        ? percent(ratioToPercent(totals.quotaRate), 1, locale, 0)
+                        : <span className="cam-admin-muted">{t("noQuota")}</span>}
+                    </dd>
+                    {totals.quota == null && canSetQuotas && (
+                      <Link href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaign.id)}`} className="cam-dash-link">
+                        {t("setQuotasLink")}
+                      </Link>
                     )}
-                  </tbody>
-                </table>
-            </div>
-            <p className="cam-dash-table-foot">
-              <Link href={detailHref} className="cam-dash-link">{t("coverageDetailLink")}</Link>
-            </p>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Is the campaign on pace? The curve ends on totals.received. */}
+              <CampaignProgressChart campaignId={campaign.id} registeredStock={totals.registeredStock} />
             </div>
 
-            {/* The same headline split by type of organisation: the rows add
-                up to it (server-side, same territory scope). Registered is the
-                denominator of the rate, so it gives way first on a phone. */}
-            {(typeRows.length > 0 || untyped > 0) && (
+            {/* Wide screens: the two breakdowns side by side. */}
+            <div className="cam-dash-coverage-tables">
               <div>
-                {typeRows.length > 0 && (
-                  <div className="cam-dash-table-wrap">
-                    <table className="cam-dash-table">
-                      <thead>
+                <div className="cam-dash-table-wrap">
+                  <table className="cam-dash-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{t("territoryColumn")}</th>
+                        <th scope="col" className="is-num">{t("receivedColumn")}</th>
+                        <th scope="col" className="is-num is-wide-only">{t("lateColumn")}</th>
+                        <th scope="col" className="is-num">{t("responseRateColumn")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 ? (
                         <tr>
-                          <th scope="col">{t("entityTypeColumn")}</th>
-                          <th scope="col" className="is-num is-wide-only">{t("registeredColumn")}</th>
-                          <th scope="col" className="is-num">{t("receivedColumn")}</th>
-                          <th scope="col" className="is-num">{t("responseRateColumn")}</th>
+                          <td colSpan={4}>
+                            <p className="cam-dash-empty">{tTargets("noTerritory")}</p>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {typeRows.map((row) => {
+                      ) : (
+                        rows.map((row) => {
                           const pct = ratioToPercent(row.responseRate);
-                          const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
                           return (
-                            <tr key={row.entityType}>
-                              <th scope="row">{key ? tRoot(key) : entityTypeLabel(row.entityType)}</th>
-                              <td className="is-num is-wide-only">{count(row.registeredStock, locale)}</td>
+                            <tr key={row.key}>
+                              <th scope="row">{row.kind === "central" ? t("centralLevel") : row.name}</th>
                               <td className="is-num">{count(row.received, locale)}</td>
+                              <td className="is-num is-wide-only">{count(row.late, locale)}</td>
                               <td className="is-num">
                                 <span className="cam-dash-meter-cell">
                                   <span>{percent(pct, 1, locale, 0)}</span>
@@ -312,16 +275,62 @@ function CampaignCoverage({
                               </td>
                             </tr>
                           );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {untyped > 0 && (
-                  <p className="cam-dash-table-foot cam-admin-muted">{t("untypedFootnote", { count: untyped })}</p>
-                )}
+                        })
+                      )}
+                    </tbody>
+                  </table>
               </div>
-            )}
+              <p className="cam-dash-table-foot">
+                <Link href={detailHref} className="cam-dash-link">{t("coverageDetailLink")}</Link>
+              </p>
+              </div>
+
+              {/* The same headline split by type of organisation: the rows add
+                  up to it (server-side, same territory scope). Registered is the
+                  denominator of the rate, so it gives way first on a phone. */}
+              {(typeRows.length > 0 || untyped > 0) && (
+                <div>
+                  {typeRows.length > 0 && (
+                    <div className="cam-dash-table-wrap">
+                      <table className="cam-dash-table">
+                        <thead>
+                          <tr>
+                            <th scope="col">{t("entityTypeColumn")}</th>
+                            <th scope="col" className="is-num is-wide-only">{t("registeredColumn")}</th>
+                            <th scope="col" className="is-num">{t("receivedColumn")}</th>
+                            <th scope="col" className="is-num">{t("responseRateColumn")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {typeRows.map((row) => {
+                            const pct = ratioToPercent(row.responseRate);
+                            const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
+                            return (
+                              <tr key={row.entityType}>
+                                <th scope="row">{key ? tRoot(key) : entityTypeLabel(row.entityType)}</th>
+                                <td className="is-num is-wide-only">{count(row.registeredStock, locale)}</td>
+                                <td className="is-num">{count(row.received, locale)}</td>
+                                <td className="is-num">
+                                  <span className="cam-dash-meter-cell">
+                                    <span>{percent(pct, 1, locale, 0)}</span>
+                                    <span className="cam-dash-bar" aria-hidden="true">
+                                      <span style={{ width: meterWidth(pct) }} />
+                                    </span>
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {untyped > 0 && (
+                    <p className="cam-dash-table-foot cam-admin-muted">{t("untypedFootnote", { count: untyped })}</p>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -416,12 +425,14 @@ function RecentActivity({
 function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySummary | null; fallbackEligibilityPct: number | null }) {
   const t = useTranslations("adminPilotagePage");
   const locale = useUiLocale();
+  // Anomalies and warnings are better low: green there would read as good
+  // news whatever the rate, so their meter is grey.
   const metrics = [
-    { label: t("qualityCompleteness"), value: quality?.completenessRate ?? null },
-    { label: t("qualityCoherence"), value: quality?.coherenceRate ?? null },
-    { label: t("qualityAnomalies"), value: quality?.anomalyRate ?? null },
-    { label: t("qualityWarnings"), value: quality?.warningRate ?? null },
-    { label: t("qualityEligibility"), value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct },
+    { label: t("qualityCompleteness"), value: quality?.completenessRate ?? null, lowerIsBetter: false },
+    { label: t("qualityCoherence"), value: quality?.coherenceRate ?? null, lowerIsBetter: false },
+    { label: t("qualityAnomalies"), value: quality?.anomalyRate ?? null, lowerIsBetter: true },
+    { label: t("qualityWarnings"), value: quality?.warningRate ?? null, lowerIsBetter: true },
+    { label: t("qualityEligibility"), value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct, lowerIsBetter: false },
   ];
 
   return (
@@ -438,7 +449,7 @@ function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySumm
               <span>{m.label}</span>
               <strong>{percent(m.value, 0, locale)}</strong>
             </div>
-            <div className="cam-dash-bar">
+            <div className={`cam-dash-bar${m.lowerIsBetter ? " cam-dash-bar--neutral" : ""}`} aria-hidden="true">
               <span style={{ width: meterWidth(m.value) }} />
             </div>
           </div>

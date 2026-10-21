@@ -117,8 +117,9 @@ export interface ChartGeometry {
 /**
  * Lays the series out in `box` (pixels). The x domain runs from the first
  * day to the later of the last day and the deadlines, so the time left is
- * visible; the y domain from 0 to a round number above both the total and
- * the pace's target.
+ * visible; the y domain from 0 to the pace's target (the registered stock)
+ * or the total, whichever is higher, and to a round number above the total
+ * when there is no target.
  */
 export function chartGeometry(
   timeline: CampaignReturnsTimeline,
@@ -143,7 +144,11 @@ export function chartGeometry(
 
   const effective = extendedDeadline ?? deadline;
   const paceTarget = registeredStock && registeredStock > 0 && effective && startDate ? registeredStock : 0;
-  const yMax = niceMax(Math.max(timeline.total, paceTarget, 1));
+  // With a pace target the axis tops out at it (or at the total, if more
+  // came in), so the top gridline is "every registered establishment" and
+  // the pace line ends on a labelled value. A round number above 13 left
+  // the top third of the plot empty and the target unnamed.
+  const yMax = paceTarget > 0 ? Math.max(timeline.total, paceTarget) : niceMax(Math.max(timeline.total, 1));
   const y = (v: number) => box.top + plotH - (v / yMax) * plotH;
 
   const dayX = days.map((d) => x(doualaDayStart(d.date)));
