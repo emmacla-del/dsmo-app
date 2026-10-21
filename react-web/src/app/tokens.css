@@ -37,12 +37,15 @@
   --cam-gold: #e8a020;
   --cam-gold-dark: #b87c14;
 
-  /* ── Public portal: white page, white panels outlined in --cam-portal-rule (2026-10-21) ── */
-  --cam-portal-mint: #2aa79b;
-  --cam-portal-mint-deep: #178a7d;
-  --cam-portal-mint-hover: #127367;
-  --cam-portal-mint-bright: #3cb4a8;
-  --cam-portal-teal-dark: #0c3b36;
+  /* ── Public portal: white page, white panels outlined in --cam-portal-rule (2026-10-21) ──
+     The portal's teals are the brand teal, not a palette of their own
+     (owner, 2026-10-21): the front door and the signed-in app share one
+     colour, and changing --cam-primary changes both. */
+  --cam-portal-mint: var(--cam-primary);
+  --cam-portal-mint-deep: var(--cam-primary);
+  --cam-portal-mint-hover: var(--cam-primary-dark);
+  --cam-portal-mint-bright: var(--cam-primary-tint);
+  --cam-portal-teal-dark: var(--cam-primary-dark);
   --cam-portal-bg: #ffffff;
   --cam-portal-band: #ffffff;
   --cam-portal-panel: #ffffff;
@@ -53,7 +56,8 @@
   --cam-portal-icon-bg: #edf2f7;
   --cam-portal-pill-bg: #edf2f7;
   --cam-portal-closing-muted: #cbd5e1;
-  --cam-portal-foot-muted: #8292a2;
+  /* Over 4.5:1 on --cam-portal-teal-dark; #8292a2 was not. */
+  --cam-portal-foot-muted: var(--cam-portal-closing-muted);
   --cam-portal-flow: #cbd5e1;
 
   /* ── Institutional national tricolor ──
