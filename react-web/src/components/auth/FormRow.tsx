@@ -70,9 +70,8 @@ export function FormRow({
   // The hint's id, for the control's aria-describedby (the caller owns the
   // control, so it owns the reference too).
   hintId?: string;
-  // An answer in the wrong shape, said under the control once it has been
-  // left. A MISSING field is not reported here: the wizard's pinned notice
-  // names those once, rather than "Champ obligatoire" under every row.
+  // What is wrong with the answer, under the control: missing after
+  // Continuer, or in the wrong shape once the field has been left.
   error?: ReactNode;
   //
   // Caps everything under the label -- the control and its hint together,

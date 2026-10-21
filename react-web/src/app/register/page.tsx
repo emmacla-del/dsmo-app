@@ -121,12 +121,19 @@ const PASSWORD_STRENGTH_KEY = {
   veryStrong: "registerPage.passwordStrengthVeryStrong",
 } as const;
 
-// The pinned "Il reste n champs obligatoires" notice, which the first missing
-// control points at with aria-describedby.
-const MISSING_NOTICE_ID = "reg-missing-notice";
 // The notice for an answer that is present but in the wrong shape (an email
 // without a domain, a phone that is not 9 digits), shown by Continuer.
 const FORMAT_NOTICE_ID = "reg-format-notice";
+// Controls answered by picking rather than typing; a missing one asks for a
+// choice. Step-3 fields are told apart by their kind (isChoiceField).
+const CHOICE_FIELD_IDS = new Set([
+  "reg-entity-type",
+  "reg-function",
+  "reg-region",
+  "reg-department",
+  "reg-subdivision",
+  "reg-area",
+]);
 
 // Step 1 radio list: one row per structure type, in respondent-facing order.
 // Labels avoid administrative codes (CTD/ONG/CFP); the two types whose plain
@@ -196,6 +203,10 @@ export default function RegisterPage() {
   // flag only: the message is re-derived from the values (formatFailure), so
   // it goes the moment the answer is corrected.
   const [formatFlagId, setFormatFlagId] = useState<string | null>(null);
+  // How many fields Continuer found missing, for the one sentence a screen
+  // reader hears when it is pressed. Set by the click, not derived: the
+  // sentence must not be re-announced each time one of the fields is filled.
+  const [missingAnnounced, setMissingAnnounced] = useState(0);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
@@ -489,6 +500,7 @@ export default function RegisterPage() {
               </label>
             ))}
           </div>
+          {fieldErrorLine(id)}
         </fieldset>
       );
     }
@@ -512,7 +524,7 @@ export default function RegisterPage() {
         size={entityFieldSize(field)}
         hint={hint}
         hintId={hintId}
-        error={leftFieldErrorLine(id)}
+        error={fieldErrorLine(id)}
       >
         <div className={isTel ? "input-row input-row--phone" : "input-row"}>
           {isTel && (
@@ -1072,12 +1084,14 @@ export default function RegisterPage() {
   const currentLastFieldId = lastFieldId(currentStep, entityType, entityData);
 
   // Re-derived every render from the values, never stored: a flagged field
-  // drops out of the notice the moment it is filled, with nothing to clear.
-  // shownErrors is what the notice names -- see missingFieldsToReport for
-  // why a cascade field waiting on its parent is not named. Continuer asks
-  // the same question when it is clicked.
-  const shownErrors = missingFieldsToReport(currentStep, regState, nameResolvers).filter((f) =>
-    flaggedIds.includes(f.id)
+  // loses its error line the moment it is filled, with nothing to clear.
+  // These are the fields that say so under themselves -- see
+  // missingFieldsToReport for why a cascade field waiting on its parent is
+  // not one. Continuer asks the same question when it is clicked.
+  const shownMissingIds = new Set(
+    missingFieldsToReport(currentStep, regState, nameResolvers)
+      .filter((f) => flaggedIds.includes(f.id))
+      .map((f) => f.id)
   );
 
   // Shown while the control Continuer flagged is still the one at fault.
@@ -1091,12 +1105,13 @@ export default function RegisterPage() {
     const missing = missingFieldsToReport(currentStep, regState, nameResolvers);
     if (missing.length === 0) return false;
     setFlaggedIds(missing.map((f) => f.id));
+    setMissingAnnounced(missing.length);
     requestAnimationFrame(() => focusField(missing[0].id));
     return true;
   }
 
   // Focuses a field by id and brings it into view. Used by promptMissing for
-  // the first gap, and by the summary's links for any of them.
+  // the first gap, and by the format notice's link.
   function focusField(id: string) {
     {
       const first = document.getElementById(id);
@@ -1126,27 +1141,25 @@ export default function RegisterPage() {
   // their way back in.
   function clearFlags() {
     if (flaggedIds.length > 0) setFlaggedIds([]);
+    if (missingAnnounced > 0) setMissingAnnounced(0);
     if (formatFlagId) setFormatFlagId(null);
     if (leftIds.length > 0) setLeftIds([]);
   }
 
-  // One message, not one per field. The pinned notice names every missing
-  // field; only the FIRST of them is marked invalid -- the red border on the
-  // control that also has focus, which says "start here" -- and it points at
-  // that notice. Marking every field red and repeating "Champ obligatoire"
-  // under each turned a section with three gaps into a red page.
+  // Each missing field says so under itself, and the first takes focus. This
+  // replaced a "Il y a un problème" box above the section that listed the
+  // same fields again just over them (owner, 2026-10-21). A screen reader
+  // hears the count once, from the status line at the top of the section.
   //
   // `describedBy` names the control's own hint or rules, kept beside the
   // error reference rather than overwritten by it.
   function invalidProps(id: string, ...describedBy: string[]) {
     const errorRef =
-      shownErrors[0]?.id === id
-        ? MISSING_NOTICE_ID
-        : shownFormatError?.focusId === id
-          ? FORMAT_NOTICE_ID
-          : leftFieldError(id)
-            ? `${id}-error`
-            : null;
+      shownFormatError?.focusId === id
+        ? FORMAT_NOTICE_ID
+        : fieldError(id)
+          ? `${id}-error`
+          : null;
     const ids = [errorRef, ...describedBy].filter(Boolean).join(" ");
     return {
       ...(errorRef ? { "aria-invalid": true as const } : {}),
@@ -1155,7 +1168,7 @@ export default function RegisterPage() {
   }
 
   // The format rule of one control, put into words: null when the answer is
-  // empty (a missing answer is the notice's business) or acceptable. The
+  // empty (a missing answer is fieldError's business) or acceptable. The
   // same rules formatFailure applies when Continuer is pressed.
   function fieldFormatError(id: string): string | null {
     if (id === "reg-email") {
@@ -1184,10 +1197,27 @@ export default function RegisterPage() {
     setLeftIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
-  // The line under a control that has been left with an answer in the wrong
-  // shape. Its id is what invalidProps points the control at.
-  function leftFieldErrorLine(id: string) {
-    const message = leftFieldError(id);
+  // Picked, not typed: the location cascade, the function, the type list,
+  // and every step-3 field that is not a text box.
+  function isChoiceField(id: string): boolean {
+    if (CHOICE_FIELD_IDS.has(id)) return true;
+    const field = config?.fields.find((f) => `reg-entity-${f.key}` === id);
+    return field ? ["select", "radio", "year", "branch"].includes(field.kind) : false;
+  }
+
+  // What a control says under itself: missing after Continuer, or left with
+  // an answer in the wrong shape.
+  function fieldError(id: string): string | null {
+    if (shownMissingIds.has(id)) {
+      return t(isChoiceField(id) ? "registerPage.missingChoiceError" : "registerPage.missingEntryError");
+    }
+    return leftFieldError(id);
+  }
+
+  // The line under the control. Its id is what invalidProps points the
+  // control at.
+  function fieldErrorLine(id: string) {
+    const message = fieldError(id);
     return message ? (
       <p className="field-error" id={`${id}-error`}>
         {message}
@@ -1540,6 +1570,7 @@ export default function RegisterPage() {
                   <span className="entity-type-option-label">{t(option.labelKey)}</span>
                 </label>
               ))}
+              {fieldErrorLine("reg-entity-type")}
             </fieldset>
           </>
         );
@@ -1554,7 +1585,12 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
+              <FormRow
+                htmlFor="reg-first-name"
+                label={t("registerPage.firstNameLabel")}
+                required
+                error={fieldErrorLine("reg-first-name")}
+              >
                 <div className="input-row">
                   {/* type="text" is not a default to be left implicit: the
                       wizard's control rule selects input[type="text"], so an
@@ -1574,7 +1610,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
+              <FormRow
+                htmlFor="reg-last-name"
+                label={t("registerPage.lastNameLabel")}
+                required
+                error={fieldErrorLine("reg-last-name")}
+              >
                 <div className="input-row">
                   <input
                     id="reg-last-name"
@@ -1588,7 +1629,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
+              <FormRow
+                htmlFor="reg-function"
+                label={t("registerPage.functionLabel")}
+                required
+                error={fieldErrorLine("reg-function")}
+              >
                 <div className="input-row">
                   <select
                     id="reg-function"
@@ -1612,6 +1658,7 @@ export default function RegisterPage() {
                   htmlFor="reg-function-other"
                   label={t("registerPage.functionOtherLabel")}
                   required
+                  error={fieldErrorLine("reg-function-other")}
                 >
                   <div className="input-row">
                     <input
@@ -1632,7 +1679,7 @@ export default function RegisterPage() {
                 required
                 hint={t("registerPage.emailHint")}
                 hintId="reg-email-hint"
-                error={leftFieldErrorLine("reg-email")}
+                error={fieldErrorLine("reg-email")}
               >
                 <div className="input-row">
                   <input
@@ -1672,7 +1719,7 @@ export default function RegisterPage() {
                 size="short"
                 hint={t("registerPage.phoneHint")}
                 hintId="reg-phone1-hint"
-                error={leftFieldErrorLine("reg-phone1")}
+                error={fieldErrorLine("reg-phone1")}
               >
                 <div className="input-row input-row--phone">
                   <span className="input-prefix" aria-hidden="true">+237</span>
@@ -1694,7 +1741,7 @@ export default function RegisterPage() {
                 label={t("registerPage.phone2Label")}
                 optionalLabel={t("registerPage.optionalLabel")}
                 size="short"
-                error={leftFieldErrorLine("reg-phone2")}
+                error={fieldErrorLine("reg-phone2")}
               >
                 <div className="input-row input-row--phone">
                   <span className="input-prefix" aria-hidden="true">+237</span>
@@ -1766,7 +1813,12 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
+              <FormRow
+                htmlFor="reg-region"
+                label={t("registerPage.regionLabel")}
+                required
+                error={fieldErrorLine("reg-region")}
+              >
                 <div className="input-row">
                   <select
                     id="reg-region"
@@ -1806,6 +1858,7 @@ export default function RegisterPage() {
                 label={t("registerPage.departmentLabel")}
                 gated={!regionId}
                 required
+                error={fieldErrorLine("reg-department")}
               >
                 <div className="input-row">
                   <select
@@ -1843,6 +1896,7 @@ export default function RegisterPage() {
                 label={t("registerPage.subdivisionLabel")}
                 gated={!departmentId}
                 required
+                error={fieldErrorLine("reg-subdivision")}
                 // An arrondissement cannot be required of a department the
                 // server has none for; the row says so instead of looking
                 // like an empty dropdown the respondent failed to use.
@@ -1907,6 +1961,7 @@ export default function RegisterPage() {
                     </label>
                   ))}
                 </div>
+                {fieldErrorLine("reg-area")}
               </fieldset>
 
             </div>
@@ -1931,7 +1986,12 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
+              <FormRow
+                htmlFor="reg-password"
+                label={t("registerPage.passwordLabel")}
+                required
+                error={fieldErrorLine("reg-password")}
+              >
                 <div className="input-row">
                   <input
                     id="reg-password"
@@ -1981,6 +2041,7 @@ export default function RegisterPage() {
                 htmlFor="reg-confirm-password"
                 label={t("registerPage.confirmPasswordLabel")}
                 required
+                error={fieldErrorLine("reg-confirm-password")}
               >
                 <div className="input-row">
                   <input
@@ -2196,38 +2257,14 @@ export default function RegisterPage() {
                 {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
               </div>
 
-              {/* Error summary at the top of the section, the convention for
-                  government forms: it names every missing field and each name
-                  links to its control. The first missing control is also
-                  focused and points here (aria-describedby). */}
-              {shownErrors.length > 0 && (
-                <div
-                  className="flow-missing-notice"
-                  id={MISSING_NOTICE_ID}
-                  role="alert"
-                  aria-labelledby={`${MISSING_NOTICE_ID}-title`}
-                >
-                  <h2 className="flow-missing-notice-title" id={`${MISSING_NOTICE_ID}-title`}>
-                    {t("registerPage.errorSummaryTitle")}
-                  </h2>
-                  <p>{t("registerPage.missingFieldsLead", { count: shownErrors.length })}</p>
-                  <ul>
-                    {shownErrors.map((f) => (
-                      <li key={f.id}>
-                        <a
-                          href={`#${f.id}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            focusField(f.id);
-                          }}
-                        >
-                          {f.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* No box for missing fields: each one says so under itself
+                  (fieldError). This line gives a screen reader the count once,
+                  when Continuer is pressed; nothing is shown. */}
+              <p className="sr-only" role="status" aria-live="polite">
+                {missingAnnounced > 0 &&
+                  shownMissingIds.size > 0 &&
+                  t("registerPage.missingFieldsAnnounce", { count: missingAnnounced })}
+              </p>
 
               {shownFormatError && (
                 <div
