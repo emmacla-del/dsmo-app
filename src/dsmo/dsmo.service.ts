@@ -123,6 +123,9 @@ export class DsmoService {
         socialCapital: true,
         fax: true,
         sectorId: true,
+        // The registered branch's sector (Primary/Secondary/Tertiary/Public),
+        // which pre-fills the form's « Secteur d'activité ».
+        sector: { select: { category: true } },
         trainingDomains: true,
         user: {
           select: {

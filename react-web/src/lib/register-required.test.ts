@@ -40,7 +40,6 @@ function emptyState(overrides: Partial<RegState> = {}): RegState {
     subdivisionId: "",
     subdivisionsStatus: "idle",
     area: "",
-    sectorId: "",
     password: "",
     confirmPassword: "",
     ...overrides,
@@ -116,7 +115,6 @@ test("respondent and location ignore their optional fields", () => {
     subdivisionId: "s1",
     subdivisionsStatus: "ready",
     area: "Urbain",
-    sectorId: "", // untouched
   });
   assert.equal(isSectionComplete("respondent", state), true);
   assert.equal(isSectionComplete("location", state), true);
@@ -317,7 +315,8 @@ test("lastFieldId matches the last field actually rendered", () => {
     );
   }
   assert.equal(lastFieldId("respondent", null, {}), "reg-phone2");
-  assert.equal(lastFieldId("location", null, {}), "reg-sector");
+  // Location ends on the urban/rural radios: no single control to leave.
+  assert.equal(lastFieldId("location", null, {}), null);
   assert.equal(lastFieldId("security", null, {}), "reg-confirm-password");
   // No single control to leave: the type list is a radio group, and the
   // review has no fields of its own.

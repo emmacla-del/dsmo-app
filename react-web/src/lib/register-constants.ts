@@ -100,8 +100,13 @@ export interface EntityField {
   // "radio": exactly one of a few short options, every option on screen
   // (§9), e.g. the promoter's sex; "select" for longer lists.
   // "year": a dropdown of years, this year first (year-options.ts).
-  kind: "text" | "tel" | "number" | "year" | "select" | "radio";
+  // "branch": the branch of activity, a dropdown of the `sectors` table's
+  // rows narrowed to the chosen sector (register-activity.ts); its options
+  // come from the API, so it declares none here.
+  kind: "text" | "tel" | "number" | "year" | "select" | "radio" | "branch";
   options?: import("./register-options").RegisterOption[];
+  // A "select" short enough to be shown as radios stays a dropdown.
+  dropdown?: boolean;
   // Conditional visibility within the same entity's field set — mirrors
   // register_constants.dart's dependsOn/dependsValue (itself mirroring the
   // ONEFOP AST's own shape), used only by vocationalTraining's
@@ -152,6 +157,7 @@ import {
   SEX_OPTIONS,
 } from "./register-options";
 import { ppNatureKind, ppWording } from "./pp-nature-wording";
+import { ACTIVITY_SECTOR_OPTIONS } from "./register-activity";
 
 // Shared field definitions.
 //
@@ -238,6 +244,25 @@ const SIGLE: EntityField = {
   kind: "text",
 };
 
+// « Secteur d'activité » and « Branche d'activité », the two questions every
+// form but VT asks in Section 1 (register-activity.ts). Both required, as on
+// the forms. The sector is a dropdown although it has three answers: the
+// owner's choice, 2026-10-21.
+const ACTIVITY_SECTOR: EntityField = {
+  key: "activitySector",
+  label: { fr: "Secteur d'activité", en: "Business sector" },
+  required: true,
+  kind: "select",
+  options: ACTIVITY_SECTOR_OPTIONS,
+  dropdown: true,
+};
+const ACTIVITY_BRANCH: EntityField = {
+  key: "branchId",
+  label: { fr: "Branche d'activité", en: "Branch of activity" },
+  required: true,
+  kind: "branch",
+};
+
 // The year list is shared with the declaration wizards' year questions.
 export { YEAR_OPTIONS_FROM, yearOptions } from "./year-options";
 
@@ -252,7 +277,8 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       TAX_NUMBER,
       CNPS_NUMBER,
       { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
-      { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, hint: { fr: "Ex : Commerce, Industrie, Services", en: "E.g. Trade, Industry, Services" }, required: false, kind: "text" },
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,
@@ -276,8 +302,9 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       TAX_NUMBER,
       CNPS_NUMBER,
       { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       { key: "cooperativeHeadOffice", label: { fr: "Adresse du siège", en: "Office address" }, required: true, kind: "text" },
-      { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, required: false, kind: "text" },
       PHONE,
       PHONE_2,
       PO_BOX,
@@ -293,6 +320,8 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       YEAR_OF_CREATION,
       TAX_NUMBER,
       CNPS_NUMBER,
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,
@@ -310,6 +339,8 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       CNPS_NUMBER,
       YEAR_OF_CREATION,
       MAIN_MISSION,
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,
@@ -326,6 +357,8 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "administrationName", label: { fr: "Nom", en: "Name" }, required: true, kind: "text" },
       SIGLE,
       MAIN_MISSION,
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,
@@ -349,6 +382,8 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       // mission" (26): over the one-line budget, and the same field the ONG
       // and Administration configs call Mission principale.
       MAIN_MISSION,
+      ACTIVITY_SECTOR,
+      ACTIVITY_BRANCH,
       HEAD_OFFICE,
       PHONE,
       PHONE_2,

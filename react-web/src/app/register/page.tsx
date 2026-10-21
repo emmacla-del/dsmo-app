@@ -45,6 +45,7 @@ import {
 } from "@/lib/register-entity-sections";
 import { asUiLocale, localized } from "@/lib/register-i18n";
 import { sectorLabel } from "@/lib/display-labels";
+import { branchesFor, dropUnofferedBranch } from "@/lib/register-activity";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
@@ -244,7 +245,6 @@ export default function RegisterPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [subdivisionId, setSubdivisionId] = useState("");
   const [area, setArea] = useState("");
-  const [sectorId, setSectorId] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [obscurePassword, setObscurePassword] = useState(true);
@@ -278,10 +278,11 @@ export default function RegisterPage() {
   const [regionName, setRegionName] = useState("");
   const [departmentName, setDepartmentName] = useState("");
   const [subdivisionName, setSubdivisionName] = useState("");
-  const [sectorName, setSectorName] = useState("");
-  // Kept beside the French name so the review can show the sector in the
-  // reader's language, as the picker does (B10).
-  const [sectorNameEn, setSectorNameEn] = useState("");
+  // The chosen branch's names, kept for a restored draft whose branch list
+  // has not loaded yet. The English one so the review can show the branch in
+  // the reader's language, as the picker does (B10).
+  const [branchName, setBranchName] = useState("");
+  const [branchNameEn, setBranchNameEn] = useState("");
 
   const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions });
   const departmentsQuery = useQuery({
@@ -323,7 +324,6 @@ export default function RegisterPage() {
     subdivisionId,
     subdivisionsStatus,
     area,
-    sectorId,
     password,
     confirmPassword,
   };
@@ -350,7 +350,15 @@ export default function RegisterPage() {
   }, [respondent.email]);
 
   function setEntityField(key: string, value: string) {
-    setEntityData((prev) => ({ ...prev, [key]: value }));
+    // A new sector drops a branch that belongs to another one.
+    setEntityData((prev) =>
+      dropUnofferedBranch({ ...prev, [key]: value }, sectorsQuery.data, entityType)
+    );
+    if (key === "branchId") {
+      const picked = sectorsQuery.data?.find((s) => s.id === value);
+      setBranchName(picked?.name || "");
+      setBranchNameEn(picked?.nameEn || "");
+    }
   }
 
   function setRespondentField(key: keyof RegRespondentState, value: string) {
@@ -449,7 +457,9 @@ export default function RegisterPage() {
     // visible, one click -- and only a longer list stays a dropdown.
     const asRadios =
       field.kind === "radio" ||
-      (field.kind === "select" && (field.options?.length ?? 0) <= MAX_RADIO_OPTIONS);
+      (field.kind === "select" &&
+        !field.dropdown &&
+        (field.options?.length ?? 0) <= MAX_RADIO_OPTIONS);
     if (asRadios) {
       // Two answers sit on one line; a longer list reads down the page.
       const inline = (field.options?.length ?? 0) <= 2;
@@ -517,6 +527,19 @@ export default function RegisterPage() {
                 </option>
               ))}
             </select>
+          ) : field.kind === "branch" ? (
+            // Disabled until a sector is chosen, like the department before
+            // a region: the list is that sector's branches.
+            <select {...controlProps} disabled={!entityData.activitySector}>
+              <option value="">
+                {selectStatusLabel(sectorsQuery, !entityData.activitySector)}
+              </option>
+              {branchesFor(sectorsQuery.data, entityData.activitySector, entityType).map((b) => (
+                <option key={b.id} value={b.id}>
+                  {sectorLabel(b, locale)}
+                </option>
+              ))}
+            </select>
           ) : field.kind === "select" ? (
             <select {...controlProps}>
               <option value=""></option>
@@ -535,6 +558,7 @@ export default function RegisterPage() {
             />
           )}
         </div>
+        {field.kind === "branch" && loadRetry(sectorsQuery)}
       </FormRow>
     );
   }
@@ -752,9 +776,10 @@ export default function RegisterPage() {
   const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
   const resolvedDepartmentName = departmentName || departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
   const resolvedSubdivisionName = subdivisionName || subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
-  const resolvedSectorName = sectorName || sectorsQuery.data?.find((s) => s.id === sectorId)?.name;
-  const resolvedSectorNameEn =
-    sectorNameEn || sectorsQuery.data?.find((s) => s.id === sectorId)?.nameEn || "";
+  const branchId = entityData.branchId ?? "";
+  const pickedBranch = branchId ? sectorsQuery.data?.find((s) => s.id === branchId) : undefined;
+  const resolvedBranchName = branchId ? pickedBranch?.name || branchName : "";
+  const resolvedBranchNameEn = branchId ? pickedBranch?.nameEn || branchNameEn : "";
 
   async function submit() {
     if (!entityType || !config) {
@@ -813,7 +838,10 @@ export default function RegisterPage() {
         projectNature: visibleData.projectNature,
         mainMission: visibleData.mainMission,
         registrationNumber: visibleData.registrationNumber,
-        branch: visibleData.branch,
+        // The branch is sent twice: the row's id (Company.sectorId) and its
+        // French name (Company.branch), which pre-fills the form's « Branche
+        // d'activité ». Neither for VT, which does not ask it.
+        branch: visibleData.branchId ? resolvedBranchName || undefined : undefined,
         poBox: visibleData.poBox,
         phone: visibleData.phone ? normalizeCameroonPhone(visibleData.phone) : visibleData.phone,
         phone2: visibleData.phone2 ? normalizeCameroonPhone(visibleData.phone2) : visibleData.phone2,
@@ -827,7 +855,7 @@ export default function RegisterPage() {
         promoterSex: visibleData.promoterSex,
         promoterPhone1: visibleData.promoterPhone1 ? normalizeCameroonPhone(visibleData.promoterPhone1) : visibleData.promoterPhone1,
         promoterPhone2: visibleData.promoterPhone2 ? normalizeCameroonPhone(visibleData.promoterPhone2) : visibleData.promoterPhone2,
-        sectorId: sectorId || undefined,
+        sectorId: visibleData.branchId || undefined,
         respondentFunction:
           respondent.function === RESPONDENT_FUNCTION_OTHER
             ? respondent.functionOther.trim()
@@ -881,8 +909,8 @@ export default function RegisterPage() {
     regionName: resolvedRegionName || "",
     departmentName: resolvedDepartmentName || "",
     subdivisionName: resolvedSubdivisionName || "",
-    sectorName: resolvedSectorName || "",
-    sectorNameEn: resolvedSectorNameEn,
+    branchName: resolvedBranchName,
+    branchNameEn: resolvedBranchNameEn,
   };
 
   // One line per section for the rail's tooltips, from the same rows the
@@ -962,7 +990,10 @@ export default function RegisterPage() {
       // visible answers and the stored state agree. submit() filters again
       // via visibleEntityDataForType; this keeps state clean at the source
       // rather than relying on that alone.
-      setEntityData((prev) => pruneEntityDataForType(prev, next));
+      // A branch the new type is not offered goes too.
+      setEntityData((prev) =>
+        dropUnofferedBranch(pruneEntityDataForType(prev, next), sectorsQuery.data, next)
+      );
     }
     setEntityType(next);
     // Each type has its own list of functions: a title the new type does not
@@ -1227,9 +1258,8 @@ export default function RegisterPage() {
     setSubdivisionId(draft.subdivisionId);
     setSubdivisionName(draft.subdivisionName);
     setArea(draft.area);
-    setSectorId(draft.sectorId);
-    setSectorName(draft.sectorName);
-    setSectorNameEn(draft.sectorNameEn ?? "");
+    setBranchName(draft.branchName);
+    setBranchNameEn(draft.branchNameEn ?? "");
 
     // Recomputed from the restored answers rather than taken from the draft
     // alone: the password is never stored, so security comes back incomplete
@@ -1244,7 +1274,6 @@ export default function RegisterPage() {
       subdivisionId: draft.subdivisionId,
       subdivisionsStatus: "idle",
       area: draft.area,
-      sectorId: draft.sectorId,
       password: "",
       confirmPassword: "",
     };
@@ -1285,8 +1314,8 @@ export default function RegisterPage() {
       regionName: resolvedRegionName || "",
       departmentName: resolvedDepartmentName || "",
       subdivisionName: resolvedSubdivisionName || "",
-      sectorName: resolvedSectorName || "",
-      sectorNameEn: resolvedSectorNameEn,
+      branchName: resolvedBranchName,
+      branchNameEn: resolvedBranchNameEn,
     })
   );
 
@@ -1880,38 +1909,6 @@ export default function RegisterPage() {
                 </div>
               </fieldset>
 
-              <FormRow
-                htmlFor="reg-sector"
-                label={t("registerPage.sectorLabel")}
-                optionalLabel={t("registerPage.optionalLabel")}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-sector"
-                    value={sectorId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      // The activity sector is the section's last field, and
-                      // the only optional one: leaving it after changing it
-                      // says the respondent is done with the location.
-                      setSectorId(id);
-                      const picked = sectorsQuery.data?.find((s) => s.id === id);
-                      setSectorName(picked?.name || "");
-                      setSectorNameEn(picked?.nameEn || "");
-                    }}
-                  >
-                    <option value="">
-                      {selectStatusLabel(sectorsQuery)}
-                    </option>
-                    {sectorsQuery.data?.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {sectorLabel(s, locale)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(sectorsQuery)}
-              </FormRow>
             </div>
           </>
         );

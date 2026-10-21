@@ -32,12 +32,14 @@ test("enterprise keeps the required path together and folds the rest", () => {
     "taxNumber",
     "cnpsNumber",
     "mainActivity",
+    "activitySector",
+    "branchId",
     "address",
     "phone",
   ]);
   assert.deepEqual(
     optionalEntityFields("enterprise", {}).map((f) => f.key),
-    ["socialCapital", "parentCompany", "branch", "secondaryActivity", "phone2", "poBox"]
+    ["socialCapital", "parentCompany", "secondaryActivity", "phone2", "poBox"]
   );
   assert.deepEqual(
     requiredEntityGroups("enterprise", {}).map((g) => g.title.fr),
