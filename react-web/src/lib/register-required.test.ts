@@ -100,19 +100,6 @@ test("the untouched optional fields really were untouched", () => {
   }
 });
 
-test("the last field of section 3 is optional for every type", () => {
-  // This is WHY the continue link has to exist. Auto-advance is armed by a
-  // change to the section's last field, and that field is optional in all
-  // seven types -- so a respondent who fills only what is required never
-  // arms it and would otherwise be stuck.
-  for (const type of ALL_TYPES) {
-    const key = lastEntityFieldKey(type, requiredOnlyEntityData(type));
-    const field = ENTITY_CONFIGS[type].fields.find((f) => f.key === key);
-    assert.ok(field, `${type}: no last field`);
-    assert.equal(field.required, false, `${type}: last field ${key} is required, not optional`);
-  }
-});
-
 test("respondent and location ignore their optional fields", () => {
   const state = emptyState({
     respondent: {

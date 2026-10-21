@@ -66,8 +66,8 @@ function entityTypeRef(state: RegState, t: NameResolvers["t"]): RequiredFieldRef
 
 // The DOM id of the field a section ends on.
 //
-// This is the field whose change arms auto-advance and whose blur or Enter
-// fires the missing-fields prompt: "the respondent has reached the bottom of
+// This is the field whose blur or Enter fires the missing-fields prompt, and
+// Enter on it is the keyboard's Continuer: "the respondent has reached the bottom of
 // this section" is one event, so it has one definition. For section 3 it is
 // data-driven -- required groups render first and the optional disclosure
 // after them, so the last field here is by construction the last one on screen.

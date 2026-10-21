@@ -1478,6 +1478,29 @@ html:has(.cam-masthead) {
   max-width: var(--cam-field-width-medium);
 }
 
+/* A phone number: the country code sits inside the box, before the digits,
+   so the respondent sees that only the nine national digits are asked for.
+   Decorative to assistive tech (aria-hidden); the hint says the same. */
+.cam-auth-page--wizard .input-row--phone .input-prefix {
+  position: absolute;
+  left: var(--cam-space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--cam-answer-size);
+  color: var(--cam-text-muted);
+  pointer-events: none;
+}
+
+.cam-auth-page--wizard .cam-form-flow .input-row--phone input[type="tel"] {
+  padding-left: calc(var(--cam-space-3) + 3em);
+}
+
+@media (max-width: 640px) {
+  .cam-auth-page--wizard .input-row--phone .input-prefix {
+    font-size: var(--cam-font-size-input-ios);
+  }
+}
+
 /* A cascade field whose parent is still unanswered: the label greys to match
    its disabled control. Set by FormRow's `gated` prop rather than an inline
    style, so the colour comes from the token system. */

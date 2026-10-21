@@ -35,17 +35,19 @@ const SIZE_CLASS: Record<FieldSize, string> = {
 // children; `required` is still accepted so call sites say it out loud.
 //
 // `hint` renders directly under the input, never between the label and the
-// control -- example values belong in the control's own placeholder instead.
+// control. It is kept for what the respondent needs to answer correctly --
+// the shape a number takes, where to find it, what the address is used for
+// -- never for a sentence that repeats the label.
 //
 // Optionality is said in the label, by a muted "(facultatif)" after the
-// name (optionalLabel). It used to be a "Facultatif" placeholder in the box,
-// but the wizard carries no placeholders or hints any more (owner,
-// 2026-10-15), and the label is the one place left that is always read.
+// name (optionalLabel), the one place that is always read.
 export function FormRow({
   htmlFor,
   label,
   optionalLabel,
   hint,
+  hintId,
+  error,
   size = "full",
   labelPrefix,
   labelId,
@@ -62,14 +64,16 @@ export function FormRow({
   // The word for "optional" in the active language; shown after the label
   // in parentheses. Omit on required fields.
   optionalLabel?: string;
-  // Only for a status the respondent must read (a department with no
-  // arrondissement), never for an example or an explanation.
+  // A status the respondent must read (a department with no arrondissement),
+  // or the format or source of the answer.
   hint?: string;
-  // There is no per-field error slot. A missing required field is reported
-  // once, by the wizard's pinned notice, and only the first such control is
-  // marked aria-invalid (the caller owns that, since the control is passed in
-  // as children) -- one message rather than "Champ obligatoire" under every
-  // row.
+  // The hint's id, for the control's aria-describedby (the caller owns the
+  // control, so it owns the reference too).
+  hintId?: string;
+  // An answer in the wrong shape, said under the control once it has been
+  // left. A MISSING field is not reported here: the wizard's pinned notice
+  // names those once, rather than "Champ obligatoire" under every row.
+  error?: ReactNode;
   //
   // Caps everything under the label -- the control and its hint together,
   // so the two stay the same width and keep one right edge.
@@ -92,7 +96,13 @@ export function FormRow({
         {optionalLabel && <span className="field-optional-mark"> ({optionalLabel})</span>}
       </label>
       {children}
-      {hint && <p className="field-hint">{hint}</p>}
+      {/* While an error shows, it carries the rule; the hint would say it twice. */}
+      {hint && !error && (
+        <p className="field-hint" id={hintId}>
+          {hint}
+        </p>
+      )}
+      {error}
     </div>
   );
 }
