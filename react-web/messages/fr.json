@@ -1468,11 +1468,7 @@
       "userProfile": "Profil utilisateur"
     },
     "wizard": {
-      "mobileSectionsButton": "Sections ({stage})",
       "stageQuiz": "Quiz préalable de déclaration",
-      "stageReview": "Dépôt",
-      "sectionsListAria": "Liste des sections",
-      "sectionsDrawerTitle": "Sections du questionnaire",
       "close": "Fermer",
       "reviewHeading": "Récapitulatif et dépôt de la déclaration",
       "reviewIntro": "Vérifiez la conformité de vos déclarations avant de procéder à la transmission officielle au MINEFOP.",

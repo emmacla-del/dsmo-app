@@ -123,6 +123,7 @@ export function ModernJobsWizard({
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
 
   const t = useTranslations("modernJobs.wizard");
+  const tRail = useTranslations("wizardRail");
   const viewportWidth = useViewportSize() ?? 1024;
   const isDesktop = viewportWidth >= 1024;
 
@@ -698,78 +699,39 @@ export function ModernJobsWizard({
               margin: "0 auto",
             }}
           >
-            {/* Mobile Sections Menu Button */}
+            {/* Phone sections drawer: the same opener, sheet and title as the
+                VT wizard's (WizardShell, .cam-sheet*), named as the rail it
+                opens ("Sommaire"): one name for one list. */}
             {!isDesktop && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+              <div className="cam-sheet-opener">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(true)}
-                  className="cam-hoverable"
-                  style={{
-                    background: "var(--cam-surface)",
-                    border: "1px solid var(--vt-card-border)",
-                    borderRadius: "var(--cam-radius-sm)",
-                    padding: "6px 14px",
-                    fontSize: "var(--cam-font-size-2xs)",
-                    fontWeight: 600,
-                    color: "var(--cam-text)",
-                    cursor: "pointer",
-                  }}
+                  className="cam-button cam-button-secondary"
                 >
-                  ☰ {t("mobileSectionsButton", {
-                    stage: isScopeStage
-                      ? t("stageQuiz")
-                      : isValidationStage
-                        ? t("stageReview")
-                        : `${clampedSectionIndex + 1}/${sections.length}`,
-                  })}
+                  {tRail("title")}
                 </button>
               </div>
             )}
 
-            {/* Mobile Sections Drawer */}
             {!isDesktop && (mobileMenuOpen || mobileMenuClosing) && (
               <div
                 role="dialog"
                 aria-modal="true"
-                aria-label={t("sectionsListAria")}
+                aria-labelledby="mj-sheet-title"
                 onClick={closeMobileMenu}
-                className={mobileMenuClosing ? "cam-drawer-backdrop-out" : "cam-drawer-backdrop-in"}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 100,
-                  background: "rgba(0, 0, 0, 0.4)",
-                  display: "flex",
-                  alignItems: "flex-end",
-                }}
+                className={`cam-sheet-scrim ${mobileMenuClosing ? "cam-drawer-backdrop-out" : "cam-drawer-backdrop-in"}`}
               >
                 <div
                   ref={drawerSheetRef}
                   tabIndex={-1}
                   onClick={(e) => e.stopPropagation()}
-                  className={mobileMenuClosing ? "cam-drawer-sheet-out" : "cam-drawer-sheet-in"}
-                  style={{
-                    width: "100%",
-                    maxHeight: "80vh",
-                    background: "var(--cam-surface)",
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                    padding: 16,
-                    overflowY: "auto",
-                    outline: "none",
-                  }}
+                  className={`cam-sheet ${mobileMenuClosing ? "cam-drawer-sheet-out" : "cam-drawer-sheet-in"}`}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: "var(--cam-font-size-base)", fontWeight: "var(--cam-font-weight-bold)" }}>{t("sectionsDrawerTitle")}</h3>
-                    <button
-                      type="button"
-                      onClick={closeMobileMenu}
-                      className="cam-hoverable"
-                      aria-label={t("close")}
-                      style={{ background: "none", border: "none", fontSize: "var(--cam-font-size-lg)", cursor: "pointer" }}
-                    >
-                      ✕
+                  <div className="cam-sheet-head">
+                    <h2 id="mj-sheet-title" className="cam-sheet-title">{tRail("title")}</h2>
+                    <button type="button" onClick={closeMobileMenu} className="cam-text-button">
+                      {t("close")}
                     </button>
                   </div>
                   <ModernJobsSidebar

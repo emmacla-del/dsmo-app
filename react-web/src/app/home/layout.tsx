@@ -215,7 +215,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         className="cam-home-rail"
         {...(menuOpen ? { role: "dialog", "aria-modal": true, "aria-label": t("homeLayout.menuLabel") } : {})}
       >
-        <div style={{ padding: "var(--cam-space-4)", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
+        <div className="cam-home-rail-brand">
           <Link href="/" title={t("homeLayout.backToPublicPortal")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={270} height={38} style={{ display: "block", width: 120, height: "auto" }} />
@@ -224,7 +224,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
 
         {/* Survey state action button: follows state (Take the survey, Resume, Correct), disappears once submitted */}
         {showSurveyButton && (
-          <div style={{ padding: "var(--cam-space-3) var(--cam-space-4) var(--cam-space-1)" }}>
+          <div className="cam-home-rail-action">
             <button
               type="button"
               onClick={() => {
@@ -242,7 +242,6 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 }
               }}
               className="cam-button cam-button-primary cam-button-block cam-button-sm"
-              style={{ fontWeight: 600 }}
             >
               {surveyState === "none"
                 ? t("homeLandingPage.takeSurveyButton")
@@ -253,7 +252,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        <nav style={{ flex: 1, padding: "var(--cam-space-2) 0", overflowY: "auto" }}>
+        <nav className="cam-home-nav">
           {navItems.map((item) => {
             const href = item.route ?? `/home/${item.slug}`;
             const active = item.route ? pathname === item.route : pathname === `/home/${item.slug}`;
@@ -270,40 +269,14 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 href={href}
                 onClick={() => setMenuOpen(false)}
                 aria-current={active ? "page" : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "var(--cam-space-2) var(--cam-space-4)",
-                  fontSize: "var(--cam-font-size-sm)",
-                  color: active ? "var(--cam-green)" : "var(--cam-text)",
-                  background: active ? "var(--cam-green-wash)" : "transparent",
-                  borderLeft: active ? "3px solid var(--cam-green)" : "3px solid transparent",
-                  textDecoration: "none",
-                  fontWeight: active ? 700 : 500,
-                }}
+                className="cam-home-nav-link"
               >
                 <span>{t(item.labelKey)}</span>
                 {count > 0 && (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      fontSize: "var(--cam-font-size-xs)",
-                      fontWeight: 600,
-                      color: active ? "var(--cam-green)" : "var(--cam-text-muted)",
-                    }}
-                  >
+                  <span className="cam-home-nav-count">
                     <span
                       aria-hidden="true"
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        backgroundColor: item.slug === "declarations" ? "var(--cam-warning)" : "var(--cam-primary)",
-                        display: "inline-block",
-                      }}
+                      className={`cam-home-nav-dot${item.slug === "declarations" ? " is-warning" : ""}`}
                     />
                     <span>{count}</span>
                   </span>
@@ -311,85 +284,26 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {awaitingApproval && (
-            <p style={{ margin: 0, padding: "var(--cam-space-2) var(--cam-space-4)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-              {t("homeLayout.pendingNavHint")}
-            </p>
-          )}
+          {awaitingApproval && <p className="cam-home-rail-note">{t("homeLayout.pendingNavHint")}</p>}
         </nav>
 
         {/* Footer: Establishment identity + language switcher and Logout */}
-        <div
-          style={{
-            padding: "var(--cam-space-3) var(--cam-space-4)",
-            borderTop: "var(--cam-border-width) solid var(--cam-border)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--cam-space-3)",
-            background: "var(--cam-surface)",
-          }}
-        >
+        <div className="cam-home-rail-foot">
           {user && (
             <div>
+              <div className="cam-home-rail-who">{(isCompany ? companyName : null) || user.email}</div>
               {isCompany ? (
-                <>
-                  <div
-                    style={{
-                      fontSize: "var(--cam-font-size-sm)",
-                      fontWeight: 700,
-                      color: "var(--cam-text)",
-                      overflowWrap: "break-word",
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {companyName || user.email}
-                  </div>
-                  {companyType && (
-                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "var(--cam-space-hairline)" }}>
-                      {companyType}
-                    </div>
-                  )}
-                  {campaignLine && (
-                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "var(--cam-space-1)" }}>
-                      {campaignLine}
-                    </div>
-                  )}
-                </>
+                companyType && <div className="cam-home-rail-meta">{companyType}</div>
               ) : (
-                <>
-                  <div
-                    style={{
-                      fontSize: "var(--cam-font-size-xs)",
-                      fontWeight: 600,
-                      color: "var(--cam-text)",
-                      overflowWrap: "break-word",
-                    }}
-                  >
-                    {user.email}
-                  </div>
-                  <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                    {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
-                  </div>
-                  {campaignLine && (
-                    <div style={{ fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)", marginTop: "4px" }}>
-                      {campaignLine}
-                    </div>
-                  )}
-                </>
+                <div className="cam-home-rail-meta">
+                  {roleLabelKey(effectiveRole!) ? t(roleLabelKey(effectiveRole!)!) : effectiveRole}
+                </div>
               )}
+              {campaignLine && <div className="cam-home-rail-meta">{campaignLine}</div>}
             </div>
           )}
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "var(--cam-space-2)",
-              paddingTop: "var(--cam-space-2)",
-              borderTop: "1px dashed var(--cam-border)",
-            }}
-          >
+          <div className="cam-home-rail-tools">
             <LanguageLink />
             <button
               type="button"
@@ -397,8 +311,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
                 logout({ intentional: true });
                 router.replace("/");
               }}
-              className="cam-text-button"
-              style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}
+              className="cam-text-button cam-home-rail-logout"
             >
               {t("homeLayout.logoutButton")}
             </button>

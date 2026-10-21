@@ -2841,8 +2841,8 @@ html:has(.cam-masthead) {
   content: "";
   position: absolute;
   left: calc(var(--cam-step-marker-size) / 2 - 1px);
-  top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-  bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
+  top: calc(var(--cam-step-row-pad, var(--cam-space-2)) + var(--cam-step-marker-size) + var(--cam-space-hairline));
+  bottom: calc(var(--cam-space-hairline) - var(--cam-step-row-pad, var(--cam-space-2)));
   width: 2px;
   background: var(--cam-border);
 }
@@ -2857,7 +2857,7 @@ html:has(.cam-masthead) {
   column-gap: var(--cam-space-3);
   align-items: center;
   width: 100%;
-  padding: var(--cam-space-2) 0;
+  padding: var(--cam-step-row-pad, var(--cam-space-2)) 0;
   background: none;
   border: none;
   font-family: inherit;
@@ -3455,23 +3455,32 @@ html:has(.cam-masthead) {
   border-top: var(--cam-border-width) solid var(--cam-border);
 }
 
-/* A 1366x768 laptop leaves about 650px of page under the browser bar: at
-   46px a row, the eleven VT steps outgrow it and the rail grows a second
-   scrollbar beside the page's (CLAUDE.md §13). Tighter rows keep the whole
-   outline in view there; the rail's own scroll stays a last resort. */
-@media (max-height: 760px) {
+/* One rhythm for every wide rail -- registration, Modern Jobs, VT -- set by
+   the screen's height, never by the wizard (2026-10-21; until then VT ran
+   40px rows and the others 48px, so the rail jumped between forms). 48px
+   rows with room to spare; 40px from 800px, where a 1366x768 laptop's
+   ~650px of page must hold VT's eleven steps without the rail growing a
+   second scrollbar beside the page's (CLAUDE.md §13); 32px as the last
+   resort. The connector follows --cam-step-row-pad. */
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+  --cam-step-row-pad: var(--cam-space-3);
+  gap: var(--cam-space-6);
+  padding-top: var(--cam-space-6);
+}
+
+@media (max-height: 800px) {
   .cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+    --cam-step-row-pad: var(--cam-space-2);
+    gap: var(--cam-space-5);
+    padding-top: var(--cam-space-5);
+  }
+}
+
+@media (max-height: 620px) {
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+    --cam-step-row-pad: var(--cam-space-1);
     gap: var(--cam-space-4);
     padding-top: var(--cam-space-4);
-  }
-
-  .cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-button {
-    padding: var(--cam-space-1) 0;
-  }
-
-  .cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
-    top: calc(var(--cam-space-1) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-    bottom: calc(var(--cam-space-hairline) - var(--cam-space-1));
   }
 }
 
@@ -4346,13 +4355,131 @@ textarea.sovereign-text-input {
   font-family: var(--cam-font-sans);
 }
 
+/* The workspace rail is site navigation, but it is the panel a respondent
+   leaves to open a questionnaire, so it reads as the wizard rail does: the
+   same width, side padding, 14px semibold items in 40px rows, bold green for
+   the page in hand, 12px muted lines under the identity (2026-10-21). */
 .cam-home-rail {
-  width: 240px;
+  width: var(--cam-side-rail-width);
   flex-shrink: 0;
   border-right: var(--cam-border-width) solid var(--cam-border);
   background: var(--cam-surface);
   display: flex;
   flex-direction: column;
+  font-family: var(--cam-font-sans);
+}
+
+.cam-home-rail-brand {
+  padding: var(--cam-space-5) var(--cam-space-4) var(--cam-space-4);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-home-rail-action {
+  padding: var(--cam-space-4) var(--cam-space-4) 0;
+}
+
+.cam-home-nav {
+  flex: 1;
+  padding: var(--cam-space-3) 0;
+  overflow-y: auto;
+}
+
+.cam-home-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  min-height: calc(var(--cam-step-marker-size) + 2 * var(--cam-space-2));
+  padding: var(--cam-space-2) var(--cam-space-4) var(--cam-space-2) calc(var(--cam-space-4) - 3px);
+  border-left: 3px solid transparent;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+  text-decoration: none;
+}
+
+.cam-home-nav-link:hover {
+  color: var(--cam-green);
+}
+
+.cam-home-nav-link:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: -2px;
+}
+
+.cam-home-nav-link[aria-current="page"] {
+  border-left-color: var(--cam-green);
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-home-nav-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-nav-link[aria-current="page"] .cam-home-nav-count {
+  color: var(--cam-green);
+}
+
+.cam-home-nav-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-primary);
+}
+
+.cam-home-nav-dot.is-warning {
+  background: var(--cam-warning);
+}
+
+.cam-home-rail-note {
+  margin: 0;
+  padding: var(--cam-space-2) var(--cam-space-4);
+  font-size: var(--cam-microcopy-size);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-microcopy-color);
+}
+
+.cam-home-rail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-home-rail-who {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+  overflow-wrap: anywhere;
+}
+
+.cam-home-rail-meta {
+  margin-top: var(--cam-space-hairline);
+  font-size: var(--cam-microcopy-size);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-microcopy-color);
+}
+
+.cam-home-rail-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+}
+
+/* One class heavier than .cam-text-button (admin-console.css). */
+.cam-home-rail-tools .cam-home-rail-logout {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
 }
 
 .cam-home-main {
@@ -4437,44 +4564,12 @@ textarea.sovereign-text-input {
   }
 }
 
-/* Registration panel: more air between the six steps and around the
-   identity block (owner, 2026-10-15). Scoped to this panel; the VT and
-   Modern Jobs rails keep the shared rhythm. At the end of the file and one
-   class heavier than the short-viewport rule, which would otherwise tighten
-   it again: six steps fit at any laptop height. */
+/* Registration panel: its rows and gaps are the shared rail rhythm (see
+   "Wizard rail"); it keeps only a little more room under its foot, where the
+   help link sits (owner, 2026-10-15). Side padding stays the shared 16px: at
+   24px "Type d'organisation" wrapped beside its "Modifier" link. */
 .cam-auth-page--wizard .flow-panel.cam-wizard-rail {
-  gap: var(--cam-space-6);
-  /* Side padding stays the shared 16px: at 24px "Type d'organisation"
-     wrapped beside its "Modifier" link in the 280px panel. */
-  padding: var(--cam-space-6) var(--cam-space-4) var(--cam-space-5);
-}
-
-.cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step-button {
-  padding: var(--cam-space-3) 0;
-}
-
-.cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step:not(:last-child)::after {
-  top: calc(var(--cam-space-3) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-  bottom: calc(var(--cam-space-hairline) - var(--cam-space-3));
-}
-
-/* Short screens give back the extra air before the panel would need a
-   scrollbar of its own (CLAUDE.md section 13). */
-@media (max-height: 700px) {
-  .cam-auth-page--wizard .flow-panel.cam-wizard-rail {
-    gap: var(--cam-space-4);
-    padding-top: var(--cam-space-4);
-  }
-
-  .cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step-button {
-    padding: var(--cam-space-2) 0;
-  }
-
-  .cam-auth-page--wizard .flow-panel.cam-wizard-rail .cam-step:not(:last-child)::after {
-    top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-    bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
-  }
-
+  padding-bottom: var(--cam-space-5);
 }
 
 /* A quiet text link to the other official language (LanguageLink.tsx):
@@ -4508,37 +4603,3 @@ textarea.sovereign-text-input {
   cursor: progress;
 }
 
-/* The Modern Jobs rail (ModernJobsSidebar: project, enterprise, CTD,
-   cooperative, NGO, administration) holds seven to nine steps, not VT's
-   eleven, so it keeps the registration panel's 12px rows down to a 700px
-   viewport instead of the 760px squeeze written for VT (owner, 2026-10-20:
-   the project rail read cramped). One class heavier than that rule. */
-.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) {
-  gap: var(--cam-space-6);
-  padding-top: var(--cam-space-6);
-}
-
-.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step-button {
-  padding: var(--cam-space-3) 0;
-}
-
-.cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
-  top: calc(var(--cam-space-3) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-  bottom: calc(var(--cam-space-hairline) - var(--cam-space-3));
-}
-
-@media (max-height: 700px) {
-  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) {
-    gap: var(--cam-space-4);
-    padding-top: var(--cam-space-4);
-  }
-
-  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step-button {
-    padding: var(--cam-space-2) 0;
-  }
-
-  .cam-wizard-rail.cam-wizard-rail--roomy:not(.cam-wizard-rail--sheet) .cam-step:not(:last-child)::after {
-    top: calc(var(--cam-space-2) + var(--cam-step-marker-size) + var(--cam-space-hairline));
-    bottom: calc(var(--cam-space-hairline) - var(--cam-space-2));
-  }
-}
