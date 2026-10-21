@@ -25,183 +25,83 @@ export default function HomeHelpPage() {
   const company = companyQuery.data;
 
   return (
-    <div style={{ maxWidth: "var(--vt-content-max)", margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)", display: "flex", flexDirection: "column", gap: "var(--cam-space-6)" }}>
-      {/* Page Header */}
-      <div>
-        <h1 style={{ margin: "0 0 var(--cam-space-2)", fontSize: "var(--cam-font-size-2xl)", fontWeight: 700, color: "var(--cam-text)" }}>
-          {t("homeHelpPage.pageTitle")}
-        </h1>
-        <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-          {t("homeHelpPage.pageSubtitle")}
-        </p>
-      </div>
-
-      {/* 1. Support Channels Card */}
-      <section
-        style={{
-          background: "var(--cam-surface)",
-          border: "var(--cam-border-width) solid var(--cam-border)",
-          borderRadius: "var(--cam-radius-lg)",
-          padding: "var(--cam-space-5) var(--cam-space-6)",
-          boxShadow: "var(--cam-shadow-sm)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--cam-space-4)", flexWrap: "wrap", gap: "var(--cam-space-2)" }}>
-          <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-            {t("homeHelpPage.supportHeading")}
-          </h2>
-          <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", background: "var(--cam-surface-subtle)", padding: "var(--cam-space-1) var(--cam-space-3)", borderRadius: "var(--cam-radius-full)" }}>
-            {t("homeHelpPage.supportHours")}
-          </span>
+    <div className="cam-home-page">
+      <header className="cam-home-head">
+        <div>
+          <h1 className="cam-home-title">{t("homeHelpPage.pageTitle")}</h1>
+          <p className="cam-home-lede">{t("homeHelpPage.pageSubtitle")}</p>
         </div>
+      </header>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(18rem, 1fr))", gap: "var(--cam-space-4)" }}>
-          {/* WhatsApp Channel */}
-          <div
-            style={{
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md)",
-              padding: "var(--cam-space-4)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "var(--cam-space-3)",
-            }}
-          >
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-1)" }}>
-                <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>💬</span>
-                <h3 style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-                  {t("homeHelpPage.whatsappTitle")}
-                </h3>
-              </div>
-              <p style={{ margin: "0 0 var(--cam-space-2)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-                {t("homeHelpPage.whatsappDesc")}
-              </p>
-              <div style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                {SITE_CONTACT.whatsappDisplay}
-              </div>
+      {/* 1. Support channels: one row each, the contact and its action. */}
+      <section className="cam-home-section" aria-labelledby="help-support-heading">
+        <div className="cam-home-section-head">
+          <h2 id="help-support-heading" className="cam-home-h2">{t("homeHelpPage.supportHeading")}</h2>
+          <span className="cam-home-meta">{t("homeHelpPage.supportHours")}</span>
+        </div>
+        <ul className="cam-home-list">
+          <li className="cam-home-row">
+            <div className="cam-home-row-main">
+              <h3 className="cam-home-row-title">{t("homeHelpPage.whatsappTitle")}</h3>
+              <p className="cam-home-meta">{t("homeHelpPage.whatsappDesc")}</p>
+              <p className="cam-home-body">{SITE_CONTACT.whatsappDisplay}</p>
             </div>
-
-            <div>
+            <div className="cam-home-row-side">
               <a
                 href={SITE_CONTACT.whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="cam-button cam-button-primary cam-button-sm"
-                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}
               >
-                <span>💬</span>
-                <span>{t("homeLandingPage.whatsappButton")}</span>
+                {t("homeLandingPage.whatsappButton")}
               </a>
             </div>
-          </div>
-
-          {/* Email Channel */}
-          <div
-            style={{
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md)",
-              padding: "var(--cam-space-4)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "var(--cam-space-3)",
-            }}
-          >
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-1)" }}>
-                <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>✉</span>
-                <h3 style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-                  {t("homeHelpPage.emailTitle")}
-                </h3>
-              </div>
-              <p style={{ margin: "0 0 var(--cam-space-2)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-                {t("homeHelpPage.emailDesc")}
-              </p>
-              <div style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
-                {SITE_CONTACT.email}
-              </div>
+          </li>
+          <li className="cam-home-row">
+            <div className="cam-home-row-main">
+              <h3 className="cam-home-row-title">{t("homeHelpPage.emailTitle")}</h3>
+              <p className="cam-home-meta">{t("homeHelpPage.emailDesc")}</p>
+              <p className="cam-home-body">{SITE_CONTACT.email}</p>
             </div>
-
-            <div>
-              <a
-                href={`mailto:${SITE_CONTACT.email}`}
-                className="cam-button cam-button-secondary cam-button-sm"
-                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}
-              >
-                <span>✉</span>
-                <span>{t("homeLandingPage.emailButton")}</span>
+            <div className="cam-home-row-side">
+              <a href={`mailto:${SITE_CONTACT.email}`} className="cam-button cam-button-secondary cam-button-sm">
+                {t("homeLandingPage.emailButton")}
               </a>
             </div>
-          </div>
-        </div>
+          </li>
+        </ul>
       </section>
 
-      {/* 2. Regional Delegation Supervision */}
-      <section
-        style={{
-          background: "var(--cam-surface)",
-          border: "var(--cam-border-width) solid var(--cam-border)",
-          borderRadius: "var(--cam-radius-lg)",
-          padding: "var(--cam-space-5) var(--cam-space-6)",
-          boxShadow: "var(--cam-shadow-sm)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-2)" }}>
-          <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>🏛️</span>
-          <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-            {t("homeHelpPage.delegationHeading")}
-          </h2>
-        </div>
-        <p style={{ margin: "0 0 var(--cam-space-3)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
+      {/* 2. The delegation that supervises this establishment. */}
+      <section className="cam-home-section" aria-labelledby="help-delegation-heading">
+        <h2 id="help-delegation-heading" className="cam-home-h2">{t("homeHelpPage.delegationHeading")}</h2>
+        <p className="cam-home-intro">
           {t("homeHelpPage.delegationDesc")}
         </p>
-
-        <div style={{ background: "var(--cam-surface-subtle)", padding: "var(--cam-space-3) var(--cam-space-4)", borderRadius: "var(--cam-radius-md)", display: "flex", flexDirection: "column", gap: "var(--cam-space-1)", fontSize: "var(--cam-font-size-xs)" }}>
-          <div>{t("homeLandingPage.regionName", { region: company?.region || t("homeLandingPage.noLocation") })}</div>
+        <p className="cam-home-body">
+          {t("homeLandingPage.regionName", { region: company?.region || t("homeLandingPage.noLocation") })}
           {company?.department && (
-            <div>{t("homeLandingPage.departmentName", { department: company.department })}</div>
+            <>
+              <br />
+              {t("homeLandingPage.departmentName", { department: company.department })}
+            </>
           )}
           {company?.subdivision && (
-            <div>{t("homeEstablishmentPage.subdivision")} : <strong>{company.subdivision}</strong></div>
+            <>
+              <br />
+              {t("homeEstablishmentPage.subdivision")} : <strong>{company.subdivision}</strong>
+            </>
           )}
-        </div>
+        </p>
       </section>
 
-      {/* 3. Portal Guide & FAQ Link */}
-      <section
-        style={{
-          background: "var(--cam-surface-subtle)",
-          border: "var(--cam-border-width) solid var(--cam-border)",
-          borderRadius: "var(--cam-radius-lg)",
-          padding: "var(--cam-space-5) var(--cam-space-6)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "var(--cam-space-4)",
-        }}
-      >
-        <div style={{ flex: "1 1 20rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-1)" }}>
-            <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>📖</span>
-            <h2 style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-              {t("homeHelpPage.portalGuideHeading")}
-            </h2>
-          </div>
-          <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-            {t("homeHelpPage.portalGuideDesc")}
-          </p>
-        </div>
-
-        <div>
-          <Link
-            href="/assistance"
-            className="cam-button cam-button-secondary cam-button-sm"
-            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}
-          >
-            <span>{t("homeHelpPage.portalGuideButton")}</span>
+      {/* 3. The portal guide. */}
+      <section className="cam-home-section" aria-labelledby="help-guide-heading">
+        <h2 id="help-guide-heading" className="cam-home-h2">{t("homeHelpPage.portalGuideHeading")}</h2>
+        <p className="cam-home-meta">{t("homeHelpPage.portalGuideDesc")}</p>
+        <div className="cam-home-actions">
+          <Link href="/assistance" className="cam-button cam-button-secondary cam-button-sm">
+            {t("homeHelpPage.portalGuideButton")}
           </Link>
         </div>
       </section>

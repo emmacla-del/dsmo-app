@@ -27,9 +27,7 @@ export default function HomePlaceholderPage({ params }: { params: Promise<{ slug
   const user = meQuery.data ?? authUser ?? getCachedUser();
   if (!user) {
     return (
-      <div style={{ padding: "var(--cam-space-6)", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
+      <p className="cam-home-state">{t("common.loading")}</p>
     );
   }
 
@@ -37,23 +35,15 @@ export default function HomePlaceholderPage({ params }: { params: Promise<{ slug
   const item = navItemsForRole(effectiveRole).find((i) => i.slug === slug);
 
   return (
-    <div>
-      <h1 style={{ fontSize: "var(--cam-font-size-xl)", fontWeight: 700, margin: "0 0 var(--cam-space-3)" }}>
-        {item ? t(item.labelKey) : slug}
-      </h1>
-      <div
-        style={{
-          border: "1px dashed var(--cam-border-strong)",
-          borderRadius: "var(--cam-radius-md)",
-          padding: "var(--cam-space-5)",
-          color: "var(--cam-text-muted)",
-          fontSize: "var(--cam-font-size-base)",
-        }}
-      >
+    <div className="cam-home-page">
+      <header className="cam-home-head">
+        <h1 className="cam-home-title">{item ? t(item.labelKey) : slug}</h1>
+      </header>
+      <p className="cam-home-state">
         {item
           ? t("homeSlugPage.notMigratedMessage")
           : t("homeSlugPage.unknownSectionMessage")}
-      </div>
+      </p>
     </div>
   );
 }

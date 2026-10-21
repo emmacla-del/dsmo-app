@@ -69,31 +69,6 @@ const STATUS_BADGE_CLASS: Record<SubmissionGroup, string> = {
   rejected: "cam-badge-error",
 };
 
-// The respondent home's sections share one rhythm: a hairline above, a
-// heading, then content. No cards (CLAUDE.md §8).
-const SECTION_STYLE = {
-  borderTop: "var(--cam-border-width) solid var(--cam-border)",
-  padding: "var(--cam-space-5) 0 var(--cam-space-6)",
-} as const;
-const H2_STYLE = {
-  fontSize: "var(--cam-font-size-lg)",
-  fontWeight: "var(--cam-font-weight-bold)",
-  margin: "0 0 var(--cam-space-3)",
-  color: "var(--cam-text)",
-} as const;
-const BODY_STYLE = { fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)", lineHeight: "var(--cam-line-height-base)" } as const;
-const MUTED_STYLE = { fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" } as const;
-const LINK_STYLE = { fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-green)", whiteSpace: "nowrap" } as const;
-const ROW_STYLE = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "var(--cam-space-3)",
-  padding: "var(--cam-space-3) 0",
-  borderTop: "var(--cam-border-width) solid var(--cam-border)",
-} as const;
-
 function groupStatusLabel(t: ReturnType<typeof useTranslations>, group: SubmissionGroup): string {
   switch (group) {
     case "draft":
@@ -207,9 +182,7 @@ export default function HomeLandingPage() {
 
   if (!user) {
     return (
-      <div style={{ padding: "var(--cam-space-6)", color: "var(--cam-text-muted)" }}>
-        {t("common.loading")}
-      </div>
+      <p className="cam-home-state">{t("common.loading")}</p>
     );
   }
 
@@ -225,27 +198,25 @@ export default function HomeLandingPage() {
   if (!isCompany) {
     const lede = [typeLabel, campaign].filter(Boolean).join(" · ");
     return (
-      <div>
-        <h1 style={{ fontSize: "var(--cam-font-size-xl)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 var(--cam-space-2)" }}>
-          {t("homeLandingPage.welcomeTitle")}
-        </h1>
-        {lede && (
-          <p style={{ color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-5)" }}>{lede}</p>
-        )}
-        <section style={{ maxWidth: 680, marginTop: "var(--cam-space-5)" }}>
-          <h2 style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 var(--cam-space-2)", color: "var(--cam-text)" }}>
-            {t("homeLandingPage.staffConsoleTitle")}
-          </h2>
-          <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-3)" }}>
+      <div className="cam-home-page">
+        <header className="cam-home-head">
+          <div>
+            <h1 className="cam-home-title">{t("homeLandingPage.welcomeTitle")}</h1>
+            {lede && <p className="cam-home-lede">{lede}</p>}
+          </div>
+        </header>
+        <section className="cam-home-section">
+          <h2 className="cam-home-h2">{t("homeLandingPage.staffConsoleTitle")}</h2>
+          <p className="cam-home-intro">
             {t("homeLandingPage.staffConsoleBody")}
           </p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className="cam-home-list">
             {STAFF_LINKS.map((link) => (
-              <li key={link.href} style={{ padding: "var(--cam-space-3) 0", borderTop: "var(--cam-border-width) solid var(--cam-border)" }}>
-                <Link href={link.href} style={{ fontWeight: 600, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-green)" }}>
+              <li key={link.href} className="cam-home-row cam-home-row--stacked">
+                <Link href={link.href} className="cam-home-link">
                   {t(link.titleKey)}
                 </Link>
-                <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{t(link.hintKey)}</div>
+                <span className="cam-home-meta">{t(link.hintKey)}</span>
               </li>
             ))}
           </ul>
@@ -288,27 +259,23 @@ export default function HomeLandingPage() {
     .slice(0, 3);
 
   return (
-    <div style={{ maxWidth: "var(--vt-content-max)", display: "flex", flexDirection: "column" }}>
+    <div className="cam-home-page">
       {/* ── Who this is ── */}
-      <header style={{ marginBottom: "var(--cam-space-6)" }}>
-        <h1 style={{ fontSize: "var(--cam-font-size-2xl)", fontWeight: "var(--cam-font-weight-bold)", margin: "0 0 var(--cam-space-1)", color: "var(--cam-text)" }}>
-          {company?.name || t("homeLandingPage.welcomeTitle")}
-        </h1>
-        {identity.length > 0 && (
-          <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-            {identity.join(" · ")}
-          </p>
-        )}
+      <header className="cam-home-head">
+        <div>
+          <h1 className="cam-home-title">{company?.name || t("homeLandingPage.welcomeTitle")}</h1>
+          {identity.length > 0 && <p className="cam-home-lede">{identity.join(" · ")}</p>}
+        </div>
       </header>
 
       {/* ── The one thing to do: this campaign's survey ──
           Its state and a single action that follows it. No box: sections are
           told apart by their headings and a hairline (CLAUDE.md §8). */}
-      <section aria-labelledby="home-survey-heading" style={SECTION_STYLE}>
-        <h2 id="home-survey-heading" style={H2_STYLE}>
+      <section aria-labelledby="home-survey-heading" className="cam-home-section">
+        <h2 id="home-survey-heading" className="cam-home-h2">
           {campaign || (quarter?.label ?? t("homeLandingPage.campaignStatusTitle"))}
         </h2>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap", marginBottom: "var(--cam-space-2)" }}>
+        <div className="cam-home-row-side">
           {quarter && !quarter.isOpen && (
             <span className="cam-badge cam-badge-neutral">{t("homeLandingPage.campaignClosedBadge")}</span>
           )}
@@ -317,7 +284,7 @@ export default function HomeLandingPage() {
               {groupStatusLabel(t, campaignSubmission.group)}
             </span>
           )}
-          <span style={BODY_STYLE}>
+          <span className="cam-home-body">
             {!quarter?.isOpen
               ? t("homeLandingPage.campaignClosedNotice")
               : surveyLoading
@@ -336,19 +303,19 @@ export default function HomeLandingPage() {
           </span>
         </div>
         {quarter?.isOpen && surveyState === "correction" && correctionReason && (
-          <p style={{ ...BODY_STYLE, margin: "0 0 var(--cam-space-2)" }}>{correctionReason}</p>
+          <p className="cam-home-body">{correctionReason}</p>
         )}
         {quarter?.isOpen && endorsedAlongside && (
-          <p style={{ ...BODY_STYLE, margin: "0 0 var(--cam-space-2)" }}>{t("homeLandingPage.surveyAlsoEndorsed")}</p>
+          <p className="cam-home-body">{t("homeLandingPage.surveyAlsoEndorsed")}</p>
         )}
         {quarter?.deadline && quarter.isOpen && (
-          <p style={{ ...MUTED_STYLE, margin: "0 0 var(--cam-space-4)" }}>
+          <p className="cam-home-meta">
             {t("homeLandingPage.deadlineBadge", { date: formatCampaignDate(quarter.deadline) })}
           </p>
         )}
 
         {quarter?.isOpen && !surveyLoading && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-2)" }}>
+          <div className="cam-home-actions">
             {surveyState === "none" && (
               <button
                 type="button"
@@ -390,22 +357,22 @@ export default function HomeLandingPage() {
 
       {/* ── Earlier declarations: only when there are some ── */}
       {!submissionsQuery.isLoading && earlierEntries.length > 0 && (
-        <section aria-labelledby="home-earlier-heading" style={SECTION_STYLE}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-3)" }}>
-            <h2 id="home-earlier-heading" style={H2_STYLE}>{t("homeLandingPage.earlierDeclarationsHeading")}</h2>
-            <Link href="/home/declarations" style={LINK_STYLE}>{t("homeLandingPage.viewAllSubmissions")}</Link>
+        <section aria-labelledby="home-earlier-heading" className="cam-home-section">
+          <div className="cam-home-section-head">
+            <h2 id="home-earlier-heading" className="cam-home-h2">{t("homeLandingPage.earlierDeclarationsHeading")}</h2>
+            <Link href="/home/declarations" className="cam-home-link">{t("homeLandingPage.viewAllSubmissions")}</Link>
           </div>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className="cam-home-list">
             {earlierEntries.map((entry) => (
-              <li key={entry.id} style={ROW_STYLE}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>{entry.period}</div>
-                  <div style={MUTED_STYLE}>
+              <li key={entry.id} className="cam-home-row">
+                <div className="cam-home-row-main">
+                  <p className="cam-home-row-title">{entry.period}</p>
+                  <p className="cam-home-meta">
                     {entry.stream === "DSMO" ? `${t("homeLandingPage.dsmoDeclarationLabel")} · ` : ""}
                     {formatSubmissionDate(entry.date)}
-                  </div>
+                  </p>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexShrink: 0 }}>
+                <div className="cam-home-row-side">
                   <span className={`cam-badge ${STATUS_BADGE_CLASS[entry.group]}`}>{groupStatusLabel(t, entry.group)}</span>
                   {entry.group === "draft" || entry.group === "correction" ? (
                     <button type="button" onClick={() => router.push(wizardHref(entry))} className="cam-button cam-button-secondary cam-button-sm">
@@ -425,26 +392,26 @@ export default function HomeLandingPage() {
 
       {/* ── Messages: only when there are some; the rail links to the box ── */}
       {recentMessages.length > 0 && (
-        <section aria-labelledby="home-messages-heading" style={SECTION_STYLE}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-3)" }}>
-            <h2 id="home-messages-heading" style={H2_STYLE}>{t("homeLandingPage.latestMessagesHeading")}</h2>
-            <Link href="/home/messages" style={LINK_STYLE}>{t("homeLandingPage.viewAllMessages")}</Link>
+        <section aria-labelledby="home-messages-heading" className="cam-home-section">
+          <div className="cam-home-section-head">
+            <h2 id="home-messages-heading" className="cam-home-h2">{t("homeLandingPage.latestMessagesHeading")}</h2>
+            <Link href="/home/messages" className="cam-home-link">{t("homeLandingPage.viewAllMessages")}</Link>
           </div>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className="cam-home-list">
             {recentMessages.map((msg) => (
-              <li key={msg.id} style={{ ...ROW_STYLE, flexDirection: "column", alignItems: "stretch", gap: "var(--cam-space-1)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "var(--cam-space-2)", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: msg.readAt ? 600 : 700, color: "var(--cam-text)" }}>
+              <li key={msg.id} className="cam-home-row cam-home-row--stacked">
+                <div className="cam-home-section-head">
+                  <span className={`cam-home-row-title${msg.readAt ? "" : " is-unread"}`}>
                     {!msg.readAt && (
-                      <span className="cam-badge cam-badge-success" style={{ marginRight: "var(--cam-space-2)" }}>
+                      <span className="cam-badge cam-badge-success">
                         {t("homeMessagesPage.unreadBadge")}
                       </span>
                     )}
                     {msg.subject}
                   </span>
-                  <time style={MUTED_STYLE}>{formatDoualaDate(msg.createdAt) ?? msg.createdAt.slice(0, 10)}</time>
+                  <time className="cam-home-meta">{formatDoualaDate(msg.createdAt) ?? msg.createdAt.slice(0, 10)}</time>
                 </div>
-                <p style={{ ...MUTED_STYLE, margin: 0 }}>{msg.body.length > 180 ? `${msg.body.slice(0, 180)}…` : msg.body}</p>
+                <p className="cam-home-meta">{msg.body.length > 180 ? `${msg.body.slice(0, 180)}…` : msg.body}</p>
               </li>
             ))}
           </ul>
