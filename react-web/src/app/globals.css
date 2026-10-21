@@ -535,8 +535,10 @@ body {
   display: none;
 }
 
-/* The printed acknowledgement keeps the panel, the list and what happens
-   next; the masthead, the controls and the help line are for the screen.
+/* The printed acknowledgement keeps the masthead (CAMLEAP logo and « Une
+   plateforme de l'ONEFOP », so the paper says whose document it is), the
+   panel, the list and what happens next; the language switch, the controls
+   and the help line are for the screen.
    The page prints with no margin (set by the receipt itself) so the browser
    adds no header or footer; the padding here is the paper margin, and the
    receipt's own footer line says where the document comes from. */
@@ -551,7 +553,7 @@ body {
     font-size: var(--cam-font-size-xs);
     color: var(--cam-text-muted);
   }
-  .cam-auth-page--receipt .masthead,
+  .cam-auth-page--receipt .masthead-locale,
   .cam-auth-page .receipt-link,
   .cam-auth-page .receipt-actions,
   .cam-auth-page .receipt-footer {
