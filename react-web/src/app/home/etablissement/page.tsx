@@ -110,460 +110,225 @@ export default function HomeEstablishmentPage() {
   );
   const changeMailHref = `mailto:${SITE_CONTACT.email}?subject=${changeMailSubject}`;
 
+  const accountStatusKey = `adminEtablissementPage.accountStatus.${user?.status ?? "ACTIVE"}`;
+  const accountStatus = t.has(accountStatusKey) ? t(accountStatusKey) : user?.status ?? "—";
+
   return (
-    <div style={{ maxWidth: "var(--vt-content-max)", margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)", display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
-      {/* Page Header */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", flexWrap: "wrap", marginBottom: "var(--cam-space-1)" }}>
-          <h1 style={{ margin: 0, fontSize: "var(--cam-font-size-2xl)", fontWeight: 700, color: "var(--cam-text)" }}>
-            {company?.name || t("homeEstablishmentPage.pageTitle")}
-          </h1>
-          <span className="cam-badge cam-badge-success" style={{ display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}>
-            <span aria-hidden="true">✓</span>
-            <span>{t("homeLandingPage.verifiedAccount")}</span>
-          </span>
+    <div className="cam-home-page">
+      <header className="cam-home-head">
+        <div>
+          <h1 className="cam-home-title">{company?.name || t("homeEstablishmentPage.pageTitle")}</h1>
+          <p className="cam-home-lede">{t("homeEstablishmentPage.pageSubtitle")}</p>
         </div>
-        <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-          {t("homeEstablishmentPage.pageSubtitle")}
-        </p>
-      </div>
+      </header>
 
-      {/* Sub-navigation tabs: Fiche d'immatriculation vs Paramètres & Sécurité */}
-      <div style={{ display: "flex", gap: "var(--cam-space-2)", borderBottom: "var(--cam-border-width) solid var(--cam-border)", paddingBottom: "var(--cam-space-2)" }}>
+      {/* The establishment's record, and the account's settings. */}
+      <div className="cam-home-tabs" role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "record"}
           onClick={() => setActiveTab("record")}
-          className={`cam-button ${activeTab === "record" ? "cam-button-primary" : "cam-button-secondary"} cam-button-sm`}
-          style={{ borderRadius: "var(--cam-radius-full)", padding: "var(--cam-space-1) var(--cam-space-3)" }}
+          className="cam-home-tab"
         >
-          <span>🏢</span> {t("homeEstablishmentPage.tabRecord")}
+          {t("homeEstablishmentPage.tabRecord")}
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "settings"}
           onClick={() => setActiveTab("settings")}
-          className={`cam-button ${activeTab === "settings" ? "cam-button-primary" : "cam-button-secondary"} cam-button-sm`}
-          style={{ borderRadius: "var(--cam-radius-full)", padding: "var(--cam-space-1) var(--cam-space-3)" }}
+          className="cam-home-tab"
         >
-          <span>⚙️</span> {t("homeEstablishmentPage.tabSettings")}
+          {t("homeEstablishmentPage.tabSettings")}
         </button>
       </div>
 
-      {companyQuery.isLoading && (
-        <div style={{ padding: "var(--cam-space-6)", color: "var(--cam-text-muted)", textAlign: "center" }}>
-          {t("common.loading")}
-        </div>
-      )}
+      {companyQuery.isLoading && <p className="cam-home-state">{t("common.loading")}</p>}
 
       {!companyQuery.isLoading && activeTab === "record" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-6)" }}>
-          {/* Section: Official Attestation Download Card */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderLeft: "4px solid var(--cam-primary)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "var(--cam-space-4)",
-            }}
-          >
-            <div style={{ flex: "1 1 20rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-1)" }}>
-                <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>📜</span>
-                <h2 style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-                  {t("homeEstablishmentPage.attestationTitle")}
-                </h2>
+        <>
+          {/* The registration certificate: this page's one action. */}
+          <section className="cam-home-section" aria-labelledby="etab-attestation-heading">
+            <h2 id="etab-attestation-heading" className="cam-home-h2">{t("homeEstablishmentPage.attestationTitle")}</h2>
+            <p className="cam-home-meta">{t("homeEstablishmentPage.attestationDesc")}</p>
+            {attestationError && (
+              <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+                <span>{attestationError}</span>
               </div>
-              <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-                {t("homeEstablishmentPage.attestationDesc")}
-              </p>
-              {attestationError && (
-                <p role="alert" style={{ color: "var(--cam-error)", fontSize: "var(--cam-font-size-xs)", margin: "var(--cam-space-2) 0 0" }}>
-                  {attestationError}
-                </p>
-              )}
-            </div>
-
-            <div>
+            )}
+            <div className="cam-home-actions">
               <button
                 type="button"
                 onClick={openAttestation}
                 disabled={!canDownloadAttestation || attestationLoading}
                 className="cam-button cam-button-primary"
-                style={{ padding: "var(--cam-space-2) var(--cam-space-4)", fontSize: "var(--cam-font-size-sm)", display: "inline-flex", alignItems: "center", gap: "var(--cam-space-2)" }}
               >
-                <span>📥</span>
-                <span>
-                  {attestationLoading
-                    ? t("homeEstablishmentPage.attestationLoading")
-                    : t("homeEstablishmentPage.attestationDownload")}
-                </span>
+                {attestationLoading
+                  ? t("homeEstablishmentPage.attestationLoading")
+                  : t("homeEstablishmentPage.attestationDownload")}
               </button>
             </div>
           </section>
 
-          {/* Section: Establishment Identity */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-            }}
-          >
-            <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: "0 0 var(--cam-space-4)", color: "var(--cam-text)" }}>
-              {t("homeEstablishmentPage.sectionIdentity")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))", gap: "var(--cam-space-4)" }}>
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.name")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.name || "—"}
-                </dd>
-              </div>
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.entityType")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {typeLabel}
-                </dd>
-              </div>
-
+          <section className="cam-home-section" aria-labelledby="etab-identity-heading">
+            <h2 id="etab-identity-heading" className="cam-home-h2">{t("homeEstablishmentPage.sectionIdentity")}</h2>
+            <dl className="cam-home-facts">
+              <dt>{t("homeEstablishmentPage.name")}</dt>
+              <dd>{company?.name || "—"}</dd>
+              <dt>{t("homeEstablishmentPage.entityType")}</dt>
+              <dd>{typeLabel}</dd>
               {/* An administration and a project/programme are never asked
                   for a NIU; their row holds an internal `NA-<uuid>`
                   placeholder, which is not a number to show them (B6). */}
               {niu && (
-                <div>
-                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                    {t("homeEstablishmentPage.taxNumber")}
-                  </dt>
-                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                    {niu}
-                  </dd>
-                </div>
+                <>
+                  <dt>{t("homeEstablishmentPage.taxNumber")}</dt>
+                  <dd>{niu}</dd>
+                </>
               )}
-
               {/* Registration asks for a CNPS number from the same five
                   types as the NIU, so an administration or a
                   project/programme read « Numéro CNPS — » for a question
                   they are never asked. The home header already hid it. */}
               {company?.cnpsNumber && (
-                <div>
-                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                    {t("homeEstablishmentPage.cnpsNumber")}
-                  </dt>
-                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                    {company.cnpsNumber}
-                  </dd>
-                </div>
+                <>
+                  <dt>{t("homeEstablishmentPage.cnpsNumber")}</dt>
+                  <dd>{company.cnpsNumber}</dd>
+                </>
               )}
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.mainActivity")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                  {company?.mainActivity || "—"}
-                </dd>
-              </div>
-
+              <dt>{t("homeEstablishmentPage.mainActivity")}</dt>
+              <dd>{company?.mainActivity || "—"}</dd>
               {company?.secondaryActivity && (
-                <div>
-                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                    {t("homeEstablishmentPage.secondaryActivity")}
-                  </dt>
-                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                    {company.secondaryActivity}
-                  </dd>
-                </div>
+                <>
+                  <dt>{t("homeEstablishmentPage.secondaryActivity")}</dt>
+                  <dd>{company.secondaryActivity}</dd>
+                </>
               )}
-
               {/* The DSMO company profile's headcount. ONEFOP never asks for
                   it, so it stays at 0 and read « 0 déclarés » next to a
                   declaration of 12 (B6): shown only when entered. */}
               {workforce !== null && (
-                <div>
-                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                    {t("homeEstablishmentPage.totalEmployees")}
-                  </dt>
-                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                    {t("homeLandingPage.employeesCount", { count: workforce })}
-                  </dd>
-                </div>
+                <>
+                  <dt>{t("homeEstablishmentPage.totalEmployees")}</dt>
+                  <dd>{t("homeLandingPage.employeesCount", { count: workforce })}</dd>
+                </>
               )}
-            </div>
+            </dl>
           </section>
 
-          {/* Section: Contact & Location */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-            }}
-          >
-            <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: "0 0 var(--cam-space-4)", color: "var(--cam-text)" }}>
-              {t("homeEstablishmentPage.sectionContact")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))", gap: "var(--cam-space-4)" }}>
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.address")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                  {company?.address || "—"}
-                </dd>
-              </div>
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.phone")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                  {(company?.phone as string | undefined) || "—"}
-                </dd>
-              </div>
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.email")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                  {(company?.email as string | undefined) || user?.email || "—"}
-                </dd>
-              </div>
-
+          <section className="cam-home-section" aria-labelledby="etab-contact-heading">
+            <h2 id="etab-contact-heading" className="cam-home-h2">{t("homeEstablishmentPage.sectionContact")}</h2>
+            <dl className="cam-home-facts">
+              <dt>{t("homeEstablishmentPage.address")}</dt>
+              <dd>{company?.address || "—"}</dd>
+              <dt>{t("homeEstablishmentPage.phone")}</dt>
+              <dd>{(company?.phone as string | undefined) || "—"}</dd>
+              <dt>{t("homeEstablishmentPage.email")}</dt>
+              <dd>{(company?.email as string | undefined) || user?.email || "—"}</dd>
               {company?.fax && (
-                <div>
-                  <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                    {t("homeEstablishmentPage.postalBox")}
-                  </dt>
-                  <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                    {company.fax}
-                  </dd>
-                </div>
+                <>
+                  <dt>{t("homeEstablishmentPage.postalBox")}</dt>
+                  <dd>{company.fax}</dd>
+                </>
               )}
-            </div>
+            </dl>
           </section>
 
-          {/* Section: Administrative Supervision */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-            }}
-          >
-            <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: "0 0 var(--cam-space-4)", color: "var(--cam-text)" }}>
-              {t("homeEstablishmentPage.sectionSupervision")}
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))", gap: "var(--cam-space-4)" }}>
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.region")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.region || t("homeEstablishmentPage.notSpecified")}
-                </dd>
-              </div>
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.department")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {company?.department || "—"}
-                </dd>
-              </div>
-
-              <div>
-                <dt style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", marginBottom: "var(--cam-space-1)" }}>
-                  {t("homeEstablishmentPage.subdivision")}
-                </dt>
-                <dd style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
-                  {company?.subdivision || "—"}
-                </dd>
-              </div>
-            </div>
+          <section className="cam-home-section" aria-labelledby="etab-supervision-heading">
+            <h2 id="etab-supervision-heading" className="cam-home-h2">{t("homeEstablishmentPage.sectionSupervision")}</h2>
+            <dl className="cam-home-facts">
+              <dt>{t("homeEstablishmentPage.region")}</dt>
+              <dd>{company?.region || t("homeEstablishmentPage.notSpecified")}</dd>
+              <dt>{t("homeEstablishmentPage.department")}</dt>
+              <dd>{company?.department || "—"}</dd>
+              <dt>{t("homeEstablishmentPage.subdivision")}</dt>
+              <dd>{company?.subdivision || "—"}</dd>
+            </dl>
           </section>
 
-          {/* Section: Request a Change Callout */}
-          <section
-            style={{
-              background: "var(--cam-surface-subtle)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "var(--cam-space-4)",
-            }}
-          >
-            <div style={{ flex: "1 1 20rem" }}>
-              <h3 style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 700, margin: "0 0 var(--cam-space-1)", color: "var(--cam-text)" }}>
-                {t("homeEstablishmentPage.requestChangeTitle")}
-              </h3>
-              <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: "var(--cam-line-height-base)" }}>
-                {t("homeEstablishmentPage.requestChangeDesc")}
-              </p>
-            </div>
-
-            <div>
-              <a
-                href={changeMailHref}
-                className="cam-button cam-button-secondary cam-button-sm"
-                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "var(--cam-space-1)" }}
-              >
-                <span>✉</span>
-                <span>{t("homeEstablishmentPage.requestChangeButton")}</span>
+          <section className="cam-home-section" aria-labelledby="etab-change-heading">
+            <h2 id="etab-change-heading" className="cam-home-h2">{t("homeEstablishmentPage.requestChangeTitle")}</h2>
+            <p className="cam-home-meta">{t("homeEstablishmentPage.requestChangeDesc")}</p>
+            <div className="cam-home-actions">
+              <a href={changeMailHref} className="cam-button cam-button-secondary cam-button-sm">
+                {t("homeEstablishmentPage.requestChangeButton")}
               </a>
             </div>
           </section>
-        </div>
+        </>
       )}
 
-      {/* Tab 2: Settings & Security */}
       {!companyQuery.isLoading && activeTab === "settings" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-6)" }}>
-          {/* Change Password Card */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-              maxWidth: "36rem",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-3)" }}>
-              <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>🔑</span>
-              <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-                {t("homeEstablishmentPage.passwordHeading")}
-              </h2>
-            </div>
+        <>
+          <section className="cam-home-section" aria-labelledby="etab-password-heading">
+            <h2 id="etab-password-heading" className="cam-home-h2">{t("homeEstablishmentPage.passwordHeading")}</h2>
 
             {passwordSuccess && (
-              <div
-                role="status"
-                style={{
-                  background: "var(--cam-green-wash)",
-                  color: "var(--cam-green)",
-                  padding: "var(--cam-space-3) var(--cam-space-4)",
-                  borderRadius: "var(--cam-radius-md)",
-                  fontSize: "var(--cam-font-size-sm)",
-                  marginBottom: "var(--cam-space-4)",
-                }}
-              >
-                ✓ {passwordSuccess}
+              <div className="cam-admin-notice cam-admin-notice--success" role="status">
+                <span>{passwordSuccess}</span>
               </div>
             )}
-
             {passwordError && (
-              <div
-                role="alert"
-                style={{
-                  background: "var(--cam-error-bg)",
-                  color: "var(--cam-error)",
-                  padding: "var(--cam-space-3) var(--cam-space-4)",
-                  borderRadius: "var(--cam-radius-md)",
-                  fontSize: "var(--cam-font-size-sm)",
-                  marginBottom: "var(--cam-space-4)",
-                }}
-              >
-                ⚠️ {passwordError}
+              <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+                <span>{passwordError}</span>
               </div>
             )}
 
-            <form onSubmit={handlePasswordSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-              <div>
-                <label
-                  htmlFor="current-password"
-                  style={{ display: "block", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)", marginBottom: "var(--cam-space-1)" }}
-                >
+            <form onSubmit={handlePasswordSubmit} className="cam-home-form">
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="current-password">
                   {t("homeEstablishmentPage.currentPasswordLabel")}
                 </label>
-                <div style={{ position: "relative" }}>
+                <div className="cam-home-password">
                   <input
                     id="current-password"
                     type={showCurrentPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
                     className="cam-input"
-                    style={{ width: "100%", paddingRight: "4rem" }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword((prev) => !prev)}
-                    className="cam-text-button"
-                    style={{ position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)", fontSize: "var(--cam-font-size-2xs)" }}
-                  >
+                  <button type="button" onClick={() => setShowCurrentPassword((prev) => !prev)} className="cam-text-button">
                     {showCurrentPassword ? t("loginPage.hidePasswordButton") : t("loginPage.showPasswordButton")}
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="new-password"
-                  style={{ display: "block", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)", marginBottom: "var(--cam-space-1)" }}
-                >
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="new-password">
                   {t("homeEstablishmentPage.newPasswordLabel")}
                 </label>
-                <div style={{ position: "relative" }}>
+                <div className="cam-home-password">
                   <input
                     id="new-password"
                     type={showNewPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     minLength={8}
                     className="cam-input"
-                    style={{ width: "100%", paddingRight: "4rem" }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword((prev) => !prev)}
-                    className="cam-text-button"
-                    style={{ position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)", fontSize: "var(--cam-font-size-2xs)" }}
-                  >
+                  <button type="button" onClick={() => setShowNewPassword((prev) => !prev)} className="cam-text-button">
                     {showNewPassword ? t("loginPage.hidePasswordButton") : t("loginPage.showPasswordButton")}
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="confirm-password"
-                  style={{ display: "block", fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)", marginBottom: "var(--cam-space-1)" }}
-                >
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="confirm-password">
                   {t("homeEstablishmentPage.confirmPasswordLabel")}
                 </label>
                 <input
                   id="confirm-password"
                   type={showNewPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className="cam-input"
-                  style={{ width: "100%" }}
                 />
               </div>
 
@@ -572,7 +337,6 @@ export default function HomeEstablishmentPage() {
                   type="submit"
                   disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
                   className="cam-button cam-button-primary"
-                  style={{ width: "100%", justifyContent: "center" }}
                 >
                   {passwordPending
                     ? t("homeEstablishmentPage.updatingPassword")
@@ -582,54 +346,22 @@ export default function HomeEstablishmentPage() {
             </form>
           </section>
 
-          {/* Account Details & Security Information */}
-          <section
-            style={{
-              background: "var(--cam-surface)",
-              border: "var(--cam-border-width) solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-lg)",
-              padding: "var(--cam-space-5) var(--cam-space-6)",
-              boxShadow: "var(--cam-shadow-sm)",
-              maxWidth: "36rem",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", marginBottom: "var(--cam-space-4)" }}>
-              <span aria-hidden="true" style={{ fontSize: "var(--cam-font-size-lg)" }}>🛡️</span>
-              <h2 style={{ fontSize: "var(--cam-font-size-base)", fontWeight: 700, margin: 0, color: "var(--cam-text)" }}>
-                {t("homeEstablishmentPage.accountSecurityHeading")}
-              </h2>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "var(--cam-border-width) solid var(--cam-border)", paddingBottom: "var(--cam-space-2)" }}>
-                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                  {t("homeEstablishmentPage.loginEmailLabel")}
-                </span>
-                <span style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)" }}>
-                  {user?.email || "—"}
-                </span>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "var(--cam-border-width) solid var(--cam-border)", paddingBottom: "var(--cam-space-2)" }}>
-                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                  {t("homeEstablishmentPage.accountStatusLabel")}
-                </span>
-                <span className="cam-badge cam-badge-success" style={{ fontSize: "var(--cam-font-size-2xs)" }}>
-                  {user?.status || "ACTIVE"}
-                </span>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                  {t("homeEstablishmentPage.twoFactorHeading")}
-                </span>
-                <span className={`cam-badge ${user?.twoFactorEnabled ? "cam-badge-success" : "cam-badge-neutral"}`} style={{ fontSize: "var(--cam-font-size-2xs)" }}>
-                  {user?.twoFactorEnabled ? t("homeEstablishmentPage.twoFactorEnabled") : t("homeEstablishmentPage.twoFactorDisabled")}
-                </span>
-              </div>
-            </div>
+          <section className="cam-home-section" aria-labelledby="etab-account-heading">
+            <h2 id="etab-account-heading" className="cam-home-h2">{t("homeEstablishmentPage.accountSecurityHeading")}</h2>
+            <dl className="cam-home-facts">
+              <dt>{t("homeEstablishmentPage.loginEmailLabel")}</dt>
+              <dd>{user?.email || "—"}</dd>
+              <dt>{t("homeEstablishmentPage.accountStatusLabel")}</dt>
+              <dd>{accountStatus}</dd>
+              <dt>{t("homeEstablishmentPage.twoFactorHeading")}</dt>
+              <dd>
+                {user?.twoFactorEnabled
+                  ? t("homeEstablishmentPage.twoFactorEnabled")
+                  : t("homeEstablishmentPage.twoFactorDisabled")}
+              </dd>
+            </dl>
           </section>
-        </div>
+        </>
       )}
     </div>
   );

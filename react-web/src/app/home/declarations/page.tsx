@@ -275,173 +275,86 @@ export default function CompanyDeclarationsPage() {
   ];
 
   return (
-    <div style={{ maxWidth: "var(--vt-content-max)", margin: "0 auto", padding: "var(--cam-space-5) var(--cam-space-4)" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "var(--cam-space-3)",
-          marginBottom: "var(--cam-space-5)",
-        }}
-      >
+    <div className="cam-home-page">
+      <header className="cam-home-head">
         <div>
-          <h1 style={{ margin: 0, fontSize: "var(--cam-font-size-xl)", fontWeight: 700, color: "var(--cam-text)" }}>
-            {t("homeDeclarationsPage.pageTitle")}
-          </h1>
-          <p style={{ margin: "var(--cam-space-1) 0 0", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
-            {t("homeDeclarationsPage.pageSubtitle")}
-          </p>
+          <h1 className="cam-home-title">{t("homeDeclarationsPage.pageTitle")}</h1>
+          <p className="cam-home-lede">{t("homeDeclarationsPage.pageSubtitle")}</p>
         </div>
-        <button
-          type="button"
-          className="cam-button cam-button-primary"
-          onClick={() => setIsNewDialogOpen(true)}
-          style={{ whiteSpace: "nowrap", fontWeight: 600 }}
-        >
-          + {t("homeDeclarationsPage.newDeclarationButton")}
+        {/* Secondary: the green action on this page is the one that resumes
+            or corrects a filing, when there is one. */}
+        <button type="button" className="cam-button cam-button-secondary" onClick={() => setIsNewDialogOpen(true)}>
+          {t("homeDeclarationsPage.newDeclarationButton")}
         </button>
+      </header>
+
+      <div className="cam-home-tabs" role="tablist">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="cam-home-tab"
+          >
+            <span>{tab.label}</span>
+            {tab.alert && <span aria-hidden="true" className="cam-home-nav-dot is-warning" />}
+          </button>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--cam-space-2)",
-          borderBottom: "var(--cam-border-width) solid var(--cam-border)",
-          overflowX: "auto",
-        }}
-        role="tablist"
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "var(--cam-space-2)",
-                padding: "var(--cam-space-3) var(--cam-space-3)",
-                fontSize: "var(--cam-font-size-sm)",
-                fontWeight: active ? 700 : 500,
-                color: active ? "var(--cam-green)" : "var(--cam-text-muted)",
-                borderBottom: active ? "2px solid var(--cam-green)" : "2px solid transparent",
-                background: "transparent",
-                borderTop: 0,
-                borderLeft: 0,
-                borderRight: 0,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                marginBottom: 0,
-                transition: "color 0.15s ease",
-              }}
-            >
-              <span>{tab.label}</span>
-              {tab.alert && (
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    backgroundColor: "var(--cam-warning)",
-                    display: "inline-block",
-                  }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search and filter toolbar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "var(--cam-space-3)",
-          margin: "var(--cam-space-4) 0",
-        }}
-      >
-        <div style={{ flex: "1 1 14rem", maxWidth: 360 }}>
-          <input
-            type="search"
-            className="cam-input"
-            placeholder={t("homeDeclarationsPage.searchPlaceholder")}
-            aria-label={t("homeDeclarationsPage.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", fontSize: "var(--cam-font-size-sm)" }}
-          />
-        </div>
-
+      <div className="cam-home-toolbar">
+        <input
+          type="search"
+          className="cam-input"
+          placeholder={t("homeDeclarationsPage.searchPlaceholder")}
+          aria-label={t("homeDeclarationsPage.searchPlaceholder")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
           {hasMultipleStreams && (
             <select
-              className="cam-input"
+              className="cam-select"
               value={campaignFilter}
               aria-label={t("homeDeclarationsPage.allCampaignsOption")}
               onChange={(e) => setCampaignFilter(e.target.value as "ALL" | Stream)}
-              style={{ width: "auto", fontSize: "var(--cam-font-size-sm)" }}
             >
               <option value="ALL">{t("homeDeclarationsPage.allCampaignsOption")}</option>
               <option value="ONEFOP">{t("homeDeclarationsPage.onefopOption")}</option>
               <option value="DSMO">{t("homeDeclarationsPage.dsmoOption")}</option>
             </select>
           )}
-
           <button
             type="button"
             className="cam-button cam-button-secondary"
             onClick={() => submissionsQuery.refetch()}
             title={t("homeDeclarationsPage.refreshTitle")}
             aria-label={t("homeDeclarationsPage.refreshTitle")}
-            style={{ padding: "0 var(--cam-space-3)" }}
           >
             ↻
           </button>
         </div>
       </div>
 
-      {/* Content */}
-      {submissionsQuery.isLoading && (
-        <div style={{ textAlign: "center", padding: "var(--cam-space-7)", color: "var(--cam-text-muted)" }}>
-          {t("common.loading")}
-        </div>
-      )}
+      {submissionsQuery.isLoading && <p className="cam-home-state">{t("common.loading")}</p>}
 
       {submissionsQuery.isError && (
-        <div className="cam-error-box" style={{ marginBottom: "var(--cam-space-4)" }}>
-          {(submissionsQuery.error as Error).message || t("homeDeclarationsPage.errorLoading")}
-          <button
-            type="button"
-            className="cam-button cam-button-secondary cam-button-sm"
-            onClick={() => submissionsQuery.refetch()}
-            style={{ marginLeft: "var(--cam-space-4)" }}
-          >
+        <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+          <span>{(submissionsQuery.error as Error).message || t("homeDeclarationsPage.errorLoading")}</span>
+          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => submissionsQuery.refetch()}>
             {t("common.retry")}
           </button>
         </div>
       )}
 
       {!submissionsQuery.isLoading && !submissionsQuery.isError && filteredEntries.length === 0 && (
-        <EmptyState
-          hasEntries={entries.length > 0}
-          onNew={() => setIsNewDialogOpen(true)}
-        />
+        <EmptyState hasEntries={entries.length > 0} onNew={() => setIsNewDialogOpen(true)} />
       )}
 
       {!submissionsQuery.isLoading && !submissionsQuery.isError && filteredEntries.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
+        <ul className="cam-home-list">
           {filteredEntries.map((entry) => {
             const statusLabel =
               entry.stream === "DSMO"
@@ -449,95 +362,20 @@ export default function CompanyDeclarationsPage() {
                 : getOnefopStatusLabel(t, entry.status);
 
             return (
-              <div
-                key={entry.id}
-                style={{
-                  background: "var(--cam-surface)",
-                  border: "var(--cam-border-width) solid var(--cam-border)",
-                  borderRadius: "var(--cam-radius-md)",
-                  padding: "var(--cam-space-4)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--cam-space-3)",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.03)",
-                }}
-              >
-                {/* Top header of filing */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: "var(--cam-space-3)",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", flexWrap: "wrap", marginBottom: "var(--cam-space-1)" }}>
-                      <span className="cam-badge cam-badge-neutral" style={{ fontSize: "var(--cam-font-size-2xs)", fontWeight: 600 }}>
-                        {entry.stream}
-                      </span>
-                      <h2
-                        style={{
-                          margin: 0,
-                          fontSize: "var(--cam-font-size-base)",
-                          fontWeight: 600,
-                          color: "var(--cam-text)",
-                        }}
-                      >
-                        {entry.subtitle}
-                      </h2>
-                    </div>
-                    <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                      {formatDate(entry.date, t)} · {t("homeDeclarationsPage.periodLabel", { period: entry.period })}
-                    </div>
-                  </div>
-
-                  <span className={`cam-badge ${GROUP_BADGE[entry.group]}`} style={{ flexShrink: 0 }}>
-                    {statusLabel}
-                  </span>
+              <li key={entry.id} className="cam-home-row">
+                <div className="cam-home-row-main">
+                  <h2 className="cam-home-row-title">{entry.subtitle}</h2>
+                  <p className="cam-home-meta">
+                    {formatDate(entry.date, t)} · {t("homeDeclarationsPage.periodLabel", { period: entry.period })}
+                  </p>
                 </div>
-
-                {/* Correction note from MINEFOP if returned */}
-                {entry.status === "CORRECTION_REQUESTED" && (
-                  <div
-                    style={{
-                      padding: "var(--cam-space-3)",
-                      borderRadius: "var(--cam-radius-sm)",
-                      background: "var(--cam-warning-bg)",
-                      border: "var(--cam-border-width) solid var(--cam-warning-border)",
-                      color: "var(--cam-text)",
-                      fontSize: "var(--cam-font-size-xs)",
-                    }}
-                  >
-                    <strong style={{ display: "block", color: "var(--cam-warning)", marginBottom: "var(--cam-space-1)" }}>
-                      {t("homeDeclarationsPage.correctionRequestedTitle")}
-                    </strong>
-                    <span>
-                      {(entry.raw as { rejectionReason?: string | null }).rejectionReason ||
-                        t("homeDeclarationsPage.correctionRequestedFallback")}
-                    </span>
-                  </div>
-                )}
-
-                {/* Bottom actions */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    gap: "var(--cam-space-2)",
-                    paddingTop: "var(--cam-space-2)",
-                    borderTop: "1px solid var(--cam-border)",
-                    flexWrap: "wrap",
-                  }}
-                >
+                <div className="cam-home-row-side">
+                  <span className={`cam-badge ${GROUP_BADGE[entry.group]}`}>{statusLabel}</span>
                   {entry.status === "CORRECTION_REQUESTED" && !liveQuarterCodes.has(entry.period) && (
                     <button
                       type="button"
-                      className="cam-button cam-button-primary cam-button-sm"
+                      className="cam-button cam-button-secondary cam-button-sm"
                       onClick={() => router.push(wizardHref(entry))}
-                      style={{ fontWeight: 600 }}
                     >
                       {t("homeDeclarationsPage.correctAndResubmit")} →
                     </button>
@@ -545,9 +383,8 @@ export default function CompanyDeclarationsPage() {
                   {entry.group === "draft" && (
                     <button
                       type="button"
-                      className="cam-button cam-button-primary cam-button-sm"
+                      className="cam-button cam-button-secondary cam-button-sm"
                       onClick={() => router.push(wizardHref(entry))}
-                      style={{ fontWeight: 600 }}
                     >
                       {t("homeDeclarationsPage.continueButton")} →
                     </button>
@@ -563,40 +400,29 @@ export default function CompanyDeclarationsPage() {
                     </button>
                   )}
                 </div>
-              </div>
+                {/* The reviewer's note, when MINEFOP returned the file. */}
+                {entry.status === "CORRECTION_REQUESTED" && (
+                  <div className="cam-admin-notice cam-admin-notice--warn">
+                    <span>
+                      <strong>{t("homeDeclarationsPage.correctionRequestedTitle")}</strong>{" "}
+                      {(entry.raw as { rejectionReason?: string | null }).rejectionReason ||
+                        t("homeDeclarationsPage.correctionRequestedFallback")}
+                    </span>
+                  </div>
+                )}
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
-      {/* Attestation link callout */}
-      <div
-        style={{
-          marginTop: "var(--cam-space-6)",
-          padding: "var(--cam-space-3) var(--cam-space-4)",
-          borderRadius: "var(--cam-radius-md)",
-          background: "var(--cam-surface)",
-          border: "var(--cam-border-width) solid var(--cam-border)",
-          fontSize: "var(--cam-font-size-xs)",
-          color: "var(--cam-text-muted)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "var(--cam-space-2)",
-        }}
-      >
-        <span>
-          {t("homeDeclarationsPage.attestationNotice")}{" "}
-          <Link
-            href="/home/etablissement"
-            style={{ color: "var(--cam-green)", fontWeight: 600, textDecoration: "underline" }}
-          >
-            {t("homeDeclarationsPage.attestationLink")}
-          </Link>
-          .
-        </span>
-      </div>
+      <p className="cam-home-footnote">
+        {t("homeDeclarationsPage.attestationNotice")}{" "}
+        <Link href="/home/etablissement" className="cam-home-link">
+          {t("homeDeclarationsPage.attestationLink")}
+        </Link>
+        .
+      </p>
 
       {/* New Declaration Dialog (DSMO vs ONEFOP -> Entity selection) */}
       <NewDeclarationDialog
@@ -610,28 +436,17 @@ export default function CompanyDeclarationsPage() {
 function EmptyState({ hasEntries, onNew }: { hasEntries: boolean; onNew: () => void }) {
   const t = useTranslations();
   return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: "var(--cam-space-7) var(--cam-space-5)",
-        background: "var(--cam-surface)",
-        border: "var(--cam-border-width) solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-md)",
-        color: "var(--cam-text-muted)",
-      }}
-    >
-      <p style={{ fontWeight: 600, color: "var(--cam-text)", marginBottom: "var(--cam-space-2)" }}>
+    <div className="cam-home-state">
+      <strong>
         {hasEntries ? t("homeDeclarationsPage.emptyNoResultsTitle") : t("homeDeclarationsPage.emptyNoDeclarationsTitle")}
-      </p>
-      <p style={{ fontSize: "var(--cam-font-size-sm)", marginBottom: "var(--cam-space-5)" }}>
-        {hasEntries
-          ? t("homeDeclarationsPage.emptyNoResultsBody")
-          : t("homeDeclarationsPage.emptyNoDeclarationsBody")}
-      </p>
+      </strong>
+      {hasEntries ? t("homeDeclarationsPage.emptyNoResultsBody") : t("homeDeclarationsPage.emptyNoDeclarationsBody")}
       {!hasEntries && (
-        <button type="button" className="cam-button cam-button-primary" onClick={onNew}>
-          {t("homeDeclarationsPage.newDeclarationButton")}
-        </button>
+        <div className="cam-home-actions">
+          <button type="button" className="cam-button cam-button-primary" onClick={onNew}>
+            {t("homeDeclarationsPage.newDeclarationButton")}
+          </button>
+        </div>
       )}
     </div>
   );

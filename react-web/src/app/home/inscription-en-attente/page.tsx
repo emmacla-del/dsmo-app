@@ -179,29 +179,25 @@ export default function InscriptionEnAttentePage() {
   };
 
   return (
-    <div className="cam-admin-page">
-      <h1 style={{ fontSize: "var(--cam-font-size-xl)" }}>
-        {t("title")}
-      </h1>
+    <div className="cam-admin-page cam-home-page">
+      <header className="cam-home-head">
+        <h1 className="cam-home-title">{t("title")}</h1>
+      </header>
       {pending && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)", marginBottom: "var(--cam-space-6)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
           <p className="cam-admin-lede">
             {t("pendingBody")}
           </p>
           <div className="cam-admin-notice cam-admin-notice--info" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-            <p style={{ margin: 0, fontWeight: 600 }}>
-              {t("pendingNextSteps")}
-            </p>
-            <p style={{ margin: 0 }}>
-              {t("pendingTurnaround")}
-            </p>
-            <p style={{ margin: 0, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
+            <p className="cam-home-row-title">{t("pendingNextSteps")}</p>
+            <p className="cam-home-body">{t("pendingTurnaround")}</p>
+            <p className="cam-home-meta">
               {t("pendingContact")}{" "}
               <a
                 href="https://wa.me/237651965905"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontWeight: 600, color: "var(--cam-green-dark)" }}
+                className="cam-home-link"
               >
                 {t("pendingWhatsappNumber")}
               </a>

@@ -4488,6 +4488,344 @@ textarea.sovereign-text-input {
   padding: var(--cam-space-6) var(--cam-space-5);
 }
 
+/* ── Mon espace pages (app/home/**) ──
+   Every page of the respondent workspace is one reading column beside the
+   rail, aligned with it rather than centred: a title and one muted line,
+   then sections told apart by a heading under a hairline. No cards, no
+   shadows, no icons in headings (CLAUDE.md §8; the home page's tidy pass,
+   owner 2026-10-20, made the rule; 2026-10-21 gave it these classes so the
+   other pages follow it). .cam-home-main owns the page padding. */
+.cam-home-page {
+  max-width: var(--vt-content-max);
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-home-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-6);
+}
+
+.cam-home-title {
+  margin: 0;
+  font-size: var(--cam-font-size-2xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+  overflow-wrap: anywhere;
+}
+
+.cam-home-lede {
+  margin: var(--cam-space-1) 0 0;
+  max-width: 72ch;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-section {
+  padding: var(--cam-space-5) 0 var(--cam-space-6);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-home-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-1) var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-home-h2 {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+}
+
+.cam-home-section-head > .cam-home-h2 {
+  margin: 0;
+}
+
+.cam-home-body {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text);
+  white-space: pre-line;
+}
+
+.cam-home-meta {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+/* A muted line that introduces what follows it in a section. */
+.cam-home-intro {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-body + .cam-home-body,
+.cam-home-body + .cam-home-meta {
+  margin-top: var(--cam-space-2);
+}
+
+/* The closing line under a page's last list. */
+.cam-home-footnote {
+  margin: var(--cam-space-6) 0 0;
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+/* A status line (badge and words) at the head of a section. */
+.cam-home-section > .cam-home-row-side {
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-home-section > .cam-admin-notice {
+  margin: var(--cam-space-3) 0;
+}
+
+.cam-home-link {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-green);
+  white-space: nowrap;
+}
+
+.cam-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-2);
+  margin-top: var(--cam-space-3);
+}
+
+/* A list of records: each row under a hairline, its main text left, its
+   status and action right. */
+.cam-home-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cam-home-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-2) var(--cam-space-3);
+  padding: var(--cam-space-3) 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-home-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--cam-space-1);
+}
+
+.cam-home-row .cam-home-section-head {
+  margin-bottom: 0;
+}
+
+.cam-home-row.is-clickable {
+  cursor: pointer;
+}
+
+/* The reviewer's note under a returned filing takes the row's full width. */
+.cam-home-row > .cam-admin-notice {
+  flex-basis: 100%;
+}
+
+.cam-home-row-main {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.cam-home-row-title {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+}
+
+.cam-home-row-title.is-unread {
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-home-row-title > .cam-badge {
+  margin-right: var(--cam-space-2);
+}
+
+.cam-home-row-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-2);
+  flex-shrink: 0;
+}
+
+/* Facts about the establishment: label left, value right, one per row
+   (a summary list), stacked on a phone. */
+.cam-home-facts {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+  margin: 0;
+}
+
+.cam-home-facts dt,
+.cam-home-facts dd {
+  margin: 0;
+  padding: var(--cam-space-3) 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+}
+
+.cam-home-facts dt {
+  padding-right: var(--cam-space-4);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-facts dd {
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 599px) {
+  .cam-home-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-home-facts dd {
+    padding-top: 0;
+    border-top: none;
+  }
+}
+
+/* Views of one page (Déclarations, Messages, Mon établissement): text tabs
+   on the page's rule, the view in hand underlined in green. Not buttons:
+   a green button is the page's one action. */
+.cam-home-tabs {
+  display: flex;
+  gap: var(--cam-space-4);
+  margin-bottom: var(--cam-space-4);
+  /* The rule is an inset shadow, so the green underline can sit on it
+     without overflowing the strip (which scrolls sideways on a phone). */
+  box-shadow: inset 0 calc(-1 * var(--cam-border-width)) 0 var(--cam-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.cam-home-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-3) 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The tab strip's rule already opens the first section. */
+.cam-home-tabs + .cam-home-section {
+  padding-top: var(--cam-space-3);
+  border-top: none;
+}
+
+.cam-home-tab:hover {
+  color: var(--cam-text);
+}
+
+.cam-home-tab[aria-selected="true"] {
+  border-bottom-color: var(--cam-green);
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-home-tab:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-home-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-home-toolbar .cam-input {
+  flex: 1 1 14rem;
+  max-width: 360px;
+}
+
+.cam-home-toolbar .cam-select {
+  width: auto;
+}
+
+/* Loading and empty: plain text in the column, no box. */
+.cam-home-state {
+  margin: 0;
+  padding: var(--cam-space-5) 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-state strong {
+  display: block;
+  margin-bottom: var(--cam-space-1);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-home-form {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--cam-container-form);
+}
+
+.cam-home-password {
+  position: relative;
+}
+
+.cam-home-password .cam-input {
+  width: 100%;
+  padding-right: var(--cam-space-7);
+}
+
+.cam-home-password .cam-text-button {
+  position: absolute;
+  top: 50%;
+  right: var(--cam-space-2);
+  transform: translateY(-50%);
+  font-size: var(--cam-font-size-xs);
+}
+
 .cam-home-mobilebar,
 .cam-home-backdrop {
   display: none;
