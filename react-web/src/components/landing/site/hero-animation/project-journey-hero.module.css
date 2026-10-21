@@ -7,23 +7,31 @@
    it began at 0 %; it holds its end state until its next cycle, by which
    time the scene is hidden again.
 
-   Colours: white on --cam-portal-teal-dark (about 12:1) on the panel; ink
-   on white in the cards. Nothing is told by colour alone. */
+   Colours: a white panel outlined like the portal's other panels
+   (2026-10-21; it was white on the dark green, which made the figure
+   outweigh the hero's one primary button). Ink text, teal for what is
+   current, the same meaning as on the page. Three local variables carry
+   it, so no shared token has to mean something else in here. Nothing is
+   told by colour alone. */
 
 .panel {
   --loop: 33s;
   --d: 0s;
   --i: 0s;
+  --journey-fg: var(--cam-portal-ink);
+  --journey-ground: var(--cam-white);
+  --journey-current: var(--cam-portal-mint-deep);
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-4);
   padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-portal-rule);
   border-radius: 16px;
-  background: var(--cam-portal-teal-dark);
-  color: var(--cam-on-dark);
+  background: var(--journey-ground);
+  color: var(--journey-fg);
 }
 
-/* ── Header: title and scene dots ────────────────────── */
+/* ── Header: title and scene progress ────────────────── */
 
 .head {
   display: flex;
@@ -33,31 +41,28 @@
 }
 
 .kicker {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--journey-current);
 }
 
 .dots {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* The current scene: filled and larger. */
+/* Six segments, not numbered circles: numbered circles read as buttons to
+   press, and these are not controls. The current scene's segment is teal
+   and longer, so it does not rest on colour alone. */
 .dots li {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--cam-on-dark);
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cam-portal-hairline);
   animation: dot var(--loop) linear var(--d) infinite both;
 }
 
@@ -67,22 +72,19 @@
 .d5 { --d: 22s; }
 .d6 { --d: 27.5s; }
 
-/* 0 % is the empty state: it is also what a dot shows before its scene. */
+/* 0 % is the empty state: it is also what a segment shows before its scene. */
 @keyframes dot {
   0% {
-    background: transparent;
-    color: var(--cam-on-dark);
-    transform: scale(1);
+    width: 16px;
+    background: var(--cam-portal-hairline);
   }
   0.1%, 16.6% {
-    background: var(--cam-on-dark);
-    color: var(--cam-portal-teal-dark);
-    transform: scale(1.15);
+    width: 32px;
+    background: var(--journey-current);
   }
   16.67%, 100% {
-    background: transparent;
-    color: var(--cam-on-dark);
-    transform: scale(1);
+    width: 16px;
+    background: var(--cam-portal-hairline);
   }
 }
 
@@ -127,7 +129,7 @@
   border-radius: 10px;
   background: var(--cam-white);
   color: var(--cam-portal-ink);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.12);
 }
 
 .cardTitle {
@@ -168,13 +170,16 @@
   animation: paperZoom var(--loop) ease-in-out var(--d) infinite both;
 }
 
+/* White behind the scan: until the image arrives, the page shows as a blank
+   sheet rather than an empty frame. */
 .paperBig img,
 .paperSmall img {
   display: block;
   width: 100%;
   height: auto;
+  background: var(--cam-white);
   border-radius: 2px;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
 }
 
 /* scale(2.667) shows page x 22–97 % across the stage; the translation puts
@@ -227,7 +232,7 @@
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.2));
 }
 
 .pen path { fill: var(--cam-portal-muted); }
@@ -264,7 +269,7 @@
   top: 1cqi;
   right: 5cqi;
   width: 66cqi;
-  filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.45));
+  filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.18));
 }
 
 .lid {
@@ -384,7 +389,7 @@
   padding: 1.3cqi 3cqi;
   border-radius: 999px;
   background: var(--cam-primary-dark);
-  color: var(--cam-on-dark);
+  color: var(--cam-white);
   font-size: clamp(11px, 2.6cqi, 13px);
   font-weight: 700;
   animation: press var(--loop) ease-in-out calc(var(--d) + 3.5s) infinite both;
@@ -609,7 +614,7 @@
 
 .links path {
   fill: none;
-  stroke: var(--cam-on-dark);
+  stroke: var(--journey-fg);
   stroke-width: 2;
   stroke-dasharray: 1;
   vector-effect: non-scaling-stroke;
@@ -673,15 +678,16 @@
   place-items: center;
   width: clamp(26px, 7cqi, 34px);
   height: clamp(26px, 7cqi, 34px);
-  border: 2px solid var(--cam-on-dark);
+  border: 2px solid var(--journey-fg);
   border-radius: 50%;
   font-weight: 700;
 }
 
 /* The current phase: a filled dot, bold title and a labelled pill. */
 .phaseNow .phaseDot {
-  background: var(--cam-on-dark);
-  color: var(--cam-portal-teal-dark);
+  border-color: var(--journey-current);
+  background: var(--journey-current);
+  color: var(--cam-white);
 }
 
 .phaseNow .phaseTitle {
@@ -691,8 +697,8 @@
 .pill {
   padding: 0.6cqi 2cqi;
   border-radius: 999px;
-  background: var(--cam-on-dark);
-  color: var(--cam-portal-teal-dark);
+  background: var(--journey-current);
+  color: var(--cam-white);
   font-size: clamp(11px, 2.6cqi, 13px);
   font-weight: 700;
 }
@@ -772,7 +778,63 @@
   }
 
   .d6 {
-    background: var(--cam-on-dark);
-    color: var(--cam-portal-teal-dark);
+    width: 32px;
+    background: var(--journey-current);
   }
+
+  /* Nothing moves, so there is nothing to pause. */
+  .pause {
+    display: none;
+  }
+}
+
+/* ── Pause ────────────────────────────────────────────── */
+
+/* A loop of more than five seconds beside other content needs a way to
+   stop it (WCAG 2.2.2). The button sits outside the role="img" panel,
+   whose children are presentational to assistive technology. */
+.player {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.player[data-paused] .panel *,
+.player[data-paused] .panel *::before,
+.player[data-paused] .panel *::after {
+  animation-play-state: paused !important;
+}
+
+.pause {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-1) 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-portal-ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The icon keeps its 12px: the portal's .heroVisual svg rule stretches
+   every svg in the hero to the figure's width. */
+.player .pause svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.pause:hover {
+  text-decoration: underline;
+}
+
+.pause:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-sm);
 }

@@ -362,13 +362,13 @@
   box-shadow: none;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--cam-transition-fast), border-color var(--cam-transition-fast), transform var(--cam-transition-fast);
+  transition: background var(--cam-transition-fast), border-color var(--cam-transition-fast);
 }
 
+/* Hover changes the colour only; nothing lifts (2026-10-21). */
 .btn:hover {
   background: var(--cam-portal-mint-hover);
   color: var(--cam-portal-panel);
-  transform: translateY(-1px);
 }
 
 .btnGhost {
@@ -383,10 +383,17 @@
   color: var(--cam-portal-ink);
 }
 
+/* One button and a text link: a second pill of the same size competed with
+   the one primary action (2026-10-21). */
 .actions {
   display: flex;
-  gap: 14px;
+  align-items: center;
+  gap: var(--cam-space-3) var(--cam-space-6);
   flex-wrap: wrap;
+}
+
+.actions .textLink {
+  margin-top: 0;
 }
 
 /* ── Sections ─────────────────────────────────────────────────────────── */
@@ -396,10 +403,12 @@
   background: var(--cam-portal-bg);
 }
 
+/* Side by side from 1081px; stacked below it (1080px block), where the
+   figure's 440px floor squeezed the headline to five or six lines. */
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(440px, 0.9fr);
-  gap: var(--cam-space-5);
+  gap: var(--cam-space-8);
   align-items: center;
 }
 
@@ -431,8 +440,6 @@
 }
 
 .heroVisual {
-  border-radius: 16px;
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--cam-portal-teal-dark) 18%, transparent);
   justify-self: end;
   width: 100%;
 }
@@ -618,13 +625,11 @@
 }
 
 .cardLink {
-  transition: box-shadow var(--cam-transition-fast), border-color var(--cam-transition-fast), transform var(--cam-transition-fast);
+  transition: border-color var(--cam-transition-fast);
 }
 
 .cardLink:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
   border-color: var(--cam-portal-mint);
-  transform: translateY(-2px);
 }
 
 .cardLink:hover h3 {
@@ -687,6 +692,18 @@
 @media (max-width: 1080px) {
   .phases {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .heroGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--cam-space-7);
+  }
+
+  /* Stacked, the figure keeps the width it had beside the text rather
+     than growing to the page's: at 4:3 it would fill the screen. */
+  .heroVisual {
+    justify-self: start;
+    max-width: 560px;
   }
 }
 
@@ -767,14 +784,37 @@
   background: var(--cam-portal-icon-bg);
 }
 
-/* Open column under a hairline, not an outlined card. */
+/* Open column under a hairline, not an outlined card. The heading's link
+   is stretched over the column (::after), so the whole column still takes
+   the click while the link's name stays the heading (2026-10-21). */
 .participant {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding-top: var(--cam-space-6);
   border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
+}
+
+.participant h3 a {
   color: inherit;
   text-decoration: none;
+}
+
+.participant h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* The focus ring goes round the column the link covers. */
+.page .participant h3 a:focus-visible {
+  outline: none;
+}
+
+.participant:focus-within {
+  outline: 2px solid var(--cam-portal-mint-deep);
+  outline-offset: var(--cam-space-2);
+  border-radius: var(--cam-radius-md);
 }
 
 .participant h3 {
@@ -995,12 +1035,13 @@
   color: var(--cam-portal-ink);
   cursor: pointer;
   list-style: none;
-  padding: 24px 4px;
-  transition: background var(--cam-transition-fast);
+  padding: 24px 0;
+  transition: color var(--cam-transition-fast);
 }
 
+/* The question turns teal; no grey fill, which reached 4px past the text. */
 .faq summary:hover {
-  background: var(--cam-surface-subtle);
+  color: var(--cam-portal-mint-deep);
 }
 
 .faq summary::-webkit-details-marker {
@@ -1033,7 +1074,7 @@
 
 .faq details p {
   margin: 0;
-  padding: 0 4px 26px;
+  padding: 0 0 26px;
   color: var(--cam-portal-muted);
   max-width: 60ch;
   font-size: 16px;
@@ -1170,7 +1211,6 @@
 
 @media (max-width: 900px) {
   .sectionGrid,
-  .heroGrid,
   .phases,
   .confGrid {
     grid-template-columns: 1fr;
@@ -1182,10 +1222,6 @@
 
   .hero {
     padding: var(--cam-space-8) 0 var(--cam-space-9);
-  }
-
-  .heroVisual {
-    grid-template-columns: 1fr;
   }
 
   .flowArrow {

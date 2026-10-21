@@ -46,7 +46,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <p className={styles.lede}>{t("homeLede")}</p>
             <div className={styles.actions}>
               <PortalEntryLink className={styles.btn} guestLabel={t("registerAction")} />
-              <Link href="/programme" className={`${styles.btn} ${styles.btnGhost}`}>
+              <Link href="/programme" className={styles.textLink}>
                 {t("homeDiscover")}
               </Link>
             </div>
@@ -92,24 +92,35 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <span className={styles.kicker}>{t("homeWhoEyebrow")}</span>
             <h2>{t("homeWhoTitle")}</h2>
           </div>
+          {/* Each block's link is its heading, stretched over the block: the
+              link's name is the family, not the whole block read aloud, and
+              "See eligibility" is the visual cue only. */}
           <div className={styles.grid2}>
-            <Link href="/assistance#employeurs" className={styles.participant}>
+            <div className={styles.participant}>
               <Mark>
                 <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
               </Mark>
-              <h3>{t("homeWhoEmployersTitle")}</h3>
+              <h3>
+                <Link href="/assistance#employeurs">{t("homeWhoEmployersTitle")}</Link>
+              </h3>
               <p className={styles.muted}>{t("homeWhoEmployersBody")}</p>
-              <span className={styles.textLink}>{t("seeEligibility")}</span>
-            </Link>
-            <Link href="/assistance#centres" className={styles.participant}>
+              <span className={styles.textLink} aria-hidden="true">
+                {t("seeEligibility")}
+              </span>
+            </div>
+            <div className={styles.participant}>
               <Mark>
                 <path d="M22 9L12 4 2 9l10 5 10-5z" />
                 <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5" />
               </Mark>
-              <h3>{t("homeWhoCentresTitle")}</h3>
+              <h3>
+                <Link href="/assistance#centres">{t("homeWhoCentresTitle")}</Link>
+              </h3>
               <p className={styles.muted}>{t("homeWhoCentresBody")}</p>
-              <span className={styles.textLink}>{t("seeEligibility")}</span>
-            </Link>
+              <span className={styles.textLink} aria-hidden="true">
+                {t("seeEligibility")}
+              </span>
+            </div>
           </div>
         </div>
       </section>
