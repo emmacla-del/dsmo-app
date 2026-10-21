@@ -382,10 +382,9 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       },
       {
         key: "nonFunctionalReasonOther",
-        // "(preciser)" / "(specify)" moves from the label to the hint, where
-        // an instruction belongs.
+        // No "(préciser)" and no "Précisez" hint: a text box under « Autre
+        // raison » already asks for it.
         label: { fr: "Autre raison", en: "Other reason" },
-        hint: { fr: "Précisez", en: "Please specify" },
         required: true,
         kind: "text",
         dependsOn: "nonFunctionalReason",

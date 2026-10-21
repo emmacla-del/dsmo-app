@@ -140,10 +140,8 @@ export function optionalEntityFields(
 // The key of the last field the section renders, or null when the type has no
 // visible field at all. Required groups render first and the optional
 // disclosure after them, so the last field is the last optional one when the
-// type has any. A change to it is what tells the wizard the respondent has
-// reached the end of section 3. The section must not open the next one the
-// instant its required fields are satisfied, or the optional ones (the second
-// phone, the P.O. box) would be pulled away mid-entry.
+// type has any. Leaving it, or pressing Enter on it, is what tells the
+// wizard the respondent has reached the end of section 3.
 export function lastEntityFieldKey(
   entityType: EntityType,
   entityData: Record<string, string>

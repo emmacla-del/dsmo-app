@@ -32,7 +32,6 @@ import {
   type RegistrationStepId,
 } from "@/lib/register-constants";
 import {
-  advancesImmediately,
   isPlausibleEmail,
   isSectionComplete,
   type RegRespondentState,
@@ -40,7 +39,6 @@ import {
   type SubdivisionsStatus,
 } from "@/lib/register-completeness";
 import {
-  lastEntityFieldKey,
   optionalEntityFields,
   requiredEntityGroups,
 } from "@/lib/register-entity-sections";
@@ -102,13 +100,13 @@ const LAST_INDEX = STEPS.length - 1;
 // short enough not to sit over the form the respondent went back to.
 const SNACKBAR_MS = 6000;
 
-// The last field of each section that has optional fields: changing it is
-// what tells the wizard the respondent is done with the section. Section 3's
-// own last field is data-driven (see lastEntityFieldKey).
-const LAST_RESPONDENT_FIELD: keyof RegRespondentState = "phone2";
-
 // validatePassword returns a code. The sentence the respondent reads is the
 // catalogue's, in the active language.
+// The longest option list shown as radio buttons rather than a dropdown.
+// Beyond five, the list pushes the rest of the step down more than a
+// dropdown costs in clicks.
+const MAX_RADIO_OPTIONS = 5;
+
 const PASSWORD_ERROR_KEY = {
   required: "registerPage.errorPasswordRequired",
   tooShort: "registerPage.errorPasswordTooShort",
@@ -154,9 +152,8 @@ function openDetailsAround(el: Element | null) {
 }
 
 // A control the respondent types or picks a value in -- as opposed to the
-// continue link, the eye toggle or the rail. Focus moving from a section's
-// last field to one of these is still work inside the section.
-
+// continue button, the eye toggle or the rail. Leaving one is what lets its
+// format rule speak (see leftFieldError).
 function isFormField(el: Element): boolean {
   return (
     el instanceof HTMLInputElement ||
@@ -201,15 +198,16 @@ export default function RegisterPage() {
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
-  // Set once the respondent has changed the LAST field of a section that has
-  // optional fields -- the signal that they are done with it and the next one
-  // may open. Re-evaluated on every field change rather than latched, so
-  // going back to an earlier field in the same section disarms it again.
-  const [advanceArmed, setAdvanceArmed] = useState(false);
+  // The DOM ids of the fields the respondent has left at least once. A field
+  // with a format rule (email, phones) says what is wrong with its answer
+  // under the control as soon as it is left, rather than waiting for
+  // Continuer. A flag only, like flaggedIds: the message is re-derived from
+  // the value, so it goes the moment the answer is corrected.
+  const [leftIds, setLeftIds] = useState<readonly string[]>([]);
   // Focus on a section change. The section being left is `hidden`, so
   // whatever had focus inside it drops to <body> and a keyboard or
   // screen-reader user is nowhere. Every navigation that changes the section
-  // sets this flag, and the effect after the auto-advance one moves focus to
+  // sets this flag, and an effect below moves focus to
   // the new section's heading once it is on screen -- which also has the
   // screen reader announce where the respondent now is.
   //
@@ -343,35 +341,11 @@ export default function RegisterPage() {
     return () => clearTimeout(handle);
   }, [respondent.email]);
 
-  // ── Advance arming ─────────────────────────────────────────────────────
-  // A section with optional fields must not open the next one the instant its
-  // required fields are satisfied, or the optional ones (phone 2, P.O. box) would
-  // be pulled away mid-entry. What says "I am done here" instead is LEAVING
-  // the section's last field after changing it -- not the change itself.
-  // Arming on the change pulled a text field away after its first keystroke:
-  // typing "6" into Téléphone 2 opened the next section and the rest of the
-  // number went nowhere. A select is no different for a keyboard user, whose
-  // arrow keys change its value one option at a time.
-  //
-  // So a change only records whether it was the last field that changed; the
-  // section's onBlurCapture is what arms, and Enter on the last field and the
-  // continue link advance directly. Recomputed on every change rather than
-  // latched: going back up to an earlier field in the same section disarms it.
-  const lastFieldEditedRef = useRef(false);
-
-  function armFromField(isLast: boolean) {
-    lastFieldEditedRef.current = isLast;
-    setAdvanceArmed(false);
-  }
-
   function setEntityField(key: string, value: string) {
-    const next = { ...entityData, [key]: value };
-    armFromField(entityType ? lastEntityFieldKey(entityType, next) === key : false);
-    setEntityData(next);
+    setEntityData((prev) => ({ ...prev, [key]: value }));
   }
 
   function setRespondentField(key: keyof RegRespondentState, value: string) {
-    armFromField(key === LAST_RESPONDENT_FIELD);
     setRespondent((r) => ({ ...r, [key]: value }));
   }
 
@@ -451,7 +425,7 @@ export default function RegisterPage() {
     const controlProps = {
       id,
       "aria-required": field.required ? true : undefined,
-      ...invalid,
+      ...invalidProps(id, ...(field.kind === "tel" || field.hint ? [`${id}-hint`] : [])),
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setEntityField(
@@ -460,10 +434,17 @@ export default function RegisterPage() {
         ),
     };
 
-    // One choice among two or three short options: radio buttons in a
-    // fieldset named by its legend, no option pre-selected (defect 19 of the
-    // 2026-10-16 VT run: the promoter's sex was a two-option select).
-    if (field.kind === "radio") {
+    // One choice among a few options: radio buttons in a fieldset named by
+    // its legend, no option pre-selected (defect 19 of the 2026-10-16 VT run:
+    // the promoter's sex was a two-option select). A select whose list is
+    // short enough to read at a glance is shown the same way -- every answer
+    // visible, one click -- and only a longer list stays a dropdown.
+    const asRadios =
+      field.kind === "radio" ||
+      (field.kind === "select" && (field.options?.length ?? 0) <= MAX_RADIO_OPTIONS);
+    if (asRadios) {
+      // Two answers sit on one line; a longer list reads down the page.
+      const inline = (field.options?.length ?? 0) <= 2;
       return (
         <fieldset
           key={field.key}
@@ -476,7 +457,7 @@ export default function RegisterPage() {
             {localized(field.label, locale)}
             {!field.required && <span className="field-optional-mark"> ({t("registerPage.optionalLabel")})</span>}
           </legend>
-          <div className="choice-list choice-list--inline">
+          <div className={inline ? "choice-list choice-list--inline" : "choice-list"}>
             {field.options?.map((o) => (
               <label key={o.value} className="choice-option">
                 <input
@@ -494,6 +475,15 @@ export default function RegisterPage() {
       );
     }
 
+    // A phone carries the same format hint and +237 prefix as the
+    // respondent's own; any other field shows the hint its definition gives.
+    const isTel = field.kind === "tel";
+    const hint = isTel
+      ? t("registerPage.phoneHint")
+      : field.hint
+        ? localized(field.hint, locale)
+        : undefined;
+    const hintId = hint ? `${id}-hint` : undefined;
     return (
       <FormRow
         key={field.key}
@@ -502,8 +492,14 @@ export default function RegisterPage() {
         required={field.required}
         optionalLabel={field.required ? undefined : t("registerPage.optionalLabel")}
         size={entityFieldSize(field)}
+        hint={hint}
+        hintId={hintId}
+        error={leftFieldErrorLine(id)}
       >
-        <div className="input-row">
+        <div className={isTel ? "input-row input-row--phone" : "input-row"}>
+          {isTel && (
+            <span className="input-prefix" aria-hidden="true">+237</span>
+          )}
           {field.kind === "select" ? (
             <select {...controlProps}>
               <option value=""></option>
@@ -516,9 +512,9 @@ export default function RegisterPage() {
           ) : (
             <input
               {...controlProps}
-              type={field.kind === "tel" ? "tel" : "text"}
+              type={isTel ? "tel" : "text"}
               autoComplete={ENTITY_AUTOCOMPLETE[field.key] ?? "off"}
-              inputMode={digitsOnly ? "numeric" : undefined}
+              inputMode={digitsOnly ? "numeric" : isTel ? "tel" : undefined}
               maxLength={field.key === "yearOfCreation" ? 4 : undefined}
             />
           )}
@@ -680,7 +676,6 @@ export default function RegisterPage() {
     // The failing control takes focus below, not the section heading.
     headingFocusPendingRef.current = false;
     setCurrent(failure.index);
-    setAdvanceArmed(false);
     requestAnimationFrame(() => {
       // The frame swaps to the failing section; put the page back to the top
       // so the error banner above the section is the first thing on screen,
@@ -836,8 +831,12 @@ export default function RegisterPage() {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : String(e);
-      setSubmitError(msg);
+      // A refusal the server explains (an address already taken, a field it
+      // rejects) is shown in its own words. A connection that never reached
+      // it, a server error, or anything that is not an API answer at all is
+      // said plainly instead, with what matters: nothing typed is lost.
+      const explained = e instanceof ApiError && e.status >= 400 && e.status < 500;
+      setSubmitError(explained ? e.message : t("registerPage.submitConnectionError"));
       if (typeof window !== "undefined") {
         setTimeout(() => {
           const errEl = document.querySelector(".auth-error-box");
@@ -898,8 +897,6 @@ export default function RegisterPage() {
       return;
     }
     clearFlags();
-    setAdvanceArmed(false);
-    lastFieldEditedRef.current = false;
     if (index !== current) headingFocusPendingRef.current = true;
     setCurrent(index);
     requestAnimationFrame(scrollPageTop);
@@ -910,8 +907,6 @@ export default function RegisterPage() {
     const next = Math.min(index + 1, LAST_INDEX);
     if (next === index) return;
     clearFlags();
-    setAdvanceArmed(false);
-    lastFieldEditedRef.current = false;
     headingFocusPendingRef.current = true;
     setReached((prev) => Math.max(prev, next));
     setCurrent(next);
@@ -943,8 +938,6 @@ export default function RegisterPage() {
       setReached((prev) => Math.max(prev, infoIndex));
       if (current !== infoIndex) headingFocusPendingRef.current = true;
       setCurrent(infoIndex);
-      setAdvanceArmed(false);
-      lastFieldEditedRef.current = false;
       requestAnimationFrame(scrollPageTop);
       setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
       forceSaveRef.current = true;
@@ -981,39 +974,12 @@ export default function RegisterPage() {
     if (match) applyEntityType(match.type, false);
   }
 
-  // ── Auto-advance ───────────────────────────────────────────────────────
-  // The frame moves on by itself only at the frontier: when the section being
-  // shown is also the furthest revealed one and it is complete. Going back to
-  // an answered section must never shove the respondent forward again, which
-  // is what `current === reached` guarantees.
-  //
-  // No fixed step moves on the instant it is complete: the type list and
-  // the password step wait for Continuer (the type list since defect 19,
-  // owner 2026-10-17; confirming a password must not turn the page by
-  // itself). A section with optional fields waits for the respondent to
-  // say so, by leaving its last field after changing it, pressing Enter on
-  // it, or following the "continue" link -- see armFromField.
-  const frontierComplete = current === reached && completed[reached];
-  const frontierImmediate = advancesImmediately(STEPS[reached], entityType);
-
-  useEffect(() => {
-    if (!frontierComplete || reached >= LAST_INDEX) return;
-    if (!frontierImmediate && !advanceArmed) return;
-    const next = reached + 1;
-    // Advancing IS a state change derived from the answers, and no event
-    // carries it: completeness is recomputed from state after every keystroke
-    // rather than asserted by a Suivant button, so the moment a section
-    // becomes complete is a render, not a click. The three writes settle in
-    // one pass -- the guards above are false on the next run.
-    lastFieldEditedRef.current = false;
-    headingFocusPendingRef.current = true;
-    /* eslint-disable react-hooks/set-state-in-effect -- see above */
-    setAdvanceArmed(false);
-    setReached(next);
-    setCurrent(next);
-    /* eslint-enable react-hooks/set-state-in-effect */
-    requestAnimationFrame(scrollPageTop);
-  }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
+  // ── No auto-advance ────────────────────────────────────────────────────
+  // A section never moves on by itself. Continuer (or Enter on the section's
+  // last field) is the one way forward, so the page only changes when the
+  // respondent asks for it. Moving on the moment a section looked complete,
+  // or when its last field was left, pulled the form away from people who
+  // were still correcting an optional answer.
 
   // A restored draft, or a second phone kept across an organisation-type
   // change, can already hold an optional answer before this section is on
@@ -1115,6 +1081,7 @@ export default function RegisterPage() {
   function clearFlags() {
     if (flaggedIds.length > 0) setFlaggedIds([]);
     if (formatFlagId) setFormatFlagId(null);
+    if (leftIds.length > 0) setLeftIds([]);
   }
 
   // One message, not one per field. The pinned notice names every missing
@@ -1122,14 +1089,64 @@ export default function RegisterPage() {
   // control that also has focus, which says "start here" -- and it points at
   // that notice. Marking every field red and repeating "Champ obligatoire"
   // under each turned a section with three gaps into a red page.
-  function invalidProps(id: string) {
-    if (shownErrors[0]?.id === id) {
-      return { "aria-invalid": true, "aria-describedby": MISSING_NOTICE_ID } as const;
+  //
+  // `describedBy` names the control's own hint or rules, kept beside the
+  // error reference rather than overwritten by it.
+  function invalidProps(id: string, ...describedBy: string[]) {
+    const errorRef =
+      shownErrors[0]?.id === id
+        ? MISSING_NOTICE_ID
+        : shownFormatError?.focusId === id
+          ? FORMAT_NOTICE_ID
+          : leftFieldError(id)
+            ? `${id}-error`
+            : null;
+    const ids = [errorRef, ...describedBy].filter(Boolean).join(" ");
+    return {
+      ...(errorRef ? { "aria-invalid": true as const } : {}),
+      ...(ids ? { "aria-describedby": ids } : {}),
+    };
+  }
+
+  // The format rule of one control, put into words: null when the answer is
+  // empty (a missing answer is the notice's business) or acceptable. The
+  // same rules formatFailure applies when Continuer is pressed.
+  function fieldFormatError(id: string): string | null {
+    if (id === "reg-email") {
+      const email = respondent.email.trim();
+      return email && !isPlausibleEmail(email) ? t("registerPage.errorEmailFormat") : null;
     }
-    if (shownFormatError?.focusId === id) {
-      return { "aria-invalid": true, "aria-describedby": FORMAT_NOTICE_ID } as const;
-    }
-    return {};
+    const phone =
+      id === "reg-phone1"
+        ? respondent.phone1
+        : id === "reg-phone2"
+          ? respondent.phone2
+          : id.startsWith("reg-entity-") &&
+              config?.fields.some((f) => f.kind === "tel" && `reg-entity-${f.key}` === id)
+            ? entityData[id.slice("reg-entity-".length)] ?? ""
+            : null;
+    if (phone === null || !phone.trim()) return null;
+    return isValidCameroonPhone(phone) ? null : t("registerPage.errorPhoneFormat");
+  }
+
+  // Shown once the field has been left, never while it is first being typed.
+  function leftFieldError(id: string): string | null {
+    return leftIds.includes(id) ? fieldFormatError(id) : null;
+  }
+
+  function markLeft(id: string) {
+    setLeftIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  // The line under a control that has been left with an answer in the wrong
+  // shape. Its id is what invalidProps points the control at.
+  function leftFieldErrorLine(id: string) {
+    const message = leftFieldError(id);
+    return message ? (
+      <p className="field-error" id={`${id}-error`}>
+        {message}
+      </p>
+    ) : undefined;
   }
 
   // ── Continue ───────────────────────────────────────────────────────────
@@ -1140,12 +1157,7 @@ export default function RegisterPage() {
   // missing. Do not put aria-disabled back on Continuer. (Soumettre is a
   // different control and keeps it until the certification box is ticked.)
   //
-  // It is also the required-only path forward. A section with optional fields
-  // auto-advances when its LAST field is changed and left -- and in every such section
-  // that last field is itself optional (phone2, poBox, promoterPhone2, the
-  // activity sector), so a respondent who fills only what is required never
-  // triggers it. This link is what they use instead, and it never asks them
-  // to touch an optional field.
+  // It is the one way forward: no section moves on by itself.
   const showContinueLink = current < LAST_INDEX && current === reached;
 
   // Continuer, and Enter on a section's last field. Missing answers first
@@ -1564,12 +1576,15 @@ export default function RegisterPage() {
                 htmlFor="reg-email"
                 label={t("registerPage.professionalEmailLabel")}
                 required
+                hint={t("registerPage.emailHint")}
+                hintId="reg-email-hint"
+                error={leftFieldErrorLine("reg-email")}
               >
                 <div className="input-row">
                   <input
                     id="reg-email"
                     aria-required={true}
-                    {...invalidProps("reg-email")}
+                    {...invalidProps("reg-email", "reg-email-hint")}
                     type="email"
                     autoComplete="email"
                     spellCheck={false}
@@ -1596,13 +1611,23 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required size="short">
-                <div className="input-row">
+              <FormRow
+                htmlFor="reg-phone1"
+                label={t("registerPage.phone1Label")}
+                required
+                size="short"
+                hint={t("registerPage.phoneHint")}
+                hintId="reg-phone1-hint"
+                error={leftFieldErrorLine("reg-phone1")}
+              >
+                <div className="input-row input-row--phone">
+                  <span className="input-prefix" aria-hidden="true">+237</span>
                   <input
                     id="reg-phone1"
                     aria-required={true}
-                    {...invalidProps("reg-phone1")}
+                    {...invalidProps("reg-phone1", "reg-phone1-hint")}
                     type="tel"
+                    inputMode="tel"
                     autoComplete="tel-national"
                     value={respondent.phone1}
                     onChange={(e) => setRespondentField("phone1", e.target.value)}
@@ -1615,11 +1640,15 @@ export default function RegisterPage() {
                 label={t("registerPage.phone2Label")}
                 optionalLabel={t("registerPage.optionalLabel")}
                 size="short"
+                error={leftFieldErrorLine("reg-phone2")}
               >
-                <div className="input-row">
+                <div className="input-row input-row--phone">
+                  <span className="input-prefix" aria-hidden="true">+237</span>
                   <input
                     id="reg-phone2"
                     type="tel"
+                    inputMode="tel"
+                    {...invalidProps("reg-phone2", "reg-phone1-hint")}
                     value={respondent.phone2}
                     onChange={(e) => setRespondentField("phone2", e.target.value)}
                   />
@@ -1692,7 +1721,6 @@ export default function RegisterPage() {
                     value={regionId}
                     onChange={(e) => {
                       const id = e.target.value;
-                      armFromField(false);
                       // A new region invalidates the two fields below it.
                       // That already happened silently; now it says so,
                       // because a respondent who had answered them would
@@ -1734,7 +1762,6 @@ export default function RegisterPage() {
                     disabled={!regionId}
                     onChange={(e) => {
                       const id = e.target.value;
-                      armFromField(false);
                       setDepartmentId(id);
                       setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
                       setSubdivisionId("");
@@ -1776,7 +1803,6 @@ export default function RegisterPage() {
                     disabled={!departmentId || subdivisionsStatus === "empty"}
                     onChange={(e) => {
                       const id = e.target.value;
-                      armFromField(false);
                       setSubdivisionId(id);
                       setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
@@ -1820,8 +1846,7 @@ export default function RegisterPage() {
                         value={o.value}
                         checked={area === o.value}
                         onChange={() => {
-                          armFromField(false);
-                          setArea(o.value);
+                              setArea(o.value);
                         }}
                       />
                       <span>{localized(o.label, locale)}</span>
@@ -1844,7 +1869,6 @@ export default function RegisterPage() {
                       // The activity sector is the section's last field, and
                       // the only optional one: leaving it after changing it
                       // says the respondent is done with the location.
-                      armFromField(true);
                       setSectorId(id);
                       const picked = sectorsQuery.data?.find((s) => s.id === id);
                       setSectorName(picked?.name || "");
@@ -1893,18 +1917,11 @@ export default function RegisterPage() {
                   <input
                     id="reg-password"
                     aria-required={true}
-                    {...invalidProps("reg-password")}
+                    // The rules, plus the error notice when this field is
+                    // the one at fault.
+                    {...invalidProps("reg-password", "reg-password-rules")}
                     type={obscurePassword ? "password" : "text"}
                     autoComplete="new-password"
-                    // The rules, plus the error notice when this field is
-                    // the one at fault (invalidProps above would otherwise be
-                    // overridden by this attribute).
-                    aria-describedby={[
-                      (invalidProps("reg-password") as { "aria-describedby"?: string })["aria-describedby"],
-                      "reg-password-rules",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -2273,31 +2290,28 @@ export default function RegisterPage() {
                     // the section's own fields must never raise errors, and a
                     // null relatedTarget (clicked the page chrome, switched
                     // windows) is deliberately NOT treated as leaving.
-                    //
-                    // The same blur is what arms the advance once the last field
-                    // has been changed (see armFromField): leaving the field for
-                    // the continue button, or for anywhere outside the section,
-                    // says the respondent is done with it.
                     onBlurCapture={(e) => {
                       if (idx !== current) return;
+                      const target = e.target as HTMLElement;
+                      // Any control left with an answer in the wrong shape
+                      // says so under itself from now on (leftFieldError).
+                      if (target.id && isFormField(target)) markLeft(target.id);
                       if (!currentLastFieldId) return;
-                      if ((e.target as HTMLElement).id !== currentLastFieldId) return;
+                      if (target.id !== currentLastFieldId) return;
                       const next = e.relatedTarget as HTMLElement | null;
                       if (!next) return;
                       // The frame footer's Retour and Continuer are in the
-                      // dock below the content, outside this <section>
-                      // in the DOM, but they are still this section's own
-                      // controls. Only moving to Continuer says "done here":
-                      // a respondent heading for Retour must not be pushed
-                      // forward on the way.
-                      const toBack = next.closest("[data-flow-back]");
-                      if (e.currentTarget.contains(next) || toBack || next.closest("[data-flow-continue]")) {
-                        if (lastFieldEditedRef.current && !isFormField(next) && !toBack) {
-                          setAdvanceArmed(true);
-                        }
+                      // dock below the content, outside this <section> in
+                      // the DOM, but they are still this section's own
+                      // controls: Continuer runs its own check, and a
+                      // respondent heading for Retour must not be stopped.
+                      if (
+                        e.currentTarget.contains(next) ||
+                        next.closest("[data-flow-back]") ||
+                        next.closest("[data-flow-continue]")
+                      ) {
                         return;
                       }
-                      if (lastFieldEditedRef.current) setAdvanceArmed(true);
                       promptMissing();
                     }}
                   >

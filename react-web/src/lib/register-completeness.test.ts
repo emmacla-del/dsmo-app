@@ -3,7 +3,6 @@ import { test } from "node:test";
 
 import {
   PASSWORD_MIN_STRENGTH,
-  advancesImmediately,
   isPlausibleEmail,
   isSectionComplete,
   type RegState,
@@ -238,40 +237,6 @@ test("review is never complete from field state alone", () => {
   // Treating it as complete put a done checkmark on "Recapitulatif" before
   // anything had been submitted.
   assert.equal(isSectionComplete("review", baseState()), false);
-});
-
-test("advancesImmediately is false for every fixed step, the organisation type included", () => {
-  const state = baseState();
-  // Defect 19: picking a type no longer turns the page; Continuer does.
-  assert.equal(advancesImmediately("entityType", state.entityType), false);
-  // The password step waits for Continuer even though both fields are required.
-  assert.equal(advancesImmediately("security", state.entityType), false);
-  // phone2 / sector make these wait for the respondent to move on.
-  assert.equal(advancesImmediately("respondent", state.entityType), false);
-  assert.equal(advancesImmediately("location", state.entityType), false);
-  assert.equal(advancesImmediately("review", state.entityType), false);
-});
-
-test("advancesImmediately reads entityInfo from the chosen type's field set", () => {
-  // Every type declared today has at least one optional field, so entityInfo
-  // waits for the respondent in all of them.
-  for (const type of [
-    "enterprise",
-    "cooperative",
-    "ctd",
-    "ong",
-    "administration",
-    "projectProgram",
-    "vocationalTraining",
-  ] as const) {
-    assert.equal(
-      advancesImmediately("entityInfo", type),
-      false,
-      `${type} has optional fields, so entityInfo must not advance by itself`
-    );
-  }
-  // With no type picked there is no field set to judge, so it waits.
-  assert.equal(advancesImmediately("entityInfo", null), false);
 });
 
 // ── Drift guard between the strength score and the rule tips ──────────────
