@@ -4809,6 +4809,101 @@ textarea.sovereign-text-input {
   max-width: var(--cam-container-form);
 }
 
+/* « Étape 2 sur 3 · Effectifs » above a form's title. */
+.cam-home-step {
+  margin: 0 0 var(--cam-space-1);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text-muted);
+}
+
+.cam-home-form .cam-home-h2 {
+  margin-top: var(--cam-space-6);
+}
+
+.cam-home-form .cam-home-h2:first-child {
+  margin-top: 0;
+}
+
+/* Short fields side by side (year and date, men / women / total); they
+   wrap to one column on a phone. */
+.cam-home-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  column-gap: var(--cam-space-3);
+}
+
+/* A total the form computes: read-only, set apart in the success tint. */
+.cam-input.is-computed {
+  background: var(--cam-accent-soft);
+  color: var(--cam-accent);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+/* A yes/no statement ticked when it is true. The whole row is the label. */
+.cam-home-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-3) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+  color: var(--cam-text);
+  cursor: pointer;
+}
+
+.cam-home-check input {
+  flex-shrink: 0;
+  width: var(--cam-choice-size);
+  height: var(--cam-choice-size);
+  margin: var(--cam-space-hairline) 0 0;
+  accent-color: var(--cam-green);
+}
+
+.cam-home-check-follow {
+  margin-top: var(--cam-space-3);
+}
+
+/* Previous / Next under the form, in flow, never pinned. */
+.cam-home-form-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-6);
+  padding-top: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-home-form > .cam-admin-notice {
+  margin-top: var(--cam-space-4);
+}
+
+/* DSMO movement table: a count per cell, the row and column totals. */
+.cam-dsmo-movements tbody th {
+  font-weight: var(--cam-font-weight-semibold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cam-dsmo-movements input {
+  width: 56px;
+  padding: var(--cam-space-1);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-sm);
+  font: inherit;
+  text-align: right;
+}
+
+.cam-dsmo-movements .is-total,
+.cam-dsmo-movements tr.is-total th,
+.cam-dsmo-movements tr.is-total td {
+  background: var(--cam-accent-soft);
+  color: var(--cam-accent);
+  font-weight: var(--cam-font-weight-bold);
+}
+
 .cam-home-password {
   position: relative;
 }
