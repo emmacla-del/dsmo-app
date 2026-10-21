@@ -518,6 +518,7 @@
     "receiptFollowButton": "Se connecter pour suivre mon dossier",
     "receiptNextTitle": "Et ensuite",
     "receiptPrint": "Imprimer cette page",
+    "receiptPrintFooter": "Document généré via la plateforme CAMLEAP le {date}",
     "errorEntityTypeMissing": "Type d'entité non sélectionné. Veuillez reprendre l'enregistrement.",
     "errorLocationNamesMissing": "Région, département et arrondissement sont requis pour l'enregistrement officiel.",
     "stepIndicator": "Étape {current} sur {total}",

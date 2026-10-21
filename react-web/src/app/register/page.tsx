@@ -264,6 +264,14 @@ export default function RegisterPage() {
   // submit button that had focus is gone, and nothing else would tell a
   // screen-reader user the registration went through.
   const receiptTitleRef = useRef<HTMLHeadingElement>(null);
+  // When the receipt was printed, for its footer line: taken as the print
+  // dialog opens, so a receipt printed later carries the later time.
+  const [printedAt, setPrintedAt] = useState(() => new Date());
+  useEffect(() => {
+    const onBeforePrint = () => setPrintedAt(new Date());
+    window.addEventListener("beforeprint", onBeforePrint);
+    return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, []);
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
 
@@ -1435,6 +1443,16 @@ export default function RegisterPage() {
             </span>
             <Link href="/">{t("common.backToPortal")}</Link>
           </div>
+
+          {/* Printed in place of the browser's own header and footer (date,
+              tab title, URL), which a zero page margin leaves no room for.
+              Rendered with the receipt only, so other pages print as before. */}
+          <p className="receipt-print-footer">
+            {t("registerPage.receiptPrintFooter", {
+              date: new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(printedAt),
+            })}
+          </p>
+          <style>{"@media print { @page { margin: 0; } }"}</style>
         </div>
       </main>
     );
