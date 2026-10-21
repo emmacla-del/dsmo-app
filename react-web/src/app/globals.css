@@ -531,14 +531,27 @@ body {
   }
 }
 
+.cam-auth-page .receipt-print-footer {
+  display: none;
+}
+
 /* The printed acknowledgement keeps the panel, the list and what happens
-   next; the controls and the help line are for the screen. */
+   next; the masthead, the controls and the help line are for the screen.
+   The page prints with no margin (set by the receipt itself) so the browser
+   adds no header or footer; the padding here is the paper margin, and the
+   receipt's own footer line says where the document comes from. */
 @media print {
   .cam-auth-page--receipt {
-    padding: 0;
+    padding: 18mm 20mm;
     min-height: 0;
   }
-  .cam-auth-page--receipt .masthead-locale,
+  .cam-auth-page .receipt-print-footer {
+    display: block;
+    margin-top: var(--cam-space-6);
+    font-size: var(--cam-font-size-xs);
+    color: var(--cam-text-muted);
+  }
+  .cam-auth-page--receipt .masthead,
   .cam-auth-page .receipt-link,
   .cam-auth-page .receipt-actions,
   .cam-auth-page .receipt-footer {

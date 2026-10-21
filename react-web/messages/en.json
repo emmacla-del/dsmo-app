@@ -518,6 +518,7 @@
     "receiptFollowButton": "Sign in to follow my file",
     "receiptNextTitle": "What happens next",
     "receiptPrint": "Print this page",
+    "receiptPrintFooter": "Document generated via the CAMLEAP platform on {date}",
     "errorEntityTypeMissing": "No entity type selected. Please restart the registration.",
     "errorLocationNamesMissing": "Region, department and subdivision are required for official registration.",
     "stepIndicator": "Step {current} of {total}",
