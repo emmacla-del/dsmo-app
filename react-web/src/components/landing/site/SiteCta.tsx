@@ -12,7 +12,7 @@ export function SiteCta({ title, body, action }: { title: string; body: string; 
 
   return (
     <section className={styles.closing}>
-      <div className={styles.container}>
+      <div className={`${styles.container} ${styles.closingInner}`}>
         <h2>{title}</h2>
         <p>{body}</p>
         <Link href={entry.actionHref} className={`${styles.btn} ${styles.btnInvert}`}>
