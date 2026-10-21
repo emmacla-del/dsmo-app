@@ -61,7 +61,6 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       <section id="programme" className={`${styles.section} ${styles.sectionWash}`}>
         <div className={styles.container}>
           <div className={styles.sectionHead}>
-            <div className={styles.rule} />
             <span className={styles.kicker}>{t("homeProgrammeTitle")}</span>
             <h2>{t("homeProgrammeLede")}</h2>
           </div>
@@ -90,7 +89,6 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       <section className={styles.section}>
         <div className={styles.container}>
           <div className={styles.sectionHead}>
-            <div className={styles.rule} />
             <span className={styles.kicker}>{t("homeWhoEyebrow")}</span>
             <h2>{t("homeWhoTitle")}</h2>
           </div>
@@ -135,9 +133,9 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               </svg>
             </div>
             <div>
-              <span className={styles.kicker}>{t("homeDataTitle")}</span>
+              <h2>{t("homeDataTitle")}</h2>
               <p className={styles.muted}>{t("homeDataBody")}</p>
-              <p style={{ marginTop: "16px" }}>
+              <p>
                 <Link href="/assistance#confidentialite" className={styles.textLink}>
                   {t("readPrivacyNotice")}
                 </Link>
@@ -151,7 +149,6 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       <section id="faq" className={styles.section}>
         <div className={styles.container}>
           <div className={styles.sectionHead}>
-            <div className={styles.rule} />
             <h2>{t("helpFaqTitle")}</h2>
           </div>
           <div className={styles.faq}>
