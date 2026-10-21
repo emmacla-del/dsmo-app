@@ -18,7 +18,10 @@
    - The closing band is the one dark ground; text on it reads
      --cam-on-dark. The footer is white under a hairline (2026-10-21).
    - The flag ribbon uses --cam-flag-* only.
-   - Reading tier: 13 label · 15 small · 17 body · 20 lead · 30 h2 · 32–44 h1. */
+   - Reading tier: 14 label · 15 small · 17 body · 20 lead · 22 column
+     title · 28–40 h2 · 32–56 h1. Labels are set as written, never in
+     spaced capitals. A section heading is an optional kicker and an h2,
+     no decorative rule (2026-10-21). */
 
 /* ── Page ─────────────────────────────────────────────────────────────── */
 
@@ -69,15 +72,18 @@
   font-weight: 500;
 }
 
+/* The one heading scale; components set margins and colour, not sizes.
+   The exceptions are named where they are: .confGrid h2 and the 22px
+   column titles below. */
 .page h1 {
-  font-size: clamp(36px, 4.4vw, 56px);
+  font-size: clamp(32px, 4.4vw, 56px);
   line-height: 1.08;
   max-width: 820px;
   margin: 0 0 var(--cam-space-5);
 }
 
 .page h2 {
-  font-size: clamp(28px, 3.2vw, 38px);
+  font-size: clamp(28px, 3.4vw, 40px);
   line-height: 1.15;
   margin: 0 0 var(--cam-space-4);
 }
@@ -86,6 +92,14 @@
   font-size: var(--cam-font-size-portal-lead);
   line-height: var(--cam-line-height-label);
   margin: 0 0 var(--cam-space-2);
+}
+
+/* Column titles: a phase, a participant family, a card. */
+.card h3,
+.phases li h3,
+.participant h3 {
+  font-size: 22px;
+  color: var(--cam-portal-ink);
 }
 
 .page p {
@@ -143,22 +157,20 @@
   margin-bottom: var(--cam-space-5);
 }
 
-/* Plain kicker: the wireframe's eyebrow, without the pill. */
+/* Plain kicker: the wireframe's eyebrow, without the pill. Set as written,
+   in sentence case: small spaced capitals in five places read as shouting
+   (2026-10-21). */
 .kicker {
   display: block;
-  margin: 0 0 var(--cam-space-4);
-  font-size: var(--cam-font-size-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
   font-weight: 600;
   color: var(--cam-portal-mint-deep);
 }
 
 .state {
   display: block;
-  font-size: var(--cam-font-size-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: var(--cam-font-size-sm);
   font-weight: 600;
   color: var(--cam-portal-muted);
   margin-bottom: var(--cam-space-2);
@@ -379,7 +391,6 @@
 .hero h1 {
   margin-top: 0;
   margin-bottom: var(--cam-space-5);
-  font-size: clamp(32px, 4.4vw, 58px);
   line-height: 1.06;
   letter-spacing: -0.012em;
 }
@@ -534,13 +545,6 @@
   background: var(--cam-portal-band);
 }
 
-.rule {
-  width: 48px;
-  height: 1px;
-  background: var(--cam-portal-rule);
-  margin: 0 0 var(--cam-space-4);
-}
-
 /* One separator between two sections. --cam-portal-band is white since
    2026-10-21, so a washed section no longer tells itself apart: without the
    hairline, sections were told apart by empty space alone. */
@@ -589,11 +593,7 @@
 }
 
 .card h3 {
-  font-family: var(--cam-font-serif);
-  font-size: 22px;
-  font-weight: 500;
   margin: 20px 0 8px;
-  color: var(--cam-portal-ink);
 }
 
 .card p {
@@ -645,12 +645,7 @@
 }
 
 .sectionHead h2 {
-  font-family: var(--cam-font-serif);
-  font-size: clamp(28px, 3.4vw, 40px);
-  font-weight: 500;
-  line-height: 1.15;
   margin-bottom: var(--cam-space-3);
-  color: var(--cam-portal-ink);
 }
 
 .sectionHead .lede {
@@ -697,11 +692,7 @@
 }
 
 .phases li h3 {
-  font-family: var(--cam-font-serif);
-  font-size: 22px;
-  font-weight: 500;
   margin: 20px 0 8px;
-  color: var(--cam-portal-ink);
 }
 
 /* One height for every label row, pill or not, so the four titles share a
@@ -771,11 +762,7 @@
 }
 
 .participant h3 {
-  font-family: var(--cam-font-serif);
-  font-size: 22px;
-  font-weight: 500;
   margin: var(--cam-space-4) 0 var(--cam-space-2);
-  color: var(--cam-portal-ink);
 }
 
 .participant p {
@@ -806,23 +793,12 @@
   max-width: 780px;
 }
 
-/* A note beside the shield, not another 30px section title. */
+/* A note beside the shield: a real h2, so heading navigation reaches it,
+   set at the column-title size rather than as another 40px section title. */
 .confGrid h2 {
   margin: 0 0 var(--cam-space-2);
-  font-size: var(--cam-font-size-xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 22px;
   line-height: var(--cam-line-height-label);
-  text-transform: uppercase;
-  color: var(--cam-portal-muted);
-}
-
-.confGrid .confLead {
-  margin: 0 0 var(--cam-space-3);
-  font-size: var(--cam-font-size-portal-lead);
-  font-weight: 500;
-  line-height: var(--cam-line-height-copy);
-  color: var(--cam-portal-ink);
 }
 
 .confGrid p {
@@ -1072,10 +1048,6 @@
 
 .closing h2 {
   grid-area: title;
-  font-family: var(--cam-font-serif);
-  font-size: clamp(28px, 3.4vw, 40px);
-  line-height: 1.15;
-  font-weight: 500;
   margin: 0 0 var(--cam-space-2);
   color: var(--cam-portal-panel);
 }
