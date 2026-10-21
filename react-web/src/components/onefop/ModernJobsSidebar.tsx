@@ -262,11 +262,7 @@ export function ModernJobsSidebar({
   }
 
   return (
-    <WizardRail
-      sheet={sheet}
-      className="cam-wizard-rail--roomy"
-      progress={{ done: completedCount, total: sections.length }}
-    >
+    <WizardRail sheet={sheet} progress={{ done: completedCount, total: sections.length }}>
       {/* No per-step "Edit" word — see VtWizardSidebar. */}
       <WizardStepList label={tNav("ariaLabel")} steps={steps} />
     </WizardRail>

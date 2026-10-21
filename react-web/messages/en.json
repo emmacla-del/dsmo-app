@@ -1468,11 +1468,7 @@
       "userProfile": "User profile"
     },
     "wizard": {
-      "mobileSectionsButton": "Sections ({stage})",
       "stageQuiz": "Preliminary declaration quiz",
-      "stageReview": "Review & Submit",
-      "sectionsListAria": "Section list",
-      "sectionsDrawerTitle": "Questionnaire sections",
       "close": "Close",
       "reviewHeading": "Declaration summary and submission",
       "reviewIntro": "Check that your declaration is complete and correct before sending it officially to MINEFOP.",
