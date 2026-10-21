@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { ApiError } from "@/lib/api-client";
-import { PASSWORD_RULE_IDS, passwordRuleChecks, passwordStrength } from "@/lib/password-strength";
+import { passwordStrength } from "@/lib/password-strength";
+import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
   GENERIC_POSITION_TYPE,
@@ -66,7 +67,6 @@ export function GroupSignUpForm({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [requested, setRequested] = useState<string | null>(null);
 
-  const rules = passwordRuleChecks(password);
   const link = linkQuery.data;
   const services = link && treeQuery.data ? servicesForLevel(treeQuery.data, link.level, locale) : [];
 
@@ -225,6 +225,7 @@ export function GroupSignUpForm({ token }: { token: string }) {
           <div className="input-row">
             <input
               id="group-password"
+              aria-describedby="group-password-rules"
               type={obscure ? "password" : "text"}
               autoComplete="new-password"
               value={password}
@@ -238,14 +239,7 @@ export function GroupSignUpForm({ token }: { token: string }) {
               hideLabel={tRegister("hidePasswordButton")}
             />
           </div>
-          <ul className="password-rules-list">
-            {PASSWORD_RULE_IDS.map((ruleId) => (
-              <li key={ruleId} className={`password-rule ${rules[ruleId] ? "is-met" : ""}`}>
-                <span className="password-rule-mark" aria-hidden="true">{rules[ruleId] ? "✓" : "•"}</span>
-                {tRegister(`passwordRule${ruleId.charAt(0).toUpperCase()}${ruleId.slice(1)}`)}
-              </li>
-            ))}
-          </ul>
+          <PasswordRequirementHint id="group-password-rules" password={password} />
         </div>
         <div className="field">
           <label htmlFor="group-confirm">{t("confirmLabel")}</label>

@@ -69,8 +69,6 @@ import {
 import { saveLoginIdentifier } from "@/lib/login-handoff";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
 import {
-  PASSWORD_RULE_IDS,
-  passwordRuleChecks,
   passwordStrength,
   passwordStrengthBand,
   validatePassword,
@@ -80,6 +78,7 @@ import { AuthHeader } from "@/components/auth/AuthHeader";
 import { LanguageLink } from "@/components/LanguageLink";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
+import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
@@ -869,7 +868,6 @@ export default function RegisterPage() {
   const pwScore = passwordStrength(password);
   const pwSegments = password ? (pwScore >= 0.9 ? 4 : pwScore >= 0.65 ? 3 : pwScore >= 0.35 ? 2 : 1) : 0;
   // Which of the four requirements are met, for the tips under the input.
-  const pwRules = passwordRuleChecks(password);
 
   // ── Progressive disclosure ─────────────────────────────────────────────
   const completed = STEPS.map((id) => isSectionComplete(id, regState));
@@ -1978,29 +1976,8 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {/* The four requirements the score is built from, each
-                    ticking off as it is met, instead of one static
-                    sentence listing them all. One per line and no heading:
-                    a list under a password field needs no title to be read
-                    as its rules. The title stays for screen readers. */}
-                <div className="password-rules" id="reg-password-rules">
-                  <span className="sr-only">
-                    {t("registerPage.passwordRulesTitle")}
-                  </span>
-                  <ul className="password-rules-list">
-                    {PASSWORD_RULE_IDS.map((ruleId) => {
-                      const met = pwRules[ruleId];
-                      return (
-                        <li key={ruleId} className={`password-rule ${met ? "is-met" : ""}`}>
-                          <span className="password-rule-mark" aria-hidden="true">
-                            {met ? "✓" : "•"}
-                          </span>
-                          {t(`registerPage.passwordRule${ruleId.charAt(0).toUpperCase()}${ruleId.slice(1)}`)}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+                {/* What is still missing, said only while it is missing. */}
+                <PasswordRequirementHint id="reg-password-rules" password={password} />
               </FormRow>
 
               <FormRow
