@@ -8,13 +8,15 @@
    literal, as G14 allows.
 
    Composition, in one sentence each:
-   - One left edge: every block starts in .container.
-   - Home follows the landing wireframe: hero, three phase cards, two
-     participant cards, the confidentiality band, the green closing band.
+   - One left edge: every block and every section heading starts at the
+     .container's left edge; nothing is centred but the 404 (2026-10-21).
+   - Home follows the landing wireframe: hero, four phase columns, two
+     participant columns, the confidentiality note, the green closing band.
    - Programme and help keep the aside column (.sectionGrid).
-   - A hairline only between two white sections.
-   - The pilot strip and the footer use --cam-primary-dark; the closing
-     band uses --cam-primary. Text on both reads --cam-on-dark.
+   - A hairline between two sections: the page is one white sheet, so the
+     rule is what tells one section from the next.
+   - The closing band is the one dark ground; text on it reads
+     --cam-on-dark. The footer is white under a hairline (2026-10-21).
    - The flag ribbon uses --cam-flag-* only.
    - Reading tier: 13 label · 15 small · 17 body · 20 lead · 30 h2 · 32–44 h1. */
 
@@ -525,7 +527,7 @@
 }
 
 .section {
-  padding: 88px 0;
+  padding: var(--cam-space-8) 0;
 }
 
 .sectionWash {
@@ -536,15 +538,14 @@
   width: 48px;
   height: 1px;
   background: var(--cam-portal-rule);
-  margin: 0 auto var(--cam-space-4);
-}
-
-.ruleLeft {
   margin: 0 0 var(--cam-space-4);
 }
 
-/* One separator: a hairline only between two white sections. */
-.section:not(.sectionWash) + .section:not(.sectionWash) {
+/* One separator between two sections. --cam-portal-band is white since
+   2026-10-21, so a washed section no longer tells itself apart: without the
+   hairline, sections were told apart by empty space alone. */
+.hero + .section,
+.section + .section {
   border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
@@ -637,10 +638,10 @@
 
 /* ── Lists ────────────────────────────────────────────────────────────── */
 
+/* Left, on the container's edge, like the hero above it. */
 .sectionHead {
-  text-align: center;
-  max-width: 680px;
-  margin: 0 auto 56px;
+  max-width: var(--cam-measure);
+  margin: 0 0 var(--cam-space-7);
 }
 
 .sectionHead h2 {
@@ -653,20 +654,13 @@
 }
 
 .sectionHead .lede {
-  margin: 0 auto;
+  margin: 0;
   color: var(--cam-portal-muted);
   font-weight: var(--cam-font-weight-regular);
   font-size: 18px;
 }
 
-.sectionHeadLeft {
-  text-align: left;
-  margin-left: 0;
-  max-width: var(--cam-measure);
-}
-
 .sectionMore {
-  text-align: center;
   margin-top: var(--cam-space-6);
 }
 
@@ -691,15 +685,15 @@
   }
 }
 
-/* Open columns; only the current phase is outlined. The transparent border
-   keeps every column's text aligned with the outlined one. */
+/* Open columns under a hairline, text on the container's edge. The current
+   phase thickens its rule in teal (::before), drawn over the hairline so it
+   shifts no column's text (2026-10-21). */
 .phases li {
+  position: relative;
   display: flex;
   flex-direction: column;
-  border: 1.5px solid transparent;
-  border-radius: 20px;
-  padding: 34px 30px;
-  box-shadow: none;
+  padding-top: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
 .phases li h3 {
@@ -710,7 +704,12 @@
   color: var(--cam-portal-ink);
 }
 
+/* One height for every label row, pill or not, so the four titles share a
+   baseline. */
 .phases .state {
+  display: flex;
+  align-items: center;
+  min-height: var(--cam-space-5);
   margin: 0 0 20px;
 }
 
@@ -719,10 +718,18 @@
   font-size: 15.5px;
 }
 
-.phases li.phaseNow {
-  background: var(--cam-portal-panel);
-  border-color: var(--cam-portal-mint);
-  position: relative;
+.phases li.phaseNow::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--cam-border-width));
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--cam-portal-mint-deep);
+}
+
+.phases li.phaseNow .state {
+  color: var(--cam-portal-mint-deep);
 }
 
 .pill {
@@ -789,6 +796,8 @@
   padding-top: var(--cam-space-4);
 }
 
+/* Inside a .container, not on it: on the container its max-width, with the
+   container's auto margins, centred the note off the page's left edge. */
 .confGrid {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
@@ -971,7 +980,6 @@
 
 .faq {
   max-width: 760px;
-  margin: 0 auto;
 }
 
 .faq details {
@@ -1042,27 +1050,46 @@
 
 /* ── Closing band ─────────────────────────────────────────────────────── */
 
+/* The side gutter is the .container's alone: padding here as well put the
+   band's text 64px in, off the page's left edge. */
 .closing {
   background: var(--cam-portal-teal-dark);
   color: var(--cam-portal-panel);
-  text-align: center;
-  padding: 100px var(--cam-space-6);
+  padding: var(--cam-space-9) 0;
+}
+
+/* Heading and sentence on the left, the one button on the right; stacked
+   on a phone (720px block). */
+.closingInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title action"
+    "body action";
+  column-gap: var(--cam-space-7);
+  align-items: center;
 }
 
 .closing h2 {
+  grid-area: title;
   font-family: var(--cam-font-serif);
   font-size: clamp(28px, 3.4vw, 40px);
   line-height: 1.15;
   font-weight: 500;
-  margin-bottom: 14px;
+  margin: 0 0 var(--cam-space-2);
   color: var(--cam-portal-panel);
 }
 
 .closing p {
+  grid-area: body;
   color: var(--cam-portal-closing-muted);
   max-width: 52ch;
-  margin: 0 auto 36px;
+  margin: 0;
   font-size: 18px;
+}
+
+.closing .btn {
+  grid-area: action;
 }
 
 .btnInvert {
@@ -1091,12 +1118,14 @@
 
 /* ── Footer ───────────────────────────────────────────────────────────── */
 
+/* White under a hairline (2026-10-21). In the closing band's green the two
+   read as one slab, and the band stopped being a moment of its own. */
 .footer {
-  padding: 72px 0 44px;
-  background: var(--cam-portal-teal-dark);
+  padding: var(--cam-space-8) 0 var(--cam-space-7);
+  background: var(--cam-portal-bg);
   font-size: var(--cam-font-size-base);
-  color: var(--cam-portal-foot-muted);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--cam-portal-muted);
+  border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
 .footerInner {
@@ -1107,7 +1136,7 @@
 }
 
 .footerOrg {
-  color: var(--cam-on-dark);
+  color: var(--cam-portal-ink);
   font-weight: var(--cam-font-weight-bold);
   font-size: var(--cam-font-size-lg);
 }
@@ -1117,7 +1146,7 @@
 }
 
 .footerContact a {
-  color: var(--cam-on-dark);
+  color: var(--cam-portal-mint-deep);
   font-weight: var(--cam-font-weight-semibold);
   text-decoration: none;
 }
@@ -1133,7 +1162,7 @@
 }
 
 .footerNav a {
-  color: var(--cam-on-dark);
+  color: var(--cam-portal-ink);
   text-decoration: none;
 }
 
@@ -1144,9 +1173,9 @@
 .footerLegal {
   margin-top: var(--cam-space-5);
   padding-top: var(--cam-space-4);
-  border-top: var(--cam-border-width) solid var(--cam-white-wash);
+  border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
   font-size: var(--cam-font-size-xs);
-  color: var(--cam-on-dark-muted);
+  color: var(--cam-portal-muted);
 }
 
 /* ── Narrow screens ───────────────────────────────────────────────────── */
@@ -1184,10 +1213,6 @@
     bottom: 0;
     border-width: 4px 4px 0 4px;
     border-color: var(--cam-border-strong) transparent transparent transparent;
-  }
-
-  .sectionHeadLeft {
-    max-width: none;
   }
 }
 
@@ -1253,6 +1278,26 @@
 
   .facts {
     grid-template-columns: 1fr;
+  }
+
+  .section {
+    padding: var(--cam-space-7) 0;
+  }
+
+  .closing {
+    padding: var(--cam-space-8) 0;
+  }
+
+  .closingInner {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "body"
+      "action";
+  }
+
+  .closing p {
+    margin-bottom: var(--cam-space-6);
   }
 
   .card {

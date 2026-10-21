@@ -204,7 +204,7 @@ The owner exempted **exactly those two files** from `respondent-hex-in-tsx` on 2
 }
 ```
 
-**A foreground on the dark band reads `--cam-on-dark`, never `--cam-surface`.** Because `.bandInk` re-points `--cam-surface` to the dark green, a heading, link, status dot or notice rule that reaches for `--cam-surface` there renders dark-on-dark — invisible, and invisible to the phantom check too, since the token resolves perfectly well. This cost an hour to find on 2026-10-14. The same holds for `.footer` and `.figurePanelInk`, which are dark grounds outside `.bandInk`.
+**A foreground on the dark band reads `--cam-on-dark`, never `--cam-surface`.** Because `.bandInk` re-points `--cam-surface` to the dark green, a heading, link, status dot or notice rule that reaches for `--cam-surface` there renders dark-on-dark — invisible, and invisible to the phantom check too, since the token resolves perfectly well. This cost an hour to find on 2026-10-14. The same holds for `.closing` and `.figurePanelInk`, which are dark grounds outside `.bandInk`. The `.footer` is white under a hairline since 2026-10-21: in the closing band's green the two read as one slab.
 
 ### Section rhythm
 

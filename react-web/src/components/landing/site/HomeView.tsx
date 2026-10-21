@@ -89,8 +89,8 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       {/* 03 · Who participates (Two groups) */}
       <section className={styles.section}>
         <div className={styles.container}>
-          <div className={`${styles.sectionHead} ${styles.sectionHeadLeft}`}>
-            <div className={`${styles.rule} ${styles.ruleLeft}`} />
+          <div className={styles.sectionHead}>
+            <div className={styles.rule} />
             <span className={styles.kicker}>{t("homeWhoEyebrow")}</span>
             <h2>{t("homeWhoTitle")}</h2>
           </div>
@@ -118,29 +118,31 @@ export function HomeView({ visual }: { visual: ReactNode }) {
 
       {/* 04 · Confidentiality */}
       <section className={`${styles.section} ${styles.sectionWash}`}>
-        <div className={`${styles.container} ${styles.confGrid}`}>
-          <div className={styles.shield} aria-hidden="true">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <div>
-            <span className={styles.kicker}>{t("homeDataTitle")}</span>
-            <p className={styles.muted}>{t("homeDataBody")}</p>
-            <p style={{ marginTop: "16px" }}>
-              <Link href="/assistance#confidentialite" className={styles.textLink}>
-                {t("readPrivacyNotice")}
-              </Link>
-            </p>
+        <div className={styles.container}>
+          <div className={styles.confGrid}>
+            <div className={styles.shield} aria-hidden="true">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div>
+              <span className={styles.kicker}>{t("homeDataTitle")}</span>
+              <p className={styles.muted}>{t("homeDataBody")}</p>
+              <p style={{ marginTop: "16px" }}>
+                <Link href="/assistance#confidentialite" className={styles.textLink}>
+                  {t("readPrivacyNotice")}
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </section>
