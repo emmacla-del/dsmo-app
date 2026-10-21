@@ -237,9 +237,10 @@
   /* 24px */
   --cam-font-size-2xl: 1.5625rem;
   /* 25px */
-  /* Dashboard KPI value (.cam-kpi-tile-value and the KPI rows that will
-     adopt it). Deliberately larger than 2xl, which .cam-pilot-kpi-value
-     uses for the smaller panel KPIs. */
+  /* A dashboard's one headline figure (.cam-dash-coverage-figure, the
+     pilotage response rate). Deliberately larger than 2xl, which
+     .cam-pilot-kpi-value uses for the smaller panel KPIs. The "À traiter"
+     counts step down to xl (owner, 2026-10-21). */
   --cam-font-size-3xl: 2rem;
   /* 32px */
 
