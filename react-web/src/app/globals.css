@@ -1643,10 +1643,10 @@ html:has(.cam-masthead) {
   margin: 0 0 var(--cam-field-row-gap);
 }
 
-/* ── Password strength meter and rule tips ──
-   Both sit under the password input (they are children of the password
-   .field). The tips replaced a static paragraph that
-   listed the criteria whether or not they were met. */
+/* ── Password strength meter ──
+   Sits under the password input (a child of the password .field), above
+   the one-line hint saying what is still missing (PasswordRequirementHint,
+   styled as an ordinary .field-hint). */
 .cam-auth-page .password-strength-block {
   margin-top: var(--cam-space-2);
 }
@@ -1656,42 +1656,6 @@ html:has(.cam-masthead) {
   font-size: var(--cam-font-size-3xs);
   color: var(--cam-text-muted);
   margin-top: var(--cam-space-1);
-}
-
-.cam-auth-page .password-rules {
-  margin-top: var(--cam-space-2);
-}
-
-/* One rule per line. Wrapped in a row, three fitted on the first line and
-   the fourth fell alone onto a second, which read as untidy at every width. */
-.cam-auth-page .password-rules-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cam-auth-page .password-rule {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-1);
-  font-size: var(--cam-field-hint-size);
-  color: var(--cam-text-muted);
-}
-
-/* Colour is not the only signal: the marker itself changes from a bullet to a
-   checkmark, so the met/unmet distinction survives a colour-blind reading. */
-.cam-auth-page .password-rule.is-met {
-  color: var(--cam-green);
-  font-weight: var(--cam-font-weight-semibold);
-}
-
-.cam-auth-page .password-rule-mark {
-  width: 12px;
-  text-align: center;
-  flex: 0 0 auto;
 }
 
 /* Single-column field layout: the stacked form used by the wizard at every
