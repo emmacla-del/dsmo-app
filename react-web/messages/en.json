@@ -3543,6 +3543,8 @@
     "homeDiscover": "Discover the programme",
     "journeyLabel": "Six-step animation: an ONEFOP questionnaire filled in on paper; the same questionnaire completed online; responses received and validated; a labour market dashboard; a bulletin shared with employers, government and jobseekers; the programme's phases, with digital collection as the current pilot.",
     "journeyKicker": "Project journey",
+    "journeyPause": "Pause the animation",
+    "journeyPlay": "Play the animation",
     "journeyCap1Title": "From paper…",
     "journeyCap1Body": "The ONEFOP questionnaire, printed and filled in by hand.",
     "journeyCap2Title": "…to digital",

@@ -3543,6 +3543,8 @@
     "homeDiscover": "Découvrir le programme",
     "journeyLabel": "Animation en six étapes : un questionnaire ONEFOP rempli sur papier ; le même questionnaire rempli en ligne ; les réponses reçues et validées ; un tableau de bord du marché du travail ; un bulletin diffusé aux employeurs, à l'État et aux chercheurs d'emploi ; les phases du programme, la collecte numérique étant le pilote en cours.",
     "journeyKicker": "Parcours du projet",
+    "journeyPause": "Mettre l’animation en pause",
+    "journeyPlay": "Relancer l’animation",
     "journeyCap1Title": "Du papier…",
     "journeyCap1Body": "Le questionnaire ONEFOP, imprimé et rempli à la main.",
     "journeyCap2Title": "…au numérique",
