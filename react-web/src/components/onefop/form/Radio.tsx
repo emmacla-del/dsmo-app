@@ -157,7 +157,7 @@ export function RadioGroup({
                 width: "var(--cam-choice-size)",
                 height: "var(--cam-choice-size)",
                 borderRadius: "50%",
-                border: `2px solid ${selected ? "var(--cam-green)" : "var(--cam-text-muted)"}`,
+                border: `2px solid ${selected ? "var(--cam-green)" : "var(--cam-field-border)"}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

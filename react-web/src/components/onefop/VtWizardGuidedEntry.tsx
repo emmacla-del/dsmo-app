@@ -26,6 +26,8 @@ function cellLabelText(text: LocalizedText | null, locale: string): string {
 
 const accentGreen = "var(--cam-green)";
 const cardBorder = "var(--cam-border)";
+// The edge of a box the respondent types or picks in, darker than a card's.
+const fieldBorder = "var(--cam-field-border)";
 const ink = "var(--cam-text)";
 const inkSoft = "var(--cam-text-muted)";
 const cardRadius = 4;
@@ -56,7 +58,7 @@ const numberBoxInputStyle = {
   width: "100%",
   height: "var(--cam-form-field-height)",
   padding: "0 var(--cam-space-3)",
-  border: `1px solid ${cardBorder}`,
+  border: `1px solid ${fieldBorder}`,
   borderRadius: "var(--cam-radius-sm)",
   fontFamily: "var(--cam-font-sans)",
   fontWeight: "var(--cam-font-weight-regular)",
@@ -498,7 +500,7 @@ export function VtWizardFixedRowMultiNumberEntry({
               }
               setControls(newControls);
             }}
-            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "var(--cam-white)", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", height: "var(--cam-form-field-height)", padding: "0 var(--cam-space-3)", border: `1px solid ${fieldBorder}`, borderRadius: "var(--cam-radius-sm)", fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-regular)", fontSize: "var(--cam-answer-size)", color: ink, background: "var(--cam-white)", outline: "none", boxSizing: "border-box" }}
           >
             <option value="" disabled hidden>
               {t("vtWizard.select", { default: "Sélectionner…" })}

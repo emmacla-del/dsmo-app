@@ -75,7 +75,7 @@ export function Checkbox({
           flexShrink: 0,
           borderRadius: "var(--cam-radius-sm)",
           // The input edge (3:1 against white, WCAG 2.2, 1.4.11).
-          border: `2px solid ${checked ? "var(--cam-green)" : "var(--cam-text-muted)"}`,
+          border: `2px solid ${checked ? "var(--cam-green)" : "var(--cam-field-border)"}`,
           backgroundColor: checked ? "var(--cam-green)" : "var(--cam-surface)",
           display: "flex",
           alignItems: "center",
