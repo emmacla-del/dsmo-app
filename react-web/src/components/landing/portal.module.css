@@ -55,7 +55,15 @@
   border-radius: var(--cam-radius-md);
 }
 
+/* An anchor lands under the sticky masthead, and under the sticky .subnav
+   (about 54px) on the pages that have one. Home has none, so the subnav's
+   share is added only after it. */
 .page [id] {
+  scroll-margin-top: calc(var(--cam-header-height) + var(--cam-space-4));
+}
+
+.page .subnav ~ [id],
+.page .subnav ~ * [id] {
   scroll-margin-top: calc(var(--cam-header-height) + 54px + var(--cam-space-4));
 }
 
@@ -303,16 +311,24 @@
   font-weight: 600;
 }
 
+/* The way in is a small outlined button, the hero's secondary outline at
+   masthead size: in teal text it read as a second current tab beside
+   "Home" (2026-10-21). Teal in the masthead now means "you are here". */
 .signIn {
+  padding: 6px var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-portal-rule);
+  border-radius: var(--cam-radius-full);
   font-size: 15px;
   font-weight: 600;
-  color: var(--cam-portal-mint-deep);
+  line-height: 1.4;
+  color: var(--cam-portal-ink);
   text-decoration: none;
   white-space: nowrap;
+  transition: border-color var(--cam-transition-fast);
 }
 
 .signIn:hover {
-  color: var(--cam-portal-mint-hover);
+  border-color: var(--cam-portal-muted);
 }
 
 /* Sign-in and the language switch stay one control. Wrapped as a unit,
@@ -1228,6 +1244,11 @@
   }
 
   .page [id] {
+    scroll-margin-top: calc(var(--cam-header-height) + var(--cam-space-4));
+  }
+
+  .page .subnav ~ [id],
+  .page .subnav ~ * [id] {
     scroll-margin-top: calc(var(--cam-header-height) + var(--cam-space-8));
   }
 
