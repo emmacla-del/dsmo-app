@@ -918,6 +918,16 @@ body {
    from a short section to a long one does not shift the frame sideways.
    The questionnaire wizards too (.vt-wizard: VT; ModernJobsHeader sits in
    both): a short table step widened the column by 15px. */
+/* Inside every wizard, a control's edge is the field box colour. Table
+   inputs, guided-entry boxes and selects that read --cam-border-strong
+   follow without each being edited; outside the wizards the token keeps
+   its own value. */
+.cam-auth-page--wizard,
+.vt-wizard,
+[data-mj-root] {
+  --cam-border-strong: var(--cam-field-border);
+}
+
 html:has(.cam-auth-page--wizard),
 html:has(.vt-wizard),
 html:has(.cam-masthead) {
@@ -1394,7 +1404,7 @@ html:has(.cam-masthead) {
   height: var(--cam-field-height);
   padding-top: 0;
   padding-bottom: 0;
-  border: var(--cam-field-border-width) solid var(--cam-border);
+  border: var(--cam-field-border-width) solid var(--cam-field-border);
   border-radius: var(--cam-field-radius);
 }
 
@@ -3000,7 +3010,7 @@ html:has(.cam-masthead) {
   display: flex;
   align-items: stretch;
   height: var(--cam-form-field-height);
-  border: var(--cam-border-width) solid var(--cam-text-muted);
+  border: var(--cam-border-width) solid var(--cam-field-border);
   border-radius: var(--cam-radius-control);
   background: var(--cam-surface);
   overflow: hidden;
@@ -3695,10 +3705,9 @@ html:has(.cam-masthead) {
   max-width: 35rem; /* 560px (was 600px; owner, 2026-10-12) */
   height: var(--cam-form-field-height);
   padding: 0 var(--cam-space-3);
-  /* --cam-text-muted, not --cam-border-strong: an input's edge needs 3:1
-     against white (WCAG 2.2, 1.4.11). #aab5a3 gave about 2.1:1, so a filled
-     box read as one more line of text under its label. */
-  border: var(--cam-border-width) solid var(--cam-text-muted);
+  /* --cam-field-border: an input's edge needs at least 3:1 against white
+     (WCAG 2.2, 1.4.11), and the wizards ask for a clearly darker box. */
+  border: var(--cam-border-width) solid var(--cam-field-border);
   border-radius: var(--cam-radius-control);
   background: var(--cam-surface);
   color: var(--cam-text);

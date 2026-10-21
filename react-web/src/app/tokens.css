@@ -85,6 +85,13 @@
      WCAG 1.4.11 minimum for a control boundary. Inputs, selects, radios,
      checkboxes read this, never --cam-border. */
   --cam-border-strong: #8492a6;
+  /* The box of a field in the declaration and registration wizards: text
+     inputs, selects, number boxes, radio and checkbox outlines. Darker than
+     --cam-border-strong (7.6:1 on white, owner 2026-10-21) so an empty box
+     reads clearly as a place to answer. The wizards also map
+     --cam-border-strong to it (globals.css), so every control inside them
+     takes the same edge. */
+  --cam-field-border: #475569;
 
   /* ── Shadows ──
      Mixed from the named --cam-shadow-black, so this file has no rgba() left
@@ -499,11 +506,13 @@
      TableRenderer's grids, VT tables, activities table, guided-mode live
      preview). Values are the slate palette the Modern Jobs grids already
      used (S22Q04 look), consolidated here instead of hardcoded per file. */
-  --cam-table-frame: var(--cam-slate-600);
+  /* One step darker each (owner, 2026-10-21): the grid lines were the
+     faintest lines a respondent has to follow across a wide table. */
+  --cam-table-frame: var(--cam-slate-700);
   /* outer frame, header rules, label column rule */
-  --cam-table-line: var(--cam-slate-500);
+  --cam-table-line: var(--cam-slate-600);
   /* cell grid lines */
-  --cam-table-strong: var(--cam-slate-700);
+  --cam-table-strong: var(--cam-slate-800);
   /* total-row rule, sub-header text */
   --cam-table-group-line: var(--cam-slate-800);
   /* separator between column blocks */
