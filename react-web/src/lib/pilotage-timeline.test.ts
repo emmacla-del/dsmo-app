@@ -67,6 +67,16 @@ test("the line ends on the total, and the axis runs to the deadline", () => {
   assert.deepEqual(g.markers.map((m) => [m.kind, Math.round(m.x)]), [["deadline", 400]]);
 });
 
+test("the axis tops out at the registered stock, or the total when more came in", () => {
+  const now = Date.parse("2026-02-04T12:00:00Z");
+  const g = chartGeometry(timeline(), 13, BOX, now)!;
+  assert.equal(g.yMax, 13);
+  assert.deepEqual(g.yTicks.map((tick) => tick.value), [0, 13]);
+  assert.equal(chartGeometry(timeline(), 2, BOX, now)!.yMax, 3);
+  // No stock: a round number above the total.
+  assert.equal(chartGeometry(timeline(), 0, BOX, now)!.yMax, 5);
+});
+
 test("an extended deadline gets its own marker and moves the pace's end", () => {
   const g = chartGeometry(timeline({ extendedDeadline: "2026-02-08T23:00:00.000Z" }), 10, BOX, Date.parse("2026-02-04T12:00:00Z"))!;
   assert.deepEqual(g.markers.map((m) => m.kind), ["deadline", "extended"]);
