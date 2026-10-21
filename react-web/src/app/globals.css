@@ -1579,20 +1579,40 @@ html:has(.cam-masthead) {
   margin: 0 0 var(--cam-space-1);
 }
 
+/* Links in the error colour at body weight: the box already says something
+   is wrong, so a stack of bold red names only shouts. Short names (the
+   registration fields) flow into two columns on wider screens, which keeps
+   the box from pushing the form down; DOM order stays the reading order. */
 .flow-missing-notice ul {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 0 0 0 var(--cam-space-4);
+  list-style: disc;
+}
+
+.flow-missing-notice li {
+  break-inside: avoid;
 }
 
 .flow-missing-notice li + li {
-  margin-top: var(--cam-space-1);
+  margin-top: 2px;
+}
+
+.flow-missing-notice li::marker {
+  color: var(--cam-error);
 }
 
 .flow-missing-notice a {
   color: var(--cam-error);
-  font-weight: var(--cam-font-weight-semibold);
+  font-weight: var(--cam-font-weight-regular);
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (min-width: 640px) {
+  .flow-missing-notice ul:has(> li:nth-child(4)) {
+    columns: 2;
+    column-gap: var(--cam-space-6);
+  }
 }
 
 /* The ways on from an email that already has an account, after the
