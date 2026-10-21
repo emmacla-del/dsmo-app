@@ -344,7 +344,7 @@
 .btnGhost {
   background: var(--cam-portal-panel);
   color: var(--cam-portal-ink);
-  border-color: var(--cam-portal-hairline);
+  border-color: var(--cam-portal-rule);
 }
 
 .btnGhost:hover {
@@ -471,8 +471,8 @@
 
 .pageHead {
   padding: var(--cam-section-pad-standard) 0 var(--cam-space-7);
-  background: var(--cam-bg);
-  border-bottom: var(--cam-border-width) solid var(--cam-border-soft);
+  background: var(--cam-portal-bg);
+  border-bottom: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
 .pageHead h1 {
@@ -565,7 +565,7 @@
 .card {
   display: block;
   background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-hairline);
+  border: 1px solid var(--cam-portal-rule);
   border-radius: 20px;
   padding: 34px 30px;
   box-shadow: none;
@@ -681,7 +681,7 @@
   display: flex;
   flex-direction: column;
   background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-hairline);
+  border: 1px solid var(--cam-portal-rule);
   border-radius: 20px;
   padding: 34px 30px;
   box-shadow: none;
@@ -794,7 +794,7 @@
 
 .shield {
   background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-hairline);
+  border: 1px solid var(--cam-portal-rule);
 }
 
 .bullets {
@@ -966,7 +966,7 @@
 }
 
 .faq summary:hover {
-  background: var(--cam-portal-band);
+  background: var(--cam-surface-subtle);
 }
 
 .faq summary::-webkit-details-marker {

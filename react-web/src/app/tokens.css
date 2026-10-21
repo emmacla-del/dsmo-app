@@ -37,14 +37,14 @@
   --cam-gold: #e8a020;
   --cam-gold-dark: #b87c14;
 
-  /* ── Public Portal Very Light Ash theme ── */
+  /* ── Public portal: white page, white panels outlined in --cam-portal-rule (2026-10-21) ── */
   --cam-portal-mint: #2aa79b;
   --cam-portal-mint-deep: #178a7d;
   --cam-portal-mint-hover: #127367;
   --cam-portal-mint-bright: #3cb4a8;
   --cam-portal-teal-dark: #0c3b36;
-  --cam-portal-bg: #f5f6f8;
-  --cam-portal-band: #f5f6f8;
+  --cam-portal-bg: #ffffff;
+  --cam-portal-band: #ffffff;
   --cam-portal-panel: #ffffff;
   --cam-portal-ink: #0f172a;
   --cam-portal-muted: #475569;
