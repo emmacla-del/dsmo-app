@@ -197,7 +197,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--cam-radius-full);
-  background: var(--cam-portal-mint);
+  background: var(--cam-portal-mint-bright);
   margin-right: var(--cam-space-2);
   vertical-align: middle;
 }
@@ -612,7 +612,7 @@
 
 .phaseCardNow {
   border: 1.5px solid var(--cam-portal-mint);
-  box-shadow: 0 4px 16px rgba(42, 167, 155, 0.12);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cam-primary) 12%, transparent);
   background: var(--cam-portal-panel);
 }
 
@@ -1032,7 +1032,7 @@
 }
 
 .btnInvert {
-  background: var(--cam-portal-mint);
+  background: var(--cam-portal-panel);
   color: var(--cam-portal-teal-dark);
   border-color: transparent;
   box-shadow: none;
