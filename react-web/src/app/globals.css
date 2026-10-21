@@ -909,6 +909,9 @@ body {
   padding: 0;
   align-items: stretch;
   justify-content: flex-start;
+  /* One white surface behind the rail and the form. On the grey page
+     ground, the unbordered frame still read as a white box. */
+  background: var(--cam-surface);
 }
 
 /* scrollbar-gutter keeps the root's scrollbar space reserved, so moving
@@ -997,19 +1000,18 @@ html:has(.cam-masthead) {
   padding: var(--cam-space-4) var(--cam-space-4) var(--cam-space-2);
 }
 
-/* The one framed element on the page. overflow: clip, not hidden: it keeps
-   the footer's background inside the rounded corners without making the
-   frame a scroll container -- the document is the only scroller. */
+/* The column holding the section and its buttons. No border and no rounded
+   corners at any width (owner, 2026-10-21): the page is already white, so a
+   frame only boxed the form in. The sidebar's edge is what separates
+   navigation from the form. Not a scroll container -- the document is the
+   only scroller. */
 .cam-auth-page--wizard .flow-frame {
   width: 100%;
   max-width: var(--cam-container-wizard);
   height: fit-content;
   display: flex;
   flex-direction: column;
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-section-radius);
   background: var(--cam-surface);
-  overflow: clip;
 }
 
 /* The section's content. Not a scroller: it grows with the section, and the
@@ -1158,12 +1160,6 @@ html:has(.cam-masthead) {
   .cam-auth-page--wizard .flow-body {
     padding-left: 0;
     padding-right: 0;
-  }
-
-  .cam-auth-page--wizard .flow-frame {
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
   }
 }
 
@@ -1797,9 +1793,8 @@ html:has(.cam-masthead) {
 }
 
 /* A note that belongs to one section, shown under its heading rather than
-   at the top of the frame. A left rule instead of a box: inside the frame,
-   a second bordered rectangle is a second frame, and the only one of those
-   on this page is the frame itself. */
+   at the top of the frame. A left rule instead of a box: a bordered
+   rectangle would read as a frame, and this page has none. */
 .cam-auth-page--wizard .section-notice {
   border-left: 4px solid var(--cam-border);
   color: var(--cam-text);
@@ -1842,7 +1837,6 @@ html:has(.cam-masthead) {
   align-items: center;
   gap: var(--cam-space-3);
   padding: var(--cam-space-3) var(--cam-frame-scroll-pad-x);
-  border-top: var(--cam-border-width) solid var(--cam-border);
   background: var(--cam-surface);
 }
 

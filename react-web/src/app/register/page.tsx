@@ -2114,8 +2114,8 @@ export default function RegisterPage() {
   // Owner's decision, 2026-10-10: the DOCUMENT scrolls, never a region inside
   // the frame (CLAUDE.md section 13). On a wide screen the page is two
   // columns: the dossier panel -- identity, the six steps with what each
-  // holds, the way out -- sticky beside a body holding a single bordered
-  // frame. On a narrow screen the panel is not shown and the page is a column
+  // holds, the way out -- sticky beside a body holding the frame, an
+  // unbordered column. On a narrow screen the panel is not shown and the page is a column
   // of the header that carries the rail, the body and a one-line footer.
   // Either way a long section makes the page longer. Retour and Continuer
   // stay at the end of the frame, not pinned (owner, 2026-10-10).
@@ -2187,7 +2187,7 @@ export default function RegisterPage() {
         </WizardRail>
 
         <div className="flow-body">
-          {/* The frame: the one bordered element in the body. */}
+          {/* The frame: the section and its buttons, in one column. */}
           <div className="flow-frame">
             <div className="flow-frame-content">
               {/* Reset and restore notices. Announced, because the change they
