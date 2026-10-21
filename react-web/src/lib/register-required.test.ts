@@ -59,7 +59,7 @@ function requiredOnlyEntityData(type: EntityType): Record<string, string> {
     // A phone must be a valid Cameroonian number: a wrong one keeps the
     // section unfinished, which is not what these tests are about.
     data[field.key] =
-      field.kind === "number"
+      field.kind === "number" || field.kind === "year"
         ? "2020"
         : field.kind === "tel"
           ? "677123456"

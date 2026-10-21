@@ -1660,21 +1660,15 @@ html:has(.cam-masthead) {
   margin-top: var(--cam-space-2);
 }
 
-.cam-auth-page .password-rules-title {
-  display: block;
-  font-size: var(--cam-field-hint-size);
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-text);
-  margin-bottom: var(--cam-space-1);
-}
-
+/* One rule per line. Wrapped in a row, three fitted on the first line and
+   the fourth fell alone onto a second, which read as untidy at every width. */
 .cam-auth-page .password-rules-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--cam-space-1) var(--cam-space-4);
+  flex-direction: column;
+  gap: 2px;
 }
 
 .cam-auth-page .password-rule {

@@ -27,6 +27,7 @@ import {
   resolveCompanyName,
   resolveMainActivity,
   visibleEntityDataForType,
+  yearOptions,
   type EntityField,
   type EntityType,
   type RegistrationStepId,
@@ -412,10 +413,10 @@ export default function RegisterPage() {
 
   function entityFieldSize(field: EntityField): FieldSize {
     if (CODE_FIELD_KEYS.has(field.key)) return "medium";
-    // tel covers every phone; number covers the year of creation and the
-    // share capital. None of them is wider than a few characters, and a
-    // select always gets the full column because its options can be long.
-    if (field.kind === "tel" || field.kind === "number") return "short";
+    // tel covers every phone, year the year of creation, number the share
+    // capital. None of them is wider than a few characters, and a select
+    // always gets the full column because its options can be long.
+    if (field.kind === "tel" || field.kind === "number" || field.kind === "year") return "short";
     return "full";
   }
 
@@ -508,7 +509,16 @@ export default function RegisterPage() {
           {isTel && (
             <span className="input-prefix" aria-hidden="true">+237</span>
           )}
-          {field.kind === "select" ? (
+          {field.kind === "year" ? (
+            <select {...controlProps}>
+              <option value=""></option>
+              {yearOptions(entityData[field.key]).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          ) : field.kind === "select" ? (
             <select {...controlProps}>
               <option value=""></option>
               {field.options?.map((o) => (
@@ -523,7 +533,6 @@ export default function RegisterPage() {
               type={isTel ? "tel" : "text"}
               autoComplete={ENTITY_AUTOCOMPLETE[field.key] ?? "off"}
               inputMode={digitsOnly ? "numeric" : isTel ? "tel" : undefined}
-              maxLength={field.key === "yearOfCreation" ? 4 : undefined}
             />
           )}
         </div>
@@ -1912,22 +1921,19 @@ export default function RegisterPage() {
       case "security":
         return (
           <>
+            {/* After a restored draft, the half of the restore notice that
+                belongs to this section takes the subtitle's place instead
+                of a callout of its own: one line under the heading, not a
+                ruled note stacked on top of the instruction. */}
             <StepHeader
               titleId="reg-section-title-security"
               title={t("registerPage.securityTitle")}
-              subtitle={t("registerPage.securitySubtitle")}
+              subtitle={
+                draftRestored
+                  ? t("registerPage.draftPasswordReminder")
+                  : t("registerPage.securitySubtitle")
+              }
             />
-
-            {/* The half of the restore notice that belongs to this section.
-                It appears when the section opens rather than at the top of
-                the flow, and goes as soon as there is a password to speak
-                of -- a standing reminder to type something the respondent
-                has just typed is noise. */}
-            {draftRestored && !password && (
-              <p className="section-notice" role="status">
-                {t("registerPage.draftPasswordReminder")}
-              </p>
-            )}
 
             <div className="form-single-column">
               <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
@@ -1974,9 +1980,11 @@ export default function RegisterPage() {
 
                 {/* The four requirements the score is built from, each
                     ticking off as it is met, instead of one static
-                    sentence listing them all. */}
+                    sentence listing them all. One per line and no heading:
+                    a list under a password field needs no title to be read
+                    as its rules. The title stays for screen readers. */}
                 <div className="password-rules" id="reg-password-rules">
-                  <span className="password-rules-title">
+                  <span className="sr-only">
                     {t("registerPage.passwordRulesTitle")}
                   </span>
                   <ul className="password-rules-list">

@@ -5,7 +5,8 @@ import type { OnefopField } from "@/lib/onefop-schema";
 import { bilingual, localized, type LocalizedText } from "@/lib/onefop-schema";
 import { RadioGroup } from "./form/Radio";
 import { CheckboxGroup } from "./form/Checkbox";
-import { isOptionalField } from "@/lib/onefop-validation";
+import { isOptionalField, isYearField } from "@/lib/onefop-validation";
+import { yearOptions } from "@/lib/year-options";
 
 /**
  * The bare input control for a non-table field — no label, no wrapper, no
@@ -194,6 +195,33 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         {field.options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {optionLabel(opt.label)}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  // A year is picked from a list, as at registration: no "20", no next
+  // year, no spinner. The stored value stays the four-digit string.
+  if (field.type === "number" && isYearField(field)) {
+    return (
+      <select
+        id={field.id}
+        name={field.id}
+        aria-invalid={hasError || undefined}
+        aria-required={required || undefined}
+        className={`sovereign-select ${hasError ? "has-error" : ""}`}
+        style={compactStyle}
+        value={value == null ? "" : String(value)}
+        onChange={(e) => onChange(field.id, e.target.value)}
+        onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
+      >
+        <option value="" disabled>
+          {t("fieldControl.emptySelectionPlaceholder")}
+        </option>
+        {yearOptions(value).map((y) => (
+          <option key={y} value={y}>
+            {y}
           </option>
         ))}
       </select>

@@ -50,3 +50,22 @@ test("checkbox: ticking adds to the list", async () => {
   await user.click(screen.getAllByRole("checkbox")[1]);
   assert.deepEqual(calls, [["VT2_27", [a, b]]]);
 });
+
+test("year: a cooperative's year of creation is a dropdown from this year to 1900, and a pick stores the year", async () => {
+  const { user, calls } = renderControl("cooperative", "COOP_S1Q03", undefined);
+
+  const select = screen.getByRole("combobox") as HTMLSelectElement;
+  assert.equal(select.id, "COOP_S1Q03");
+  assert.equal(select.value, "", "unanswered shows no year");
+  const years = [...select.options].filter((o) => o.value).map((o) => o.value);
+  assert.equal(years[0], String(new Date().getFullYear()));
+  assert.equal(years[years.length - 1], "1900");
+
+  await user.selectOptions(select, "2010");
+  assert.deepEqual(calls, [["COOP_S1Q03", "2010"]]);
+});
+
+test("year: a stored number shows as the selected year", () => {
+  renderControl("ong", "ONG_S1Q03", 1998);
+  assert.equal((screen.getByRole("combobox") as HTMLSelectElement).value, "1998");
+});
