@@ -430,9 +430,7 @@
   border-bottom: 1px solid var(--cam-portal-rule);
   font-size: clamp(9px, 2.2cqi, 11px);
   font-weight: 700;
-  letter-spacing: 0.04em;
   text-align: left;
-  text-transform: uppercase;
   color: var(--cam-portal-muted);
 }
 
@@ -598,8 +596,6 @@
 .bulletinKicker {
   font-size: clamp(10px, 2.4cqi, 12px);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--cam-portal-muted);
 }
 

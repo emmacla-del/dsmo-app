@@ -25,7 +25,7 @@ export function usePortalEntry() {
     /** Header and footer: sign in, or the signed-in space. */
     spaceHref: isAuthenticated ? spaceHref : "/login",
     spaceLabel: isAuthenticated ? (isAdmin ? t("adminSpace") : t("mySpace")) : t("signIn"),
-    /** The big buttons and the pilot strip: register, or go back to work. */
+    /** The big buttons: register, or go back to work. */
     actionHref: isAuthenticated ? spaceHref : REGISTER_HREF,
     actionLabel: (guestLabel: string) =>
       isAuthenticated ? (isAdmin ? t("returnToConsole") : t("returnToSurvey")) : guestLabel,

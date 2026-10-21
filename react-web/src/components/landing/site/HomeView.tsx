@@ -8,25 +8,6 @@ import { PortalEntryLink } from "./PortalEntryLink";
 import { SiteCta } from "./SiteCta";
 import styles from "../portal.module.css";
 
-function Mark({ children }: { children: ReactNode }) {
-  return (
-    <span className={styles.icon} aria-hidden="true">
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {children}
-      </svg>
-    </span>
-  );
-}
-
 // `visual` is the hero animation, rendered on the server by the page.
 export function HomeView({ visual }: { visual: ReactNode }) {
   const t = useTranslations("site");
@@ -44,6 +25,9 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               <span className={styles.heroLine}>{t("homeH1Line2")}</span>
             </h1>
             <p className={styles.lede}>{t("homeLede")}</p>
+            {/* Who may register, before the button that registers: read
+                after it, the condition came too late (2026-10-21). */}
+            <p className={styles.pilotNote}>{t("homePilotNote")}</p>
             <div className={styles.actions}>
               <PortalEntryLink className={styles.btn} guestLabel={t("registerAction")} />
               <Link href="/programme" className={styles.textLink}>
@@ -64,24 +48,25 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <span className={styles.kicker}>{t("homeProgrammeTitle")}</span>
             <h2>{t("homeProgrammeLede")}</h2>
           </div>
+          {/* Number, state, title, sentence: no icon tile and no pill. The
+              state names the pilot itself (2026-10-21). */}
           <ul className={styles.phases}>
             {HOME_PHASES.map(({ n, now }) => (
               <li key={n} className={now ? styles.phaseNow : undefined}>
-                <span className={styles.state}>
-                  {t(`homePhase${n}State`)}
-                  {now && <span className={styles.pill}>{t("currentPilot")}</span>}
-                </span>
-                <PhaseMark n={n} />
+                <span className={styles.state}>{t(`homePhase${n}State`)}</span>
                 <h3>{t(`homePhase${n}Title`)}</h3>
                 <p>{t(`homePhase${n}Body`)}</p>
               </li>
             ))}
           </ul>
-          <p className={styles.sectionMore}>
+          {/* After the four phases, read once they have been read; set apart
+              from the columns by more than their gap, so it does not read as
+              the first phase's link (2026-10-21). */}
+          <div className={styles.phasesMore}>
             <Link href="/programme" className={styles.textLink}>
               {t("homeProgrammeMore")}
             </Link>
-          </p>
+          </div>
         </div>
       </section>
 
@@ -94,12 +79,10 @@ export function HomeView({ visual }: { visual: ReactNode }) {
           </div>
           {/* Each block's link is its heading, stretched over the block: the
               link's name is the family, not the whole block read aloud, and
-              "See eligibility" is the visual cue only. */}
+              "See eligibility" is the visual cue only. No icon tile, as in the
+              phases above (2026-10-21). */}
           <div className={styles.grid2}>
             <div className={styles.participant}>
-              <Mark>
-                <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
-              </Mark>
               <h3>
                 <Link href="/assistance#employeurs">{t("homeWhoEmployersTitle")}</Link>
               </h3>
@@ -109,10 +92,6 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               </span>
             </div>
             <div className={styles.participant}>
-              <Mark>
-                <path d="M22 9L12 4 2 9l10 5 10-5z" />
-                <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5" />
-              </Mark>
               <h3>
                 <Link href="/assistance#centres">{t("homeWhoCentresTitle")}</Link>
               </h3>
@@ -127,31 +106,16 @@ export function HomeView({ visual }: { visual: ReactNode }) {
 
       {/* 04 · Confidentiality */}
       <section className={`${styles.section} ${styles.sectionWash}`}>
+        {/* The section heading every other section uses, on the left edge.
+            The outlined shield beside it pushed the heading 72px in and was
+            the page's one boxed ornament (2026-10-21). */}
         <div className={styles.container}>
-          <div className={styles.confGrid}>
-            <div className={styles.shield} aria-hidden="true">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <div>
-              <h2>{t("homeDataTitle")}</h2>
-              <p className={styles.muted}>{t("homeDataBody")}</p>
-              <p>
-                <Link href="/assistance#confidentialite" className={styles.textLink}>
-                  {t("readPrivacyNotice")}
-                </Link>
-              </p>
-            </div>
+          <div className={styles.sectionHead}>
+            <h2>{t("homeDataTitle")}</h2>
+            <p className={styles.lede}>{t("homeDataBody")}</p>
+            <Link href="/assistance#confidentialite" className={styles.textLink}>
+              {t("readPrivacyNotice")}
+            </Link>
           </div>
         </div>
       </section>
@@ -182,36 +146,5 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       {/* 06 · Closing CTA */}
       <SiteCta title={t("homeCtaTitle")} body={t("homeCtaBody")} action={t("registerAction")} />
     </>
-  );
-}
-
-function PhaseMark({ n }: { n: number }) {
-  if (n === 1) {
-    return (
-      <Mark>
-        <path d="M12 3v12m0 0l-4-4m4 4l4-4" />
-        <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-      </Mark>
-    );
-  }
-  if (n === 2) {
-    return (
-      <Mark>
-        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
-      </Mark>
-    );
-  }
-  if (n === 3) {
-    return (
-      <Mark>
-        <path d="M3 21h18M6 21V10m6 11V4m6 17v-8" />
-      </Mark>
-    );
-  }
-  return (
-    <Mark>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3a15 15 0 010 18M12 3a15 15 0 000 18M3 12h18" />
-    </Mark>
   );
 }
