@@ -66,4 +66,61 @@ describe('QuestionnairesService — cells required of a REPORTED table', () => {
     expect(keys).toContain('s21q01_cadres_male_15_24');
     expect(keys).toHaveLength(18);
   });
+
+  // D1 / D2 of the 2026-10-20 cooperative run: the check asked for keys no
+  // form writes, and refused the declaration for 14 cells it never showed.
+  const enforce = (flat: Record<string, unknown>, entity: string) =>
+    (service as any).enforceReportedMatrixCompleteness(
+      flat,
+      entity,
+      Object.keys(flat).filter((k) => k.endsWith('_RESPONSE_STATUS')),
+    );
+
+  it.each(['cooperative', 'ctd', 'ong'])('S22Q05 on the %s form asks for the s22q05_oth_ cells it writes', (entity) => {
+    const keys = expected('S22Q05_RESPONSE_STATUS', {}, entity);
+    expect(keys).toHaveLength(12);
+    expect(keys.every((k) => k.startsWith('s22q05_oth_'))).toBe(true);
+    expect(keys).toContain('s22q05_oth_deplaces_internes_permanent_male');
+  });
+
+  it('S22Q05 on the enterprise form asks for its s22q05_ent_ cells', () => {
+    const keys = expected('S22Q05_RESPONSE_STATUS', {}, 'enterprise');
+    expect(keys.every((k) => k.startsWith('s22q05_ent_'))).toBe(true);
+  });
+
+  // The payload the cooperative wizard sent on 2026-10-20 (CO26000203),
+  // trimmed to the two tables that were refused.
+  const cooperativeRun = (): Record<string, unknown> => {
+    const flat: Record<string, unknown> = {
+      S22Q05_RESPONSE_STATUS: 'REPORTED',
+      S4Q03_RESPONSE_STATUS: 'REPORTED',
+      S4Q03_DOMAIN_1_TEXT: 'Gestion coopérative',
+      s4q03_domain_1_male: 3,
+      s4q03_domain_1_female: 2,
+      s4q03_domain_1_total: 5,
+    };
+    for (const t of ['deplaces_internes', 'refugies', 'orphelins']) {
+      for (const st of ['permanent', 'temporary']) {
+        for (const g of ['male', 'female']) flat[`s22q05_oth_${t}_${st}_${g}`] = 0;
+      }
+    }
+    flat.s22q05_oth_deplaces_internes_permanent_male = 1;
+    return flat;
+  };
+
+  it('the cooperative declaration of the 2026-10-20 run is accepted', () => {
+    expect(() => enforce(cooperativeRun(), 'cooperative')).not.toThrow();
+  });
+
+  it('a vulnerable-recruit cell left blank is still refused', () => {
+    const flat = cooperativeRun();
+    delete flat.s22q05_oth_refugies_temporary_female;
+    expect(() => enforce(flat, 'cooperative')).toThrow(/1 cellule/);
+  });
+
+  it('a training need named but not counted is still refused', () => {
+    const flat = cooperativeRun();
+    delete flat.s4q03_domain_1_female;
+    expect(() => enforce(flat, 'cooperative')).toThrow(/1 cellule/);
+  });
 });
