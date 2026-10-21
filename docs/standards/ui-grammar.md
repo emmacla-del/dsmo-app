@@ -266,7 +266,7 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 
 | What | Where |
 |---|---|
-| Width, circle size, bar height | `--cam-side-rail-width` (280px), `--cam-step-marker-size` (30px), `--cam-wizard-rail-bar-height` (6px) in `tokens.css` |
+| Width, circle size, bar height | `--cam-side-rail-width` (280px), `--cam-step-marker-size` (24px), `--cam-wizard-rail-bar-height` (6px) in `tokens.css` |
 | Look of the frame, steps and states | `.cam-wizard-rail*` and `.cam-step*` in `globals.css` (§"Wizard rail") |
 | Structure | `WizardRail` and `WizardStepList` in `src/components/wizard/` |
 | Words | `wizardRail.*` in `messages/{fr,en}.json` |
@@ -275,6 +275,8 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 - **Breakpoint.** The rail from 1024px, in all three wizards. Below it, registration shows its horizontal phone rail (same circles) and the questionnaires a sections drawer that renders the same rail with `sheet`.
 - **Under a sticky header** the rail pins at `--cam-wizard-rail-top`, which `ModernJobsHeader` publishes from its own height.
 - **Numbering** follows each paper form: Modern Jobs from 0, VT and registration from 1.
+- **Rhythm** is one ladder for all three wide rails, set by the screen's height and never by the wizard (2026-10-21): 48px rows and a 32px gap; 40px rows and 24px from `max-height: 800px`; 32px rows and 16px from `max-height: 620px`. The rows read `--cam-step-row-pad`. The phone drawer is `.cam-sheet` titled « Sommaire » in both questionnaires.
+- **The respondent workspace rail** (`.cam-home-rail`, `app/home/layout.tsx`) is site navigation, but it is the panel a respondent leaves to open a questionnaire, so it matches the wizard rail: `--cam-side-rail-width`, 16px side padding, 14px semibold items in 40px rows, bold green with a 3px green edge for the page in hand, 12px muted identity lines. Classes paint it; no inline style.
 - **The staff console's rail** (`.cam-admin-rail`) is site navigation, not form progress, so it keeps its dark green and its own classes. It shares everything else: `--cam-side-rail-width`, the 24/16/16 padding and 24px gap, 46px rows (a `--cam-step-marker-size` icon box), and 14px semibold items, bold when current.
 
 Do not draw a step list, a step circle or a progress bar for a wizard any other way.
