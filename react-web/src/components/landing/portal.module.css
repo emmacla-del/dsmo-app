@@ -362,7 +362,7 @@
 /* ── Sections ─────────────────────────────────────────────────────────── */
 
 .hero {
-  padding: 88px 0 80px;
+  padding: 120px 0 104px;
   background: var(--cam-portal-bg);
 }
 
@@ -373,16 +373,30 @@
   align-items: center;
 }
 
+/* On white the headline carries the hero: large type, one sentence per line. */
 .hero h1 {
   margin-top: 0;
-  font-size: clamp(30px, 3.1vw, 42px);
-  line-height: 1.15;
-  max-width: 720px;
+  margin-bottom: var(--cam-space-5);
+  font-size: clamp(32px, 4.4vw, 58px);
+  line-height: 1.06;
+  letter-spacing: -0.012em;
+}
+
+.heroLine {
+  display: block;
+  text-wrap: balance;
+}
+
+.hero .kicker {
+  display: inline-block;
+  margin-bottom: var(--cam-space-5);
 }
 
 .hero .lede {
-  max-width: 52ch;
-  margin-bottom: var(--cam-space-6);
+  font-size: 21px;
+  line-height: 1.55;
+  max-width: 44ch;
+  margin-bottom: var(--cam-space-7);
   color: var(--cam-text-muted);
   font-weight: var(--cam-font-weight-regular);
 }
@@ -677,11 +691,12 @@
   }
 }
 
+/* Open columns; only the current phase is outlined. The transparent border
+   keeps every column's text aligned with the outlined one. */
 .phases li {
   display: flex;
   flex-direction: column;
-  background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-rule);
+  border: 1.5px solid transparent;
   border-radius: 20px;
   padding: 34px 30px;
   box-shadow: none;
@@ -705,7 +720,8 @@
 }
 
 .phases li.phaseNow {
-  border: 1.5px solid var(--cam-portal-mint);
+  background: var(--cam-portal-panel);
+  border-color: var(--cam-portal-mint);
   position: relative;
 }
 
@@ -737,17 +753,35 @@
   background: var(--cam-portal-icon-bg);
 }
 
+/* Open column under a hairline, not an outlined card. */
 .participant {
   display: flex;
   flex-direction: column;
+  padding-top: var(--cam-space-6);
+  border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
+  color: inherit;
+  text-decoration: none;
 }
 
 .participant h3 {
   font-family: var(--cam-font-serif);
   font-size: 22px;
   font-weight: 500;
-  margin-top: var(--cam-space-4);
+  margin: var(--cam-space-4) 0 var(--cam-space-2);
   color: var(--cam-portal-ink);
+}
+
+.participant p {
+  font-size: 15.5px;
+}
+
+.participant:hover h3 {
+  color: var(--cam-portal-mint-deep);
+}
+
+.participant:hover .textLink {
+  color: var(--cam-portal-mint-hover);
+  text-decoration: underline;
 }
 
 .participant .textLink {
@@ -1127,6 +1161,10 @@
 
   .grid2 {
     grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: var(--cam-space-8) 0 var(--cam-space-9);
   }
 
   .heroVisual {

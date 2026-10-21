@@ -53,7 +53,7 @@ test("the masthead offers exactly three pages and the way in", () => {
 test("home opens on two paths: register, or read about the programme", () => {
   renderWithProviders(<HomeView visual={null} />);
 
-  assert.ok(screen.getByRole("heading", { level: 1, name: fr.homeH1 }));
+  assert.ok(screen.getByRole("heading", { level: 1, name: `${fr.homeH1Line1} ${fr.homeH1Line2}` }));
   // The register action appears twice (hero and closing band): both go to registration.
   for (const link of screen.getAllByRole("link", { name: fr.registerAction })) {
     assert.equal(link.getAttribute("href"), "/register");
