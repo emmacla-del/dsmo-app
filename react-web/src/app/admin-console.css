@@ -512,6 +512,7 @@
   flex-wrap: wrap;
   gap: var(--cam-space-2);
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* The sub-tab row spans the header and sits on its bottom rule. */
@@ -558,12 +559,15 @@
 /* ── Page header actions (AdminHeaderActions, NotificationBell) ──
    These classes draw the header as it renders today: they replaced inline
    styles that had drifted from an earlier version of these same rules. */
+/* max-width lets the chips wrap on a phone: unshrinkable at their one-line
+   width, they pushed the document wider than the viewport. */
 .cam-admin-header-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--cam-space-3);
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* Active campaign pill */
@@ -1862,86 +1866,90 @@
   border: 0;
 }
 
-/* ── KpiTile ("À traiter" tiles, Figma dashboard) ── */
+/* ── KpiTile ("À traiter" figures) ──
+   A count over its label, no box: four boxed tiles read as four cards
+   (owner, 2026-10-21). A linked figure's label is the link. No tone edge:
+   a figure coloured the same whatever its count was decoration (owner,
+   2026-10-10). The --{tone} modifiers stay as hooks. */
 .cam-kpi-tile {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cam-space-3);
-  padding: 16px 20px;
-  background: var(--cam-surface);
-  border: 1px solid var(--cam-border);
-  border-radius: 8px;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  min-width: 0;
   color: var(--cam-text);
   text-decoration: none;
 }
 
-/* No tone edge: a KPI tile coloured the same whatever its count was
-   decoration (owner, 2026-10-10). The --{tone} modifiers stay as hooks. */
-
-a.cam-kpi-tile:hover {
-  border-color: var(--cam-border-strong);
-}
-
 a.cam-kpi-tile:focus-visible {
   outline: 2px solid var(--cam-focus);
-  outline-offset: 2px;
-}
-
-.cam-kpi-tile-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  outline-offset: var(--cam-space-1);
 }
 
 .cam-kpi-tile-value {
-  font-size: var(--cam-font-size-3xl);
-  font-weight: 700;
-  line-height: 1;
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
   color: var(--cam-text);
   font-variant-numeric: tabular-nums;
 }
 
 .cam-kpi-tile-label {
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-label);
   color: var(--cam-text-muted);
-  white-space: nowrap;
 }
 
-.cam-kpi-tile-arrow {
-  font-size: var(--cam-font-size-lg);
-  color: var(--cam-placeholder);
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
+a.cam-kpi-tile .cam-kpi-tile-label {
+  color: var(--cam-green);
+  font-weight: var(--cam-font-weight-semibold);
 }
 
-a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
-  transform: translateX(3px);
-  color: var(--cam-text-muted);
+a.cam-kpi-tile:hover .cam-kpi-tile-label {
+  text-decoration: underline;
 }
 
 .cam-kpi-tile.is-unavailable .cam-kpi-tile-value {
   color: var(--cam-placeholder);
 }
 
-/* ── Dashboard (admin/pilotage) ── */
-.cam-dash-section-label {
-  margin: 0 0 var(--cam-space-3);
-  font-size: var(--cam-font-size-xs);
-  font-weight: 700;
-  color: var(--cam-text);
-  line-height: 1.2;
+/* ── Dashboard (admin/pilotage) ──
+   Each block is its heading on a rule, then its content: no card around a
+   block, no box inside one (owner, 2026-10-21). Figures run on one ladder:
+   the response rate 32px, counts 24px, the campaign's sub-figures 18px. */
+.cam-dash-block {
+  min-width: 0;
+  padding-top: var(--cam-space-4);
 }
 
-.cam-dash-section-label--green {
-  border-left-color: var(--cam-green);
+.cam-dash-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-1) var(--cam-space-4);
+  margin-bottom: var(--cam-space-4);
+  padding-bottom: var(--cam-space-2);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-dash-block-title {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+}
+
+.cam-dash-block-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
 }
 
 .cam-dash-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--cam-space-5);
 }
 
 /* Review pace: one line of figures under the "À traiter" tiles, no box. */
@@ -1951,7 +1959,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--cam-space-2) var(--cam-space-5);
-  margin-top: var(--cam-space-3);
+  margin-top: var(--cam-space-4);
 }
 
 .cam-dash-pace-facts {
@@ -1975,59 +1983,43 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   color: var(--cam-warning);
 }
 
+/* The pipeline's stages, in order, as the "À traiter" figures are: a count
+   over its label, no box. They read left to right; a chevron between
+   left-aligned figures sat against the next count and read as part of it. */
 .cam-dash-pipeline {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--cam-space-5);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .cam-dash-pipeline li {
-  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 16px 12px;
-  background: var(--cam-surface);
-  border: 1px solid var(--cam-border);
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-/* Chevron between stages */
-.cam-dash-pipeline li + li::before {
-  content: ">";
-  position: absolute;
-  left: -14px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--cam-font-size-lg);
-  color: var(--cam-placeholder);
-  font-weight: 300;
+  gap: var(--cam-space-1);
+  min-width: 0;
 }
 
 .cam-dash-pipeline-value {
   font-size: var(--cam-font-size-xl);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
   color: var(--cam-text);
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
 }
 
 .cam-dash-pipeline-label {
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-label);
   color: var(--cam-text-muted);
 }
 
 .cam-dash-columns {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  gap: var(--cam-space-5);
+  gap: var(--cam-space-6);
   align-items: start;
 }
 
@@ -2045,15 +2037,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   border-radius: var(--cam-radius-lg);
 }
 
-.cam-dash-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--cam-space-2) var(--cam-space-4);
-  margin-bottom: var(--cam-space-4);
-}
-
 .cam-dash-card-title-row {
   display: flex;
   align-items: center;
@@ -2063,9 +2046,9 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 .cam-dash-card-title {
   margin: 0;
-  font-size: var(--cam-font-size-lg);
-  font-weight: 700;
-  color: var(--cam-green);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
 }
 
 .cam-dash-card-sub {
@@ -2100,15 +2083,15 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 .cam-dash-stats dt {
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 600;
+  font-size: var(--cam-font-size-xs);
   color: var(--cam-text-muted);
 }
 
 .cam-dash-stats dd {
-  margin: 2px 0 0;
+  margin: var(--cam-space-1) 0 0;
   font-size: var(--cam-font-size-lg);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 .cam-dash-table-wrap {
@@ -2170,11 +2153,14 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   font-variant-numeric: tabular-nums;
 }
 
+/* On the first line of the entry, not centred on all of them: a centred
+   dot fell between the lines of an entry that wraps. */
 .cam-dash-timeline-dot {
   width: 8px;
   height: 8px;
   border-radius: var(--cam-radius-full);
-  align-self: center;
+  align-self: start;
+  margin-top: 0.45em;
   background: var(--cam-text-muted);
 }
 
@@ -2194,15 +2180,13 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   text-decoration: underline;
 }
 
+/* The entry's region, in the entry's own line: plain words, no chip. */
 .cam-dash-tag {
-  display: block;
-  width: fit-content;
-  margin-top: var(--cam-space-1);
-  padding: 1px var(--cam-space-2);
-  border-radius: var(--cam-radius-md);
-  background: var(--cam-surface-subtle);
-  font-size: var(--cam-font-size-3xs);
   color: var(--cam-text-muted);
+}
+
+.cam-dash-tag::before {
+  content: " · ";
 }
 
 .cam-dash-metric-row {
@@ -2213,16 +2197,15 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 .cam-dash-metric-row strong {
-  color: var(--cam-green);
   font-variant-numeric: tabular-nums;
 }
 
+/* A meter: the green share on a grey track, no outline. */
 .cam-dash-bar {
   height: 6px;
   margin-top: var(--cam-space-2);
   border-radius: var(--cam-radius-full);
-  background: var(--cam-surface-subtle);
-  border: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-border);
   overflow: hidden;
 }
 
@@ -2239,7 +2222,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--cam-space-1) var(--cam-space-4);
-  margin-top: var(--cam-space-5);
 }
 
 .cam-dash-coverage-figure {
@@ -2247,7 +2229,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   font-size: var(--cam-font-size-3xl);
   font-weight: var(--cam-font-weight-bold);
   line-height: var(--cam-line-height-tight);
-  color: var(--cam-green);
+  color: var(--cam-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2272,16 +2254,15 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 .cam-dash-table-foot {
-  margin: var(--cam-space-4) 0 0;
+  margin: var(--cam-space-3) 0 0;
 }
 
 /* Pilotage progress: cumulative declarations per Douala day, a steady-pace
    reference and the deadlines. One green series; everything else is grey
-   ink, so the line is the only thing that carries colour. */
+   ink, so the line is the only thing that carries colour. Its block's gap
+   sets it apart; it carries no rule of its own. */
 .cam-dash-progress {
-  margin-top: var(--cam-space-6);
-  padding-top: var(--cam-space-5);
-  border-top: var(--cam-border-width) solid var(--cam-border);
+  min-width: 0;
 }
 
 .cam-dash-progress-title {
@@ -2421,31 +2402,35 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 }
 
 @media (max-width: 1199px) {
-  .cam-dash-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cam-dash-pipeline {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--cam-space-3);
-  }
-
-  .cam-dash-pipeline li + li::before {
-    display: none;
-  }
-
   .cam-dash-columns {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
+/* A phone: the figures two by two; the pipeline a list read top to bottom,
+   the label on the left and its count on the right. */
 @media (max-width: 639px) {
   .cam-dash-kpis {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cam-space-4);
   }
 
   .cam-dash-pipeline {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cam-dash-pipeline li {
+    flex-direction: row-reverse;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--cam-space-3);
+    padding: var(--cam-space-2) 0;
+    border-bottom: var(--cam-border-width) solid var(--cam-border);
+  }
+
+  .cam-dash-pipeline-value {
+    font-size: var(--cam-font-size-lg);
   }
 }
 

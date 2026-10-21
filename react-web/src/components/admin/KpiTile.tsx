@@ -16,8 +16,8 @@ export interface KpiTileProps {
 }
 
 /**
- * "À traiter" tile (Figma dashboard): big count, label, coloured left edge,
- * arrow when it links to the matching work queue.
+ * "À traiter" figure: the count over its label, no box. When it links to the
+ * matching work queue, the label reads as the link.
  */
 export function KpiTile({ value, label, tone, href }: KpiTileProps) {
   const t = useTranslations("adminKpiTile");
@@ -25,11 +25,8 @@ export function KpiTile({ value, label, tone, href }: KpiTileProps) {
   const unavailable = value === null;
   const body = (
     <>
-      <span className="cam-kpi-tile-text">
-        <span className="cam-kpi-tile-value">{unavailable ? "—" : count(value, locale)}</span>
-        <span className="cam-kpi-tile-label">{label}</span>
-      </span>
-      {href && !unavailable && <span className="cam-kpi-tile-arrow" aria-hidden="true">→</span>}
+      <span className="cam-kpi-tile-value">{unavailable ? "—" : count(value, locale)}</span>
+      <span className="cam-kpi-tile-label">{label}</span>
     </>
   );
 
