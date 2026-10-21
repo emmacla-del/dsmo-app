@@ -38,7 +38,11 @@ export function HomeView({ visual }: { visual: ReactNode }) {
         <div className={`${styles.container} ${styles.heroGrid}`}>
           <div>
             <span className={styles.kicker}>{t("homeEyebrow")}</span>
-            <h1>{t("homeH1")}</h1>
+            {/* One sentence per line; the space keeps them apart for screen readers. */}
+            <h1>
+              <span className={styles.heroLine}>{t("homeH1Line1")}</span>{" "}
+              <span className={styles.heroLine}>{t("homeH1Line2")}</span>
+            </h1>
             <p className={styles.lede}>{t("homeLede")}</p>
             <div className={styles.actions}>
               <PortalEntryLink className={styles.btn} guestLabel={t("registerAction")} />
@@ -63,7 +67,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
           </div>
           <ul className={styles.phases}>
             {HOME_PHASES.map(({ n, now }) => (
-              <li key={n} className={now ? `${styles.card} ${styles.phaseNow}` : styles.card}>
+              <li key={n} className={now ? styles.phaseNow : undefined}>
                 <span className={styles.state}>
                   {t(`homePhase${n}State`)}
                   {now && <span className={styles.pill}>{t("currentPilot")}</span>}
@@ -91,7 +95,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <h2>{t("homeWhoTitle")}</h2>
           </div>
           <div className={styles.grid2}>
-            <Link href="/assistance#employeurs" className={`${styles.card} ${styles.cardLink} ${styles.participant}`}>
+            <Link href="/assistance#employeurs" className={styles.participant}>
               <Mark>
                 <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
               </Mark>
@@ -99,7 +103,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               <p className={styles.muted}>{t("homeWhoEmployersBody")}</p>
               <span className={styles.textLink}>{t("seeEligibility")}</span>
             </Link>
-            <Link href="/assistance#centres" className={`${styles.card} ${styles.cardLink} ${styles.participant}`}>
+            <Link href="/assistance#centres" className={styles.participant}>
               <Mark>
                 <path d="M22 9L12 4 2 9l10 5 10-5z" />
                 <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5" />
