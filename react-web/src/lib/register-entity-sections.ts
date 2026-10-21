@@ -36,28 +36,32 @@ const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: st
     { title: { fr: "Identité juridique", en: "Legal identity" }, keys: ["companyName", "legalStatus"] },
     { title: { fr: "Fiscalité et affiliation", en: "Tax and social security" }, keys: ["taxNumber", "cnpsNumber"] },
     { title: { fr: "Capital et rattachement", en: "Capital and parent company" }, keys: ["socialCapital", "parentCompany"] },
-    { title: { fr: "Activité économique", en: "Economic activity" }, keys: ["mainActivity", "secondaryActivity", "branch"] },
+    { title: { fr: "Activité économique", en: "Economic activity" }, keys: ["mainActivity", "activitySector", "branchId", "secondaryActivity"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   cooperative: [
     { title: { fr: "Identité de la coopérative", en: "Cooperative identity" }, keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber", "cnpsNumber"] },
-    { title: { fr: "Activité", en: "Activity" }, keys: ["mainActivity", "branch"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["mainActivity", "activitySector", "branchId"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["cooperativeHeadOffice", "phone", "phone2", "poBox"] },
   ],
   ctd: [
     { title: { fr: "Identification de la CTD", en: "RLA identification" }, keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber", "cnpsNumber"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["activitySector", "branchId"] },
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   ong: [
     { title: { fr: "Enregistrement et mission", en: "Registration and mission" }, keys: ["ngoName", "registrationNumber", "taxNumber", "cnpsNumber", "yearOfCreation", "mainMission"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["activitySector", "branchId"] },
     { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   administration: [
     { title: { fr: "Identification administrative", en: "Administrative identity" }, keys: ["administrationName", "sigle", "mainMission"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["activitySector", "branchId"] },
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   projectProgram: [
     { title: { fr: "Identification", en: "Identification" }, keys: ["projectNature", "projectProgramName", "sigle", "mainMission"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["activitySector", "branchId"] },
     { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   vocationalTraining: [

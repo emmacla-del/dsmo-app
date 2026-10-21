@@ -45,12 +45,12 @@ export interface SummaryState extends RegState {
   regionName: string;
   departmentName: string;
   subdivisionName: string;
-  sectorName: string;
-  // The sector's English name, when it has one. The picker shows the sector
-  // in the reader's language; without this the review printed the French DB
-  // name back to an English reader (B10 of the 2026-10-17 run). Absent on a
-  // draft saved before that fix, which falls back to `sectorName`.
-  sectorNameEn?: string | null;
+  // The chosen branch of activity's names (a row of the `sectors` table),
+  // since entityData holds only its id. The English one, when it has one, so
+  // an English reader's review does not print the French DB name (B10 of the
+  // 2026-10-17 run).
+  branchName: string;
+  branchNameEn?: string | null;
 }
 
 export type TranslateFn = (key: string) => string;
@@ -121,12 +121,16 @@ export function summaryRows(
         // the same rule submit() applies through visibleEntityDataForType.
         if (!isFieldVisible(field, state.entityData, config.fields)) continue;
         const raw = state.entityData[field.key];
-        rows.push(
-          row(
-            localized(entityFieldLabel(field, state.entityData), locale),
-            field.options && raw ? registerOptionLabel(field.options, raw, locale) : raw
-          )
-        );
+        // The branch is stored as an id; the review shows its name.
+        const value =
+          field.kind === "branch"
+            ? raw
+              ? sectorLabel({ name: state.branchName, nameEn: state.branchNameEn }, locale)
+              : ""
+            : field.options && raw
+              ? registerOptionLabel(field.options, raw, locale)
+              : raw;
+        rows.push(row(localized(entityFieldLabel(field, state.entityData), locale), value));
       }
       return compact(rows);
     }
@@ -139,12 +143,6 @@ export function summaryRows(
         row(
           t("registerPage.areaLabel"),
           state.area ? registerOptionLabel(AREA_OPTIONS, state.area, locale) : ""
-        ),
-        // A sector is a select answer: shown with its own label, like the
-        // other selects above, not as the stored French name.
-        row(
-          t("registerPage.sectorLabel"),
-          sectorLabel({ name: state.sectorName, nameEn: state.sectorNameEn }, locale)
         ),
       ]);
 

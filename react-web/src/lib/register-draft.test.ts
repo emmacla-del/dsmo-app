@@ -15,7 +15,7 @@ const NAMES: RegisterDraftNames = {
   regionName: "Centre",
   departmentName: "Mfoundi",
   subdivisionName: "Yaounde I",
-  sectorName: "Commerce",
+  branchName: "Commerce de gros et de détail",
 };
 
 function baseState(overrides: Partial<RegState> = {}): RegState {
@@ -37,6 +37,8 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       taxNumber: "P000000000000",
       cnpsNumber: "0000000000",
       mainActivity: "Commerce",
+      activitySector: "Tertiaire/ Tertiary",
+      branchId: "b1",
       address: "Yaounde, Centre",
       phone: "655000000",
     },
@@ -45,7 +47,6 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
     subdivisionId: "s1",
     subdivisionsStatus: "ready",
     area: "URBAN",
-    sectorId: "sec1",
     password: "Motdepasse1!",
     confirmPassword: "Motdepasse1!",
     ...overrides,
@@ -63,7 +64,6 @@ const emptyState = (): RegState =>
     subdivisionId: "",
     subdivisionsStatus: "idle",
     area: "",
-    sectorId: "",
     password: "",
     confirmPassword: "",
   });
@@ -188,7 +188,7 @@ test("draftHasData notices each kind of answer on its own", () => {
     { departmentId: "d1" },
     { subdivisionId: "s1" },
     { area: "RURAL" },
-    { sectorId: "sec1" },
+    { entityData: { activitySector: "Tertiaire/ Tertiary" } },
     // The password is not persisted, so leaving is exactly when it is lost.
     { password: "abc" },
     { confirmPassword: "abc" },

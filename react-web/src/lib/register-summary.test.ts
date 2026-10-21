@@ -42,13 +42,13 @@ function baseState(overrides: Partial<SummaryState> = {}): SummaryState {
     subdivisionId: "s1",
     subdivisionsStatus: "ready",
     area: "Urbain",
-    sectorId: "sec1",
     password: "Motdepasse1!",
     confirmPassword: "Motdepasse1!",
     regionName: "Centre",
     departmentName: "Mfoundi",
     subdivisionName: "Yaounde I",
-    sectorName: "Commerce",
+    branchName: "Commerce de gros et de détail",
+    branchNameEn: "Wholesale and retail trade",
     ...overrides,
   };
 }
@@ -244,22 +244,33 @@ test("location uses the administrative names and the area's option label", () =>
       ["registerPage.departmentLabel", "Mfoundi"],
       ["registerPage.subdivisionLabel", "Yaounde I"],
       ["registerPage.areaLabel", "Urbain"],
-      ["registerPage.sectorLabel", "Commerce"],
     ]
   );
 });
 
-test("location omits an unselected subdivision and an unselected sector", () => {
-  const rows = summaryRows(
-    "location",
-    baseState({ subdivisionName: "", sectorName: "" }),
-    t,
-    LOCALE
-  );
+test("location omits an unselected subdivision", () => {
+  const rows = summaryRows("location", baseState({ subdivisionName: "" }), t, LOCALE);
   const labels = rows.map((r) => r.label);
   assert.equal(labels.includes("registerPage.subdivisionLabel"), false);
-  assert.equal(labels.includes("registerPage.sectorLabel"), false);
   assert.equal(labels.includes("registerPage.regionLabel"), true);
+});
+
+test("entityInfo shows the sector's label and the branch's name, not the stored values", () => {
+  const state = baseState({
+    entityData: {
+      ...baseState().entityData,
+      activitySector: "Tertiaire/ Tertiary",
+      branchId: "b1",
+    },
+  });
+  const rows = summaryRows("entityInfo", state, t, LOCALE);
+  assert.equal(rows.find((r) => r.label === "Secteur d'activité")?.value, "Tertiaire");
+  assert.equal(
+    rows.find((r) => r.label === "Branche d'activité")?.value,
+    "Commerce de gros et de détail"
+  );
+  const en = summaryRows("entityInfo", state, t, "en");
+  assert.equal(en.find((r) => r.label === "Branch of activity")?.value, "Wholesale and retail trade");
 });
 
 test("Autre summarises the typed job, not the word Autre", () => {
@@ -313,7 +324,7 @@ test("sectionSummary joins the first few values from the same rows", () => {
 
 test("sectionSummary stops at the cap", () => {
   const rows = summaryRows("location", baseState(), t, LOCALE);
-  assert.equal(rows.length, 5);
+  assert.equal(rows.length, 4);
   assert.equal(sectionSummary(rows).split(", ").length, SECTION_SUMMARY_MAX_VALUES);
   assert.equal(sectionSummary(rows, 2), "Centre, Mfoundi");
 });

@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DIRECTORY_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import {
@@ -20,6 +20,9 @@ import {
   type EntityType,
 } from "@/lib/register-constants";
 import { asUiLocale, localized, type UiLocale } from "@/lib/register-i18n";
+import { branchesFor, dropUnofferedBranch, type BranchRow } from "@/lib/register-activity";
+import { getSectors } from "@/lib/api-client";
+import { sectorLabel } from "@/lib/display-labels";
 import {
   useTerritoryDepartments,
   useTerritoryRegions,
@@ -106,6 +109,9 @@ export default function NouvelleInscriptionPage() {
   const [result, setResult] = useState<AssistedRegistrationResult | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // The branches of activity (the `sectors` table), the same list and query
+  // key as the public wizard.
+  const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
   const { regions } = useTerritoryRegions();
   const { departments } = useTerritoryDepartments(region || null);
   const { subdivisions } = useTerritorySubdivisions(department || null, region || null);
@@ -138,11 +144,16 @@ export default function NouvelleInscriptionPage() {
     setEntityType(next);
     // Fields the new type does not declare are dropped, so a half-filled form
     // cannot smuggle another type's answers into the payload.
-    setEntityData((current) => pruneEntityDataForType(current, next));
+    setEntityData((current) =>
+      dropUnofferedBranch(pruneEntityDataForType(current, next), sectorsQuery.data, next),
+    );
   }
 
   function setField(key: string, value: string) {
-    setEntityData((current) => ({ ...current, [key]: value }));
+    // A new sector drops a branch that belongs to another one.
+    setEntityData((current) =>
+      dropUnofferedBranch({ ...current, [key]: value }, sectorsQuery.data, entityType),
+    );
   }
 
   function resetForm() {
@@ -210,7 +221,11 @@ export default function NouvelleInscriptionPage() {
       projectNature: data.projectNature,
       mainMission: data.mainMission,
       registrationNumber: data.registrationNumber,
-      branch: data.branch,
+      // The branch's id (Company.sectorId) and French name (Company.branch).
+      sectorId: data.branchId || undefined,
+      branch: data.branchId
+        ? sectorsQuery.data?.find((b) => b.id === data.branchId)?.name
+        : undefined,
       poBox: data.poBox,
       phone: data.phone,
       phone2: data.phone2,
@@ -349,6 +364,7 @@ export default function NouvelleInscriptionPage() {
                   field={field}
                   locale={locale}
                   selectPlaceholder={selectPlaceholder}
+                  branches={branchesFor(sectorsQuery.data, entityData.activitySector, entityType)}
                   value={entityData[field.key] ?? ""}
                   onChange={(v) => setField(field.key, v)}
                 />
@@ -533,12 +549,15 @@ function EntityFieldInput({
   field,
   locale,
   selectPlaceholder,
+  branches,
   value,
   onChange,
 }: {
   field: EntityField;
   locale: UiLocale;
   selectPlaceholder: string;
+  // The branches offered for the chosen sector; read by a "branch" field only.
+  branches: readonly BranchRow[];
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -555,6 +574,20 @@ function EntityFieldInput({
         options={yearOptions(value)}
         onChange={onChange}
       />
+    );
+  }
+
+  if (field.kind === "branch") {
+    return (
+      <label className="cam-field">
+        <span className="cam-admin-label">{label}{field.required && <span aria-hidden="true"> *</span>}</span>
+        <select className="cam-select" value={value} required={field.required} disabled={branches.length === 0} onChange={(e) => onChange(e.target.value)}>
+          <option value="">{selectPlaceholder}</option>
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>{sectorLabel(branch, locale)}</option>
+          ))}
+        </select>
+      </label>
     );
   }
 

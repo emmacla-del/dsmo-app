@@ -83,7 +83,6 @@ export interface RegState {
   subdivisionId: string;
   subdivisionsStatus: SubdivisionsStatus;
   area: string;
-  sectorId: string;
   password: string;
   confirmPassword: string;
 }

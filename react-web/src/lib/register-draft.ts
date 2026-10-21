@@ -43,12 +43,11 @@ export interface RegisterDraft {
   subdivisionId: string;
   subdivisionName: string;
   area: string;
-  sectorId: string;
-  sectorName: string;
-  // The sector's English name, so an English reader's review does not fall
-  // back to the French one after a restore (B10). Absent on a draft saved
-  // before 2026-10-17.
-  sectorNameEn?: string;
+  // The names of the branch whose id is entityData.branchId, and its English
+  // name, so an English reader's review does not fall back to the French one
+  // after a restore (B10).
+  branchName: string;
+  branchNameEn?: string;
 }
 
 // The administrative names are stored alongside the ids because submit() sends
@@ -58,8 +57,8 @@ export interface RegisterDraftNames {
   regionName: string;
   departmentName: string;
   subdivisionName: string;
-  sectorName: string;
-  sectorNameEn?: string;
+  branchName: string;
+  branchNameEn?: string;
 }
 
 export function toDraft(state: RegState, reached: number, names: RegisterDraftNames): RegisterDraft {
@@ -84,9 +83,8 @@ export function toDraft(state: RegState, reached: number, names: RegisterDraftNa
     subdivisionId: state.subdivisionId,
     subdivisionName: names.subdivisionName,
     area: state.area,
-    sectorId: state.sectorId,
-    sectorName: names.sectorName,
-    sectorNameEn: names.sectorNameEn,
+    branchName: names.branchName,
+    branchNameEn: names.branchNameEn,
   };
 }
 
@@ -138,9 +136,8 @@ export function parseDraft(raw: unknown): RegisterDraft | null {
     subdivisionId: asString(d.subdivisionId),
     subdivisionName: asString(d.subdivisionName),
     area: asString(d.area),
-    sectorId: asString(d.sectorId),
-    sectorName: asString(d.sectorName),
-    sectorNameEn: asString(d.sectorNameEn),
+    branchName: asString(d.branchName),
+    branchNameEn: asString(d.branchNameEn),
   };
 }
 
@@ -190,7 +187,7 @@ export function draftHasData(state: RegState): boolean {
     if (value.trim()) return true;
   }
   if (state.regionId || state.departmentId || state.subdivisionId) return true;
-  if (state.area || state.sectorId) return true;
+  if (state.area) return true;
   return !!state.password || !!state.confirmPassword;
 }
 

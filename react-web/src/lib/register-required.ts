@@ -7,7 +7,7 @@
 //
 //   isSectionComplete() (register-completeness.ts) answers "may the next
 //   section open?" with a boolean. It counts required, visible fields only.
-//   phone2 and the activity sector are optional and are not part of it. The
+//   phone2 is optional and is not part of it. The
 //   CNPS number is required for the five types that collect it.
 //
 //   missingRequiredFields() answers "and WHICH ones are missing?", for the
@@ -90,7 +90,9 @@ export function lastFieldId(
       return key ? `reg-entity-${key}` : null;
     }
     case "location":
-      return "reg-sector";
+      // The section now ends on the urban/rural radios, which, like the type
+      // list, are finished by choosing. Continuer covers a gap.
+      return null;
     case "security":
       return "reg-confirm-password";
     case "review":

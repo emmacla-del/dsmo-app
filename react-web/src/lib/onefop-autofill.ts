@@ -26,6 +26,7 @@ import type { FormData } from "./onefop-schema";
 import type { CompanyProfile } from "./api-client";
 import type { User } from "./user-types";
 import { PROJECT_NATURE_OPTIONS } from "./register-options";
+import { sectorOfBranch } from "./register-activity";
 
 function setIfPresent(data: FormData, key: string, value: unknown) {
   if (value === null || value === undefined) return;
@@ -35,32 +36,13 @@ function setIfPresent(data: FormData, key: string, value: unknown) {
   }
 }
 
-export function mapActivityToSector(activity?: string | null): string {
-  if (!activity) return "Tertiaire/ Tertiary";
-  const a = activity.toLowerCase();
-  if (
-    a.includes("agriculture") ||
-    a.includes("elevage") ||
-    a.includes("peche") ||
-    a.includes("mine") ||
-    a.includes("foret") ||
-    a.includes("farming") ||
-    a.includes("agro") ||
-    a.includes("forestier")
-  ) {
-    return "Primaire/ Primary";
-  }
-  if (
-    a.includes("industrie") ||
-    a.includes("fabrication") ||
-    a.includes("construction") ||
-    a.includes("manufacturing") ||
-    a.includes("batiment") ||
-    a.includes("travaux")
-  ) {
-    return "Secondaire/ Secondary";
-  }
-  return "Tertiaire/ Tertiary";
+// The form's « Secteur d'activité » for this company: the sector of the
+// branch it registered (register-activity.ts), or nothing. It used to be
+// guessed from keywords in the main activity, and answered « Tertiaire »
+// when there were none -- an answer the respondent never gave (§9).
+function registeredSector(comp: Record<string, unknown>): string | undefined {
+  const sector = comp.sector as { category?: string | null } | null | undefined;
+  return sectorOfBranch(sector?.category);
 }
 
 export function mapLegalStatus(status?: string | null): string | undefined {
@@ -319,10 +301,8 @@ export function companyToInitialData(
 
       const act = ((comp.mainActivity as string) ?? "").trim();
       const br = ((comp.branch as string) ?? "").trim();
-      if (act) {
-        data["S1Q06"] = mapActivityToSector(act);
-        data["S1Q08"] = act;
-      }
+      setIfPresent(data, "S1Q06", registeredSector(comp));
+      if (act) data["S1Q08"] = act;
       if (br) data["S1Q07"] = br;
 
       setIfPresent(data, "S1Q09", comp.address);
@@ -354,10 +334,8 @@ export function companyToInitialData(
 
       const coopAct = ((comp.mainActivity as string) ?? "").trim();
       const coopBr = ((comp.branch as string) ?? "").trim();
-      if (coopAct) {
-        data["COOP_S1Q07"] = mapActivityToSector(coopAct);
-        data["COOP_S1Q09"] = coopAct;
-      }
+      setIfPresent(data, "COOP_S1Q07", registeredSector(comp));
+      if (coopAct) data["COOP_S1Q09"] = coopAct;
       if (coopBr) data["COOP_S1Q08"] = coopBr;
 
       const coopType = mapCooperativeType(comp.cooperativeType as string);
@@ -387,9 +365,8 @@ export function companyToInitialData(
       setIfPresent(data, "CTD_S1Q06_TEL2", comp.phone2);
       setIfPresent(data, "CTD_S1Q06_BP", comp.poBox);
 
-      const ctdAct = ((comp.mainActivity as string) ?? "").trim();
       const ctdBr = ((comp.branch as string) ?? "").trim();
-      if (ctdAct) data["CTD_S1Q07"] = mapActivityToSector(ctdAct);
+      setIfPresent(data, "CTD_S1Q07", registeredSector(comp));
       if (ctdBr) data["CTD_S1Q08"] = ctdBr;
 
       break;
@@ -411,9 +388,8 @@ export function companyToInitialData(
       setIfPresent(data, "ONG_S1Q06_TEL2", comp.phone2);
       setIfPresent(data, "ONG_S1Q06_BP", comp.poBox);
 
-      const ongAct = ((comp.mainActivity as string) ?? "").trim();
       const ongBr = ((comp.branch as string) ?? "").trim();
-      if (ongAct) data["ONG_S1Q07"] = mapActivityToSector(ongAct);
+      setIfPresent(data, "ONG_S1Q07", registeredSector(comp));
       if (ongBr) data["ONG_S1Q08"] = ongBr;
 
       setIfPresent(data, "ONG_S1Q09", comp.mainMission);
@@ -444,9 +420,8 @@ export function companyToInitialData(
       setIfPresent(data, "ADMIN_S1Q05_TEL2", comp.phone2);
       setIfPresent(data, "ADMIN_S1Q05_BP", comp.poBox);
 
-      const adminAct = ((comp.mainActivity as string) ?? "").trim();
       const adminBr = ((comp.branch as string) ?? "").trim();
-      if (adminAct) data["ADMIN_S1Q06"] = mapActivityToSector(adminAct);
+      setIfPresent(data, "ADMIN_S1Q06", registeredSector(comp));
       if (adminBr) data["ADMIN_S1Q07"] = adminBr;
 
       setIfPresent(data, "ADMIN_S1Q08", comp.mainMission);
@@ -489,9 +464,8 @@ export function companyToInitialData(
       setIfPresent(data, "PP_S1Q07_TEL2", comp.phone2);
       setIfPresent(data, "PP_S1Q07_BP", comp.poBox);
 
-      const ppAct = ((comp.mainActivity as string) ?? "").trim();
       const ppBr = ((comp.branch as string) ?? "").trim();
-      if (ppAct) data["PP_S1Q08"] = mapActivityToSector(ppAct);
+      setIfPresent(data, "PP_S1Q08", registeredSector(comp));
       if (ppBr) data["PP_S1Q09"] = ppBr;
 
       setIfPresent(data, "PP_S1Q10", comp.mainMission);

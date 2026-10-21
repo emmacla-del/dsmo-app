@@ -9,6 +9,7 @@ import {
   type SubdivisionsStatus,
 } from "@/lib/register-completeness";
 import { passwordRuleChecks, passwordStrength } from "@/lib/password-strength";
+import { ENTITY_CONFIGS } from "@/lib/register-constants";
 
 // A snapshot with every section already satisfied; each test knocks out the
 // one value it is about, so a test can never pass because some unrelated
@@ -32,6 +33,8 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
       taxNumber: "P000000000000",
       cnpsNumber: "0000000000",
       mainActivity: "Commerce",
+      activitySector: "Tertiaire/ Tertiary",
+      branchId: "b1",
       address: "Yaoundé, Centre",
       phone: "655000000",
     },
@@ -40,7 +43,6 @@ function baseState(overrides: Partial<RegState> = {}): RegState {
     subdivisionId: "s1",
     subdivisionsStatus: "ready",
     area: "URBAN",
-    sectorId: "",
     password: "Motdepasse1!",
     confirmPassword: "Motdepasse1!",
     ...overrides,
@@ -187,8 +189,39 @@ test("location section keeps area required", () => {
   assert.equal(isSectionComplete("location", baseState({ area: "" })), false);
 });
 
-test("location section ignores the optional sector", () => {
-  assert.equal(isSectionComplete("location", baseState({ sectorId: "" })), true);
+test("the organisation section needs the sector and the branch, VT excepted", () => {
+  const enterprise = {
+    companyName: "SARL Exemple",
+    legalStatus: "SARL",
+    taxNumber: "P000000000000",
+    cnpsNumber: "123",
+    mainActivity: "Commerce",
+    address: "Yaounde",
+    phone: "655000000",
+  };
+  assert.equal(isSectionComplete("entityInfo", baseState({ entityData: enterprise })), false);
+  assert.equal(
+    isSectionComplete(
+      "entityInfo",
+      baseState({ entityData: { ...enterprise, activitySector: "Tertiaire/ Tertiary" } })
+    ),
+    false
+  );
+  assert.equal(
+    isSectionComplete(
+      "entityInfo",
+      baseState({
+        entityData: { ...enterprise, activitySector: "Tertiaire/ Tertiary", branchId: "b1" },
+      })
+    ),
+    true
+  );
+  assert.equal(
+    ENTITY_CONFIGS.vocationalTraining.fields.some(
+      (f) => f.key === "activitySector" || f.key === "branchId"
+    ),
+    false
+  );
 });
 
 test("no selected subdivision leaves the section unfinished, whatever the list status", () => {
