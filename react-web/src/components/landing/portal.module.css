@@ -11,7 +11,7 @@
    - One left edge: every block and every section heading starts at the
      .container's left edge; nothing is centred but the 404 (2026-10-21).
    - Home follows the landing wireframe: hero, four phase columns, two
-     participant columns, the confidentiality note, the green closing band.
+     participant columns, the confidentiality section, the green closing band.
    - Programme and help keep the aside column (.sectionGrid).
    - A hairline between two sections: the page is one white sheet, so the
      rule is what tells one section from the next.
@@ -81,8 +81,7 @@
 }
 
 /* The one heading scale; components set margins and colour, not sizes.
-   The exceptions are named where they are: .confGrid h2 and the 22px
-   column titles below. */
+   The exception is named where it is: the 22px column titles below. */
 .page h1 {
   font-size: clamp(32px, 4.4vw, 56px);
   line-height: 1.08;
@@ -154,9 +153,7 @@
 
 .eyebrow {
   display: inline-block;
-  font-size: var(--cam-font-size-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-bold);
   color: var(--cam-primary);
   background: var(--cam-primary-tint);
@@ -203,33 +200,7 @@
   color: var(--cam-portal-mint-hover);
 }
 
-/* ── Pilot strip & masthead ───────────────────────────────────────────── */
-
-.pilotStrip {
-  margin: 0;
-  background: var(--cam-portal-teal-dark);
-  color: var(--cam-portal-closing-muted);
-  font-size: 14px;
-  text-align: center;
-  padding: 10px 24px;
-}
-
-.pilotBeacon {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-portal-mint-bright);
-  margin-right: var(--cam-space-2);
-  vertical-align: middle;
-}
-
-.pilotStrip a {
-  color: var(--cam-portal-panel);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+/* ── Masthead ─────────────────────────────────────────────────────────── */
 
 .masthead {
   position: sticky;
@@ -274,10 +245,8 @@
 }
 
 .endorsement {
-  font-size: var(--cam-font-size-xs);
+  font-size: var(--cam-font-size-sm);
   color: var(--cam-text-muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   font-weight: var(--cam-font-weight-semibold);
   border-left: var(--cam-border-width) solid var(--cam-border);
   padding-left: var(--cam-space-3);
@@ -297,17 +266,17 @@
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: color var(--cam-transition-fast), border-color var(--cam-transition-fast);
+  transition: color var(--cam-transition-fast);
 }
 
 .nav a:hover {
   color: var(--cam-portal-mint-deep);
 }
 
+/* The current tab: teal and heavier, no underline (2026-10-21). The weight
+   keeps it from resting on colour alone. */
 .nav a.navCurrent {
   color: var(--cam-portal-mint-deep);
-  border-bottom-color: var(--cam-portal-mint-deep);
   font-weight: 600;
 }
 
@@ -341,7 +310,61 @@
   gap: var(--cam-space-5);
 }
 
-/* The language control is LanguageLink: a plain text link, no ground. */
+/* The language control is LanguageLink: a plain text link, no ground.
+   In the masthead it drops its underline to sit with the tabs, and shows
+   it on hover. Elsewhere it keeps it. */
+.mastheadTools :global(.cam-language-link) {
+  text-decoration: none;
+  /* Ink, like the tabs: the shared muted grey read as disabled here. */
+  font-size: 15px;
+  color: var(--cam-portal-ink);
+}
+
+.mastheadTools :global(.cam-language-link):hover {
+  text-decoration: underline;
+}
+
+/* The language's name; its two-letter code only once the tabs fold behind
+   Menu (820px block). */
+.mastheadTools :global(.cam-language-link-code) {
+  display: none;
+}
+
+/* The phone's way to the tabs (2026-10-21). Hidden until the tabs no longer
+   fit beside the logo; see the 820px block. */
+.menuToggle {
+  display: none;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-2) 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cam-portal-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menuToggle:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-sm);
+}
+
+/* A small down-pointing chevron, turned up while the menu is open. */
+.menuChevron {
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.menuToggle[aria-expanded="true"] .menuChevron {
+  transform: translateY(2px) rotate(-135deg);
+}
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
 
@@ -396,6 +419,15 @@
   margin-top: 0;
 }
 
+/* Between the lede and the buttons: where the pilot is open, read before
+   the button it qualifies. One quiet line, no band — it replaced the pilot
+   strip above the masthead (2026-10-21). */
+.hero .pilotNote {
+  margin: 0 0 var(--cam-space-7);
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-slate-700);
+}
+
 /* ── Sections ─────────────────────────────────────────────────────────── */
 
 .hero {
@@ -434,7 +466,7 @@
   font-size: 21px;
   line-height: 1.55;
   max-width: 44ch;
-  margin-bottom: var(--cam-space-7);
+  margin-bottom: var(--cam-space-4);
   color: var(--cam-text-muted);
   font-weight: var(--cam-font-weight-regular);
 }
@@ -676,8 +708,9 @@
   font-size: 18px;
 }
 
-.sectionMore {
-  margin-top: var(--cam-space-6);
+/* A section that is only its heading (confidentiality) ends with it. */
+.sectionHead:last-child {
+  margin-bottom: 0;
 }
 
 .phases {
@@ -725,16 +758,12 @@
 }
 
 .phases li h3 {
-  margin: 20px 0 8px;
+  margin: 0 0 var(--cam-space-2);
 }
 
-/* One height for every label row, pill or not, so the four titles share a
-   baseline. */
+/* One line of text in every column, so the four titles share a baseline. */
 .phases .state {
-  display: flex;
-  align-items: center;
-  min-height: var(--cam-space-5);
-  margin: 0 0 20px;
+  margin: 0 0 var(--cam-space-3);
 }
 
 .phases p {
@@ -756,32 +785,12 @@
   color: var(--cam-portal-mint-deep);
 }
 
-.pill {
-  display: inline-block;
-  background: var(--cam-portal-pill-bg);
-  color: var(--cam-portal-mint-deep);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--cam-radius-full);
-  margin-left: 10px;
-  letter-spacing: 0;
-  text-transform: none;
+.phasesMore {
+  margin-top: var(--cam-space-7);
 }
 
-.icon,
-.shield {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cam-portal-mint-deep);
-}
-
-.icon {
-  background: var(--cam-portal-icon-bg);
+.phasesMore .textLink {
+  margin-top: 0;
 }
 
 /* Open column under a hairline, not an outlined card. The heading's link
@@ -791,7 +800,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  padding-top: var(--cam-space-6);
+  padding-top: var(--cam-space-5);
   border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
@@ -818,7 +827,7 @@
 }
 
 .participant h3 {
-  margin: var(--cam-space-4) 0 var(--cam-space-2);
+  margin: 0 0 var(--cam-space-2);
 }
 
 .participant p {
@@ -837,39 +846,6 @@
 .participant .textLink {
   margin-top: auto;
   padding-top: var(--cam-space-4);
-}
-
-/* Inside a .container, not on it: on the container its max-width, with the
-   container's auto margins, centred the note off the page's left edge. */
-.confGrid {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: var(--cam-space-5);
-  align-items: start;
-  max-width: 780px;
-}
-
-/* A note beside the shield: a real h2, so heading navigation reaches it,
-   set at the column-title size rather than as another 40px section title. */
-.confGrid h2 {
-  margin: 0 0 var(--cam-space-2);
-  font-size: 22px;
-  line-height: var(--cam-line-height-label);
-}
-
-.confGrid p {
-  max-width: 60ch;
-  color: var(--cam-portal-muted);
-  font-size: 16px;
-}
-
-.confGrid .muted {
-  color: var(--cam-portal-muted);
-}
-
-.shield {
-  background: var(--cam-portal-panel);
-  border: 1px solid var(--cam-portal-rule);
 }
 
 .bullets {
@@ -926,9 +902,7 @@
 }
 
 .facts dt {
-  font-size: var(--cam-font-size-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--cam-font-size-sm);
   font-weight: var(--cam-font-weight-bold);
   color: var(--cam-text-muted);
   margin-bottom: var(--cam-space-1);
@@ -1211,8 +1185,7 @@
 
 @media (max-width: 900px) {
   .sectionGrid,
-  .phases,
-  .confGrid {
+  .phases {
     grid-template-columns: 1fr;
   }
 
@@ -1240,33 +1213,14 @@
   }
 }
 
-/* The single header row needs about 910px. Below that, "Connexion" and
-   the language switch were pushed off screen and the page scrolled sideways.
-   The tabs drop to their own row first; the endorsement hides so the logo
-   and the tools still fit. */
-@media (max-width: 960px) {
-  .page {
-    --cam-header-height: 128px;
-  }
-
-  .mastheadInner {
-    flex-wrap: wrap;
-    row-gap: var(--cam-space-2);
-  }
-
+/* The endorsement is what makes the header row about 910px wide. Hidden
+   below 1100px, the logo, three tabs and the tools fit one row down to the
+   Menu block (820px), in both languages. This replaced a second row of
+   tabs that scrolled sideways inside a 128px sticky header (2026-10-21).
+   The endorsement is still in the footer. */
+@media (max-width: 1100px) {
   .endorsement {
     display: none;
-  }
-
-  .mastheadTools {
-    margin-left: auto;
-  }
-
-  .nav {
-    order: 3;
-    flex: 1 0 100%;
-    min-width: 0;
-    overflow-x: auto;
   }
 
   .nav a {
@@ -1274,9 +1228,14 @@
   }
 }
 
-@media (max-width: 720px) {
+/* On a phone the header is one row: logo, sign-in, language, Menu. The tabs
+   wait behind Menu and open as a list under that row, pushing the page down
+   (2026-10-21). From 820px rather than at the phone block: in French
+   ("Accueil · Le programme · Assistance · Connexion · English") the one row
+   needs about 740px, and the tablet header no longer wraps to a second row. */
+@media (max-width: 820px) {
   .page {
-    --cam-header-height: 168px;
+    --cam-header-height: 64px;
   }
 
   .page [id] {
@@ -1289,22 +1248,62 @@
   }
 
   .mastheadInner {
-    gap: var(--cam-space-2) var(--cam-space-3);
-    padding-top: var(--cam-space-3);
+    flex-wrap: wrap;
+    gap: 0 var(--cam-space-3);
+  }
+
+  .mastheadTools {
+    gap: var(--cam-space-3);
+  }
+
+  .mastheadTools :global(.cam-language-link-name) {
+    display: none;
+  }
+
+  .mastheadTools :global(.cam-language-link-code) {
+    display: inline;
   }
 
   .logo {
-    height: 18px;
+    height: 16px;
   }
 
+  /* The tabs are behind Menu, so nothing teal sits beside it: a plain link
+     again, which keeps "Connexion" / "Mon espace" on the one row. */
   .signIn {
     padding: 0;
+    border: 0;
+    color: var(--cam-portal-mint-deep);
+  }
+
+  .menuToggle {
+    display: inline-flex;
+  }
+
+  /* Opened, the tabs take a row of their own under the logo row. */
+  .nav {
+    display: none;
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .nav.navOpen {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: visible;
+    padding-bottom: var(--cam-space-3);
+    border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
   }
 
   .nav a {
-    padding: var(--cam-space-2) 0 var(--cam-space-3);
+    padding: var(--cam-space-3) 0;
+    font-size: 16px;
   }
+}
 
+@media (max-width: 720px) {
   .facts {
     grid-template-columns: 1fr;
   }

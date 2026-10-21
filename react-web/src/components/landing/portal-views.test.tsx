@@ -1,6 +1,6 @@
 // renderWithProviders first: it sets jsdom up for this file, and `screen`
 // must bind to that document rather than to nothing.
-import { renderWithProviders, screen, within, navigationMock, loadMessages } from "@/test/render";
+import { renderWithProviders, screen, within, fireEvent, navigationMock, loadMessages } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SiteMasthead } from "./site/SiteMasthead";
@@ -38,6 +38,20 @@ test("the masthead marks the page the visitor is on, and no other", () => {
   }
 });
 
+test("on a phone, Menu opens and closes the tabs it controls", () => {
+  renderWithProviders(<SiteMasthead />);
+
+  const menu = screen.getByRole("button", { name: fr.navMenu });
+  const nav = screen.getByRole("navigation", { name: fr.navLabel });
+  assert.equal(menu.getAttribute("aria-controls"), nav.id);
+  assert.equal(menu.getAttribute("aria-expanded"), "false");
+
+  fireEvent.click(menu);
+  assert.equal(menu.getAttribute("aria-expanded"), "true");
+  fireEvent.keyDown(document, { key: "Escape" });
+  assert.equal(menu.getAttribute("aria-expanded"), "false");
+});
+
 test("the masthead offers exactly three pages and the way in", () => {
   renderWithProviders(<SiteMasthead />);
 
@@ -47,7 +61,6 @@ test("the masthead offers exactly three pages and the way in", () => {
     ["/", "/programme", "/assistance"],
   );
   assert.equal(screen.getByRole("link", { name: fr.signIn }).getAttribute("href"), "/login");
-  assert.equal(screen.getByRole("link", { name: fr.pilotStripAction }).getAttribute("href"), "/register");
 });
 
 test("home opens on two paths: register, or read about the programme", () => {
@@ -59,6 +72,8 @@ test("home opens on two paths: register, or read about the programme", () => {
     assert.equal(link.getAttribute("href"), "/register");
   }
   assert.equal(screen.getByRole("link", { name: fr.homeDiscover }).getAttribute("href"), "/programme");
+  // Where the pilot is open, under the buttons (it was a strip above the masthead).
+  assert.ok(screen.getByText(fr.homePilotNote));
 });
 
 test("home names the three phases in order, the first one current", () => {

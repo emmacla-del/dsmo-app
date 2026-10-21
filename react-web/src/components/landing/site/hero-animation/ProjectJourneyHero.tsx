@@ -31,6 +31,11 @@ const handwriting = Caveat({
 });
 
 const PAPER_SRC = "/images/hero/questionnaire-entreprises-p1.webp";
+// The same scan at 10px wide, shown blurred until the scan arrives, so the
+// first frame is the page rather than a blank sheet (2026-10-21). Regenerate
+// it with sharp if the scan changes.
+const PAPER_BLUR =
+  "data:image/webp;base64,UklGRlQAAABXRUJQVlA4IEgAAACQAgCdASoKAA4AA4BaJZQCdH8GJ/gbh+hSTKtfgAD+8j1jjC/j5lgK5316yLlwruymHm91fl/CkL7wlrfOmIsSgrBFVpWAAAA=";
 
 const SCENES = [1, 2, 3, 4, 5, 6] as const;
 
@@ -77,6 +82,8 @@ export async function ProjectJourneyHero() {
                 width={1400}
                 height={1980}
                 sizes="(max-width: 900px) 100vw, 700px"
+                placeholder="blur"
+                blurDataURL={PAPER_BLUR}
                 priority
               />
               <span className={`${styles.ink} ${styles.ink1}`}>2</span>
@@ -104,6 +111,8 @@ export async function ProjectJourneyHero() {
                 width={1400}
                 height={1980}
                 sizes="(max-width: 900px) 35vw, 180px"
+                placeholder="blur"
+                blurDataURL={PAPER_BLUR}
               />
             </div>
             <div className={styles.laptop}>

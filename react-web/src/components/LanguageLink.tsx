@@ -24,7 +24,12 @@ const OTHER: Record<Locale, { locale: Locale; name: string }> = {
 // does not go anywhere. The switch is the same as LocaleSwitcher's -- the
 // cookie, then a refresh of the server components -- so the page is not
 // remounted and a form in progress keeps its answers (see layout.tsx).
-export function LanguageLink({ ariaLabel }: { ariaLabel?: string } = {}) {
+//
+// `compact` (the portal masthead, 2026-10-21) also carries the two-letter
+// code, "FR" / "EN", which the masthead shows instead of the name on a phone
+// so the header stays one row (Canada.ca does the same). The accessible name
+// is the aria-label either way.
+export function LanguageLink({ ariaLabel, compact = false }: { ariaLabel?: string; compact?: boolean } = {}) {
   const t = useTranslations("common");
   const current = (useLocale() as Locale) ?? "fr";
   const router = useRouter();
@@ -46,7 +51,16 @@ export function LanguageLink({ ariaLabel }: { ariaLabel?: string } = {}) {
         startTransition(() => router.refresh());
       }}
     >
-      {other.name}
+      {compact ? (
+        <>
+          <span className="cam-language-link-name">{other.name}</span>
+          <span className="cam-language-link-code" aria-hidden="true">
+            {other.locale.toUpperCase()}
+          </span>
+        </>
+      ) : (
+        other.name
+      )}
     </button>
   );
 }
