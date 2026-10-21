@@ -2386,14 +2386,19 @@ export class QuestionnairesService {
         if (kl === alias1 || kl === alias2 || kl === alias3 || kl === alias4 || kl === alias5) return v;
       }
     }
+    // The training-needs grid (S4Q03) writes its counts as domain_N_male /
+    // _female / _total, beside its domain_N_text; buildTrainingNeedRows reads
+    // them there. Without these aliases a respondent who listed a training
+    // need was refused for counts they had typed (E2E 2026-10-20, D2).
     const slotMaleMatch = lower.match(/slot([1-3])_male/);
     if (slotMaleMatch) {
       const n = slotMaleMatch[1];
       const alias1 = lower.replace(`slot${n}_male`, `reason_${n}_male`);
       const alias2 = lower.replace(`slot${n}_male`, `training_${n}_male`);
+      const alias3 = lower.replace(`slot${n}_male`, `domain_${n}_male`);
       for (const [k, v] of Object.entries(flat)) {
         const kl = k.toLowerCase();
-        if (kl === alias1 || kl === alias2) return v;
+        if (kl === alias1 || kl === alias2 || kl === alias3) return v;
       }
     }
     const slotFemaleMatch = lower.match(/slot([1-3])_female/);
@@ -2401,9 +2406,10 @@ export class QuestionnairesService {
       const n = slotFemaleMatch[1];
       const alias1 = lower.replace(`slot${n}_female`, `reason_${n}_female`);
       const alias2 = lower.replace(`slot${n}_female`, `training_${n}_female`);
+      const alias3 = lower.replace(`slot${n}_female`, `domain_${n}_female`);
       for (const [k, v] of Object.entries(flat)) {
         const kl = k.toLowerCase();
-        if (kl === alias1 || kl === alias2) return v;
+        if (kl === alias1 || kl === alias2 || kl === alias3) return v;
       }
     }
     const slotTotalMatch = lower.match(/slot([1-3])_total/);
@@ -2412,9 +2418,10 @@ export class QuestionnairesService {
       const alias1 = lower.replace(`slot${n}_total`, `reason_${n}_total`);
       const alias2 = lower.replace(`slot${n}_total`, `skill_${n}_total`);
       const alias3 = lower.replace(`slot${n}_total`, `training_${n}_total`);
+      const alias4 = lower.replace(`slot${n}_total`, `domain_${n}_total`);
       for (const [k, v] of Object.entries(flat)) {
         const kl = k.toLowerCase();
-        if (kl === alias1 || kl === alias2 || kl === alias3) return v;
+        if (kl === alias1 || kl === alias2 || kl === alias3 || kl === alias4) return v;
       }
     }
     // S22Q05 enterprise alias
@@ -2626,7 +2633,16 @@ export class QuestionnairesService {
     // for the cells the wizard writes, never the CSP ones it used to: that
     // mismatch is what refused the enterprise submission in C1–C3.
     if (tableId.startsWith('s22q05') || tableId === 'pp_s4q06') {
-      const prefix = tableId;
+      // The wizard writes S22Q05 under one prefix per family of forms —
+      // s22q05_ent_ for the enterprise, s22q05_oth_ for cooperative, CTD and
+      // NGO — the prefixes buildVulnerableEnterpriseRows /
+      // buildVulnerableOtherRows store and checkCoherence reads. Asked as
+      // bare s22q05_, only the enterprise one was found (through
+      // findCellValue's alias), so every other form that recruited a
+      // vulnerable person was refused (E2E 2026-10-20, D1).
+      const prefix = tableId === 's22q05'
+        ? (entityType === 'enterprise' ? 's22q05_ent' : 's22q05_oth')
+        : tableId;
       const types = ['deplaces_internes', 'refugies', 'orphelins'];
       const statuses = ['permanent', 'temporary'];
       const genders = ['male', 'female'];
