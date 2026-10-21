@@ -15,6 +15,7 @@ import {
   resolveCompanyName,
   resolveMainActivity,
   visibleEntityDataForType,
+  yearOptions,
   type EntityField,
   type EntityType,
 } from "@/lib/register-constants";
@@ -543,6 +544,19 @@ function EntityFieldInput({
 }) {
   const label = localized(field.label, locale);
   const hint = field.hint ? localized(field.hint, locale) : undefined;
+
+  if (field.kind === "year") {
+    return (
+      <Select
+        label={label}
+        placeholder={selectPlaceholder}
+        required={field.required}
+        value={value}
+        options={yearOptions(value)}
+        onChange={onChange}
+      />
+    );
+  }
 
   if (field.kind === "select") {
     return (

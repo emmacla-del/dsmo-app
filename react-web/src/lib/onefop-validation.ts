@@ -154,7 +154,9 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
-function isYearField(field: OnefopField): boolean {
+// Also decides which questions the wizards show as a year dropdown
+// (FieldControl, VtWizardFields), so the list and the check agree.
+export function isYearField(field: Pick<OnefopField, "id" | "type">): boolean {
   return YEAR_FIELD_IDS.has(field.id) || (field.type === "number" && field.id.toLowerCase().includes("year"));
 }
 

@@ -126,3 +126,16 @@ test("typing in an ordinary text question reports each value through onChange", 
   await user.type(screen.getByRole("textbox", { name: /Sigle/ }), "C");
   assert.deepEqual(calls, [["VT1_3", "C"]]);
 });
+
+test("1.14 Année d'ouverture is a year dropdown, not a typed box", async () => {
+  const field = schemaField("vocationalTraining", "VT1_14");
+  const { calls, user } = renderField(field);
+
+  const select = screen.getByRole("combobox", { name: /Année d'ouverture/ }) as HTMLSelectElement;
+  assert.equal(select.value, "");
+  assert.ok([...select.options].some((o) => o.value === "1900"));
+  assert.ok(![...select.options].some((o) => o.value === String(new Date().getFullYear() + 1)));
+
+  await user.selectOptions(select, "2015");
+  assert.deepEqual(calls, [["VT1_14", "2015"]]);
+});

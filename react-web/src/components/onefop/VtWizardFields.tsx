@@ -20,7 +20,8 @@ import { CheckboxGroup, type CheckboxOption } from "./form/Checkbox";
 import { NumberStepper } from "./form/NumberStepper";
 import { Microcopy } from "./form/Microcopy";
 import { OptionalSuffix } from "./ui/OptionalSuffix";
-import { isOptionalField, VT_DATE_FIELD_ID } from "@/lib/onefop-validation";
+import { isOptionalField, isYearField, VT_DATE_FIELD_ID } from "@/lib/onefop-validation";
+import { yearOptions } from "@/lib/year-options";
 import { respondentFunctionLabel } from "@/lib/display-labels";
 
 /** next-intl's useLocale() returns a plain string ("fr"/"en"/"fr-FR"...);
@@ -97,9 +98,9 @@ export function vtHintPlacement(
   // 1.1 is filled in for the respondent: the paper's "A ne pas remplir" is
   // not shown under (or in) a box that already holds the code (defect 18).
   if (VT_ADMIN_ONLY_IDS.has(field.id)) return { tooltip };
+  // A year is a dropdown now, which has no placeholder to hold a hint.
   const textBox =
-    isVtYearField(field) ||
-    (["text", "email", "tel", "textarea"].includes(field.type) && field.id !== "VT9_3" && field.id !== "VT9_4");
+    ["text", "email", "tel", "textarea"].includes(field.type) && field.id !== "VT9_3" && field.id !== "VT9_4";
   if (textBox) return { placeholder: hint, tooltip };
   return { tooltip: tooltip ? `${tooltip} ${hint}` : hint };
 }
@@ -360,10 +361,10 @@ function VtWizardAdminSuggestionChips({
   );
 }
 
+// The same list the validation checks as a year (VT1_14, VT2_15), not a
+// guess from the label: "année" also appears in counts "au cours de l'année".
 export function isVtYearField(field: OnefopField): boolean {
-  const id = field.id.toUpperCase();
-  const fr = (field.label && typeof field.label === "object" ? field.label.fr : String(field.label || "")).toLowerCase();
-  return id === "VT1_14" || id.includes("YEAR") || fr.includes("année");
+  return field.type === "number" && isYearField(field);
 }
 
 export function VtWizardNumberStepper({
@@ -776,20 +777,47 @@ export function VtWizardField({
           {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
         </label>
         {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <input
-          id={field.id}
-          {...a11yProps}
-          type="number"
-          placeholder={hintPlaceholder ?? (locale.startsWith("en") ? "YYYY" : "AAAA")}
-          value={(value as string) ?? ""}
-          // maxLength does nothing on a number input; the slice keeps 4 digits.
-          onChange={(e) => onChange(field.id, e.target.value.slice(0, 4))}
-          // A wheel over the focused box would change the year silently.
-          onWheel={(e) => e.currentTarget.blur()}
-          onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-          className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{ maxWidth: "var(--cam-field-width-short)" }}
-        />
+        {/* Picked from a list, as at registration: no "20", no next year.
+            Same closed select as the wizard's other dropdowns. */}
+        <div style={{ position: "relative", maxWidth: "var(--cam-field-width-short)" }}>
+          <select
+            id={field.id}
+            {...a11yProps}
+            value={value == null ? "" : String(value)}
+            onChange={(e) => onChange(field.id, e.target.value)}
+            onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
+            className={`sovereign-select ${hasError ? "has-error" : ""}`}
+            style={{
+              paddingRight: "var(--cam-space-6)",
+              color: value ? "var(--cam-text)" : "var(--cam-text-muted)",
+              appearance: "none",
+              WebkitAppearance: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="" disabled hidden>
+              {t("vtWizard.select", { default: "Sélectionner…" })}
+            </option>
+            {yearOptions(value).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <span
+            style={{
+              position: "absolute",
+              right: 14,
+              top: "50%",
+              transform: "translateY(-50%)",
+              pointerEvents: "none",
+              fontSize: "var(--cam-font-size-3xs)",
+              color: "var(--cam-text-muted)",
+            }}
+          >
+            ▼
+          </span>
+        </div>
         <VtWizardFieldError id={errorId} message={errorMessage} />
       </div>
     );

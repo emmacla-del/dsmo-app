@@ -99,7 +99,8 @@ export interface EntityField {
   required: boolean;
   // "radio": exactly one of a few short options, every option on screen
   // (§9), e.g. the promoter's sex; "select" for longer lists.
-  kind: "text" | "tel" | "number" | "select" | "radio";
+  // "year": a dropdown of years, this year first (year-options.ts).
+  kind: "text" | "tel" | "number" | "year" | "select" | "radio";
   options?: import("./register-options").RegisterOption[];
   // Conditional visibility within the same entity's field set — mirrors
   // register_constants.dart's dependsOn/dependsValue (itself mirroring the
@@ -221,9 +222,8 @@ const HEAD_OFFICE: EntityField = {
 const YEAR_OF_CREATION: EntityField = {
   key: "yearOfCreation",
   label: { fr: "Année de création", en: "Year established" },
-  placeholder: { fr: "AAAA", en: "YYYY" },
   required: true,
-  kind: "number",
+  kind: "year",
 };
 const MAIN_MISSION: EntityField = {
   key: "mainMission",
@@ -237,6 +237,9 @@ const SIGLE: EntityField = {
   required: false,
   kind: "text",
 };
+
+// The year list is shared with the declaration wizards' year questions.
+export { YEAR_OPTIONS_FROM, yearOptions } from "./year-options";
 
 export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   enterprise: {
@@ -390,7 +393,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
         dependsOn: "nonFunctionalReason",
         dependsValue: "Autres",
       },
-      { key: "yearOfCreation", label: { fr: "Année d'ouverture", en: "Year opened" }, placeholder: { fr: "AAAA", en: "YYYY" }, required: true, kind: "number" },
+      { key: "yearOfCreation", label: { fr: "Année d'ouverture", en: "Year opened" }, required: true, kind: "year" },
       { key: "address", label: { fr: "Adresse du CFP", en: "VTC address" }, required: true, kind: "text" },
       PHONE,
       PHONE_2,
