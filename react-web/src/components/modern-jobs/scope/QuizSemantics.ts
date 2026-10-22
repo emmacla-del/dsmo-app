@@ -376,6 +376,39 @@ export function applyProjectProgramQuizSemantics(entity: OnefopEntity, data: For
   return out;
 }
 
+/**
+ * The Project/Programme tables the PP quiz certifies as zero, for the same
+ * pre-submission list as the employer forms. Section 4 statuses are read
+ * from applyProjectProgramQuizSemantics, so the list and the payload cannot
+ * disagree. Section 3 is listed only when no outcome at all was declared:
+ * a de-selected row of an open table is not a table at nil. Section 2 has
+ * no quiz question and is never listed.
+ */
+function projectProgramZeroedTables(entity: OnefopEntity, data: FormData): ZeroedTableInfo[] {
+  const raw = data._scopeConfig;
+  if (!raw || typeof raw !== "object") return [];
+  const cfg = (raw as Record<string, unknown>).projectProgram as PpScopeConfig | undefined;
+  if (!cfg || typeof cfg !== "object" || !cfg.completedAt) return [];
+
+  const index = buildEntityTableIndex(entity);
+  const payload = applyProjectProgramQuizSemantics(entity, data);
+  const list: ZeroedTableInfo[] = [];
+  const push = (code: string, field: OnefopField) => {
+    const fr = field.label?.fr || code;
+    const en = field.label?.en || code;
+    list.push({ code, tableId: field.id, nameFr: fr, nameEn: en, title: { fr, en }, reason: "QUIZ_DECLARED_NONE" });
+  };
+
+  const outcomesField = index.get("PP_S3_OUTCOMES");
+  if (outcomesField && (cfg.noOutcomes || (cfg.outcomes ?? []).length === 0)) push("3", outcomesField);
+
+  for (let n = 1; n <= 6; n++) {
+    const field = index.get(`PP_S4Q0${n}`);
+    if (field && payload[`S4Q0${n}_RESPONSE_STATUS`] === "NONE") push(`4.${n}`, field);
+  }
+  return list;
+}
+
 // ── Vocational Training semantics ─────────────────────────────────────────────
 
 /**
@@ -529,6 +562,7 @@ export interface ZeroedTableInfo {
  * Used by review screens and pre-submission modals for respondent transparency (D10).
  */
 export function getZeroedTablesList(entity: OnefopEntity, data: FormData): ZeroedTableInfo[] {
+  if (entity.entityType === "projectProgram") return projectProgramZeroedTables(entity, data);
   if (!isQuizGovernedEntity(entity)) return [];
   const scope = readQuizScope(data);
   if (!scope) return [];
