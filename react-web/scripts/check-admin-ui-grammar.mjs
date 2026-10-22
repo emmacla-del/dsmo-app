@@ -177,7 +177,7 @@ function findPerLine(files, predicate, { stripComments = false } = {}) {
 }
 
 // G14 — the 4/8 scale --cam-space-* defines, plus 0.
-const SPACING_SCALE = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+const SPACING_SCALE = new Set([0, 4, 6, 8, 10, 12, 16, 20, 24, 32, 48]);
 const SPACING_PROPS =
   "padding|paddingTop|paddingBottom|paddingLeft|paddingRight|paddingBlock|paddingInline|" +
   "margin|marginTop|marginBottom|marginLeft|marginRight|marginBlock|marginInline|" +
@@ -318,7 +318,7 @@ const RULES = [
     key: "spacing-off-scale",
     rule: "G14",
     title: "Inline length off the 4/8 spacing scale",
-    fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
+    fix: "Use var(--cam-space-*): 1=4 1-5=6 2=8 2-5=10 3=12 4=16 4-5=20 5=24 6=32 7=48.",
     warn: true,
     run: () => offScaleSpacing(collectAll(ADMIN_DIRS, [".tsx"])),
   },
@@ -426,7 +426,7 @@ const RULES = [
     key: "respondent-spacing-off-scale",
     rule: "G14",
     title: "Inline length off the 4/8 spacing scale (respondent)",
-    fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
+    fix: "Use var(--cam-space-*): 1=4 1-5=6 2=8 2-5=10 3=12 4=16 4-5=20 5=24 6=32 7=48.",
     warn: true,
     run: () => offScaleSpacing(collectRespondent([".tsx"])),
   },
