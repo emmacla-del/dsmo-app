@@ -422,10 +422,17 @@
 /* Between the lede and the buttons: where the pilot is open, read before
    the button it qualifies. One quiet line, no band — it replaced the pilot
    strip above the masthead (2026-10-21). */
+/* At body size and in ink, the regions in bold: it is the condition for the
+   button below, and at 14px in slate it read as small print. No box and no
+   badges (2026-10-21). */
 .hero .pilotNote {
   margin: 0 0 var(--cam-space-7);
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-slate-700);
+  font-size: 16px;
+  color: var(--cam-portal-ink);
+}
+
+.hero .pilotNote strong {
+  font-weight: var(--cam-font-weight-semibold);
 }
 
 /* ── Sections ─────────────────────────────────────────────────────────── */
@@ -678,17 +685,6 @@
   background: var(--cam-portal-icon-bg);
 }
 
-.phaseCardNow {
-  border: 1.5px solid var(--cam-portal-mint);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--cam-primary) 12%, transparent);
-  background: var(--cam-portal-panel);
-}
-
-.phaseCardNow .state {
-  color: var(--cam-portal-mint-deep);
-  font-weight: 600;
-}
-
 /* ── Lists ────────────────────────────────────────────────────────────── */
 
 /* Left, on the container's edge, like the hero above it. */
@@ -713,20 +709,7 @@
   margin-bottom: 0;
 }
 
-.phases {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-}
-
 @media (max-width: 1080px) {
-  .phases {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .heroGrid {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--cam-space-7);
@@ -740,49 +723,140 @@
   }
 }
 
-@media (max-width: 820px) {
-  .phases {
-    grid-template-columns: 1fr;
-  }
+/* The phases as one numbered sequence: a marker per phase on a hairline that
+   joins them, the current phase's marker filled (2026-10-21). Stacked by
+   default, the line running down beside the text; the home page lays it out
+   in columns from 821px (2×2, no line) and on one line from 1081px. The
+   programme page (.phasesVertical) keeps it stacked: its phases carry lists.
+   Child selectors only: a phase's own bullets are list items too. */
+.phases {
+  --phase-marker: 36px;
+  --phase-gap: var(--cam-space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--phase-gap);
 }
 
-/* Open columns under a hairline, text on the container's edge. The current
-   phase thickens its rule in teal (::before), drawn over the hairline so it
-   shifts no column's text (2026-10-21). */
-.phases li {
+/* Under the programme page's intro sentence: more than the stack's gap, so
+   the sentence reads as the section's, not the first phase's. */
+.phasesVertical {
+  margin-top: var(--cam-space-6);
+}
+
+.phases > li {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  padding-top: var(--cam-space-5);
-  border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
+  min-width: 0;
+  padding-left: calc(var(--phase-marker) + var(--cam-space-4));
 }
 
-.phases li h3 {
+.phaseMarker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--phase-marker);
+  height: var(--phase-marker);
+  border: var(--cam-border-width) solid var(--cam-portal-rule);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-portal-bg);
+  color: var(--cam-portal-muted);
+  font-size: 13px;
+  font-weight: var(--cam-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.phases > li.phaseNow .phaseMarker {
+  border-color: var(--cam-portal-mint-deep);
+  background: var(--cam-portal-mint-deep);
+  color: var(--cam-portal-panel);
+}
+
+/* The joining line, from under this marker to the next one; the last phase
+   carries it on to its own end, so the line spans all four (2026-10-21). */
+.phases > li::after {
+  content: "";
+  position: absolute;
+  top: var(--phase-marker);
+  bottom: calc(-1 * var(--phase-gap));
+  left: calc(var(--phase-marker) / 2);
+  width: var(--cam-border-width);
+  background: var(--cam-portal-hairline);
+}
+
+.phases > li:last-child::after {
+  bottom: 0;
+}
+
+.phases > li h3 {
   margin: 0 0 var(--cam-space-2);
 }
 
-/* One line of text in every column, so the four titles share a baseline. */
+/* State on the marker's line, the title under it. */
 .phases .state {
-  margin: 0 0 var(--cam-space-3);
+  min-height: var(--phase-marker);
+  display: flex;
+  align-items: center;
+  margin: 0 0 var(--cam-space-2);
 }
 
-.phases p {
+.phases > li > p {
   color: var(--cam-portal-muted);
   font-size: 15.5px;
 }
 
-.phases li.phaseNow::before {
-  content: "";
-  position: absolute;
-  top: calc(-1 * var(--cam-border-width));
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--cam-portal-mint-deep);
+.phases > li.phaseNow .state {
+  color: var(--cam-portal-mint-deep);
 }
 
-.phases li.phaseNow .state {
-  color: var(--cam-portal-mint-deep);
+@media (min-width: 821px) {
+  .phases:not(.phasesVertical) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cam-space-7) var(--cam-space-5);
+  }
+
+  .phases:not(.phasesVertical) > li {
+    padding-left: 0;
+  }
+
+  .phases:not(.phasesVertical) .phaseMarker {
+    position: relative;
+    margin-bottom: var(--cam-space-4);
+  }
+
+  .phases:not(.phasesVertical) .state {
+    min-height: 0;
+  }
+
+  .phases:not(.phasesVertical) > li::after {
+    display: none;
+  }
+}
+
+@media (min-width: 1081px) {
+  .phases:not(.phasesVertical) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* Across, from this marker's right edge to the next column's marker; the
+     last column's runs to its own right edge. */
+  .phases:not(.phasesVertical) > li::after {
+    display: block;
+    top: calc(var(--phase-marker) / 2);
+    bottom: auto;
+    left: var(--phase-marker);
+    right: calc(-1 * var(--cam-space-5));
+    width: auto;
+    height: var(--cam-border-width);
+  }
+
+  .phases:not(.phasesVertical) > li:last-child::after {
+    right: 0;
+  }
 }
 
 .phasesMore {
@@ -1055,6 +1129,28 @@
   line-height: 1.6;
 }
 
+/* The answer opens and closes over 0.2s instead of pushing the questions
+   below it down in one jump (2026-10-21). A browser without
+   ::details-content or interpolate-size opens it at once, as before; so
+   does "reduce motion". */
+@media (prefers-reduced-motion: no-preference) {
+  .faq {
+    interpolate-size: allow-keywords;
+  }
+
+  .faq details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition:
+      block-size 0.2s ease-out,
+      content-visibility 0.2s ease-out allow-discrete;
+  }
+
+  .faq details[open]::details-content {
+    block-size: auto;
+  }
+}
+
 /* ── Closing band ─────────────────────────────────────────────────────── */
 
 /* The side gutter is the .container's alone: padding here as well put the
@@ -1288,6 +1384,8 @@
     min-width: 0;
   }
 
+  /* Ruled above and below: without the lower rule the last tab ran into the
+     hero's teal kicker and read as a fourth tab (2026-10-21). */
   .nav.navOpen {
     display: flex;
     flex-direction: column;
@@ -1295,6 +1393,7 @@
     overflow: visible;
     padding-bottom: var(--cam-space-3);
     border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
+    border-bottom: var(--cam-border-width) solid var(--cam-portal-hairline);
   }
 
   .nav a {
@@ -1310,6 +1409,41 @@
 
   .section {
     padding: var(--cam-space-7) 0;
+  }
+
+  /* On a phone the type steps down and the gaps close up: at the desktop
+     sizes the lede ran to six lines, the hero took a screen and a half and
+     the journey figure began below the fold (2026-10-21). The h1 and body
+     text keep their sizes. */
+  .page h2 {
+    font-size: 26px;
+  }
+
+  .card h3,
+  .phases li h3,
+  .participant h3 {
+    font-size: 19px;
+  }
+
+  .hero {
+    padding: var(--cam-space-6) 0 var(--cam-space-7);
+  }
+
+  .heroGrid {
+    gap: var(--cam-space-6);
+  }
+
+  .hero .lede {
+    font-size: 18px;
+  }
+
+  .sectionHead {
+    margin-bottom: var(--cam-space-6);
+  }
+
+  .faq summary {
+    font-size: 18px;
+    padding: 20px 0;
   }
 
   .closing {
