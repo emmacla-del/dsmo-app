@@ -9,7 +9,8 @@ import { QUIZ_ISSUE_FIELD_ID, type ValidationIssue } from "@/lib/onefop-validati
 import { ModernJobsHeader } from "./ModernJobsHeader";
 import { EntryModeSlotProvider, useEntryModeSlot } from "./EntryModeSwitch";
 import { useEntryMode } from "@/lib/use-entry-mode";
-import { ModernJobsSidebar, getSectionStatus } from "./ModernJobsSidebar";
+import { ModernJobsSidebar, getSectionProgressSummary } from "./ModernJobsSidebar";
+import { SectionProgressText } from "./SectionProgress";
 import { ModernJobsNavigation } from "./ModernJobsNavigation";
 import { SectionRenderer, type SectionTableNavState } from "./SectionRenderer";
 import { EventFactInterview } from "@/components/modern-jobs";
@@ -120,6 +121,7 @@ export function ModernJobsWizard({
   sidePreview,
 }: ModernJobsWizardProps) {
   const tShell = useTranslations("wizardShell");
+  const tRoutes = useTranslations("modernJobs.routes");
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
 
   const t = useTranslations("modernJobs.wizard");
@@ -683,20 +685,35 @@ export function ModernJobsWizard({
           style={{
             flex: 1,
             minWidth: 0,
+            // The quiz is one short column in the middle of the space under
+            // the masthead and beside the rail: equal room above and below,
+            // and the 680px quiz measure centred left and right. A quiz taller
+            // than that space starts at the top and the page scrolls (the
+            // auto margins take nothing once the column fills it). Owner,
+            // 2026-10-22.
+            display: isScopeStage ? "flex" : undefined,
+            flexDirection: isScopeStage ? "column" : undefined,
+            minHeight: isScopeStage
+              ? "calc(100dvh - var(--mj-header-block, var(--mj-header-h, 0px)))"
+              : undefined,
             paddingTop: "var(--cam-space-5)",
             paddingLeft: "clamp(12px, 3vw, 24px)",
             paddingRight: "clamp(12px, 3vw, 24px)",
-            paddingBottom: "calc(var(--cam-space-6, 24px) + 90px)",
+            paddingBottom: isScopeStage ? "var(--cam-space-5)" : "var(--cam-space-6, 24px)",
           }}
         >
           <div
             style={{
               width: "100%",
-              maxWidth:
-                !isScopeStage && clampedSectionIndex >= tableSectionsStart && !isValidationStage
+              maxWidth: isScopeStage
+                ? "var(--cam-container-quiz)"
+                : !isValidationStage && clampedSectionIndex >= tableSectionsStart
                   ? "min(1360px, 100%)"
                   : "var(--vt-content-max, 940px)",
-              margin: "0 auto",
+              marginTop: isScopeStage ? "auto" : 0,
+              marginBottom: isScopeStage ? "auto" : 0,
+              marginLeft: "auto",
+              marginRight: "auto",
             }}
           >
             {/* Phone sections drawer: the same opener, sheet and title as the
@@ -767,7 +784,7 @@ export function ModernJobsWizard({
                   marginBottom: 16,
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>{submissionError.summary}</div>
+                <div style={{ fontWeight: "var(--cam-font-weight-bold)", marginBottom: 4 }}>{submissionError.summary}</div>
                 <SubmissionErrorItems
                   detail={submissionError}
                   onGoTo={goToRefused}
@@ -846,18 +863,18 @@ export function ModernJobsWizard({
                                 display: "grid",
                                 placeItems: "center",
                                 fontSize: "var(--cam-font-size-2xs)",
-                                fontWeight: 700,
+                                fontWeight: "var(--cam-font-weight-bold)",
                                 background: "var(--cam-green)",
                                 color: "var(--cam-white)",
                               }}
                             >
                               ✓
                             </span>
-                            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
+                            <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>
                               {(sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id}
                             </span>
                           </div>
-                          <span style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: 700, color: "var(--cam-green)" }}>
+                          <span style={{ fontSize: "var(--cam-font-size-3xs)", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-green)" }}>
                             {locale === "fr" ? "Transmis ✓" : "Submitted ✓"}
                           </span>
                         </div>
@@ -876,6 +893,7 @@ export function ModernJobsWizard({
                   onBack={leaveScopeBack}
                   locale={locale}
                   establishmentName={establishmentName}
+                  quarterCode={quarterCode}
                   navigationRef={interviewNavRef}
                 />
               ) : (
@@ -926,9 +944,15 @@ export function ModernJobsWizard({
                 {/* Section Review Cards */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
                   {sections.map((sec, sIdx) => {
-                    const status = getSectionStatus(sec, data, validationIssues, true);
+                    const progress = getSectionProgressSummary(sec, data, validationIssues, true);
+                    const status = progress.status;
                     const isDone = status === "complete";
                     const isErr = status === "has-errors";
+                    const statusLabel =
+                      status === "complete" ? tRoutes("statusCompleted") :
+                      status === "has-errors" ? tRoutes("statusToCorrect") :
+                      status === "in-progress" ? tRoutes("statusInProgress") :
+                      tRail("stateTodo");
                     const sectionName =
                       (sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id;
                     return (
@@ -953,7 +977,7 @@ export function ModernJobsWizard({
                               display: "grid",
                               placeItems: "center",
                               fontSize: "var(--cam-font-size-2xs)",
-                              fontWeight: 700,
+                              fontWeight: "var(--cam-font-weight-bold)",
                               background: isDone
                                 ? "var(--cam-green)"
                                 : isErr
@@ -969,9 +993,10 @@ export function ModernJobsWizard({
                                 labour » is 2 here and 2 there. */}
                             {isDone ? "✓" : isErr ? "!" : sIdx}
                           </span>
-                          <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: 600, color: "var(--cam-text)" }}>
+                          <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>
                             {sectionName}
                           </span>
+                          <SectionProgressText status={status}>{statusLabel}</SectionProgressText>
                         </div>
                         <button
                           type="button"
@@ -984,7 +1009,7 @@ export function ModernJobsWizard({
                             border: "none",
                             color: "var(--cam-green)",
                             fontSize: "var(--cam-font-size-2xs)",
-                            fontWeight: 700,
+                            fontWeight: "var(--cam-font-weight-bold)",
                             cursor: "pointer",
                             textDecoration: "underline",
                           }}
@@ -1013,7 +1038,7 @@ export function ModernJobsWizard({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                       <div>
-                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: 700, color: "var(--cam-error)" }}>
+                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-error)" }}>
                           {locale === "fr"
                             ? `${validationIssues.length} point(s) à corriger avant la soumission`
                             : `${validationIssues.length} issue(s) require attention before submission`}
@@ -1036,7 +1061,7 @@ export function ModernJobsWizard({
                             : null;
                         return (
                           <li key={issue.fieldId} style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
-                            <span style={{ fontWeight: 600 }}>{issue.message}</span>
+                            <span style={{ fontWeight: "var(--cam-font-weight-semibold)" }}>{issue.message}</span>
                             {secTitle && (
                               <button
                                 type="button"
@@ -1052,7 +1077,7 @@ export function ModernJobsWizard({
                                   border: "none",
                                   color: "var(--cam-green)",
                                   fontSize: "var(--cam-font-size-2xs)",
-                                  fontWeight: 600,
+                                  fontWeight: "var(--cam-font-weight-semibold)",
                                   cursor: "pointer",
                                   textDecoration: "underline",
                                   padding: 0,
@@ -1083,7 +1108,7 @@ export function ModernJobsWizard({
                     }}
                   >
                     <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
-                      <span style={{ fontWeight: 700 }}>
+                      <span style={{ fontWeight: "var(--cam-font-weight-bold)" }}>
                         {locale === "fr" ? "Période de déclaration fermée" : "Declaration period closed"}
                       </span>
                       {quarterStatusMessage && (
@@ -1119,7 +1144,7 @@ export function ModernJobsWizard({
                       border: "none",
                       color: "var(--cam-text-muted)",
                       fontSize: "var(--cam-font-size-sm)",
-                      fontWeight: 600,
+                      fontWeight: "var(--cam-font-weight-semibold)",
                       cursor: "pointer",
                       display: "inline-flex",
                       alignItems: "center",
@@ -1143,7 +1168,7 @@ export function ModernJobsWizard({
                           borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 18px",
                           fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: 600,
+                          fontWeight: "var(--cam-font-weight-semibold)",
                           cursor: isGeneratingPdf ? "wait" : "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -1172,7 +1197,7 @@ export function ModernJobsWizard({
                           borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 18px",
                           fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: 600,
+                          fontWeight: "var(--cam-font-weight-semibold)",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -1196,7 +1221,7 @@ export function ModernJobsWizard({
                           borderRadius: "var(--cam-radius-sm)",
                           padding: "10px 24px",
                           fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: 700,
+                          fontWeight: "var(--cam-font-weight-bold)",
                           cursor: isSubmitting ? "wait" : "pointer",
                           opacity: isSubmitting ? 0.7 : 1,
                           boxShadow: "0 2px 6px rgba(20, 74, 40, 0.25)",
@@ -1336,8 +1361,6 @@ export function ModernJobsWizard({
             isValidationStage={isValidationStage}
             isWideLayout={isTableSection}
             isDesktop={isDesktop && !sidePreview}
-            // The panel's own width (OnefopSidePreviewPanel: 50%, 420-760px).
-            rightInset={sidePreview ? "clamp(420px, 50%, 760px)" : undefined}
             stepIndicator={navStepIndicator}
             nextLabel={navNextLabel}
             prevLabel={navPrevLabel}

@@ -15,72 +15,74 @@ function renderQuiz(data: Record<string, unknown> = {}) {
       onComplete={() => changes.push(["__complete", true])}
       onBack={() => {}}
       locale="fr"
-      establishmentName="Projet Test"
     />,
   );
   return { ...result, changes };
 }
 
-// The other employer forms' quiz asks its Oui/Non questions as a labelled
-// radiogroup (EventQuestion.renderYesNo). The project quiz asked them with
-// two unlabelled buttons: a screen reader heard "Oui" and "Non" three times
-// over with nothing to say which question they answered.
-test("each Oui/Non question is one labelled radiogroup", () => {
-  const { container, unmount } = renderQuiz();
-  const q = within(container);
-  const groups = q.getAllByRole("radiogroup");
-  assert.deepEqual(
-    groups.map((g) => g.getAttribute("aria-label")),
-    ["Personnel permanent", "Personnel temporaire", "Recrutements au cours de la période"],
-  );
-  assert.equal(q.getAllByRole("radio").length, 6);
-  // Unanswered is neither Oui nor Non (§9).
-  assert.ok(q.getAllByRole("radio").every((r) => r.getAttribute("aria-checked") === "false"));
+async function next(user: { click: (el: Element) => Promise<void> }) {
+  if (screen.queryByRole("radiogroup") === null) {
+    const checks = screen.queryAllByRole("checkbox") as HTMLInputElement[];
+    if (checks.length > 0 && !checks.some((check) => check.checked)) {
+      await user.click(checks[0]);
+      assert.equal(checks[0].checked, true, "selecting an outcome should enable Continue");
+    }
+  }
+  const button = screen.getByRole("button", { name: /Continuer|Continue/ });
+  if (!(button as HTMLButtonElement).disabled) await user.click(button);
+}
+
+async function chooseNo(user: { click: (el: Element) => Promise<void> }) {
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Non" }));
+}
+
+async function reachReviewWithRecruitmentTypes(user: { click: (el: Element) => Promise<void> }) {
+  const checks = screen.getAllByRole("checkbox");
+  await user.click(checks[0]); // one outcome
+  await next(user);
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
+  await chooseNo(user);
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
+  for (const checkbox of screen.getAllByRole("checkbox")) await user.click(checkbox);
+  await user.click(screen.getByRole("button", { name: /Ouvrir les tableaux|Open the tables|Confirmer et ouvrir les tableaux|Confirm and open the tables/ }));
+}
+
+// The project quiz follows the employer quiz pattern: one focused beat at a
+// time, then a shared answer review before its existing scope commit runs.
+test("project quiz asks one labelled Oui/Non question at a time", async () => {
+  const { user, container, unmount } = renderQuiz();
+  assert.equal(screen.getAllByRole("radiogroup").length, 0, "the first beat is the outcomes checklist");
+  await next(user);
+  const group = await within(container).findByRole("radiogroup", { name: "Personnel permanent" });
+  assert.equal(within(group).getAllByRole("radio").length, 2);
+  await user.click(within(group).getByRole("radio", { name: "Oui" }));
+  assert.equal(screen.getAllByRole("radiogroup").length, 1);
+  assert.equal(screen.getByRole("radiogroup").getAttribute("aria-label"), "Personnel temporaire");
   unmount();
 });
 
-test("answering Oui checks that radio and leaves the other questions unanswered", async () => {
-  const { container, user, unmount } = renderQuiz();
-  const q = within(container);
-  const permanent = within(q.getAllByRole("radiogroup")[0]);
-  await user.click(permanent.getByRole("radio", { name: "Oui" }));
-  assert.equal(permanent.getByRole("radio", { name: "Oui" }).getAttribute("aria-checked"), "true");
-  assert.equal(permanent.getByRole("radio", { name: "Non" }).getAttribute("aria-checked"), "false");
-  const temporary = within(q.getAllByRole("radiogroup")[1]);
-  assert.ok(temporary.getAllByRole("radio").every((r) => r.getAttribute("aria-checked") === "false"));
-  unmount();
-});
-
-// §8: a paper code is an internal id and does not belong on a respondent's
-// screen (the rule commit af353005 applied to every question label).
-test("the Section 1 headcount is recalled without its paper code", () => {
-  const { container, unmount } = renderQuiz({ PP_S1Q15: 12 });
+test("the Section 1 headcount is recalled without its paper code", async () => {
+  const { container, user, unmount } = renderQuiz({ PP_S1Q15: 12 });
+  await next(user);
   const text = container.textContent ?? "";
   assert.ok(text.includes("Effectif permanent déclaré en Section 1 : 12."), text.slice(0, 200));
-  assert.ok(!/S1Q15/.test(text), "the paper code is still on screen");
+  assert.ok(!/S1Q15/.test(text));
   unmount();
 });
 
-test("no paper code appears anywhere in the quiz", () => {
-  const { container, unmount } = renderQuiz({ PP_S1Q15: 4 });
-  assert.ok(!/S[0-9]Q[0-9]{2}/.test(container.textContent ?? ""));
-  unmount();
-});
-
-// The configuration summary and Section 4's table list are one vocabulary.
-test("the summary names the six tables as the table list does", () => {
-  const { container, unmount } = renderQuiz();
+test("the review lists all selected tables using respondent-facing labels", async () => {
+  const { container, user, unmount } = renderQuiz();
+  await reachReviewWithRecruitmentTypes(user);
   const text = container.textContent ?? "";
   for (const table of PP_SECTION4_TABLES) {
     assert.ok(text.includes(`${table.number} ${table.name.fr}`), `missing ${table.number}`);
   }
+  assert.ok(screen.getByRole("heading", { name: /Vérifiez vos réponses/i }));
+  assert.ok(!/S[0-9]Q[0-9]{2}/.test(text));
   unmount();
 });
 
-// D2 of the 2026-10-19 E2E run: a table switched to "Aucun" is zero-filled,
-// and switching it back to "A remplir" used to leave those zeros, so the
-// table presented itself as answered before anything was typed.
-test("re-opening a closed table clears the zeros it was given", async () => {
+test("re-opening a closed table clears its derived zeros when the quiz is confirmed", async () => {
   const closed: Record<string, unknown> = {
     S4Q01_RESPONSE_STATUS: "NONE",
     S4Q02_RESPONSE_STATUS: "NONE",
@@ -91,53 +93,40 @@ test("re-opening a closed table clears the zeros it was given", async () => {
     pp_s4q01_cadres_male_15_24: 0,
     pp_s4q01_cadres_female_15_24: 0,
   };
-  const { container, user, changes, unmount } = renderQuiz(closed);
-  const q = within(container);
-  await user.click(q.getAllByRole("checkbox").at(-1)!); // "Aucun bénéficiaire…"
-  const groups = q.getAllByRole("radiogroup");
-  await user.click(within(groups[0]).getByRole("radio", { name: "Oui" })); // permanent staff: yes
-  await user.click(within(groups[1]).getByRole("radio", { name: "Non" }));
-  await user.click(within(groups[2]).getByRole("radio", { name: "Non" }));
-  await user.click(q.getByRole("button", { name: /Ouvrir les tableaux/ }));
+  const { user, changes, unmount } = renderQuiz(closed);
+  await next(user);
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
+  await chooseNo(user);
+  await chooseNo(user);
+  await user.click(screen.getByRole("button", { name: /Confirmer et ouvrir les tableaux/i }));
 
-  assert.ok(
-    changes.some(([id, v]) => id === "S4Q01_RESPONSE_STATUS" && v === "REPORTED"),
-    "4.1 was not re-opened",
-  );
-  const cleared = changes.filter(([id, v]) => id.startsWith("pp_s4q01_") && v === "");
-  assert.ok(cleared.length >= 2, `zeros left behind: ${JSON.stringify(changes.filter(([id]) => id.startsWith("pp_s4q01_")))}`);
-  // A table left closed keeps being zero-filled, as before.
-  assert.ok(changes.some(([id, v]) => id === "S4Q02_RESPONSE_STATUS" && v === "NONE"));
+  assert.ok(changes.some(([id, value]) => id === "S4Q01_RESPONSE_STATUS" && value === "REPORTED"));
+  const cleared = changes.filter(([id, value]) => id.startsWith("pp_s4q01_") && value === "");
+  assert.ok(cleared.length >= 2, `zeros left behind: ${JSON.stringify(changes)}`);
+  assert.ok(changes.some(([id, value]) => id === "S4Q02_RESPONSE_STATUS" && value === "NONE"));
   unmount();
 });
 
-test("a nil declaration is confirmed in a named dialog", async () => {
-  const { container, user, unmount } = renderQuiz();
-  const q = within(container);
-  await user.click(q.getAllByRole("checkbox").at(-1)!);
-  const groups = q.getAllByRole("radiogroup");
-  for (const group of groups) await user.click(within(group).getByRole("radio", { name: "Non" }));
-  await user.click(q.getByRole("button", { name: /Ouvrir les tableaux/ }));
+test("a nil declaration still requires confirmation in a named dialog", async () => {
+  const { user, unmount } = renderQuiz();
+  const checks = screen.getAllByRole("checkbox");
+  await user.click(checks.at(-1)!); // no beneficiaries
+  await next(user);
+  await chooseNo(user);
+  await chooseNo(user);
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Non" }));
+  await user.click(screen.getByRole("button", { name: /Confirmer et ouvrir les tableaux|Confirm and open the tables/ }));
 
   const dialog = screen.getByRole("dialog");
-  assert.equal(
-    dialog.getAttribute("aria-labelledby") !== null,
-    true,
-    "the dialog announces no name",
-  );
+  assert.ok(dialog.getAttribute("aria-labelledby"));
   assert.ok((dialog.textContent ?? "").includes("Confirmer une déclaration à néant"));
   unmount();
 });
 
-// A file carrying only a forecast for an outcome used to read as « aucun
-// bénéficiaire »: the quiz looked at the realised column alone, so re-opening
-// it offered to write a 0 over a row the respondent had never said was empty.
-test("an outcome is recognised from any of its three columns, not the realised one alone", () => {
+test("an outcome is recognised from a forecast column, not mistaken for no beneficiaries", () => {
   const { container, unmount } = renderQuiz({ s3kpi_employed_outlook_dec: 40 });
-  const q = within(container);
-  const boxes = q.getAllByRole("checkbox");
-  // The four outcomes, then « Aucun bénéficiaire… » last.
-  assert.equal((boxes[0] as HTMLInputElement).checked, true, "the forecast row is not ticked");
-  assert.equal((boxes.at(-1) as HTMLInputElement).checked, false, "read as a nil declaration");
+  const boxes = within(container).getAllByRole("checkbox");
+  assert.equal((boxes[0] as HTMLInputElement).checked, true, "the forecast outcome is selected");
+  assert.equal((boxes.at(-1) as HTMLInputElement).checked, false, "the nil declaration is not selected");
   unmount();
 });

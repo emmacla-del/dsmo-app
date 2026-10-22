@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import React from "react";
 import type { ScopeState, BeatDefinition, PrimaryQuestionId, ChildBeatId } from "./ScopeTypes";
 import {
   CSP_OPTIONS,
@@ -11,13 +10,14 @@ import {
   INTERNSHIP_TYPE_OPTIONS,
   RECRUITMENT_TYPE_OPTIONS,
 } from "./ScopeTypes";
+import { QuizBeatNav, QuizYesNo } from "@/components/onefop/QuizAnswerReview";
+import { tableQuestionHeadingStyle } from "@/components/onefop/table/TableQuestionHeading";
 import { ConditionalOptions } from "./ConditionalOptions";
 
 interface EventQuestionProps {
   beat: BeatDefinition;
   beatIndex: number;
   totalBeats: number;
-  isFirstBeat: boolean;
   isLastBeat: boolean;
   scope: ScopeState;
   onUpdateScope: (partial: Partial<ScopeState>) => void;
@@ -28,14 +28,12 @@ interface EventQuestionProps {
   hasTable: (code: string) => boolean;
   isEnterprise: boolean;
   locale?: "fr" | "en";
-  headerSlot?: React.ReactNode;
 }
 
 export function EventQuestion({
   beat,
   beatIndex,
   totalBeats,
-  isFirstBeat,
   isLastBeat,
   scope,
   onUpdateScope,
@@ -46,7 +44,6 @@ export function EventQuestion({
   hasTable,
   isEnterprise,
   locale = "fr",
-  headerSlot,
 }: EventQuestionProps) {
   const isEn = locale === "en";
   const t = useTranslations("modernJobs.event");
@@ -121,71 +118,16 @@ export function EventQuestion({
     value: boolean | null,
     onSelect: (val: boolean) => void,
     ariaLabel: string
-  ) => {
-    return (
-      <div
-        role="radiogroup"
-        aria-label={ariaLabel}
-        style={{ display: "flex", gap: 12, marginTop: 14, marginBottom: 8, maxWidth: 360 }}
-      >
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === true}
-          onClick={() => onSelect(true)}
-          style={{
-            flex: 1,
-            padding: "11px 18px",
-            borderRadius: "var(--cam-radius-control, 6px)",
-            border: value === true ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
-            background:
-              value === true
-                ? "var(--cam-success-bg)"
-                : "var(--cam-surface)",
-            color:
-              value === true
-                ? "var(--cam-green)"
-                : "var(--cam-text)",
-            fontWeight: 700,
-            fontSize: "var(--cam-answer-size)",
-            cursor: "pointer",
-            transition: "all 0.12s ease",
-            textAlign: "center",
-          }}
-        >
-          {t("yes")}
-        </button>
-
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === false}
-          onClick={() => onSelect(false)}
-          style={{
-            flex: 1,
-            padding: "11px 18px",
-            borderRadius: "var(--cam-radius-control, 6px)",
-            border: value === false ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
-            background:
-              value === false
-                ? "var(--cam-success-bg)"
-                : "var(--cam-surface)",
-            color:
-              value === false
-                ? "var(--cam-green)"
-                : "var(--cam-text)",
-            fontWeight: 700,
-            fontSize: "var(--cam-answer-size)",
-            cursor: "pointer",
-            transition: "all 0.12s ease",
-            textAlign: "center",
-          }}
-        >
-          {t("no")}
-        </button>
-      </div>
-    );
-  };
+  ) => (
+    <QuizYesNo
+      fieldId={`yn-${ariaLabel.replace(/\s+/g, "-")}`}
+      value={value}
+      onChange={onSelect}
+      ariaLabel={ariaLabel}
+      yesLabel={t("yes")}
+      noLabel={t("no")}
+    />
+  );
 
   const getMainQuestionTitle = (qId: PrimaryQuestionId): string => {
     switch (qId) {
@@ -230,62 +172,14 @@ export function EventQuestion({
   };
 
   return (
-    <section
-      aria-labelledby="active-event-question-title"
-      className="cam-quiz-card"
-      style={{
-        boxSizing: "border-box",
-        background: "var(--cam-surface)",
-        border: "1px solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-md, 8px)",
-        padding: "clamp(16px, 2.5vw, 24px)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Navigation tabs inside the quiz box (Pinned Header) */}
-      {headerSlot && <div style={{ flexShrink: 0 }}>{headerSlot}</div>}
-
-      {/* Scrollable Question Body Area */}
-      <div
-        className="cam-quiz-body-scroll"
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          minHeight: 0,
-          paddingRight: 4,
-          paddingBottom: 8,
-        }}
-      >
-        {/* Intro for the very first beat only */}
-        {isFirstBeat && (
-          <div
-            style={{
-              padding: "11px 16px",
-              background: "var(--cam-bg)",
-              borderLeft: "3px solid var(--cam-green)",
-              borderRadius: "0 4px 4px 0",
-              fontSize: "var(--cam-font-size-sm)",
-              color: "var(--cam-text-muted)",
-              lineHeight: "var(--cam-line-height-copy)",
-              marginBottom: 14,
-            }}
-          >
-            {t("intro")}
-          </div>
-        )}
-
+    <section aria-labelledby="active-event-question-title">
         {/* RENDER ACTIVE BEAT */}
       {!childBeatId ? (
         /* MAIN BEAT */
         <div>
           <h2
             id="active-event-question-title"
-            className="cam-question"
-            style={{ margin: "0 0 var(--cam-space-2)" }}
+            style={tableQuestionHeadingStyle}
           >
             {getMainQuestionTitle(mainId)}
           </h2>
@@ -360,11 +254,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("applicationsCspQ")}
               </p>
               <ConditionalOptions
@@ -382,11 +276,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("applicationsAgeQ")}
               </p>
               <ConditionalOptions
@@ -404,11 +298,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("recruitmentTypes")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("recruitTypesQ")}
               </p>
               <ConditionalOptions
@@ -426,11 +320,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("recruitCspQ")}
               </p>
               <ConditionalOptions
@@ -448,11 +342,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("recruitAgeQ")}
               </p>
               <ConditionalOptions
@@ -470,11 +364,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("diplomaLevels")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("recruitDiplomaQ")}
               </p>
               <ConditionalOptions
@@ -492,11 +386,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("disabilityTitle")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("disabilityQ")}
               </p>
               {renderYesNo(
@@ -512,11 +406,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("vulnerableTitle")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("vulnerableQ")}
               </p>
               {renderYesNo(
@@ -532,11 +426,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("primoSeekersCspQ")}
               </p>
               <ConditionalOptions
@@ -554,11 +448,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("primoSeekersAgeQ")}
               </p>
               <ConditionalOptions
@@ -576,11 +470,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("recruitmentTypes")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("primoWorkersTypesQ")}
               </p>
               <ConditionalOptions
@@ -598,11 +492,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("staffCategories")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("primoWorkersCspQ")}
               </p>
               <ConditionalOptions
@@ -620,11 +514,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("ageGroups")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("primoWorkersAgeQ")}
               </p>
               <ConditionalOptions
@@ -642,11 +536,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("departureReasons")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("departureReasonsQ")}
               </p>
               <ConditionalOptions
@@ -670,11 +564,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("technicalTitle")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("technicalQ")}
               </p>
               {renderYesNo(
@@ -690,11 +584,11 @@ export function EventQuestion({
             <div>
               <h2
                 id="active-event-question-title"
-                style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-bold)", lineHeight: "var(--cam-line-height-title)", color: "var(--cam-text)", margin: "0 0 var(--cam-space-2)" }}
+                className="cam-question" style={{ margin: "0 0 var(--cam-space-2)" }}
               >
                 {t("internTypes")}
               </h2>
-              <p className="cam-question" style={{ margin: "0 0 var(--cam-space-4)" }}>
+              <p style={{ ...tableQuestionHeadingStyle, margin: "0 0 var(--cam-field-stack-gap)" }}>
                 {t("internTypesQ")}
               </p>
               <ConditionalOptions
@@ -708,80 +602,14 @@ export function EventQuestion({
           )}
         </div>
       )}
-      </div>
 
-      {/* Navigation Actions inside the Quiz Box (Pinned Footer) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: "auto",
-          paddingTop: 12,
-          borderTop: "1px solid var(--cam-border)",
-          gap: 12,
-          flexShrink: 0,
-        }}
-      >
-        <button
-          type="button"
-          onClick={onPrev}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--cam-text-muted)",
-            fontSize: "var(--cam-font-size-sm, 14px)",
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 12px",
-            borderRadius: "var(--cam-radius-control, 6px)",
-            transition: "all 0.15s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--cam-text)";
-            e.currentTarget.style.background = "var(--cam-surface-subtle)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--cam-text-muted)";
-            e.currentTarget.style.background = "transparent";
-          }}
-        >
-          <span aria-hidden="true">←</span>
-          <span>{t("previous")}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={!canContinue}
-          style={{
-            background: canContinue ? "var(--cam-green)" : "var(--cam-border)",
-            color: canContinue ? "var(--cam-white)" : "var(--cam-text-muted)",
-            border: "none",
-            borderRadius: "var(--cam-radius-control, 6px)",
-            height: "var(--cam-button-height, 42px)",
-            padding: "0 22px",
-            fontSize: "var(--cam-font-size-sm, 14px)",
-            fontWeight: 600,
-            cursor: canContinue ? "pointer" : "not-allowed",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            boxShadow: canContinue ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
-            transition: "all 0.15s ease",
-          }}
-        >
-          <span>
-            {isLastBeat
-              ? t("openTables")
-              : t("continue")}
-          </span>
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
+      <QuizBeatNav
+        previousLabel={t("previous")}
+        nextLabel={isLastBeat ? t("openTables") : t("continue")}
+        onPrevious={onPrev}
+        onNext={onContinue}
+        nextDisabled={!canContinue}
+      />
     </section>
   );
 }

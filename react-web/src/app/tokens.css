@@ -397,6 +397,10 @@
      page scrolls, so this caps width alone. */
   --cam-container-wizard: 600px;
 
+  /* The preliminary quizzes contain answer reviews wider than a form field
+     column. Keep the single-field form measure at 600px. */
+  --cam-container-quiz: 680px;
+
   /* Space between two field rows, and between a label and the input
      beneath it. (No label-column tokens: the wizard is one column at every
      width -- owner's decision, 2026-10-10.) */

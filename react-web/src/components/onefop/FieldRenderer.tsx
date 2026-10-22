@@ -6,6 +6,7 @@ import { localized } from "@/lib/onefop-schema";
 import { questionCodeText, splitQuestionCode } from "@/lib/question-code";
 import { AnyTableRenderer } from "./AnyTableRenderer";
 import { FieldControl } from "./FieldControl";
+import { QuestionField, questionErrorStyle, questionLabelStyle } from "./QuestionField";
 import { CoherenceFieldNote } from "./coherence/Coherence";
 import { InfoTooltip } from "./ui/InfoTooltip";
 import { CodedLabel } from "./ui/QuestionCode";
@@ -19,14 +20,7 @@ import { ppFieldLabel, ppNatureKindOf } from "@/lib/pp-nature-wording";
 
 /** Question text: the --cam-question-* tokens every respondent form shares
  *  (15px medium); answers are --cam-answer-size (14px), hints 12px. */
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "var(--cam-question-size)",
-  fontWeight: "var(--cam-question-weight)",
-  lineHeight: "var(--cam-question-line-height)",
-  color: "var(--cam-text)",
-  marginBottom: "var(--cam-field-stack-gap)",
-};
+const labelStyle = questionLabelStyle;
 
 const wrapperStyle: React.CSSProperties = {
   marginBottom: "var(--cam-form-gap)",
@@ -46,17 +40,14 @@ const selectAllHintStyle: React.CSSProperties = {
 };
 
 const errorTextStyle: React.CSSProperties = {
-  fontSize: "var(--cam-font-size-xs, 0.75rem)",
-  color: "var(--cam-error)",
-  fontWeight: 600,
+  ...questionErrorStyle,
   margin: "var(--cam-space-1, 4px) 0 0",
-  lineHeight: 1.35,
 };
 
 const secondaryLabelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "var(--cam-font-size-sm)",
-  fontWeight: 500,
+  fontWeight: "var(--cam-font-weight-medium)",
   color: "var(--cam-text-muted)",
   marginTop: 2,
 };
@@ -339,16 +330,13 @@ export function FieldRenderer({
   })();
 
   return (
-    <div style={ownWrapperStyle}>
-      <div style={{ marginBottom: "var(--cam-space-2, 8px)", alignSelf: noBottomMargin ? "end" : undefined }}>
-        <label
-          htmlFor={field.id}
-          style={{
-            ...labelStyle,
-            marginBottom: 0,
-            display: "inline",
-          }}
-        >
+    <QuestionField
+      fieldId={field.id}
+      wrapperStyle={ownWrapperStyle}
+      labelWrapperStyle={{ marginBottom: "var(--cam-space-2, 8px)", alignSelf: noBottomMargin ? "end" : undefined }}
+      labelStyle={{ ...labelStyle, marginBottom: 0, display: "inline" }}
+      label={
+        <>
           <span><CodedLabel code={coded.code} text={coded.text} /></span>
           <OptionalSuffix field={field} />
           {tooltip && (
@@ -356,9 +344,21 @@ export function FieldRenderer({
               <InfoTooltip content={tooltipText ?? tooltip.fr} ariaLabel={label} />
             </span>
           )}
-        </label>
-        {secondaryLabel && secondaryLabel !== label && <span style={secondaryLabelStyle}>{secondaryLabel}</span>}
-      </div>
+        </>
+      }
+      labelBelow={secondaryLabel && secondaryLabel !== label ? <span style={secondaryLabelStyle}>{secondaryLabel}</span> : undefined}
+      errorId={errorId}
+      errorMessage={hasError ? cleanMessage : undefined}
+      errorStyle={errorTextStyle}
+      messageWrapperStyle={noBottomMargin ? { contain: "inline-size" } : undefined}
+      afterControl={(
+        <>
+          {/* In a side-by-side row, messages wrap to the column instead of widening it. */}
+          {!isRespondentSection && hint && !/^\s*(ex\.?|e\.g\.?)\s*:?\s/i.test(hint) && <p style={hintStyle}>{hint}</p>}
+          <CoherenceFieldNote fieldId={field.id} />
+        </>
+      )}
+    >
       <div style={controlMaxWidth ? { width: controlMaxWidth, maxWidth: "100%" } : undefined}>
         <FieldControl
           locale={locale}
@@ -370,17 +370,6 @@ export function FieldRenderer({
           onFieldTouch={onFieldTouch}
         />
       </div>
-      {/* In a side-by-side row, messages wrap to the column instead of widening it. */}
-      <div style={noBottomMargin ? { contain: "inline-size" } : undefined}>
-        {hasError && (
-          <p id={errorId} role="alert" style={errorTextStyle}>
-            {cleanMessage}
-          </p>
-        )}
-        {/* An "Ex: …" hint is already shown as the placeholder — don't repeat it. */}
-        {!isRespondentSection && hint && !/^\s*(ex\.?|e\.g\.?)\s*:?\s/i.test(hint) && <p style={hintStyle}>{hint}</p>}
-        <CoherenceFieldNote fieldId={field.id} />
-      </div>
-    </div>
+    </QuestionField>
   );
 }

@@ -961,6 +961,7 @@
     "badgeCompleted": "Complété",
     "badgeInProgress": "En cours",
     "badgeNotStarted": "Non commencé",
+    "badgeToCorrect": "À corriger",
     "questionsProgress": "{filled} / {total, plural, one {# question} other {# questions}}",
     "tablesProgress": "{complete} / {total, plural, one {# tableau} other {# tableaux}}",
     "answers": {
@@ -1012,9 +1013,9 @@
     "saveFailedToast": "Échec de l'enregistrement — réessayez",
     "savedJustNowToast": "Enregistré à l'instant",
     "stepAnnouncement": "{title} ({current} sur {total})",
-    "quizAnnouncement": "Questionnaire préliminaire",
+    "quizAnnouncement": "Quiz préalable",
     "railLockedSection": "Terminez la section {number} d'abord",
-    "railLockedQuiz": "Répondez d'abord au questionnaire préliminaire",
+    "railLockedQuiz": "Répondez d'abord au quiz préalable",
     "saving": "Enregistrement…"
   },
   "vtWizard": {
@@ -1224,14 +1225,26 @@
         "vulnerable": "Personnes vulnérables",
         "technical": "Chômage technique",
         "item": "{label} : {answer}"
-      }
+      },
+      "dimContracts": "Types de contrat",
+      "dimReasons": "Motifs de départ",
+      "dimInternships": "Types de stage",
+      "dimCategories": "Catégories de personnel",
+      "dimAges": "Groupes d'âge",
+      "dimDiplomas": "Niveaux de diplôme",
+      "dimSpecific": "Critères spécifiques",
+      "changeAnswer": "Modifier"
     },
     "factsReview": {
       "proceed": "Confirmer et ouvrir les tableaux",
-      "modify": "Modifier les réponses",
       "warning": "Certaines rubriques déjà saisies ne seront plus déposées.",
-      "lead": "Ces réponses déterminent les tableaux statistiques que vous aurez à remplir. Cliquez sur une ligne ou une case pour modifier une réponse.",
       "title": "Vérifiez vos réponses au quiz préalable"
+    },
+    "vtFactsReview": {
+      "title": "Vérifiez vos réponses sur le centre de formation"
+    },
+    "ppFactsReview": {
+      "title": "Vérifiez vos réponses sur le projet ou programme"
     },
     "guided": {
       "pressEnter": "Appuyez sur Entrée ↵ pour passer à la question suivante.",
@@ -3493,7 +3506,7 @@
     "stateTodo": "pas commencée",
     "stateError": "à corriger",
     "stateLocked": "pas encore ouverte",
-    "quiz": "Questionnaire préliminaire",
+    "quiz": "Quiz préalable",
     "review": "Récapitulatif et dépôt",
     "tableCount": "{total, plural, one {# tableau} other {# tableaux}}",
     "tableProgress": "Tableau {current} sur {total}",

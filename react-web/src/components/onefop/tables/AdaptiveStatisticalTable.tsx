@@ -491,10 +491,6 @@ export function AdaptiveStatisticalTable({
             borderBottom: "1px solid var(--cam-border)",
             padding: "6px 0",
             overflowX: "auto",
-            // Pinned under the header + section pills while the table scrolls.
-            position: "sticky",
-            top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px))",
-            zIndex: 26,
             background: "var(--cam-surface)",
           }}
         >
@@ -512,7 +508,7 @@ export function AdaptiveStatisticalTable({
                 style={{
                   padding: "6px 14px",
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                  fontWeight: 700,
+                  fontWeight: "var(--cam-font-weight-bold)",
                   borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
                   borderBottom: "2px solid",
                   borderColor: isActive ? "var(--cam-green)" : "transparent",
@@ -621,12 +617,6 @@ function BlockTabs({
         // without a margin between them (owner, 2026-10-22). So the strip
         // draws the table's top edge itself: it overlaps the frame by that
         // 1px and paints the line over its own bottom row, above the tabs.
-        // Pinned, the same line closes the table under the tabs.
-        // Pinned under the header, the section pills and (S22Q03) the
-        // category tabs while the table scrolls.
-        position: "sticky",
-        top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px) + var(--mj-csp-h, 0px))",
-        zIndex: 25,
         background: "var(--cam-surface)",
         paddingTop: 4,
         marginBottom: -1,
@@ -669,7 +659,7 @@ function BlockTabs({
               gap: 6,
               padding: "7px 14px",
               fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
               fontFamily: "var(--cam-font-sans)",
               whiteSpace: "nowrap",
               cursor: "pointer",

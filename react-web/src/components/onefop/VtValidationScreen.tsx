@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
+import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { validateSectionData } from "@/lib/onefop-validation";
-import { getVtSectionShortLabel, isVtSectionComplete, vtWizardSectionStats } from "./vt-wizard-utils";
+import { getVtSectionShortLabel, vtWizardSectionProgress } from "./vt-wizard-utils";
 import { getZeroedTablesList } from "@/components/modern-jobs/scope/QuizSemantics";
-import { vtSectionTableCounts } from "@/lib/vt-review-counts";
 import { VtSectionAnswers } from "./VtSectionAnswers";
+import { SectionProgressText } from "./SectionProgress";
+import type { SectionProgressSummary } from "@/lib/section-progress";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import type { CoherenceFlag } from "@/lib/onefop-submission";
 
@@ -49,45 +49,12 @@ function coherenceSectionId(code: string): string {
   return code.startsWith("VT_TRAINER_") ? "section8_vocationalTraining" : "section4_vocationalTraining";
 }
 
-type SectionState = "notStarted" | "inProgress" | "done";
-
-/** Whether any cell of the section's tables holds a value. */
-function sectionHasTableData(section: OnefopSection, data: FormData): boolean {
-  return section.fields.some((f) =>
-    (f.table?.matrix ?? []).some((row) =>
-      row.some((id) => data[id] !== undefined && data[id] !== null && data[id] !== ""),
-    ),
-  );
-}
-
 // Same counting as the sidebar (vt-wizard-utils): required, visible,
 // non-table questions; tables are covered by the validator. A section a
 // closed or non-functional centre does not answer counts as done, and so
 // does a valid section made only of tables (Section 4: 0 questions) —
 // isVtSectionComplete, the sidebar's own rule. Tables are counted apart
 // (vtSectionTableCounts): counting questions only, Section 4 read "0 / 0".
-function getSectionStats(section: OnefopSection, data: FormData) {
-  const { filled, total } = vtWizardSectionStats(section, data);
-  const issues = validateSectionData(section, data);
-  const tables = vtSectionTableCounts(section, data, issues);
-
-  let state: SectionState = "notStarted";
-  if (isVtSectionComplete(section, data)) {
-    state = "done";
-  } else if (filled > 0 || (total === 0 && sectionHasTableData(section, data))) {
-    state = "inProgress";
-  }
-
-  return {
-    filled,
-    total,
-    tables,
-    fraction: total + tables.total > 0 ? (filled + tables.complete) / (total + tables.total) : 0,
-    state,
-    issuesCount: issues.length,
-  };
-}
-
 /**
  * Port of lib/screens/onefop/wizard/vt_wizard_validation_screen.dart:
  * - Confidentiality notice (Law N° 91/023)
@@ -153,17 +120,19 @@ export function VtValidationScreen({
     return sections.map((sec, idx) => ({
       index: idx + 1,
       section: sec,
-      stats: getSectionStats(sec, data),
+      stats: vtWizardSectionProgress(sec, data, true),
     }));
   }, [sections, data]);
 
-  const hasIncomplete = sectionSummaries.some((s) => s.stats.state !== "done");
+  const hasIncomplete = sectionSummaries.some((s) => s.stats.status !== "complete");
   /** "12 / 14 questions · 8 / 11 tables", leaving out a part the section does not have. */
-  const progressLine = (stats: ReturnType<typeof getSectionStats>) =>
+  const progressLine = (stats: SectionProgressSummary) =>
     [
-      stats.total > 0 ? t("vtValidationScreen.questionsProgress", { filled: stats.filled, total: stats.total }) : null,
+      stats.questions.total > 0
+        ? t("vtValidationScreen.questionsProgress", { filled: stats.questions.answered, total: stats.questions.total })
+        : null,
       stats.tables.total > 0
-        ? t("vtValidationScreen.tablesProgress", { complete: stats.tables.complete, total: stats.tables.total })
+        ? t("vtValidationScreen.tablesProgress", { complete: stats.tables.completed, total: stats.tables.total })
         : null,
     ]
       .filter(Boolean)
@@ -174,7 +143,7 @@ export function VtValidationScreen({
   // whose required fields are all absent.
   // The preliminary quiz decides which tables apply: submission waits for it.
   const quizIncomplete = !!quiz && !quiz.isComplete;
-  const hasErrors = quizIncomplete || sectionSummaries.some((s) => s.stats.issuesCount > 0);
+  const hasErrors = quizIncomplete || sectionSummaries.some((s) => s.stats.issueCount > 0);
   // Why Submit cannot proceed, if it cannot: errors first, then a closed
   // period (the one condition the respondent cannot fix by editing).
   const submitBlockedReasonId = hasErrors
@@ -192,7 +161,7 @@ export function VtValidationScreen({
     padding: "0 20px",
     borderRadius: "var(--cam-radius-sm)",
     fontSize: "var(--cam-font-size-sm)",
-    fontWeight: 600,
+    fontWeight: "var(--cam-font-weight-semibold)",
     cursor: "pointer",
     border: "1px solid var(--cam-border)",
     background: "var(--cam-surface)",
@@ -281,7 +250,7 @@ export function VtValidationScreen({
           {isFr
             ? "Le questionnaire préliminaire n'est pas terminé : il détermine les tableaux à renseigner."
             : "The preliminary questionnaire is not finished: it decides which tables to fill."}{" "}
-          <button type="button" onClick={quiz!.onOpen} style={{ ...linkButton, color: "inherit", fontWeight: 600 }}>
+          <button type="button" onClick={quiz!.onOpen} style={{ ...linkButton, color: "inherit", fontWeight: "var(--cam-font-weight-semibold)" }}>
             {isFr ? "Ouvrir le questionnaire préliminaire" : "Open the preliminary questionnaire"}
           </button>
         </div>
@@ -297,7 +266,7 @@ export function VtValidationScreen({
           tabIndex={-1}
           style={{ ...noticeStyle, background: "var(--cam-notice-surface)", border: "1px solid var(--cam-gold)" }}
         >
-          <div style={{ fontWeight: 600 }}>{t("vtValidationScreen.periodClosedTitle")}</div>
+          <div style={{ fontWeight: "var(--cam-font-weight-semibold)" }}>{t("vtValidationScreen.periodClosedTitle")}</div>
           {quarterStatusMessage && (
             <div style={{ marginTop: "var(--cam-space-1)", color: "var(--cam-text-muted)" }}>{quarterStatusMessage}</div>
           )}
@@ -354,31 +323,22 @@ export function VtValidationScreen({
                   name: getVtSectionShortLabel(section.id, locale) ?? localized(section.title, locale.startsWith("en") ? "en" : "fr"),
                 })}
               </h2>
-              <span
-                style={{
-                  fontSize: "var(--cam-font-size-sm)",
-                  fontWeight: 600,
-                  color:
-                    stats.state === "done"
-                      ? "var(--cam-green)"
-                      : stats.state === "inProgress"
-                        ? "var(--cam-notice-text)"
-                        : "var(--cam-text-muted)",
-                }}
-              >
-                {stats.state === "done"
+              <SectionProgressText status={stats.status}>
+                {stats.status === "complete"
                   ? t("vtValidationScreen.badgeCompleted")
-                  : stats.state === "inProgress"
-                    ? t("vtValidationScreen.badgeInProgress")
-                    : t("vtValidationScreen.badgeNotStarted")}
-              </span>
+                  : stats.status === "has-errors"
+                    ? t("vtValidationScreen.badgeToCorrect")
+                    : stats.status === "in-progress"
+                      ? t("vtValidationScreen.badgeInProgress")
+                      : t("vtValidationScreen.badgeNotStarted")}
+              </SectionProgressText>
             </div>
             <div style={{ marginTop: "var(--cam-space-1)", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)" }}>
               {progressLine(stats)}
-              {stats.issuesCount > 0 && (
-                <span style={{ color: "var(--cam-error)", fontWeight: 600 }}>
+              {stats.issueCount > 0 && (
+                <span style={{ color: "var(--cam-error)", fontWeight: "var(--cam-font-weight-semibold)" }}>
                   {progressLine(stats) ? " · " : ""}
-                  {t("vtValidationScreen.issuesCount", { count: stats.issuesCount })}
+                  {t("vtValidationScreen.issuesCount", { count: stats.issueCount })}
                 </span>
               )}
             </div>

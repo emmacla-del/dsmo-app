@@ -6,8 +6,8 @@ import { schemaEntity, schemaField } from "@/test/schema";
 import type { OnefopEntity } from "@/lib/onefop-schema";
 import { writeWizardPosition } from "@/lib/wizard-position";
 
-// Defect 3: on the review step the side list lost "Preliminary
-// questionnaire"; every other step lists it.
+// Defect 3: on the review step the side list lost the preliminary quiz;
+// every other step lists it. The rail names it "Preliminary quiz".
 
 const vt = schemaEntity("vocationalTraining");
 const optional = schemaField("vocationalTraining", "VT1_3");
@@ -19,7 +19,7 @@ const KEY = "review-sidebar-test";
 
 afterEach(() => sessionStorage.clear());
 
-test("the review step's side list still names the preliminary questionnaire", () => {
+test("the review step's side list still names the preliminary quiz", () => {
   writeWizardPosition(KEY, { stage: "review", sectionIndex: 0 });
   renderWithProviders(<WizardShell entity={entity} data={{}} onChange={() => {}} positionKey={KEY} />, {
     locale: "en",
@@ -27,7 +27,7 @@ test("the review step's side list still names the preliminary questionnaire", ()
   });
   const nav = document.querySelector("nav") as HTMLElement;
   assert.ok(nav, "the side list is shown on a wide screen");
-  assert.ok(within(nav).getByText("Preliminary questionnaire"));
+  assert.ok(within(nav).getByText("Preliminary quiz"));
 });
 
 // 2026-10-16 re-test: the side list and the Contents drawer still named the

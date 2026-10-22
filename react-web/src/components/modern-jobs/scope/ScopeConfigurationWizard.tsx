@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { ScopeConfirmDialog } from "./ScopeConfirmDialog";
 import type { FormData, OnefopEntity, OnefopField } from "@/lib/onefop-schema";
 import { canonicalGatewayId, resolveTableStatusFieldId } from "../conditional/gateway-catalog";
 import type {
@@ -40,7 +41,6 @@ import {
   zeroedCellsBackInView,
 } from "./QuizSemantics";
 import { FactsReview } from "./FactsReview";
-import { EventProgress, ProgressGroup } from "./EventProgress";
 import { EventQuestion } from "./EventQuestion";
 
 export interface EventFactInterviewProps {
@@ -462,107 +462,6 @@ export function EventFactInterview({
     }
   }, [activeBeat, gentleScrollToTop, onBack, orderedBeats]);
 
-  // Group jump from top indicator
-  const handleSelectGroup = useCallback(
-    (groupId: "emploi" | "primo" | "departs" | "stages") => {
-      switch (groupId) {
-        case "emploi": {
-          const target = availableQuestionIds.find((q) => q === "applications" || q === "recruitment");
-          if (target) {
-            setActiveBeat({ mainId: target });
-            gentleScrollToTop();
-          }
-          break;
-        }
-        case "primo": {
-          const target = availableQuestionIds.find((q) => q === "primo_seekers" || q === "primo_workers");
-          if (target) {
-            setActiveBeat({ mainId: target });
-            gentleScrollToTop();
-          }
-          break;
-        }
-        case "departs": {
-          if (availableQuestionIds.includes("departures")) {
-            setActiveBeat({ mainId: "departures" });
-            gentleScrollToTop();
-          }
-          break;
-        }
-        case "stages": {
-          const target = availableQuestionIds.find((q) => q === "interns" || q === "skills" || q === "training");
-          if (target) {
-            setActiveBeat({ mainId: target });
-            gentleScrollToTop();
-          }
-          break;
-        }
-      }
-    },
-    [availableQuestionIds, gentleScrollToTop]
-  );
-
-  // Compute progress groups (Faits ● Emploi ○ Départs ○ Stages)
-  const progressGroups: ProgressGroup[] = useMemo(() => {
-    const grps: ProgressGroup[] = [];
-
-    const hasEmploi = availableQuestionIds.some((q) => q === "applications" || q === "recruitment");
-    if (hasEmploi) {
-      const emploiQuestions = availableQuestionIds.filter((q) => q === "applications" || q === "recruitment");
-      const isComplete = emploiQuestions.every((q) => isQuestionComplete(q, scope));
-      const isActive = activeBeat.mainId === "applications" || activeBeat.mainId === "recruitment";
-      grps.push({
-        id: "emploi",
-        label: t("groupEmployment"),
-        isComplete,
-        isActive,
-      });
-    }
-
-    const hasPrimo = availableQuestionIds.some((q) => q === "primo_seekers" || q === "primo_workers");
-    if (hasPrimo) {
-      const primoQuestions = availableQuestionIds.filter((q) => q === "primo_seekers" || q === "primo_workers");
-      const isComplete = primoQuestions.every((q) => isQuestionComplete(q, scope));
-      const isActive = activeBeat.mainId === "primo_seekers" || activeBeat.mainId === "primo_workers";
-      grps.push({
-        id: "primo",
-        label: t("groupFirstJob"),
-        isComplete,
-        isActive,
-      });
-    }
-
-    const hasDeparts = availableQuestionIds.some((q) => q === "departures");
-    if (hasDeparts) {
-      const isComplete = isQuestionComplete("departures", scope);
-      const isActive = activeBeat.mainId === "departures";
-      grps.push({
-        id: "departs",
-        label: t("groupDepartures"),
-        isComplete,
-        isActive,
-      });
-    }
-
-    const hasStages = availableQuestionIds.some((q) => q === "interns" || q === "skills" || q === "training");
-    if (hasStages) {
-      const stagesQuestions = availableQuestionIds.filter(
-        (q) => q === "interns" || q === "skills" || q === "training"
-      );
-      const isComplete = stagesQuestions.every((q) => isQuestionComplete(q, scope));
-      const isActive =
-        activeBeat.mainId === "interns" || activeBeat.mainId === "skills" || activeBeat.mainId === "training";
-      grps.push({
-        id: "stages",
-        label: t("groupInternships"),
-        isComplete,
-        isActive,
-      });
-    }
-
-    return grps;
-  }, [availableQuestionIds, activeBeat.mainId, isQuestionComplete, scope, t]);
-
   const handleConfirmGlobalNone = useCallback(() => {
     setShowPlausibilityModal(false);
     purgeAllDroppedTablesData(scope);
@@ -613,8 +512,8 @@ export function EventFactInterview({
         }));
     const yesNo = (v: boolean | null) => (v === null ? null : v ? tFacts("yes") : tFacts("no"));
     const answer = (v: boolean | null): "Oui" | "Non" | null => (v === null ? null : v ? "Oui" : "Non");
-    const other = (label: string, v: boolean | null): TrackerChipItem[] =>
-      v === null ? [] : [{ label: tFacts("other.item", { label, answer: yesNo(v) ?? "" }) }];
+    const other = (label: string, v: boolean | null, beat: ChildBeatId): TrackerChipItem[] =>
+      v === null ? [] : [{ label: tFacts("other.item", { label, answer: yesNo(v) ?? "" }), beat }];
 
     const rows: TrackerRow[] = [];
     for (const qId of availableQuestionIds) {
@@ -641,8 +540,8 @@ export function EventFactInterview({
             ages: pick(AGE_BAND_OPTIONS, scope.recruit_age),
             diplomes: pick(DIPLOMA_OPTIONS, scope.recruit_diploma),
             autre: [
-              ...other(tFacts("other.disability"), scope.disability),
-              ...other(tFacts("other.vulnerable"), scope.vulnerable),
+              ...other(tFacts("other.disability"), scope.disability, "recruit_disability"),
+              ...other(tFacts("other.vulnerable"), scope.vulnerable, "recruit_vulnerable"),
             ],
             cellBeats: {
               typesMotifs: "recruit_types",
@@ -683,7 +582,7 @@ export function EventFactInterview({
             title: tFacts("row.departures"),
             reponse: answer(scope.departures),
             typesMotifs: pick(DEPARTURE_REASON_OPTIONS, scope.departure_reasons),
-            autre: other(tFacts("other.technical"), scope.dismissal_technical),
+            autre: other(tFacts("other.technical"), scope.dismissal_technical, "dismissal_technical"),
             cellBeats: { typesMotifs: "departure_reasons", autre: "dismissal_technical" },
           });
           break;
@@ -732,52 +631,33 @@ export function EventFactInterview({
       style={{
         boxSizing: "border-box",
         width: "100%",
-        maxWidth: "var(--vt-content-max, 940px)",
         margin: "0 auto",
-        padding: "0 4px",
       }}
     >
-      {/* Title and Subtitle */}
-      <div style={{ marginBottom: 12 }}>
+      <header className="cam-step-head">
         <h1
           // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
           id="mj-scope-heading"
           tabIndex={-1}
-          // The section heading's style, as the VT quiz's heading.
-          className="cam-step-title"
-          style={{ margin: "0 0 6px" }}
+          className="cam-step-title cam-rail-named"
         >
           {t("title")}
         </h1>
-        <p
-          style={{
-            fontSize: "var(--cam-font-size-sm)",
-            color: "var(--cam-text-muted)",
-            margin: 0,
-            lineHeight: 1.5,
-          }}
-        >
-          {t("intro")}
-        </p>
-      </div>
+      </header>
 
       <div style={{ width: "100%" }}>
         {isReviewing ? (
           <FactsReview
             rows={trackerRows}
-            activeBeat={{ mainId: "__none__" as PrimaryQuestionId }}
             onSelectBeat={handleSelectBeatFromReview}
             hasDroppedDataWarning={hasDroppedDataWarning}
-            onModify={() => handleSelectBeatFromReview(orderedBeats[0] ?? { mainId: availableQuestionIds[0] })}
             onConfirmProceed={() => handleFinalProceed(true)}
-            locale={locale}
           />
         ) : (
         <EventQuestion
           beat={activeBeat}
           beatIndex={activeBeatIndex}
           totalBeats={orderedBeats.length}
-          isFirstBeat={activeBeatIndex === 0}
           isLastBeat={activeBeatIndex === orderedBeats.length - 1}
           scope={scope}
           onUpdateScope={handleUpdateScope}
@@ -787,203 +667,48 @@ export function EventFactInterview({
           onSelectMainNo={handleSelectMainNo}
           hasTable={hasTable}
           isEnterprise={isEnterprise}
-          locale={locale}
-          headerSlot={
-            <EventProgress
-              groups={progressGroups}
-              onSelectGroup={handleSelectGroup}
-              locale={locale}
-              inCard={true}
-            />
-          }
         />
         )}
       </div>
 
       {/* Dropped Data Warning Modal (if modifying previous answers excludes existing entries) */}
       {showDroppedDataModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="dropped-data-modal-title"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.55)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
+        <ScopeConfirmDialog
+          id="mj-dropped"
+          title={t("excludedTitle")}
+          body={t("excludedBody")}
+          cancelLabel={t("modifyQuiz")}
+          confirmLabel={t("confirmOpen")}
+          onCancel={() => {
+            setShowDroppedDataModal(false);
+            setPendingNoEvent(null);
           }}
-        >
-          <div
-            style={{
-              background: "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md, 8px)",
-              padding: "clamp(20px, 4vw, 28px)",
-              maxWidth: 520,
-              width: "100%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: "var(--cam-font-size-xl)" }} aria-hidden="true">
-                ⚠️
-              </span>
-              <h3
-                id="dropped-data-modal-title"
-                style={{ margin: 0, fontSize: "var(--cam-font-size-lg)", fontWeight: 700, color: "var(--cam-text)" }}
-              >
-                {t("excludedTitle")}
-              </h3>
-            </div>
-            <p
-              style={{
-                fontSize: "var(--cam-font-size-sm)",
-                color: "var(--cam-text-muted)",
-                lineHeight: 1.5,
-                margin: "0 0 20px",
-              }}
-            >
-              {t("excludedBody")}
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDroppedDataModal(false);
-                  setPendingNoEvent(null);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--cam-border)",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {t("modifyQuiz")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDroppedDataModal(false);
-                  if (pendingNoEvent) {
-                    const target = pendingNoEvent;
-                    setPendingNoEvent(null);
-                    applyEventNo(target);
-                  } else {
-                    purgeAllDroppedTablesData(scope);
-                    commitScopeToFormData(scope);
-                    onComplete();
-                  }
-                }}
-                style={{
-                  background: "var(--cam-green)",
-                  color: "var(--cam-white)",
-                  border: "none",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "9px 20px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {t("confirmOpen")}
-              </button>
-            </div>
-          </div>
-        </div>
+          onConfirm={() => {
+            setShowDroppedDataModal(false);
+            if (pendingNoEvent) {
+              const target = pendingNoEvent;
+              setPendingNoEvent(null);
+              applyEventNo(target);
+            } else {
+              purgeAllDroppedTablesData(scope);
+              commitScopeToFormData(scope);
+              onComplete();
+            }
+          }}
+        />
       )}
 
       {/* Global-NONE Plausibility Modal */}
       {showPlausibilityModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="plausibility-modal-title"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.55)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-md, 8px)",
-              padding: "clamp(20px, 4vw, 28px)",
-              maxWidth: 520,
-              width: "100%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-            }}
-          >
-            <h3
-              id="plausibility-modal-title"
-              style={{
-                fontSize: "var(--cam-font-size-lg)",
-                fontWeight: "var(--cam-font-weight-bold)",
-                color: "var(--cam-text)",
-                margin: "0 0 10px",
-              }}
-            >
-              {t("nilTitle")}
-            </h3>
-            <p
-              style={{
-                fontSize: "var(--cam-font-size-sm)",
-                color: "var(--cam-text-muted)",
-                lineHeight: 1.5,
-                margin: "0 0 20px",
-              }}
-            >
-              {t("nilBody")}
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button
-                type="button"
-                onClick={() => setShowPlausibilityModal(false)}
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--cam-border)",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "8px 18px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {t("reviewFacts")}
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmGlobalNone}
-                style={{
-                  background: "var(--cam-green)",
-                  border: "none",
-                  borderRadius: "var(--cam-radius-sm, 6px)",
-                  padding: "8px 20px",
-                  fontSize: "var(--cam-font-size-xs)",
-                  fontWeight: 700,
-                  color: "var(--cam-white)",
-                  cursor: "pointer",
-                }}
-              >
-                {t("confirmNil")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ScopeConfirmDialog
+          id="mj-nil"
+          title={t("nilTitle")}
+          body={t("nilBody")}
+          cancelLabel={t("reviewFacts")}
+          confirmLabel={t("confirmNil")}
+          onCancel={() => setShowPlausibilityModal(false)}
+          onConfirm={handleConfirmGlobalNone}
+        />
       )}
     </div>
   );

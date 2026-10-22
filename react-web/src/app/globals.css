@@ -79,7 +79,7 @@ body {
 
 .cam-title {
   font-size: var(--cam-font-size-lg);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   color: var(--cam-text);
   margin: 0 0 var(--cam-space-2);
   text-align: center;
@@ -101,7 +101,7 @@ body {
 
 .cam-label {
   font-size: var(--cam-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text);
 }
 
@@ -147,7 +147,7 @@ body {
   border-radius: var(--cam-radius-control);
   border: var(--cam-border-width) solid transparent;
   font-size: var(--cam-font-size-base);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   cursor: pointer;
 }
 
@@ -179,7 +179,7 @@ body {
    Sits inside a .cam-dash-card; the tone names a status, not a palette. */
 .cam-summary-value {
   font-size: var(--cam-font-size-2xl);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -1146,13 +1146,10 @@ html:has(.cam-masthead) {
    steps as a horizontal rail over the frame (owner, 2026-10-22, replacing
    the dossier side panel on this route). */
 @media (min-width: 1024px) {
-  /* Pinned: the steps stay in view and the form scrolls under them. Wide
-     screens only -- on a phone a pinned bar takes rows the keyboard has
-     already taken (owner, 2026-10-10, for the bottom dock). */
+  /* The wizard masthead scrolls with the page; subsection headings are the
+     only content pinned during form scrolling. */
   .cam-auth-page--wizard .flow-header {
-    position: sticky;
-    top: 0;
-    z-index: var(--cam-z-nav);
+    position: static;
     padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
     /* A larger rail than on a phone: 32px circles, so the connector, which
        reads the same token, follows. */
@@ -2133,6 +2130,49 @@ html:has(.cam-masthead) {
   gap: var(--cam-space-3);
 }
 
+/* The same native dialog on a questionnaire, which is not inside
+   .cam-auth-page, so the registration rules above do not reach it. */
+.cam-confirm-dialog {
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  border-radius: var(--cam-radius-lg);
+  border: var(--cam-border-width) solid var(--cam-border);
+  box-shadow: var(--cam-card-shadow);
+  padding: 0;
+  margin: auto;
+  max-width: min(var(--cam-container-compact), calc(100vw - 2 * var(--cam-space-4)));
+  width: 100%;
+}
+
+.cam-confirm-dialog::backdrop {
+  background: var(--cam-scrim);
+}
+
+.cam-confirm-dialog-inner {
+  padding: var(--cam-space-5);
+}
+
+.cam-confirm-dialog h2 {
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-text);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.cam-confirm-dialog p {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-5);
+  line-height: var(--cam-line-height-copy);
+}
+
+.cam-confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+}
+
 /* ── Progress rail: the wizard's navigation ──
    Six buttons, not six decorations. The rail replaced the Suivant/Retour pair
    and the collapsed summary lines, so it carries the whole of "where am I,
@@ -2773,6 +2813,7 @@ html:has(.cam-masthead) {
    changing one there changes every form: registration, Modern Jobs, VT. */
 .cam-question {
   display: block;
+  font-family: var(--cam-font-sans);
   font-size: var(--cam-question-size);
   font-weight: var(--cam-question-weight);
   line-height: var(--cam-question-line-height);
@@ -2808,11 +2849,11 @@ html:has(.cam-masthead) {
    and the step in hand is usually the one that is not. */
 .cam-wizard-rail {
   position: sticky;
-  top: var(--cam-wizard-rail-top, 0px);
+  top: 0;
   align-self: flex-start;
   flex: 0 0 var(--cam-side-rail-width);
   width: var(--cam-side-rail-width);
-  height: calc(100dvh - var(--cam-wizard-rail-top, 0px));
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-5);
@@ -2821,7 +2862,6 @@ html:has(.cam-masthead) {
   border-right: var(--cam-border-width) solid var(--cam-border);
   color: var(--cam-text);
   font-family: var(--cam-font-sans);
-  /* Scrolls on its own only when an open outline outgrows a short screen. */
   overflow-y: auto;
 }
 
@@ -3004,6 +3044,59 @@ html:has(.cam-masthead) {
   border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
+/* The rail already names the section and the quiz. On a wide screen that
+   same name inside the form is kept for the screen reader and for the
+   step-change focus, and is not shown. Under 1024px the rail is a drawer,
+   so the name stays visible. A step head whose only child is that name
+   collapses with it, so it does not leave an empty rule. */
+@media (min-width: 1024px) {
+  .cam-rail-named {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .cam-step-head:not(:has(:not(.cam-rail-named))) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .mj-section-masthead {
+    border-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .mj-section-masthead:not(:has(.mj-section-tools)) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .mj-section-tools {
+    margin-bottom: var(--cam-space-3);
+  }
+}
+
 .cam-step-title {
   margin: 0;
   font-size: var(--cam-font-size-xl);
@@ -3018,6 +3111,115 @@ html:has(.cam-masthead) {
   font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
+}
+
+/* Last step of the preliminary quiz: one answer per ruled row, without cards.
+   The full line is interactive; facets, status and edit affordance stay clear. */
+.cam-quiz-review {
+  list-style: none;
+  margin: var(--cam-space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-quiz-review > li {
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-quiz-review-line {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--cam-space-2);
+  width: 100%;
+  margin: 0;
+  padding: var(--cam-space-3) 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.cam-quiz-review-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+}
+
+.cam-quiz-review-fact > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cam-quiz-review-fact > .cam-answer {
+  flex: none;
+}
+
+.cam-quiz-review-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  flex: none;
+}
+
+.cam-quiz-review-edit {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-green);
+  opacity: 0.8;
+  transition: opacity var(--cam-transition-fast);
+}
+
+.cam-quiz-review-line:hover .cam-quiz-review-edit {
+  opacity: 1;
+}
+
+.cam-quiz-review-facets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-1) 0 0;
+}
+
+.cam-quiz-review-facet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+}
+
+.cam-quiz-review-facet-label {
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-text-muted);
+  min-width: 140px;
+}
+
+.cam-quiz-review-facet-value {
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text);
+  flex: 1 1 auto;
+}
+
+.cam-quiz-review-detail {
+  font-family: var(--cam-font-sans);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-regular);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text);
+}
+
+.cam-quiz-review-line:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
 }
 
 /* Number answer with − / + (NumberStepper.tsx): one box, the height and
@@ -3447,6 +3649,22 @@ html:has(.cam-masthead) {
   flex: 1 0 auto;
 }
 
+/* The preliminary quiz is one short column in the middle of the pane: the
+   680px quiz measure is centred left to right by the pod's own max-width, and
+   the pane centres that column top to bottom. No edge of its own — a
+   full-height side rule around a short quiz would read as a tall empty
+   frame. The body must not eat spare height, or Next would drop to the
+   bottom of the pane. `safe`, set on the pane, keeps a quiz taller than
+   the pane at the top (owner, 2026-10-22). */
+.cam-wizard-pod--quiz {
+  flex: 0 0 auto;
+  border: none;
+}
+
+.cam-wizard-pod--flush.cam-wizard-pod--quiz > .cam-wizard-pod-body {
+  flex: 0 0 auto;
+}
+
 .cam-wizard-pod--flush > .cam-wizard-pod-nav {
   padding: var(--cam-space-3) var(--cam-wizard-pod-pad) var(--cam-space-4);
 }
@@ -3515,6 +3733,27 @@ html:has(.cam-masthead) {
     gap: var(--cam-space-4);
     padding-top: var(--cam-space-4);
   }
+}
+
+/* A tall screen can spare the room a laptop cannot: VT's eleven steps must
+   not grow a second scrollbar beside the page (CLAUDE.md §13). */
+@media (min-height: 960px) {
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+    --cam-step-row-pad: var(--cam-space-4);
+  }
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-button {
+  column-gap: var(--cam-space-4);
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-name {
+  font-size: var(--cam-font-size-base);
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step:is(.is-current, .is-currentComplete) .cam-step-name {
+  font-size: var(--cam-font-size-lg);
+  line-height: var(--cam-line-height-title);
 }
 
 .cam-step-button[data-inert] {
@@ -4115,7 +4354,7 @@ textarea.sovereign-text-input {
 .cam-dt .cam-dt-rowcode {
   font-family: var(--cam-font-mono);
   font-size: var(--cam-font-size-2xs);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-table-frame);
 }
 
@@ -4177,35 +4416,6 @@ textarea.sovereign-text-input {
 @media (min-width: 1024px) {
   .cam-quiz-card {
     min-height: clamp(34rem, calc(100dvh - 18rem), 46rem);
-  }
-}
-
-.cam-quiz-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cam-space-3, 12px);
-  flex: 1 1 18rem;
-  min-width: 0;
-  align-items: stretch;
-}
-
-.cam-quiz-tabs>button {
-  width: 100%;
-  white-space: normal;
-}
-
-@media (min-width: 900px) {
-  .cam-quiz-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--cam-space-3, 12px) var(--cam-space-6, 32px);
-  }
-
-  .cam-quiz-tabs>button {
-    width: auto;
-    white-space: nowrap;
   }
 }
 
@@ -4307,7 +4517,7 @@ textarea.sovereign-text-input {
   background: var(--cam-surface);
   color: var(--cam-text);
   font-size: var(--cam-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--cam-font-weight-medium);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -4334,7 +4544,7 @@ textarea.sovereign-text-input {
   padding: 2px var(--cam-space-2);
   border-radius: var(--cam-radius-full);
   font-size: var(--cam-font-size-3xs);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
