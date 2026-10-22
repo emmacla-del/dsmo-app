@@ -54,6 +54,19 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     en: 'Your registration request was rejected. For more information, contact your MINEFOP regional delegation or ONEFOP.',
   },
   { fr: 'Trop de tentatives échouées. Réessayez dans {0} minute(s).', en: 'Too many failed attempts. Try again in {0} minute(s).' },
+  { fr: 'Identifiant ou mot de passe incorrect.', en: 'Incorrect identifier or password.' },
+  {
+    fr: 'Jeton d\'authentification invalide.',
+    en: 'Invalid authentication token.',
+  },
+  {
+    fr: 'Session invalide ou expirée.',
+    en: 'Invalid or expired session.',
+  },
+  {
+    fr: 'Votre compte est inactif ou en attente d\'approbation.',
+    en: 'Your account is inactive or awaiting approval.',
+  },
   { fr: 'Utilisateur introuvable.', en: 'User not found.' },
   { fr: 'Utilisateur non trouvé', en: 'User not found' },
   { fr: 'Impossible d\'envoyer le code de vérification pour le moment. Réessayez.', en: 'The verification code cannot be sent right now. Try again.' },
@@ -478,7 +491,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Ressource introuvable', en: 'Not Found' },
   { fr: 'Requête invalide', en: 'Bad Request' },
   { fr: 'Erreur interne du serveur', en: 'Internal server error' },
-  { fr: 'Trop de requêtes. Réessayez dans un instant.', en: 'ThrottlerException: Too Many Requests' },
+  { fr: 'Trop de requêtes. Réessayez dans un instant.', en: 'Too many requests. Please try again in a moment.', also: ['ThrottlerException: Too Many Requests'] },
   { fr: 'Validation échouée (UUID attendu)', en: 'Validation failed (uuid is expected)' },
   { fr: 'Validation échouée (nombre attendu)', en: 'Validation failed (numeric string is expected)' },
   { fr: 'Validation échouée (valeur énumérée attendue)', en: 'Validation failed (enum string is expected)' },

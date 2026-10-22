@@ -1096,7 +1096,7 @@ function sumTargets(rows: Array<{ submissionTarget: number }>): number | null {
 }
 
 function requireActor(actorId: string): void {
-  if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+  if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
 }
 
 /**
