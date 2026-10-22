@@ -73,7 +73,13 @@ test("home opens on two paths: register, or read about the programme", () => {
   }
   assert.equal(screen.getByRole("link", { name: fr.homeDiscover }).getAttribute("href"), "/programme");
   // Where the pilot is open, under the buttons (it was a strip above the masthead).
-  assert.ok(screen.getByText(fr.homePilotNote));
+  // The two regions are set in bold.
+  const pilotNote = fr.homePilotNote.replace(/<\/?b>/g, "");
+  const note = screen.getByText((_, el) => el?.tagName === "P" && el.textContent === pilotNote);
+  assert.deepEqual(
+    Array.from(note.querySelectorAll("strong"), (s) => s.textContent),
+    ["Littoral", "Centre"],
+  );
 });
 
 test("home names the three phases in order, the first one current", () => {
