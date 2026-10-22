@@ -20,6 +20,7 @@ import { InfoTooltip } from "@/components/onefop/ui/InfoTooltip";
  * flex column with its own gap, the other two in a plain block.
  */
 export const tableQuestionHeadingStyle: CSSProperties = {
+  fontFamily: "var(--cam-font-sans)",
   fontSize: "var(--cam-font-size-lg, 1.125rem)",
   fontWeight: "var(--cam-font-weight-bold)",
   color: "var(--cam-text)",

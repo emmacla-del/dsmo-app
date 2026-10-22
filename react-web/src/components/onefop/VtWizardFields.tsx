@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, 
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { questionCodeText } from "@/lib/question-code";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { VT_ADMIN_ONLY_IDS, VT_BLOCK_PAPER_CODES, VT_NO_STEPPER_IDS } from "./vt-wizard-utils";
 import { VT_FIELD_TOOLTIPS } from "./vt-field-tooltips";
@@ -20,8 +19,9 @@ import { CheckboxGroup, type CheckboxOption } from "./form/Checkbox";
 import { NumberStepper } from "./form/NumberStepper";
 import { Microcopy } from "./form/Microcopy";
 import { OptionalSuffix } from "./ui/OptionalSuffix";
+import { FieldControl } from "./FieldControl";
+import { QuestionField, questionErrorStyle, questionLabelStyle as sharedQuestionLabelStyle } from "./QuestionField";
 import { isOptionalField, isYearField, VT_DATE_FIELD_ID } from "@/lib/onefop-validation";
-import { yearOptions } from "@/lib/year-options";
 import { respondentFunctionLabel } from "@/lib/display-labels";
 
 /** next-intl's useLocale() returns a plain string ("fr"/"en"/"fr-FR"...);
@@ -35,15 +35,7 @@ function vtLocale(locale: string): "fr" | "en" {
 // (18px) and set apart from the answer (--cam-answer-size, 14px regular).
 // Radio/checkbox questions used to be 16px bold and text inputs 15px, so
 // two questions side by side read as two levels.
-const labelStyle: CSSProperties = {
-  display: "block",
-  fontFamily: "var(--cam-font-sans)",
-  fontSize: "var(--cam-question-size)",
-  fontWeight: "var(--cam-question-weight)",
-  lineHeight: "var(--cam-question-line-height)",
-  color: "var(--cam-text)",
-  marginBottom: "var(--cam-field-stack-gap)",
-};
+const labelStyle = sharedQuestionLabelStyle;
 
 const questionLabelStyle: CSSProperties = labelStyle;
 
@@ -111,9 +103,7 @@ export function vtHintPlacement(
 const VT_MEDIUM_WIDTH_IDS = new Set(["VT1_1", "VT1_3", "VT2_11", "VT2_11_CITY", "VT2_16", "VT2_17"]);
 
 const errorStyle: CSSProperties = {
-  fontSize: "var(--cam-font-size-xs)",
-  fontWeight: 600,
-  color: "var(--cam-error)",
+  ...questionErrorStyle,
   margin: "4px 0 0",
   display: "flex",
   alignItems: "center",
@@ -619,14 +609,14 @@ function VtFiveSlotsField({
                 style={{
                   minWidth: "115px",
                   fontSize: "var(--cam-answer-size)",
-                  fontWeight: 600,
+                  fontWeight: "var(--cam-font-weight-semibold)",
                   color: "var(--cam-text-muted)",
                 }}
               >
                 {slotPrefix} {i + 1}
                 {/* Required unless marked optional, the form's rule: no asterisk. */}
                 {!isSlotRequired && (
-                  <span style={{ color: "var(--cam-text-muted)", fontWeight: 400, marginLeft: "4px", fontSize: "var(--cam-font-size-3xs)" }}>
+                  <span style={{ color: "var(--cam-text-muted)", fontWeight: "var(--cam-font-weight-regular)", marginLeft: "4px", fontSize: "var(--cam-font-size-3xs)" }}>
                     ({isEn ? "optional" : "facultatif"})
                   </span>
                 )}
@@ -685,8 +675,6 @@ export function VtWizardField({
   const t = useTranslations();
   const lockedValue = useContext(VtGeographyLockContext)?.[field.id];
   const labelText = localized(field.label, vtLocale(locale));
-  // Plain text (aria) + badge node (display) — every question shows its code.
-  const label = questionCodeText(field.paperCode, labelText);
   // The code is shown once per question: not on the fields of a 1.15 / 1.16
   // block (the block heading carries it), and not on a follow-up that shares
   // its parent question's code.
@@ -722,146 +710,102 @@ export function VtWizardField({
     "aria-required": required || undefined,
   };
   const optionalSuffix = <OptionalSuffix field={field} />;
+  const defaultLabel = (
+    <>
+      {labelNode}
+      {optionalSuffix}
+      {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
+    </>
+  );
+  const renderQuestionField = (
+    control: ReactNode,
+    options: {
+      label?: ReactNode;
+      labelAs?: "label" | "div";
+      labelStyle?: CSSProperties;
+      beforeControl?: ReactNode;
+      afterControl?: ReactNode;
+      errorMessage?: string | null;
+      errorId?: string;
+    } = {},
+  ) => (
+    <QuestionField
+      fieldId={field.id}
+      label={options.label ?? defaultLabel}
+      labelAs={options.labelAs}
+      wrapperStyle={{ marginBottom: 4 }}
+      labelStyle={options.labelStyle ?? labelStyle}
+      beforeControl={options.beforeControl === undefined
+        ? (hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : undefined)
+        : options.beforeControl}
+      errorId={options.errorId ?? errorId}
+      errorMessage={options.errorMessage === undefined ? errorMessage : options.errorMessage ?? undefined}
+      errorStyle={errorStyle}
+      afterControl={options.afterControl}
+    >
+      {control}
+    </QuestionField>
+  );
 
   if (field.type === "radio" && field.options) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <div style={questionLabelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </div>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={describedBy} invalid={hasError} required={required} />
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <VtWizardRadioGroup field={field} value={value} onChange={onChange} inlineExtra={inlineExtra} describedBy={describedBy} invalid={hasError} required={required} />,
+      { labelAs: "div", labelStyle: questionLabelStyle },
     );
   }
 
   if (field.type === "checkbox" && field.options) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <div style={questionLabelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </div>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} />
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <VtWizardCheckboxGroup field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} />,
+      { labelAs: "div", labelStyle: questionLabelStyle },
     );
   }
 
   if (field.type === "number" && !isYear) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </label>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} required={required} />
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <VtWizardNumberStepper field={field} value={value} onChange={onChange} describedBy={describedBy} invalid={hasError} required={required} />,
     );
   }
 
   if (isYear) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </label>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        {/* Picked from a list, as at registration: no "20", no next year.
-            Same closed select as the wizard's other dropdowns. */}
-        <div style={{ position: "relative", maxWidth: "var(--cam-field-width-short)" }}>
-          <select
-            id={field.id}
-            {...a11yProps}
-            value={value == null ? "" : String(value)}
-            onChange={(e) => onChange(field.id, e.target.value)}
-            onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-            className={`sovereign-select ${hasError ? "has-error" : ""}`}
-            style={{
-              paddingRight: "var(--cam-space-6)",
-              color: value ? "var(--cam-text)" : "var(--cam-text-muted)",
-              appearance: "none",
-              WebkitAppearance: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="" disabled hidden>
-              {t("vtWizard.select", { default: "Sélectionner…" })}
-            </option>
-            {yearOptions(value).map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <span
-            style={{
-              position: "absolute",
-              right: 14,
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none",
-              fontSize: "var(--cam-font-size-3xs)",
-              color: "var(--cam-text-muted)",
-            }}
-          >
-            ▼
-          </span>
-        </div>
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <FieldControl
+        field={field}
+        value={value}
+        onChange={onChange}
+        locale={vtLocale(locale)}
+        hasError={hasError}
+        describedBy={describedBy}
+        required={required}
+        onFieldTouch={onFieldTouch}
+        maxWidth="var(--cam-field-width-short)"
+        selectPlaceholder={t("vtWizard.select", { default: "S\u00e9lectionner\u2026" })}
+        hideSelectPlaceholder
+        decoratedSelect
+      />,
     );
   }
 
   if (isTel) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </label>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <div
-          className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{ display: "flex", alignItems: "center", maxWidth: "var(--cam-field-width-medium)" }}
-        >
-          <span style={{ color: "var(--cam-text-muted)" }}>
-            +237
-          </span>
-          <div style={{ width: 1, height: 20, backgroundColor: "var(--cam-border)", margin: "0 10px" }} />
-          <input
-            id={field.id}
-            {...a11yProps}
-            type="tel"
-            maxLength={9}
-            placeholder={hintPlaceholder ?? "6XX XX XX XX"}
-            value={(value as string) ?? ""}
-            onChange={(e) => onChange(field.id, e.target.value.replace(/\D/g, "").slice(0, 9))}
-            onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              font: "inherit",
-              backgroundColor: "transparent",
-              color: "var(--cam-text)",
-            }}
-          />
-        </div>
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <div
+        className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
+        style={{ display: "flex", alignItems: "center", maxWidth: "var(--cam-field-width-medium)" }}
+      >
+        <span style={{ color: "var(--cam-text-muted)" }}>+237</span>
+        <div style={{ width: 1, height: 20, backgroundColor: "var(--cam-border)", margin: "0 10px" }} />
+        <input
+          id={field.id}
+          {...a11yProps}
+          type="tel"
+          maxLength={9}
+          placeholder={hintPlaceholder ?? "6XX XX XX XX"}
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(field.id, e.target.value.replace(/\D/g, "").slice(0, 9))}
+          onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
+          style={{ flex: 1, minWidth: 0, border: "none", outline: "none", font: "inherit", backgroundColor: "transparent", color: "var(--cam-text)" }}
+        />
+      </div>,
     );
   }
 
@@ -886,108 +830,62 @@ export function VtWizardField({
   }
 
   if (field.type === "textarea") {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </label>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <textarea
-          id={field.id}
-          {...a11yProps}
-          rows={4}
-          placeholder={hintPlaceholder}
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(field.id, e.target.value)}
-          onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-          className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-          style={{ minHeight: 112, resize: "vertical" }}
-        />
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <FieldControl
+        field={field}
+        value={value}
+        onChange={onChange}
+        locale={vtLocale(locale)}
+        placeholder={hintPlaceholder}
+        hasError={hasError}
+        describedBy={describedBy}
+        required={required}
+        onFieldTouch={onFieldTouch}
+        textareaRows={4}
+        textareaMinHeight={112}
+      />,
     );
   }
 
   if (field.type === "select" && field.options) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {optionalSuffix}
-          {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-        </label>
-        {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-        <div style={{ position: "relative", maxWidth: "35rem" }}>
-          <select
-            id={field.id}
-            {...a11yProps}
-            value={(value as string) ?? ""}
-            onChange={(e) => onChange(field.id, e.target.value)}
-            onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-            className={`sovereign-select ${hasError ? "has-error" : ""}`}
-            style={{
-              paddingRight: "var(--cam-space-6)",
-              color: value ? "var(--cam-text)" : "var(--cam-text-muted)",
-              appearance: "none",
-              WebkitAppearance: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="" disabled hidden>
-              {t("vtWizard.select", { default: "Sélectionner…" })}
-            </option>
-            {field.options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {localized(opt.label, vtLocale(locale))}
-              </option>
-            ))}
-          </select>
-          <span
-            style={{
-              position: "absolute",
-              right: 14,
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none",
-              fontSize: "var(--cam-font-size-3xs)",
-              color: "var(--cam-text-muted)",
-            }}
-          >
-            ▼
-          </span>
-        </div>
-        <VtWizardFieldError id={errorId} message={errorMessage} />
-      </div>
+    return renderQuestionField(
+      <FieldControl
+        field={field}
+        value={value}
+        onChange={onChange}
+        locale={vtLocale(locale)}
+        hasError={hasError}
+        describedBy={describedBy}
+        required={required}
+        onFieldTouch={onFieldTouch}
+        maxWidth="35rem"
+        selectPlaceholder={t("vtWizard.select", { default: "S\u00e9lectionner\u2026" })}
+        hideSelectPlaceholder
+        decoratedSelect
+      />,
     );
   }
 
   if (lockedValue !== undefined) {
-    // Region/department/subdivision come from the company record; shown
-    // read-only but kept in the tab order so they are read out. The note
-    // saying where they come from is in the tooltip of the last of the
-    // three (VT1_6), not a line on the page (owner, 2026-10-12); it stays
-    // the three boxes' description for screen readers.
+    // Region/department/subdivision come from the company record; the shared
+    // field frame/control render them read-only with the explanatory note.
     const noteId = "vt-geography-locked-note";
     const lockedNote = t("modernJobs.geography.lockedNote");
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <label htmlFor={field.id} style={labelStyle}>
-          {labelNode}
-          {field.id === "VT1_6" ? <VtWizardInfoBadge tooltip={lockedNote} /> : null}
-        </label>
-        <input
-          id={field.id}
-          type="text"
-          value={field.id === "VT1_4" ? regionDisplayName(lockedValue, locale) : lockedValue}
-          readOnly
-          aria-readonly="true"
-          aria-describedby={noteId}
-          className="sovereign-text-input"
-        />
-        {field.id === "VT1_6" ? <VtFieldHint id={noteId}>{lockedNote}</VtFieldHint> : null}
-      </div>
+    return renderQuestionField(
+      <FieldControl
+        field={field}
+        value={field.id === "VT1_4" ? regionDisplayName(lockedValue, locale) : lockedValue}
+        onChange={onChange}
+        locale={vtLocale(locale)}
+        readOnly
+        describedBy={noteId}
+      />,
+      {
+        label: <>{labelNode}{field.id === "VT1_6" ? <VtWizardInfoBadge tooltip={lockedNote} /> : null}</>,
+        beforeControl: null,
+        errorMessage: null,
+        afterControl: field.id === "VT1_6" ? <VtFieldHint id={noteId}>{lockedNote}</VtFieldHint> : undefined,
+      },
     );
   }
 
@@ -996,31 +894,21 @@ export function VtWizardField({
   // never editable by the respondent.
   const adminOnly = VT_ADMIN_ONLY_IDS.has(field.id);
 
-  return (
-    <div style={{ marginBottom: 4 }}>
-      <label htmlFor={field.id} style={labelStyle}>
-        {labelNode}
-        {optionalSuffix}
-        {tooltip ? <VtWizardInfoBadge tooltip={tooltip} /> : null}
-      </label>
-      {hintId ? <VtFieldHint id={hintId}>{hint}</VtFieldHint> : null}
-      <input
-        id={field.id}
-        {...a11yProps}
-        type={field.type === "email" ? "email" : "text"}
-        placeholder={hintPlaceholder ?? fallbackPlaceholder(field, locale)}
-        value={field.id === "VT1_15_FUNCTION" ? respondentFunctionLabel(value as string, vtLocale(locale)) : ((value as string) ?? "")}
-        readOnly={adminOnly}
-        aria-readonly={adminOnly || undefined}
-        onChange={adminOnly ? undefined : (e) => onChange(field.id, e.target.value)}
-        onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-        className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-        style={VT_MEDIUM_WIDTH_IDS.has(field.id) ? { maxWidth: "var(--cam-field-width-medium)" } : undefined}
-      />
-      {/* The error right under the box it is about, before the suggestions. */}
-      <VtWizardFieldError id={errorId} message={errorMessage} />
-      <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} />
-    </div>
+  return renderQuestionField(
+    <FieldControl
+      field={field}
+      value={field.id === "VT1_15_FUNCTION" ? respondentFunctionLabel(value as string, vtLocale(locale)) : value}
+      onChange={onChange}
+      locale={vtLocale(locale)}
+      placeholder={hintPlaceholder ?? fallbackPlaceholder(field, locale)}
+      hasError={hasError}
+      describedBy={describedBy}
+      required={required}
+      readOnly={adminOnly}
+      onFieldTouch={onFieldTouch}
+      maxWidth={VT_MEDIUM_WIDTH_IDS.has(field.id) ? "var(--cam-field-width-medium)" : undefined}
+      inputType={field.type === "email" ? "email" : "text"}
+    />,
+    { afterControl: <VtWizardAdminSuggestionChips fieldId={field.id} value={value} data={data} onChange={onChange} /> },
   );
 }
-

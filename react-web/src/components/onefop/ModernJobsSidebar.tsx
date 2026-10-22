@@ -17,6 +17,7 @@ import {
   missingQuizFieldKeys,
 } from "./tables/quizRequired";
 import { fieldOwnsIssue, preliminaryQuizSlot } from "@/lib/wizard-navigation";
+import type { SectionProgressSummary, SectionProgressStatus } from "@/lib/section-progress";
 
 interface ModernJobsSidebarProps {
   entity: OnefopEntity;
@@ -37,7 +38,7 @@ interface ModernJobsSidebarProps {
   onSelectTable?: (fieldId: string) => void;
 }
 
-export type SectionStatus = "not-started" | "in-progress" | "complete" | "has-errors";
+export type SectionStatus = SectionProgressStatus;
 
 function isTableField(f: OnefopField): boolean {
   return f.type === "table" || f.type === "repeating_table" || !!f.table;
@@ -65,12 +66,12 @@ function isTableNoneOrNa(f: OnefopField, data: FormData): boolean {
   return data[statusFieldId] === "NONE";
 }
 
-export function getSectionStatus(
+export function getSectionProgressSummary(
   section: OnefopSection,
   data: FormData,
   issues: ValidationIssue[] = [],
   includeUnansweredAsError: boolean = false
-): SectionStatus {
+): SectionProgressSummary {
   // Check if any issue on this section is an actual format/value error on an entered field
   // Same ownership rule as Continue (fieldOwnsIssue), which also knows the
   // table id: a PP_S2_ACTIVITIES issue is keyed "s2_row1_…".
@@ -83,12 +84,20 @@ export function getSectionStatus(
     return val !== undefined && val !== null && String(val).trim() !== "";
   });
 
-  const hasAnyErrors = issues.some(isSectionIssue);
+  const sectionIssues = issues.filter(isSectionIssue);
+  const hasAnyErrors = sectionIssues.length > 0;
 
   const visibleFields = section.fields.filter(
     (f) => isFieldVisible(f, data) && !isCompanionHiddenByGateway(f, data, section.fields)
   );
-  if (visibleFields.length === 0) return "complete";
+  if (visibleFields.length === 0) {
+    return {
+      status: "complete",
+      questions: { answered: 0, total: 0 },
+      tables: { completed: 0, total: 0 },
+      issueCount: sectionIssues.length,
+    };
+  }
 
   const isFieldAnswered = (f: typeof section.fields[0]) => {
     if (isTableNoneOrNa(f, data)) return true;
@@ -121,19 +130,44 @@ export function getSectionStatus(
 
   const requiredFields = visibleFields.filter((f) => f.required && !isTableNoneOrNa(f, data));
   const answeredCount = visibleFields.filter(isFieldAnswered).length;
+  const requiredQuestions = requiredFields.filter((field) => !isTableField(field));
+  const requiredTables = requiredFields.filter(isTableField);
+  const questions = {
+    answered: requiredQuestions.filter(isFieldAnswered).length,
+    total: requiredQuestions.length,
+  };
+  const tables = {
+    completed: requiredTables.filter(isFieldAnswered).length,
+    total: requiredTables.length,
+  };
+  const summary = (status: SectionStatus): SectionProgressSummary => ({
+    status,
+    questions,
+    tables,
+    issueCount: sectionIssues.length,
+  });
 
-  if (answeredCount === 0) return "not-started";
+  if (answeredCount === 0) return summary("not-started");
   // If user entered invalid data in a field, show error immediately
-  if (hasFormatErrors) return "has-errors";
+  if (hasFormatErrors) return summary("has-errors");
   // In review stage or when explicitly checking all required errors, unanswered required fields also count as errors
-  if (includeUnansweredAsError && hasAnyErrors) return "has-errors";
+  if (includeUnansweredAsError && hasAnyErrors) return summary("has-errors");
 
   const allRequiredAnswered = requiredFields.length > 0
     ? requiredFields.every(isFieldAnswered)
     : answeredCount > 0;
 
-  if (allRequiredAnswered && !hasAnyErrors) return "complete";
-  return "in-progress";
+  if (allRequiredAnswered && !hasAnyErrors) return summary("complete");
+  return summary("in-progress");
+}
+
+export function getSectionStatus(
+  section: OnefopSection,
+  data: FormData,
+  issues: ValidationIssue[] = [],
+  includeUnansweredAsError: boolean = false,
+): SectionStatus {
+  return getSectionProgressSummary(section, data, issues, includeUnansweredAsError).status;
 }
 
 /**
@@ -162,7 +196,8 @@ export function ModernJobsSidebar({
   // The preliminary quiz sits right after Section 1 (same rule as the wizard).
   const quizSlot = preliminaryQuizSlot(sections);
 
-  const statuses = sections.map((sec) => getSectionStatus(sec, data, issues, isValidationStage));
+  const summaries = sections.map((sec) => getSectionProgressSummary(sec, data, issues, isValidationStage));
+  const statuses = summaries.map((summary) => summary.status);
   const completedCount = statuses.filter((st) => st === "complete").length;
 
   // Sidebar titles without the "Section N." prefix -- the number sits in the

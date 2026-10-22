@@ -961,6 +961,7 @@
     "badgeCompleted": "Completed",
     "badgeInProgress": "In progress",
     "badgeNotStarted": "Not started",
+    "badgeToCorrect": "To correct",
     "questionsProgress": "{filled} / {total, plural, one {# question} other {# questions}}",
     "tablesProgress": "{complete} / {total, plural, one {# table} other {# tables}}",
     "answers": {
@@ -1012,9 +1013,9 @@
     "saveFailedToast": "Could not save — please retry",
     "savedJustNowToast": "Saved just now",
     "stepAnnouncement": "{title} ({current} of {total})",
-    "quizAnnouncement": "Preliminary questionnaire",
+    "quizAnnouncement": "Preliminary quiz",
     "railLockedSection": "Complete section {number} first",
-    "railLockedQuiz": "Answer the preliminary questionnaire first",
+    "railLockedQuiz": "Answer the preliminary quiz first",
     "saving": "Saving…"
   },
   "vtWizard": {
@@ -1224,14 +1225,26 @@
         "vulnerable": "Vulnerable people",
         "technical": "Technical unemployment",
         "item": "{label}: {answer}"
-      }
+      },
+      "dimContracts": "Contracts",
+      "dimReasons": "Departure reasons",
+      "dimInternships": "Internship types",
+      "dimCategories": "Categories",
+      "dimAges": "Age groups",
+      "dimDiplomas": "Diplomas",
+      "dimSpecific": "Specific criteria",
+      "changeAnswer": "Change"
     },
     "factsReview": {
       "proceed": "Confirm and open the tables",
-      "modify": "Change answers",
       "warning": "Some figures already entered will not be submitted.",
-      "lead": "These answers decide which statistical tables you will fill in. Click a line or a cell to change an answer.",
       "title": "Check your answers to the preliminary quiz"
+    },
+    "vtFactsReview": {
+      "title": "Check your answers about the training centre"
+    },
+    "ppFactsReview": {
+      "title": "Check your project or programme answers"
     },
     "guided": {
       "pressEnter": "Press Enter ↵ to go to the next question.",
@@ -3493,7 +3506,7 @@
     "stateTodo": "not started",
     "stateError": "to correct",
     "stateLocked": "not open yet",
-    "quiz": "Preliminary questionnaire",
+    "quiz": "Preliminary quiz",
     "review": "Review and submission",
     "tableCount": "{total, plural, one {# table} other {# tables}}",
     "tableProgress": "Table {current} of {total}",

@@ -579,7 +579,7 @@ export function SectionRenderer({
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
             }}
           >
             <span>
@@ -606,7 +606,7 @@ export function SectionRenderer({
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
             }}
           >
             <span>
@@ -786,11 +786,9 @@ export function SectionRenderer({
   };
 
   // One Tableau/Guidé switch for the section (it portals to the app bar)
-  // and the keyboard cheat sheet. They sit at the right of the title line,
-  // where a row of their own added 44px above the first table (owner,
-  // 2026-10-22); when Guidé hides the masthead on a wide screen they keep a
-  // row of their own, or they would vanish with it.
-  const toolbarOwnRow = isMultiTableSection && deckMode === "focus";
+  // and the keyboard cheat sheet. They stay beside the title, and stay on
+  // screen when a wide screen hides the title: the rail already names the
+  // section (owner, 2026-10-22).
   const toolbar = sectionHasAdaptiveTables ? (
     <div
       style={{
@@ -798,7 +796,6 @@ export function SectionRenderer({
         alignItems: "center",
         justifyContent: "flex-end",
         gap: "var(--cam-space-2, 8px)",
-        marginBottom: toolbarOwnRow ? "var(--cam-space-3, 12px)" : 0,
       }}
     >
       <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
@@ -846,25 +843,20 @@ export function SectionRenderer({
         scrollMarginTop: "80px",
       }}
     >
-      {/* ── Section Masthead ──
-          Guidé fills a screen with one question, and the sidebar and the
-          pinned table list already say where that question is, so there the
-          block is kept for screen readers only (it still labels the
-          <section>). A column of tables says what section it is and how many
-          tables it holds, so in Tableau it stays visible. On smaller screens,
-          where the sidebar is hidden, it is always visible. */}
-      <style>{`
-        @media (min-width: 1024px) {
-          .mj-section-masthead[data-collapse="true"] {
-            position: absolute !important; width: 1px; height: 1px; padding: 0 !important;
-            margin: -1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0 !important;
-          }
-        }
-      `}</style>
+      {/* ── Section masthead ──
+          The rail names the section. On a wide screen this title is kept
+          for the screen reader and for useStepFocus, and is not shown
+          (.cam-rail-named). Under 1024px the rail is a drawer, so the
+          title stays. The mode switch and the required-questions note
+          stay either way: they are not the section's name. */}
       <div
         className="mj-section-masthead"
-        data-collapse={isMultiTableSection && deckMode === "focus" ? "true" : "false"}
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "var(--cam-space-4, 16px)",
           borderBottom: "1px solid var(--cam-border)",
           paddingBottom: "var(--cam-space-3, 12px)",
           marginBottom: "var(--cam-space-4, 16px)",
@@ -872,20 +864,10 @@ export function SectionRenderer({
           boxSizing: "border-box",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "var(--cam-space-4, 16px)",
-          }}
-        >
-          {/* Left: Title, with the table count in brackets and the
-              required-questions note behind an ⓘ on the same line: each
-              used to take a line of its own between the title and the first
-              table (owner, 2026-10-22). */}
-          <div style={{ flex: 1, minWidth: 260 }}>
+          {/* Title, with the table count in brackets. Each used to take a
+              line of its own between the title and the first table
+              (owner, 2026-10-22). */}
+          <div className="mj-section-heading cam-rail-named" style={{ flex: 1, minWidth: 260 }}>
             <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", columnGap: "var(--cam-space-2, 8px)" }}>
             <h1
               id={`${section.id}-heading`}
@@ -895,7 +877,7 @@ export function SectionRenderer({
               style={{
                 outline: "none",
                 fontSize: "var(--cam-font-size-xl, 1.5rem)",
-                fontWeight: 700,
+                fontWeight: "var(--cam-font-weight-bold)",
                 color: "var(--cam-text)",
                 margin: 0,
                 lineHeight: 1.25,
@@ -927,7 +909,6 @@ export function SectionRenderer({
                 )
               </span>
             )}
-            {visibleFields.length > 0 && <RequiredQuestionsInfo />}
             </div>
             {!isMultiTableSection && (
             <p
@@ -956,11 +937,21 @@ export function SectionRenderer({
             )}
           </div>
 
-          {!toolbarOwnRow && toolbar}
-        </div>
-
+          {(toolbar || visibleFields.length > 0) && (
+            <div
+              className="mj-section-tools"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--cam-space-2, 8px)",
+                marginLeft: "auto",
+              }}
+            >
+              {visibleFields.length > 0 && <RequiredQuestionsInfo />}
+              {toolbar}
+            </div>
+          )}
       </div>
-      {toolbarOwnRow && toolbar}
 
 
       {/* Shortcuts Help Box (if toggled) */}
@@ -980,11 +971,11 @@ export function SectionRenderer({
             gap: 16,
           }}
         >
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>Tab</kbd> : {t("shortcutNextCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>Tab</kbd> : {t("shortcutNextCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
         </div>
       )}
 
@@ -1143,7 +1134,7 @@ export function SectionRenderer({
                 <h3
                   style={{
                     fontSize: "var(--cam-font-size-base)",
-                    fontWeight: 700,
+                    fontWeight: "var(--cam-font-weight-bold)",
                     margin: "0 0 8px",
                     color: "var(--cam-text)",
                   }}
@@ -1171,7 +1162,7 @@ export function SectionRenderer({
                       borderRadius: "var(--cam-radius-sm)",
                       padding: "8px 18px",
                       fontSize: "var(--cam-font-size-xs)",
-                      fontWeight: 600,
+                      fontWeight: "var(--cam-font-weight-semibold)",
                       color: "var(--cam-green)",
                       cursor: "pointer",
                       transition: "all 0.15s ease",

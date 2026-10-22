@@ -19,7 +19,7 @@ export function OptionalSuffix({ field }: { field: Pick<OnefopField, "id" | "req
   // Structure, read-only) are not "optional" questions: no suffix.
   if (!isOptionalField(field) || VT_ADMIN_ONLY_IDS.has(field.id)) return null;
   return (
-    <span style={{ color: "var(--cam-text-muted)", fontWeight: 400 }}>
+    <span style={{ color: "var(--cam-text-muted)", fontWeight: "var(--cam-font-weight-regular)" }}>
       {" "}
       {t("optionalSuffix")}
     </span>

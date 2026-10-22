@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import { Checkbox } from "@/components/onefop/form/Checkbox";
+import { RadioGroup } from "@/components/onefop/form/Radio";
 
 export interface OptionItem {
   id: string;
@@ -17,9 +18,8 @@ interface ConditionalOptionsProps {
 }
 
 /**
- * Compact conditional option boxes for multi-choice/single-choice answers.
- * - 1px border, ~4px radius, compact padding, no icons, no shadows, no gradients.
- * - Responsive container queries: 1 col (<520px), 2 col (520-839px), 3 col (>=840px).
+ * The follow-up choices of one quiz beat. A plain checkbox or radio, the
+ * whole label clickable: the option is not a box (constitution §9).
  */
 export function ConditionalOptions({
   options,
@@ -28,91 +28,59 @@ export function ConditionalOptions({
   allowMultiple = true,
   ariaLabel,
 }: ConditionalOptionsProps) {
-  const handleToggle = (id: string) => {
-    if (!allowMultiple) {
-      onChange(selected.includes(id) ? [] : [id]);
-      return;
-    }
-    if (selected.includes(id)) {
-      onChange(selected.filter((item) => item !== id));
-    } else {
-      onChange([...selected, id]);
-    }
+  const fieldId = `cond-${(ariaLabel ?? "options").replace(/\s+/g, "-")}`;
+
+  if (!allowMultiple) {
+    return (
+      <div style={{ marginTop: "var(--cam-field-stack-gap)" }}>
+        <RadioGroup
+          fieldId={fieldId}
+          ariaLabel={ariaLabel ?? fieldId}
+          options={options.map((opt) => ({
+            value: opt.id,
+            label: opt.label,
+            caption: opt.sublabel,
+          }))}
+          value={selected[0]}
+          onChange={(_, value) => onChange(value ? [String(value)] : [])}
+        />
+      </div>
+    );
+  }
+
+  const toggle = (id: string, next: boolean) => {
+    if (next) onChange([...selected, id]);
+    else onChange(selected.filter((item) => item !== id));
   };
 
   return (
     <div
       role="group"
       aria-label={ariaLabel}
-      className="cam-conditional-options-grid"
       style={{
-        display: "grid",
-        gap: "6px 8px",
-        marginTop: 10,
-        marginBottom: 8,
+        display: "flex",
+        flexDirection: "column",
+        marginTop: "var(--cam-field-stack-gap)",
       }}
     >
-      <style>{`
-        .cam-conditional-options-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 6px 8px;
-        }
-        @media (min-width: 480px) {
-          .cam-conditional-options-grid {
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      {options.map((opt) => (
+        <Checkbox
+          key={opt.id}
+          id={`${fieldId}-${opt.id}`}
+          checked={selected.includes(opt.id)}
+          onChange={(next) => toggle(opt.id, next)}
+          label={
+            opt.sublabel ? (
+              <>
+                <span style={{ display: "block" }}>{opt.label}</span>
+                <span className="cam-hint" style={{ display: "block" }}>{opt.sublabel}</span>
+              </>
+            ) : (
+              opt.label
+            )
           }
-        }
-      `}</style>
-      {options.map((opt) => {
-        const isSelected = selected.includes(opt.id);
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            role={allowMultiple ? "checkbox" : "radio"}
-            aria-checked={isSelected}
-            onClick={() => handleToggle(opt.id)}
-            style={{
-              textAlign: "left",
-              padding: "7px 10px",
-              borderRadius: 4,
-              border: isSelected
-                ? "1px solid var(--cam-green)"
-                : "1px solid var(--cam-border)",
-              background: isSelected
-                ? "var(--vt-accent-soft)"
-                : "var(--cam-surface)",
-              color: isSelected
-                ? "var(--cam-green)"
-                : "var(--cam-text)",
-              fontWeight: isSelected ? 600 : 400,
-              fontSize: "var(--cam-answer-size)",
-              cursor: "pointer",
-              transition: "border-color 0.12s ease, background-color 0.12s ease",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              userSelect: "none",
-            }}
-          >
-            <span>{opt.label}</span>
-            {opt.sublabel && (
-              <span
-                style={{
-                  fontSize: "var(--cam-microcopy-size)",
-                  color: isSelected
-                    ? "var(--cam-green)"
-                    : "var(--cam-text-muted)",
-                  fontWeight: 400,
-                }}
-              >
-                {opt.sublabel}
-              </span>
-            )}
-          </button>
-        );
-      })}
+        />
+      ))}
     </div>
   );
 }

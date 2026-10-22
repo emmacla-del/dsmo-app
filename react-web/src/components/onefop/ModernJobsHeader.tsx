@@ -89,30 +89,22 @@ export function ModernJobsHeader({
     }
   })();
 
-  // Publish this sticky header's height as --mj-header-h and
-  // --cam-wizard-rail-top on the wizard root
-  // (its parent), so the side rail and the table tab strips pin just below
-  // it. Both wizards render the header there: Modern Jobs and VT. Below
-  // 1024px the header is not pinned (.cam-masthead), so it publishes 0.
+  // Publish the header's layout height for quiz centering and scroll targets.
+  // Subsection headings pin to the viewport after this header scrolls away.
   const headerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const header = headerRef.current;
     const root = header?.parentElement;
     if (!header || !root || typeof ResizeObserver === "undefined") return;
     const publish = () => {
-      const pinned = getComputedStyle(header).position === "sticky";
-      const height = pinned ? header.offsetHeight : 0;
-      root.style.setProperty("--mj-header-h", `${height}px`);
-      root.style.setProperty("--cam-wizard-rail-top", `${height}px`);
+      root.style.setProperty("--mj-header-h", "0px");
+      root.style.setProperty("--mj-header-block", `${header.offsetHeight}px`);
     };
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(header);
-    const wide = window.matchMedia("(min-width: 1024px)");
-    wide.addEventListener("change", publish);
     return () => {
       observer.disconnect();
-      wide.removeEventListener("change", publish);
     };
   }, []);
 
@@ -145,7 +137,7 @@ export function ModernJobsHeader({
     height: 32,
     padding: "0 10px",
     fontSize: "var(--cam-font-size-xs)",
-    fontWeight: 600,
+    fontWeight: "var(--cam-font-weight-semibold)",
     color: "var(--cam-text)",
     whiteSpace: "nowrap",
   } as const;
@@ -160,12 +152,13 @@ export function ModernJobsHeader({
       }}
     >
       <style>{`
-        /* Pinned beside the side rail (1024px and up). Below that there is
-           no rail, and a pinned two-line masthead took a sixth of a tablet
-           screen; it scrolls away with the page. */
-        .cam-masthead { position: sticky; top: 0; z-index: 50; }
-        @media (max-width: 1023px) {
-          .cam-masthead { position: static; }
+        /* The masthead scrolls away with the page; only subsection headings
+           remain pinned during form entry. */
+        .cam-masthead {
+          position: static;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
         }
         /* Wordmark | establishment and survey | actions. The title starts
            after the wordmark and takes what the two leave (owner,

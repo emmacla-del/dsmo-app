@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import type { OnefopField } from "@/lib/onefop-schema";
 import { bilingual, localized, type LocalizedText } from "@/lib/onefop-schema";
 import { RadioGroup } from "./form/Radio";
@@ -34,19 +35,94 @@ interface FieldControlProps {
   /** Active language for option labels. When omitted (Tableur's dense
    * official-form view), options keep the bilingual "FR/ EN" rendering. */
   locale?: "fr" | "en";
+  describedBy?: string;
+  required?: boolean;
+  readOnly?: boolean;
+  /** Override HTML type for entity-specific text fields that store a date as text. */
+  inputType?: "text" | "email" | "tel" | "date" | "number";
+  maxWidth?: string;
+  textareaRows?: number;
+  textareaMinHeight?: number;
+  /** Select prompt and decoration can match an entity's established select treatment. */
+  selectPlaceholder?: string;
+  hideSelectPlaceholder?: boolean;
+  decoratedSelect?: boolean;
 }
 
-export function FieldControl({ field, value, onChange, placeholder, compact = false, hasError = false, onFieldTouch, locale }: FieldControlProps) {
+export function FieldControl({
+  field,
+  value,
+  onChange,
+  placeholder,
+  compact = false,
+  hasError = false,
+  onFieldTouch,
+  locale,
+  describedBy,
+  required: requiredProp,
+  readOnly = false,
+  inputType,
+  maxWidth,
+  textareaRows,
+  textareaMinHeight,
+  selectPlaceholder,
+  hideSelectPlaceholder = false,
+  decoratedSelect = false,
+}: FieldControlProps) {
   const t = useTranslations();
   // Exposed as aria-required only: the wizard's own validation decides what
   // blocks, so no native `required` (and its browser tooltip) is set.
-  const required = !isOptionalField(field);
+  const required = requiredProp ?? !isOptionalField(field);
   const optionLabel = (text: LocalizedText | null) => (locale ? localized(text, locale) : bilingual(text));
   // Height, border, radius and type come from .sovereign-text-input /
   // .sovereign-select (globals.css). Only the dense Tableur row overrides.
   const compactStyle: React.CSSProperties | undefined = compact
     ? { height: 30, padding: "0 var(--cam-space-2)", fontSize: "var(--cam-font-size-xs)" }
     : undefined;
+  const renderSelect = (options: { value: string; label: ReactNode }[], selected: unknown, emptyText: string) => {
+    const select = (
+      <select
+        id={field.id}
+        name={field.id}
+        aria-describedby={describedBy}
+        aria-invalid={hasError || undefined}
+        aria-required={required || undefined}
+        aria-readonly={readOnly || undefined}
+        className={`sovereign-select ${hasError ? "has-error" : ""}`}
+        style={{
+          ...compactStyle,
+          maxWidth: decoratedSelect ? undefined : maxWidth,
+          width: decoratedSelect ? "100%" : undefined,
+          paddingRight: decoratedSelect ? "var(--cam-space-6)" : undefined,
+          appearance: decoratedSelect ? "none" : undefined,
+          WebkitAppearance: decoratedSelect ? "none" : undefined,
+          cursor: decoratedSelect ? "pointer" : undefined,
+          color: decoratedSelect ? (selected ? "var(--cam-text)" : "var(--cam-text-muted)") : undefined,
+        }}
+        value={selected == null ? "" : String(selected)}
+        onChange={(e) => onChange(field.id, e.target.value)}
+        onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
+      >
+        <option value="" disabled hidden={hideSelectPlaceholder}>
+          {emptyText}
+        </option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+    if (!decoratedSelect) return select;
+    return (
+      <div style={{ position: "relative", maxWidth }}>
+        {select}
+        <span aria-hidden="true" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-text-muted)" }}>
+          {"\u25bc"}
+        </span>
+      </div>
+    );
+  };
 
   if (field.type === "radio" && field.options) {
     if (!compact) {
@@ -62,6 +138,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
           onChange={onChange}
           layout={field.options.length <= 3 ? "horizontal" : "vertical"}
           invalid={hasError}
+          describedBy={describedBy}
           required={required}
         />
       );
@@ -119,6 +196,7 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
           value={current}
           onChange={(id, next) => onChange(id, next ?? [])}
           columns={field.options.length > 4 ? 2 : 1}
+          describedBy={describedBy}
           invalid={hasError}
         />
       );
@@ -177,54 +255,19 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
   }
 
   if (field.type === "select" && field.options) {
-    return (
-      <select
-        id={field.id}
-        name={field.id}
-        aria-invalid={hasError || undefined}
-        aria-required={required || undefined}
-        className={`sovereign-select ${hasError ? "has-error" : ""}`}
-        style={compactStyle}
-        value={(value as string) ?? ""}
-        onChange={(e) => onChange(field.id, e.target.value)}
-        onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-      >
-        <option value="" disabled>
-          {t("fieldControl.emptySelectionPlaceholder")}
-        </option>
-        {field.options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {optionLabel(opt.label)}
-          </option>
-        ))}
-      </select>
+    return renderSelect(
+      field.options.map((option) => ({ value: option.value, label: optionLabel(option.label) })),
+      value,
+      selectPlaceholder ?? t("fieldControl.emptySelectionPlaceholder"),
     );
   }
 
-  // A year is picked from a list, as at registration: no "20", no next
-  // year, no spinner. The stored value stays the four-digit string.
+  // A year is picked from the same shared option list in every entity form.
   if (field.type === "number" && isYearField(field)) {
-    return (
-      <select
-        id={field.id}
-        name={field.id}
-        aria-invalid={hasError || undefined}
-        aria-required={required || undefined}
-        className={`sovereign-select ${hasError ? "has-error" : ""}`}
-        style={compactStyle}
-        value={value == null ? "" : String(value)}
-        onChange={(e) => onChange(field.id, e.target.value)}
-        onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
-      >
-        <option value="" disabled>
-          {t("fieldControl.emptySelectionPlaceholder")}
-        </option>
-        {yearOptions(value).map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
+    return renderSelect(
+      yearOptions(value).map((year) => ({ value: year, label: year })),
+      value,
+      selectPlaceholder ?? t("fieldControl.emptySelectionPlaceholder"),
     );
   }
 
@@ -234,10 +277,14 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
         id={field.id}
         name={field.id}
         placeholder={placeholder}
+        aria-describedby={describedBy}
         aria-invalid={hasError || undefined}
         aria-required={required || undefined}
+        aria-readonly={readOnly || undefined}
+        readOnly={readOnly}
         className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-        style={{ ...compactStyle, minHeight: compact ? 30 : 80 }}
+        rows={textareaRows}
+        style={{ ...compactStyle, minHeight: textareaMinHeight ?? (compact ? 30 : 80), maxWidth }}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(field.id, e.target.value)}
         onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}
@@ -245,12 +292,13 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
     );
   }
 
-  const htmlType =
+  const htmlType = inputType ?? (
     field.type === "tel" || field.type === "email" || field.type === "date"
       ? field.type
       : field.type === "number"
         ? "number"
-        : "text";
+        : "text"
+  );
 
   return (
     <input
@@ -260,8 +308,11 @@ export function FieldControl({ field, value, onChange, placeholder, compact = fa
       placeholder={placeholder}
       aria-required={required || undefined}
       aria-invalid={hasError || undefined}
+      aria-describedby={describedBy}
+      aria-readonly={readOnly || undefined}
+      readOnly={readOnly}
       className={`sovereign-text-input ${hasError ? "has-error" : ""}`}
-      style={compactStyle}
+      style={{ ...compactStyle, maxWidth }}
       value={(value as string) ?? ""}
       onChange={(e) => onChange(field.id, e.target.value)}
       onBlur={onFieldTouch ? () => onFieldTouch(field.id) : undefined}

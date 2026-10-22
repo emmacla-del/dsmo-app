@@ -1,349 +1,47 @@
-"use client";
+import type { QuizAnswerRow } from "@/components/onefop/QuizAnswerReview";
+import type { TrackerChipItem, TrackerRow } from "./ScopeTypes";
 
-import { useTranslations } from "next-intl";
-import React from "react";
-import type { TrackerRow, TrackerColumnKey, BeatDefinition } from "./ScopeTypes";
-
-interface FactsTrackerProps {
-  rows: TrackerRow[];
-  activeBeat: BeatDefinition;
-  onSelectBeat: (beat: BeatDefinition) => void;
-  onReset?: () => void;
-  locale?: "fr" | "en";
-  className?: string;
-  style?: React.CSSProperties;
-  quietSummary?: string[];
-  fullWidth?: boolean;
+function chipText(value: string | TrackerChipItem): string {
+  return typeof value === "string" ? value : value.tooltip || value.label;
 }
 
-/**
- * Labelled Tracker Table (Memory only, not saisie).
- * 7 fixed columns: Fait | Réponse | Types / motifs | Personnels | Âges | Diplômes | Autre
- * Rows appear only when that main is answered.
- * Row click -> jump to main beat.
- * Filled cell click -> jump to that child beat.
- */
-export function FactsTracker({
-  rows,
-  activeBeat,
-  onSelectBeat,
-  onReset,
-  className,
-  style,
-  quietSummary,
-  fullWidth = false,
-}: FactsTrackerProps) {
-  const t = useTranslations("modernJobs.facts");
+function joinChips(values: (string | TrackerChipItem)[] | undefined): string {
+  if (!values?.length) return "";
+  return values.map(chipText).filter(Boolean).join(", ");
+}
 
-  const columns: Array<{ key: TrackerColumnKey; label: string; width: string; minWidth: string }> = [
-    { key: "fait", label: t("colFact"), width: "17%", minWidth: "110px" },
-    { key: "reponse", label: t("colAnswer"), width: "8%", minWidth: "60px" },
-    { key: "typesMotifs", label: t("colTypes"), width: "15%", minWidth: "95px" },
-    { key: "personnels", label: t("colStaff"), width: "14%", minWidth: "85px" },
-    { key: "ages", label: t("colAges"), width: "11%", minWidth: "75px" },
-    { key: "diplomes", label: t("colDiplomas"), width: "13%", minWidth: "80px" },
-    { key: "autre", label: t("colOther"), width: "22%", minWidth: "140px" },
-  ];
+/** Convert employer-specific quiz answers to the shared review row shape. */
+export function toQuizAnswerRows(
+  rows: TrackerRow[],
+  labels: Record<string, string>,
+): QuizAnswerRow[] {
+  return rows.map((row) => {
+    const facets: QuizAnswerRow["facets"] = [];
+    if (row.reponse !== "Non") {
+      const typesText = joinChips(row.typesMotifs);
+      if (typesText) {
+        let facetLabel = labels.colTypes;
+        if (row.mainId === "recruitment" || row.mainId === "primo_workers") facetLabel = labels.dimContracts;
+        else if (row.mainId === "departures") facetLabel = labels.dimReasons;
+        else if (row.mainId === "interns") facetLabel = labels.dimInternships;
+        facets.push({ key: "types", label: facetLabel, value: typesText });
+      }
+      const groups = [
+        ["personnels", labels.dimCategories, joinChips(row.personnels)],
+        ["ages", labels.dimAges, joinChips(row.ages)],
+        ["diplomes", labels.dimDiplomas, joinChips(row.diplomes)],
+        ["autre", labels.dimSpecific, (row.autre ?? []).map(chipText).filter(Boolean).join(" · ")],
+      ] as const;
+      for (const [key, facetLabel, value] of groups) {
+        if (value) facets.push({ key, label: facetLabel, value });
+      }
+    }
 
-  const title = t("title");
-  const emptyPlaceholder = t("empty");
-
-  return (
-    <aside
-      aria-label={title}
-      className={className}
-      style={{
-        background: "var(--cam-surface)",
-        border: "1px solid var(--cam-border)",
-        borderRadius: "var(--cam-radius-md, 8px)",
-        padding: fullWidth ? "18px 22px" : "14px 18px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        boxSizing: "border-box",
-        overflow: "hidden",
-        ...style,
-      }}
-    >
-      <div
-        style={{
-          borderBottom: "1px solid var(--cam-border)",
-          paddingBottom: 10,
-          marginBottom: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexShrink: 0,
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "var(--cam-font-size-base)",
-            fontWeight: 700,
-            color: "var(--cam-text)",
-          }}
-        >
-          {title}
-        </h3>
-        {onReset && (
-          <button
-            type="button"
-            onClick={() => {
-              const confirmMsg = t("resetConfirm");
-              if (typeof window !== "undefined" && window.confirm(confirmMsg)) {
-                onReset();
-              }
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--cam-green)",
-              fontSize: "var(--cam-font-size-3xs)",
-              fontWeight: 600,
-              cursor: "pointer",
-              textDecoration: "underline",
-              padding: 0,
-            }}
-          >
-            {t("reset")}
-          </button>
-        )}
-      </div>
-
-      {rows.length === 0 ? (
-        <div
-          style={{
-            padding: "28px 12px",
-            textAlign: "center",
-            color: "var(--cam-text-muted)",
-            fontSize: "var(--cam-font-size-xs)",
-            lineHeight: 1.5,
-            flex: 1,
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <p style={{ margin: 0 }}>{emptyPlaceholder}</p>
-        </div>
-      ) : (
-        <div
-          className="cam-tracker-table-container"
-          style={{
-            width: "100%",
-            flex: 1,
-            minHeight: 0,
-            overflowY: "auto",
-            overflowX: "auto",
-          }}
-        >
-          <table
-            style={{
-              width: "100%",
-              minWidth: "640px",
-              borderCollapse: "collapse",
-              fontSize: "var(--cam-font-size-sm)",
-              lineHeight: 1.35,
-              textAlign: "left",
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 2,
-                  borderBottom: "2px solid var(--cam-border)",
-                  background: "var(--cam-surface)",
-                }}
-              >
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    scope="col"
-                    style={{
-                      padding: "8px 10px",
-                      fontWeight: 700,
-                      color: "var(--cam-text-muted)",
-                      fontSize: "var(--cam-font-size-xs)",
-                      whiteSpace: "nowrap",
-                      width: col.width,
-                      minWidth: col.minWidth,
-                    }}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const isRowActive = activeBeat.mainId === row.mainId;
-
-                const renderCellContent = (colKey: TrackerColumnKey) => {
-                  if (colKey === "fait") {
-                    return (
-                      <span style={{ fontWeight: 600, color: "var(--cam-text)" }}>
-                        {row.title}
-                      </span>
-                    );
-                  }
-
-                  if (colKey === "reponse") {
-                    if (row.reponse === null) return <span style={{ color: "var(--cam-placeholder)" }}>—</span>;
-                    const isYes = row.reponse === "Oui";
-                    return (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "2px 7px",
-                          borderRadius: 4,
-                          fontWeight: 700,
-                          fontSize: "var(--cam-font-size-xs)",
-                          background: isYes ? "var(--cam-success-bg)" : "var(--cam-surface-subtle)",
-                          color: isYes ? "var(--cam-green)" : "var(--cam-text-muted)",
-                        }}
-                      >
-                        {isYes ? t("yes") : t("no")}
-                      </span>
-                    );
-                  }
-
-                  const values =
-                    colKey === "typesMotifs"
-                      ? row.typesMotifs
-                      : colKey === "personnels"
-                      ? row.personnels
-                      : colKey === "ages"
-                      ? row.ages
-                      : colKey === "diplomes"
-                      ? row.diplomes
-                      : row.autre;
-
-                  if (!values || values.length === 0) {
-                    return <span style={{ color: "var(--cam-placeholder)" }}>—</span>;
-                  }
-
-                  return (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 4px" }}>
-                      {values.map((v, idx) => {
-                        const label = typeof v === "string" ? v : v.label;
-                        const tooltip = typeof v === "string" ? undefined : v.tooltip;
-                        return (
-                          <span
-                            key={idx}
-                            title={tooltip || label}
-                            style={{
-                              display: "inline-block",
-                              background: "var(--cam-surface-subtle)",
-                              padding: "1px 5px",
-                              borderRadius: 3,
-                              fontSize: "var(--cam-font-size-2xs)",
-                              fontWeight: 500,
-                              color: "var(--cam-text)",
-                              maxWidth: "100%",
-                              wordBreak: "break-word",
-                              cursor: tooltip ? "help" : "default",
-                              borderBottom: tooltip ? "1px dotted var(--cam-placeholder)" : "none",
-                            }}
-                          >
-                            {label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  );
-                };
-
-                return (
-                  <tr
-                    key={row.mainId}
-                    style={{
-                      borderBottom: "1px solid var(--cam-border)",
-                      background: isRowActive ? "var(--vt-accent-soft)" : "transparent",
-                      transition: "background-color 0.1s ease",
-                    }}
-                  >
-                    {columns.map((col) => {
-                      const childBeatForCell = row.cellBeats?.[col.key];
-                      const isCellActive =
-                        isRowActive &&
-                        ((col.key === "reponse" && !activeBeat.childBeatId) ||
-                          (childBeatForCell && activeBeat.childBeatId === childBeatForCell));
-
-                      const isClickable =
-                        col.key === "fait" ||
-                        col.key === "reponse" ||
-                        Boolean(childBeatForCell && row.reponse === "Oui");
-
-                      return (
-                        <td
-                          key={col.key}
-                          onClick={() => {
-                            if (!isClickable) return;
-                            if (col.key === "fait" || col.key === "reponse" || !childBeatForCell) {
-                              onSelectBeat({ mainId: row.mainId });
-                            } else {
-                              onSelectBeat({ mainId: row.mainId, childBeatId: childBeatForCell });
-                            }
-                          }}
-                          style={{
-                            padding: "9px 10px",
-                            verticalAlign: "top",
-                            cursor: isClickable ? "pointer" : "default",
-                            background: isCellActive ? "var(--vt-accent-soft)" : "transparent",
-                            outline: isCellActive ? "1px solid var(--cam-green)" : "none",
-                            borderRadius: isCellActive ? 3 : 0,
-                            minWidth: col.minWidth,
-                            transition: "background-color 0.1s ease",
-                          }}
-                        >
-                          {renderCellContent(col.key)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Quiet summary line of official codes under the table */}
-      {quietSummary && quietSummary.length > 0 && (
-        <div
-          style={{
-            marginTop: 14,
-            paddingTop: 8,
-            borderTop: "1px dashed var(--cam-border)",
-            fontSize: "var(--cam-font-size-3xs)",
-            color: "var(--cam-text-muted)",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "4px 6px",
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontWeight: 600 }}>{t("enabledSections")}</span>
-          {quietSummary.map((code) => (
-            <span
-              key={code}
-              style={{
-                fontFamily: "var(--cam-font-mono)",
-                background: "var(--cam-surface-subtle)",
-                padding: "1px 5px",
-                borderRadius: 3,
-                fontSize: "var(--cam-font-size-3xs)",
-                color: "var(--cam-text-muted)",
-              }}
-            >
-              {code}
-            </span>
-          ))}
-        </div>
-      )}
-    </aside>
-  );
+    return {
+      id: row.mainId,
+      title: row.title,
+      answer: row.reponse === "Oui" ? "yes" : row.reponse === "Non" ? "no" : null,
+      facets,
+    };
+  });
 }

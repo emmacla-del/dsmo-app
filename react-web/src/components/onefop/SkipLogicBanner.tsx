@@ -51,7 +51,7 @@ export function SkipLogicBanner({
           display: "grid",
           placeItems: "center",
           fontSize: "var(--cam-font-size-base)",
-          fontWeight: 700,
+          fontWeight: "var(--cam-font-weight-bold)",
           flexShrink: 0,
         }}
       >
@@ -63,7 +63,7 @@ export function SkipLogicBanner({
           <h4
             style={{
               fontSize: "var(--cam-font-size-base, 14px)",
-              fontWeight: 700,
+              fontWeight: "var(--cam-font-weight-bold)",
               color: "var(--cam-green)",
               margin: "0 0 4px",
             }}
@@ -95,7 +95,7 @@ export function SkipLogicBanner({
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: "var(--cam-font-size-3xs)",
-              fontWeight: 700,
+              fontWeight: "var(--cam-font-weight-bold)",
             }}
           >
             <span aria-hidden="true">✓</span>
