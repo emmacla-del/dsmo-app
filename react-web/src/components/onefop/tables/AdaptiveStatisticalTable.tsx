@@ -615,7 +615,10 @@ function BlockTabs({
         alignItems: "flex-end",
         gap: 4,
         overflowX: "auto",
-        marginBottom: -1.5,
+        // No negative margin: this opaque strip overlapping the frame erased
+        // the table's top border across its whole width, and a 1px overlap
+        // is lost to rounding at fractional display scales. The active tab
+        // sits on the table's own border instead.
         // Pinned under the header, the section pills and (S22Q03) the
         // category tabs while the table scrolls.
         position: "sticky",
@@ -653,11 +656,32 @@ function BlockTabs({
               fontFamily: "var(--cam-font-sans)",
               whiteSpace: "nowrap",
               cursor: "pointer",
-              color: isActive ? "var(--cam-text)" : "var(--cam-text-muted)",
-              background: isActive ? "var(--cam-surface)" : "transparent",
-              border: "1px solid",
-              borderColor: isActive ? "var(--cam-text-muted)" : "transparent",
-              borderBottomColor: isActive ? "var(--cam-surface)" : "transparent",
+              // The block's fill state in colour, active or not, so which sex
+              // is done and which is still to fill shows at a glance (owner,
+              // 2026-10-22): green complete, amber begun, grey not begun.
+              // The active block is the one with the frame's outline.
+              color:
+                state === "complete"
+                  ? "var(--cam-success)"
+                  : state === "partial"
+                    ? "var(--cam-warning)"
+                    : isActive
+                      ? "var(--cam-text)"
+                      : "var(--cam-text-muted)",
+              background:
+                state === "complete"
+                  ? "var(--cam-success-bg)"
+                  : state === "partial"
+                    ? "var(--cam-warning-bg)"
+                    : isActive
+                      ? "var(--cam-surface)"
+                      : "transparent",
+              borderStyle: "solid",
+              borderWidth: 1,
+              borderTopColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderLeftColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderRightColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderBottomColor: "transparent",
               borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
             }}
           >
@@ -677,13 +701,13 @@ function BlockTabs({
                   state === "complete"
                     ? "var(--cam-success)"
                     : state === "partial"
-                      ? "var(--cam-success)"
+                      ? "var(--cam-warning)"
                       : "var(--cam-border-strong)",
                 background:
                   state === "complete"
                     ? "var(--cam-success)"
                     : state === "partial"
-                      ? "linear-gradient(90deg, var(--cam-success) 50%, transparent 50%)"
+                      ? "linear-gradient(90deg, var(--cam-warning) 50%, transparent 50%)"
                       : "transparent",
               }}
             >

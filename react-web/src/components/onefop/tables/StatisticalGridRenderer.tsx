@@ -28,7 +28,6 @@ import {
   RowCode,
   RowHeader,
 } from "../table/DataTable";
-import { RequiredAsterisk } from "./RequiredAsterisk";
 
 export interface StatisticalGridRendererProps {
   definition: FixedMatrixDefinition;
@@ -113,10 +112,11 @@ export function StatisticalGridRenderer({
   const t = useTranslations("modernJobs.grid");
   const tableRef = useRef<HTMLTableElement>(null);
   const missing = new Set(missingFieldKeys ?? []);
-  const columnIsRequired = (colKey: string) =>
-    definition.rows.some((row) => !row.isTotal && !row.isSubtotal && row.cells[colKey]?.required);
-  const rowIsRequired = (row: { isTotal?: boolean; isSubtotal?: boolean; cells: Record<string, { required?: boolean }> }) =>
-    !row.isTotal && !row.isSubtotal && Object.values(row.cells).some((cell) => cell.required);
+  // No red star on a required row or column: every cell the respondent can
+  // enter in a quiz-opened table is required, so the star marked nearly
+  // everything and told nothing. The section says once that questions are
+  // required unless marked optional; each cell keeps aria-required (owner,
+  // 2026-10-22).
 
   // Auto-focus first input when table is displayed / changed in focus deck
   useEffect(() => {
@@ -316,14 +316,23 @@ export function StatisticalGridRenderer({
 
   return (
     <div
-      className={`overflow-hidden border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs ${className}`}
+      // The frame's line is drawn twice: by its border, and by an ::after
+      // ring laid over it at z-[21]. The sticky first-column cells (z-20)
+      // are painted as layers of their own and snapped to whole device
+      // pixels; at a fractional scale (125%) and a fractional offset they
+      // landed one device pixel over the 1-device-pixel border and erased
+      // the frame's top and left edges beside them (owner, 2026-10-22). The
+      // ring stays under the sticky tab strips (z-25/26) and the wizard's
+      // header. The frame no longer clips (`overflow-hidden` would clip the
+      // ring away); the scroller below rounds its own corners instead.
+      className={`relative border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs after:pointer-events-none after:absolute after:-inset-px after:z-[21] after:rounded-[4px] after:border after:border-[var(--cam-table-frame)] after:content-[''] ${className}`}
       style={{ width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
     >
       {/* The frame hugs the table's own columns, never exceeding
           TABLE_MAX_WIDTH_PX (see tableLayout.ts). The table only scrolls
           inside this frame once the frame is narrower than the columns ask
           for. */}
-      <div className="relative w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto rounded-[3px]">
         <DataTable
           ref={tableRef}
           className="border-collapse table-fixed"
@@ -379,7 +388,6 @@ export function StatisticalGridRenderer({
                           className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
                         >
                           {localized(col.header, locale)}
-                          {columnIsRequired(col.key) && <RequiredAsterisk />}
                         </LeafHeader>
                       ))
                     ),
@@ -409,7 +417,6 @@ export function StatisticalGridRenderer({
                           className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
                         >
                           {localized(col.header, locale)}
-                          {columnIsRequired(col.key) && <RequiredAsterisk />}
                         </LeafHeader>
                       ))
                     ),
@@ -434,7 +441,6 @@ export function StatisticalGridRenderer({
                           }`}
                         >
                           {localized(col.header, locale)}
-                          {columnIsRequired(col.key) && <RequiredAsterisk />}
                         </LeafHeader>
                       );
                     })}
@@ -480,7 +486,6 @@ export function StatisticalGridRenderer({
                           className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[65px] sm:min-w-[75px]"
                         >
                           {localized(col.header, locale)}
-                          {columnIsRequired(col.key) && <RequiredAsterisk />}
                         </LeafHeader>,
                       );
                     }
@@ -505,7 +510,6 @@ export function StatisticalGridRenderer({
                           }`}
                         >
                           {localized(col.header, locale)}
-                          {columnIsRequired(col.key) && <RequiredAsterisk />}
                         </LeafHeader>
                       );
                     })}
@@ -525,7 +529,6 @@ export function StatisticalGridRenderer({
                     className="px-2.5 py-2 border-r border-b border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)] min-w-[60px] sm:min-w-[70px]"
                   >
                     {localized(col.header, locale)}
-                    {columnIsRequired(col.key) && <RequiredAsterisk />}
                   </LeafHeader>
                 ))}
               </tr>
@@ -549,7 +552,6 @@ export function StatisticalGridRenderer({
                         <RowCode>{row.code}</RowCode>
                       )}
                       <span>{localized(row.label, locale)}</span>
-                      {rowIsRequired(row) && <RequiredAsterisk />}
                     </div>
                   </RowHeader>
 
