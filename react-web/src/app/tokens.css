@@ -194,9 +194,12 @@
 
   /* ── Spacing (4px base) ── */
   --cam-space-1: 4px;
+  --cam-space-1-5: 6px;
   --cam-space-2: 8px;
+  --cam-space-2-5: 10px;
   --cam-space-3: 12px;
   --cam-space-4: 16px;
+  --cam-space-4-5: 20px;
   --cam-space-5: 24px;
   --cam-space-6: 32px;
   --cam-space-7: 48px;

@@ -111,7 +111,7 @@ The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was 
 
 ### G14 — Spacing
 
-**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 2=8, 3=12, 4=16, 5=24, 6=32, 7=48). No colour, no border, no radius, no background, no padding literal.
+**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 1-5=6, 2=8, 2-5=10, 3=12, 4=16, 4-5=20, 5=24, 6=32, 7=48). No colour, no border, no radius, no background, no padding literal.
 
 **G14 is the load-bearing rule.** It is the one-sentence form of the measurement above: *inline style positions things, classes paint them.* A page obeying G14 cannot break G1, G4, G5, G11 or G13.
 
