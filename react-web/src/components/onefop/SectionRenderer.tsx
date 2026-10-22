@@ -9,7 +9,7 @@ import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { FieldRenderer } from "./FieldRenderer";
 import { FormGrid, FormCol } from "./ui/FormGrid";
 import { FormSectionCard } from "./ui/FormSectionCard";
-import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
+import { RequiredQuestionsInfo } from "./ui/OptionalSuffix";
 import type { FormStatus } from "./form/StatusChip";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 import { Section1ThematicRenderer } from "@/components/modern-jobs/section1/Section1ThematicRenderer";
@@ -697,8 +697,8 @@ export function SectionRenderer({
                     border: "none",
                     boxShadow: "none",
                     borderRadius: 0,
-                    padding: "0 0 var(--cam-space-6) 0",
-                    marginBottom: "var(--cam-space-6)",
+                    padding: "0 0 var(--cam-space-4) 0",
+                    marginBottom: "var(--cam-space-5)",
                     borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
                     maxWidth: `${TABLE_MAX_WIDTH_PX}px`,
                     scrollMarginTop: CHUNK_SCROLL_MARGIN,
@@ -785,6 +785,57 @@ export function SectionRenderer({
     );
   };
 
+  // One Tableau/Guidé switch for the section (it portals to the app bar)
+  // and the keyboard cheat sheet. They sit at the right of the title line,
+  // where a row of their own added 44px above the first table (owner,
+  // 2026-10-22); when Guidé hides the masthead on a wide screen they keep a
+  // row of their own, or they would vanish with it.
+  const toolbarOwnRow = isMultiTableSection && deckMode === "focus";
+  const toolbar = sectionHasAdaptiveTables ? (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: "var(--cam-space-2, 8px)",
+        marginBottom: toolbarOwnRow ? "var(--cam-space-3, 12px)" : 0,
+      }}
+    >
+      <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
+      <button
+        type="button"
+        onClick={() => setShowShortcutsHelp((v) => !v)}
+        aria-expanded={showShortcutsHelp}
+        title={t("shortcutsTitle")}
+        aria-label={t("shortcutsAria")}
+        className="cam-hoverable"
+        style={{
+          background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
+          borderRadius: "var(--cam-radius-control, 6px)",
+          width: 32,
+          height: 32,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--cam-text-muted)",
+          cursor: "pointer",
+        }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+          <line x1="6" y1="8" x2="6" y2="8" />
+          <line x1="10" y1="8" x2="10" y2="8" />
+          <line x1="14" y1="8" x2="14" y2="8" />
+          <line x1="18" y1="8" x2="18" y2="8" />
+          <line x1="6" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="18" y2="12" />
+          <line x1="7" y1="16" x2="17" y2="16" />
+        </svg>
+      </button>
+    </div>
+  ) : null;
+
   return (
     <GuidedReviewGateContext.Provider value={reviewRegistry}>
     <section
@@ -815,8 +866,8 @@ export function SectionRenderer({
         data-collapse={isMultiTableSection && deckMode === "focus" ? "true" : "false"}
         style={{
           borderBottom: "1px solid var(--cam-border)",
-          paddingBottom: "var(--cam-space-4, 16px)",
-          marginBottom: "var(--cam-space-5)",
+          paddingBottom: "var(--cam-space-3, 12px)",
+          marginBottom: "var(--cam-space-4, 16px)",
           width: "100%",
           boxSizing: "border-box",
         }}
@@ -824,14 +875,18 @@ export function SectionRenderer({
         <div
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: "var(--cam-space-4, 16px)",
           }}
         >
-          {/* Left: Title + Statistics Subtitle */}
+          {/* Left: Title, with the table count in brackets and the
+              required-questions note behind an ⓘ on the same line: each
+              used to take a line of its own between the title and the first
+              table (owner, 2026-10-22). */}
           <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", columnGap: "var(--cam-space-2, 8px)" }}>
             <h1
               id={`${section.id}-heading`}
               // Focus target of the wizard on every section change (see
@@ -857,6 +912,24 @@ export function SectionRenderer({
                     sectionNumberFromId(section.id, 0),
                   ) || section.id}
             </h1>
+            {isMultiTableSection && (
+              <span
+                style={{
+                  fontFamily: "var(--cam-font-sans)",
+                  fontSize: "var(--cam-font-size-xs, 0.8125rem)",
+                  color: "var(--cam-text-muted)",
+                }}
+              >
+                (
+                {sectionEntryMode === "guided"
+                  ? t("topicsSummary", { total: validChunks.length, completed: completedChunksCount })
+                  : t("tablesSummary", { total: sectionTableFields.length, completed: completedTablesCount })}
+                )
+              </span>
+            )}
+            {visibleFields.length > 0 && <RequiredQuestionsInfo />}
+            </div>
+            {!isMultiTableSection && (
             <p
               style={{
                 fontFamily: "var(--cam-font-sans)",
@@ -865,13 +938,7 @@ export function SectionRenderer({
                 margin: "var(--cam-space-1, 4px) 0 0 0",
               }}
             >
-              {isMultiTableSection ? (
-                sectionEntryMode === "guided" ? (
-                  t("topicsSummary", { total: validChunks.length, completed: completedChunksCount })
-                ) : (
-                  t("tablesSummary", { total: sectionTableFields.length, completed: completedTablesCount })
-                )
-              ) : section.id === "section0" ? (
+              {section.id === "section0" ? (
                 // Who the respondent is answering for, in the words of their
                 // own body — the rule S0Q02's label already follows. An
                 // entity with no wording of its own keeps "l'établissement".
@@ -886,63 +953,15 @@ export function SectionRenderer({
                 localized(section.description, locale)
               ) : null}
             </p>
-            {visibleFields.length > 0 && <RequiredQuestionsNote />}
+            )}
           </div>
 
+          {!toolbarOwnRow && toolbar}
         </div>
 
       </div>
+      {toolbarOwnRow && toolbar}
 
-      {/* The section's table list is gone: every table is headed by its own
-          name where it stands, so a pinned index of the same names said them
-          twice and took 50px off the top of every section (owner,
-          2026-10-20). What the bar also carried stays: one Tableau/Guidé
-          switch for the section (it portals to the app bar) and the keyboard
-          cheat sheet, on a line of their own that pins to nothing. */}
-      {sectionHasAdaptiveTables && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: "var(--cam-space-2, 8px)",
-            marginBottom: "var(--cam-space-3, 12px)",
-          }}
-        >
-          <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
-          <button
-            type="button"
-            onClick={() => setShowShortcutsHelp((v) => !v)}
-            aria-expanded={showShortcutsHelp}
-            title={t("shortcutsTitle")}
-            aria-label={t("shortcutsAria")}
-            className="cam-hoverable"
-            style={{
-              background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              width: 32,
-              height: 32,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--cam-text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-              <line x1="6" y1="8" x2="6" y2="8" />
-              <line x1="10" y1="8" x2="10" y2="8" />
-              <line x1="14" y1="8" x2="14" y2="8" />
-              <line x1="18" y1="8" x2="18" y2="8" />
-              <line x1="6" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="18" y2="12" />
-              <line x1="7" y1="16" x2="17" y2="16" />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Shortcuts Help Box (if toggled) */}
       {sectionHasAdaptiveTables && showShortcutsHelp && (

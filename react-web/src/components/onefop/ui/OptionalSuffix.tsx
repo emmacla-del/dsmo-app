@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { OnefopField } from "@/lib/onefop-schema";
 import { isOptionalField } from "@/lib/onefop-validation";
 import { VT_ADMIN_ONLY_IDS } from "@/components/onefop/vt-wizard-utils";
+import { InfoTooltip } from "./InfoTooltip";
 
 /**
  * " (facultatif)" after a question label, in muted text, for questions a
@@ -23,6 +24,17 @@ export function OptionalSuffix({ field }: { field: Pick<OnefopField, "id" | "req
       {t("optionalSuffix")}
     </span>
   );
+}
+
+/**
+ * The same sentence as RequiredQuestionsNote, behind an ⓘ beside a section
+ * heading, where a line of its own under the heading pushed the first table
+ * down (owner, 2026-10-22). The button's name is the sentence itself, so a
+ * screen reader hears it without opening the tooltip.
+ */
+export function RequiredQuestionsInfo() {
+  const t = useTranslations("onefopUi");
+  return <InfoTooltip content={t("requiredQuestionsNote")} ariaLabel={t("requiredQuestionsNote")} />;
 }
 
 /** The one sentence under a section heading that explains OptionalSuffix. */

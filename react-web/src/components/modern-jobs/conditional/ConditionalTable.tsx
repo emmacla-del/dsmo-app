@@ -12,6 +12,7 @@ import {
 } from "./gateway-catalog";
 
 import { extractCleanErrorMessage } from "@/lib/onefop-validation";
+import { TableInstructionContext } from "@/components/onefop/table/TableQuestionHeading";
 
 export { isCompanionHiddenByGateway, resolveTableStatusFieldId } from "./gateway-catalog";
 
@@ -59,11 +60,10 @@ export function ConditionalTable({
 
   if (status === "NONE") return null;
 
-  const frameStyle: React.CSSProperties = {
-    marginBottom: "var(--cam-space-6, 32px)",
-    paddingBottom: "var(--cam-space-5, 24px)",
-    borderBottom: "1px solid var(--cam-border)",
-  };
+  // No rule or spacing of its own: the section's chunk card already rules
+  // one table off from the next, and the two together drew two lines and
+  // some 100px between tables (owner, 2026-10-22).
+  const frameStyle: React.CSSProperties = {};
   const errorBox = errorMessage && (
     <div
       role="alert"
@@ -85,13 +85,10 @@ export function ConditionalTable({
   if (status === "REPORTED" || !isQuizGovernedTable(tableField)) {
     return (
       <div style={frameStyle}>
-        {followUp && (
-          <p style={{ fontSize: "var(--cam-font-size-sm)", fontWeight: 600, color: "var(--cam-text)", margin: "0 0 12px", lineHeight: 1.4 }}>
-            {followUp}
-          </p>
-        )}
         {errorBox}
-        {children}
+        {/* The instruction is an ⓘ on the table's question
+            (TableQuestionHeading), not a line above it. */}
+        <TableInstructionContext.Provider value={followUp}>{children}</TableInstructionContext.Provider>
       </div>
     );
   }
