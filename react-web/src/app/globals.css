@@ -974,6 +974,9 @@ html:has(.cam-masthead) {
   gap: var(--cam-space-2);
   min-width: 0;
   margin: 0 0 var(--cam-space-3);
+  /* The frame's own side padding, so the wordmark starts on the same line
+     as the section title under it. The rail below keeps the full width. */
+  padding: 0 var(--cam-frame-scroll-pad-x);
 }
 
 /* The wizard puts the endorsement on the same line as the wordmark. The
@@ -1174,6 +1177,11 @@ html:has(.cam-masthead) {
     padding-right: var(--cam-space-3);
   }
 
+  /* The frame runs edge to edge here; the header keeps its gutter. */
+  .cam-auth-page--wizard .masthead {
+    padding: 0 calc(var(--cam-section-pad) - var(--cam-space-3));
+  }
+
   .cam-auth-page--wizard .flow-body {
     padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-2);
   }
@@ -1194,22 +1202,15 @@ html:has(.cam-masthead) {
   }
 }
 
-/* Wide: the dossier panel replaces the header and the footer. After the
-   short-viewport rule above, so the body's padding here wins at 1366x680. */
+/* Wide: the same header as on a narrow screen -- wordmark, then the six
+   steps as a horizontal rail over the frame (owner, 2026-10-22, replacing
+   the dossier side panel on this route). The panel's markup is still
+   rendered but not shown, so the change is CSS-only while it is tried. */
 @media (min-width: 1024px) {
-  .cam-auth-page--wizard .flow-header,
-  .cam-auth-page--wizard .flow-footer {
-    display: none;
-  }
-
-  .cam-auth-page--wizard .flow-panel {
-    display: flex;
-  }
-
   .cam-auth-page--wizard .flow-body {
     flex: 1 1 auto;
     align-items: flex-start;
-    padding: var(--cam-space-7) var(--cam-space-5) var(--cam-space-6);
+    padding: var(--cam-space-3) var(--cam-space-5) var(--cam-space-6);
   }
 }
 

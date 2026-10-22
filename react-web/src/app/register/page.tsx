@@ -1580,7 +1580,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-respondent"
-              title={t("registerPage.respondentTitle")}
+              title={t("registerPage.stepRespondent")}
               subtitle={t("registerPage.respondentSubtitle")}
             />
 
@@ -1766,7 +1766,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityInfo"
-              title={localized(config.title, locale)}
+              title={t("registerPage.stepEntityInfo")}
               subtitle={localized(config.identification, locale)}
             />
 
@@ -1977,7 +1977,7 @@ export default function RegisterPage() {
                 ruled note stacked on top of the instruction. */}
             <StepHeader
               titleId="reg-section-title-security"
-              title={t("registerPage.securityTitle")}
+              title={t("registerPage.stepSecurity")}
               subtitle={
                 draftRestored
                   ? t("registerPage.draftPasswordReminder")
