@@ -21,7 +21,7 @@ export function WizardRail({
 }: {
   /** Accessible name of the panel, when the list inside does not name it enough. */
   label?: string;
-  /** A wizard's own layout hook, e.g. registration's .flow-panel breakpoint. */
+  /** A wizard's own layout hook, e.g. a breakpoint of its own. */
   className?: string;
   /** Replaces the "Sommaire" title, e.g. the registration identity block. */
   head?: ReactNode;

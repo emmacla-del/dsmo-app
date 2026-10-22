@@ -904,8 +904,8 @@ body {
    scrollbar inside the card on every long section; do not bring it back.
    The route is a flex column at least 100dvh tall:
 
-     .flow-header   the wordmark, the caption and the progress rail (narrow
-                    screens). An ordinary row: it scrolls away with the page.
+     .flow-header   the wordmark, the caption and the progress rail. An
+                    ordinary row on a narrow screen, pinned on a wide one.
      .flow-body     flex: 1, the frame; as tall as its section needs.
      .flow-footer   one line: back to sign-in, and the help link.
 
@@ -1075,51 +1075,11 @@ html:has(.cam-masthead) {
   color: var(--cam-border-strong);
 }
 
-/* ── Split: the dossier panel beside the body ──
-   On a narrow screen .flow-split is just the body, between the header and
-   the footer. From 1024px -- the panel, the 600px frame and their gutters
-   side by side -- the panel appears on the left and the header and footer
-   go: the panel carries the identity, the navigation and the way out. */
+/* ── The body ──
+   .flow-split holds the body between the header and the footer. */
 .cam-auth-page--wizard .flow-split {
   flex: 1 1 auto;
   display: flex;
-}
-
-.cam-auth-page--wizard .flow-panel {
-  display: none;
-}
-
-/* The panel is the shared .cam-wizard-rail (WizardRail.tsx): same width,
-   frame and step list as the Modern Jobs and VT wizards. This file only
-   decides when it shows -- see the min-width rule below. */
-
-/* CAMLEAP alone at panel size (owner, 2026-10-15), the endorsement under
-   it. The language switch is in the foot. */
-.cam-auth-page--wizard .flow-panel-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-
-.cam-auth-page--wizard .flow-panel-sub {
-  margin: var(--cam-space-2) 0 0;
-  min-width: 0;
-  font-size: var(--cam-font-size-xs);
-  line-height: var(--cam-line-height-ui);
-  color: var(--cam-text-muted);
-}
-
-/* Panel foot: one quiet help link, nothing else (owner, 2026-10-15). */
-.cam-auth-page--wizard .flow-panel-foot {
-  margin-top: auto;
-  font-size: var(--cam-font-size-sm);
-  line-height: var(--cam-line-height-ui);
-}
-
-
-.cam-auth-page--wizard .flow-panel-foot .flow-footer-sep {
-  display: none;
 }
 
 .cam-auth-page--wizard .flow-help-link {
@@ -1131,26 +1091,6 @@ html:has(.cam-masthead) {
 
 .cam-auth-page--wizard .flow-help-link:hover {
   color: var(--cam-text);
-}
-
-
-/* The logo and, on its right, the language link. */
-.cam-auth-page--wizard .flow-panel-brandrow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cam-space-3);
-}
-
-/* The panel logo is a link home; it keeps the look of a logo. */
-.cam-auth-page--wizard .flow-panel-home {
-  display: inline-block;
-  border-radius: var(--cam-radius-sm);
-}
-
-.cam-auth-page--wizard .flow-panel-home:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 4px;
 }
 
 
@@ -1204,13 +1144,92 @@ html:has(.cam-masthead) {
 
 /* Wide: the same header as on a narrow screen -- wordmark, then the six
    steps as a horizontal rail over the frame (owner, 2026-10-22, replacing
-   the dossier side panel on this route). The panel's markup is still
-   rendered but not shown, so the change is CSS-only while it is tried. */
+   the dossier side panel on this route). */
 @media (min-width: 1024px) {
+  /* Pinned: the steps stay in view and the form scrolls under them. Wide
+     screens only -- on a phone a pinned bar takes rows the keyboard has
+     already taken (owner, 2026-10-10, for the bottom dock). */
+  .cam-auth-page--wizard .flow-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--cam-z-nav);
+    padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
+    /* A larger rail than on a phone: 32px circles, so the connector, which
+       reads the same token, follows. */
+    --cam-step-marker-size: 32px;
+  }
+
+  /* One row the width of the page: the logo at the far left, the rail
+     centred over the form column, the language link at the far right. The
+     masthead's own box steps aside so its three parts are cells of this
+     grid. */
+  .cam-auth-page--wizard .flow-header-inner {
+    max-width: none;
+    display: grid;
+    /* Wider than the form by a step's gutter each side, so every label
+       holds on one line at the larger size. Still centred over the form. */
+    grid-template-columns: 1fr minmax(0, calc(var(--cam-container-wizard) + 2 * var(--cam-space-8))) 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--cam-space-5);
+    align-items: center;
+  }
+
+  .cam-auth-page--wizard .masthead {
+    display: contents;
+  }
+
+  .cam-auth-page--wizard .masthead-lockup {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-self: end;
+  }
+
+  .cam-auth-page--wizard .masthead > .brand-sub {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    justify-self: start;
+    text-align: left;
+    margin-top: var(--cam-space-1);
+  }
+
+  .cam-auth-page--wizard .registration-progress {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .cam-auth-page--wizard .flow-header .cam-step-marker {
+    font-size: var(--cam-font-size-xs);
+  }
+
+  .cam-auth-page--wizard .flow-header .progress-step-label {
+    margin-top: var(--cam-space-2);
+    font-size: var(--cam-font-size-xs);
+    /* One line: « Type d'organisation » is a little wider than its cell and
+       spills into the room its short neighbour leaves. */
+    white-space: nowrap;
+    max-width: none;
+  }
+
+  .cam-auth-page--wizard .masthead-locale {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    justify-self: end;
+  }
+
   .cam-auth-page--wizard .flow-body {
     flex: 1 1 auto;
     align-items: flex-start;
-    padding: var(--cam-space-3) var(--cam-space-5) var(--cam-space-6);
+    padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-6);
+  }
+}
+
+/* A field brought into view by focus or a jump to an error lands below the
+   pinned header, not under it. */
+@media (min-width: 1024px) {
+  html:has(.cam-auth-page--wizard) {
+    scroll-padding-top: calc(var(--cam-space-9) + var(--cam-space-4));
   }
 }
 
@@ -1234,12 +1253,21 @@ html:has(.cam-masthead) {
   margin-bottom: var(--cam-step-header-space-after);
 }
 
+/* The step rail already names the section (its caption does on a phone),
+   so the title is not drawn a second time over the form (owner,
+   2026-10-22). It stays in the tree, visually hidden like .sr-only: it is
+   the page's h1, the section's accessible name and the focus target on
+   every section change. The subtitle is what the respondent reads. */
 .cam-auth-page--wizard .step-header-title {
-  font-size: var(--cam-step-title-size);
-  font-weight: var(--cam-font-weight-bold);
-  color: var(--cam-text);
-  line-height: var(--cam-line-height-title);
-  margin: 0 0 var(--cam-step-header-gap);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: var(--cam-sr-offset);
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* The heading takes focus on every section change so the respondent is not
@@ -5016,14 +5044,6 @@ textarea.sovereign-text-input {
   .cam-home-main {
     padding: var(--cam-space-5) var(--cam-space-4);
   }
-}
-
-/* Registration panel: its rows and gaps are the shared rail rhythm (see
-   "Wizard rail"); it keeps only a little more room under its foot, where the
-   help link sits (owner, 2026-10-15). Side padding stays the shared 16px: at
-   24px "Type d'organisation" wrapped beside its "Modifier" link. */
-.cam-auth-page--wizard .flow-panel.cam-wizard-rail {
-  padding-bottom: var(--cam-space-5);
 }
 
 /* A quiet text link to the other official language (LanguageLink.tsx):
