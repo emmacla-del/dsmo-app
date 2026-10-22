@@ -148,3 +148,24 @@ test("an unknown round code is quoted after the survey", () => {
   renderWithProviders(<ModernJobsHeader entityType="cooperative" quarterCode="X1" />);
   assert.equal(surveyLine(), "Recensement emplois modernes des Coopératives · Campagne X1");
 });
+
+// Every ONEFOP wizard (Modern Jobs and VT, through ModernJobsWizard and
+// WizardShell) draws this masthead, so each form type gets its sentence.
+test("every form type reads one sentence naming its survey, entity and round", () => {
+  const expected: Record<string, string> = {
+    enterprise: "Recensement emplois modernes des Entreprises pour le 4e trimestre 2026",
+    cooperative: "Recensement emplois modernes des Coopératives pour le 4e trimestre 2026",
+    administration: "Recensement emplois modernes des Administrations publiques pour le 4e trimestre 2026",
+    ong: "Recensement emplois modernes des ONG et associations pour le 4e trimestre 2026",
+    ctd: "Recensement emplois modernes des Collectivités territoriales pour le 4e trimestre 2026",
+    projectProgram: "Recensement emplois modernes pour le 4e trimestre 2026",
+    vocationalTraining: "Recensement formation professionnelle pour le 4e trimestre 2026",
+  };
+  for (const [entityType, line] of Object.entries(expected)) {
+    const { unmount } = renderWithProviders(
+      <ModernJobsHeader entityType={entityType} quarterCode="QUARTERLY_2026_T4_001" />,
+    );
+    assert.equal(surveyLine(), line, entityType);
+    unmount();
+  }
+});

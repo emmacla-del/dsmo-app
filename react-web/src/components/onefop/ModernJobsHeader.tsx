@@ -75,10 +75,12 @@ export function ModernJobsHeader({
       case "cooperative":
         return t("entityOf.cooperative");
       case "enterprise":
+      case "entreprise":
         return t("entityOf.enterprise");
       case "administration":
         return t("entityOf.administration");
       case "ong":
+      case "ngo":
         return t("entityOf.ong");
       case "ctd":
         return t("entityOf.ctd");
