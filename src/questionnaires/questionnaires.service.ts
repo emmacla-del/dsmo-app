@@ -239,6 +239,8 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'projectProgram.stopReason': "Motif d'arrêt / Reason for stopping",
   'projectProgram.permanentWorkers': 'Employés permanents / Permanent workers',
   'projectProgram.vacancies': 'Postes vacants / Vacancies',
+  'projectProgram.activities':
+    'Section 2 : au moins une prestation offerte, renseignée en entier / Section 2: at least one service offered, fully completed',
   'S21Q01_RESPONSE_STATUS': 'Demandes d\'emploi — statut / Job applications — status',
   'S22Q01_RESPONSE_STATUS': 'Recrutements permanents — statut / Permanent recruitments — status',
   'S22Q02_RESPONSE_STATUS': 'Recrutements temporaires — statut / Temporary recruitments — status',
@@ -260,6 +262,22 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'vocationalTraining.locality': 'Localité / Locality',
   'vocationalTraining.area': "Milieu d'implantation / Location",
 };
+
+const PROJECT_ACTIVITY_CELLS = ['description', 'targetPopulation', 'supportType', 'scope', 'startDate', 'duration'] as const;
+
+/** Whether a project's Section 2 holds at least one line with every cell filled. */
+export function hasCompleteProjectActivity(activities: unknown): boolean {
+  if (!Array.isArray(activities)) return false;
+  return activities.some(
+    (row) =>
+      row !== null &&
+      typeof row === 'object' &&
+      PROJECT_ACTIVITY_CELLS.every((k) => {
+        const v = (row as Record<string, unknown>)[k];
+        return v !== undefined && v !== null && String(v).trim() !== '';
+      }),
+  );
+}
 
 const FINAL_TABLE_RESPONSE_FIELDS = [
   'S21Q01_RESPONSE_STATUS',
@@ -2227,6 +2245,13 @@ export class QuestionnairesService {
       (entityData?.stopReason === undefined || entityData?.stopReason === null || entityData?.stopReason === '')
     ) {
       missingFields.push('projectProgram.stopReason');
+    }
+    // Section 2 (activities) is not optional (owner, 2026-10-22): a project
+    // lists at least one service with all six cells filled, the web form's
+    // rule (missingActivitiesCells). buildProjectProgramActivities has
+    // already dropped blank lines and trimmed the rest.
+    if (entityType === 'projectProgram' && !hasCompleteProjectActivity((data as any).activities)) {
+      missingFields.push('projectProgram.activities');
     }
     // Training centres: every question the questionnaire marks required and
     // currently shows must be answered — the same rule the web form applies,
