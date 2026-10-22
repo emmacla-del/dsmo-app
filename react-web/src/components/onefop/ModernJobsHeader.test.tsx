@@ -5,6 +5,13 @@ import { ModernJobsHeader } from "./ModernJobsHeader";
 import { CampaignPeriodContext } from "./CampaignPeriodContext";
 import { campaignPeriodFrom } from "@/lib/campaign-period";
 
+/** The survey sentence as read: its name is a span of its own (owner, 2026-10-22). */
+function surveyLine(): string {
+  const line = document.querySelector(".cam-masthead-survey");
+  assert.ok(line, "no survey line");
+  return line.textContent ?? "";
+}
+
 test("VT masthead: establishment and its number, then the survey and round on one line", () => {
   renderWithProviders(
     <ModernJobsHeader
@@ -19,7 +26,7 @@ test("VT masthead: establishment and its number, then the survey and round on on
   assert.ok(screen.getByText(/VT26000103/));
   // The survey and the round share one line under the establishment, which
   // is the fact the respondent reads first (owner, 2026-10-12).
-  assert.ok(screen.getByText(/^Recensement formation professionnelle · .*4e trimestre 2026$/));
+  assert.equal(surveyLine(), "Recensement formation professionnelle pour le 4e trimestre 2026");
   // The entity is already in VT's title, so that line does not repeat it.
   assert.equal(screen.queryByText(/Centres de formation professionnelle/), null);
   assert.ok(screen.getByRole("button", { name: /Aperçu PDF/ }));
@@ -51,7 +58,11 @@ test("the masthead carries no language switcher and no Save button", () => {
 
 test("other surveys keep the general title and name the entity on the same line", () => {
   renderWithProviders(<ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />);
-  assert.ok(screen.getByText(/^Recensement emplois modernes · Entreprises · .*4e trimestre 2026$/));
+  assert.equal(surveyLine(), "Recensement emplois modernes des Entreprises pour le 4e trimestre 2026");
+  // The survey's name alone carries the brand teal.
+  const name = document.querySelector(".cam-masthead-survey > span") as HTMLElement;
+  assert.equal(name.textContent, "Recensement emplois modernes");
+  assert.equal(name.style.color, "var(--cam-primary-dark)");
 });
 
 test("PP masthead omits the redundant entity label, keeping survey and round only", () => {
@@ -65,7 +76,7 @@ test("PP masthead omits the redundant entity label, keeping survey and round onl
   );
   assert.ok(screen.getByText("Projet PAREC"));
   assert.ok(screen.getByText(/PP26000045/));
-  assert.ok(screen.getByText(/^Recensement emplois modernes · .*4e trimestre 2026$/));
+  assert.equal(surveyLine(), "Recensement emplois modernes pour le 4e trimestre 2026");
   assert.equal(screen.queryByText(/Projets \/ Programmes/), null);
 });
 
@@ -114,11 +125,10 @@ test("a failed save offers the retry, and says nothing was saved", async () => {
   assert.equal(retried, 1);
 });
 
-// ── The round's exact bounds ────────────────────────────────────────────
-// The questions name the round (« au cours du trimestre ») instead of
-// printing its dates (lib/campaign-period.ts, owner 2026-10-18), so the
-// masthead is where the respondent reads the bounds.
-test("the masthead states the round's dates once, and nothing when there is no period", () => {
+// ── The round, named not dated ──────────────────────────────────────────
+// The bounds repeated what the round's name already says (owner, 2026-10-22,
+// revising 2026-10-18): the masthead names the round and prints no dates.
+test("the masthead names the round and prints no dates", () => {
   renderWithProviders(
     <CampaignPeriodContext.Provider
       value={campaignPeriodFrom({
@@ -130,10 +140,11 @@ test("the masthead states the round's dates once, and nothing when there is no p
       <ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />
     </CampaignPeriodContext.Provider>,
   );
-  assert.ok(screen.getByText(/4e trimestre 2026 \(01\/10\/2026 – 31\/12\/2026\)$/));
+  assert.equal(surveyLine(), "Recensement emplois modernes des Entreprises pour le 4e trimestre 2026");
+  assert.doesNotMatch(surveyLine(), /\(|\/2026|oct\./);
 });
 
-test("with no period the campaign line carries no parenthesis", () => {
-  renderWithProviders(<ModernJobsHeader entityType="enterprise" quarterCode="QUARTERLY_2026_T4_001" />);
-  assert.ok(screen.getByText(/4e trimestre 2026$/));
+test("an unknown round code is quoted after the survey", () => {
+  renderWithProviders(<ModernJobsHeader entityType="cooperative" quarterCode="X1" />);
+  assert.equal(surveyLine(), "Recensement emplois modernes des Coopératives · Campagne X1");
 });

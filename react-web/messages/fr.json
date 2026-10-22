@@ -1364,14 +1364,12 @@
       "reassurance": "Rubrique validée (exclue)"
     },
     "header": {
-      "entity": {
-        "cooperative": "Coopératives",
-        "enterprise": "Entreprises",
-        "administration": "Administrations",
-        "ong": "ONG / Associations",
-        "ctd": "Collectivités territoriales (CTD)",
-        "project": "Projets / Programmes",
-        "vt": "Centres de formation professionnelle"
+      "entityOf": {
+        "cooperative": "des Coopératives",
+        "enterprise": "des Entreprises",
+        "administration": "des Administrations publiques",
+        "ong": "des ONG et associations",
+        "ctd": "des Collectivités territoriales"
       },
       "surveyTitle": "Recensement emplois modernes",
       "vtSurveyTitle": "Recensement formation professionnelle",
@@ -1422,9 +1420,10 @@
       "editQuiz": "Modifier le quiz préalable"
     },
     "entryMode": {
-      "ariaLabel": "Mode de saisie",
       "grid": "Tableau",
-      "guided": "Guidé"
+      "guided": "Guidé",
+      "toGrid": "Passer en tableau",
+      "toGuided": "Passer en guidé"
     },
     "section1": {
       "status": {

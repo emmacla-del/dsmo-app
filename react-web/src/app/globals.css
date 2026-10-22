@@ -3349,42 +3349,26 @@ html:has(.cam-masthead) {
 }
 
 /* Grid / Guided switch, in the wizard masthead (EntryModeSwitch.tsx).
-   Two toggle buttons, each an icon and its word. */
+   One button naming the other mode, drawn like the masthead's other
+   buttons (ModernJobsHeader.tsx): 32px, 13px semibold, hairline edge. */
 .cam-mode-switch {
   display: inline-flex;
-  padding: 2px;
-  border: var(--cam-border-width) solid var(--cam-border-strong);
-  border-radius: var(--cam-radius-control);
-  background: var(--cam-surface);
-}
-
-.cam-mode-switch button {
-  display: inline-flex;
   align-items: center;
-  gap: var(--cam-space-1);
-  min-height: 28px;
-  padding: 0 var(--cam-space-3);
-  border: none;
-  border-radius: var(--cam-radius-sm);
-  background: transparent;
-  color: var(--cam-text-muted);
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: 6px;
+  background: var(--cam-surface);
+  color: var(--cam-text);
   font-family: inherit;
   font-size: var(--cam-font-size-xs);
-  font-weight: var(--cam-font-weight-medium);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.cam-mode-switch button:hover {
-  color: var(--cam-text);
-}
-
-.cam-mode-switch button[aria-pressed="true"] {
-  background: var(--cam-border-subtle);
-  color: var(--cam-text);
-  font-weight: var(--cam-font-weight-semibold);
-}
-
-.cam-mode-switch button:focus-visible {
+.cam-mode-switch:focus-visible {
   outline: 2px solid var(--cam-focus);
   outline-offset: 1px;
 }
