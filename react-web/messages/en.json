@@ -1364,14 +1364,12 @@
       "reassurance": "Item validated (excluded)"
     },
     "header": {
-      "entity": {
-        "cooperative": "Cooperatives",
-        "enterprise": "Enterprises",
-        "administration": "Administrations",
-        "ong": "NGOs / Associations",
-        "ctd": "Local authorities (CTD)",
-        "project": "Projects / Programmes",
-        "vt": "Vocational training centres"
+      "entityOf": {
+        "cooperative": "of Cooperatives",
+        "enterprise": "of Enterprises",
+        "administration": "of Public administrations",
+        "ong": "of NGOs and associations",
+        "ctd": "of Local authorities"
       },
       "surveyTitle": "Modern Jobs Census",
       "vtSurveyTitle": "Vocational training survey",
@@ -1422,9 +1420,10 @@
       "editQuiz": "Edit preliminary quiz"
     },
     "entryMode": {
-      "ariaLabel": "Data entry mode",
       "grid": "Grid",
-      "guided": "Guided"
+      "guided": "Guided",
+      "toGrid": "Switch to grid",
+      "toGuided": "Switch to guided"
     },
     "section1": {
       "status": {

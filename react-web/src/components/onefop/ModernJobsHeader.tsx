@@ -4,8 +4,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
-import { formatDoualaDate } from "@/lib/douala-date";
-import { useCampaignPeriod } from "./CampaignPeriodContext";
 import type { ServerSaveState } from "@/lib/use-onefop-server-save";
 
 export interface ModernJobsHeaderProps {
@@ -46,7 +44,7 @@ export interface ModernJobsHeaderProps {
 /**
  * The sticky masthead of both respondent wizards (Modern Jobs and VT), on
  * white: the ONEFOP wordmark on the left; the establishment, the survey
- * and the campaign centred; the auto-save status, PDF preview and workspace on
+ * and the campaign centred between them; the auto-save status, PDF preview and workspace on
  * the right. Saving on demand lives in each wizard's footer, and the
  * language is chosen before the wizard (login page, or the browser's
  * language), so the masthead carries neither.
@@ -68,30 +66,24 @@ export function ModernJobsHeader({
   const tLanding = useTranslations("landingPage");
 
   const isVt = ["vt", "vocationaltraining", "vocational_training"].includes(entityType.toLowerCase());
-  const isPp = ["project", "projectprogram", "project_program"].includes(entityType.toLowerCase());
 
-  const entityLabel = (() => {
+  // "des entreprises" / "of enterprises", inside the survey sentence. VT's
+  // title already names the entity, and PP is identified by its PP prefix
+  // and project/programme name, so neither repeats it.
+  const entityOf = (() => {
     switch (entityType.toLowerCase()) {
       case "cooperative":
-        return t("entity.cooperative");
+        return t("entityOf.cooperative");
       case "enterprise":
-        return t("entity.enterprise");
+        return t("entityOf.enterprise");
       case "administration":
-        return t("entity.administration");
+        return t("entityOf.administration");
       case "ong":
-        return t("entity.ong");
+        return t("entityOf.ong");
       case "ctd":
-        return t("entity.ctd");
-      case "project":
-      case "projectprogram":
-      case "project_program":
-        return t("entity.project");
-      case "vt":
-      case "vocationaltraining":
-      case "vocational_training":
-        return t("entity.vt");
+        return t("entityOf.ctd");
       default:
-        return entityType.toUpperCase();
+        return null;
     }
   })();
 
@@ -123,19 +115,16 @@ export function ModernJobsHeader({
   }, []);
 
   const isEn = locale.startsWith("en");
-  // The questions name the round (« au cours du trimestre ») instead of
-  // printing its dates (lib/campaign-period.ts, owner 2026-10-18), so the
-  // bounds are stated here, once: "Campagne du 4e trimestre 2026
-  // (01/10/2026 – 31/12/2026)". No period, no parenthesis.
-  const period = useCampaignPeriod();
-  const campaignName =
-    // "Campagne du 4e trimestre 2026"; an unknown code keeps the plain "Campagne <code>".
-    referencePeriodPhrases(quarterCode, asUiLocale(locale))?.campaign ?? t("campaign", { code: quarterCode || "—" });
-  const bounds =
-    period.start && period.end
-      ? `${formatDoualaDate(period.start) ?? ""} – ${formatDoualaDate(period.end) ?? ""}`
-      : null;
-  const campaign = bounds ? `${campaignName} (${bounds})` : campaignName;
+  // One sentence names the declaration: "Recensement emplois modernes des
+  // entreprises pour le 4e trimestre 2026". The round is named, not dated:
+  // its bounds repeated what the name already says (owner, 2026-10-22,
+  // revising 2026-10-18). An unknown code keeps "· Campagne <code>".
+  const survey = isVt ? t("vtSurveyTitle") : t("surveyTitle");
+  const forPeriod = referencePeriodPhrases(quarterCode, asUiLocale(locale))?.forPeriod;
+  // What follows the survey's name, which is painted on its own.
+  const surveyRest = forPeriod
+    ? [entityOf, forPeriod].filter(Boolean).join(" ")
+    : `${entityOf ? `${entityOf} ` : ""}· ${t("campaign", { code: quarterCode || "—" })}`;
 
   const buttonStyle = {
     display: "inline-flex",
@@ -147,12 +136,13 @@ export function ModernJobsHeader({
     // preview and the workspace button were reading as the same weight.
     border: "1px solid transparent",
     borderRadius: 6,
-    // One height for both controls, so the PDF button and the workspace
-    // button line up on the same baseline; the padding no
-    // longer decides the height.
+    // One height and size for every control on the bar, the entry-mode
+    // button included (.cam-mode-switch), so they line up on one baseline;
+    // the padding no longer decides the height. 13px, not 14: at 14 the
+    // three crowded the title on a laptop (owner, 2026-10-22).
     height: 32,
-    padding: "0 12px",
-    fontSize: "var(--cam-font-size-sm)",
+    padding: "0 10px",
+    fontSize: "var(--cam-font-size-xs)",
     fontWeight: 600,
     color: "var(--cam-text)",
     whiteSpace: "nowrap",
@@ -175,15 +165,16 @@ export function ModernJobsHeader({
         @media (max-width: 1023px) {
           .cam-masthead { position: static; }
         }
-        /* Wordmark | establishment and survey | actions. The two side columns
-           share the leftover width equally, so the centre block sits at the
-           true centre of the bar. */
+        /* Wordmark | establishment and survey | actions. The title starts
+           after the wordmark and takes what the two leave (owner,
+           2026-10-22): held at the true centre by two equal side columns,
+           it ran into the actions while the wordmark's side stood empty. */
         .cam-masthead-row {
           display: grid;
-          grid-template-columns: 1fr auto 1fr;
+          grid-template-columns: auto minmax(0, 1fr) auto;
           grid-template-areas: "brand title actions";
           align-items: center;
-          gap: 16px;
+          gap: 24px;
           padding: 10px 24px;
         }
         .cam-masthead-brand {
@@ -201,6 +192,9 @@ export function ModernJobsHeader({
           color: var(--cam-text-muted);
           white-space: nowrap;
         }
+        /* Centred in the room between wordmark and actions (owner,
+           2026-10-22), not on the bar's own centre: that needs equal side
+           columns, which push the title into the actions on a laptop. */
         .cam-masthead-title { grid-area: title; min-width: 0; text-align: center; }
         /* « Mon espace » keeps its words down to a phone, where it shows the
            house alone; its name stays in aria-label. */
@@ -219,8 +213,8 @@ export function ModernJobsHeader({
           .cam-masthead-actions { flex-wrap: wrap; justify-content: flex-end; }
         }
       `}</style>
-      {/* Three sizes: 18 for who is declaring (and the wordmark), 14 for the
-          survey and the buttons, 13 for the secondary facts. The name is
+      {/* Two sizes: 18 for who is declaring, 13 for the survey line and the
+          buttons. The name is
           semibold, not bold: the page's own title is the one bold anchor. */}
       <div className="cam-masthead-row">
         {/* A working screen: the CAMLEAP logo alone, ONEFOP as a line of
@@ -231,31 +225,32 @@ export function ModernJobsHeader({
           <span>{tLanding("endorsement")}</span>
         </div>
 
-        {/* Centre: who is declaring, in which survey, for which round */}
+        {/* After the wordmark: who is declaring, in which survey, for which round */}
         <div className="cam-masthead-title" style={{ lineHeight: 1.35 }}>
           {establishmentName && (
             <div>
               <span style={{ fontSize: "var(--cam-font-size-lg)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>{establishmentName}</span>
               {establishmentId && (
-                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{` · ${establishmentId}`}</span>
+                <span style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>{` · ${establishmentId}`}</span>
               )}
             </div>
           )}
           {/* The survey and the round on one line, not two: both answer the
               same question -- which declaration is this -- and the
               establishment above is the fact the respondent reads first
-              (owner, 2026-10-12). VT's title already names the entity, and
-              PP is identified by its PP prefix and project/programme name;
-              both omit the redundant entity label to prevent a crowded bar. */}
-          <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-            {[isVt ? t("vtSurveyTitle") : t("surveyTitle"), isVt || isPp ? null : entityLabel, campaign]
-              .filter(Boolean)
-              .join(" · ")}
+              (owner, 2026-10-12). In --cam-text, not muted: at 13px the
+              muted slate read as blurred (owner, 2026-10-22); size alone
+              ranks it under the name. The survey's name is the one touch of
+              colour, brand teal semibold: it says which form this is
+              (owner, 2026-10-22). */}
+          <div className="cam-masthead-survey" style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
+            <span style={{ color: "var(--cam-primary-dark)", fontWeight: "var(--cam-font-weight-semibold)" }}>{survey}</span>
+            {` ${surveyRest}`}
           </div>
         </div>
 
         {/* Right: entry mode, a save that did not land, PDF preview, workspace */}
-        <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="cam-masthead-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {entryModeSlot}
           {/* Saving is automatic and the respondent does not need telling it
               worked (owner, 2026-10-11) — the PDF preview shows them what

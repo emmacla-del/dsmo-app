@@ -26,8 +26,8 @@
 // decision, 2026-10-18. The kind of period comes from the round's own code,
 // so a half-yearly or annual round reads as one; a round whose code cannot
 // be parsed falls back to the date range rather than naming a kind that is
-// not known. The exact bounds are printed once, on the wizard masthead
-// (components/onefop/ModernJobsHeader.tsx), instead of inside every question.
+// not known. The masthead (components/onefop/ModernJobsHeader.tsx) names the
+// round too, without its dates (owner, 2026-10-22).
 import type { LocalizedText, OnefopField, OnefopSchema } from "./onefop-schema";
 import { doualaYear, formatDoualaDate } from "./douala-date";
 import { referencePeriodKind } from "./onefop-period-label";
