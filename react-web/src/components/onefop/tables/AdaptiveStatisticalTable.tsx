@@ -615,10 +615,13 @@ function BlockTabs({
         alignItems: "flex-end",
         gap: 4,
         overflowX: "auto",
-        // No negative margin: this opaque strip overlapping the frame erased
-        // the table's top border across its whole width, and a 1px overlap
-        // is lost to rounding at fractional display scales. The active tab
-        // sits on the table's own border instead.
+        // This opaque strip is a layer of its own, snapped to whole device
+        // pixels, so at a fractional scale (125%) it lands on the frame's
+        // 1px top border and erases it across the whole width — with or
+        // without a margin between them (owner, 2026-10-22). So the strip
+        // draws the table's top edge itself: it overlaps the frame by that
+        // 1px and paints the line over its own bottom row, above the tabs.
+        // Pinned, the same line closes the table under the tabs.
         // Pinned under the header, the section pills and (S22Q03) the
         // category tabs while the table scrolls.
         position: "sticky",
@@ -626,8 +629,22 @@ function BlockTabs({
         zIndex: 25,
         background: "var(--cam-surface)",
         paddingTop: 4,
+        marginBottom: -1,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 1,
+          background: "var(--cam-table-frame)",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
       {blocks.map((block, idx) => {
         const isActive = idx === activeIdx;
         const state = fillState(block);
