@@ -1153,7 +1153,7 @@ export class AuthService {
     actorTerritory?: Territory,
     options?: ApproveRegistrationOptions,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     if (user.role === 'COMPANY') {
@@ -1176,7 +1176,7 @@ export class AuthService {
     actorTerritory: Territory | undefined,
     reason: string,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof reason === 'string' ? reason.trim() : '';
     if (!trimmed) throw new BadRequestException('Le motif de rejet est obligatoire.');
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -1246,7 +1246,7 @@ export class AuthService {
     actorTerritory: Territory | undefined,
     message: string,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof message === 'string' ? message.trim() : '';
     if (!trimmed) throw new BadRequestException('Le message de demande de compléments est obligatoire.');
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -1300,7 +1300,7 @@ export class AuthService {
   ] as const;
 
   async resubmitRegistration(actorId: string, data?: ResubmitRegistrationDto) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const user = await this.prisma.user.findUnique({ where: { id: actorId } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     if (user.role !== 'COMPANY') {
