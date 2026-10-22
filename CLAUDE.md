@@ -808,8 +808,11 @@ Approved changes on record:
   (`src/pdf/i18n/{fr,en}.json` projectProgram.outcomes.current) — for every
   form type, with the kind of period read from the round's own code
   (quarter / semester / year) and the date range kept as the fallback when
-  that code names no kind. The exact bounds are printed once, on the wizard
-  masthead. The project KPI column follows (« Réalisations au cours du
+  that code names no kind. The exact bounds were printed once, on the wizard
+  masthead, until 2026-10-22: the owner then dropped them as repeating the
+  round's name, and the masthead reads one sentence, « Recensement emplois
+  modernes des Entreprises pour le 4e trimestre 2026 »
+  (`ModernJobsHeader.tsx`). The wizard no longer prints the bounds anywhere. The project KPI column follows (« Réalisations au cours du
   trimestre »); its two outlook columns still name no year, which is still
   ONEFOP's to answer. The admin file view rewrites from the file's own round
   code, so a reviewer reads the question the respondent answered. No
