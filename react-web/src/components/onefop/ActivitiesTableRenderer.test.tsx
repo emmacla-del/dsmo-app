@@ -118,8 +118,33 @@ test("a half-filled line marks the boxes it still owes, once Continue was presse
   after.unmount();
 });
 
-test("a line nobody started is never marked, however many are open", () => {
-  const { container, unmount } = renderTable({}, true);
+test("an empty table marks its first line once Continue was pressed: Section 2 is not optional", () => {
+  const before = renderTable({});
+  assert.deepEqual(invalidCells(before.container), []);
+  before.unmount();
+
+  const after = renderTable({}, true);
+  assert.deepEqual(invalidCells(after.container), [
+    "s2_row1_description",
+    "s2_row1_duration",
+    "s2_row1_scope",
+    "s2_row1_startDate",
+    "s2_row1_supportType",
+    "s2_row1_targetPopulation",
+  ]);
+  after.unmount();
+});
+
+test("once one line is complete, a line nobody started is never marked", () => {
+  const full = {
+    s2_row1_description: "Formation",
+    s2_row1_targetPopulation: "3",
+    s2_row1_supportType: "1",
+    s2_row1_scope: "1",
+    s2_row1_startDate: "03/2026",
+    s2_row1_duration: "12",
+  };
+  const { container, unmount } = renderTable(full, true);
   assert.deepEqual(invalidCells(container), []);
   unmount();
 });

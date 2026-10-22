@@ -18,11 +18,18 @@ function getPpActivitiesSection(): OnefopSection {
   return s2;
 }
 
-test("PP_S2_ACTIVITIES: an untouched empty table produces no validation issues", () => {
+// No question of the wizard is optional (owner, 2026-10-22): an empty
+// Section 2 is refused, with one message for the table rather than six.
+test("PP_S2_ACTIVITIES: an empty table asks for at least one service", () => {
   const section = getPpActivitiesSection();
-  const data: FormData = {};
-  const issues = validateSectionData(section, data, "fr");
-  assert.deepEqual(issues, []);
+  const fr = validateSectionData(section, {}, "fr");
+  assert.equal(fr.length, 1);
+  assert.equal(fr[0].fieldId, "s2_row1_description");
+  assert.match(fr[0].message, /au moins une prestation offerte/);
+  const en = validateSectionData(section, {}, "en");
+  assert.match(en[0].message, /at least one service offered/);
+  // Blank strings are not an entry.
+  assert.equal(validateSectionData(section, { s2_row1_description: "  " }, "fr").length, 1);
 });
 
 test("PP_S2_ACTIVITIES: a fully completed row produces no validation issues", () => {
@@ -134,5 +141,5 @@ test("PP_S2_ACTIVITIES: the start date is written MM/AAAA", () => {
 
 test("PP_S2_ACTIVITIES: a line nobody started is not asked for a date", () => {
   const section = getPpActivitiesSection();
-  assert.deepEqual(validateSectionData(section, { s2_row2_startDate: "" }, "fr"), []);
+  assert.deepEqual(validateSectionData(section, { ...startedRow("01/2026"), s2_row2_startDate: "" }, "fr"), []);
 });

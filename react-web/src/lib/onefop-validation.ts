@@ -399,14 +399,20 @@ export interface MissingActivitiesCell {
 /**
  * The cells the activities table (project Section 2) still owes: a line counts
  * as started once any of its cells holds something, and a started line must be
- * complete. One rule, two readers — the validator below for its messages and
- * ActivitiesTableRenderer to mark the boxes, so what the summary names and what
- * the grid highlights cannot drift apart.
+ * complete. No question of the wizard is optional, so a table with no line
+ * started owes its whole first line (owner, 2026-10-22). One rule, two
+ * readers — the validator below for its messages and ActivitiesTableRenderer
+ * to mark the boxes, so what the summary names and what the grid highlights
+ * cannot drift apart.
  */
 export function missingActivitiesCells(field: OnefopField, data: FormData): MissingActivitiesCell[] {
   const prefix = field.table?.id ?? field.id;
   const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
   const missing: MissingActivitiesCell[] = [];
+
+  if (!hasStartedActivitiesLine(field, data)) {
+    return ACTIVITIES_TABLE_FIELDS.map((f) => ({ row: 1, field: f, cellId: `${prefix}_row1_${f.key}` }));
+  }
 
   for (let n = 1; n <= rowCount; n++) {
     const rowCells = ACTIVITIES_TABLE_FIELDS.map((f) => {
@@ -421,6 +427,19 @@ export function missingActivitiesCells(field: OnefopField, data: FormData): Miss
   }
 
   return missing;
+}
+
+/** Whether any cell of any line of the activities table holds something. */
+export function hasStartedActivitiesLine(field: OnefopField, data: FormData): boolean {
+  const prefix = field.table?.id ?? field.id;
+  const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
+  for (let n = 1; n <= rowCount; n++) {
+    for (const f of ACTIVITIES_TABLE_FIELDS) {
+      const val = data[`${prefix}_row${n}_${f.key}`];
+      if (isEnteredValue(val) && String(val).trim() !== "") return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -438,6 +457,21 @@ function validateActivitiesTable(
   const prefix = field.table?.id ?? field.id;
   const rowCount = field.table?.rowCapacity ?? ACTIVITIES_ROW_CAPACITY;
   const label = fieldLabel(field, locale);
+
+  // Nothing entered at all: one message for the table, not one per box.
+  if (!hasStartedActivitiesLine(field, data)) {
+    issues.push({
+      fieldId: `${prefix}_row1_${ACTIVITIES_TABLE_FIELDS[0].key}`,
+      message: labelled(
+        label,
+        "indiquez au moins une prestation offerte",
+        "enter at least one service offered",
+        locale,
+      ),
+      cleanMessage: locale === "en" ? "Enter at least one service offered." : "Indiquez au moins une prestation offerte.",
+    });
+    return issues;
+  }
 
   for (const cell of missingActivitiesCells(field, data)) {
     const fieldName = textIn(cell.field.label, locale);
