@@ -435,7 +435,7 @@ function VtWizardFieldRows({
           const subDeps = visibleFields.filter((sub) => sub.visibility?.dependsOn === d.id && following.has(sub.id));
           subDeps.forEach((sd) => consumed.add(sd.id));
           return (
-            <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
               <VtWizardField
                 field={d}
                 value={data[d.id]}
@@ -784,7 +784,7 @@ function VtWizardSection1LocalisationRows({
   const issueByFieldId = new Map(issues.map((i) => [i.fieldId, i.message]));
   const rowGroups = vtWizardSection1LocalisationGroups();
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
       {rowGroups.map((rg, idx) => (
         <VtWizardFixedRow
           key={idx}
@@ -822,7 +822,7 @@ function VtWizardSection1EnseignementRows({
   const { ids } = vtWizardSection1EnseignementGroup();
   const [ordreId, typeCfpId] = ids;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
       <VtWizardFixedRow
         fieldIds={[ordreId]}
         fieldById={fieldById}
@@ -1398,7 +1398,7 @@ export function VtWizardSectionScreen({
               isEn={normalizedLocale === "en"}
             />
             <TableHeadingShownContext.Provider value={true}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
                 {groups.map((group, i) => (
                   <FormSection key={i}>
                     <div
@@ -1424,7 +1424,7 @@ export function VtWizardSectionScreen({
             </TableHeadingShownContext.Provider>
           </div>
         ) : groups.length > 1 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
             {cardChunks.map((chunk, c) => (
               <FormSection key={c}>
                 {chunk.map((groupIndex, j) => {
@@ -1432,7 +1432,7 @@ export function VtWizardSectionScreen({
                   return (
                     <div key={groupIndex} id={`vt-outline-block-${sectionId}-${groupIndex}`}>
                       {j !== 0 && (
-                        <div style={{ height: 1, backgroundColor: VT_CARD_BORDER, margin: "20px 0" }} />
+                        <div style={{ height: 1, backgroundColor: VT_CARD_BORDER, margin: "var(--cam-space-5) 0" }} />
                       )}
                       <VtWizardCardForGroup
                         group={group}
@@ -1454,7 +1454,7 @@ export function VtWizardSectionScreen({
             ))}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
             {groups.map((group, i) => (
               <FormSection key={i}>
                 <VtWizardCardForGroup
