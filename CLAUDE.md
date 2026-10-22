@@ -923,6 +923,26 @@ Approved changes on record:
   it would be a new dataset version and a decision of its own. The official PDF
   and the Excel export already read this table correctly and are unchanged.
   Approved by the owner in chat, 2026-10-20.
+- 2026-10-22 — project Section 2 (activities, `PP_S2_ACTIVITIES`) needs at
+  least one complete line (`missingActivitiesCells` / `validateActivitiesTable`
+  in `react-web/src/lib/onefop-validation.ts`). Issue: the table carries
+  `required: false` and no `_RESPONSE_STATUS`, and only a started line was
+  checked, so a project could file Section 2 empty. Owner's rule, in chat
+  2026-10-22: no table or question of the ONEFOP wizard is optional; the quiz
+  hides only the tables it gates, and a table it does not gate is always shown
+  and must be answered. Fix: an empty table owes its whole first line; it
+  blocks Suivant and submission in the wizard. On the server, a final project
+  submission without one line whose six cells are all filled is refused with
+  the usual 400 « Informations obligatoires manquantes … / Missing required
+  information … », `missingFields: ['projectProgram.activities']`
+  (`hasCompleteProjectActivity`, `enforceFinalRequiredFields` in
+  `src/questionnaires/questionnaires.service.ts`); drafts are not checked.
+  Server enforcement approved by the owner in chat, 2026-10-22. NOT done: a
+  quiz question letting a project declare « aucune activité » (written, then
+  withdrawn the same day — it needed a status key the canonical form has no
+  question for, see the 2026-10-19 entry); the AST's `required` flag. Contact and
+  write-in slots (second phones, PO box, website, « Autre (à préciser) »,
+  domain/reason lines 2–3) remain optional pending the owner's ruling.
 
 ---
 
