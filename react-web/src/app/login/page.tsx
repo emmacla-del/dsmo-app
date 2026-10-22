@@ -133,7 +133,7 @@ export default function LoginPage() {
                     />
                   </div>
                 </div>
-                {error && <div className="auth-error-box">{error}</div>}
+                {error && <div className="auth-error-box" role="alert">{error}</div>}
                 <button
                   type="submit"
                   className="btn-primary"
@@ -182,8 +182,14 @@ export default function LoginPage() {
       const id = res.establishmentId ?? res.matricule ?? JSON.stringify(res);
       setForgotResult(id);
     } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : "";
+      const isVague =
+        !raw ||
+        raw.includes("Informations incorrectes") ||
+        raw.includes("Incorrect information") ||
+        raw.includes("Bad Request");
       setForgotError(
-        err instanceof Error ? err.message : t("loginPage.identifierNotFoundError")
+        isVague ? t("loginPage.identifierNotFoundError") : raw
       );
     } finally {
       setForgotLoading(false);
@@ -343,7 +349,7 @@ export default function LoginPage() {
                         />
                       </div>
                     </div>
-                    {forgotError && <div className="auth-error-box">{forgotError}</div>}
+                    {forgotError && <div className="auth-error-box" role="alert">{forgotError}</div>}
                     <button
                       type="submit"
                       className="btn-primary"
