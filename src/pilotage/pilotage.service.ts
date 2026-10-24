@@ -19,6 +19,7 @@ import {
   nonRespondentFileState,
   DepartmentReturnRow,
   EntityTypeTally,
+  ENTITY_TYPE_ORDER,
   RegionReturnRow,
   ReturnMetrics,
   addMetrics,
@@ -262,13 +263,48 @@ export class PilotageService {
     const centralTarget = sumTargets(administrationQuotas);
 
     const tallies = new Map<string, StockCounts>();
+    /**
+     * The same rows, tallied a second way.
+     *
+     * Registration quotas are territorial (scopeKind TERRITORIAL /
+     * ADMINISTRATION), so an entity type carries no target and therefore no
+     * coverage rate — this breakdown is stock only. A row with no entityType
+     * is already answered by `nullEntityType` and is not a type of its own.
+     */
+    const typeTallies = new Map<string, StockCounts>();
     for (const company of companies) {
       const row = toStockRow(company);
       const key = bucketKey(classifyBucket(row));
       const counts = tallies.get(key) ?? emptyCounts();
       applyRow(counts, row, year);
       tallies.set(key, counts);
+
+      if (row.entityType != null) {
+        const typeCounts = typeTallies.get(row.entityType) ?? emptyCounts();
+        applyRow(typeCounts, row, year);
+        typeTallies.set(row.entityType, typeCounts);
+      }
     }
+
+    /**
+     * Listed on EntityTypeTally.rows()' terms, so this breakdown and the
+     * campaign-returns one order and omit types identically: every type of
+     * ENTITY_TYPE_ORDER, zero included — a type nobody registered is
+     * information — except ADMINISTRATION outside national scope, where
+     * administrations are a national cohort (classifyBucket sends them to
+     * `central`, never to a territory). A type outside the order, i.e. a
+     * deprecated value, follows only when it holds something.
+     */
+    const listedTypes = ENTITY_TYPE_ORDER.filter(
+      (entityType) => national || entityType !== 'ADMINISTRATION',
+    );
+    const extraTypes = [...typeTallies.keys()]
+      .filter((entityType) => !ENTITY_TYPE_ORDER.includes(entityType))
+      .sort();
+    const byEntityType = [...listedTypes, ...extraTypes].map((entityType) => ({
+      entityType,
+      ...(typeTallies.get(entityType) ?? emptyCounts()),
+    }));
 
     return {
       year,
@@ -276,6 +312,7 @@ export class PilotageService {
       central: national ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget) : null,
       unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
       nullEntityType: national ? tallies.get('nullEntityType') ?? emptyCounts() : null,
+      byEntityType,
       regions: regions.map((region) => {
         const departments = region.departments.map((department) => {
           const counts = tallies.get(bucketKey({
