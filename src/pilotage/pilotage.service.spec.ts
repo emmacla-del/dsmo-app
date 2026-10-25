@@ -14,6 +14,8 @@ interface TargetRow {
   scopeKind?: 'TERRITORIAL' | 'ADMINISTRATION';
   regionId: string | null;
   departmentId: string | null;
+  /** Null on a quota covering every entity type, as every pre-v? row is. */
+  entityType?: string | null;
   submissionTarget?: number;
   campaignId?: string;
   createdBy?: string;
@@ -479,6 +481,24 @@ describe('PilotageService coverage', () => {
     };
   }
 
+  /** A region-level quota for one entity type (the region x type grain). */
+  function typeQuota(
+    campaignId: string,
+    regionId: string,
+    entityType: string,
+    submissionTarget: number,
+  ): TargetRow {
+    return {
+      id: `q-${campaignId}-${regionId}-${entityType}`,
+      campaignId,
+      scopeKind: 'TERRITORIAL',
+      regionId,
+      departmentId: null,
+      entityType,
+      submissionTarget,
+    };
+  }
+
   /** The ministry cohort row: one per campaign, no region, no department. */
   function cohort(campaignId: string, submissionTarget: number): TargetRow {
     return {
@@ -694,6 +714,66 @@ describe('PilotageService coverage', () => {
       targetIndeterminate: true,
       registered: 1,
     });
+  });
+
+  /**
+   * Region x type quotas: the grain chosen on 2026-10-25. A per-type row is
+   * region level, the types partition the register, so they sum.
+   */
+  it('gives each entity type its own quota and rate', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      typeQuota(t1, 'r-centre', 'ENTREPRISE', 8),
+      typeQuota(t1, 'r-centre', 'VOCATIONAL_TRAINING', 2),
+    );
+    harness.companies.push(
+      company(),
+      company({ establishmentId: 'EN26000300' }),
+      company({ entityType: 'VOCATIONAL_TRAINING', establishmentId: 'VT26000100' }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    const typeRow = (entityType: string) =>
+      result.byEntityType.find((row: { entityType: string }) => row.entityType === entityType);
+    expect(typeRow('ENTREPRISE')).toMatchObject({ registeredInYear: 2, inscriptionTarget: 8, rate: 0.25 });
+    expect(typeRow('VOCATIONAL_TRAINING')).toMatchObject({ registeredInYear: 1, inscriptionTarget: 2, rate: 0.5 });
+    // A type nobody set a quota for states none, never a target of zero.
+    expect(typeRow('COOPERATIVE')).toMatchObject({ inscriptionTarget: null, rate: null });
+    // The region's own target is the sum of its per-type rows, and its mode
+    // says which of the three ways it was quotaed.
+    expect(centreOf(result)).toMatchObject({ mode: 'ENTITY_TYPE', inscriptionTarget: 10 });
+  });
+
+  it('refuses to total a region mixing per-type quotas with a regional one', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      typeQuota(t1, 'r-centre', 'ENTREPRISE', 8),
+      quota(t1, 'r-centre', null, 30),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(centreOf(result)).toMatchObject({ mode: 'MIXED', inscriptionTarget: null, rate: null });
+    expect(result.totals).toMatchObject({ inscriptionTarget: null, targetIndeterminate: true });
+  });
+
+  it('takes the ADMINISTRATION quota from the cohort row, not a territory', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(cohort(t1, 6));
+    harness.companies.push(
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000100' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000200' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000300' }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    const administration = result.byEntityType.find(
+      (row: { entityType: string }) => row.entityType === 'ADMINISTRATION',
+    );
+    // Its respondents are the national cohort, counted in `central`, so its
+    // quota is central's and the two rates agree.
+    expect(administration).toMatchObject({ inscriptionTarget: 6, rate: 0.5 });
+    expect(result.central).toMatchObject({ inscriptionTarget: 6, rate: 0.5 });
   });
 
   it('totals the quotas when no region is MIXED', async () => {

@@ -281,6 +281,9 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'La ligne {0} : « {1} » doit être un entier positif ou nul.', en: 'Row {0}: "{1}" must be a non-negative integer.' },
   { fr: 'La ligne {0} répète un territoire déjà présent dans la requête.', en: 'Row {0} repeats a territory already present in the request.' },
   { fr: 'La région « {0} » mélange un objectif régional et des objectifs départementaux.', en: 'Region "{0}" mixes a regional target and divisional targets.' },
+  { fr: 'La ligne {0} : « entityType » doit être un type d\'entité connu ou null.', en: 'Row {0}: "entityType" must be a known entity type or null.' },
+  { fr: 'La ligne {0} : un quota par type d\'entité se définit au niveau régional, pas départemental.', en: 'Row {0}: a quota per entity type is set at regional level, not divisional.' },
+  { fr: 'La région « {0} » mélange des quotas par type d\'entité avec un quota régional ou départemental.', en: 'Region "{0}" mixes quotas per entity type with a regional or divisional quota.' },
   { fr: 'La région « {0} » ne peut pas combiner « clear » avec d\'autres lignes.', en: 'Region "{0}" cannot combine "clear" with other rows.' },
   { fr: 'Aucune cible définie pour le ressort de cet administrateur.', en: "No target is defined for this administrator's jurisdiction." },
 

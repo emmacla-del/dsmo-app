@@ -65,6 +65,8 @@ export const PilotageAuditAction = {
 type ScopeKey = { campaignId: string };
 
 interface StoredRow {
+  /** Null on a row covering every entity type; see CampaignQuota.entityType. */
+  entityType?: string | null;
   id: string;
   /**
    * Non-null although CampaignQuota.regionId is nullable in the schema. The
@@ -98,6 +100,8 @@ interface ShapedRegion {
   mode: TargetMode;
   target: number | null;
   departments: Array<{ departmentId: string; name: string; target: number | null }>;
+  /** Per-entity-type quotas, empty unless the region is in ENTITY_TYPE mode. */
+  byEntityType: Map<string, number>;
 }
 
 @Injectable()
@@ -311,10 +315,40 @@ export class PilotageService {
     const extraTypes = [...typeTallies.keys()]
       .filter((entityType) => !ENTITY_TYPE_ORDER.includes(entityType))
       .sort();
-    const byEntityType = [...listedTypes, ...extraTypes].map((entityType) => ({
-      entityType,
-      ...(typeTallies.get(entityType) ?? emptyCounts()),
-    }));
+    /**
+     * A type's quota is the sum of its region-level per-type rows across the
+     * reader's scope. Only a region in ENTITY_TYPE mode contributes any, so a
+     * scope where nobody set per-type quotas states null and the view shows
+     * "—" rather than a zero that would read as a target of none.
+     *
+     * ADMINISTRATION is the exception: its respondents are the national
+     * cohort, counted in `central` and never in a region, so its quota is the
+     * ADMINISTRATION-scoped row — the same figure central already uses — and
+     * only at national scope, where that bucket exists.
+     */
+    const typeTargets = new Map<string, number>();
+    for (const region of regions) {
+      for (const [entityType, target] of region.byEntityType) {
+        typeTargets.set(entityType, (typeTargets.get(entityType) ?? 0) + target);
+      }
+    }
+    const typeTarget = (entityType: string): number | null => {
+      if (entityType === 'ADMINISTRATION') return national ? centralTarget : null;
+      return typeTargets.get(entityType) ?? null;
+    };
+    const byEntityType = [...listedTypes, ...extraTypes].map((entityType) => {
+      const counts = typeTallies.get(entityType) ?? emptyCounts();
+      const inscriptionTarget = typeTarget(entityType);
+      return {
+        entityType,
+        ...counts,
+        inscriptionTarget,
+        // No special case for ADMINISTRATION's numerator: typeTallies counts
+        // the same rows classifyBucket sends to `central`, so the two agree
+        // by construction. Only its target comes from elsewhere.
+        rate: coverageRate(counts.registeredInYear, inscriptionTarget),
+      };
+    });
 
     // Totals use each company once, including rows without an entity type
     // that are intentionally kept out of the territorial and type tables.
@@ -1113,24 +1147,38 @@ export class PilotageService {
       byRegion.set(entry.regionId, list);
     }
 
+    /**
+     * A stored row is identified by territory AND entity type.
+     *
+     * Matching on departmentId alone was right while a region held at most
+     * one row per department; with per-type rows it would treat every type
+     * but one as unwanted and delete it, and would overwrite the wrong row
+     * on update. The key mirrors entryKey in pilotage-validation.
+     */
+    const rowKey = (departmentId: string | null, entityType: string | null | undefined) =>
+      `${departmentId ?? ''}\u0000${entityType ?? ''}`;
+
     const table = tx.campaignQuota as unknown as ScopedTable;
     for (const [regionId, desired] of byRegion) {
       const existing = await table.findMany({ where: { ...scope, regionId, ...TERRITORIAL_SCOPE } });
-      const wanted = new Set(desired.map((entry) => entry.departmentId));
+      const wanted = new Set(desired.map((entry) => rowKey(entry.departmentId, entry.entityType)));
       for (const row of existing) {
-        if (wanted.has(row.departmentId)) continue;
+        if (wanted.has(rowKey(row.departmentId, row.entityType))) continue;
         const previous = numberOrNull(row[field]);
         await table.delete({ where: { id: row.id } });
         await writeAudit(tx, actorId, deleteAction, resourceType, row.id, previous, null, {
           ...scope,
           regionId,
           departmentId: row.departmentId,
+          entityType: row.entityType ?? null,
         });
       }
       for (const entry of desired) {
-        const current = existing.find((row) => row.departmentId === entry.departmentId);
+        const current = existing.find(
+          (row) => rowKey(row.departmentId, row.entityType) === rowKey(entry.departmentId, entry.entityType),
+        );
         if (current && current[field] === entry.target) continue;
-        const details = { ...scope, regionId, departmentId: entry.departmentId };
+        const details = { ...scope, regionId, departmentId: entry.departmentId, entityType: entry.entityType };
         if (current) {
           const previous = numberOrNull(current[field]);
           await table.update({
@@ -1144,6 +1192,7 @@ export class PilotageService {
               ...scope,
               regionId,
               departmentId: entry.departmentId,
+              entityType: entry.entityType,
               [field]: entry.target,
               createdBy: actorId,
               updatedBy: actorId,
@@ -1158,7 +1207,7 @@ export class PilotageService {
 
   private async loadGrid(
     territory: Territory | null | undefined,
-    loadRows: (scope: TargetScope) => Promise<Array<{ regionId: string; departmentId: string | null; target: number }>>,
+    loadRows: (scope: TargetScope) => Promise<Array<{ regionId: string; departmentId: string | null; entityType?: string | null; target: number }>>,
   ): Promise<{ scope: TargetScope; regions: ShapedRegion[] }> {
     const scope = await resolveTargetScope(this.prisma, territory);
     if (scope.kind === 'none') return { scope, regions: [] };
@@ -1178,7 +1227,11 @@ export class PilotageService {
       scope,
       regions: regions.map((region) => {
         const own = rows.filter((row) => row.regionId === region.id);
-        const summary = summarizeRegion(own.map((row) => ({ departmentId: row.departmentId, target: row.target })));
+        const summary = summarizeRegion(own.map((row) => ({
+          departmentId: row.departmentId,
+          entityType: row.entityType ?? null,
+          target: row.target,
+        })));
         const target = scope.kind === 'department' && summary.mode !== 'REGION' ? null : summary.target;
         return {
           regionId: region.id,
@@ -1190,6 +1243,16 @@ export class PilotageService {
             name: department.name,
             target: own.find((row) => row.departmentId === department.id)?.target ?? null,
           })),
+          /**
+           * The per-type quotas of this region, keyed by entity type. Only
+           * ENTITY_TYPE mode has any; every other mode leaves this empty, so
+           * byEntityType states no target rather than a misleading zero.
+           */
+          byEntityType: new Map(
+            own
+              .filter((row) => row.departmentId === null && row.entityType != null)
+              .map((row) => [row.entityType as string, row.target]),
+          ),
         };
       }),
     };
@@ -1293,14 +1356,23 @@ function semesterQuarters(semester: number): readonly number[] {
  * with a null target rather than adding incomparable rows together.
  */
 function foldQuotas(
-  rows: Array<{ regionId: string; departmentId: string | null; submissionTarget: number }>,
-): Array<{ regionId: string; departmentId: string | null; target: number }> {
-  const folded = new Map<string, { regionId: string; departmentId: string | null; target: number }>();
+  rows: Array<{ regionId: string; departmentId: string | null; entityType: string | null; submissionTarget: number }>,
+): Array<{ regionId: string; departmentId: string | null; entityType: string | null; target: number }> {
+  const folded = new Map<string, { regionId: string; departmentId: string | null; entityType: string | null; target: number }>();
   for (const row of rows) {
-    const key = `${row.regionId}\u0000${row.departmentId ?? ''}`;
+    // The entity type joins the key: two quarters' quotas for the same
+    // region AND the same type fold together, while two types in one region
+    // stay apart and are summed only by summarizeRegion, which knows they
+    // partition the register.
+    const key = `${row.regionId}\u0000${row.departmentId ?? ''}\u0000${row.entityType ?? ''}`;
     const current = folded.get(key);
     if (current) current.target += row.submissionTarget;
-    else folded.set(key, { regionId: row.regionId, departmentId: row.departmentId, target: row.submissionTarget });
+    else folded.set(key, {
+      regionId: row.regionId,
+      departmentId: row.departmentId,
+      entityType: row.entityType,
+      target: row.submissionTarget,
+    });
   }
   return [...folded.values()];
 }

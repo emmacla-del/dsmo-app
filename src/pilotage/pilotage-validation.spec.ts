@@ -8,6 +8,7 @@ import {
   summarizeRegion,
   TargetEntry,
   TARGET_MAX,
+  QUOTA_ENTITY_TYPES,
 } from './pilotage-validation';
 
 describe('parseYear', () => {
@@ -40,8 +41,8 @@ describe('parseTargetBody', () => {
       entries: [row('r1', null, 0), { regionId: 'r2', inscriptionTarget: TARGET_MAX }],
     }, 'inscriptionTarget');
     expect(parsed.entries).toEqual([
-      { regionId: 'r1', departmentId: null, target: 0 },
-      { regionId: 'r2', departmentId: null, target: TARGET_MAX },
+      { regionId: 'r1', departmentId: null, entityType: null, target: 0 },
+      { regionId: 'r2', departmentId: null, entityType: null, target: TARGET_MAX },
     ]);
     expect(parsed.clearedRegionIds).toEqual([]);
     expect(parsed.central).toBeUndefined();
@@ -69,9 +70,15 @@ describe('parseTargetBody', () => {
     }, 'inscriptionTarget')).toThrow('La ligne 2 répète un territoire déjà présent dans la requête.');
   });
 
-  const targetRow = (regionId: string, departmentId: string | null, target = 1): TargetEntry => ({
+  const targetRow = (
+    regionId: string,
+    departmentId: string | null,
+    target = 1,
+    entityType: string | null = null,
+  ): TargetEntry => ({
     regionId,
     departmentId,
+    entityType,
     target,
   });
 
@@ -114,7 +121,7 @@ describe('parseTargetBody', () => {
       ],
     }, 'inscriptionTarget');
     expect(combined.clearedRegionIds).toEqual(['r1']);
-    expect(combined.entries).toEqual([{ regionId: 'r1', departmentId: 'd1', target: 5 }]);
+    expect(combined.entries).toEqual([{ regionId: 'r1', departmentId: 'd1', entityType: null, target: 5 }]);
 
     const split = parseTargetBody({
       entries: [
@@ -123,7 +130,7 @@ describe('parseTargetBody', () => {
       ],
     }, 'inscriptionTarget');
     expect(split.clearedRegionIds).toEqual(['r1']);
-    expect(split.entries).toEqual([{ regionId: 'r2', departmentId: null, target: 8 }]);
+    expect(split.entries).toEqual([{ regionId: 'r2', departmentId: null, entityType: null, target: 8 }]);
 
     expect(() => assertNoMixedClear([targetRow('r1', 'd1', 5)], ['r1']))
       .toThrow('La région « r1 » ne peut pas combiner « clear » avec d\'autres lignes.');
@@ -148,22 +155,107 @@ describe('assertEntryCount', () => {
 describe('summarizeRegion', () => {
   it('sums department targets and reports department mode', () => {
     expect(summarizeRegion([
-      { departmentId: 'd1', target: 10 },
-      { departmentId: 'd2', target: 0 },
-      { departmentId: 'd3', target: 25 },
+      { departmentId: 'd1', entityType: null, target: 10 },
+      { departmentId: 'd2', entityType: null, target: 0 },
+      { departmentId: 'd3', entityType: null, target: 25 },
     ])).toEqual({ mode: 'DEPARTMENT', target: 35 });
   });
 
   it('returns the single regional value, an empty region, and refuses to add a mixed set', () => {
     expect(summarizeRegion([])).toEqual({ mode: 'UNSET', target: null });
-    expect(summarizeRegion([{ departmentId: null, target: 80 }])).toEqual({ mode: 'REGION', target: 80 });
+    expect(summarizeRegion([{ departmentId: null, entityType: null, target: 80 }])).toEqual({ mode: 'REGION', target: 80 });
     expect(summarizeRegion([
-      { departmentId: null, target: 80 },
-      { departmentId: 'd1', target: 10 },
+      { departmentId: null, entityType: null, target: 80 },
+      { departmentId: 'd1', entityType: null, target: 10 },
     ])).toEqual({ mode: 'MIXED', target: null });
     expect(summarizeRegion([
-      { departmentId: null, target: 80 },
-      { departmentId: null, target: 5 },
+      { departmentId: null, entityType: null, target: 80 },
+      { departmentId: null, entityType: null, target: 5 },
     ])).toEqual({ mode: 'MIXED', target: null });
+  });
+});
+
+/**
+ * Region x type quotas (2026-10-25). The grain is region level: a type named
+ * on a department row is refused, because nothing measures such a cell.
+ */
+describe('parseTargetBody — entity-type quotas', () => {
+  const parse = (entries: unknown[]) => parseTargetBody({ entries }, 'inscriptionTarget');
+
+  it('accepts a known type on a region row', () => {
+    expect(parse([{ regionId: 'r1', entityType: 'VOCATIONAL_TRAINING', inscriptionTarget: 12 }]).entries)
+      .toEqual([{ regionId: 'r1', departmentId: null, entityType: 'VOCATIONAL_TRAINING', target: 12 }]);
+  });
+
+  it('treats an absent or null type as covering every type', () => {
+    for (const entry of [{ regionId: 'r1', inscriptionTarget: 1 }, { regionId: 'r1', entityType: null, inscriptionTarget: 1 }]) {
+      expect(parse([entry]).entries[0].entityType).toBeNull();
+    }
+  });
+
+  it('rejects an unknown type', () => {
+    for (const entityType of ['NOPE', 'entreprise', '', 42, {}]) {
+      expect(() => parse([{ regionId: 'r1', entityType, inscriptionTarget: 1 }]))
+        .toThrow(/type d'entité connu/);
+    }
+  });
+
+  it('rejects a type on a department row', () => {
+    expect(() => parse([{ regionId: 'r1', departmentId: 'd1', entityType: 'ENTREPRISE', inscriptionTarget: 1 }]))
+      .toThrow(/niveau régional, pas départemental/);
+  });
+
+  it('tells two types in one region apart, and still catches a repeat', () => {
+    expect(parse([
+      { regionId: 'r1', entityType: 'ENTREPRISE', inscriptionTarget: 1 },
+      { regionId: 'r1', entityType: 'COOPERATIVE', inscriptionTarget: 2 },
+    ]).entries).toHaveLength(2);
+    expect(() => parse([
+      { regionId: 'r1', entityType: 'ENTREPRISE', inscriptionTarget: 1 },
+      { regionId: 'r1', entityType: 'ENTREPRISE', inscriptionTarget: 2 },
+    ])).toThrow(/répète un territoire/);
+  });
+
+  it('lists exactly the entity types the schema holds', () => {
+    expect([...QUOTA_ENTITY_TYPES].sort()).toEqual([
+      'ADMINISTRATION', 'COOPERATIVE', 'CTD', 'ENTREPRISE',
+      'ONG', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING',
+    ]);
+  });
+});
+
+describe('summarizeRegion — entity-type mode', () => {
+  it('sums per-type rows, which partition the register', () => {
+    expect(summarizeRegion([
+      { departmentId: null, entityType: 'ENTREPRISE', target: 8 },
+      { departmentId: null, entityType: 'COOPERATIVE', target: 4 },
+    ])).toEqual({ mode: 'ENTITY_TYPE', target: 12 });
+  });
+
+  it('refuses to add per-type rows to a regional or departmental quota', () => {
+    expect(summarizeRegion([
+      { departmentId: null, entityType: 'ENTREPRISE', target: 8 },
+      { departmentId: null, entityType: null, target: 30 },
+    ])).toEqual({ mode: 'MIXED', target: null });
+    expect(summarizeRegion([
+      { departmentId: null, entityType: 'ENTREPRISE', target: 8 },
+      { departmentId: 'd1', entityType: null, target: 10 },
+    ])).toEqual({ mode: 'MIXED', target: null });
+  });
+});
+
+describe('assertNoMixedMode — entity-type axis', () => {
+  const entry = (departmentId: string | null, entityType: string | null): TargetEntry =>
+    ({ regionId: 'r1', departmentId, entityType, target: 1 });
+
+  it('refuses per-type rows beside a regional or departmental one', () => {
+    expect(() => assertNoMixedMode([entry(null, 'ENTREPRISE'), entry(null, null)]))
+      .toThrow(/par type d'entité/);
+    expect(() => assertNoMixedMode([entry(null, 'ENTREPRISE'), entry('d1', null)]))
+      .toThrow(/par type d'entité/);
+  });
+
+  it('allows several types on their own', () => {
+    expect(() => assertNoMixedMode([entry(null, 'ENTREPRISE'), entry(null, 'ONG')])).not.toThrow();
   });
 });
