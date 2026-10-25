@@ -58,6 +58,8 @@ export interface ReturnMetrics {
   quota: number | null;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   gap: number | null;
@@ -99,6 +101,8 @@ export interface EntityTypeReturnRow {
   entityType: string;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   registeredStock: number;
@@ -225,6 +229,16 @@ export interface CoverageBucket extends StockCounts {
   rate?: number | null;
 }
 
+/**
+ * Registration stock for one entity type, over the reader's own territory
+ * scope. No target and no rate: registration quotas are territorial
+ * (scopeKind TERRITORIAL / ADMINISTRATION), so a type carries neither.
+ */
+export interface CoverageEntityTypeRow extends StockCounts {
+  /** An OnefopEntityType code, e.g. "VOCATIONAL_TRAINING". */
+  entityType: string;
+}
+
 export interface CoverageResponse {
   year: number;
   // Returned by the API since 3e; not yet rendered by CoverageTable.
@@ -239,6 +253,12 @@ export interface CoverageResponse {
   central: CoverageBucket | null;
   unassigned: StockCounts | null;
   nullEntityType: StockCounts | null;
+  /**
+   * The same stock split by entity type, listed on the same terms as
+   * CampaignReturnsResponse.byEntityType. Optional: a backend older than
+   * 2026-10-24 does not send it.
+   */
+  byEntityType?: CoverageEntityTypeRow[];
   regions: CoverageRegionRow[];
 }
 

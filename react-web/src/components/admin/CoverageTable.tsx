@@ -2,10 +2,23 @@
 
 import { Fragment } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { count, percent } from "@/lib/admin-data-state";
-import type { CoverageResponse, StockCounts } from "@/lib/pilotage-targets";
+import type { CoverageEntityTypeRow, CoverageResponse, StockCounts } from "@/lib/pilotage-targets";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { formatCoverageCount, modeLabel } from "@/lib/pilotage-target-payload";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+/** Right-aligned, tabular figures: a column of counts must line up. */
+const NUM = "text-right tabular-nums";
 
 export function CoverageTable({
   data,
@@ -25,81 +38,89 @@ export function CoverageTable({
   }
 
   return (
-    <div className="cam-dash-table-wrap">
-      <table className="cam-dash-table cam-target-table">
-        <thead>
-          <tr>
-            <th scope="col">{t("territoryColumn")}</th>
-            <th scope="col">{t("modeColumn")}</th>
-            <th scope="col" className="is-num">{t("registeredColumn")}</th>
-            <th scope="col" className="is-num">{t("coverageTargetColumn")}</th>
-            <th scope="col" className="is-num">{t("rateColumn")}</th>
-            <th scope="col" className="is-num">{t("inYearColumn")}</th>
-            <th scope="col" className="is-num">{t("approvalColumn")}</th>
-            <th scope="col" className="is-num">{t("reviewColumn")}</th>
-            <th scope="col" className="is-num">{t("complementsColumn")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.regions.map((region) => {
-            const open = expanded.has(region.regionId);
-            return (
-              <Fragment key={region.regionId}>
-                <tr className="cam-target-region">
-                  <th scope="row">
-                    <button type="button" className="cam-target-expand" onClick={() => onToggle(region.regionId)} aria-expanded={open}>
-                      <span aria-hidden="true">{open ? "▾" : "▸"}</span>
-                      {region.name}
-                    </button>
-                  </th>
-                  <td>{modeLabel(region.mode, locale)}</td>
-                  <CountCells
-                    companyCount={region.companyCount}
-                    registered={region.registered}
-                    target={region.inscriptionTarget}
-                    rate={region.rate}
-                    registeredInYear={region.registeredInYear}
-                    pendingApproval={region.pendingApproval}
-                    pendingReview={region.pendingReview}
-                    complementsRequested={region.complementsRequested}
-                  />
-                </tr>
-                {open &&
-                  region.departments.map((department) => (
-                    <tr key={department.departmentId} className="cam-target-dept">
-                      <th scope="row">{department.name}</th>
-                      <td></td>
-                      <CountCells
-                        companyCount={department.companyCount}
-                        registered={department.registered}
-                        target={department.inscriptionTarget}
-                        rate={department.rate}
-                        registeredInYear={department.registeredInYear}
-                        pendingApproval={department.pendingApproval}
-                        pendingReview={department.pendingReview}
-                        complementsRequested={department.complementsRequested}
-                      />
-                    </tr>
-                  ))}
-              </Fragment>
-            );
-          })}
-        </tbody>
-        {national && (
-          <tbody>
-            {data.central && (
-              <BucketRow name={t("centralLevel")} counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} />
-            )}
-            {data.unassigned && (
-              <BucketRow name={t("unassigned")} counts={data.unassigned} target={null} rate={null} />
-            )}
-            {data.nullEntityType && (
-              <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} />
-            )}
-          </tbody>
+    <Table className="cam-target-table">
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col">{t("territoryColumn")}</TableHead>
+          <TableHead scope="col">{t("modeColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("registeredColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("coverageTargetColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("rateColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("inYearColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("approvalColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("reviewColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("complementsColumn")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.regions.map((region) => {
+          const open = expanded.has(region.regionId);
+          return (
+            <Fragment key={region.regionId}>
+              <TableRow className="cam-target-region">
+                <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">
+                  {/* The disclosure is the region name itself, so the whole
+                      label is the target rather than a chevron beside it. */}
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-left hover:underline"
+                    onClick={() => onToggle(region.regionId)}
+                    aria-expanded={open}
+                  >
+                    {open
+                      ? <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+                      : <ChevronRight className="size-4 shrink-0" aria-hidden="true" />}
+                    {region.name}
+                  </button>
+                </TableHead>
+                <TableCell>{modeLabel(region.mode, locale)}</TableCell>
+                <CountCells
+                  companyCount={region.companyCount}
+                  registered={region.registered}
+                  target={region.inscriptionTarget}
+                  rate={region.rate}
+                  registeredInYear={region.registeredInYear}
+                  pendingApproval={region.pendingApproval}
+                  pendingReview={region.pendingReview}
+                  complementsRequested={region.complementsRequested}
+                />
+              </TableRow>
+              {open &&
+                region.departments.map((department) => (
+                  <TableRow key={department.departmentId} className="cam-target-dept">
+                    <TableHead scope="row" className="h-auto whitespace-normal ps-9 font-normal text-muted-foreground">
+                      {department.name}
+                    </TableHead>
+                    <TableCell />
+                    <CountCells
+                      companyCount={department.companyCount}
+                      registered={department.registered}
+                      target={department.inscriptionTarget}
+                      rate={department.rate}
+                      registeredInYear={department.registeredInYear}
+                      pendingApproval={department.pendingApproval}
+                      pendingReview={department.pendingReview}
+                      complementsRequested={department.complementsRequested}
+                    />
+                  </TableRow>
+                ))}
+            </Fragment>
+          );
+        })}
+
+        {/* The national buckets close the grid: they are not territories, so
+            they carry no mode and no target of their own (except central). */}
+        {data.central && (
+          <BucketRow name={t("centralLevel")} counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} />
         )}
-      </table>
-    </div>
+        {data.unassigned && (
+          <BucketRow name={t("unassigned")} counts={data.unassigned} target={null} rate={null} />
+        )}
+        {data.nullEntityType && (
+          <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} />
+        )}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -115,9 +136,9 @@ function BucketRow({
   rate: number | null;
 }) {
   return (
-    <tr className="cam-target-region">
-      <th scope="row">{name}</th>
-      <td>—</td>
+    <TableRow className="cam-target-region">
+      <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">{name}</TableHead>
+      <TableCell>—</TableCell>
       <CountCells
         companyCount={counts.companyCount}
         registered={counts.registered}
@@ -128,7 +149,7 @@ function BucketRow({
         pendingReview={counts.pendingReview}
         complementsRequested={counts.complementsRequested}
       />
-    </tr>
+    </TableRow>
   );
 }
 
@@ -154,13 +175,13 @@ function CountCells({
   const locale = asUiLocale(useLocale());
   return (
     <>
-      <td className="is-num">{formatCoverageCount(registered, companyCount, locale)}</td>
-      <td className="is-num">{fmt(target, locale)}</td>
-      <td className="is-num">{fmtRate(rate, locale)}</td>
-      <td className="is-num">{formatCoverageCount(registeredInYear, companyCount, locale)}</td>
-      <td className="is-num">{formatCoverageCount(pendingApproval, companyCount, locale)}</td>
-      <td className="is-num">{formatCoverageCount(pendingReview, companyCount, locale)}</td>
-      <td className="is-num">{formatCoverageCount(complementsRequested, companyCount, locale)}</td>
+      <TableCell className={NUM}>{formatCoverageCount(registered, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{fmt(target, locale)}</TableCell>
+      <TableCell className={NUM}>{fmtRate(rate, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(registeredInYear, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(pendingApproval, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(pendingReview, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(complementsRequested, companyCount, locale)}</TableCell>
     </>
   );
 }
@@ -173,4 +194,55 @@ function fmt(value: number | null | undefined, locale: UiLocale): string {
 // A 0–1 ratio as a percentage with at most one decimal: "50 %", "50,5 %".
 function fmtRate(rate: number | null | undefined, locale: UiLocale): string {
   return percent(rate == null ? null : rate * 100, 1, locale, 0);
+}
+
+/**
+ * The same registration stock, by entity type.
+ *
+ * Deliberately narrower than the territory grid: no Mode, no Quota, no Rate.
+ * Registration quotas are territorial, so a type has no target and a
+ * "coverage rate" would have no denominator — a column of dashes would imply
+ * the figure exists and is missing. The note under the table says so.
+ *
+ * The server lists every type, zeros included, on the same terms as the
+ * campaign-returns breakdown, so the two read in the same order.
+ */
+export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[] }) {
+  const t = useTranslations("adminTargets");
+  const tRoot = useTranslations();
+  const locale = asUiLocale(useLocale());
+  const label = (code: string) =>
+    ENTITY_TYPE_OPTION_KEYS[code] ? tRoot(ENTITY_TYPE_OPTION_KEYS[code]) : entityTypeLabel(code);
+
+  return (
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">{t("entityTypeColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("registeredColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("inYearColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("approvalColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("reviewColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("complementsColumn")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.entityType}>
+              <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">
+                {label(row.entityType)}
+              </TableHead>
+              <TableCell className={NUM}>{formatCoverageCount(row.registered, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.registeredInYear, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.pendingApproval, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.pendingReview, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.complementsRequested, row.companyCount, locale)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <p className="mt-3 text-sm text-muted-foreground">{t("entityTypeNoQuotaNote")}</p>
+    </>
+  );
 }

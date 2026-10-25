@@ -16,7 +16,7 @@ function campaign(over: Partial<Campaign>): Campaign {
 
 function metrics(over: Partial<ReturnMetrics> = {}): ReturnMetrics {
   return {
-    quota: null, received: 0, approved: 0, onTime: 0, late: 0, gap: null,
+    quota: null, received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0, gap: null,
     quotaRate: null, onTimeRate: null, registeredStock: 0, responseRate: null, ...over,
   };
 }
@@ -91,8 +91,8 @@ test("a ratio converts to a percentage, and an absent ratio stays absent", () =>
 
 test("entityTypeRows passes the server's breakdown through, in its order", () => {
   const byEntityType = [
-    { entityType: "ENTREPRISE", received: 3, approved: 1, onTime: 3, late: 0, registeredStock: 4, responseRate: 0.75 },
-    { entityType: "CTD", received: 0, approved: 0, onTime: 0, late: 0, registeredStock: 0, responseRate: null },
+    { entityType: "ENTREPRISE", received: 3, approved: 1, pendingReview: 2, correctionRequested: 0, onTime: 3, late: 0, registeredStock: 4, responseRate: 0.75 },
+    { entityType: "CTD", received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0, registeredStock: 0, responseRate: null },
   ];
   assert.deepEqual(entityTypeRows(returns({ byEntityType })), byEntityType);
 });
