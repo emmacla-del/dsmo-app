@@ -2532,6 +2532,12 @@ model CampaignQuota {
   scopeKind        CampaignQuotaScope @default(TERRITORIAL)
   regionId         String?
   departmentId     String?
+  /// The entity type this quota is for, or null for one covering every type.
+  /// Region level only: the chosen grain is region x type, so a row carrying
+  /// both a departmentId and an entityType is refused by parseTargetBody.
+  /// Null on every row written before 2026-10-25, which is why it is nullable
+  /// rather than defaulted - "all types" is a real scope, not a missing value.
+  entityType       OnefopEntityType?
   submissionTarget Int
   createdBy        String
   updatedBy        String
@@ -2546,6 +2552,7 @@ model CampaignQuota {
   @@index([campaignId])
   @@index([regionId])
   @@index([departmentId])
+  @@index([entityType])
   @@index([createdBy])
   @@index([updatedBy])
   @@map("campaign_quotas")
