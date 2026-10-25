@@ -95,6 +95,18 @@ export class MinefopServicesController {
 
     // ==================== CASCADE ENDPOINTS (for MINEFOP registration) ====================
 
+    /** GET /minefop-services/positions
+     *  Every active post, flat: serviceCode, positionType, title, titleEn.
+     *  For a screen that picks the post first and then the service offering
+     *  it -- the group invitation link's creation dialog -- which needs to
+     *  know which services carry a given position type. Same data as
+     *  :code/positions, which is public too, in one call instead of 126.
+     */
+    @Get('positions')
+    async getAllPositions() {
+        return this.svc.getAllPositions();
+    }
+
     /** GET /minefop-services/positions/by-role
      *  Returns all position types (job titles) available for a given MINEFOP role
      *  (CENTRAL, REGIONAL, DIVISIONAL). This drives the first dropdown.

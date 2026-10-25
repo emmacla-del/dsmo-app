@@ -3,15 +3,28 @@
 // Shared invitation links for GROUPS of MINEFOP staff (Phase B; the
 // one-person link is staff-invitation.service.ts).
 //
-// An administrator creates a link for a scope -- a level (regional
-// delegation, departmental delegation, central services) and, for a
-// delegation, its territory -- and posts it in a WhatsApp group. Each person
-// who opens it chooses their own service and post inside that scope, gives
-// their email and a password, and gets an account that WAITS FOR APPROVAL:
-// unlike the one-person link, nobody vouched for this individual, and the
-// email is not verified (outbound mail is unreliable), so an approver checks
-// name and post before the account opens. Approval is the existing
-// PATCH /auth/approve-user/:id.
+// An administrator creates a link for one POST -- a service and a position
+// type -- inside a scope: a level (regional delegation, departmental
+// delegation, central services) and, for a delegation, its territory. The
+// link is posted in a WhatsApp group, and everyone who opens it holds that
+// same post: typically the generic "Cadre" of one unit, which is what most
+// of a delegation's staff are. They give their email and a password and get
+// an account that WAITS FOR APPROVAL: unlike the one-person link, nobody
+// vouched for this individual, and the email is not verified (outbound mail
+// is unreliable), so an approver checks name and post before the account
+// opens. Approval is the existing PATCH /auth/approve-user/:id.
+//
+// The post is required on every link created from 2026-10-25. Links created
+// before then carry none (serviceCode and positionType are null) and still
+// work exactly as they did: their holders choose their own service and post.
+// That fallback is permanent -- an old link stays valid until it expires --
+// and it is why the two columns are nullable.
+//
+// Not yet true: the post a link carries is not imposed at sign-up. signUp
+// still reads the service and the post from the request and checks them
+// against the link's LEVEL only. Making the link authoritative there, and
+// the form confirm the post rather than ask for it, is phase 3 of
+// docs/plans/staff-invitation-wizard.md.
 //
 // Safety:
 //  - the secret is random and stored only as its SHA-256 (tokenHash);
@@ -73,12 +86,22 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ANCESTOR_STEPS = 8;
 
 const INVALID_LINK = "Ce lien d'invitation n'est plus valable (expiré, révoqué ou complet). Demandez un nouveau lien.";
+const SERVICE_REQUIRED = "Choisissez le service auquel ce lien donne accès.";
+const POSITION_REQUIRED = "Choisissez le poste auquel ce lien donne accès.";
+// Both out-of-scope refusals, passed in: at creation there is no link yet to
+// be "not covered by", so the level is named instead. error-messages.spec.ts
+// checks the two strings by value (the `message` argument is on its
+// RESOLVED_ELSEWHERE list, as boundedInt's already was).
+const SERVICE_OUT_OF_LINK = "Ce service n'est pas couvert par ce lien.";
+const SERVICE_OUT_OF_LEVEL = "Ce service n'est pas couvert par ce niveau.";
 
 export interface CreateLinkInput {
   label?: string;
   level?: string;
   region?: string;
   department?: string;
+  serviceCode?: string;
+  positionType?: string;
   expiresInDays?: number;
   maxUses?: number;
 }
@@ -95,6 +118,22 @@ export interface LinkSignUpInput {
 }
 
 export type LinkState = 'active' | 'expired' | 'revoked' | 'full';
+
+/** The columns `presented` reads off a link row. */
+interface LinkRow {
+  id: string;
+  label: string;
+  level: string;
+  region: string | null;
+  department: string | null;
+  serviceCode: string | null;
+  positionType: string | null;
+  maxUses: number;
+  useCount: number;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+}
 
 function trimmed(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -156,6 +195,17 @@ export class StaffInvitationLinkService {
       department: input.department,
     });
 
+    // The post the link is for. Required: an administrator knows which unit
+    // and which post they are inviting, and the holder should not have to
+    // find themselves in a 126-service organigramme.
+    const serviceCode = trimmed(input.serviceCode);
+    if (!serviceCode) throw new BadRequestException(SERVICE_REQUIRED);
+    await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LEVEL);
+    const positionType = trimmed(input.positionType);
+    if (!positionType) throw new BadRequestException(POSITION_REQUIRED);
+    // Refuses a post the service does not offer, and resolves its title.
+    await this.positionTitle(serviceCode, positionType);
+
     const token = crypto.randomBytes(24).toString('base64url');
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     const link = await this.prisma.staffInvitationLink.create({
@@ -165,6 +215,8 @@ export class StaffInvitationLinkService {
         level,
         region: territory.region,
         department: territory.department,
+        serviceCode,
+        positionType,
         maxUses,
         expiresAt,
         createdBy: actor.id,
@@ -172,10 +224,11 @@ export class StaffInvitationLinkService {
     });
 
     await this.audit(actor.id, 'STAFF_INVITATION_LINK_CREATED', link.id, {
-      label, level, ...territory, maxUses, expiresAt: expiresAt.toISOString(),
+      label, level, ...territory, serviceCode, positionType, maxUses, expiresAt: expiresAt.toISOString(),
     });
 
-    return { ...this.present(link), token };
+    const [presented] = await this.presented([link]);
+    return { ...presented, token };
   }
 
   /** The most recent links, newest first, with their state. */
@@ -188,25 +241,29 @@ export class StaffInvitationLinkService {
       take: 50,
       include: { createdByUser: { select: { firstName: true, lastName: true, email: true } } },
     });
-    return links.map((l) => ({
-      ...this.present(l),
-      createdByName: l.createdByUser
-        ? [l.createdByUser.firstName, l.createdByUser.lastName].filter(Boolean).join(' ').trim() || l.createdByUser.email
-        : null,
-    }));
+    const presented = await this.presented(links);
+    return presented.map((p, i) => {
+      const user = links[i].createdByUser;
+      return {
+        ...p,
+        createdByName: user
+          ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
+          : null,
+      };
+    });
   }
 
   async revoke(id: string, actor: { id: string; role: string }) {
     const link = await this.prisma.staffInvitationLink.findUnique({ where: { id } });
     if (!link) throw new NotFoundException('Lien introuvable.');
     assertCanManageLinks(actor.role, link.level as LinkLevel);
-    if (link.revokedAt) return this.present(link);
+    if (link.revokedAt) return (await this.presented([link]))[0];
     const updated = await this.prisma.staffInvitationLink.update({
       where: { id },
       data: { revokedAt: new Date(), revokedBy: actor.id },
     });
     await this.audit(actor.id, 'STAFF_INVITATION_LINK_REVOKED', id, { label: link.label, useCount: link.useCount });
-    return this.present(updated);
+    return (await this.presented([updated]))[0];
   }
 
   // ── Public: the person holding the link ─────────────────────────────
@@ -242,7 +299,7 @@ export class StaffInvitationLinkService {
     }
 
     const serviceCode = trimmed(input.serviceCode);
-    await this.assertServiceInScope(serviceCode, level);
+    await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LINK);
     const positionTitle = await this.positionTitle(serviceCode, trimmed(input.positionType));
     const positionType = trimmed(input.positionType);
 
@@ -307,8 +364,8 @@ export class StaffInvitationLinkService {
   }
 
   /** The service exists, is active, belongs to the level and maps to its role. */
-  private async assertServiceInScope(serviceCode: string, level: LinkLevel): Promise<void> {
-    const outOfScope = () => new BadRequestException("Ce service n'est pas couvert par ce lien.");
+  private async assertServiceInScope(serviceCode: string, level: LinkLevel, message: string): Promise<void> {
+    const outOfScope = () => new BadRequestException(message);
     const service = serviceCode ? await this.prisma.minefopService.findUnique({ where: { code: serviceCode } }) : null;
     if (!service || !service.isActive || service.roleMapping !== LEVEL_ROLE[level]) throw outOfScope();
 
@@ -339,24 +396,50 @@ export class StaffInvitationLinkService {
     return position.title;
   }
 
-  private present(l: {
-    id: string; label: string; level: string; region: string | null; department: string | null;
-    maxUses: number; useCount: number; expiresAt: Date; revokedAt: Date | null; createdAt: Date;
-  }) {
-    return {
+  /**
+   * The links as the administration screen reads them, with the post named:
+   * `serviceCode` and `positionType` are codes, so each link also carries the
+   * service name and the post title the holder will see. Batched -- one query
+   * for the services and one for their posts, whatever the number of links --
+   * so listing 50 does not become 100 round trips. A link with no post (made
+   * before 2026-10-25) carries four nulls.
+   */
+  private async presented(links: LinkRow[]) {
+    const codes = [...new Set(links.map((l) => l.serviceCode).filter((c): c is string => !!c))];
+    const services = codes.length
+      ? await this.prisma.minefopService.findMany({ where: { code: { in: codes } }, select: { code: true, name: true } })
+      : [];
+    const positions = codes.length
+      ? await this.prisma.servicePosition.findMany({
+          where: { serviceCode: { in: codes }, isActive: true },
+          select: { serviceCode: true, positionType: true, title: true },
+        })
+      : [];
+    const serviceName = new Map(services.map((s) => [s.code, s.name]));
+    const postTitle = new Map(positions.map((p) => [`${p.serviceCode}\u0000${p.positionType}`, p.title]));
+
+    return links.map((l) => ({
       id: l.id,
       label: l.label,
       level: l.level,
       role: LEVEL_ROLE[l.level as LinkLevel] ?? null,
       region: l.region,
       department: l.department,
+      serviceCode: l.serviceCode,
+      serviceName: l.serviceCode ? serviceName.get(l.serviceCode) ?? null : null,
+      positionType: l.positionType,
+      positionTitle: !l.serviceCode || !l.positionType
+        ? null
+        : l.positionType === GENERIC_POSITION_TYPE
+          ? GENERIC_POSITION_TITLE
+          : postTitle.get(`${l.serviceCode}\u0000${l.positionType}`) ?? null,
       maxUses: l.maxUses,
       useCount: l.useCount,
       expiresAt: l.expiresAt.toISOString(),
       revokedAt: l.revokedAt ? l.revokedAt.toISOString() : null,
       createdAt: l.createdAt.toISOString(),
       state: linkState(l),
-    };
+    }));
   }
 
   private async audit(userId: string, action: string, resourceId: string, details: Record<string, unknown>) {
