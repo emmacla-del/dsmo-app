@@ -22,6 +22,8 @@ export type UserRole =
   | "COMPANY"
   | "SUPER_ADMIN"
   | "ADMIN_ONEFOP"
+  | "ADMIN_ONEFOP_REGISTRATIONS"
+  | "ADMIN_ONEFOP_SUBMISSIONS"
   | "REGIONAL_ADMIN"
   | "DIVISIONAL_ADMIN"
   | "AUDITOR"
@@ -32,6 +34,8 @@ export const ALL_ROLES: readonly UserRole[] = [
   "COMPANY",
   "SUPER_ADMIN",
   "ADMIN_ONEFOP",
+  "ADMIN_ONEFOP_REGISTRATIONS",
+  "ADMIN_ONEFOP_SUBMISSIONS",
   "REGIONAL_ADMIN",
   "DIVISIONAL_ADMIN",
   "AUDITOR",
@@ -61,6 +65,8 @@ export function isReadOnlyRole(role: string | null | undefined): boolean {
 export const ADMIN_ROLES: readonly UserRole[] = [
   "SUPER_ADMIN",
   "ADMIN_ONEFOP",
+  "ADMIN_ONEFOP_REGISTRATIONS",
+  "ADMIN_ONEFOP_SUBMISSIONS",
   "REGIONAL_ADMIN",
   "DIVISIONAL_ADMIN",
   "AUDITOR",
@@ -74,6 +80,7 @@ export const ADMIN_ROLES: readonly UserRole[] = [
 export const DIRECTORY_ROLES: readonly UserRole[] = [
   "SUPER_ADMIN",
   "ADMIN_ONEFOP",
+  "ADMIN_ONEFOP_REGISTRATIONS",
   "REGIONAL_ADMIN",
   "DIVISIONAL_ADMIN",
 ];
@@ -86,6 +93,11 @@ export const DIRECTORY_ROLES: readonly UserRole[] = [
  */
 export const DIRECTORY_READ_ROLES: readonly UserRole[] = [...DIRECTORY_ROLES, ...READ_ONLY_ROLES];
 
+/** Registration workflow readers and writers, including territorial reviewers. */
+export const REGISTRATION_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
+];
+
 /**
  * May act on a dossier or a registration: approve, reject, request
  * corrections. Excludes AUDITOR, which is read-only by definition.
@@ -95,24 +107,30 @@ export const DIRECTORY_READ_ROLES: readonly UserRole[] = [...DIRECTORY_ROLES, ..
 export const APPROVAL_ROLES: readonly UserRole[] = [
   "SUPER_ADMIN",
   "ADMIN_ONEFOP",
+  "ADMIN_ONEFOP_REGISTRATIONS",
   "REGIONAL_ADMIN",
   "DIVISIONAL_ADMIN",
 ];
+
+/** Survey submission workflow staff, excluding read-only central observers. */
+export const SURVEY_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
+];
+
+/** Survey workflow readers, including read-only central observers. */
+export const SURVEY_READ_ROLES: readonly UserRole[] = [...SURVEY_ROLES, ...READ_ONLY_ROLES];
 
 /** Campaign list and campaign management screens (@Roles on campaign.controller.ts). */
 export const CAMPAIGN_ROLES: readonly UserRole[] = [
   "SUPER_ADMIN",
   "ADMIN_ONEFOP",
+  "ADMIN_ONEFOP_SUBMISSIONS",
   "REGIONAL_ADMIN",
 ];
 
 /** Pilotage figures, read side (PILOTAGE_READ_ROLES on pilotage.controller.ts). */
 export const PILOTAGE_READ_ROLES: readonly UserRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN_ONEFOP",
-  "REGIONAL_ADMIN",
-  "DIVISIONAL_ADMIN",
-  "CENTRAL_AGENT",
+  ...SURVEY_READ_ROLES,
 ];
 
 /** Platform settings and system identity. SUPER_ADMIN alone. */
@@ -142,7 +160,7 @@ export const MONITORING_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEF
  * DIVISIONAL_ADMIN and AUDITOR are refused there. Same membership as
  * MONITORING_ROLES today, but a separate concern.
  */
-export const DATA_STATS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN", "CENTRAL_AGENT"];
+export const DATA_STATS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS", "REGIONAL_ADMIN", "CENTRAL_AGENT"];
 
 /**
  * Roles whose authorized scope is the whole country, so no region or
@@ -153,7 +171,10 @@ export const DATA_STATS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEF
  * surfaces (see AUDIT_ROLES) but is not a territorial authority. A site
  * that wants both composes them.
  */
-export const NATIONAL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
+export const NATIONAL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS"];
+
+/** National authority specifically for account-registration workflows. */
+export const REGISTRATION_NATIONAL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS"];
 
 /**
  * Roles that SEE nationally: NATIONAL_ROLES plus the read-only central

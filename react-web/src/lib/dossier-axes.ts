@@ -109,7 +109,7 @@ export interface AllowedDecisions {
  * interface only stops offering what it would refuse.
  */
 /** The roles that may reopen an endorsed file (the server's own list). */
-export const REOPEN_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP"] as const;
+export const REOPEN_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS"] as const;
 
 /**
  * An endorsed (APPROVED) file can be reopened for correction by the two

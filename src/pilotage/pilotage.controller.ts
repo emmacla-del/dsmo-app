@@ -22,13 +22,13 @@ import { parseYear } from './pilotage-validation';
 export const PILOTAGE_WRITE_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
 ] as const;
 
 export const PILOTAGE_READ_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
   UserRole.REGIONAL_ADMIN,
   UserRole.DIVISIONAL_ADMIN,
   UserRole.CENTRAL_AGENT,
@@ -141,6 +141,12 @@ export class PilotageController {
   @Roles(...PILOTAGE_READ_ROLES)
   getCampaignReturnsTimeline(@Param('id') id: string, @Req() req: any) {
     return this.pilotage.getCampaignReturnsTimeline(territoryFromUser(req.user), id);
+  }
+
+  @Get('campaigns/:id/returns/activity')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getCampaignReturnsActivity(@Param('id') id: string, @Req() req: any) {
+    return this.pilotage.getCampaignReturnsActivity(territoryFromUser(req.user), id);
   }
 
   @Get('campaigns/:id/non-respondents')

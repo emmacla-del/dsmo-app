@@ -55,11 +55,11 @@ function optionalText(raw: unknown): string | undefined {
 // The class list is the default for every handler, mutations included.
 // The read handlers below override it with DOSSIER_READ_ROLES, which adds the
 // read-only central staff role; the export does not.
-const DOSSIER_READ_ROLES = ['ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN', ...READ_ONLY_NATIONAL_ROLES];
+const DOSSIER_READ_ROLES = ['ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN', ...READ_ONLY_NATIONAL_ROLES];
 
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-@Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
+@Roles('ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
 export class AdminQuestionnairesController {
   constructor(
     private readonly service: QuestionnairesService,
@@ -312,11 +312,11 @@ export class AdminQuestionnairesController {
 
   /**
    * Reopens an endorsed (APPROVED) file for correction: SUPER_ADMIN and
-   * ADMIN_ONEFOP only, with a written reason and the reviewer's attestation,
+   * ONEFOP survey administrators, with a written reason and the reviewer's attestation,
    * recorded as AUDIT_REOPEN (defect 13). The service checks the role again.
    */
   @Patch(':id/reopen-for-correction')
-  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS')
   async reopenForCorrection(
     @Param('id') id: string,
     @Body('reason') reason: string,

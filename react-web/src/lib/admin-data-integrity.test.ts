@@ -359,6 +359,7 @@ test("ANOMALY_REGISTRY_ROLES: enforces statutory access boundaries", () => {
   assert.deepEqual(ANOMALY_REGISTRY_ROLES, [
     "SUPER_ADMIN",
     "ADMIN_ONEFOP",
+    "ADMIN_ONEFOP_SUBMISSIONS",
     "REGIONAL_ADMIN",
     "DIVISIONAL_ADMIN",
   ]);

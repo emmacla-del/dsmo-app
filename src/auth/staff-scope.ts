@@ -36,6 +36,26 @@ export const ONEFOP_STAFF_ROLES = [
  */
 export const READ_ONLY_NATIONAL_ROLES = ['CENTRAL_AGENT'] as const;
 
+/** National account-registration specialists. */
+export const REGISTRATION_ADMIN_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP_REGISTRATIONS',
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
+] as const;
+
+/** ONEFOP survey workflow staff, before read-only observers are added. */
+export const SURVEY_ADMIN_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP_SUBMISSIONS',
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
+] as const;
+
+export const SURVEY_READ_ROLES = [...SURVEY_ADMIN_ROLES, ...READ_ONLY_NATIONAL_ROLES] as const;
+
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
 export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 
@@ -50,6 +70,7 @@ export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 export const DIRECTORY_ROLES = [
   'SUPER_ADMIN',
   'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP_REGISTRATIONS',
   'REGIONAL_ADMIN',
   'DIVISIONAL_ADMIN',
   ...READ_ONLY_NATIONAL_ROLES,

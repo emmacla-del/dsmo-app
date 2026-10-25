@@ -31,7 +31,7 @@ function toDate(val: any): Date | undefined {
 // which do derive companyId from the authenticated user server-side.
 @Controller('onefop-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-@Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
+@Roles('ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
 // Territory: every aggregate handler sets `_territory` from req.user through
 // analyticsTerritoryScope. A territorial admin reads national totals, but a
 // geographic filter or a breakdown by region / department / subdivision runs
@@ -835,7 +835,7 @@ export class OnefopAnalyticsController {
     // ─────────────────────────────────────────────────────────────
 
     @Get('submissions')
-    @Roles('ADMIN_ONEFOP', 'SUPER_ADMIN')
+    @Roles('ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
     async getSubmissions(@Query() q: any, @Req() req: any) {
         return this.analytics.getSubmissions({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
