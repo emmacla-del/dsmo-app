@@ -1876,6 +1876,7 @@
     "annualCoverageRate": "Atteinte totale du quota",
     "annualRegisteredOverQuota": "Rapport : {registered} / {quota}",
     "coverageTotalScopeNote": "Le total compte chaque entreprise une seule fois, y compris celles sans type d'entité renseigné.",
+    "coverageTotalIndeterminateNote": "Une région mélange un quota régional et des quotas départementaux : tant que son mode n’est pas choisi, son quota reste indéterminé et le total n’en indique aucun.",
     "quotaCoverageRegisterDefinition": "Le taux de couverture compte les entreprises actives dotées d'un identifiant d'établissement et validées pendant l'année choisie. Les totaux du répertoire comptent tous les comptes actifs, y compris ceux sans identifiant.",
     "quotaCampaignSourcesLabel": "Campagnes de quotas incluses :",
     "quotaCampaignIdsLabel": "Identifiants des campagnes de quotas incluses :",

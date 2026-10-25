@@ -147,6 +147,12 @@ export function CoverageTable({
     </Table>
     <p className="mt-3 text-sm text-muted-foreground">{t("statusBreakdownNote")}</p>
     <p className="mt-1 text-sm text-muted-foreground">{t("coverageTotalScopeNote")}</p>
+    {/* Shown only when it applies: the total's quota reads "—" because a
+        region in scope has no determinate one, which is worth saying once
+        rather than leaving the reader to wonder what happened to it. */}
+    {data.totals.targetIndeterminate && (
+      <p className="mt-1 text-sm text-muted-foreground">{t("coverageTotalIndeterminateNote")}</p>
+    )}
     </>
   );
 }

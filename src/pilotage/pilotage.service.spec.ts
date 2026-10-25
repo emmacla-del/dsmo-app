@@ -684,6 +684,30 @@ describe('PilotageService coverage', () => {
     // MIXED with no target rather than added up.
     expect(centreOf(result)).toMatchObject({ mode: 'MIXED', inscriptionTarget: null, rate: null, registered: 1 });
     expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 20 });
+    // And the grid states no total either: summing the departments of a MIXED
+    // region would supply the figure its own row declines to give, drop the
+    // region-level row from the sum, and leave a total disagreeing with the
+    // column above it. The counts are still complete.
+    expect(result.totals).toMatchObject({
+      inscriptionTarget: null,
+      rate: null,
+      targetIndeterminate: true,
+      registered: 1,
+    });
+  });
+
+  it('totals the quotas when no region is MIXED', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 6),
+      quota(t1, 'r-littoral', null, 4),
+      cohort(t1, 2),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    // 6 (summed from Centre's departments) + 4 (Littoral's own) + 2 (cohort).
+    expect(result.totals).toMatchObject({ inscriptionTarget: 12, targetIndeterminate: false });
   });
 
   it('never asks for a campaign whose reference quarter is null', async () => {
@@ -911,6 +935,7 @@ describe('PilotageService coverage', () => {
         draft: 0,
         inscriptionTarget: 0,
         rate: null,
+        targetIndeterminate: false,
       },
       central: null,
       unassigned: null,
