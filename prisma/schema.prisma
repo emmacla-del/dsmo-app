@@ -25,6 +25,15 @@ model StaffInvitationLink {
   level         String
   region        String?
   department    String?
+  /// The post this link is for, fixed by the administrator who creates it,
+  /// so the officer confirms their post rather than hunting for it in a
+  /// 126-service organigramme. Plain names, like region and department
+  /// above: the service is validated against the organigramme when the
+  /// link is made, not by a foreign key.
+  /// Null on every link created before 2026-10-25, which let the officer
+  /// choose both; those keep working exactly as they did.
+  serviceCode   String?
+  positionType  String?
   maxUses       Int
   useCount      Int       @default(0)
   expiresAt     DateTime
