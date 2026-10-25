@@ -580,7 +580,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <div className="cam-field">
               <label className="cam-admin-label" htmlFor="officer-region">{t("region")}</label>
               <select id="officer-region" className="cam-select" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
-                <option value="" disabled>{t("selectRegion")}</option>
+                <option value="" disabled hidden>{t("selectRegion")}</option>
                 {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
@@ -595,7 +595,7 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
                   disabled={!form.region}
                   required
                 >
-                  <option value="" disabled>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
+                  <option value="" disabled hidden>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
                   {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>

@@ -166,7 +166,7 @@ export function GroupSignUpForm({ token }: { token: string }) {
               disabled={!treeQuery.isSuccess}
               required
             >
-              <option value="" disabled>
+              <option value="" disabled hidden>
                 {treeQuery.isError ? t("groupTreeError") : treeQuery.isSuccess ? t("groupSelectService") : t("loading")}
               </option>
               {services.map((s) => (
@@ -188,7 +188,7 @@ export function GroupSignUpForm({ token }: { token: string }) {
               disabled={!serviceCode || positionsQuery.isLoading}
               required
             >
-              <option value="" disabled>{serviceCode ? t("groupSelectPost") : t("groupSelectServiceFirst")}</option>
+              <option value="" disabled hidden>{serviceCode ? t("groupSelectPost") : t("groupSelectServiceFirst")}</option>
               {(positionsQuery.data ?? []).map((p) => (
                 <option key={p.id} value={p.positionType}>{locale === "en" && p.titleEn ? p.titleEn : p.title}</option>
               ))}

@@ -285,7 +285,7 @@ export function InviteAgentDialog({
                   disabled={treeState !== "ready"}
                   required
                 >
-                  <option value="" disabled>{t("selectService")}</option>
+                  <option value="" disabled hidden>{t("selectService")}</option>
                   {services.map((s) => (
                     <option key={s.code} value={s.code}>{INDENT.repeat(s.depth * 2) + s.label}</option>
                   ))}
@@ -302,7 +302,7 @@ export function InviteAgentDialog({
                   disabled={!form.serviceCode || positionsQuery.isLoading}
                   required
                 >
-                  <option value="" disabled>
+                  <option value="" disabled hidden>
                     {!form.serviceCode ? t("selectServiceFirst") : positionsQuery.isLoading ? t("loading") : t("selectPost")}
                   </option>
                   {(positionsQuery.data ?? []).map((p) => (
@@ -317,7 +317,7 @@ export function InviteAgentDialog({
                   <div className="cam-field">
                     <label className="cam-admin-label" htmlFor="invite-region">{t("regionLabel")}</label>
                     <select id="invite-region" className="cam-select" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
-                      <option value="" disabled>{t("selectRegion")}</option>
+                      <option value="" disabled hidden>{t("selectRegion")}</option>
                       {regions.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
@@ -332,7 +332,7 @@ export function InviteAgentDialog({
                         disabled={!form.region}
                         required
                       >
-                        <option value="" disabled>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
+                        <option value="" disabled hidden>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
                         {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>

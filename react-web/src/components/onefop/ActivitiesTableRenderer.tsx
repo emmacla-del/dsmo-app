@@ -205,7 +205,7 @@ export function ActivitiesTableRenderer({
                           value={value}
                           onChange={(e) => onChange(cellId, e.target.value)}
                         >
-                          <option value="" disabled>
+                          <option value="" disabled hidden>
                             {localized(f.hint, locale)}
                           </option>
                           {f.options.map((opt) => (

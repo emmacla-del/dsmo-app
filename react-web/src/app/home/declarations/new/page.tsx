@@ -88,7 +88,7 @@ function CascadeSelect({ value, onChange, items, loading, disabled, placeholder 
       onChange={(e) => onChange(e.target.value)}
       disabled={loading || disabled}
     >
-      <option value="">{loading ? t("common.loading") : (placeholder ?? t("homeDeclarationsNewPage.selectPlaceholder"))}</option>
+      <option value="" hidden>{loading ? t("common.loading") : (placeholder ?? t("homeDeclarationsNewPage.selectPlaceholder"))}</option>
       {items.map((item) => (
         <option key={item.id} value={item.id}>{item.name}</option>
       ))}
@@ -542,7 +542,7 @@ export default function DsmoDeclarationWizardPage() {
         </Field>
         <Field label={L.fieldMainActivity} error={fieldErrors.sector}>
           <select className="cam-select" value={selectedSectorId} onChange={(e) => { setSelectedSectorId(e.target.value); scheduleAutosave(); }} disabled={loadingSectors}>
-            <option value="">{loadingSectors ? t("common.loading") : t("homeDeclarationsNewPage.selectPlaceholder")}</option>
+            <option value="" hidden>{loadingSectors ? t("common.loading") : t("homeDeclarationsNewPage.selectPlaceholder")}</option>
             {sectors.map((s) => <option key={s.id} value={s.id}>{sectorLabel({ name: s.name, nameEn: s.nameEn as string | null }, locale)}</option>)}
           </select>
         </Field>
