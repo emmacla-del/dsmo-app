@@ -103,7 +103,7 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
                 </td>
                 <td>{territoryPhrase(u.region, u.department) || t("national")}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <span className="cam-admin-meta" style={{ display: "block" }}>{stamp(u.createdAt, false, locale)}</span>
+                  <span className="cam-admin-meta" style={{ display: "block" }}>{stamp(u.createdAt, true, locale)}</span>
                   {registrationMethodLabel(u.registrationMethod, locale) && (
                     <span className="cam-admin-meta">{registrationMethodLabel(u.registrationMethod, locale)}</span>
                   )}

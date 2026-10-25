@@ -1,0 +1,146 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   shadcn/ui ↔ CAM-LEAP token bridge
+
+   Approved by the owner in chat, 2026-10-23, as the §12 architectural
+   review for introducing shadcn/ui into the staff console.
+
+   shadcn components are written against a fixed set of semantic variable
+   names (--background, --primary, --border, …). This file is the ONLY
+   place those names are defined, and every one of them resolves to a
+   `--cam-*` token from tokens.css. Consequences:
+
+     - no second palette enters the app; `bg-primary` and `.cam-badge-success`
+       read the same institutional green;
+     - a change in tokens.css still moves the whole console, shadcn
+       components included;
+     - G1 holds — there is no hex here, and no Tailwind numbered palette
+       class is needed to style a shadcn component.
+
+   Do not add a raw colour value to this file. If a shade is missing,
+   define it in tokens.css and point at it from here.
+   ────────────────────────────────────────────────────────────────────── */
+
+@import "tw-animate-css";
+
+/* The overlay components (dialog, dropdown, popover, tooltip, sheet) ship
+   with `animate-in` / `fade-in` / `zoom-in-95` and `data-[state=open]:`
+   variants. globals.css records that this project had no animate plugin,
+   so those class names emitted nothing; the import above is what makes
+   them real. Keyframes already hand-written there are left alone. */
+
+:root {
+  /* Surfaces */
+  --background: var(--cam-bg);
+  --foreground: var(--cam-text);
+  --card: var(--cam-surface);
+  --card-foreground: var(--cam-text);
+  --popover: var(--cam-surface);
+  --popover-foreground: var(--cam-text);
+
+  /* Institutional green is the primary action */
+  --primary: var(--cam-primary);
+  --primary-foreground: var(--cam-surface);
+
+  --secondary: var(--cam-surface-subtle);
+  --secondary-foreground: var(--cam-text);
+  --muted: var(--cam-surface-subtle);
+  --muted-foreground: var(--cam-text-muted);
+  --accent: var(--cam-primary-tint);
+  --accent-foreground: var(--cam-primary);
+
+  --destructive: var(--cam-danger);
+  --destructive-foreground: var(--cam-surface);
+
+  /* The console states a status as a SOFT tint, not a solid fill
+     (.cam-badge-success and friends). shadcn ships no success or warning
+     token at all, so the four tones are declared here as an ink + wash
+     pair and the Badge variants below read them. */
+  --success: var(--cam-success);
+  --success-muted: var(--cam-success-bg);
+  --warning: var(--cam-warning);
+  --warning-muted: var(--cam-warning-bg);
+  --destructive-muted: var(--cam-danger-bg);
+  --info: var(--cam-info);
+  --info-muted: var(--cam-info-bg);
+
+  /* G-rules already settled these: an empty control needs the stronger
+     border (owner, 2026-10-21), and focus is the primary hue. */
+  --border: var(--cam-border);
+  --input: var(--cam-border-strong);
+  --ring: var(--cam-focus-ring);
+
+  /* 8px is the control radius of the console, not shadcn's 10px default */
+  --radius: var(--cam-radius-control);
+
+  /* Charts keep to the institutional hues, in the order the dashboard
+     already uses them. */
+  --chart-1: var(--cam-primary);
+  --chart-2: var(--cam-gold);
+  --chart-3: var(--cam-info);
+  --chart-4: var(--cam-primary-dark);
+  --chart-5: var(--cam-danger);
+
+  /* The console rail is light, with a dark-green active item */
+  --sidebar: var(--cam-surface);
+  --sidebar-foreground: var(--cam-rail-text);
+  --sidebar-primary: var(--cam-rail-active);
+  --sidebar-primary-foreground: var(--cam-surface);
+  --sidebar-accent: var(--cam-green-active-wash);
+  --sidebar-accent-foreground: var(--cam-green-active-ink);
+  --sidebar-border: var(--cam-rail-border);
+  --sidebar-ring: var(--cam-focus-ring);
+}
+
+/* `inline` resolves each utility to the variable above rather than copying
+   a value, so Tailwind's `bg-card` and a plain `var(--cam-surface)` can
+   never drift apart. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-muted: var(--destructive-muted);
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--cam-font-sans);
+}

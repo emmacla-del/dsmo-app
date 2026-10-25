@@ -1534,10 +1534,12 @@ describe('PilotageService.getCampaignReturns', () => {
         'ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING',
       ]);
       expect(row(res, 'ENTREPRISE')).toEqual({
-        entityType: 'ENTREPRISE', received: 2, approved: 1, onTime: 2, late: 0, registeredStock: 2, responseRate: 1,
+        entityType: 'ENTREPRISE', received: 2, approved: 1, pendingReview: 1, correctionRequested: 0,
+        onTime: 2, late: 0, registeredStock: 2, responseRate: 1,
       });
       expect(row(res, 'VOCATIONAL_TRAINING')).toEqual({
-        entityType: 'VOCATIONAL_TRAINING', received: 1, approved: 0, onTime: 0, late: 1, registeredStock: 2, responseRate: 0.5,
+        entityType: 'VOCATIONAL_TRAINING', received: 1, approved: 0, pendingReview: 1, correctionRequested: 0,
+        onTime: 0, late: 1, registeredStock: 2, responseRate: 0.5,
       });
       expect(row(res, 'ADMINISTRATION')).toMatchObject({ received: 1, registeredStock: 1, responseRate: 1 });
       // A type nobody registered is listed, with no rate rather than 0 %.

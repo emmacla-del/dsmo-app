@@ -24,7 +24,7 @@
 //     wired into a per-actor figure.
 
 import { ApiError } from "./api-client";
-import { NATIONAL_ROLES, hasRole } from "./roles";
+import { NATIONAL_ROLES, REGISTRATION_NATIONAL_ROLES, hasRole } from "./roles";
 import type { UiLocale } from "./register-i18n";
 
 /** Neutral marker for a field the system holds no value for. */
@@ -98,7 +98,7 @@ export function computeUserScopeLabel(user: UserScopeCandidate | null | undefine
     if (user.region) return region(user.region);
     return en ? "Regional (unassigned)" : "Régional (non assigné)";
   }
-  if (hasRole(user.role, NATIONAL_ROLES)) {
+  if (hasRole(user.role, [...NATIONAL_ROLES, ...REGISTRATION_NATIONAL_ROLES])) {
     return "National";
   }
   return user.department

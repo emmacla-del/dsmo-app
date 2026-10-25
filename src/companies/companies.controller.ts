@@ -1,14 +1,14 @@
 // src/companies/companies.controller.ts
 //
 // The establishment register (the admin "Annuaire"). Moved out of
-// DsmoController: these two reads are the register of every registered
+// DsmoController: these register reads cover every registered
 // entity — ONEFOP and DSMO alike — so hanging them off the `/dsmo` prefix
 // mis-stated their scope to every caller. DsmoController keeps what is
 // genuinely DSMO: declaration submit/draft/validate/PDF.
 //
-// Behaviour is unchanged — same DsmoService methods, same territory
-// scoping, same roles. Only the route prefix moves (/dsmo/companies →
-// /companies).
+// All reads share the same role guard and territory scope. The monthly
+// trend is aggregated in SQL so the dashboard can render a full year without
+// requesting the register page by page.
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { DsmoService } from '../dsmo/dsmo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,6 +22,12 @@ import { territoryFromUser } from '../auth/territory';
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class CompaniesController {
   constructor(private readonly dsmoService: DsmoService) { }
+
+  @Get('registration-trend')
+  @Roles(...DIRECTORY_ROLES)
+  async getCompanyRegistrationTrend(@Req() req: any) {
+    return this.dsmoService.getCompanyRegistrationTrend(territoryFromUser(req?.user));
+  }
 
   // Declared before the collection route: Nest matches in declaration
   // order, and a bare `companies/:something` route added later must not

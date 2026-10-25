@@ -25,6 +25,7 @@ import { ADMIN_ROLES } from "@/lib/roles";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
+import { useAuthStore } from "@/lib/auth-store";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 
 const PAGE_SIZE = 20;
@@ -80,9 +81,13 @@ interface UsersDirectoryProps {
   reassignRoles?: readonly string[];
 }
 
-export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ADMIN_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
+export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
+  const actorRole = useAuthStore((state) => state.user?.role);
+  const roleOptions = assignableRoles ?? (actorRole === "SUPER_ADMIN"
+    ? ADMIN_ROLES
+    : ADMIN_ROLES.filter((role) => role !== "ADMIN_ONEFOP_REGISTRATIONS" && role !== "ADMIN_ONEFOP_SUBMISSIONS"));
   const { regions: directoryRegions } = useTerritoryRegions();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -195,7 +200,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             ) : (
               <>
                 <option value="">{t("usersDirectory.allRolesOption")}</option>
-                {assignableRoles.map((r: string) => (
+                {roleOptions.map((r: string) => (
                   <option key={r} value={r}>{directoryRoleLabel(r, locale)}</option>
                 ))}
               </>
@@ -455,7 +460,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
         {modal?.type === "role" && (
           <RoleModal
             user={modal.user}
-            roles={assignableRoles}
+            roles={roleOptions}
             pending={roleMutation.isPending}
             error={roleMutation.error as Error | null}
             onCancel={() => setModal(null)}

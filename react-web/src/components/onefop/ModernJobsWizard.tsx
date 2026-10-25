@@ -121,7 +121,7 @@ export function ModernJobsWizard({
   sidePreview,
 }: ModernJobsWizardProps) {
   const tShell = useTranslations("wizardShell");
-  const tRoutes = useTranslations("modernJobs.routes");
+  const tSidebar = useTranslations("modernJobs.sidebar");
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
 
   const t = useTranslations("modernJobs.wizard");
@@ -949,9 +949,9 @@ export function ModernJobsWizard({
                     const isDone = status === "complete";
                     const isErr = status === "has-errors";
                     const statusLabel =
-                      status === "complete" ? tRoutes("statusCompleted") :
-                      status === "has-errors" ? tRoutes("statusToCorrect") :
-                      status === "in-progress" ? tRoutes("statusInProgress") :
+                      status === "complete" ? tSidebar("statusCompleted") :
+                      status === "has-errors" ? tSidebar("statusToCorrect") :
+                      status === "in-progress" ? tSidebar("statusInProgress") :
                       tRail("stateTodo");
                     const sectionName =
                       (sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id;

@@ -26,7 +26,9 @@ import {
   buildMetrics,
   emptyMetrics,
   CampaignReturnsTimeline,
+  CampaignReturnsActivity,
   buildTimelineDays,
+  doualaDay,
   countedReturns,
   isApprovedStatus,
   isReceivedStatus,
@@ -463,6 +465,8 @@ export class PilotageService {
     interface BucketCounts {
       received: number;
       approved: number;
+      pendingReview: number;
+      correctionRequested: number;
       onTime: number;
       late: number;
     }
@@ -472,10 +476,14 @@ export class PilotageService {
     // the timeline uses, so its curve ends on these totals. The entity-type
     // tally reads the same entries, so byEntityType agrees with the totals.
     for (const { submission, bucket } of countedReturns(submissions)) {
-      byType.addReturn(bucket, submission.formType, isApprovedStatus(submission.status), submission.isLate);
-      const current = countsByBucket.get(bucket) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      byType.addReturn(bucket, submission.formType, submission.status, submission.isLate);
+      const current = countsByBucket.get(bucket) ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       current.received += 1;
       if (isApprovedStatus(submission.status)) current.approved += 1;
+      if (submission.status === OnefopStatus.PENDING_REVIEW) current.pendingReview += 1;
+      if (submission.status === OnefopStatus.CORRECTION_REQUESTED) current.correctionRequested += 1;
       if (submission.isLate) current.late += 1;
       else current.onTime += 1;
       countsByBucket.set(bucket, current);
@@ -495,7 +503,9 @@ export class PilotageService {
           regionId: region.regionId,
           departmentId: department.departmentId,
         });
-        const counts = countsByBucket.get(key) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+        const counts = countsByBucket.get(key) ?? {
+          received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+        };
         const registeredStock = registeredStockByBucket.get(key) ?? 0;
         const metrics = buildMetrics(department.target, counts, registeredStock);
         return {
@@ -510,10 +520,12 @@ export class PilotageService {
         (acc, d) => ({
           received: acc.received + d.received,
           approved: acc.approved + d.approved,
+          pendingReview: acc.pendingReview + d.pendingReview,
+          correctionRequested: acc.correctionRequested + d.correctionRequested,
           onTime: acc.onTime + d.onTime,
           late: acc.late + d.late,
         }),
-        { received: 0, approved: 0, onTime: 0, late: 0 },
+        { received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0 },
       );
       const summedStock = departments.reduce((acc, d) => acc + d.registeredStock, 0);
 
@@ -552,7 +564,9 @@ export class PilotageService {
     // Central bucket (National only)
     let central: ReturnMetrics | null = null;
     if (national) {
-      const centralCounts = countsByBucket.get('central') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const centralCounts = countsByBucket.get('central') ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       const centralStock = registeredStockByBucket.get('central') ?? 0;
       central = buildMetrics(centralQuota?.submissionTarget ?? null, centralCounts, centralStock);
       if (centralQuota?.submissionTarget != null) {
@@ -564,7 +578,9 @@ export class PilotageService {
     // Unassigned bucket (National only)
     let unassigned: ReturnMetrics | null = null;
     if (national) {
-      const unassignedCounts = countsByBucket.get('unassigned') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const unassignedCounts = countsByBucket.get('unassigned') ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       const unassignedStock = registeredStockByBucket.get('unassigned') ?? 0;
       unassigned = buildMetrics(null, unassignedCounts, unassignedStock);
     }
@@ -673,12 +689,136 @@ export class PilotageService {
     const deliveries = countedReturns(submissions)
       .filter((counted) => visible.has(counted.bucket))
       .map((counted) => counted.firstReceivedAt);
-
     const effectiveDeadline = campaign.extendedDeadline ?? campaign.deadline;
     const ends = [campaign.endDate, effectiveDeadline].filter((d): d is Date => !!d);
     const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
     const days = buildTimelineDays(deliveries, { startDate: campaign.startDate, lastDay, now });
     return { campaign: summary, timeZone, total: deliveries.length, days };
+  }
+
+  async getCampaignReturnsActivity(
+    territory: Territory | null | undefined,
+    campaignId: string,
+    now: Date = new Date(),
+  ): Promise<CampaignReturnsActivity> {
+    const campaign = await this.requireCollectionCampaign(campaignId);
+    const { scope, regions } = await this.loadGrid(territory, async () => []);
+    const summary = returnsSummary(campaign);
+    const timeZone = DOUALA_TIME_ZONE;
+    if (scope.kind === 'none') return { campaign: summary, timeZone, days: [] };
+
+    const visible = new Set<string>();
+    for (const region of regions) {
+      for (const department of region.departments) {
+        visible.add(bucketKey({ kind: 'department', regionId: region.regionId, departmentId: department.departmentId }));
+      }
+    }
+    if (scope.kind === 'national') {
+      visible.add('central');
+      visible.add('unassigned');
+    }
+
+    const submissions = await this.prisma.onefopSubmission.findMany({
+      where: { campaignId, ...submissionWhere(scope) },
+      select: {
+        id: true,
+        companyId: true,
+        formType: true,
+        status: true,
+        isLate: true,
+        regionId: true,
+        departmentId: true,
+        submissionDate: true,
+        createdAt: true,
+        reviewedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const visibleSubmissions = submissions.filter((submission) => {
+      if (submission.formType === 'ADMINISTRATION') return scope.kind === 'national';
+      if (!submission.regionId || !submission.departmentId) return scope.kind === 'national';
+      return visible.has(bucketKey({
+        kind: 'department',
+        regionId: submission.regionId,
+        departmentId: submission.departmentId,
+      }));
+    });
+    const visibleIds = new Set(visibleSubmissions.map((submission) => submission.id));
+    const submissionDates = visibleSubmissions
+      .filter((submission) => submission.status !== OnefopStatus.DRAFT)
+      .map((submission) => submission.submissionDate);
+
+    const effectiveDeadline = campaign.extendedDeadline ?? campaign.deadline;
+    const ends = [campaign.endDate, effectiveDeadline].filter((d): d is Date => !!d);
+    const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
+    const days = buildTimelineDays(submissionDates, { startDate: campaign.startDate, lastDay, now });
+    const firstSubmissionAt = submissionDates.length > 0
+      ? new Date(Math.min(...submissionDates.map((date) => date.getTime())))
+      : now;
+    const historyStart = campaign.startDate ?? firstSubmissionAt;
+    const auditEvents = await this.prisma.auditLog.findMany({
+      where: {
+        resourceType: 'OnefopSubmission',
+        OR: [
+          {
+            action: { in: ['AUDIT_APPROVE', 'AUDIT_CORRECTION', 'AUDIT_REOPEN'] },
+            resourceId: { in: [...visibleIds] },
+          },
+          { action: 'AUDIT_BULK_VISA_GRANTED', timestamp: { gte: historyStart } },
+        ],
+      },
+      select: { action: true, resourceId: true, timestamp: true, details: true },
+    });
+    const byDay = new Map<string, { approved: number; correctionRequested: number }>();
+    const approvalHistoryIds = new Set<string>();
+    const correctionHistoryIds = new Set<string>();
+    const addEvent = (field: 'approved' | 'correctionRequested', at: Date) => {
+      const key = doualaDay(at);
+      const statusCounts = byDay.get(key) ?? { approved: 0, correctionRequested: 0 };
+      statusCounts[field] += 1;
+      byDay.set(key, statusCounts);
+    };
+    for (const event of auditEvents) {
+      if (visibleIds.has(event.resourceId)) {
+        if (event.action === 'AUDIT_APPROVE') {
+          approvalHistoryIds.add(event.resourceId);
+          addEvent('approved', event.timestamp);
+        }
+        if (event.action === 'AUDIT_CORRECTION' || event.action === 'AUDIT_REOPEN') {
+          correctionHistoryIds.add(event.resourceId);
+          addEvent('correctionRequested', event.timestamp);
+        }
+      }
+      if (event.action === 'AUDIT_BULK_VISA_GRANTED') {
+        const details = event.details && typeof event.details === 'object' && !Array.isArray(event.details)
+          ? event.details as Record<string, unknown>
+          : {};
+        const approvedIds = Array.isArray(details.approvedIds) ? details.approvedIds : [];
+        const scopedApprovals = new Set(approvedIds.filter((id): id is string => typeof id === 'string' && visibleIds.has(id)));
+        for (const id of scopedApprovals) {
+          approvalHistoryIds.add(id);
+          addEvent('approved', event.timestamp);
+        }
+      }
+    }
+    // Older individual review rows can have reviewedAt even when their audit
+    // event predates the current audit action. Use that stored transition date
+    // when no corresponding event exists; never infer earlier transitions.
+    for (const submission of visibleSubmissions) {
+      if (!submission.reviewedAt) continue;
+      if (submission.status === OnefopStatus.APPROVED && !approvalHistoryIds.has(submission.id)) {
+        addEvent('approved', submission.reviewedAt);
+      }
+      if (submission.status === OnefopStatus.CORRECTION_REQUESTED && !correctionHistoryIds.has(submission.id)) {
+        addEvent('correctionRequested', submission.reviewedAt);
+      }
+    }
+    const activityDays = days.map((day) => ({
+      date: day.date,
+      submitted: day.received,
+      ...(byDay.get(day.date) ?? { approved: 0, correctionRequested: 0 }),
+    }));
+    return { campaign: summary, timeZone, days: activityDays };
   }
 
   /**

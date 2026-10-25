@@ -22,7 +22,7 @@ import { InfoTooltip } from "@/components/onefop/ui/InfoTooltip";
 export const tableQuestionHeadingStyle: CSSProperties = {
   fontFamily: "var(--cam-font-sans)",
   fontSize: "var(--cam-font-size-lg, 1.125rem)",
-  fontWeight: "var(--cam-font-weight-bold)",
+  fontWeight: "var(--cam-font-weight-medium)",
   color: "var(--cam-text)",
   lineHeight: 1.35,
   margin: 0,

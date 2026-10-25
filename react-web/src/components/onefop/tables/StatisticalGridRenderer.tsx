@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { FormData, LocalizedText } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
@@ -12,10 +19,23 @@ import type {
 import {
   TABLE_LABEL_COL_PX,
   TABLE_MAX_WIDTH_PX,
+  TABLE_REPEAT_HEADINGS_ABOVE_ROWS,
+  TABLE_REPEAT_HEADINGS_EVERY,
   spanningHeadingsOf,
   tableDataColumnWidthPx,
   tablePreferredWidthPx,
 } from "./tableLayout";
+import {
+  blankCellKeys,
+  parseCount,
+  parsePastedGrid,
+  planCopyDown,
+  planPaste,
+  planZeroEmptyRows,
+  snapshotOf,
+  typedCellCount,
+} from "./gridEntry";
+import { TableEntryBar } from "./TableEntryBar";
 import { CoherenceTd } from "../coherence/Coherence";
 import {
   Cell,
@@ -43,6 +63,13 @@ export interface StatisticalGridRendererProps {
   tableFieldId?: string;
   /** Quiz-kept cells the respondent tried to leave blank. */
   missingFieldKeys?: string[];
+  /**
+   * True when this grid is showing one column block of a wider table
+   * (AdaptiveStatisticalTable's block tabs). The check-total line is left out
+   * then: the foot it would compare against covers the visible columns only,
+   * so the figure would not be the table's population.
+   */
+  columnSliced?: boolean;
 }
 
 /**
@@ -107,6 +134,7 @@ export function StatisticalGridRenderer({
   autoFocusFirstCell = false,
   tableFieldId,
   missingFieldKeys,
+  columnSliced = false,
 }: StatisticalGridRendererProps) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.grid");
@@ -192,6 +220,120 @@ export function StatisticalGridRenderer({
     }
   };
 
+  /**
+   * Bulk entry aids — pasting a block from a spreadsheet, recopying the cell
+   * above, putting 0 in the rows that carry no figure. Each goes through
+   * `onBatchChange` when the controller supplied one, so the whole block is
+   * one change and one recalculation rather than a write per cell, and each
+   * leaves one step of undo behind it: nothing here may answer for the
+   * respondent irreversibly (§9).
+   */
+  const [notice, setNotice] = useState<string | null>(null);
+  const [undoable, setUndoable] = useState<Record<string, unknown> | null>(null);
+  /**
+   * The figure the respondent expects this table to come to. Entry aid only:
+   * it is held here and nowhere else — never written to the form data, never
+   * submitted, never exported. The canonical questionnaire has no question
+   * for it, and inventing a key for it is the half that needs a decision of
+   * its own (CLAUDE.md §21, the 2026-10-19 entry).
+   */
+  const [expectedTotal, setExpectedTotal] = useState("");
+
+  const writeUpdates = (updates: Record<string, unknown>) => {
+    if (onBatchChange) onBatchChange(updates);
+    else for (const [key, value] of Object.entries(updates)) onChange(key, value);
+  };
+
+  /**
+   * The row totals a bulk write leaves behind. A table that declares no
+   * `recalc` has its totals kept by handleCellChange as each cell is typed
+   * (VT 4.1), so a pasted or zeroed block must keep them the same way —
+   * otherwise the calculated column still shows the figures from before the
+   * paste. A table that declares one is left to it: the Modern Jobs tables
+   * recalculate in AdaptiveStatisticalTable, and the VT fixed-row tables
+   * declare a no-op recalc on purpose, their totals being the business of
+   * useVtFixedRowTotals (a whole-row sum would be wrong for a grouped table
+   * such as 4.8).
+   */
+  const withRowTotals = (updates: Record<string, unknown>): Record<string, unknown> => {
+    if (definition.recalc) return updates;
+    const next = { ...updates };
+    const read = (fieldKey: string): number | null => {
+      const raw = fieldKey in updates ? updates[fieldKey] : data[fieldKey];
+      if (raw === undefined || raw === null || raw === "") return null;
+      const n = Number(raw);
+      return Number.isNaN(n) ? null : n;
+    };
+    for (const row of definition.rows) {
+      const computed = Object.values(row.cells).find((c) => c.kind === "computed");
+      if (!computed) continue;
+      if (!Object.values(row.cells).some((c) => c.fieldKey in updates)) continue;
+      let sum = 0;
+      let any = false;
+      for (const cell of Object.values(row.cells)) {
+        if (cell.kind !== "number") continue;
+        const value = read(cell.fieldKey);
+        if (value === null) continue;
+        sum += value;
+        any = true;
+      }
+      next[computed.fieldKey] = any ? sum : null;
+    }
+    return next;
+  };
+
+  const applyUpdates = (updates: Record<string, unknown>, message: string | null) => {
+    const full = withRowTotals(updates);
+    if (Object.keys(full).length > 0) {
+      setUndoable(snapshotOf(Object.keys(full), data));
+      writeUpdates(full);
+    }
+    setNotice(message);
+  };
+
+  const undoLastBulk = () => {
+    if (!undoable) return;
+    writeUpdates(undoable);
+    setUndoable(null);
+    setNotice(t("bulkUndone"));
+  };
+
+  /**
+   * A block copied from a spreadsheet lands at the focused cell and spreads
+   * right and down, the convention every spreadsheet uses. Calculated cells
+   * keep their own value, and a value that is not a whole count is refused
+   * rather than rounded — the respondent is told how many, in both cases.
+   */
+  const handleCellPaste = (
+    e: ClipboardEvent<HTMLInputElement>,
+    rowIdx: number,
+    colIdx: number,
+  ) => {
+    const grid = parsePastedGrid(e.clipboardData?.getData("text/plain") ?? "");
+    if (grid.length === 0) return;
+    e.preventDefault();
+    const plan = planPaste(definition, rowIdx, colIdx, grid);
+    const filled = Object.keys(plan.updates).length;
+    const parts: string[] = [];
+    // One value into one cell needs no report; anything refused always does.
+    const single = grid.length === 1 && grid[0].length === 1;
+    if (!single) parts.push(t("pasteFilled", { count: filled }));
+    if (plan.computedSkipped > 0) parts.push(t("pasteSkippedComputed", { count: plan.computedSkipped }));
+    if (plan.rejected > 0) parts.push(t("pasteRejected", { count: plan.rejected }));
+    if (plan.outside > 0) parts.push(t("pasteOutside", { count: plan.outside }));
+    applyUpdates(plan.updates, parts.length > 0 ? parts.join(" · ") : null);
+  };
+
+  const focusCell = (fieldKey: string) => {
+    const input = tableRef.current?.querySelector<HTMLInputElement>(
+      `input[data-field-key="${fieldKey}"]`,
+    );
+    if (!input) return;
+    input.focus();
+    input.select();
+    input.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   // Keyboard navigation within editable grid cells and fluid table advance
   const handleCellKeyDown = (
     e: KeyboardEvent<HTMLInputElement>,
@@ -205,6 +347,30 @@ export function StatisticalGridRenderer({
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       onAdvanceTable?.();
+      return;
+    }
+
+    // Ctrl+D / Cmd+D -> recopy the cell above, as a spreadsheet does. The
+    // browser's own bookmark shortcut is given up inside a grid cell only.
+    if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
+      e.preventDefault();
+      const updates = planCopyDown(definition, rowIdx, colIdx, data);
+      if (updates) applyUpdates(updates, null);
+      return;
+    }
+
+    // A count is digits only. Refusing the keystroke is kinder than letting a
+    // decimal point, a sign or an "e" through for the validator to reject
+    // after the fact — type="number" accepts all three. Paste is sanitised in
+    // handleCellPaste, and every editing and navigation key is untouched
+    // (they are not single characters, or they carry a modifier).
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !/[0-9]/.test(e.key)) {
+      e.preventDefault();
+      // Said, not swallowed: a respondent typing "1,5" would otherwise be
+      // left with 15 and no idea where the comma went. Chrome already drops
+      // the comma in a number input, so this is the first time the refusal
+      // is visible at all.
+      setNotice(t("digitsOnly"));
       return;
     }
 
@@ -314,7 +480,65 @@ export function StatisticalGridRenderer({
   const dataColWidths = matrixDataColumnWidthsPx(definition, locale);
   const preferredTableWidth = tablePreferredWidthPx(dataColWidths);
 
+  /* ── The entry bar under the table ───────────────────────────────────
+     What is left to fill, the way to the next blank cell, the two bulk
+     actions and their undo, and the respondent's own check total. One quiet
+     line of text and text actions: §8 asks for no cards, no containers and
+     no decoration around them. */
+  const blanks = blankCellKeys(definition, data);
+  const typedCells = typedCellCount(definition);
+  const zeroPlan = planZeroEmptyRows(definition, data);
+  const lastColumn = definition.columns[definition.columns.length - 1];
+  const footShown = Boolean(totalRow || definition.hasTotalRow);
+  /* The check total is measured against the one figure on screen that is the
+     table's whole population: the foot cell under a last column which is
+     itself a calculated total. A table without one — VT 5.3, whose total is
+     typed and whose columns count buildings by material — is offered no
+     check rather than a misleading one (§5, §22). */
+  const checkTotalShown = Boolean(!columnSliced && footShown && lastColumn?.kind === "computed");
+  const totalRowCell = totalRow && lastColumn ? totalRow.cells[lastColumn.key] : undefined;
+  const grandTotal = !checkTotalShown
+    ? null
+    : totalRow
+      ? totalRowCell
+        ? getCellValue(totalRowCell.fieldKey)
+        : null
+      : columnSum(lastColumn!.key);
+  const expectedParsed = parseCount(expectedTotal);
+  const expectedValue = expectedParsed.ok ? expectedParsed.value : null;
+  const checkGap =
+    expectedValue !== null && grandTotal !== null ? expectedValue - grandTotal : null;
+
+  const entryBar = (
+    <TableEntryBar
+      blanks={blanks.length}
+      typedCells={typedCells}
+      onGoToFirstBlank={() => focusCell(blanks[0])}
+      zeroRows={zeroPlan.rows}
+      onZeroEmptyRows={() => applyUpdates(zeroPlan.updates, t("zeroedRows", { count: zeroPlan.rows }))}
+      notice={notice}
+      disabled={disabled}
+      {...(undoable ? { onUndo: undoLastBulk } : {})}
+      {...(checkTotalShown
+        ? {
+            checkTotal: {
+              inputId: `check-total-${definition.id}`,
+              value: expectedTotal,
+              onChange: setExpectedTotal,
+              grandTotal,
+              valid: expectedParsed.ok,
+              gap: checkGap,
+            },
+          }
+        : {})}
+    />
+  );
+
   return (
+    // The frame, then the entry bar under it: the bar is outside the frame's
+    // border on purpose, so it reads as a note beside the table rather than
+    // another row of it.
+    <>
     <div
       // The frame's line is drawn twice: by its border, and by an ::after
       // ring laid over it at z-[21]. The sticky first-column cells (z-20)
@@ -538,9 +762,36 @@ export function StatisticalGridRenderer({
           {/* ── Table Body Rows ── */}
           <tbody>
             {bodyRows.map((row, rowIdx) => {
+              // Partway down a long table, the headings are said again, as a
+              // printed statistical table repeats them (tableLayout.ts says
+              // why this rather than a sticky header). Decorative: every cell
+              // already carries its own full label, so the row is hidden from
+              // assistive technology rather than read out a second time.
+              const repeatHeadings =
+                bodyRows.length > TABLE_REPEAT_HEADINGS_ABOVE_ROWS &&
+                rowIdx > 0 &&
+                rowIdx % TABLE_REPEAT_HEADINGS_EVERY === 0;
               return (
+                <React.Fragment key={row.id}>
+                {repeatHeadings && (
+                  <tr aria-hidden="true" data-repeat-headings="true">
+                    <RowHeader className="sticky left-0 z-10 bg-[var(--cam-table-head-bg)] px-3 py-2 border-r border-y border-[var(--cam-table-frame)] text-[var(--cam-table-text)] shadow-[1px_0_0_0_var(--cam-table-frame)]">
+                      {localized(definition.rowHeaderLabel, locale)}
+                    </RowHeader>
+                    {definition.columns.map((col) => (
+                      <LeafHeader
+                        key={`repeat-${col.key}`}
+                        className="px-2 py-1.5 border-r border-y border-[var(--cam-table-frame)] last:border-r-0 text-[var(--cam-table-text)] bg-[var(--cam-table-head-bg)]"
+                      >
+                        {[col.band, col.group, col.header]
+                          .filter((part): part is LocalizedText => Boolean(part))
+                          .map((part) => localized(part, locale))
+                          .join(" — ")}
+                      </LeafHeader>
+                    ))}
+                  </tr>
+                )}
                 <tr
-                  key={row.id}
                   className="hover:bg-[var(--cam-table-hover)] transition-colors duration-100 group"
                 >
                   {/* Sticky Row Title */}
@@ -625,6 +876,7 @@ export function StatisticalGridRenderer({
                           onKeyDown={(e) =>
                             handleCellKeyDown(e, rowIdx, colIdx)
                           }
+                          onPaste={(e) => handleCellPaste(e, rowIdx, colIdx)}
                           onFocus={(e) => e.target.select()}
                           // The mark comes from aria-invalid above (globals.css).
                           className="cam-cell-input"
@@ -633,6 +885,7 @@ export function StatisticalGridRenderer({
                     );
                   })}
                 </tr>
+                </React.Fragment>
               );
             })}
           </tbody>
@@ -685,5 +938,7 @@ export function StatisticalGridRenderer({
         </DataTable>
       </div>
     </div>
+    {entryBar}
+    </>
   );
 }

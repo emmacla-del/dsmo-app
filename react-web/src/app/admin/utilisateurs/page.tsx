@@ -329,7 +329,7 @@ export default function OnefopUsersPage() {
                   </td>
 
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <span className="cam-admin-meta">{stamp(agent.createdAt, false, locale)}</span>
+                    <span className="cam-admin-meta">{stamp(agent.createdAt, true, locale)}</span>
                   </td>
 
                   {/* Who minted the account and how. An account created by an
@@ -421,7 +421,7 @@ export default function OnefopUsersPage() {
             </div>
             <div>
               <dt>{t("createdLabel")}</dt>
-              <dd>{stamp(profileAgent.createdAt, false, locale)}</dd>
+              <dd>{stamp(profileAgent.createdAt, true, locale)}</dd>
             </div>
             <div>
               <dt>{t("formsLabel")}</dt>
