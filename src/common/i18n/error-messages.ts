@@ -269,6 +269,16 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Le paramètre « semester » est obligatoire.', en: 'The "semester" parameter is required.' },
   { fr: 'Le paramètre « semester » doit valoir 1 ou 2.', en: 'The "semester" parameter must be 1 or 2.' },
   { fr: 'Le semestre doit valoir 1 ou 2.', en: 'The semester must be 1 or 2.' },
+  { fr: 'Le paramètre « quarter » est obligatoire.', en: 'The "quarter" parameter is required.' },
+  { fr: 'Le paramètre « quarter » doit valoir de 1 à 4.', en: 'The "quarter" parameter must be 1 to 4.' },
+  { fr: 'Le trimestre doit valoir de 1 à 4.', en: 'The quarter must be 1 to 4.' },
+  // The period parameters of GET /companies, thrown in English: {0} is the
+  // parameter name ("semester", "quarter"), {1} and {2} its bounds.
+  { fr: '{0} doit être un nombre entre {1} et {2}.', en: '{0} must be a number between {1} and {2}.' },
+  {
+    fr: "Le trimestre choisi n'appartient pas au semestre sélectionné.",
+    en: 'The quarter does not belong to the selected semester.',
+  },
   {
     fr: 'Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d\'inscription porte des cibles, pas une collecte.',
     en: 'Return tracking applies to collection campaigns only: a registration campaign carries targets, not a data collection.',
