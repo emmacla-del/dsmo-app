@@ -3,6 +3,7 @@ import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prism
 import { PilotageService } from './pilotage.service';
 import { PilotageController } from './pilotage.controller';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 interface TargetRow {
   id: string;
@@ -166,6 +167,18 @@ function createHarness() {
         audits.push(data);
         return data;
       }),
+      findMany: jest.fn(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+        const resourceIds = (where?.resourceId as { in?: string[] } | undefined)?.in;
+        const since = (where?.createdAt as { gte?: Date } | undefined)?.gte;
+        return audits
+          .filter((row) =>
+            row.action === where?.action &&
+            row.resourceType === where?.resourceType &&
+            (!resourceIds || resourceIds.includes(String(row.resourceId))) &&
+            (!since || (row.createdAt as Date) >= since),
+          )
+          .map((row) => ({ resourceId: row.resourceId }));
+      }),
     },
     $transaction: jest.fn(),
   };
@@ -175,7 +188,10 @@ function createHarness() {
   });
 
   return {
-    service: new PilotageService(prisma as unknown as PrismaService),
+    service: new PilotageService(
+      prisma as unknown as PrismaService,
+      { getSettings: jest.fn().mockResolvedValue({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+    ),
     prisma,
     campaignQuotas,
     companies,
@@ -423,17 +439,27 @@ describe('PilotageService writes', () => {
 });
 
 describe('PilotageService coverage', () => {
+  let companySeq = 0;
+
   function company(overrides: Record<string, unknown> = {}) {
+    const { user: userOverride, ...companyOverrides } = overrides;
     return {
+      id: `company-${++companySeq}`,
       entityType: 'ENTREPRISE',
       regionId: 'r-centre',
       departmentId: 'd-mfoundi',
       establishmentId: 'EN26000100',
       establishmentIdGeneratedAt: new Date('2026-06-01T10:00:00.000Z'),
-      createdAt: new Date('2026-01-15T10:00:00.000Z'),
+      createdAt: new Date(),
       departmentRef: { regionId: 'r-centre' },
-      user: { status: 'ACTIVE', isActive: true },
-      ...overrides,
+      user: {
+        id: `user-${companySeq}`,
+        status: 'ACTIVE',
+        isActive: true,
+        approvedAt: null,
+        ...(userOverride as Record<string, unknown> | undefined),
+      },
+      ...companyOverrides,
     };
   }
 
@@ -599,6 +625,56 @@ describe('PilotageService coverage', () => {
     });
     const lekie = centre.departments.find((department: { name: string }) => department.name === 'Lékié');
     expect(lekie).toMatchObject({ companyCount: 1, registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('counts overdue pending registrations by territory and entity type, excluding recent resubmissions', async () => {
+    const harness = createHarness();
+    seedQuarters(harness);
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    harness.companies.push(
+      company({
+        id: 'overdue-centre',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-overdue-centre', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+      company({
+        id: 'recently-resubmitted',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-recent-resubmission', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+      company({
+        id: 'overdue-littoral',
+        regionId: 'r-littoral',
+        departmentId: 'd-wouri',
+        departmentRef: { regionId: 'r-littoral' },
+        entityType: 'COOPERATIVE',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-overdue-littoral', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+    );
+    harness.audits.push({
+      action: 'COMPANY_REGISTRATION_RESUBMITTED',
+      resourceType: 'User',
+      resourceId: 'user-recent-resubmission',
+      createdAt: new Date(),
+    });
+
+    const result = await harness.service.getCoverage(national, '2026');
+    const centre = centreOf(result);
+    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral')!;
+    const enterprise = result.byEntityType.find((row: { entityType: string }) => row.entityType === 'ENTREPRISE');
+    const cooperative = result.byEntityType.find((row: { entityType: string }) => row.entityType === 'COOPERATIVE');
+
+    expect(result.overdueDays).toBe(7);
+    expect(result.totals.overdue).toBe(2);
+    expect(centre.overdue).toBe(1);
+    expect(mfoundiOf(centre).overdue).toBe(1);
+    expect(littoral.overdue).toBe(1);
+    expect(enterprise.overdue).toBe(1);
+    expect(cooperative.overdue).toBe(1);
   });
 
   it('sums the four quarters for the annual view and the right two for a semester', async () => {
@@ -1000,6 +1076,7 @@ describe('PilotageService coverage', () => {
     harness.campaignQuotas.push(quota('c-t1', 'r-centre', 'd-mfoundi', 10));
     await expect(harness.service.getCoverage(undefined, '2026')).resolves.toEqual({
       year: 2026,
+      overdueDays: 7,
       period: { year: 2026, quarter: null, semester: null, campaignIds: [] },
       // A fail-closed scope still answers a totals row, all zeros: the view
       // renders it unconditionally, and a missing key would read as a crash
@@ -1013,6 +1090,7 @@ describe('PilotageService coverage', () => {
         complementsRequested: 0,
         documentsIncomplete: 0,
         draft: 0,
+        overdue: 0,
         inscriptionTarget: 0,
         rate: null,
         targetIndeterminate: false,
@@ -2058,7 +2136,13 @@ describe('PilotageService.getActiveCollectionCampaigns', () => {
 
   function serviceWith(rows: unknown[]) {
     const findMany = jest.fn().mockResolvedValue(rows);
-    return { findMany, service: new PilotageService({ dataCampaign: { findMany } } as unknown as PrismaService) };
+    return {
+      findMany,
+      service: new PilotageService(
+        { dataCampaign: { findMany } } as unknown as PrismaService,
+        { getSettings: jest.fn().mockResolvedValue({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+      ),
+    };
   }
 
   it('asks for ACTIVE collection campaigns only, and includes nothing', async () => {

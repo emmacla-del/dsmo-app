@@ -218,6 +218,7 @@ export interface StockCounts {
   complementsRequested: number;
   documentsIncomplete: number;
   draft: number;
+  overdue: number;
 }
 
 export interface CoverageDepartmentRow extends StockCounts {
@@ -240,6 +241,7 @@ export interface CoverageRegionRow {
   complementsRequested: number | null;
   documentsIncomplete: number | null;
   draft: number | null;
+  overdue: number | null;
   inscriptionTarget: number | null;
   rate: number | null;
   departments: CoverageDepartmentRow[];
@@ -283,6 +285,7 @@ export interface CoverageTotals extends StockCounts {
 
 export interface CoverageResponse {
   year: number;
+  overdueDays: number;
   // The server echoes the selected annual or semester period and its source
   // campaigns. A null semester indicates the annual fold.
   period: {

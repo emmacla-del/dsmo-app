@@ -8,6 +8,8 @@ import {
 import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
+import { isOverdue, overdueCutoff, overdueDaysFrom } from '../auth/registration-overdue';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { DOUALA_TIME_ZONE } from '../common/utils/douala-date';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
@@ -106,7 +108,10 @@ interface ShapedRegion {
 
 @Injectable()
 export class PilotageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly systemSettings: SystemSettingsService,
+  ) {}
 
   /**
    * The ACTIVE collection campaigns, so a pilotage reader can find the id the
@@ -234,6 +239,9 @@ export class PilotageService {
     resolveCampaignIds: () => Promise<string[]>,
     bounds: { quarter: number | null; semester: number | null; quarters: readonly number[] },
   ) {
+    const overdueDays = overdueDaysFrom((await this.systemSettings.getSettings()).registrationOverdueDays);
+    const now = new Date();
+    const overdueSince = overdueCutoff(overdueDays, now);
     let campaignIds: string[] = [];
     const { scope, regions } = await this.loadGrid(territory, async (current) => {
       campaignIds = await resolveCampaignIds();
@@ -249,6 +257,7 @@ export class PilotageService {
       return {
         year,
         period,
+        overdueDays,
         totals: { ...emptyCounts(), inscriptionTarget: 0, rate: null, targetIndeterminate: false },
         central: null,
         unassigned: null,
@@ -269,6 +278,7 @@ export class PilotageService {
       this.prisma.company.findMany({
         where: companyWhere(scope),
         select: {
+          id: true,
           entityType: true,
           regionId: true,
           departmentId: true,
@@ -276,10 +286,36 @@ export class PilotageService {
           establishmentIdGeneratedAt: true,
           createdAt: true,
           departmentRef: { select: { regionId: true } },
-          user: { select: { status: true, isActive: true, approvedAt: true } },
+          user: { select: { id: true, status: true, isActive: true, approvedAt: true } },
         },
       }),
     ]);
+
+    const waitingUserIds = companies
+      .filter((company) => company.user.status === 'PENDING_APPROVAL' && company.createdAt < overdueSince)
+      .map((company) => company.user.id);
+    const recentlyResubmittedIds = waitingUserIds.length === 0
+      ? new Set<string>()
+      : new Set(
+          (await this.prisma.auditLog.findMany({
+            where: {
+              action: 'COMPANY_REGISTRATION_RESUBMITTED',
+              resourceType: 'User',
+              resourceId: { in: waitingUserIds },
+              createdAt: { gte: overdueSince },
+            },
+            select: { resourceId: true },
+          })).map((row) => row.resourceId),
+        );
+    const overdueCompanyIds = new Set(
+      companies
+        .filter((company) => {
+          if (company.user.status !== 'PENDING_APPROVAL') return false;
+          return !recentlyResubmittedIds.has(company.user.id) &&
+            isOverdue(company.createdAt, overdueDays, now);
+        })
+        .map((company) => company.id),
+    );
 
     /**
      * The ministry cohort's target for the folded period: the ADMINISTRATION
@@ -302,7 +338,7 @@ export class PilotageService {
      */
     const typeTallies = new Map<string, StockCounts>();
     for (const company of companies) {
-      const row = toStockRow(company);
+      const row = toStockRow(company, overdueCompanyIds.has(company.id));
       const key = bucketKey(classifyBucket(row));
       const counts = tallies.get(key) ?? emptyCounts();
       applyRow(counts, row, year, bounds.quarters);
@@ -368,7 +404,9 @@ export class PilotageService {
     // Totals use each company once, including rows without an entity type
     // that are intentionally kept out of the territorial and type tables.
     const totalsCounts = emptyCounts();
-    for (const company of companies) applyRow(totalsCounts, toStockRow(company), year, bounds.quarters);
+    for (const company of companies) {
+      applyRow(totalsCounts, toStockRow(company, overdueCompanyIds.has(company.id)), year, bounds.quarters);
+    }
     /**
      * A MIXED region has no determinate target, so neither has the grid.
      *
@@ -404,6 +442,7 @@ export class PilotageService {
     return {
       year,
       period,
+      overdueDays,
       totals,
       central: national ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget) : null,
       unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
@@ -440,6 +479,7 @@ export class PilotageService {
           complementsRequested: hideRegionStock ? null : summed.complementsRequested,
           documentsIncomplete: hideRegionStock ? null : summed.documentsIncomplete,
           draft: hideRegionStock ? null : summed.draft,
+          overdue: hideRegionStock ? null : summed.overdue,
           inscriptionTarget: region.target,
           rate: hideRegionStock ? null : coverageRate(summed.registeredInYear, region.target),
           departments,
@@ -1498,7 +1538,7 @@ function toStockRow(company: {
   createdAt: Date;
   departmentRef: { regionId: string } | null;
   user: { status: string; isActive: boolean; approvedAt: Date | null };
-}): CompanyStockRow {
+}, overdue = false): CompanyStockRow {
   return {
     entityType: company.entityType,
     regionId: company.regionId,
@@ -1510,6 +1550,7 @@ function toStockRow(company: {
     createdAt: company.createdAt,
     status: company.user.status,
     isActive: company.user.isActive,
+    overdue,
   };
 }
 

@@ -389,29 +389,38 @@ export default function NouvelleInscriptionPage() {
             </p>
           )}
           <FieldGrid>
-            <Select
-              label={t("registerPage.regionLabel")}
-              placeholder={selectPlaceholder}
-              required
-              value={region}
-              options={regions}
-              onChange={(v) => {
-                setRegion(v);
-                setDepartment("");
-                setSubdivision("");
-              }}
-            />
-            <Select
-              label={t("registerPage.departmentLabel")}
-              placeholder={selectPlaceholder}
-              required
-              value={department}
-              options={departments}
-              onChange={(v) => {
-                setDepartment(v);
-                setSubdivision("");
-              }}
-            />
+            {isNational ? (
+              <>
+                <Select
+                  label={t("registerPage.regionLabel")}
+                  placeholder={selectPlaceholder}
+                  required
+                  value={region}
+                  options={regions}
+                  onChange={(v) => {
+                    setRegion(v);
+                    setDepartment("");
+                    setSubdivision("");
+                  }}
+                />
+                <Select
+                  label={t("registerPage.departmentLabel")}
+                  placeholder={selectPlaceholder}
+                  required
+                  value={department}
+                  options={departments}
+                  onChange={(v) => {
+                    setDepartment(v);
+                    setSubdivision("");
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <ReadOnlyLocation label={t("registerPage.regionLabel")} value={region} />
+                <ReadOnlyLocation label={t("registerPage.departmentLabel")} value={department} />
+              </>
+            )}
             <Select label={t("registerPage.subdivisionLabel")} placeholder={selectPlaceholder} required value={subdivision} options={subdivisions} onChange={setSubdivision} />
           </FieldGrid>
         </Section>
@@ -494,6 +503,17 @@ function FieldGrid({ children }: { children: React.ReactNode }) {
     <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-4">
       {children}
     </div>
+  );
+}
+
+function ReadOnlyLocation({ label, value }: { label: string; value: string }) {
+  return (
+    <dl className="cam-admin-kv mb-4">
+      <div>
+        <dt>{label} <span aria-hidden="true">*</span></dt>
+        <dd>{value || "—"}</dd>
+      </div>
+    </dl>
   );
 }
 

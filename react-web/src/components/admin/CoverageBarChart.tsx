@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { count, percent } from "@/lib/admin-data-state";
 import { asUiLocale } from "@/lib/register-i18n";
+import { COVERAGE_GRADE_BANDS, coverageGradeFromPercent } from "@/lib/coverage-grade";
 
 export interface CoverageBarItem {
   key: string;
@@ -60,14 +61,11 @@ export function CoverageBarChart({ items, ariaLabel, metric = "response", showDi
     });
   }, [items, locale, query, sort]);
 
-  const bands = [
-    { key: "critical", className: "is-critical", label: t("coverageCritical"), matches: (rate: number) => rate < 30 },
-    { key: "veryPoor", className: "is-very-poor", label: t("coverageVeryPoor"), matches: (rate: number) => rate >= 30 && rate < 50 },
-    { key: "poor", className: "is-poor", label: t("coveragePoor"), matches: (rate: number) => rate >= 50 && rate < 75 },
-    { key: "average", className: "is-average", label: t("coverageAverage"), matches: (rate: number) => rate >= 75 && rate < 90 },
-    { key: "good", className: "is-good", label: t("coverageGood"), matches: (rate: number) => rate >= 90 && rate < 100 },
-    { key: "excellent", className: "is-excellent", label: t("coverageExcellent"), matches: (rate: number) => rate >= 100 },
-  ];
+  const bands = COVERAGE_GRADE_BANDS.map((band) => ({
+    ...band,
+    label: t(band.labelKey),
+    matches: (rate: number) => coverageGradeFromPercent(rate)?.key === band.key,
+  }));
 
   const toggleSort = (key: "name" | "rate" | "received") => {
     setSort((current) => ({
@@ -129,19 +127,7 @@ export function CoverageBarChart({ items, ariaLabel, metric = "response", showDi
             {visibleItems.map((item) => {
           const rate = item.responseRate != null ? Math.min(100, Math.max(0, item.responseRate)) : 0;
           const target = item.target;
-          const grade = item.responseRate == null
-            ? "is-no-data"
-            : item.responseRate < 30
-              ? "is-critical"
-              : item.responseRate < 50
-              ? "is-very-poor"
-              : item.responseRate < 75
-                ? "is-poor"
-                : item.responseRate < 90
-                  ? "is-average"
-                  : item.responseRate < 100
-                    ? "is-good"
-                    : "is-excellent";
+          const grade = coverageGradeFromPercent(item.responseRate)?.className ?? "is-no-data";
           const targetRate = target != null && item.registered > 0 ? (target / item.registered) * 100 : null;
           const detail = `${count(item.received, locale)}/${count(item.registered, locale)}`;
           return (

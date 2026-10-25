@@ -11,6 +11,7 @@ import {
   periodStart,
 } from './actor-summary.service';
 import { PilotageService } from '../pilotage/pilotage.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 /**
  * Phase 4 (territorial admin monitoring). The properties worth pinning:
@@ -380,7 +381,10 @@ describe('ActorSummaryService — connection budget', () => {
 
   function build(delay: (name: string) => number) {
     const { prisma, stats } = makeFakePrisma(delay);
-    const pilotage = new PilotageService(prisma as any);
+    const pilotage = new PilotageService(
+      prisma as any,
+      { getSettings: jest.fn().mockResolvedValue({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+    );
     const notifications = { create: jest.fn(async () => ({ id: 'n1' })) } as any;
     return { service: new ActorSummaryService(prisma as any, pilotage, notifications), stats, prisma };
   }

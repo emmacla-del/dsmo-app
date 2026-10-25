@@ -1552,6 +1552,34 @@
   box-shadow: 0 24px 64px color-mix(in srgb, var(--cam-text) 22%, transparent);
 }
 
+.cam-admin-form-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--cam-space-3);
+}
+
+.cam-admin-form-section {
+  display: grid;
+  gap: var(--cam-space-2);
+}
+
+.cam-admin-form-heading {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  color: var(--cam-text);
+}
+
+.cam-admin-form-section > .cam-admin-meta {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .cam-admin-form-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .cam-admin-dialog[open] {
   display: flex;
   flex-direction: column;
@@ -3514,11 +3542,107 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-registration-coverage-table {
+  min-width: 72rem;
+  font-size: var(--cam-font-size-sm);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.cam-registration-coverage-table.is-workflow-expanded {
   min-width: 88rem;
 }
 
 .cam-registration-coverage-table thead th {
+  padding-block: var(--cam-space-3);
+  border-bottom: 2px solid var(--cam-border-strong);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
   white-space: nowrap;
+}
+
+.cam-registration-coverage-table thead .coverage-sticky-column {
+  z-index: 3;
+}
+
+.cam-registration-coverage-table .coverage-sticky-column {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 12rem;
+  box-shadow: 1px 0 0 var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody th,
+.cam-registration-coverage-table tbody td {
+  padding-block: var(--cam-space-2-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody tr:hover {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region {
+  background: var(--cam-surface);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region > .coverage-sticky-column {
+  background: var(--cam-surface);
+  box-shadow: inset 3px 0 0 var(--cam-primary), 1px 0 0 var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region:hover > .coverage-sticky-column {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row {
+  background: var(--cam-bg);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept > .coverage-sticky-column,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row > .coverage-sticky-column {
+  background: var(--cam-bg);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row {
+  background: var(--cam-primary-tint);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row > * {
+  border-top: 2px solid var(--cam-border-strong);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row > .coverage-sticky-column {
+  background: var(--cam-primary-tint);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept:hover > .coverage-sticky-column,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row:hover > .coverage-sticky-column {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table .coverage-period-cell,
+.cam-registration-coverage-table thead .coverage-period-header {
+  background: var(--cam-green-wash);
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-registration-coverage-table .coverage-grade-badge {
+  white-space: nowrap;
+}
+
+.cam-registration-coverage-table .coverage-overdue-link {
+  text-decoration: none;
+}
+
+.cam-registration-coverage-table .coverage-overdue-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 639px) {

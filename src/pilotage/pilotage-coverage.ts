@@ -10,6 +10,7 @@ export interface CompanyStockRow {
   createdAt: Date;
   status: string;
   isActive: boolean;
+  overdue?: boolean;
 }
 
 export type CoverageBucket =
@@ -34,6 +35,7 @@ export interface StockCounts {
   complementsRequested: number;
   documentsIncomplete: number;
   draft: number;
+  overdue: number;
 }
 
 export function emptyCounts(): StockCounts {
@@ -46,6 +48,7 @@ export function emptyCounts(): StockCounts {
     complementsRequested: 0,
     documentsIncomplete: 0,
     draft: 0,
+    overdue: 0,
   };
 }
 
@@ -117,6 +120,7 @@ export function applyRow(
   quarters: readonly number[] = [1, 2, 3, 4],
 ): void {
   counts.companyCount += 1;
+  if (row.overdue) counts.overdue += 1;
   if (isRegistered(row)) {
     counts.registered += 1;
     if (isInDoualaPeriod(registeredAt(row), year, quarters)) counts.registeredInYear += 1;
@@ -164,5 +168,6 @@ export function addCounts(left: StockCounts, right: StockCounts): StockCounts {
     complementsRequested: left.complementsRequested + right.complementsRequested,
     documentsIncomplete: left.documentsIncomplete + right.documentsIncomplete,
     draft: left.draft + right.draft,
+    overdue: left.overdue + right.overdue,
   };
 }

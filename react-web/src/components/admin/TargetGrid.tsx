@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { AdminDialog } from "@/components/admin/AdminDialog";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { count } from "@/lib/admin-data-state";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -42,62 +44,128 @@ export function TargetGrid({
 }) {
   const t = useTranslations("adminTargets");
   const locale = asUiLocale(useLocale());
+  const [pendingModeChange, setPendingModeChange] = useState<{
+    region: NormalizedRegion;
+    mode: EditMode;
+  } | null>(null);
   if (regions.length === 0) {
     return <p className="cam-admin-lede">{t("noTerritory")}</p>;
   }
 
+  function changeMode(region: NormalizedRegion, nextMode: EditMode) {
+    const draft = drafts[region.regionId];
+    if (nextMode === draft?.mode) return;
+    if (modeChangeWouldDiscardValues(region, draft)) {
+      setPendingModeChange({ region, mode: nextMode });
+      return;
+    }
+    applyModeChange(region, nextMode);
+  }
+
+  function applyModeChange(region: NormalizedRegion, nextMode: EditMode) {
+    const draft = drafts[region.regionId];
+    if (nextMode === "REGION" && draft?.mode === "DEPARTMENT") {
+      const sum = sumFilled(draft.departmentInputs);
+      onDraftChange(region.regionId, {
+        ...draft,
+        clear: false,
+        mode: "REGION",
+        regionInput: sum != null ? String(sum) : draft.regionInput,
+        departmentInputs: Object.fromEntries(
+          Object.keys(draft.departmentInputs).map((id) => [id, ""]),
+        ),
+      });
+      if (expanded.has(region.regionId)) onToggle(region.regionId);
+      return;
+    }
+    onDraftChange(region.regionId, applyEditMode(region, nextMode));
+    if (nextMode === "DEPARTMENT" && !expanded.has(region.regionId)) {
+      onToggle(region.regionId);
+    }
+  }
+
   return (
-    <div className="cam-dash-table-wrap">
-      <table className="cam-dash-table cam-target-table">
-        <thead>
-          <tr>
-            <th scope="col">{t("territoryColumn")}</th>
-            <th scope="col">{t("modeColumn")}</th>
-            <th scope="col" className="is-num">{t("targetColumn")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {regions.map((region) => {
-            const draft = drafts[region.regionId];
-            const open = expanded.has(region.regionId);
-            const mixedLocked = canWrite && region.mode === "MIXED" && draft?.mode == null && !draft?.clear;
-            return (
-              <RegionBlock
-                key={region.regionId}
-                region={region}
-                draft={draft}
-                open={open}
-                canWrite={canWrite}
-                mixedLocked={mixedLocked}
-                onToggle={() => onToggle(region.regionId)}
-                onDraftChange={(next) => onDraftChange(region.regionId, next)}
-                onClear={() => onClearRegion(region.regionId)}
-                hasUnsavedChanges={hasUnsavedChanges}
-              />
-            );
-          })}
-        </tbody>
-        {showCentral && (
-          <tbody>
+    <>
+      {canWrite && <p className="cam-admin-meta">{t("quotaModeGuidance")}</p>}
+      <div className="cam-dash-table-wrap">
+        <table className="cam-dash-table cam-target-table">
+          <thead>
             <tr>
-              <th scope="row">{t("centralLevel")}</th>
-              <td>—</td>
-              <td className="is-num">
-                {canWrite ? (
-                  <TargetInput
-                    ariaLabel={t("centralTargetAriaLabel")}
-                    value={centralInput}
-                    onChange={onCentralChange}
-                  />
-                ) : (
-                  <span>{centralInput.trim() === "" ? "—" : formatNumber(Number(centralInput), locale)}</span>
-                )}
-              </td>
+              <th scope="col">{t("territoryColumn")}</th>
+              <th scope="col">{t("modeColumn")}</th>
+              <th scope="col" className="is-num">{t("targetColumn")}</th>
             </tr>
+          </thead>
+          <tbody>
+            {regions.map((region) => {
+              const draft = drafts[region.regionId];
+              const open = expanded.has(region.regionId);
+              const mixedLocked = canWrite && region.mode === "MIXED" && draft?.mode == null && !draft?.clear;
+              return (
+                <RegionBlock
+                  key={region.regionId}
+                  region={region}
+                  draft={draft}
+                  open={open}
+                  canWrite={canWrite}
+                  mixedLocked={mixedLocked}
+                  onToggle={() => onToggle(region.regionId)}
+                  onDraftChange={(next) => onDraftChange(region.regionId, next)}
+                  onModeChange={(nextMode) => changeMode(region, nextMode)}
+                  onClear={() => onClearRegion(region.regionId)}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                />
+              );
+            })}
           </tbody>
+          {showCentral && (
+            <tbody>
+              <tr>
+                <th scope="row">{t("centralLevel")}</th>
+                <td>—</td>
+                <td className="is-num">
+                  {canWrite ? (
+                    <TargetInput
+                      ariaLabel={t("centralTargetAriaLabel")}
+                      value={centralInput}
+                      onChange={onCentralChange}
+                    />
+                  ) : (
+                    <span>{centralInput.trim() === "" ? "—" : formatNumber(Number(centralInput), locale)}</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          )}
+        </table>
+      </div>
+      <AdminDialog
+        open={!!pendingModeChange}
+        onClose={() => setPendingModeChange(null)}
+        title={t("modeChangeTitle")}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary" onClick={() => setPendingModeChange(null)}>
+              {t("modeChangeCancel")}
+            </button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary"
+              onClick={() => {
+                if (pendingModeChange) applyModeChange(pendingModeChange.region, pendingModeChange.mode);
+                setPendingModeChange(null);
+              }}
+            >
+              {t("modeChangeConfirm")}
+            </button>
+          </>
+        }
+      >
+        {pendingModeChange && (
+          <p>{t("modeChangeBody", { region: pendingModeChange.region.name })}</p>
         )}
-      </table>
-    </div>
+      </AdminDialog>
+    </>
   );
 }
 
@@ -109,6 +177,7 @@ function RegionBlock({
   mixedLocked,
   onToggle,
   onDraftChange,
+  onModeChange,
   onClear,
   hasUnsavedChanges,
 }: {
@@ -119,26 +188,28 @@ function RegionBlock({
   mixedLocked: boolean;
   onToggle: () => void;
   onDraftChange: (draft: RegionDraft) => void;
+  onModeChange: (mode: EditMode) => void;
   onClear: () => void;
   hasUnsavedChanges?: boolean;
 }) {
   const t = useTranslations("adminTargets");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
-  const mode = draft?.mode ?? null;
+  const mode: EditMode | null = draft?.mode ?? null;
+  const displayMode = canWrite ? mode : region.mode;
   // The figure on the region line is the live sum of whichever cells the
   // chosen mode fills, so it tracks what the writer is typing below.
   const liveSum = draft
-    ? sumFilled(mode === "ENTITY_TYPE" ? draft.entityTypeInputs : draft.departmentInputs)
+    ? sumFilled(displayMode === "ENTITY_TYPE" ? draft.entityTypeInputs : draft.departmentInputs)
     : null;
   const regionDisplay =
     draft?.clear
       ? t("notSet")
-      : mode === "DEPARTMENT" || mode === "ENTITY_TYPE"
+      : displayMode === "DEPARTMENT" || displayMode === "ENTITY_TYPE"
         ? liveSum == null
           ? "—"
           : formatNumber(liveSum, locale)
-        : mode === "REGION"
+        : displayMode === "REGION"
           ? null
           : region.target == null
             ? "—"
@@ -158,23 +229,7 @@ function RegionBlock({
             <ModePicker
               name={region.regionId}
               mode={mode}
-              onChange={(next) => {
-                if (next === mode) return;
-                if (next === "REGION" && draft?.mode === "DEPARTMENT") {
-                  const sum = sumFilled(draft.departmentInputs);
-                  onDraftChange({
-                    ...draft,
-                    clear: false,
-                    mode: "REGION",
-                    regionInput: sum != null ? String(sum) : draft.regionInput,
-                    departmentInputs: Object.fromEntries(
-                      Object.keys(draft.departmentInputs).map((id) => [id, ""]),
-                    ),
-                  });
-                  return;
-                }
-                onDraftChange(applyEditMode(region, next));
-              }}
+              onChange={onModeChange}
             />
           ) : (
             <span className={modeBadgeClass(region.mode)}>{modeLabel(region.mode, locale)}</span>
@@ -227,7 +282,7 @@ function RegionBlock({
           department: the grain is region x type, so they are the region's
           own breakdown, and they show whether or not the rows are expanded —
           hiding the cells a writer just chose to fill would be a trap. */}
-      {mode === "ENTITY_TYPE" &&
+      {displayMode === "ENTITY_TYPE" &&
         QUOTA_ENTITY_TYPES.map((entityType) => (
           <tr key={entityType} className="cam-target-dept">
             <th scope="row">{entityTypeName(entityType, tRoot)}</th>
@@ -256,7 +311,12 @@ function RegionBlock({
             </td>
           </tr>
         ))}
+      {/* Hidden only under a mode that does not fill department cells, so a
+          MIXED or not-yet-set region still discloses the figures it holds --
+          those are what a writer resolving MIXED has to see. */}
       {open &&
+        displayMode !== "REGION" &&
+        displayMode !== "ENTITY_TYPE" &&
         region.departments.map((department) => {
           const stored = department.target == null ? "—" : formatNumber(department.target, locale);
           const editable = canWrite && mode === "DEPARTMENT";
@@ -279,7 +339,7 @@ function RegionBlock({
                     }}
                   />
                 ) : (
-                  <span>{mode === "REGION" || mode === "ENTITY_TYPE" ? "—" : stored}</span>
+                  <span>{stored}</span>
                 )}
               </td>
             </tr>
@@ -287,6 +347,14 @@ function RegionBlock({
         })}
     </>
   );
+}
+
+function modeChangeWouldDiscardValues(region: NormalizedRegion, draft: RegionDraft | undefined): boolean {
+  if (!draft) return false;
+  if (draft.mode == null) return region.mode === "MIXED" && !draft.clear;
+  if (draft.mode === "REGION") return draft.regionInput.trim() !== "";
+  const inputs = draft.mode === "DEPARTMENT" ? draft.departmentInputs : draft.entityTypeInputs;
+  return Object.values(inputs).some((value) => value.trim() !== "");
 }
 
 function ModePicker({

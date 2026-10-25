@@ -130,6 +130,7 @@ describe('applyRow', () => {
       complementsRequested: 1,
       documentsIncomplete: 1,
       draft: 1,
+      overdue: 0,
     });
   });
 

@@ -89,10 +89,10 @@ export function CoveragePeriodSelector({
               <SelectItem value="year">{t("fullYearPeriod")}</SelectItem>
               <SelectItem value="semester-1">S1</SelectItem>
               <SelectItem value="semester-2">S2</SelectItem>
-              <SelectItem value="quarter-1">Q1</SelectItem>
-              <SelectItem value="quarter-2">Q2</SelectItem>
-              <SelectItem value="quarter-3">Q3</SelectItem>
-              <SelectItem value="quarter-4">Q4</SelectItem>
+              <SelectItem value="quarter-1">{t("coverageQuarter1")}</SelectItem>
+              <SelectItem value="quarter-2">{t("coverageQuarter2")}</SelectItem>
+              <SelectItem value="quarter-3">{t("coverageQuarter3")}</SelectItem>
+              <SelectItem value="quarter-4">{t("coverageQuarter4")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
