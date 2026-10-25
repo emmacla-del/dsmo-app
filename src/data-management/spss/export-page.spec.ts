@@ -74,8 +74,17 @@ describe('countExport', () => {
     expect(where).not.toContain('VOCATIONAL_TRAINING'); // employers only
   });
 
+  // ADMIN_ONEFOP_SUBMISSIONS joined the list with the 2026-10-25 role split:
+  // the declaration domain is exactly what this count summarises. The
+  // registrations specialist is deliberately absent.
   it('is open to the roles that may download the export', () => {
     const roles = Reflect.getMetadata('roles', (DataManagementController.prototype as any).postExportSubmissionsCount);
-    expect(roles).toEqual([UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN]);
+    expect(roles).toEqual([
+      UserRole.SUPER_ADMIN,
+      UserRole.ADMIN_ONEFOP,
+      UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+      UserRole.REGIONAL_ADMIN,
+    ]);
+    expect(roles).not.toContain(UserRole.ADMIN_ONEFOP_REGISTRATIONS);
   });
 });
