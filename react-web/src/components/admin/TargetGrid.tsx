@@ -3,8 +3,10 @@
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { count } from "@/lib/admin-data-state";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import {
   applyEditMode,
+  QUOTA_ENTITY_TYPES,
   modeLabel,
   parseTargetInput,
   sumFilled,
@@ -121,13 +123,18 @@ function RegionBlock({
   hasUnsavedChanges?: boolean;
 }) {
   const t = useTranslations("adminTargets");
+  const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
   const mode = draft?.mode ?? null;
-  const liveSum = draft ? sumFilled(draft.departmentInputs) : null;
+  // The figure on the region line is the live sum of whichever cells the
+  // chosen mode fills, so it tracks what the writer is typing below.
+  const liveSum = draft
+    ? sumFilled(mode === "ENTITY_TYPE" ? draft.entityTypeInputs : draft.departmentInputs)
+    : null;
   const regionDisplay =
     draft?.clear
       ? t("notSet")
-      : mode === "DEPARTMENT"
+      : mode === "DEPARTMENT" || mode === "ENTITY_TYPE"
         ? liveSum == null
           ? "—"
           : formatNumber(liveSum, locale)
@@ -216,6 +223,39 @@ function RegionBlock({
           </td>
         </tr>
       )}
+      {/* Per-type rows sit directly under the region, not under a
+          department: the grain is region x type, so they are the region's
+          own breakdown, and they show whether or not the rows are expanded —
+          hiding the cells a writer just chose to fill would be a trap. */}
+      {mode === "ENTITY_TYPE" &&
+        QUOTA_ENTITY_TYPES.map((entityType) => (
+          <tr key={entityType} className="cam-target-dept">
+            <th scope="row">{entityTypeName(entityType, tRoot)}</th>
+            <td></td>
+            <td className="is-num">
+              {canWrite ? (
+                <TargetInput
+                  ariaLabel={t("entityTypeTargetAriaLabel", { type: entityTypeName(entityType, tRoot) })}
+                  value={draft?.entityTypeInputs[entityType] ?? ""}
+                  onChange={(value) => {
+                    if (!draft) return;
+                    onDraftChange({
+                      ...draft,
+                      clear: false,
+                      entityTypeInputs: { ...draft.entityTypeInputs, [entityType]: value },
+                    });
+                  }}
+                />
+              ) : (
+                <span>
+                  {region.byEntityType[entityType] == null
+                    ? "—"
+                    : formatNumber(region.byEntityType[entityType], locale)}
+                </span>
+              )}
+            </td>
+          </tr>
+        ))}
       {open &&
         region.departments.map((department) => {
           const stored = department.target == null ? "—" : formatNumber(department.target, locale);
@@ -239,7 +279,7 @@ function RegionBlock({
                     }}
                   />
                 ) : (
-                  <span>{mode === "REGION" ? "—" : stored}</span>
+                  <span>{mode === "REGION" || mode === "ENTITY_TYPE" ? "—" : stored}</span>
                 )}
               </td>
             </tr>
@@ -279,6 +319,15 @@ function ModePicker({
         />
         {t("modeRegionOnly")}
       </label>
+      <label className="cam-admin-choice">
+        <input
+          type="radio"
+          name={`mode-${name}`}
+          checked={mode === "ENTITY_TYPE"}
+          onChange={() => onChange("ENTITY_TYPE")}
+        />
+        {t("modeByEntityType")}
+      </label>
     </div>
   );
 }
@@ -317,4 +366,13 @@ function modeBadgeClass(mode: NormalizedRegion["mode"]): string {
   if (mode === "REGION") return "cam-badge cam-badge-success";
   if (mode === "MIXED") return "cam-badge cam-badge-warning";
   return "cam-badge cam-badge-neutral";
+}
+
+/**
+ * An entity type's display name, through the console's own catalogue so the
+ * editor and the coverage tables name a type the same way.
+ */
+function entityTypeName(entityType: string, tRoot: ReturnType<typeof useTranslations>): string {
+  const key = ENTITY_TYPE_OPTION_KEYS[entityType];
+  return key ? tRoot(key) : entityTypeLabel(entityType);
 }

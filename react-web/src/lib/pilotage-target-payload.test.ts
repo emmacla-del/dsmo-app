@@ -8,6 +8,7 @@ import {
   formatCoverageCount,
   hasUnsavedChanges,
   initDrafts,
+  initRegionDraft,
   normalizeRegions,
   parseTargetInput,
   sumFilled,
@@ -26,6 +27,7 @@ function region(partial: Partial<NormalizedRegion> & Pick<NormalizedRegion, "reg
       { departmentId: "d1", name: "Mfoundi", target: null },
       { departmentId: "d2", name: "Lekie", target: null },
     ],
+    byEntityType: {},
     ...partial,
   };
 }
@@ -36,6 +38,7 @@ function draft(regionId: string, partial: Partial<RegionDraft>): RegionDraft {
     mode: null,
     regionInput: "",
     departmentInputs: { d1: "", d2: "" },
+    entityTypeInputs: {},
     ...partial,
   };
 }
@@ -567,4 +570,123 @@ test("formatCoverageCount separates a measured zero from an absent one", () => {
   // A non-zero count under a zero companyCount would be incoherent; the
   // territory still has nothing underneath it, so absence wins.
   assert.equal(formatCoverageCount(3, 0), "—");
+});
+
+// ── Region x type quotas (2026-10-25) ───────────────────────────────────────
+
+test("buildTargetPayload sends one entry per filled entity type", () => {
+  const centre = region({ regionId: "r1", name: "Centre" });
+  const result = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts: {
+      r1: draft("r1", {
+        mode: "ENTITY_TYPE",
+        entityTypeInputs: { ENTREPRISE: "8", VOCATIONAL_TRAINING: "2", ONG: "" },
+      }),
+    },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  // Blank cells are not sent: a type with no quota has none, which is not
+  // the same as a target of zero.
+  assert.deepEqual(result.body.entries, [
+    { regionId: "r1", departmentId: null, entityType: "ENTREPRISE", inscriptionTarget: 8 },
+    { regionId: "r1", departmentId: null, entityType: "VOCATIONAL_TRAINING", inscriptionTarget: 2 },
+  ]);
+  assert.equal(result.changes[0].to, "Par type d'entité · 10");
+});
+
+test("buildTargetPayload skips a per-type draft that matches what is stored", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "ENTITY_TYPE",
+    byEntityType: { ENTREPRISE: 8, ONG: 3 },
+  });
+  const unchanged = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts: { r1: draft("r1", { mode: "ENTITY_TYPE", entityTypeInputs: { ENTREPRISE: "8", ONG: "3" } }) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(unchanged.ok, false);
+
+  // Moving the split between two types keeps the total at 11 but is a real
+  // change: the comparison keys on the type, not the value alone.
+  const moved = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts: { r1: draft("r1", { mode: "ENTITY_TYPE", entityTypeInputs: { ENTREPRISE: "3", ONG: "8" } }) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(moved.ok, true);
+});
+
+test("buildTargetPayload clears a region whose per-type cells are all emptied", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "ENTITY_TYPE",
+    byEntityType: { ENTREPRISE: 8 },
+  });
+  const result = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts: { r1: draft("r1", { mode: "ENTITY_TYPE", entityTypeInputs: { ENTREPRISE: "" } }) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [{ regionId: "r1", clear: true }]);
+});
+
+test("buildTargetPayload names the type in an invalid per-type cell", () => {
+  const result = buildTargetPayload({
+    field,
+    regions: [region({ regionId: "r1", name: "Centre" })],
+    drafts: { r1: draft("r1", { mode: "ENTITY_TYPE", entityTypeInputs: { ENTREPRISE: "-4" } }) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.match(result.errors[0], /Entreprise/);
+});
+
+test("initRegionDraft and applyEditMode carry the stored per-type quotas", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "ENTITY_TYPE",
+    byEntityType: { ENTREPRISE: 8 },
+  });
+  assert.equal(initRegionDraft(centre).mode, "ENTITY_TYPE");
+  assert.equal(initRegionDraft(centre).entityTypeInputs.ENTREPRISE, "8");
+  assert.equal(initRegionDraft(centre).entityTypeInputs.ONG, "");
+
+  // Switching a region-total region into per-type starts blank rather than
+  // splitting the total: the split is the writer's judgement to make.
+  const total = region({ regionId: "r2", name: "Littoral", mode: "REGION", target: 50 });
+  const switched = applyEditMode(total, "ENTITY_TYPE");
+  assert.equal(switched.mode, "ENTITY_TYPE");
+  assert.deepEqual(Object.values(switched.entityTypeInputs).filter(Boolean), []);
+});
+
+test("hasUnsavedChanges notices an edited per-type cell", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "ENTITY_TYPE",
+    byEntityType: { ENTREPRISE: 8 },
+  });
+  const drafts = { r1: initRegionDraft(centre) };
+  assert.equal(hasUnsavedChanges({ regions: [centre], drafts, originalCentral: null, centralInput: "" }), false);
+  drafts.r1 = { ...drafts.r1, entityTypeInputs: { ...drafts.r1.entityTypeInputs, ENTREPRISE: "9" } };
+  assert.equal(hasUnsavedChanges({ regions: [centre], drafts, originalCentral: null, centralInput: "" }), true);
 });
