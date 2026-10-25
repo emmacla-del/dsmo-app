@@ -2,9 +2,9 @@
 //
 // An administrator places the agent in the MINEFOP organigramme -- a service
 // and one of its posts -- and gets back a signed token; the link built from
-// it is sent over WhatsApp. The agent opens /inscription-agent, sees what
-// the invitation fixes (post, service, territory, email), adds their name
-// and chooses a password.
+// it is sent over WhatsApp. The agent opens /inscription-agent, confirms the
+// fixed post, chooses the territory required by that service, and adds their
+// identity and password.
 //
 // Pure helpers live here, with the API calls, so the two screens share one
 // definition of the organigramme slices, the link and the WhatsApp message.
@@ -392,7 +392,20 @@ export interface GroupLinkPreview {
   role: string;
   region: string | null;
   department: string | null;
+  // The post the link fixes, named by the server. Null on a link made before
+  // 2026-10-25: that form still asks the holder to choose.
+  serviceCode: string | null;
+  serviceName: string | null;
+  positionType: string | null;
+  positionTitle: string | null;
   expiresAt: string;
+}
+
+/** A link that fixes the post shows it; one that does not, asks for it. */
+export function previewFixesPost(
+  link: Pick<GroupLinkPreview, "serviceCode" | "positionType">,
+): boolean {
+  return !!link.serviceCode && !!link.positionType;
 }
 
 export function previewGroupLink(token: string) {
@@ -405,11 +418,15 @@ export function previewGroupLink(token: string) {
 export interface GroupSignUpBody {
   token: string;
   email: string;
-  serviceCode: string;
-  positionType: string;
+  // Only sent for a link that fixes no post; when the link carries one, the
+  // server takes the post from the link and ignores anything sent here.
+  serviceCode?: string;
+  positionType?: string;
   firstName: string;
   lastName: string;
-  matricule?: string;
+  matricule: string;
+  region?: string;
+  department?: string;
   password: string;
 }
 
