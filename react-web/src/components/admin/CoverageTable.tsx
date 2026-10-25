@@ -38,6 +38,7 @@ export function CoverageTable({
   }
 
   return (
+    <>
     <Table className="cam-target-table">
       <TableHeader>
         <TableRow>
@@ -45,11 +46,14 @@ export function CoverageTable({
           <TableHead scope="col">{t("modeColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("registeredColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("coverageTargetColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("gapColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("rateColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("inYearColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("approvalColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("reviewColumn")}</TableHead>
           <TableHead scope="col" className={NUM}>{t("complementsColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("documentsIncompleteColumn")}</TableHead>
+          <TableHead scope="col" className={NUM}>{t("draftColumn")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -83,6 +87,8 @@ export function CoverageTable({
                   pendingApproval={region.pendingApproval}
                   pendingReview={region.pendingReview}
                   complementsRequested={region.complementsRequested}
+                  documentsIncomplete={region.documentsIncomplete}
+                  draft={region.draft}
                 />
               </TableRow>
               {open &&
@@ -101,6 +107,8 @@ export function CoverageTable({
                       pendingApproval={department.pendingApproval}
                       pendingReview={department.pendingReview}
                       complementsRequested={department.complementsRequested}
+                      documentsIncomplete={department.documentsIncomplete}
+                      draft={department.draft}
                     />
                   </TableRow>
                 ))}
@@ -119,8 +127,27 @@ export function CoverageTable({
         {data.nullEntityType && (
           <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} />
         )}
+        <TableRow className="cam-target-region font-semibold">
+          <TableHead scope="row" className="h-auto whitespace-normal font-semibold text-foreground">{t("total")}</TableHead>
+          <TableCell>—</TableCell>
+          <CountCells
+            companyCount={data.totals.companyCount}
+            registered={data.totals.registered}
+            target={data.totals.inscriptionTarget}
+            rate={data.totals.rate}
+            registeredInYear={data.totals.registeredInYear}
+            pendingApproval={data.totals.pendingApproval}
+            pendingReview={data.totals.pendingReview}
+            complementsRequested={data.totals.complementsRequested}
+            documentsIncomplete={data.totals.documentsIncomplete}
+            draft={data.totals.draft}
+          />
+        </TableRow>
       </TableBody>
     </Table>
+    <p className="mt-3 text-sm text-muted-foreground">{t("statusBreakdownNote")}</p>
+    <p className="mt-1 text-sm text-muted-foreground">{t("coverageTotalScopeNote")}</p>
+    </>
   );
 }
 
@@ -148,6 +175,8 @@ function BucketRow({
         pendingApproval={counts.pendingApproval}
         pendingReview={counts.pendingReview}
         complementsRequested={counts.complementsRequested}
+        documentsIncomplete={counts.documentsIncomplete}
+        draft={counts.draft}
       />
     </TableRow>
   );
@@ -162,6 +191,8 @@ function CountCells({
   pendingApproval,
   pendingReview,
   complementsRequested,
+  documentsIncomplete,
+  draft,
 }: {
   companyCount: number | null;
   registered: number | null;
@@ -171,17 +202,22 @@ function CountCells({
   pendingApproval: number | null;
   pendingReview: number | null;
   complementsRequested: number | null;
+  documentsIncomplete: number | null;
+  draft: number | null;
 }) {
   const locale = asUiLocale(useLocale());
   return (
     <>
       <TableCell className={NUM}>{formatCoverageCount(registered, companyCount, locale)}</TableCell>
       <TableCell className={NUM}>{fmt(target, locale)}</TableCell>
+      <TableCell className={NUM}>{fmt(target != null && target > 0 && registeredInYear != null ? Math.max(0, target - registeredInYear) : null, locale)}</TableCell>
       <TableCell className={NUM}>{fmtRate(rate, locale)}</TableCell>
       <TableCell className={NUM}>{formatCoverageCount(registeredInYear, companyCount, locale)}</TableCell>
       <TableCell className={NUM}>{formatCoverageCount(pendingApproval, companyCount, locale)}</TableCell>
       <TableCell className={NUM}>{formatCoverageCount(pendingReview, companyCount, locale)}</TableCell>
       <TableCell className={NUM}>{formatCoverageCount(complementsRequested, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(documentsIncomplete, companyCount, locale)}</TableCell>
+      <TableCell className={NUM}>{formatCoverageCount(draft, companyCount, locale)}</TableCell>
     </>
   );
 }
@@ -199,10 +235,10 @@ function fmtRate(rate: number | null | undefined, locale: UiLocale): string {
 /**
  * The same registration stock, by entity type.
  *
- * Deliberately narrower than the territory grid: no Mode, no Quota, no Rate.
- * Registration quotas are territorial, so a type has no target and a
- * "coverage rate" would have no denominator — a column of dashes would imply
- * the figure exists and is missing. The note under the table says so.
+ * Entity types have no quota because quotas are territorial, but they do have
+ * a measurable register share: registered companies divided by all companies
+ * of that type. The note under the table distinguishes the share from quota
+ * attainment, which has no entity-type denominator.
  *
  * The server lists every type, zeros included, on the same terms as the
  * campaign-returns breakdown, so the two read in the same order.
@@ -221,10 +257,13 @@ export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[
           <TableRow>
             <TableHead scope="col">{t("entityTypeColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("registeredColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("registerShareColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("inYearColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("approvalColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("reviewColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("complementsColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("documentsIncompleteColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("draftColumn")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -234,14 +273,18 @@ export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[
                 {label(row.entityType)}
               </TableHead>
               <TableCell className={NUM}>{formatCoverageCount(row.registered, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{fmtRate(row.companyCount > 0 ? row.registered / row.companyCount : null, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.registeredInYear, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.pendingApproval, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.pendingReview, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.complementsRequested, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.documentsIncomplete, row.companyCount, locale)}</TableCell>
+              <TableCell className={NUM}>{formatCoverageCount(row.draft, row.companyCount, locale)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <p className="mt-3 text-sm text-muted-foreground">{t("statusBreakdownNote")}</p>
       <p className="mt-3 text-sm text-muted-foreground">{t("entityTypeNoQuotaNote")}</p>
     </>
   );
