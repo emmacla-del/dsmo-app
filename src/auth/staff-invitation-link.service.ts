@@ -5,10 +5,11 @@
 //
 // An administrator creates a link for one POST -- a service and a position
 // type -- inside a scope: a level (regional delegation, departmental
-// delegation, central services) and, for a delegation, its territory. The
-// link is posted in a WhatsApp group, and everyone who opens it holds that
-// same post: typically the generic "Cadre" of one unit, which is what most
-// of a delegation's staff are. They give their email and a password and get
+// delegation, central services) and, for a delegation, its intended
+// territory. The link is posted in a WhatsApp group, and everyone who opens
+// it holds that same post: typically the generic "Cadre" of one unit, which
+// is what most of a delegation's staff are. They provide identity, choose any
+// territory required by that service, and set a password, then get
 // an account that WAITS FOR APPROVAL: unlike the one-person link, nobody
 // vouched for this individual, and the email is not verified (outbound mail
 // is unreliable), so an approver checks name and post before the account
@@ -16,15 +17,9 @@
 //
 // The post is required on every link created from 2026-10-25. Links created
 // before then carry none (serviceCode and positionType are null) and still
-// work exactly as they did: their holders choose their own service and post.
-// That fallback is permanent -- an old link stays valid until it expires --
-// and it is why the two columns are nullable.
-//
-// Not yet true: the post a link carries is not imposed at sign-up. signUp
-// still reads the service and the post from the request and checks them
-// against the link's LEVEL only. Making the link authoritative there, and
-// the form confirm the post rather than ask for it, is phase 3 of
-// docs/plans/staff-invitation-wizard.md.
+// work exactly as they did: their holders choose their own service and post,
+// in the form and here. That fallback is permanent -- an old link stays
+// valid until it expires -- and it is why the two columns are nullable.
 //
 // Safety:
 //  - the secret is random and stored only as its SHA-256 (tokenHash);
@@ -36,7 +31,13 @@
 //  - the role is the level's, never chosen: regional -> REGIONAL_ADMIN,
 //    departmental -> DIVISIONAL_ADMIN, central -> CENTRAL_AGENT. A group
 //    link never produces an ADMIN_ONEFOP;
-//  - the territory comes from the link, never from the sign-up request.
+//  - the role comes from the level; the post comes from the link when set;
+//  - the officer chooses the territory required by the service, and it is
+//    validated against the geography;
+//  - when a link carries a post, the service and
+//    post in the sign-up request are ignored, and the link's pair is checked
+//    again at sign-up, so an organigramme change since cannot let an account
+//    through on a service that has left the level.
 //
 // Who may create, list and revoke: SUPER_ADMIN and ADMIN_ONEFOP. ADMIN_ONEFOP
 // manages all three produced roles (staff-scope.ts manageableRolesFor).
@@ -54,7 +55,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
-import { resolveStaffTerritory } from '../territory/territory-resolver';
+import { normalizeTerritoryName, resolveStaffTerritory } from '../territory/territory-resolver';
 import { emailMatch, normalizeEmail } from './auth.service';
 import { assertCanManageRole } from './staff-scope';
 import { GENERIC_POSITION_TYPE } from './staff-invitation.service';
@@ -88,6 +89,7 @@ const MAX_ANCESTOR_STEPS = 8;
 const INVALID_LINK = "Ce lien d'invitation n'est plus valable (expiré, révoqué ou complet). Demandez un nouveau lien.";
 const SERVICE_REQUIRED = "Choisissez le service auquel ce lien donne accès.";
 const POSITION_REQUIRED = "Choisissez le poste auquel ce lien donne accès.";
+const MATRICULE_REQUIRED = 'Le matricule est obligatoire.';
 // Both out-of-scope refusals, passed in: at creation there is no link yet to
 // be "not covered by", so the level is named instead. error-messages.spec.ts
 // checks the two strings by value (the `message` argument is on its
@@ -114,6 +116,8 @@ export interface LinkSignUpInput {
   firstName?: string;
   lastName?: string;
   matricule?: string;
+  region?: string;
+  department?: string;
   password?: string;
 }
 
@@ -271,12 +275,20 @@ export class StaffInvitationLinkService {
   /** What the link allows, for the sign-up form. */
   async preview(token: string | undefined) {
     const link = await this.findUsable(token);
+    // The post the link fixes, named, so the form can SHOW it instead of
+    // asking for it. Null on a link made before 2026-10-25, whose form still
+    // asks. Nothing about the link's creator is exposed here.
+    const [named] = await this.presented([link]);
     return {
       label: link.label,
       level: link.level,
       role: LEVEL_ROLE[link.level as LinkLevel],
       region: link.region,
       department: link.department,
+      serviceCode: named.serviceCode,
+      serviceName: named.serviceName,
+      positionType: named.positionType,
+      positionTitle: named.positionTitle,
       expiresAt: link.expiresAt.toISOString(),
     };
   }
@@ -292,16 +304,30 @@ export class StaffInvitationLinkService {
     const firstName = trimmed(input.firstName);
     const lastName = trimmed(input.lastName);
     if (!firstName || !lastName) throw new BadRequestException('Le prénom et le nom sont obligatoires.');
+    // A staff account is identified by its matricule in every MINEFOP
+    // register, so it is asked for, not offered. Accounts created before
+    // 2026-10-25 may have none; nothing here changes them.
+    const matricule = trimmed(input.matricule);
+    if (!matricule) throw new BadRequestException(MATRICULE_REQUIRED);
     const password = typeof input.password === 'string' ? input.password : '';
     const { passwordMinLength } = await this.systemSettings.getSettings();
     if (password.length < passwordMinLength) {
       throw new BadRequestException(`Le mot de passe doit contenir au moins ${passwordMinLength} caractères`);
     }
 
-    const serviceCode = trimmed(input.serviceCode);
-    await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LINK);
-    const positionTitle = await this.positionTitle(serviceCode, trimmed(input.positionType));
-    const positionType = trimmed(input.positionType);
+    // The post comes from the LINK when it carries one. Like the role,
+    // it is not the holder's to choose: a request that still
+    // sends a service and a post -- a page open since before the link was
+    // made, or a crafted one -- is ignored here, not trusted. It is checked
+    // again all the same, because the organigramme can change after a link
+    // is created: a service since deactivated or moved out of the level
+    // stops the sign-up instead of producing an account on a dead service.
+    const fixedPost = !!(link.serviceCode && link.positionType);
+    const serviceCode = fixedPost ? link.serviceCode! : trimmed(input.serviceCode);
+    const positionType = fixedPost ? link.positionType! : trimmed(input.positionType);
+    const service = await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LINK);
+    const positionTitle = await this.positionTitle(serviceCode, positionType);
+    const territory = await this.resolveSignupTerritory(service, input.region, input.department);
 
     if (await this.prisma.user.findFirst({ where: emailMatch(email) })) {
       throw new ConflictException('Un compte existe déjà pour cette adresse.');
@@ -325,12 +351,12 @@ export class StaffInvitationLinkService {
             firstName,
             lastName,
             role: role as any,
-            region: link.region,
-            department: link.department,
+            region: territory.region,
+            department: territory.department,
             serviceCode,
             positionType,
             poste: positionTitle,
-            matricule: trimmed(input.matricule) || null,
+            matricule,
             status: 'PENDING_APPROVAL',
             isActive: false,
             createdBy: link.createdBy,
@@ -347,7 +373,7 @@ export class StaffInvitationLinkService {
     }
 
     await this.audit(user.id, 'STAFF_INVITATION_LINK_USED', link.id, {
-      email, role, region: link.region, department: link.department, serviceCode, positionType,
+      email, role, ...territory, serviceCode, positionType,
       linkLabel: link.label, registrationMethod: 'INVITATION_LINK',
     });
 
@@ -364,7 +390,11 @@ export class StaffInvitationLinkService {
   }
 
   /** The service exists, is active, belongs to the level and maps to its role. */
-  private async assertServiceInScope(serviceCode: string, level: LinkLevel, message: string): Promise<void> {
+  private async assertServiceInScope(
+    serviceCode: string,
+    level: LinkLevel,
+    message: string,
+  ): Promise<{ requiresRegion: boolean; requiresDepartment: boolean }> {
     const outOfScope = () => new BadRequestException(message);
     const service = serviceCode ? await this.prisma.minefopService.findUnique({ where: { code: serviceCode } }) : null;
     if (!service || !service.isActive || service.roleMapping !== LEVEL_ROLE[level]) throw outOfScope();
@@ -372,16 +402,49 @@ export class StaffInvitationLinkService {
     const root = LEVEL_ROOT[level];
     if (!root) {
       if (service.category !== 'CENTRALE' && service.category !== 'RATTACHE') throw outOfScope();
-      return;
+      return service;
     }
     let current: { code: string; parentCode: string | null } | null = service;
     for (let step = 0; current && step < MAX_ANCESTOR_STEPS; step++) {
-      if (current.code === root) return;
+      if (current.code === root) return service;
       current = current.parentCode
         ? await this.prisma.minefopService.findUnique({ where: { code: current.parentCode } })
         : null;
     }
     throw outOfScope();
+  }
+
+  /** The service, rather than the invitation link, determines signup territory. */
+  private async resolveSignupTerritory(
+    service: { requiresRegion: boolean; requiresDepartment: boolean },
+    regionValue: unknown,
+    departmentValue: unknown,
+  ): Promise<{ region: string | null; department: string | null }> {
+    const needsRegion = service.requiresRegion || service.requiresDepartment;
+    if (!needsRegion) return { region: null, department: null };
+
+    const regionInput = trimmed(regionValue);
+    if (!regionInput) throw new BadRequestException('Choisissez une région.');
+    const regions = await this.prisma.region.findMany({ select: { id: true, name: true } });
+    const normalizedRegion = normalizeTerritoryName(regionInput);
+    const region = regions.find((candidate: { id: string; name: string }) =>
+      candidate.id === regionInput || normalizeTerritoryName(candidate.name) === normalizedRegion,
+    );
+    if (!region) throw new BadRequestException('Choisissez une région valide.');
+    if (!service.requiresDepartment) return { region: region.name, department: null };
+
+    const departmentInput = trimmed(departmentValue);
+    if (!departmentInput) throw new BadRequestException('Choisissez un département.');
+    const departments = await this.prisma.department.findMany({
+      where: { regionId: region.id },
+      select: { id: true, name: true, regionId: true },
+    });
+    const normalizedDepartment = normalizeTerritoryName(departmentInput);
+    const department = departments.find((candidate: { id: string; name: string }) =>
+      candidate.id === departmentInput || normalizeTerritoryName(candidate.name) === normalizedDepartment,
+    );
+    if (!department) throw new BadRequestException('Choisissez un département valide pour la région sélectionnée.');
+    return { region: region.name, department: department.name };
   }
 
   private async positionTitle(serviceCode: string, positionType: string): Promise<string> {

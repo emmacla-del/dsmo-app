@@ -38,11 +38,12 @@ export type { LocationDepartment, LocationRegion, LocationSubdivision };
 /**
  * Primary React Query hook caching the full administrative hierarchy indefinitely.
  */
-export function useTerritoryStructure() {
+export function useTerritoryStructure(enabled = true) {
   return useQuery({
     queryKey: ["locations", "structure"],
     queryFn: getLocationStructure,
     staleTime: Infinity,
+    enabled,
   });
 }
 

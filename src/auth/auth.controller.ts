@@ -251,6 +251,8 @@ export class AuthController {
     firstName?: string;
     lastName?: string;
     matricule?: string;
+    region?: string;
+    department?: string;
     password?: string;
   }) {
     return this.staffInvitationLinks.signUp(body);

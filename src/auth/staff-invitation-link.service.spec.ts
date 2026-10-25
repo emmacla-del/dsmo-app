@@ -13,13 +13,13 @@ const SUPER = { id: 'super-1', role: 'SUPER_ADMIN' };
 const ONEFOP = { id: 'onefop-1', role: 'ADMIN_ONEFOP' };
 
 const SERVICES: Record<string, any> = {
-  DREFOP: { code: 'DREFOP', name: 'Délégation Régionale', parentCode: null, category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', isActive: true },
-  'DREFOP-SPE': { code: 'DREFOP-SPE', name: "Service de la Promotion de l'Emploi", parentCode: 'DREFOP', category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', isActive: true },
-  'DREFOP-SPE-BAE': { code: 'DREFOP-SPE-BAE', name: "Bureau d'Appui à l'Emploi", parentCode: 'DREFOP-SPE', category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', isActive: true },
-  DDEFOP: { code: 'DDEFOP', name: 'Délégation Départementale', parentCode: null, category: 'DECONCENTRE', roleMapping: 'DIVISIONAL_ADMIN', isActive: true },
-  'DDEFOP-BAG': { code: 'DDEFOP-BAG', name: 'Bureau des Affaires Générales', parentCode: 'DDEFOP', category: 'DECONCENTRE', roleMapping: 'DIVISIONAL_ADMIN', isActive: true },
-  SG: { code: 'SG', name: 'Secrétariat Général', parentCode: null, category: 'CENTRALE', roleMapping: 'CENTRAL_AGENT', isActive: true },
-  ONEFOP: { code: 'ONEFOP', name: "Observatoire National de l'Emploi et de la Formation Professionnelle", parentCode: null, category: 'RATTACHE', roleMapping: 'CENTRAL_AGENT', isActive: true },
+  DREFOP: { code: 'DREFOP', name: 'Délégation Régionale', parentCode: null, category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', requiresRegion: true, requiresDepartment: false, isActive: true },
+  'DREFOP-SPE': { code: 'DREFOP-SPE', name: "Service de la Promotion de l'Emploi", parentCode: 'DREFOP', category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', requiresRegion: true, requiresDepartment: false, isActive: true },
+  'DREFOP-SPE-BAE': { code: 'DREFOP-SPE-BAE', name: "Bureau d'Appui à l'Emploi", parentCode: 'DREFOP-SPE', category: 'DECONCENTRE', roleMapping: 'REGIONAL_ADMIN', requiresRegion: true, requiresDepartment: false, isActive: true },
+  DDEFOP: { code: 'DDEFOP', name: 'Délégation Départementale', parentCode: null, category: 'DECONCENTRE', roleMapping: 'DIVISIONAL_ADMIN', requiresRegion: true, requiresDepartment: true, isActive: true },
+  'DDEFOP-BAG': { code: 'DDEFOP-BAG', name: 'Bureau des Affaires Générales', parentCode: 'DDEFOP', category: 'DECONCENTRE', roleMapping: 'DIVISIONAL_ADMIN', requiresRegion: true, requiresDepartment: true, isActive: true },
+  SG: { code: 'SG', name: 'Secrétariat Général', parentCode: null, category: 'CENTRALE', roleMapping: 'CENTRAL_AGENT', requiresRegion: false, requiresDepartment: false, isActive: true },
+  ONEFOP: { code: 'ONEFOP', name: "Observatoire National de l'Emploi et de la Formation Professionnelle", parentCode: 'SG', category: 'RATTACHE', roleMapping: 'CENTRAL_AGENT', requiresRegion: false, requiresDepartment: false, isActive: true },
 };
 const POSITIONS = [
   { serviceCode: 'DREFOP', positionType: 'DELEGUE_REGIONAL', title: 'Délégué Régional', isActive: true },
@@ -74,9 +74,11 @@ function makePrisma() {
         return { id: row.id, email: row.email };
       }),
     },
-    region: { findMany: jest.fn(async () => [{ id: 'reg-centre', name: 'Centre' }]) },
+    region: { findMany: jest.fn(async () => [{ id: 'reg-centre', name: 'Centre' }, { id: 'reg-littoral', name: 'Littoral' }]) },
     department: {
-      findMany: jest.fn(async () => [{ id: 'dept-mfoundi', name: 'Mfoundi', regionId: 'reg-centre' }]),
+      findMany: jest.fn(async ({ where }: any) => where?.regionId === 'reg-littoral'
+        ? [{ id: 'dept-wouri', name: 'Wouri', regionId: 'reg-littoral' }]
+        : [{ id: 'dept-mfoundi', name: 'Mfoundi', regionId: 'reg-centre' }]),
       findFirst: jest.fn(async () => null),
     },
     auditLog: { create: jest.fn(async () => ({})) },
@@ -100,7 +102,7 @@ const REGIONAL_LINK = {
   serviceCode: 'DREFOP',
   positionType: 'STAFF',
 };
-const PERSON = { email: 'Agent.Un@Minefop.cm', firstName: 'Marie', lastName: 'Ngono', password: 'long-enough-1' };
+const PERSON = { email: 'Agent.Un@Minefop.cm', firstName: 'Marie', lastName: 'Ngono', matricule: 'M-12345', region: 'Centre', password: 'long-enough-1' };
 
 describe('StaffInvitationLinkService.create', () => {
   it('creates a regional link, 7 days and 50 uses by default, storing only the hash of the token', async () => {
@@ -172,12 +174,37 @@ describe('StaffInvitationLinkService.signUp', () => {
     return { ...ctx, link };
   }
 
-  it('creates a PENDING_APPROVAL account in the link territory, any depth under the delegation', async () => {
+  /**
+   * A link made before the post columns existed. create() will not make one
+   * any more, so it is inserted as the database still holds it: post-less,
+   * its holder choosing their own service and post, which is the behaviour
+   * those links keep until they expire.
+   */
+  function withLegacyLink(overrides: any = {}) {
+    const ctx = makeService();
+    const token = 'legacy-token';
+    ctx.prisma.__links.push({
+      id: 'link-legacy',
+      tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+      label: 'Ancien lien', level: 'regional', region: 'Centre', department: null,
+      serviceCode: null, positionType: null, maxUses: 50, useCount: 0,
+      expiresAt: new Date(Date.now() + 7 * 86400_000), revokedAt: null, revokedBy: null,
+      createdBy: SUPER.id, createdAt: new Date(), ...overrides,
+    });
+    return { ...ctx, link: { token } };
+  }
+
+  it('creates a PENDING_APPROVAL account on the post the link carries, whatever the request says', async () => {
     const { service, prisma, link } = await withLink();
-    const r = await service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP-SPE-BAE', positionType: 'STAFF', region: 'Littoral' } as any);
+    // Service and post belong to the link; the officer's selected territory
+    // is validated and used for the account.
+    const r = await service.signUp({
+      ...PERSON, token: link.token, serviceCode: 'DREFOP-SPE-BAE', positionType: 'CHEF_SERVICE', region: 'Littoral',
+    } as any);
     expect(r).toEqual({ email: 'agent.un@minefop.cm', status: 'PENDING_APPROVAL' });
     expect(prisma.__users[0]).toMatchObject({
-      role: 'REGIONAL_ADMIN', region: 'Centre', department: null, serviceCode: 'DREFOP-SPE-BAE', positionType: 'STAFF', poste: 'Cadre',
+      role: 'REGIONAL_ADMIN', region: 'Littoral', department: null,
+      serviceCode: 'DREFOP', positionType: 'STAFF', poste: 'Cadre', matricule: 'M-12345',
       status: 'PENDING_APPROVAL', isActive: false, createdBy: SUPER.id, registrationMethod: 'INVITATION_LINK',
     });
     expect(prisma.__links[0].useCount).toBe(1);
@@ -185,29 +212,71 @@ describe('StaffInvitationLinkService.signUp', () => {
   });
 
   it('takes the post title from the organigramme', async () => {
-    const { service, prisma, link } = await withLink();
-    await service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP-SPE', positionType: 'CHEF_SERVICE' });
+    const { service, prisma, link } = await withLink({ ...REGIONAL_LINK, serviceCode: 'DREFOP-SPE', positionType: 'CHEF_SERVICE' });
+    await service.signUp({ ...PERSON, token: link.token });
     expect(prisma.__users[0].poste).toBe("Chef du Service de la Promotion de l'Emploi");
   });
 
-  it('refuses a service outside the link scope, a central link from a delegation, and an unknown post', async () => {
-    const { service, link } = await withLink();
+  it('the matricule is required', async () => {
+    const { service, prisma, link } = await withLink();
+    await expect(service.signUp({ ...PERSON, matricule: '', token: link.token })).rejects.toThrow(BadRequestException);
+    await expect(service.signUp({ ...PERSON, matricule: '   ', token: link.token })).rejects.toThrow(BadRequestException);
+    const { matricule, ...noMatricule } = PERSON;
+    await expect(service.signUp({ ...noMatricule, token: link.token })).rejects.toThrow(BadRequestException);
+    expect(prisma.__users).toHaveLength(0);
+    expect(prisma.__links[0].useCount).toBe(0);
+  });
+
+  it('requires territory from the officer according to the linked service', async () => {
+    const regional = await withLink();
+    const { region, ...withoutRegion } = PERSON;
+    await expect(regional.service.signUp({ ...withoutRegion, token: regional.link.token }))
+      .rejects.toThrow('Choisissez une région.');
+    expect(regional.prisma.__links[0].useCount).toBe(0);
+
+    const departmental = await withLink({
+      label: 'Personnel DDEFOP', level: 'departmental', region: 'Centre', department: 'Mfoundi',
+      serviceCode: 'DDEFOP', positionType: 'STAFF',
+    });
+    await expect(departmental.service.signUp({ ...PERSON, token: departmental.link.token, department: '' }))
+      .rejects.toThrow('Choisissez un département.');
+    await expect(departmental.service.signUp({
+      ...PERSON, token: departmental.link.token, region: 'Littoral', department: 'Wouri',
+    })).resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
+    expect(departmental.prisma.__users[0]).toMatchObject({ region: 'Littoral', department: 'Wouri' });
+  });
+
+  it('refuses the link whose service has left the organigramme since it was made', async () => {
+    const { service, link } = withLegacyLink({ serviceCode: 'GONE', positionType: 'STAFF' });
+    await expect(service.signUp({ ...PERSON, token: link.token })).rejects.toThrow(BadRequestException);
+  });
+
+  it('a central link gives CENTRAL_AGENT on its own service', async () => {
+    const { service, prisma, link } = await withLink({ label: 'Central', level: 'central', serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL' });
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' }))
+      .resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
+    expect(prisma.__users[0]).toMatchObject({ role: 'CENTRAL_AGENT', serviceCode: 'SG', poste: 'Secrétaire Général' });
+  });
+
+  it('a link with no post lets its holder choose, at any depth under the delegation', async () => {
+    const { service, prisma, link } = withLegacyLink();
+    await service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP-SPE-BAE', positionType: 'STAFF' });
+    expect(prisma.__users[0]).toMatchObject({ region: 'Centre', serviceCode: 'DREFOP-SPE-BAE', positionType: 'STAFF', poste: 'Cadre' });
+  });
+
+  it('a link with no post refuses a service outside its scope, and an unknown post', async () => {
+    const { service, link } = withLegacyLink();
+    await expect(service.signUp({ ...PERSON, token: link.token })).rejects.toThrow(BadRequestException);
     await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DDEFOP-BAG', positionType: 'STAFF' })).rejects.toThrow(BadRequestException);
     await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'SG', positionType: 'STAFF' })).rejects.toThrow(BadRequestException);
     await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'MINISTRE' })).rejects.toThrow(BadRequestException);
-
-    const central = await withLink({ label: 'Central', level: 'central', serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL' });
-    await expect(central.service.signUp({ ...PERSON, token: central.link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(BadRequestException);
-    await expect(central.service.signUp({ ...PERSON, token: central.link.token, serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL' }))
-      .resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
-    expect(central.prisma.__users[0].role).toBe('CENTRAL_AGENT');
   });
 
   it('stops at the use limit', async () => {
     const { service, prisma, link } = await withLink({ ...REGIONAL_LINK, maxUses: 2 });
-    await service.signUp({ ...PERSON, email: 'a@m.cm', token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' });
-    await service.signUp({ ...PERSON, email: 'b@m.cm', token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' });
-    await expect(service.signUp({ ...PERSON, email: 'c@m.cm', token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(GoneException);
+    await service.signUp({ ...PERSON, email: 'a@m.cm', token: link.token });
+    await service.signUp({ ...PERSON, email: 'b@m.cm', token: link.token });
+    await expect(service.signUp({ ...PERSON, email: 'c@m.cm', token: link.token })).rejects.toThrow(GoneException);
     expect(prisma.__users).toHaveLength(2);
     await expect(service.preview(link.token)).rejects.toThrow(GoneException);
   });
@@ -215,7 +284,7 @@ describe('StaffInvitationLinkService.signUp', () => {
   it('stops when revoked or expired, and refuses an unknown token', async () => {
     const { service, prisma, link } = await withLink();
     await service.revoke(link.id, ONEFOP);
-    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(GoneException);
+    await expect(service.signUp({ ...PERSON, token: link.token })).rejects.toThrow(GoneException);
 
     const other = await withLink();
     other.prisma.__links[0].expiresAt = new Date(Date.now() - 1000);
@@ -227,21 +296,32 @@ describe('StaffInvitationLinkService.signUp', () => {
 
   it('refuses an email already in use, a missing name and a short password -- without spending a use', async () => {
     const { service, prisma, link } = await withLink();
-    await service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' });
-    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(ConflictException);
-    await expect(service.signUp({ ...PERSON, email: 'n@m.cm', firstName: '', token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(BadRequestException);
-    await expect(service.signUp({ ...PERSON, email: 'p@m.cm', password: 'short', token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' })).rejects.toThrow(BadRequestException);
+    await service.signUp({ ...PERSON, token: link.token });
+    await expect(service.signUp({ ...PERSON, token: link.token })).rejects.toThrow(ConflictException);
+    await expect(service.signUp({ ...PERSON, email: 'n@m.cm', firstName: '', token: link.token })).rejects.toThrow(BadRequestException);
+    await expect(service.signUp({ ...PERSON, email: 'p@m.cm', password: 'short', token: link.token })).rejects.toThrow(BadRequestException);
     expect(prisma.__links[0].useCount).toBe(1);
   });
 
-  it('preview tells the form the scope, never the creator', async () => {
+  it('preview names the post the form must show, the scope, and never the creator', async () => {
     const { service, link } = await withLink({
       label: 'DDEFOP Mfoundi', level: 'departmental', region: 'Centre', department: 'Mfoundi',
       serviceCode: 'DDEFOP', positionType: 'STAFF',
     });
     const p = await service.preview(link.token);
-    expect(p).toMatchObject({ label: 'DDEFOP Mfoundi', level: 'departmental', role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Mfoundi' });
+    expect(p).toMatchObject({
+      label: 'DDEFOP Mfoundi', level: 'departmental', role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Mfoundi',
+      serviceCode: 'DDEFOP', serviceName: 'Délégation Départementale', positionType: 'STAFF', positionTitle: 'Cadre',
+    });
     expect(JSON.stringify(p)).not.toContain(SUPER.id);
+    expect(JSON.stringify(p)).not.toContain('tokenHash');
+  });
+
+  it('preview of a link with no post says so, so the form knows to ask', async () => {
+    const { service, link } = withLegacyLink();
+    await expect(service.preview(link.token)).resolves.toMatchObject({
+      serviceCode: null, serviceName: null, positionType: null, positionTitle: null,
+    });
   });
 });
 

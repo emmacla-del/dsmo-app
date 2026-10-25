@@ -197,6 +197,12 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Ce poste n\'existe pas dans ce service.', en: 'This post does not exist in this service.' },
   { fr: 'Choisissez le service auquel ce lien donne accès.', en: 'Choose the service this link gives access to.' },
   { fr: 'Choisissez le poste auquel ce lien donne accès.', en: 'Choose the post this link gives access to.' },
+  // "Staff number" is what the sign-up form calls it in English.
+  { fr: 'Le matricule est obligatoire.', en: 'The staff number is required.' },
+  { fr: 'Choisissez une région.', en: 'Choose a region.' },
+  { fr: 'Choisissez une région valide.', en: 'Choose a valid region.' },
+  { fr: 'Choisissez un département.', en: 'Choose a department.' },
+  { fr: 'Choisissez un département valide pour la région sélectionnée.', en: 'Choose a valid department for the selected region.' },
   { fr: 'Seul le super administrateur peut inviter un administrateur central.', en: 'Only the super administrator can invite a central administrator.' },
   { fr: 'Vous n\'êtes pas autorisé à inviter des agents.', en: 'You are not allowed to invite officers.' },
   { fr: 'Service inconnu dans l\'organigramme.', en: 'Unknown service in the organisation chart.' },
