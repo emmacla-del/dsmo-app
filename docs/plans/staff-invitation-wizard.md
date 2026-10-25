@@ -48,13 +48,22 @@ bool get _needsDepartment => role == 'DIVISIONAL';
   idempotent script; `npm run seed` was also repaired but **must not be run**
   (see Constraints).
 
-## Uncommitted work in the tree
+## Progress since this brief was written
 
-`prisma/schema.prisma` already carries the two new columns on
-`StaffInvitationLink` (`serviceCode`, `positionType`, both nullable, with a
-doc comment). **The migration has not been written.** Start there.
+- `a893bfb6` — nullable `serviceCode` and `positionType` columns and their
+  additive migration landed in `StaffInvitationLink`.
+- `bd619c97` — Phase 2 landed: administrators create post-specific links and
+  the server checks the service and post against the invitation level.
+- Phase 3 is in the current worktree: the form displays fixed posts, keeps
+  legacy links working, requires matricule, and asks officers for the region
+  and/or department required by their service. The server validates and saves
+  those choices. Review its diff before committing.
+- Phase 4 is in the current worktree: ONEFOP is nested under `SG`, with a
+  `DIRECTEUR` "Secrétaire Permanent" and a `CHEF_SERVICE` "Chef du Service des
+  Statistiques". Its additive data migration is written but has not been
+  applied to the shared database.
 
-## What is already in the data, unused
+## Existing service metadata
 
 `MinefopService` carries, per service:
 
@@ -64,11 +73,10 @@ doc comment). **The migration has not been written.** Start there.
 | `requiresRegion` | the post needs a region | 28 services |
 | `requiresDepartment` | the post needs a department | 11 services |
 
-`minefop-services.service.ts` already ships all three to the browser inside
-the organigramme payload. **Nothing in `react-web` reads `requiresRegion` or
-`requiresDepartment`.** The territorial rule the owner wants is already in the
-data and already on the wire; the form simply ignores it. No new data and no
-new endpoint are needed for that half.
+`minefop-services.service.ts` ships all three to the browser inside the
+organigramme payload. `GroupSignUpForm` now reads `requiresRegion` and
+`requiresDepartment` to decide which territory fields to ask for; the backend
+validates and stores those selections. No new data or endpoint was needed.
 
 `ServicePosition` is `(serviceCode, positionType)` unique with `title` /
 `titleEn` — the resolved job title. `User` already has columns for everything
@@ -119,7 +127,9 @@ which `roleMapping` a level may create.
   it is currently optional);
 - ask for region and/or department **only** when the service's
   `requiresRegion` / `requiresDepartment` say so, mirroring `_needsLocation`
-  and `_needsDepartment` from the deleted wizard.
+  and `_needsDepartment` from the deleted wizard. The owner confirmed that
+  officers choose these values at signup; the invitation's territory is its
+  intended scope, not the account's assigned territory.
 
 Keep the feedback pattern from `bc5e1e0d`: all fields judged in one pass,
 per-field messages, focus to the first problem. Any new field joins
@@ -127,21 +137,15 @@ per-field messages, focus to the first problem. Any new field joins
 
 ### Phase 4 — ONEFOP's posts
 
-**Blocked on the owner.** Two questions outstanding:
+The owner answered on 2026-10-25:
 
-1. ONEFOP exists already — `code: ONEFOP`, `category: RATTACHE`, `level: 1`,
-   `parentCode: null`, `roleMapping: CENTRAL_AGENT` — sitting at the root
-   beside `PIAASI` and `COSUP`. The owner says it is "attached to the
-   Secrétariat Général". Does the tree actually nest it under `SG`
-   (making it the only `RATTACHE` service with a parent), or is that the
-   reporting line only?
-2. Should the statistics chief be a `CHEF_SERVICE` position **on ONEFOP**, or
-   a child service (`ONEFOP-STAT`, "Service des Statistiques") with that head,
-   matching how SG's seven children are modelled?
+1. Nest ONEFOP under `SG` in the organigramme.
+2. Put the statistics chief on ONEFOP as a `CHEF_SERVICE` position.
 
-Then add: a `DIRECTEUR` position titled "Secrétaire Permanent" (the owner
-specified central-administration Director rank), and the statistics chief.
-ONEFOP currently has exactly one position, the automatic `STAFF` "Cadre".
+Add a `DIRECTEUR` position titled "Secrétaire Permanent" (the owner specified
+central-administration Director rank) and the statistics chief to
+`prisma/seed.ts` and the migration/position update path. ONEFOP's existing
+automatic `STAFF` "Cadre" remains.
 
 **Leave the SER out** until the owner confirms what it is.
 
@@ -157,7 +161,9 @@ Super Admin assigns the real ONEFOP role afterwards from `ASSIGNABLE_ROLES`
 - **Never run `npm run seed`.** It creates test users sharing one weak
   password, sample companies and specimen ONEFOP submissions. The database
   behind the local backend is the **shared** one holding real registrations.
-  Use `npm run seed:positions`, which touches `service_positions` only.
+  `npm run seed:positions` is the idempotent catalogue updater and touches
+  `service_positions` only; it still writes to the shared database, so do not
+  run it here.
 - The local backend (`localhost:3001`) talks to that shared database. Any
   write is a real write. Verify read-only where possible; for writes, use a
   transaction rolled back with a sentinel, as `src/pilotage/campaign-quota-pg.spec.ts`
