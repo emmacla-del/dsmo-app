@@ -165,7 +165,7 @@ const minefopServices = [
 // ============================================================
 // EXPLICIT SERVICE POSITIONS
 // ============================================================
-const servicePositions: {
+export const servicePositions: {
     serviceCode: string;
     positionType: string;
     title: string;
@@ -1648,4 +1648,9 @@ async function seed() {
     }
 }
 
-seed();
+// Only when run as a script. Without this, importing anything from this
+// file -- the positions list, say -- would run the whole seed, which
+// creates test users, sample companies and specimen submissions.
+if (require.main === module) {
+    seed();
+}
