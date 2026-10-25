@@ -199,6 +199,8 @@ export interface StockCounts {
   pendingApproval: number;
   pendingReview: number;
   complementsRequested: number;
+  documentsIncomplete: number;
+  draft: number;
 }
 
 export interface CoverageDepartmentRow extends StockCounts {
@@ -219,6 +221,8 @@ export interface CoverageRegionRow {
   pendingApproval: number | null;
   pendingReview: number | null;
   complementsRequested: number | null;
+  documentsIncomplete: number | null;
+  draft: number | null;
   inscriptionTarget: number | null;
   rate: number | null;
   departments: CoverageDepartmentRow[];
@@ -231,17 +235,23 @@ export interface CoverageBucket extends StockCounts {
 
 /**
  * Registration stock for one entity type, over the reader's own territory
- * scope. No target and no rate: registration quotas are territorial
- * (scopeKind TERRITORIAL / ADMINISTRATION), so a type carries neither.
+ * scope. There is no quota-attainment rate because quotas are territorial
+ * (scopeKind TERRITORIAL / ADMINISTRATION); the UI derives registered share
+ * from registered / companyCount.
  */
 export interface CoverageEntityTypeRow extends StockCounts {
   /** An OnefopEntityType code, e.g. "VOCATIONAL_TRAINING". */
   entityType: string;
 }
 
+export interface CoverageTotals extends StockCounts {
+  inscriptionTarget: number;
+  rate: number | null;
+}
+
 export interface CoverageResponse {
   year: number;
-  // Returned by the API since 3e; not yet rendered by CoverageTable.
+  // Returned by the API since 3e and shown by CoveragePanel.
   // quarter and semester are null on this view — only campaignIds is
   // populated for the annual fold.
   period: {
@@ -250,6 +260,7 @@ export interface CoverageResponse {
     semester: number | null;
     campaignIds: string[];
   };
+  totals: CoverageTotals;
   central: CoverageBucket | null;
   unassigned: StockCounts | null;
   nullEntityType: StockCounts | null;

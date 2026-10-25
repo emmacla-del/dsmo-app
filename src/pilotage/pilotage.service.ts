@@ -227,7 +227,15 @@ export class PilotageService {
     const period = { year, quarter: bounds.quarter, semester: bounds.semester, campaignIds };
 
     if (scope.kind === 'none') {
-      return { year, period, central: null, unassigned: null, nullEntityType: null, regions: [] };
+      return {
+        year,
+        period,
+        totals: { ...emptyCounts(), inscriptionTarget: 0, rate: null },
+        central: null,
+        unassigned: null,
+        nullEntityType: null,
+        regions: [],
+      };
     }
 
     const national = scope.kind === 'national';
@@ -308,9 +316,29 @@ export class PilotageService {
       ...(typeTallies.get(entityType) ?? emptyCounts()),
     }));
 
+    // Totals use each company once, including rows without an entity type
+    // that are intentionally kept out of the territorial and type tables.
+    const totalsCounts = emptyCounts();
+    for (const company of companies) applyRow(totalsCounts, toStockRow(company), year);
+    const territorialTarget = regions.reduce(
+      (total, region) => total + (
+        hideRegionStock
+          ? region.departments.reduce((sum, department) => sum + (department.target ?? 0), 0)
+          : region.target ?? region.departments.reduce((sum, department) => sum + (department.target ?? 0), 0)
+      ),
+      0,
+    );
+    const totalTarget = territorialTarget + (national ? centralTarget ?? 0 : 0);
+    const totals = {
+      ...totalsCounts,
+      inscriptionTarget: totalTarget,
+      rate: coverageRate(totalsCounts.registeredInYear, totalTarget),
+    };
+
     return {
       year,
       period,
+      totals,
       central: national ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget) : null,
       unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
       nullEntityType: national ? tallies.get('nullEntityType') ?? emptyCounts() : null,
@@ -327,7 +355,7 @@ export class PilotageService {
             name: department.name,
             ...counts,
             inscriptionTarget: department.target,
-            rate: coverageRate(counts.registered, department.target),
+            rate: coverageRate(counts.registeredInYear, department.target),
           };
         });
         const summed = departments.reduce(
@@ -344,8 +372,10 @@ export class PilotageService {
           pendingApproval: hideRegionStock ? null : summed.pendingApproval,
           pendingReview: hideRegionStock ? null : summed.pendingReview,
           complementsRequested: hideRegionStock ? null : summed.complementsRequested,
+          documentsIncomplete: hideRegionStock ? null : summed.documentsIncomplete,
+          draft: hideRegionStock ? null : summed.draft,
           inscriptionTarget: region.target,
-          rate: hideRegionStock ? null : coverageRate(summed.registered, region.target),
+          rate: hideRegionStock ? null : coverageRate(summed.registeredInYear, region.target),
           departments,
         };
       }),
@@ -1378,7 +1408,7 @@ function withTarget(counts: StockCounts, inscriptionTarget: number | null) {
   return {
     ...counts,
     inscriptionTarget,
-    rate: coverageRate(counts.registered, inscriptionTarget),
+    rate: coverageRate(counts.registeredInYear, inscriptionTarget),
   };
 }
 

@@ -106,7 +106,7 @@ describe('applyRow', () => {
     expect(counts.registeredInYear).toBe(1);
   });
 
-  it('tallies registered, in-year, and the three pending statuses, and skips the excluded ones', () => {
+  it('tallies registered, in-year, and all five pending validation statuses', () => {
     const counts = emptyCounts();
     applyRow(counts, row(), 2026);
     applyRow(counts, row({
@@ -128,6 +128,8 @@ describe('applyRow', () => {
       pendingApproval: 1,
       pendingReview: 1,
       complementsRequested: 1,
+      documentsIncomplete: 1,
+      draft: 1,
     });
   });
 
@@ -143,10 +145,25 @@ describe('applyRow', () => {
 });
 
 describe('coverageRate', () => {
-  it('returns registered / target when the target is greater than zero', () => {
+  it('returns registeredInYear / target when the target is greater than zero', () => {
     expect(coverageRate(0, 10)).toBe(0);
     expect(coverageRate(5, 10)).toBe(0.5);
     expect(coverageRate(3, null)).toBeNull();
     expect(coverageRate(3, 0)).toBeNull();
+  });
+
+  /**
+   * The numerator is the year's registrations, not the register's size.
+   * Measured the old way this row read 400 % and sat in the top band on the
+   * strength of registrations an earlier year's quota had already counted.
+   */
+  it('measures the year, not the register accumulated before it', () => {
+    const counts = emptyCounts();
+    for (const year of [2024, 2025, 2026, 2026]) {
+      applyRow(counts, row({ approvedAt: new Date(`${year}-06-01T00:00:00+01:00`) }), 2026);
+    }
+    expect(counts.registered).toBe(4);
+    expect(counts.registeredInYear).toBe(2);
+    expect(coverageRate(counts.registeredInYear, 1)).toBe(2);
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
@@ -9,7 +10,9 @@ import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
 import { CoverageEntityTypeTable, CoverageTable } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
-import { formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN, type CoverageResponse } from "@/lib/pilotage-targets";
+import { canListCampaigns, formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN, type CoverageResponse } from "@/lib/pilotage-targets";
+import { count, percent } from "@/lib/admin-data-state";
+import { listCompanyRegistrations } from "@/lib/user-directory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +83,8 @@ function CoverageContent({ year }: { year: number }) {
    * establishments, not the files still waiting.
    */
   const role = useAuthStore((state) => state.user?.role);
+  const canOpenCampaign = canListCampaigns(role);
+  const canReadRegistrationQueue = hasRole(role, APPROVAL_ROLES);
   const queueHref = hasRole(role, APPROVAL_ROLES)
     ? (regionName: string, departmentName?: string) => {
         const params = new URLSearchParams({ vue: "file", status: "ALL", region: regionName });
@@ -161,16 +166,38 @@ function CoverageContent({ year }: { year: number }) {
           {tTargets("quotaCoverageWithoutTarget", { count: withoutTarget })}
         </p>
       )}
+      <p className="text-sm text-muted-foreground">{tTargets("quotaCoverageRegisterDefinition")}</p>
+      {query.data.period.campaignIds.length > 0 ? (
+        <div className="text-sm">
+          <span className="font-medium">{tTargets("quotaCampaignSourcesLabel")}</span>
+          <ul className="mt-1 grid gap-1">
+            {query.data.period.campaignIds.map((campaignId) => (
+              <li key={campaignId}>
+                {canOpenCampaign ? (
+                  <Link className="underline underline-offset-2" href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaignId)}`}>
+                    {campaignId}
+                  </Link>
+                ) : (
+                  <code>{campaignId}</code>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 
   // A backend older than 2026-10-24 sends no byEntityType. Rather than an
   // empty second tab, the view then stays the single territory grid it was.
   const byEntityType = query.data.byEntityType;
-  if (!byEntityType) return <div className="grid gap-5">{quotaRanking}{territoryTable}</div>;
+  if (!byEntityType) return <div className="grid gap-5"><CoverageSummary totals={query.data.totals} />{canReadRegistrationQueue && <CoverageOverdue />}<CoverageAnnualTrend year={year} />{quotaRanking}{territoryTable}</div>;
 
   return (
     <div className="grid gap-5">
+      <CoverageSummary totals={query.data.totals} />
+      {canReadRegistrationQueue && <CoverageOverdue />}
+      <CoverageAnnualTrend year={year} />
       {quotaRanking}
       <Tabs defaultValue="territory" className="gap-0">
         <TabsList className="mb-3">
@@ -184,6 +211,123 @@ function CoverageContent({ year }: { year: number }) {
       </Tabs>
     </div>
   );
+}
+
+function CoverageSummary({ totals }: { totals: CoverageResponse["totals"] }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
+  return (
+    <section className="grid gap-3" aria-labelledby="registration-coverage-total-title">
+      <h2 id="registration-coverage-total-title" className="text-base font-semibold">{t("overallCoverageTitle")}</h2>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">{t("annualRegisteredTotal")}</p>
+          <strong className="text-xl tabular-nums">{count(totals.registeredInYear, locale)}</strong>
+          <p className="mt-1 text-xs text-muted-foreground">{t("cumulativeRegisteredCaption", { count: count(totals.registered, locale) })}</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">{t("annualQuotaTotal")}</p>
+          <strong className="text-xl tabular-nums">{count(totals.inscriptionTarget, locale)}</strong>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">{t("annualCoverageRate")}</p>
+          <strong className="text-xl tabular-nums">{percent(totals.rate == null ? null : totals.rate * 100, 1, locale, 0)}</strong>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("annualRegisteredOverQuota", {
+              registered: count(totals.registeredInYear, locale),
+              quota: count(totals.inscriptionTarget, locale),
+            })}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoverageOverdue() {
+  const tRoot = useTranslations();
+  const t = useTranslations("adminInscriptionsPage");
+  const locale = asUiLocale(useLocale());
+  const query = useQuery({
+    queryKey: ["auth", "company-registrations", "pending-count"],
+    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
+    refetchInterval: 120_000,
+  });
+  const days = query.data?.overdueDays ?? 7;
+  if (query.isError) {
+    return <DataState dense state="error" resource={t("statusOverdue", { days })} error={query.error} onRetry={() => query.refetch()} />;
+  }
+  if (query.isPending || !query.data) {
+    return <DataState dense state="loading" resource={t("statusOverdue", { days })} title={t("metricUnavailable")} />;
+  }
+
+  return (
+    <Link
+      href="/admin/inscriptions?status=OVERDUE"
+      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <span className="text-sm font-medium">{tRoot("adminInscriptionsPage.statusOverdue", { days })}</span>
+      <strong className={query.data.counts.overdue ? "text-lg tabular-nums text-destructive" : "text-lg tabular-nums"}>{count(query.data.counts.overdue, locale)}</strong>
+      <small className="basis-full text-muted-foreground">{t("registrationOverdueCaption")}</small>
+    </Link>
+  );
+}
+
+function CoverageAnnualTrend({ year }: { year: number }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
+  const years = Array.from({ length: 5 }, (_, index) => year - 4 + index).filter((item) => item >= YEAR_MIN);
+  const queries = useQueries({
+    queries: years.map((item) => ({
+      queryKey: ["admin", "pilotage", "coverage-trend", item],
+      queryFn: () => getAnnualCoverage(item),
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    })),
+  });
+  if (queries.some((query) => query.isError)) {
+    return <DataState dense state="error" resource={t("registrationTrendTitle")} onRetry={() => queries.forEach((query) => void query.refetch())} />;
+  }
+  if (queries.some((query) => query.isPending)) {
+    return <DataState dense state="loading" resource={t("registrationTrendTitle")} title={t("registrationTrendLoading")} />;
+  }
+
+  const points = years.map((item, index) => ({
+    year: item,
+    value: queries[index].data ? registrationsInYear(queries[index].data) : 0,
+  }));
+  const max = Math.max(1, ...points.map((point) => point.value));
+
+  return (
+    <section className="grid gap-3" aria-labelledby="registration-coverage-trend-title">
+      <div>
+        <h2 id="registration-coverage-trend-title" className="text-base font-semibold">{t("registrationTrendTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("registrationTrendContext")}</p>
+      </div>
+      <ul className="grid gap-2" aria-label={t("registrationTrendTitle")}>
+        {points.map((point) => (
+          <li key={point.year} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3" aria-label={`${point.year}: ${count(point.value, locale)}`}>
+            <span className="text-sm tabular-nums">{point.year}</span>
+            <span aria-hidden="true" className="h-3 overflow-hidden rounded bg-muted">
+              <span className="block h-full rounded bg-primary" style={{ width: `${(point.value / max) * 100}%` }} />
+            </span>
+            <strong className="text-sm tabular-nums">{count(point.value, locale)}</strong>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function registrationsInYear(data: CoverageResponse): number {
+  const territorial = data.regions.reduce(
+    (total, region) => total + region.departments.reduce((regionTotal, department) => regionTotal + department.registeredInYear, 0),
+    0,
+  );
+  return territorial
+    + (data.central?.registeredInYear ?? 0)
+    + (data.unassigned?.registeredInYear ?? 0)
+    + (data.nullEntityType?.registeredInYear ?? 0);
 }
 
 /** The ranking, plus the territories it could not rank. */
@@ -245,7 +389,7 @@ function registrationQuotaRanking(
           key: department.departmentId,
           name: department.name,
           responseRate: department.rate * 100,
-          received: department.registered,
+          received: department.registeredInYear,
           registered: department.inscriptionTarget,
           target: null,
           // Region AND department: department names repeat across regions, so
@@ -262,7 +406,7 @@ function registrationQuotaRanking(
         key: region.regionId,
         name: region.name,
         responseRate: region.rate * 100,
-        received: region.registered,
+          received: region.registeredInYear,
         registered: regionQuota,
         target: null,
         // The queue filters on the region and department NAMES

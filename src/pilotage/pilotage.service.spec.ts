@@ -563,7 +563,9 @@ describe('PilotageService coverage', () => {
       pendingReview: 1,
       complementsRequested: 1,
       inscriptionTarget: 10,
-      rate: 0.3,
+      // registeredInYear 2 / 10, not the cumulative 3: the quota is the
+      // year's, so the numerator is the year's too.
+      rate: 0.2,
     });
     expect(mfoundiOf(centre)).toMatchObject({
       companyCount: 7,
@@ -573,7 +575,7 @@ describe('PilotageService coverage', () => {
       pendingReview: 1,
       complementsRequested: 1,
       inscriptionTarget: 10,
-      rate: 0.2,
+      rate: 0.1,
     });
     const lekie = centre.departments.find((department: { name: string }) => department.name === 'Lékié');
     expect(lekie).toMatchObject({ companyCount: 1, registered: 1, inscriptionTarget: 0, rate: null });
