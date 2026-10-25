@@ -392,6 +392,8 @@ export function getLocationStructure() {
 // register-constants.ts), so most of the shape is inherently sparse per
 // submission rather than always-present.
 export interface RegisterCompanyPayload {
+  /** Stable across retries, including requests replayed from the offline outbox. */
+  clientRequestId?: string;
   email: string;
   password: string;
   firstName: string;
@@ -444,6 +446,10 @@ export function registerCompany(payload: RegisterCompanyPayload) {
   return apiFetch<RegisterCompanyResult>("/auth/register-company", {
     method: "POST",
     body: JSON.stringify(payload),
+    // Render's sleeping instance may need up to about a minute to start. Give
+    // it time to answer; after this bound the page's encrypted outbox can keep
+    // the request and replay it using clientRequestId.
+    signal: AbortSignal.timeout(90_000),
   });
 }
 

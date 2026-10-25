@@ -1,4 +1,4 @@
-import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
+import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CNPS_REQUIRED_ENTITY_TYPES } from '../registration-verification';
 
@@ -163,4 +163,10 @@ export class CompanyRegistrationFieldsDto {
 export class RegisterCompanyDto extends CompanyRegistrationFieldsDto {
   @IsString()
   password!: string;
+
+  // Stable across an offline queue retry. This is optional for existing
+  // clients, but the web registration flow sends it on every attempt.
+  @IsOptional()
+  @IsUUID()
+  clientRequestId?: string;
 }
