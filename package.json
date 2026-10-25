@@ -17,6 +17,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
     "test": "jest",
+    "test:pg": "node scripts/run-pg-tests.js",
     "spss:registry": "ts-node -T scripts/spss-variable-registry.ts"
   },
   "jest": {
