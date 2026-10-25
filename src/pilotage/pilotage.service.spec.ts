@@ -897,6 +897,21 @@ describe('PilotageService coverage', () => {
     await expect(harness.service.getCoverage(undefined, '2026')).resolves.toEqual({
       year: 2026,
       period: { year: 2026, quarter: null, semester: null, campaignIds: [] },
+      // A fail-closed scope still answers a totals row, all zeros: the view
+      // renders it unconditionally, and a missing key would read as a crash
+      // rather than as "nothing in your ressort".
+      totals: {
+        companyCount: 0,
+        registered: 0,
+        registeredInYear: 0,
+        pendingApproval: 0,
+        pendingReview: 0,
+        complementsRequested: 0,
+        documentsIncomplete: 0,
+        draft: 0,
+        inscriptionTarget: 0,
+        rate: null,
+      },
       central: null,
       unassigned: null,
       nullEntityType: null,

@@ -401,12 +401,16 @@ function registrationQuotaRanking(
     }
 
     const regionQuota = region.inscriptionTarget != null && region.inscriptionTarget > 0 ? region.inscriptionTarget : null;
-    if (regionQuota != null && region.rate != null && region.registered != null) {
+    // registeredInYear, not registered: it is the rate's own numerator, so the
+    // counts cell and the percentage beside it describe the same thing. It is
+    // null exactly when the reader's scope hides region stock, which is what
+    // the guard tests.
+    if (regionQuota != null && region.rate != null && region.registeredInYear != null) {
       items.push({
         key: region.regionId,
         name: region.name,
         responseRate: region.rate * 100,
-          received: region.registeredInYear,
+        received: region.registeredInYear,
         registered: regionQuota,
         target: null,
         // The queue filters on the region and department NAMES
@@ -431,7 +435,7 @@ function registrationQuotaRanking(
         key: "central",
         name: centralLabel,
         responseRate: data.central.rate * 100,
-        received: data.central.registered,
+        received: data.central.registeredInYear,
         registered: data.central.inscriptionTarget,
         target: null,
         // The ministry cohort is not a region, so the queue's region filter
