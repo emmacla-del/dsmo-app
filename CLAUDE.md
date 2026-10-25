@@ -999,11 +999,21 @@ Approved changes on record:
   but one as unwanted. No statistical variable, export, PDF or dataset version
   changes: this is the quota model and the coverage view's denominator.
   Approved by the owner in chat, 2026-10-25, with the grain chosen explicitly.
-  NOT done in this pass: the targets editor cannot yet enter per-type quotas
-  (so the dimension is settable only through the API), and the coverage view's
-  type tab does not yet render the new target, gap and rate. Both are the
-  phases that follow; until the editor ships, every region stays in whichever
-  mode it is in today and nothing on screen changes.
+  Delivered in three commits the same day: the data layer (c11a14fd), the
+  targets editor's third mode, « Par type d'entité », with one input per type
+  and a live regional sum (34fb82da), and the coverage type tab's Quota, Écart
+  and Taux columns (0ce19047). Two traps the phases turned up, both fixed and
+  pinned by tests: `replaceScoped` matched stored rows on departmentId alone,
+  which would have deleted every per-type row but one; and the editor's
+  `sameEntries` compared on (department, value), so moving a quota from one
+  type to another — same total, different split — read as « no change » and
+  was dropped on save. Switching a region INTO per-type does NOT spread its
+  region total across the types: that split is the writer's judgement, and a
+  guessed one would be stored as though they had made it. STILL OPEN: the
+  ranking above the grid lists territories only, so a type behind its quota is
+  not ranked anywhere; and `entityTypeQuotaNote` (renamed from
+  entityTypeNoQuotaNote, which asserted the absence of what the tab now shows)
+  is what to revisit if the grain ever widens to department × type.
 
 ---
 
