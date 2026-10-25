@@ -1146,8 +1146,19 @@ html:has(.cam-masthead) {
 
 /* Wide: the same header as on a narrow screen -- wordmark, then the six
    steps as a horizontal rail over the frame (owner, 2026-10-22, replacing
-   the dossier side panel on this route). */
-@media (min-width: 1024px) {
+   the dossier side panel on this route).
+
+   1240px, not 1024px, because this row only works when all three of its
+   columns fit. The middle track is fixed at the rail's width (728px) and the
+   side tracks must hold the endorsement, which is nowrap: 179px for « Une
+   plateforme de l'ONEFOP », the longer of the two languages. With the column
+   gaps and the header's own padding that needs about 1197px, so between 1024
+   and 1239 the side track was narrower than its text -- a grid track does not
+   clip, and `justify-self: start` sizes the item to its content, so the
+   endorsement kept its full width, outgrew its 92px column and ran 20px into
+   the rail, over the first step's label. Below this width the stacked header
+   above applies, which has room for both. */
+@media (min-width: 1240px) {
   /* The wizard masthead scrolls with the page; subsection headings are the
      only content pinned during form scrolling. */
   .cam-auth-page--wizard .flow-header {
