@@ -611,6 +611,7 @@ export class AuthService {
     companyData: CompanyRegistrationData,
     attribution: {
       registrationMethod: string;
+      registrationRequestId?: string;
       createdBy?: string | null;
       assigneeId?: string | null;
       /**
@@ -697,81 +698,85 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 10);
 
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          email,
-          passwordHash: hashed,
-          role: 'COMPANY',
-          firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
-          lastName: companyData.respondentLastName ?? '',
-          region: resolvedTerritory.region,
-          department: resolvedTerritory.department,
-          status: 'PENDING_APPROVAL',
-          isActive: true,
-          emailVerified: false,
-          registrationMethod: attribution.registrationMethod,
-          createdBy: attribution.createdBy ?? null,
-          assigneeId: attribution.assigneeId ?? null,
-        },
-      });
+      const { user, company } = await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            passwordHash: hashed,
+            role: 'COMPANY',
+            firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
+            lastName: companyData.respondentLastName ?? '',
+            region: resolvedTerritory.region,
+            department: resolvedTerritory.department,
+            status: 'PENDING_APPROVAL',
+            isActive: true,
+            emailVerified: false,
+            registrationMethod: attribution.registrationMethod,
+            registrationRequestId: attribution.registrationRequestId,
+            createdBy: attribution.createdBy ?? null,
+            assigneeId: attribution.assigneeId ?? null,
+          },
+        });
 
-      const company = await this.prisma.company.create({
-        data: {
-          userId: user.id,
-          name: companyData.name,
-          parentCompany: companyData.parentCompany,
-          mainActivity: companyData.mainActivity || companyData.mainMission || (companyData.entityType === 'VOCATIONAL_TRAINING' ? 'Formation professionnelle' : 'Non renseignée'),
-          secondaryActivity: companyData.secondaryActivity,
-          region: resolvedTerritory.region,
-          department: resolvedTerritory.department,
-          subdivision: resolvedTerritory.subdivision!,
-          regionId: resolvedTerritory.regionId,
-          departmentId: resolvedTerritory.departmentId,
-          subdivisionId: resolvedTerritory.subdivisionId,
-          address: companyData.address,
-          fax: companyData.fax,
-          taxNumber: resolvedTaxNumber,
-          cnpsNumber: companyData.cnpsNumber,
-          socialCapital: companyData.socialCapital,
-          entityType: companyData.entityType as any,
-          totalEmployees: companyData.totalEmployees ?? 0,
-          menCount: companyData.menCount,
-          womenCount: companyData.womenCount,
-          lastYearMenCount: companyData.lastYearMenCount,
-          lastYearWomenCount: companyData.lastYearWomenCount,
-          lastYearTotal: companyData.lastYearTotal,
-          area: companyData.area,
-          sectorId: companyData.sectorId,
-          phone: companyData.phone,
-          phone2: companyData.phone2,
-          poBox: companyData.poBox,
-          branch: companyData.branch,
-          legalStatus: companyData.legalStatus,
-          cooperativeType: companyData.cooperativeType,
-          ctdType: companyData.ctdType,
-          projectNature: companyData.projectNature,
-          yearOfCreation: companyData.yearOfCreation,
-          mainMission: companyData.mainMission,
-          registrationNumber: companyData.registrationNumber,
-          trainingDomains: companyData.trainingDomains,
-          respondentFirstName: companyData.respondentFirstName,
-          respondentLastName: companyData.respondentLastName,
-          respondentPhone: companyData.respondentPhone,
-          respondentPhone2: companyData.respondentPhone2,
-          respondentFunction: companyData.respondentFunction,
-          sigle: companyData.sigle,
-          cfpType: companyData.cfpType,
-          educationSystem: companyData.educationSystem,
-          functionalStatus: companyData.functionalStatus,
-          nonFunctionalReason: companyData.nonFunctionalReason,
-          nonFunctionalReasonOther: companyData.nonFunctionalReasonOther,
-          promoterName: companyData.promoterName,
-          promoterSex: companyData.promoterSex,
-          promoterPhone1: companyData.promoterPhone1,
-          promoterPhone2: companyData.promoterPhone2,
-          establishmentId,
-          establishmentIdGeneratedAt: new Date(),
-        },
+        const company = await tx.company.create({
+          data: {
+            userId: user.id,
+            name: companyData.name,
+            parentCompany: companyData.parentCompany,
+            mainActivity: companyData.mainActivity || companyData.mainMission || (companyData.entityType === 'VOCATIONAL_TRAINING' ? 'Formation professionnelle' : 'Non renseignée'),
+            secondaryActivity: companyData.secondaryActivity,
+            region: resolvedTerritory.region,
+            department: resolvedTerritory.department,
+            subdivision: resolvedTerritory.subdivision!,
+            regionId: resolvedTerritory.regionId,
+            departmentId: resolvedTerritory.departmentId,
+            subdivisionId: resolvedTerritory.subdivisionId,
+            address: companyData.address,
+            fax: companyData.fax,
+            taxNumber: resolvedTaxNumber,
+            cnpsNumber: companyData.cnpsNumber,
+            socialCapital: companyData.socialCapital,
+            entityType: companyData.entityType as any,
+            totalEmployees: companyData.totalEmployees ?? 0,
+            menCount: companyData.menCount,
+            womenCount: companyData.womenCount,
+            lastYearMenCount: companyData.lastYearMenCount,
+            lastYearWomenCount: companyData.lastYearWomenCount,
+            lastYearTotal: companyData.lastYearTotal,
+            area: companyData.area,
+            sectorId: companyData.sectorId,
+            phone: companyData.phone,
+            phone2: companyData.phone2,
+            poBox: companyData.poBox,
+            branch: companyData.branch,
+            legalStatus: companyData.legalStatus,
+            cooperativeType: companyData.cooperativeType,
+            ctdType: companyData.ctdType,
+            projectNature: companyData.projectNature,
+            yearOfCreation: companyData.yearOfCreation,
+            mainMission: companyData.mainMission,
+            registrationNumber: companyData.registrationNumber,
+            trainingDomains: companyData.trainingDomains,
+            respondentFirstName: companyData.respondentFirstName,
+            respondentLastName: companyData.respondentLastName,
+            respondentPhone: companyData.respondentPhone,
+            respondentPhone2: companyData.respondentPhone2,
+            respondentFunction: companyData.respondentFunction,
+            sigle: companyData.sigle,
+            cfpType: companyData.cfpType,
+            educationSystem: companyData.educationSystem,
+            functionalStatus: companyData.functionalStatus,
+            nonFunctionalReason: companyData.nonFunctionalReason,
+            nonFunctionalReasonOther: companyData.nonFunctionalReasonOther,
+            promoterName: companyData.promoterName,
+            promoterSex: companyData.promoterSex,
+            promoterPhone1: companyData.promoterPhone1,
+            promoterPhone2: companyData.promoterPhone2,
+            establishmentId,
+            establishmentIdGeneratedAt: new Date(),
+          },
+        });
+        return { user, company };
       });
 
       // Issuance journal. The migration's sequence seed also reads these
@@ -839,10 +844,30 @@ export class AuthService {
     email: string,
     password: string,
     companyData: CompanyRegistrationData,
+    clientRequestId?: string,
   ) {
-    const created = await this.createCompanyRegistration(email, password, companyData, {
-      registrationMethod: 'SELF_REGISTRATION',
-    });
+    const requestId = clientRequestId?.trim() || undefined;
+    if (requestId) {
+      const replay = await this.replayCompanyRegistration(requestId, email, password);
+      if (replay) return replay;
+    }
+
+    let created: Awaited<ReturnType<AuthService['createCompanyRegistration']>>;
+    try {
+      created = await this.createCompanyRegistration(email, password, companyData, {
+        registrationMethod: 'SELF_REGISTRATION',
+        registrationRequestId: requestId,
+      });
+    } catch (error) {
+      // Two retries can arrive together. The unique request key lets the
+      // loser return the account created by the winner once its company row
+      // is present, while still refusing a request key reused by someone else.
+      if (requestId) {
+        const replay = await this.replayCompanyRegistration(requestId, email, password);
+        if (replay) return replay;
+      }
+      throw error;
+    }
 
     const loginResult = await this.login(created.user);
     return {
@@ -853,6 +878,37 @@ export class AuthService {
         establishmentId: created.establishmentId,
         taxNumber: created.company.taxNumber,
         entityType: created.company.entityType,
+        attestationUrl: null,
+      },
+    };
+  }
+
+  private async replayCompanyRegistration(requestId: string, email: string, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { registrationRequestId: requestId },
+    });
+    if (!user) return null;
+
+    const sameEmail = normalizeEmail(user.email) === normalizeEmail(email);
+    const samePassword = await bcrypt.compare(password, user.passwordHash);
+    if (!sameEmail || !samePassword) {
+      throw new ConflictException('Cette demande d’inscription a déjà été utilisée.');
+    }
+
+    const company = await this.prisma.company.findUnique({ where: { userId: user.id } });
+    if (!company) {
+      throw new ConflictException('Cette inscription est en cours de traitement. Réessayez dans un instant.');
+    }
+
+    const loginResult = await this.login(user);
+    return {
+      ...loginResult,
+      company: {
+        id: company.id,
+        name: company.name,
+        establishmentId: company.establishmentId,
+        taxNumber: company.taxNumber,
+        entityType: company.entityType,
         attestationUrl: null,
       },
     };

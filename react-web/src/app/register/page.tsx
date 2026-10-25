@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -15,6 +15,13 @@ import {
   registerCompany,
   type RegisterCompanyPayload,
 } from "@/lib/api-client";
+import {
+  discardQueuedSignup,
+  enqueueSignup,
+  getQueuedSignups,
+  sendQueuedSignup,
+  type QueuedSignup,
+} from "@/lib/registration-outbox";
 import {
   ENTITY_CONFIGS,
   REGISTRATION_STEPS,
@@ -46,6 +53,14 @@ import {
 import { asUiLocale, localized } from "@/lib/register-i18n";
 import { sectorLabel } from "@/lib/display-labels";
 import { branchesFor, dropUnofferedBranch } from "@/lib/register-activity";
+import {
+  branchList,
+  departmentList,
+  regionList,
+  subdivisionList,
+  subdivisionsStatusOf,
+} from "@/lib/register-reference";
+import { bundledSubdivisions } from "@/lib/location-nomenclature";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
@@ -261,11 +276,19 @@ export default function RegisterPage() {
   const [obscurePassword, setObscurePassword] = useState(true);
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [queuedSignup, setQueuedSignup] = useState<QueuedSignup | null>(null);
+  const [syncingQueuedSignup, setSyncingQueuedSignup] = useState(false);
+  const [queuedSignupError, setQueuedSignupError] = useState<string | null>(null);
+  const autoSyncQueuedSignupRef = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{
+    queued?: boolean;
     establishmentId?: string | null;
     companyName: string;
     status?: string | null;
+    respondentFirstName?: string;
+    respondentLastName?: string;
+    respondentEmail?: string;
     // Client time at the moment the server accepted the file -- the
     // response carries no timestamp, and Flutter's receipt does the same.
     registeredAt: Date;
@@ -295,33 +318,45 @@ export default function RegisterPage() {
   const [branchName, setBranchName] = useState("");
   const [branchNameEn, setBranchNameEn] = useState("");
 
-  const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions });
+  const regionsQuery = useQuery({
+    queryKey: ["locations", "regions"],
+    queryFn: getRegions,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
+  });
   const departmentsQuery = useQuery({
     queryKey: ["locations", "departments", regionId],
     queryFn: () => getDepartmentsByRegion(regionId),
     enabled: !!regionId,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
   const subdivisionsQuery = useQuery({
     queryKey: ["locations", "subdivisions", departmentId],
     queryFn: () => getSubdivisionsByDepartment(departmentId),
     enabled: !!departmentId,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
   const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
+
+  // The four required reference lists, read from the copies bundled with the
+  // app until the API answers (src/lib/register-reference.ts). Each select
+  // therefore has something to offer from the first render, as the sector and
+  // the year beside them always had; a live answer replaces the bundled list
+  // for the rest of the session, so a referential edit is still picked up.
+  const branches = branchList(sectorsQuery);
+  const regions = regionList(regionsQuery);
+  const departments = departmentList(departmentsQuery, regionId);
+  const subdivisions = subdivisionList(subdivisionsQuery, departmentId);
 
   // The subdivision list's four distinct states. "No subdivision selected" and
   // "this department has no subdivisions to select" must not collapse into one
   // another: the first has to block, the second must not, or a department the
   // server has no arrondissements for would strand the respondent here. See
   // SubdivisionsStatus for the full reasoning.
-  const subdivisionsStatus: SubdivisionsStatus = !departmentId
-    ? "idle"
-    : subdivisionsQuery.isFetching
-      ? "loading"
-      : subdivisionsQuery.isError
-        ? "error"
-        : (subdivisionsQuery.data?.length ?? 0) === 0
-          ? "empty"
-          : "ready";
+  const subdivisionsStatus: SubdivisionsStatus = subdivisionsStatusOf(
+    departmentId,
+    subdivisionsQuery,
+    departmentId ? bundledSubdivisions(departmentId) : [],
+  );
 
   // Immutable snapshot handed to the pure completeness checks. Assembled here
   // rather than inside isSectionComplete so that function never touches a hook.
@@ -363,10 +398,10 @@ export default function RegisterPage() {
   function setEntityField(key: string, value: string) {
     // A new sector drops a branch that belongs to another one.
     setEntityData((prev) =>
-      dropUnofferedBranch({ ...prev, [key]: value }, sectorsQuery.data, entityType)
+      dropUnofferedBranch({ ...prev, [key]: value }, branches, entityType)
     );
     if (key === "branchId") {
-      const picked = sectorsQuery.data?.find((s) => s.id === value);
+      const picked = branches.find((s) => s.id === value);
       setBranchName(picked?.name || "");
       setBranchNameEn(picked?.nameEn || "");
     }
@@ -391,6 +426,7 @@ export default function RegisterPage() {
     gated = false
   ): string {
     if (gated) return "";
+    if ((query.data?.length ?? 0) > 0) return "";
     if (query.isFetching) return t("registerPage.loadingOptions");
     if (query.isError) return t("registerPage.loadErrorOptions");
     if ((query.data?.length ?? 0) === 0) return t("registerPage.noOptions");
@@ -413,6 +449,81 @@ export default function RegisterPage() {
           {t("registerPage.retryButton")}
         </button>
       </p>
+    );
+  }
+
+  /**
+   * One level of the location cascade. The three rows -- region, department,
+   * arrondissement -- differ only in their label, the query behind them, the
+   * level above that gates them, and what a new answer clears below it; every
+   * other part of the row was written out three times.
+   *
+   * `gatedBy` is "the level above is unanswered": it greys the row, keeps the
+   * prompt empty (selectStatusLabel says nothing about a list nobody can
+   * reach yet) and, unless `disabled` says otherwise, disables the control.
+   * A function rather than a component on purpose -- it closes over this
+   * render's helpers, and a component declared here would be a new type on
+   * every render, remounting the select and losing its focus.
+   */
+  function locationRow({
+    id,
+    label,
+    query,
+    items,
+    value,
+    gatedBy,
+    disabled,
+    hint,
+    onSelect,
+  }: {
+    id: string;
+    label: string;
+    query: {
+      isFetching: boolean;
+      isError: boolean;
+      refetch: () => unknown;
+    };
+    items: { id: string; name: string }[];
+    value: string;
+    gatedBy?: boolean;
+    disabled?: boolean;
+    hint?: string;
+    /** The chosen id, and its name, which the review step reads back. */
+    onSelect: (id: string, name: string) => void;
+  }) {
+    return (
+      <FormRow
+        htmlFor={id}
+        label={label}
+        required
+        gated={gatedBy}
+        error={fieldErrorLine(id)}
+        hint={hint}
+      >
+        <div className="input-row">
+          <select
+            id={id}
+            aria-required={true}
+            {...invalidProps(id)}
+            value={value}
+            disabled={disabled ?? gatedBy}
+            onChange={(e) => {
+              const next = e.target.value;
+              onSelect(next, items.find((item) => item.id === next)?.name || "");
+            }}
+          >
+            <option value="">
+              {selectStatusLabel({ ...query, data: items }, gatedBy)}
+            </option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loadRetry(query)}
+      </FormRow>
     );
   }
 
@@ -544,9 +655,9 @@ export default function RegisterPage() {
             // a region: the list is that sector's branches.
             <select {...controlProps} disabled={!entityData.activitySector}>
               <option value="">
-                {selectStatusLabel(sectorsQuery, !entityData.activitySector)}
+                {selectStatusLabel({ ...sectorsQuery, data: branches }, !entityData.activitySector)}
               </option>
-              {branchesFor(sectorsQuery.data, entityData.activitySector, entityType).map((b) => (
+              {branchesFor(branches, entityData.activitySector, entityType).map((b) => (
                 <option key={b.id} value={b.id}>
                   {sectorLabel(b, locale)}
                 </option>
@@ -785,13 +896,85 @@ export default function RegisterPage() {
     }
   };
 
-  const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
-  const resolvedDepartmentName = departmentName || departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
-  const resolvedSubdivisionName = subdivisionName || subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
+  const resolvedRegionName = regionName || regions.find((r) => r.id === regionId)?.name;
+  const resolvedDepartmentName = departmentName || departments.find((d) => d.id === departmentId)?.name;
+  const resolvedSubdivisionName = subdivisionName || subdivisions.find((s) => s.id === subdivisionId)?.name;
   const branchId = entityData.branchId ?? "";
-  const pickedBranch = branchId ? sectorsQuery.data?.find((s) => s.id === branchId) : undefined;
+  const pickedBranch = branchId ? branches.find((s) => s.id === branchId) : undefined;
   const resolvedBranchName = branchId ? pickedBranch?.name || branchName : "";
   const resolvedBranchNameEn = branchId ? pickedBranch?.nameEn || branchNameEn : "";
+
+  useEffect(() => {
+    let active = true;
+    getQueuedSignups()
+      .then((entries) => {
+        if (!active || entries.length === 0) return;
+        const entry = entries[0];
+        // The user already chose to queue this signup. Resume delivery after
+        // reload when online; the request key makes an ambiguous retry safe.
+        autoSyncQueuedSignupRef.current = true;
+        setQueuedSignup(entry);
+        setResult({
+          queued: true,
+          companyName: entry.payload.companyName,
+          respondentFirstName: entry.payload.firstName,
+          respondentLastName: entry.payload.lastName,
+          respondentEmail: entry.payload.email,
+          registeredAt: new Date(entry.createdAt),
+        });
+      })
+      .catch(() => {
+        if (active) {
+          const message = t("registerPage.queuedStorageError");
+          setQueuedSignupError(message);
+          setSubmitError(message);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [t]);
+
+  const syncQueuedRegistration = useCallback(async (id: string) => {
+    if (syncingQueuedSignup) return;
+    setSyncingQueuedSignup(true);
+    setQueuedSignupError(null);
+    try {
+      const { payload, response } = await sendQueuedSignup(id, registerCompany);
+      autoSyncQueuedSignupRef.current = false;
+      setQueuedSignup(null);
+      setResult({
+        establishmentId: response.company.establishmentId,
+        companyName: response.company.name ?? payload.companyName,
+        status: response.user.status,
+        respondentFirstName: payload.firstName,
+        respondentLastName: payload.lastName,
+        respondentEmail: payload.email,
+        registeredAt: new Date(),
+      });
+    } catch (error) {
+      setQueuedSignupError(
+        error instanceof ApiError && error.status >= 400 && error.status < 500
+          ? error.message
+          : t("registerPage.queuedRetryError"),
+      );
+    } finally {
+      setSyncingQueuedSignup(false);
+    }
+  }, [syncingQueuedSignup, t]);
+
+  useEffect(() => {
+    if (!queuedSignup || !autoSyncQueuedSignupRef.current) return;
+    const trySync = () => {
+      if (navigator.onLine) void syncQueuedRegistration(queuedSignup.id);
+    };
+    window.addEventListener("online", trySync);
+    const retry = window.setInterval(trySync, 30_000);
+    return () => {
+      window.removeEventListener("online", trySync);
+      window.clearInterval(retry);
+    };
+  }, [queuedSignup, syncingQueuedSignup, syncQueuedRegistration]);
 
   async function submit() {
     if (!entityType || !config) {
@@ -820,6 +1003,7 @@ export default function RegisterPage() {
       }
 
       const payload: RegisterCompanyPayload = {
+        clientRequestId: crypto.randomUUID(),
         email: respondent.email.trim(),
         password,
         firstName: respondent.firstName.trim(),
@@ -876,11 +1060,58 @@ export default function RegisterPage() {
         respondentPhone2: respondent.phone2 ? normalizeCameroonPhone(respondent.phone2) : undefined,
       };
 
-      const response = await registerCompany(payload);
+      const queueForLater = async () => {
+        const createdAt = Date.now();
+        const id = await enqueueSignup(payload);
+        const entry = { id, createdAt, payload };
+        autoSyncQueuedSignupRef.current = true;
+        setQueuedSignup(entry);
+        setQueuedSignupError(null);
+        setResult({
+          queued: true,
+          companyName,
+          respondentFirstName: payload.firstName,
+          respondentLastName: payload.lastName,
+          respondentEmail: payload.email,
+          registeredAt: new Date(createdAt),
+        });
+      };
+
+      let response: Awaited<ReturnType<typeof registerCompany>>;
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        try {
+          await queueForLater();
+        } catch {
+          setSubmitError(t("registerPage.queuedStorageError"));
+        }
+        return;
+      }
+      try {
+        response = await registerCompany(payload);
+      } catch (requestError) {
+        const isTemporaryFailure =
+          requestError instanceof ApiError &&
+          (requestError.status === 0 ||
+            requestError.status === 408 ||
+            requestError.status === 425 ||
+            requestError.status === 429 ||
+            requestError.status >= 500);
+        if (!isTemporaryFailure) throw requestError;
+        try {
+          await queueForLater();
+          return;
+        } catch {
+          setSubmitError(t("registerPage.queuedStorageError"));
+          return;
+        }
+      }
       setResult({
         establishmentId: response.company.establishmentId,
         companyName: response.company.name ?? companyName,
         status: response.user.status,
+        respondentFirstName: payload.firstName,
+        respondentLastName: payload.lastName,
+        respondentEmail: payload.email,
         registeredAt: new Date(),
       });
       if (typeof window !== "undefined") {
@@ -1004,7 +1235,7 @@ export default function RegisterPage() {
       // rather than relying on that alone.
       // A branch the new type is not offered goes too.
       setEntityData((prev) =>
-        dropUnofferedBranch(pruneEntityDataForType(prev, next), sectorsQuery.data, next)
+        dropUnofferedBranch(pruneEntityDataForType(prev, next), branches, next)
       );
     }
     setEntityType(next);
@@ -1394,7 +1625,8 @@ export default function RegisterPage() {
 
   // Render receipt screen on success
   if (result) {
-    const isActive = result.status === "ACTIVE";
+    const isQueued = result.queued === true;
+    const isActive = !isQueued && result.status === "ACTIVE";
     const establishmentId = result.establishmentId;
     const copyEstablishmentId = async () => {
       if (!establishmentId) return;
@@ -1420,8 +1652,13 @@ export default function RegisterPage() {
               the account status: only an active account is "complete". */}
           <div className="receipt-panel">
             <h1 className="receipt-panel-title" ref={receiptTitleRef} tabIndex={-1}>
-              {isActive ? t("registerPage.successTitle") : t("registerPage.pendingTitle")}
+              {isQueued
+                ? t("registerPage.queuedTitle")
+                : isActive
+                  ? t("registerPage.successTitle")
+                  : t("registerPage.pendingTitle")}
             </h1>
+            {isQueued && <p className="receipt-next-body">{t("registerPage.queuedBody")}</p>}
             {establishmentId && (
               <>
                 <p className="receipt-panel-label" id="receipt-id-label">
@@ -1456,13 +1693,13 @@ export default function RegisterPage() {
             <div className="receipt-list-row">
               <dt>{t("registerPage.receiptRespondentLabel")}</dt>
               <dd>
-                {respondent.firstName} {respondent.lastName}
+                {result.respondentFirstName ?? respondent.firstName} {result.respondentLastName ?? respondent.lastName}
                 <br />
-                <span className="receipt-muted">{respondent.email}</span>
+                <span className="receipt-muted">{result.respondentEmail ?? respondent.email}</span>
               </dd>
             </div>
             <div className="receipt-list-row">
-              <dt>{t("registerPage.receiptDateLabel")}</dt>
+              <dt>{isQueued ? t("registerPage.queuedDateLabel") : t("registerPage.receiptDateLabel")}</dt>
               <dd>
                 {new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
                   result.registeredAt
@@ -1473,7 +1710,11 @@ export default function RegisterPage() {
               <dt>{t("registerPage.receiptStatusLabel")}</dt>
               <dd>
                 <span className={`receipt-tag ${isActive ? "receipt-tag--active" : "receipt-tag--pending"}`}>
-                  {isActive ? t("registerPage.receiptStatusActive") : t("registerPage.receiptStatusPending")}
+                  {isQueued
+                    ? t("registerPage.queuedStatus")
+                    : isActive
+                      ? t("registerPage.receiptStatusActive")
+                      : t("registerPage.receiptStatusPending")}
                 </span>
               </dd>
             </div>
@@ -1481,20 +1722,50 @@ export default function RegisterPage() {
 
           <h2 className="receipt-next-title">{t("registerPage.receiptNextTitle")}</h2>
           <p className="receipt-next-body">
-            {isActive
+            {isQueued
+              ? queuedSignupError ?? t("registerPage.queuedBody")
+              : isActive
               ? t("registerPage.receiptActiveAttestationNote")
-              : t("registerPage.receiptPendingNote", { email: respondent.email.trim() })}
+              : t("registerPage.receiptPendingNote", { email: result.respondentEmail ?? respondent.email.trim() })}
           </p>
 
           {/* The one way forward, and a printed copy of the acknowledgement. */}
           <div className="receipt-actions">
-            <Link
-              href="/login"
-              className="btn-primary"
-              onClick={() => saveLoginIdentifier(respondent.email.trim())}
-            >
-              {isActive ? t("registerPage.signInLink") : t("registerPage.receiptFollowButton")}
-            </Link>
+            {isQueued ? (
+              <>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={syncingQueuedSignup || !queuedSignup}
+                  onClick={() => queuedSignup && void syncQueuedRegistration(queuedSignup.id)}
+                >
+                  {syncingQueuedSignup ? t("registerPage.queuedSyncing") : t("registerPage.queuedSyncButton")}
+                </button>
+                <button
+                  type="button"
+                  className="receipt-link"
+                  disabled={!queuedSignup || syncingQueuedSignup}
+                  onClick={async () => {
+                    if (!queuedSignup) return;
+                    await discardQueuedSignup(queuedSignup.id);
+                    autoSyncQueuedSignupRef.current = false;
+                    setQueuedSignup(null);
+                    setResult(null);
+                    window.location.reload();
+                  }}
+                >
+                  {t("registerPage.queuedDiscardButton")}
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="btn-primary"
+                onClick={() => saveLoginIdentifier((result.respondentEmail ?? respondent.email).trim())}
+              >
+                {isActive ? t("registerPage.signInLink") : t("registerPage.receiptFollowButton")}
+              </Link>
+            )}
             <button type="button" className="receipt-link" onClick={() => window.print()}>
               {t("registerPage.receiptPrint")}
             </button>
@@ -1813,123 +2084,57 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow
-                htmlFor="reg-region"
-                label={t("registerPage.regionLabel")}
-                required
-                error={fieldErrorLine("reg-region")}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-region"
-                    aria-required={true}
-                    {...invalidProps("reg-region")}
-                    value={regionId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      // A new region invalidates the two fields below it.
-                      // That already happened silently; now it says so,
-                      // because a respondent who had answered them would
-                      // otherwise find them blank with no explanation.
-                      if (departmentId || subdivisionId) {
-                        setSnackbar(t("registerPage.locationResetSnackbar"));
-                      }
-                      setRegionId(id);
-                      setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
-                      setDepartmentId("");
-                      setDepartmentName("");
-                      setSubdivisionId("");
-                      setSubdivisionName("");
-                    }}
-                  >
-                    <option value="">{selectStatusLabel(regionsQuery)}</option>
-                    {regionsQuery.data?.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(regionsQuery)}
-              </FormRow>
+              {locationRow({
+                id: "reg-region",
+                label: t("registerPage.regionLabel"),
+                query: regionsQuery,
+                items: regions,
+                value: regionId,
+                onSelect: (id, name) => {
+                  // A new region invalidates the two fields below it. That
+                  // already happened silently; now it says so, because a
+                  // respondent who had answered them would otherwise find
+                  // them blank with no explanation.
+                  if (departmentId || subdivisionId) {
+                    setSnackbar(t("registerPage.locationResetSnackbar"));
+                  }
+                  setRegionId(id);
+                  setRegionName(name);
+                  setDepartmentId("");
+                  setDepartmentName("");
+                  setSubdivisionId("");
+                  setSubdivisionName("");
+                },
+              })}
 
-              <FormRow
-                htmlFor="reg-department"
-                label={t("registerPage.departmentLabel")}
-                gated={!regionId}
-                required
-                error={fieldErrorLine("reg-department")}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-department"
-                    aria-required={true}
-                    {...invalidProps("reg-department")}
-                    value={departmentId}
-                    disabled={!regionId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setDepartmentId(id);
-                      setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
-                      setSubdivisionId("");
-                      setSubdivisionName("");
-                    }}
-                  >
-                    <option value="">
-                      {selectStatusLabel(
-                        departmentsQuery,
-                        !regionId
-                      )}
-                    </option>
-                    {departmentsQuery.data?.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(departmentsQuery)}
-              </FormRow>
+              {locationRow({
+                id: "reg-department",
+                label: t("registerPage.departmentLabel"),
+                query: departmentsQuery,
+                items: departments,
+                value: departmentId,
+                gatedBy: !regionId,
+                onSelect: (id, name) => {
+                  setDepartmentId(id);
+                  setDepartmentName(name);
+                  setSubdivisionId("");
+                  setSubdivisionName("");
+                },
+              })}
 
-              <FormRow
-                htmlFor="reg-subdivision"
-                label={t("registerPage.subdivisionLabel")}
-                gated={!departmentId}
-                required
-                error={fieldErrorLine("reg-subdivision")}
-                // An arrondissement cannot be required of a department the
-                // server has none for; the row says so instead of looking
-                // like an empty dropdown the respondent failed to use.
-                hint={subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-subdivision"
-                    aria-required={true}
-                    {...invalidProps("reg-subdivision")}
-                    value={subdivisionId}
-                    disabled={!departmentId || subdivisionsStatus === "empty"}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setSubdivisionId(id);
-                      setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
-                    }}
-                  >
-                    <option value="">
-                      {selectStatusLabel(
-                        subdivisionsQuery,
-                        !departmentId
-                      )}
-                    </option>
-                    {subdivisionsQuery.data?.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(subdivisionsQuery)}
-              </FormRow>
+              {locationRow({
+                id: "reg-subdivision",
+                label: t("registerPage.subdivisionLabel"),
+                query: subdivisionsQuery,
+                items: subdivisions,
+                value: subdivisionId,
+                gatedBy: !departmentId,
+                hint: subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined,
+                onSelect: (id, name) => {
+                  setSubdivisionId(id);
+                  setSubdivisionName(name);
+                },
+              })}
 
               {/* Two answers, one choice: radios, not a dropdown (CLAUDE.md
                   section 9). A fieldset named by its legend; the id the

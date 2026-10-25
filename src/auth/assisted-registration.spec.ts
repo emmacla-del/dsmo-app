@@ -31,7 +31,7 @@ function sequenceQueryRaw() {
 }
 
 function makePrisma() {
-  return {
+  const prisma: any = {
     user: {
       findUnique: jest.fn(async () => null),
       findFirst: jest.fn(async () => null),
@@ -71,7 +71,9 @@ function makePrisma() {
     },
     auditLog: { create: jest.fn(async () => ({})) },
     $queryRaw: sequenceQueryRaw(),
-  } as any;
+  };
+  prisma.$transaction = jest.fn(async (run: (tx: any) => unknown) => run(prisma));
+  return prisma;
 }
 
 function makeService(prisma: any) {

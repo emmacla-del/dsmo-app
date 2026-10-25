@@ -62,6 +62,7 @@ function makePrisma() {
     auditLog: { create: jest.fn(async () => ({})) },
     $queryRaw: sequenceQueryRaw(),
   };
+  prisma.$transaction = jest.fn(async (run: (tx: any) => unknown) => run(prisma));
   return prisma;
 }
 

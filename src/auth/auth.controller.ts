@@ -129,7 +129,8 @@ export class AuthController {
         promoterSex: body.promoterSex,
         promoterPhone1: body.promoterPhone1,
         promoterPhone2: body.promoterPhone2,
-      }
+      },
+      body.clientRequestId,
     );
   }
 

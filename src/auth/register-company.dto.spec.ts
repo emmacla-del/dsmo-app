@@ -210,3 +210,19 @@ describe('RegisterCompanyDto — PROJECT_PROGRAM nature', () => {
     ).resolves.toMatchObject({ entityType: 'ENTREPRISE' });
   });
 });
+
+describe('RegisterCompanyDto offline retry key', () => {
+  const requestId = '6dbd9a9f-8108-4e48-91bd-6a5fe79eb13d';
+
+  it('accepts an optional UUID clientRequestId', async () => {
+    await expect(pipe.transform(body({ clientRequestId: requestId }), publicBody))
+      .resolves.toMatchObject({ clientRequestId: requestId });
+    await expect(pipe.transform(body(), publicBody)).resolves.not.toHaveProperty('clientRequestId');
+  });
+
+  it('rejects malformed clientRequestId values', async () => {
+    await expect(pipe.transform(body({ clientRequestId: 'retry-1' }), publicBody)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+});
