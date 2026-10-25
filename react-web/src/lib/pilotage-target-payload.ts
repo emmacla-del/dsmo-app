@@ -53,6 +53,7 @@ const TEXT = {
     invalidInt: "doit être un entier positif ou nul.",
     byDepartment: "Par département",
     regionOnly: "Région seule",
+    byEntityType: "Par type d'entité",
     mixed: "Mixte",
     notSet: "Non défini",
     invalidValue: "valeur invalide",
@@ -66,6 +67,7 @@ const TEXT = {
     invalidInt: "must be a whole number, zero or more.",
     byDepartment: "By department",
     regionOnly: "Region only",
+    byEntityType: "By entity type",
     mixed: "Mixed",
     notSet: "Not set",
     invalidValue: "invalid value",
@@ -188,6 +190,7 @@ export function modeLabel(mode: TargetMode | EditMode | null, locale: UiLocale =
   const text = TEXT[locale];
   if (mode === "DEPARTMENT") return text.byDepartment;
   if (mode === "REGION") return text.regionOnly;
+  if (mode === "ENTITY_TYPE") return text.byEntityType;
   if (mode === "MIXED") return text.mixed;
   return text.notSet;
 }
