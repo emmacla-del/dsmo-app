@@ -1584,7 +1584,10 @@ html:has(.cam-masthead) {
 }
 
 /* Under the input, where the hint would be. */
-.cam-auth-page--wizard .field-error {
+/* Also on the login, registration-request and invitation pages: an inline
+   error needs this wherever a form shows one, and the wizard still
+   matches, since its page carries both classes. */
+.cam-auth-page .field-error {
   font-size: var(--cam-field-hint-size);
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-error);
