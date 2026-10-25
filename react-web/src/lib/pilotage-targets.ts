@@ -259,6 +259,15 @@ export interface CoverageBucket extends StockCounts {
 export interface CoverageEntityTypeRow extends StockCounts {
   /** An OnefopEntityType code, e.g. "VOCATIONAL_TRAINING". */
   entityType: string;
+  /**
+   * The type's quota over the reader's scope: the sum of the region-level
+   * per-type rows, or for ADMINISTRATION the national cohort row. Null when
+   * nobody set one, which is not a target of zero. Absent from a backend
+   * older than 2026-10-25.
+   */
+  inscriptionTarget?: number | null;
+  /** registeredInYear / inscriptionTarget, 0-1; null without a quota. */
+  rate?: number | null;
 }
 
 export interface CoverageTotals extends StockCounts {
