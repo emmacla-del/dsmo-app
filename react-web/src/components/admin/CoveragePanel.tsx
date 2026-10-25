@@ -258,7 +258,7 @@ function CoverageOverdue() {
     return <DataState dense state="error" resource={t("statusOverdue", { days })} error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.isPending || !query.data) {
-    return <DataState dense state="loading" resource={t("statusOverdue", { days })} title={t("metricUnavailable")} />;
+    return <DataState dense state="loading" resource={t("statusOverdue", { days })} title={tRoot("adminPilotagePage.metricUnavailable")} />;
   }
 
   return (
@@ -268,7 +268,10 @@ function CoverageOverdue() {
     >
       <span className="text-sm font-medium">{tRoot("adminInscriptionsPage.statusOverdue", { days })}</span>
       <strong className={query.data.counts.overdue ? "text-lg tabular-nums text-destructive" : "text-lg tabular-nums"}>{count(query.data.counts.overdue, locale)}</strong>
-      <small className="basis-full text-muted-foreground">{t("registrationOverdueCaption")}</small>
+      {/* Both of these live in adminPilotagePage, where the dashboard's own
+          overdue tile already uses them; naming that namespace keeps one
+          wording rather than a second copy drifting here. */}
+      <small className="basis-full text-muted-foreground">{tRoot("adminPilotagePage.registrationOverdueCaption")}</small>
     </Link>
   );
 }
