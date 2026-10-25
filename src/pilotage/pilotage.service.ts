@@ -8,6 +8,8 @@ import {
 import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
+import { isOverdue, overdueCutoff, overdueDaysFrom } from '../auth/registration-overdue';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { DOUALA_TIME_ZONE } from '../common/utils/douala-date';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
@@ -19,13 +21,16 @@ import {
   nonRespondentFileState,
   DepartmentReturnRow,
   EntityTypeTally,
+  ENTITY_TYPE_ORDER,
   RegionReturnRow,
   ReturnMetrics,
   addMetrics,
   buildMetrics,
   emptyMetrics,
   CampaignReturnsTimeline,
+  CampaignReturnsActivity,
   buildTimelineDays,
+  doualaDay,
   countedReturns,
   isApprovedStatus,
   isReceivedStatus,
@@ -62,6 +67,8 @@ export const PilotageAuditAction = {
 type ScopeKey = { campaignId: string };
 
 interface StoredRow {
+  /** Null on a row covering every entity type; see CampaignQuota.entityType. */
+  entityType?: string | null;
   id: string;
   /**
    * Non-null although CampaignQuota.regionId is nullable in the schema. The
@@ -95,11 +102,16 @@ interface ShapedRegion {
   mode: TargetMode;
   target: number | null;
   departments: Array<{ departmentId: string; name: string; target: number | null }>;
+  /** Per-entity-type quotas, empty unless the region is in ENTITY_TYPE mode. */
+  byEntityType: Map<string, number>;
 }
 
 @Injectable()
 export class PilotageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly systemSettings: SystemSettingsService,
+  ) {}
 
   /**
    * The ACTIVE collection campaigns, so a pilotage reader can find the id the
@@ -146,7 +158,7 @@ export class PilotageService {
       territory,
       year,
       () => this.onefopCampaignIds(year, ANNUAL_QUARTERS),
-      { quarter: null, semester: null },
+      { quarter: null, semester: null, quarters: ANNUAL_QUARTERS },
     );
   }
 
@@ -161,7 +173,22 @@ export class PilotageService {
       territory,
       year,
       () => this.onefopCampaignIds(year, quarters),
-      { quarter: null, semester },
+      { quarter: null, semester, quarters },
+    );
+  }
+
+  /** Quarter roll-up: only the selected quarter's campaigns and approvals. */
+  async getQuarterCoverage(
+    territory: Territory | null | undefined,
+    year: number,
+    quarter: number,
+  ) {
+    const quarters = quarterQuarters(quarter);
+    return this.coverageFrom(
+      territory,
+      year,
+      () => this.onefopCampaignIds(year, quarters),
+      { quarter, semester: null, quarters },
     );
   }
 
@@ -210,8 +237,11 @@ export class PilotageService {
     territory: Territory | null | undefined,
     year: number,
     resolveCampaignIds: () => Promise<string[]>,
-    bounds: { quarter: number | null; semester: number | null },
+    bounds: { quarter: number | null; semester: number | null; quarters: readonly number[] },
   ) {
+    const overdueDays = overdueDaysFrom((await this.systemSettings.getSettings()).registrationOverdueDays);
+    const now = new Date();
+    const overdueSince = overdueCutoff(overdueDays, now);
     let campaignIds: string[] = [];
     const { scope, regions } = await this.loadGrid(territory, async (current) => {
       campaignIds = await resolveCampaignIds();
@@ -224,7 +254,16 @@ export class PilotageService {
     const period = { year, quarter: bounds.quarter, semester: bounds.semester, campaignIds };
 
     if (scope.kind === 'none') {
-      return { year, period, central: null, unassigned: null, nullEntityType: null, regions: [] };
+      return {
+        year,
+        period,
+        overdueDays,
+        totals: { ...emptyCounts(), inscriptionTarget: 0, rate: null, targetIndeterminate: false },
+        central: null,
+        unassigned: null,
+        nullEntityType: null,
+        regions: [],
+      };
     }
 
     const national = scope.kind === 'national';
@@ -239,6 +278,7 @@ export class PilotageService {
       this.prisma.company.findMany({
         where: companyWhere(scope),
         select: {
+          id: true,
           entityType: true,
           regionId: true,
           departmentId: true,
@@ -246,10 +286,36 @@ export class PilotageService {
           establishmentIdGeneratedAt: true,
           createdAt: true,
           departmentRef: { select: { regionId: true } },
-          user: { select: { status: true, isActive: true, approvedAt: true } },
+          user: { select: { id: true, status: true, isActive: true, approvedAt: true } },
         },
       }),
     ]);
+
+    const waitingUserIds = companies
+      .filter((company) => company.user.status === 'PENDING_APPROVAL' && company.createdAt < overdueSince)
+      .map((company) => company.user.id);
+    const recentlyResubmittedIds = waitingUserIds.length === 0
+      ? new Set<string>()
+      : new Set(
+          (await this.prisma.auditLog.findMany({
+            where: {
+              action: 'COMPANY_REGISTRATION_RESUBMITTED',
+              resourceType: 'User',
+              resourceId: { in: waitingUserIds },
+              createdAt: { gte: overdueSince },
+            },
+            select: { resourceId: true },
+          })).map((row) => row.resourceId),
+        );
+    const overdueCompanyIds = new Set(
+      companies
+        .filter((company) => {
+          if (company.user.status !== 'PENDING_APPROVAL') return false;
+          return !recentlyResubmittedIds.has(company.user.id) &&
+            isOverdue(company.createdAt, overdueDays, now);
+        })
+        .map((company) => company.id),
+    );
 
     /**
      * The ministry cohort's target for the folded period: the ADMINISTRATION
@@ -262,20 +328,126 @@ export class PilotageService {
     const centralTarget = sumTargets(administrationQuotas);
 
     const tallies = new Map<string, StockCounts>();
+    /**
+     * The same rows, tallied a second way.
+     *
+     * Registration quotas are territorial (scopeKind TERRITORIAL /
+     * ADMINISTRATION), so an entity type carries no target and therefore no
+     * coverage rate — this breakdown is stock only. A row with no entityType
+     * is already answered by `nullEntityType` and is not a type of its own.
+     */
+    const typeTallies = new Map<string, StockCounts>();
     for (const company of companies) {
-      const row = toStockRow(company);
+      const row = toStockRow(company, overdueCompanyIds.has(company.id));
       const key = bucketKey(classifyBucket(row));
       const counts = tallies.get(key) ?? emptyCounts();
-      applyRow(counts, row, year);
+      applyRow(counts, row, year, bounds.quarters);
       tallies.set(key, counts);
+
+      if (row.entityType != null) {
+        const typeCounts = typeTallies.get(row.entityType) ?? emptyCounts();
+        applyRow(typeCounts, row, year, bounds.quarters);
+        typeTallies.set(row.entityType, typeCounts);
+      }
     }
+
+    /**
+     * Listed on EntityTypeTally.rows()' terms, so this breakdown and the
+     * campaign-returns one order and omit types identically: every type of
+     * ENTITY_TYPE_ORDER, zero included — a type nobody registered is
+     * information — except ADMINISTRATION outside national scope, where
+     * administrations are a national cohort (classifyBucket sends them to
+     * `central`, never to a territory). A type outside the order, i.e. a
+     * deprecated value, follows only when it holds something.
+     */
+    const listedTypes = ENTITY_TYPE_ORDER.filter(
+      (entityType) => national || entityType !== 'ADMINISTRATION',
+    );
+    const extraTypes = [...typeTallies.keys()]
+      .filter((entityType) => !ENTITY_TYPE_ORDER.includes(entityType))
+      .sort();
+    /**
+     * A type's quota is the sum of its region-level per-type rows across the
+     * reader's scope. Only a region in ENTITY_TYPE mode contributes any, so a
+     * scope where nobody set per-type quotas states null and the view shows
+     * "—" rather than a zero that would read as a target of none.
+     *
+     * ADMINISTRATION is the exception: its respondents are the national
+     * cohort, counted in `central` and never in a region, so its quota is the
+     * ADMINISTRATION-scoped row — the same figure central already uses — and
+     * only at national scope, where that bucket exists.
+     */
+    const typeTargets = new Map<string, number>();
+    for (const region of regions) {
+      for (const [entityType, target] of region.byEntityType) {
+        typeTargets.set(entityType, (typeTargets.get(entityType) ?? 0) + target);
+      }
+    }
+    const typeTarget = (entityType: string): number | null => {
+      if (entityType === 'ADMINISTRATION') return national ? centralTarget : null;
+      return typeTargets.get(entityType) ?? null;
+    };
+    const byEntityType = [...listedTypes, ...extraTypes].map((entityType) => {
+      const counts = typeTallies.get(entityType) ?? emptyCounts();
+      const inscriptionTarget = typeTarget(entityType);
+      return {
+        entityType,
+        ...counts,
+        inscriptionTarget,
+        // No special case for ADMINISTRATION's numerator: typeTallies counts
+        // the same rows classifyBucket sends to `central`, so the two agree
+        // by construction. Only its target comes from elsewhere.
+        rate: coverageRate(counts.registeredInYear, inscriptionTarget),
+      };
+    });
+
+    // Totals use each company once, including rows without an entity type
+    // that are intentionally kept out of the territorial and type tables.
+    const totalsCounts = emptyCounts();
+    for (const company of companies) {
+      applyRow(totalsCounts, toStockRow(company, overdueCompanyIds.has(company.id)), year, bounds.quarters);
+    }
+    /**
+     * A MIXED region has no determinate target, so neither has the grid.
+     *
+     * summarizeRegion refuses to total a region holding both a region-level
+     * quota row and department rows: region.target is null and its own row
+     * reads "—". Summing its departments here would quietly supply the figure
+     * the grid declines to give, drop the region-level row from the sum, and
+     * leave a total that does not equal the column above it. The total says
+     * "—" instead, on the same terms as the row, and the table notes why.
+     *
+     * At department scope the question does not arise: the reader sees one
+     * department, whose own target is unambiguous, and a region-level row
+     * could never apply to it.
+     */
+    const indeterminateTarget = !hideRegionStock && regions.some((region) => region.mode === 'MIXED');
+    const territorialTarget = regions.reduce(
+      (total, region) => total + (
+        hideRegionStock
+          ? region.departments.reduce((sum, department) => sum + (department.target ?? 0), 0)
+          : region.target ?? 0
+      ),
+      0,
+    );
+    const totalTarget = indeterminateTarget ? null : territorialTarget + (national ? centralTarget ?? 0 : 0);
+    const totals = {
+      ...totalsCounts,
+      inscriptionTarget: totalTarget,
+      rate: coverageRate(totalsCounts.registeredInYear, totalTarget),
+      /** True when a MIXED region leaves the grid with no total to state. */
+      targetIndeterminate: indeterminateTarget,
+    };
 
     return {
       year,
       period,
+      overdueDays,
+      totals,
       central: national ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget) : null,
       unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
       nullEntityType: national ? tallies.get('nullEntityType') ?? emptyCounts() : null,
+      byEntityType,
       regions: regions.map((region) => {
         const departments = region.departments.map((department) => {
           const counts = tallies.get(bucketKey({
@@ -288,7 +460,7 @@ export class PilotageService {
             name: department.name,
             ...counts,
             inscriptionTarget: department.target,
-            rate: coverageRate(counts.registered, department.target),
+            rate: coverageRate(counts.registeredInYear, department.target),
           };
         });
         const summed = departments.reduce(
@@ -305,8 +477,11 @@ export class PilotageService {
           pendingApproval: hideRegionStock ? null : summed.pendingApproval,
           pendingReview: hideRegionStock ? null : summed.pendingReview,
           complementsRequested: hideRegionStock ? null : summed.complementsRequested,
+          documentsIncomplete: hideRegionStock ? null : summed.documentsIncomplete,
+          draft: hideRegionStock ? null : summed.draft,
+          overdue: hideRegionStock ? null : summed.overdue,
           inscriptionTarget: region.target,
-          rate: hideRegionStock ? null : coverageRate(summed.registered, region.target),
+          rate: hideRegionStock ? null : coverageRate(summed.registeredInYear, region.target),
           departments,
         };
       }),
@@ -426,6 +601,8 @@ export class PilotageService {
     interface BucketCounts {
       received: number;
       approved: number;
+      pendingReview: number;
+      correctionRequested: number;
       onTime: number;
       late: number;
     }
@@ -435,10 +612,14 @@ export class PilotageService {
     // the timeline uses, so its curve ends on these totals. The entity-type
     // tally reads the same entries, so byEntityType agrees with the totals.
     for (const { submission, bucket } of countedReturns(submissions)) {
-      byType.addReturn(bucket, submission.formType, isApprovedStatus(submission.status), submission.isLate);
-      const current = countsByBucket.get(bucket) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      byType.addReturn(bucket, submission.formType, submission.status, submission.isLate);
+      const current = countsByBucket.get(bucket) ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       current.received += 1;
       if (isApprovedStatus(submission.status)) current.approved += 1;
+      if (submission.status === OnefopStatus.PENDING_REVIEW) current.pendingReview += 1;
+      if (submission.status === OnefopStatus.CORRECTION_REQUESTED) current.correctionRequested += 1;
       if (submission.isLate) current.late += 1;
       else current.onTime += 1;
       countsByBucket.set(bucket, current);
@@ -458,7 +639,9 @@ export class PilotageService {
           regionId: region.regionId,
           departmentId: department.departmentId,
         });
-        const counts = countsByBucket.get(key) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+        const counts = countsByBucket.get(key) ?? {
+          received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+        };
         const registeredStock = registeredStockByBucket.get(key) ?? 0;
         const metrics = buildMetrics(department.target, counts, registeredStock);
         return {
@@ -473,10 +656,12 @@ export class PilotageService {
         (acc, d) => ({
           received: acc.received + d.received,
           approved: acc.approved + d.approved,
+          pendingReview: acc.pendingReview + d.pendingReview,
+          correctionRequested: acc.correctionRequested + d.correctionRequested,
           onTime: acc.onTime + d.onTime,
           late: acc.late + d.late,
         }),
-        { received: 0, approved: 0, onTime: 0, late: 0 },
+        { received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0 },
       );
       const summedStock = departments.reduce((acc, d) => acc + d.registeredStock, 0);
 
@@ -515,7 +700,9 @@ export class PilotageService {
     // Central bucket (National only)
     let central: ReturnMetrics | null = null;
     if (national) {
-      const centralCounts = countsByBucket.get('central') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const centralCounts = countsByBucket.get('central') ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       const centralStock = registeredStockByBucket.get('central') ?? 0;
       central = buildMetrics(centralQuota?.submissionTarget ?? null, centralCounts, centralStock);
       if (centralQuota?.submissionTarget != null) {
@@ -527,7 +714,9 @@ export class PilotageService {
     // Unassigned bucket (National only)
     let unassigned: ReturnMetrics | null = null;
     if (national) {
-      const unassignedCounts = countsByBucket.get('unassigned') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const unassignedCounts = countsByBucket.get('unassigned') ?? {
+        received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0,
+      };
       const unassignedStock = registeredStockByBucket.get('unassigned') ?? 0;
       unassigned = buildMetrics(null, unassignedCounts, unassignedStock);
     }
@@ -636,12 +825,136 @@ export class PilotageService {
     const deliveries = countedReturns(submissions)
       .filter((counted) => visible.has(counted.bucket))
       .map((counted) => counted.firstReceivedAt);
-
     const effectiveDeadline = campaign.extendedDeadline ?? campaign.deadline;
     const ends = [campaign.endDate, effectiveDeadline].filter((d): d is Date => !!d);
     const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
     const days = buildTimelineDays(deliveries, { startDate: campaign.startDate, lastDay, now });
     return { campaign: summary, timeZone, total: deliveries.length, days };
+  }
+
+  async getCampaignReturnsActivity(
+    territory: Territory | null | undefined,
+    campaignId: string,
+    now: Date = new Date(),
+  ): Promise<CampaignReturnsActivity> {
+    const campaign = await this.requireCollectionCampaign(campaignId);
+    const { scope, regions } = await this.loadGrid(territory, async () => []);
+    const summary = returnsSummary(campaign);
+    const timeZone = DOUALA_TIME_ZONE;
+    if (scope.kind === 'none') return { campaign: summary, timeZone, days: [] };
+
+    const visible = new Set<string>();
+    for (const region of regions) {
+      for (const department of region.departments) {
+        visible.add(bucketKey({ kind: 'department', regionId: region.regionId, departmentId: department.departmentId }));
+      }
+    }
+    if (scope.kind === 'national') {
+      visible.add('central');
+      visible.add('unassigned');
+    }
+
+    const submissions = await this.prisma.onefopSubmission.findMany({
+      where: { campaignId, ...submissionWhere(scope) },
+      select: {
+        id: true,
+        companyId: true,
+        formType: true,
+        status: true,
+        isLate: true,
+        regionId: true,
+        departmentId: true,
+        submissionDate: true,
+        createdAt: true,
+        reviewedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const visibleSubmissions = submissions.filter((submission) => {
+      if (submission.formType === 'ADMINISTRATION') return scope.kind === 'national';
+      if (!submission.regionId || !submission.departmentId) return scope.kind === 'national';
+      return visible.has(bucketKey({
+        kind: 'department',
+        regionId: submission.regionId,
+        departmentId: submission.departmentId,
+      }));
+    });
+    const visibleIds = new Set(visibleSubmissions.map((submission) => submission.id));
+    const submissionDates = visibleSubmissions
+      .filter((submission) => submission.status !== OnefopStatus.DRAFT)
+      .map((submission) => submission.submissionDate);
+
+    const effectiveDeadline = campaign.extendedDeadline ?? campaign.deadline;
+    const ends = [campaign.endDate, effectiveDeadline].filter((d): d is Date => !!d);
+    const lastDay = ends.length > 0 ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null;
+    const days = buildTimelineDays(submissionDates, { startDate: campaign.startDate, lastDay, now });
+    const firstSubmissionAt = submissionDates.length > 0
+      ? new Date(Math.min(...submissionDates.map((date) => date.getTime())))
+      : now;
+    const historyStart = campaign.startDate ?? firstSubmissionAt;
+    const auditEvents = await this.prisma.auditLog.findMany({
+      where: {
+        resourceType: 'OnefopSubmission',
+        OR: [
+          {
+            action: { in: ['AUDIT_APPROVE', 'AUDIT_CORRECTION', 'AUDIT_REOPEN'] },
+            resourceId: { in: [...visibleIds] },
+          },
+          { action: 'AUDIT_BULK_VISA_GRANTED', timestamp: { gte: historyStart } },
+        ],
+      },
+      select: { action: true, resourceId: true, timestamp: true, details: true },
+    });
+    const byDay = new Map<string, { approved: number; correctionRequested: number }>();
+    const approvalHistoryIds = new Set<string>();
+    const correctionHistoryIds = new Set<string>();
+    const addEvent = (field: 'approved' | 'correctionRequested', at: Date) => {
+      const key = doualaDay(at);
+      const statusCounts = byDay.get(key) ?? { approved: 0, correctionRequested: 0 };
+      statusCounts[field] += 1;
+      byDay.set(key, statusCounts);
+    };
+    for (const event of auditEvents) {
+      if (visibleIds.has(event.resourceId)) {
+        if (event.action === 'AUDIT_APPROVE') {
+          approvalHistoryIds.add(event.resourceId);
+          addEvent('approved', event.timestamp);
+        }
+        if (event.action === 'AUDIT_CORRECTION' || event.action === 'AUDIT_REOPEN') {
+          correctionHistoryIds.add(event.resourceId);
+          addEvent('correctionRequested', event.timestamp);
+        }
+      }
+      if (event.action === 'AUDIT_BULK_VISA_GRANTED') {
+        const details = event.details && typeof event.details === 'object' && !Array.isArray(event.details)
+          ? event.details as Record<string, unknown>
+          : {};
+        const approvedIds = Array.isArray(details.approvedIds) ? details.approvedIds : [];
+        const scopedApprovals = new Set(approvedIds.filter((id): id is string => typeof id === 'string' && visibleIds.has(id)));
+        for (const id of scopedApprovals) {
+          approvalHistoryIds.add(id);
+          addEvent('approved', event.timestamp);
+        }
+      }
+    }
+    // Older individual review rows can have reviewedAt even when their audit
+    // event predates the current audit action. Use that stored transition date
+    // when no corresponding event exists; never infer earlier transitions.
+    for (const submission of visibleSubmissions) {
+      if (!submission.reviewedAt) continue;
+      if (submission.status === OnefopStatus.APPROVED && !approvalHistoryIds.has(submission.id)) {
+        addEvent('approved', submission.reviewedAt);
+      }
+      if (submission.status === OnefopStatus.CORRECTION_REQUESTED && !correctionHistoryIds.has(submission.id)) {
+        addEvent('correctionRequested', submission.reviewedAt);
+      }
+    }
+    const activityDays = days.map((day) => ({
+      date: day.date,
+      submitted: day.received,
+      ...(byDay.get(day.date) ?? { approved: 0, correctionRequested: 0 }),
+    }));
+    return { campaign: summary, timeZone, days: activityDays };
   }
 
   /**
@@ -889,24 +1202,38 @@ export class PilotageService {
       byRegion.set(entry.regionId, list);
     }
 
+    /**
+     * A stored row is identified by territory AND entity type.
+     *
+     * Matching on departmentId alone was right while a region held at most
+     * one row per department; with per-type rows it would treat every type
+     * but one as unwanted and delete it, and would overwrite the wrong row
+     * on update. The key mirrors entryKey in pilotage-validation.
+     */
+    const rowKey = (departmentId: string | null, entityType: string | null | undefined) =>
+      `${departmentId ?? ''}\u0000${entityType ?? ''}`;
+
     const table = tx.campaignQuota as unknown as ScopedTable;
     for (const [regionId, desired] of byRegion) {
       const existing = await table.findMany({ where: { ...scope, regionId, ...TERRITORIAL_SCOPE } });
-      const wanted = new Set(desired.map((entry) => entry.departmentId));
+      const wanted = new Set(desired.map((entry) => rowKey(entry.departmentId, entry.entityType)));
       for (const row of existing) {
-        if (wanted.has(row.departmentId)) continue;
+        if (wanted.has(rowKey(row.departmentId, row.entityType))) continue;
         const previous = numberOrNull(row[field]);
         await table.delete({ where: { id: row.id } });
         await writeAudit(tx, actorId, deleteAction, resourceType, row.id, previous, null, {
           ...scope,
           regionId,
           departmentId: row.departmentId,
+          entityType: row.entityType ?? null,
         });
       }
       for (const entry of desired) {
-        const current = existing.find((row) => row.departmentId === entry.departmentId);
+        const current = existing.find(
+          (row) => rowKey(row.departmentId, row.entityType) === rowKey(entry.departmentId, entry.entityType),
+        );
         if (current && current[field] === entry.target) continue;
-        const details = { ...scope, regionId, departmentId: entry.departmentId };
+        const details = { ...scope, regionId, departmentId: entry.departmentId, entityType: entry.entityType };
         if (current) {
           const previous = numberOrNull(current[field]);
           await table.update({
@@ -920,6 +1247,7 @@ export class PilotageService {
               ...scope,
               regionId,
               departmentId: entry.departmentId,
+              entityType: entry.entityType,
               [field]: entry.target,
               createdBy: actorId,
               updatedBy: actorId,
@@ -934,7 +1262,7 @@ export class PilotageService {
 
   private async loadGrid(
     territory: Territory | null | undefined,
-    loadRows: (scope: TargetScope) => Promise<Array<{ regionId: string; departmentId: string | null; target: number }>>,
+    loadRows: (scope: TargetScope) => Promise<Array<{ regionId: string; departmentId: string | null; entityType?: string | null; target: number }>>,
   ): Promise<{ scope: TargetScope; regions: ShapedRegion[] }> {
     const scope = await resolveTargetScope(this.prisma, territory);
     if (scope.kind === 'none') return { scope, regions: [] };
@@ -954,7 +1282,11 @@ export class PilotageService {
       scope,
       regions: regions.map((region) => {
         const own = rows.filter((row) => row.regionId === region.id);
-        const summary = summarizeRegion(own.map((row) => ({ departmentId: row.departmentId, target: row.target })));
+        const summary = summarizeRegion(own.map((row) => ({
+          departmentId: row.departmentId,
+          entityType: row.entityType ?? null,
+          target: row.target,
+        })));
         const target = scope.kind === 'department' && summary.mode !== 'REGION' ? null : summary.target;
         return {
           regionId: region.id,
@@ -966,6 +1298,16 @@ export class PilotageService {
             name: department.name,
             target: own.find((row) => row.departmentId === department.id)?.target ?? null,
           })),
+          /**
+           * The per-type quotas of this region, keyed by entity type. Only
+           * ENTITY_TYPE mode has any; every other mode leaves this empty, so
+           * byEntityType states no target rather than a misleading zero.
+           */
+          byEntityType: new Map(
+            own
+              .filter((row) => row.departmentId === null && row.entityType != null)
+              .map((row) => [row.entityType as string, row.target]),
+          ),
         };
       }),
     };
@@ -1054,6 +1396,11 @@ function semesterQuarters(semester: number): readonly number[] {
   throw new BadRequestException('Le semestre doit valoir 1 ou 2.');
 }
 
+function quarterQuarters(quarter: number): readonly number[] {
+  if (Number.isInteger(quarter) && quarter >= 1 && quarter <= 4) return [quarter];
+  throw new BadRequestException('Le trimestre doit valoir de 1 à 4.');
+}
+
 /**
  * Collapses the folded period's quota rows to one row per territory.
  *
@@ -1069,14 +1416,23 @@ function semesterQuarters(semester: number): readonly number[] {
  * with a null target rather than adding incomparable rows together.
  */
 function foldQuotas(
-  rows: Array<{ regionId: string; departmentId: string | null; submissionTarget: number }>,
-): Array<{ regionId: string; departmentId: string | null; target: number }> {
-  const folded = new Map<string, { regionId: string; departmentId: string | null; target: number }>();
+  rows: Array<{ regionId: string; departmentId: string | null; entityType: string | null; submissionTarget: number }>,
+): Array<{ regionId: string; departmentId: string | null; entityType: string | null; target: number }> {
+  const folded = new Map<string, { regionId: string; departmentId: string | null; entityType: string | null; target: number }>();
   for (const row of rows) {
-    const key = `${row.regionId}\u0000${row.departmentId ?? ''}`;
+    // The entity type joins the key: two quarters' quotas for the same
+    // region AND the same type fold together, while two types in one region
+    // stay apart and are summed only by summarizeRegion, which knows they
+    // partition the register.
+    const key = `${row.regionId}\u0000${row.departmentId ?? ''}\u0000${row.entityType ?? ''}`;
     const current = folded.get(key);
     if (current) current.target += row.submissionTarget;
-    else folded.set(key, { regionId: row.regionId, departmentId: row.departmentId, target: row.submissionTarget });
+    else folded.set(key, {
+      regionId: row.regionId,
+      departmentId: row.departmentId,
+      entityType: row.entityType,
+      target: row.submissionTarget,
+    });
   }
   return [...folded.values()];
 }
@@ -1096,7 +1452,7 @@ function sumTargets(rows: Array<{ submissionTarget: number }>): number | null {
 }
 
 function requireActor(actorId: string): void {
-  if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+  if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
 }
 
 /**
@@ -1182,7 +1538,7 @@ function toStockRow(company: {
   createdAt: Date;
   departmentRef: { regionId: string } | null;
   user: { status: string; isActive: boolean; approvedAt: Date | null };
-}): CompanyStockRow {
+}, overdue = false): CompanyStockRow {
   return {
     entityType: company.entityType,
     regionId: company.regionId,
@@ -1194,6 +1550,7 @@ function toStockRow(company: {
     createdAt: company.createdAt,
     status: company.user.status,
     isActive: company.user.isActive,
+    overdue,
   };
 }
 
@@ -1201,7 +1558,7 @@ function withTarget(counts: StockCounts, inscriptionTarget: number | null) {
   return {
     ...counts,
     inscriptionTarget,
-    rate: coverageRate(counts.registered, inscriptionTarget),
+    rate: coverageRate(counts.registeredInYear, inscriptionTarget),
   };
 }
 
@@ -1220,6 +1577,12 @@ function labelTargets(regions: ShapedRegion[], field: TargetField) {
       name: department.name,
       [field]: department.target,
     })),
+    /**
+     * The region's per-type quotas, so the targets editor can load what it
+     * is about to edit. An object rather than a Map, because this crosses
+     * the wire; empty unless the region is in ENTITY_TYPE mode.
+     */
+    byEntityType: Object.fromEntries(region.byEntityType),
   }));
 }
 

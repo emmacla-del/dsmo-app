@@ -25,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // alone, so accepting it here bypassed the second factor. Any purpose
     // claim, whatever its value, is refused; access tokens never set one.
     if (payload && Object.prototype.hasOwnProperty.call(payload, 'purpose')) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Jeton d\'authentification invalide.');
     }
 
     // Tokens live 7 days with no revocation, so the payload's role/territory
@@ -34,21 +34,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // is calling. A database outage surfaces as a 500 here (fail loud) rather
     // than falling back to the stale payload.
     if (typeof payload?.sub !== 'string' || !payload.sub) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Session invalide ou expirée.');
     }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, email: true, role: true, region: true, department: true, isActive: true, status: true },
     });
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Utilisateur introuvable.');
     }
 
     // Staff/admin roles keep the strict 401 gate: only active, approved accounts.
     // Company roles authenticate regardless of status (allowing them to reach /auth/me
     // and letting ActiveCompanyGuard enforce 403 on company-facing routes).
     if (user.role !== 'COMPANY' && (!user.isActive || user.status !== 'ACTIVE')) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Votre compte est inactif ou en attente d\'approbation.');
     }
 
     return {

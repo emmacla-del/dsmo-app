@@ -14,13 +14,13 @@ export class DataManagementController {
   constructor(private dataManagementService: DataManagementService) { }
 
   @Get('regions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getRegions() {
     return this.dataManagementService.getRegions();
   }
 
   @Get('sectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getSectors() {
     return this.dataManagementService.getSectors();
   }
@@ -53,20 +53,20 @@ export class DataManagementController {
   }
 
   @Get('stats')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN, UserRole.CENTRAL_AGENT)
   async getDataStats(@Request() req: any) {
     const territory = territoryFromUser(req?.user);
     return this.dataManagementService.getDataStats(territory);
   }
 
   @Get('export/submissions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportSubmissions(@Query() queryFilters: any, @Res({ passthrough: true }) res: Response, @Request() req: any) {
     return this.handleExportSubmissions(queryFilters, res, req);
   }
 
   @Post('export/submissions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportSubmissions(@Body() bodyFilters: any, @Res({ passthrough: true }) res: Response, @Request() req: any) {
     return this.handleExportSubmissions(bodyFilters, res, req);
   }
@@ -87,68 +87,68 @@ export class DataManagementController {
   }
 
   @Get('export/history')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportHistory(@Query('limit') limit?: string) {
     const lim = limit ? parseInt(limit, 10) : 20;
     return this.dataManagementService.getExportHistory(lim);
   }
 
   @Get('export/submissions/excel')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportOnefopSubmissionsExcel(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'EXCEL', { filters: queryFilters });
     await this.dataManagementService.streamOnefopSubmissionsExcel(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/excel')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportOnefopSubmissionsExcel(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'EXCEL', { filters: bodyFilters });
     await this.dataManagementService.streamOnefopSubmissionsExcel(bodyFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/manifest')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportSubmissionsSpssManifest(@Query() queryFilters: any, @Request() req: any) {
     return this.dataManagementService.buildSpssManifest(queryFilters || {}, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/manifest')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportSubmissionsSpssManifest(@Body() bodyFilters: any, @Request() req: any) {
     return this.dataManagementService.buildSpssManifest(bodyFilters || {}, territoryFromUser(req.user));
   }
 
   // What an export with these filters holds, for the export page's summary.
   @Post('export/submissions/count')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportSubmissionsCount(@Body() bodyFilters: any, @Request() req: any) {
     return this.dataManagementService.countExport(bodyFilters || {}, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/csv')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportSubmissionsSpssCsv(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'SPSS_CSV', { filters: queryFilters });
     await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/csv')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportSubmissionsSpssCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'SPSS_CSV', { filters: bodyFilters });
     await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(bodyFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/sav')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async getExportSubmissionsSpssSav(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'SPSS_SAV', { filters: queryFilters });
     await this.dataManagementService.streamApprovedOnefopSubmissionsSav(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/sav')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
   async postExportSubmissionsSpssSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
     this.dataManagementService.logExport(req.user?.id, 'SPSS_SAV', { filters: bodyFilters });
     await this.dataManagementService.streamApprovedOnefopSubmissionsSav(bodyFilters || {}, res, territoryFromUser(req.user));

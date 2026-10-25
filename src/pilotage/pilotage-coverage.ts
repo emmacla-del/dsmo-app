@@ -10,6 +10,7 @@ export interface CompanyStockRow {
   createdAt: Date;
   status: string;
   isActive: boolean;
+  overdue?: boolean;
 }
 
 export type CoverageBucket =
@@ -32,6 +33,9 @@ export interface StockCounts {
   pendingApproval: number;
   pendingReview: number;
   complementsRequested: number;
+  documentsIncomplete: number;
+  draft: number;
+  overdue: number;
 }
 
 export function emptyCounts(): StockCounts {
@@ -42,6 +46,9 @@ export function emptyCounts(): StockCounts {
     pendingApproval: 0,
     pendingReview: 0,
     complementsRequested: 0,
+    documentsIncomplete: 0,
+    draft: 0,
+    overdue: 0,
   };
 }
 
@@ -54,6 +61,25 @@ export function doualaYearBounds(year: number): { start: Date; end: Date } {
 
 export function isInDoualaYear(instant: Date, year: number): boolean {
   const { start, end } = doualaYearBounds(year);
+  return instant >= start && instant < end;
+}
+
+export function doualaPeriodBounds(year: number, quarters: readonly number[]): { start: Date; end: Date } {
+  if (quarters.length === 0) return doualaYearBounds(year);
+  const firstQuarter = Math.min(...quarters);
+  const lastQuarter = Math.max(...quarters);
+  const startMonth = (firstQuarter - 1) * 3 + 1;
+  const endMonth = lastQuarter * 3 + 1;
+  const endYear = endMonth > 12 ? year + 1 : year;
+  const normalizedEndMonth = endMonth > 12 ? endMonth - 12 : endMonth;
+  return {
+    start: new Date(`${year}-${String(startMonth).padStart(2, '0')}-01T00:00:00+01:00`),
+    end: new Date(`${endYear}-${String(normalizedEndMonth).padStart(2, '0')}-01T00:00:00+01:00`),
+  };
+}
+
+export function isInDoualaPeriod(instant: Date, year: number, quarters: readonly number[]): boolean {
+  const { start, end } = doualaPeriodBounds(year, quarters);
   return instant >= start && instant < end;
 }
 
@@ -87,21 +113,44 @@ export function classifyBucket(row: CompanyStockRow): CoverageBucket {
   };
 }
 
-export function applyRow(counts: StockCounts, row: CompanyStockRow, year: number): void {
+export function applyRow(
+  counts: StockCounts,
+  row: CompanyStockRow,
+  year: number,
+  quarters: readonly number[] = [1, 2, 3, 4],
+): void {
   counts.companyCount += 1;
+  if (row.overdue) counts.overdue += 1;
   if (isRegistered(row)) {
     counts.registered += 1;
-    if (isInDoualaYear(registeredAt(row), year)) counts.registeredInYear += 1;
+    if (isInDoualaPeriod(registeredAt(row), year, quarters)) counts.registeredInYear += 1;
     return;
   }
   if (row.status === 'PENDING_APPROVAL') counts.pendingApproval += 1;
   else if (row.status === 'UNDER_REVIEW') counts.pendingReview += 1;
   else if (row.status === 'COMPLEMENTS_REQUESTED') counts.complementsRequested += 1;
+  else if (row.status === 'DOCUMENTS_INCOMPLETE') counts.documentsIncomplete += 1;
+  else if (row.status === 'DRAFT') counts.draft += 1;
 }
 
-export function coverageRate(registered: number, target: number | null): number | null {
+/**
+ * Quota attainment for the folded period.
+ *
+ * The numerator is `registeredInYear`, NOT the cumulative `registered`
+ * stock. The denominator is the sum of that year's registration-campaign
+ * quotas (onefopCampaignIds), so measuring the whole register against it
+ * compared a stock with a flow: in a second year the rate climbed past
+ * 100 % on registrations the year's quota never asked for, and every
+ * territory drifted into the top band regardless of what it did.
+ *
+ * Changed 2026-10-25 with the owner's explicit approval; see the entry in
+ * CLAUDE.md §21. Both figures are still exported side by side — the grid's
+ * "Inscrits" column remains the cumulative stock — so nothing is lost,
+ * only the ratio is now of one period.
+ */
+export function coverageRate(registeredInYear: number, target: number | null): number | null {
   if (target == null || target <= 0) return null;
-  return registered / target;
+  return registeredInYear / target;
 }
 
 export function bucketKey(bucket: CoverageBucket): string {
@@ -117,5 +166,8 @@ export function addCounts(left: StockCounts, right: StockCounts): StockCounts {
     pendingApproval: left.pendingApproval + right.pendingApproval,
     pendingReview: left.pendingReview + right.pendingReview,
     complementsRequested: left.complementsRequested + right.complementsRequested,
+    documentsIncomplete: left.documentsIncomplete + right.documentsIncomplete,
+    draft: left.draft + right.draft,
+    overdue: left.overdue + right.overdue,
   };
 }

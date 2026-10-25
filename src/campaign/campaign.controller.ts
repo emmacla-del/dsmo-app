@@ -15,13 +15,13 @@ export class CampaignController {
     constructor(private campaignService: CampaignService) { }
 
     @Post()
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async createCampaign(@Body() data: any, @Req() req: any) {
         return this.campaignService.createCampaign({ ...data, createdBy: req.user.id });
     }
 
     @Get()
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
     async listCampaigns(
         @Query('status') status?: string,
         @Query('type') type?: string,                 // legacy wire key
@@ -41,7 +41,7 @@ export class CampaignController {
     // Lets the create-campaign dialog warn the admin before submitting if a
     // campaign already collecting for this module would be overwritten.
     @Get('conflicts')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async checkConflict(
         @Query('collectionType') collectionType: string,
         @Query('excludeId') excludeId?: string,
@@ -50,67 +50,67 @@ export class CampaignController {
     }
 
     @Get(':id')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
     async getCampaign(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.getCampaign(id, req.user);
     }
 
     @Put(':id')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async updateCampaign(@Param('id') id: string, @Body() data: any) {
         return this.campaignService.updateCampaign(id, data);
     }
 
     @Delete(':id')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async deleteCampaign(@Param('id') id: string) {
         return this.campaignService.deleteCampaign(id);
     }
 
     @Post(':id/activate')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async activateCampaign(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.activateCampaign(id, req.user.id);
     }
 
     @Post(':id/pause')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async pauseCampaign(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.pauseCampaign(id, req.user.id);
     }
 
     @Post(':id/close')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async closeCampaign(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.closeCampaign(id, req.user.id);
     }
 
     @Post(':id/archive')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async archiveCampaign(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.archiveCampaign(id, req.user?.id);
     }
 
     @Post(':id/extend')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async extendDeadline(@Param('id') id: string, @Body('newDeadline') newDeadline: string) {
         return this.campaignService.extendDeadline(id, new Date(newDeadline));
     }
 
     @Get(':id/progress')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
     async getProgress(@Param('id') id: string, @Req() req: any) {
         return this.campaignService.getCampaignProgress(id, req.user);
     }
 
     @Get(':id/submissions')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.REGIONAL_ADMIN)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.REGIONAL_ADMIN)
     async getSubmissions(@Param('id') id: string, @Req() req: any, @Query('status') status?: string) {
         return this.campaignService.getCampaignSubmissions(id, { status }, req.user);
     }
 
     @Post(':id/remind')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async sendReminders(@Param('id') id: string, @Body('type') type: string) {
         return this.campaignService.sendReminders(id, type);
     }

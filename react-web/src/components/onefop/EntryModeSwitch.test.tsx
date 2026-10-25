@@ -8,8 +8,8 @@ import {
   useEntryModeSlot,
 } from "./EntryModeSwitch";
 
-/** The control: a group of two toggle buttons, one per mode. */
-const GROUP = '[role="group"]';
+/** The control: one button naming the other mode (owner, 2026-10-22). */
+const GROUP = ".cam-mode-switch";
 
 /** A wizard chrome: the slot row above, the screen's control below. */
 function Chrome({
@@ -48,23 +48,24 @@ test("the control renders in the chrome's slot, not beside the table", async () 
   );
 });
 
-test("both modes are on the bar, each named by its word, the chosen one pressed", async () => {
-  renderWithProviders(<Chrome mode="guided" />);
+test("the bar offers the other mode, by a verb and its word", async () => {
+  const { unmount } = renderWithProviders(<Chrome mode="grid" />);
   // The word stays beside the icon: a grid reads as "table", nothing reads
-  // as "guided" (owner, 2026-10-12).
-  const grid = await waitFor(() => screen.getByRole("button", { name: "Tableau" }));
-  const guided = screen.getByRole("button", { name: "Guidé" });
-  assert.equal(guided.getAttribute("aria-pressed"), "true");
-  assert.equal(grid.getAttribute("aria-pressed"), "false");
+  // as "guided" (owner, 2026-10-12); the verb keeps it from being read as
+  // the mode in use (owner, 2026-10-22).
+  await waitFor(() => screen.getByRole("button", { name: "Passer en guidé" }));
+  assert.equal(screen.queryByRole("button", { name: /tableau/i }), null);
+  unmount();
+  renderWithProviders(<Chrome mode="guided" />);
+  await waitFor(() => screen.getByRole("button", { name: "Passer en tableau" }));
 });
 
-test("pressing the other mode reports it", async () => {
+test("pressing it reports the other mode", async () => {
   const chosen: Array<"grid" | "guided"> = [];
   const { user } = renderWithProviders(
     <Chrome mode="guided" onChange={(mode) => chosen.push(mode)} />,
   );
-  const grid = await waitFor(() => screen.getByRole("button", { name: "Tableau" }));
-  await user.click(grid);
+  await user.click(await waitFor(() => screen.getByRole("button", { name: "Passer en tableau" })));
   assert.deepEqual(chosen, ["grid"]);
 });
 
@@ -95,20 +96,10 @@ test("several tables on one screen still put one control in the bar", async () =
   );
 });
 
-test("the control carries its name without a visible label", async () => {
+test("the control is named by its word, the icon is decoration", async () => {
   const { container } = renderWithProviders(<Chrome />);
-  const group = await waitFor(() => {
-    const el = container.querySelector(GROUP);
-    assert.ok(el);
-    return el;
-  });
-  assert.equal(
-    group.getAttribute("aria-label"),
-    "Mode de saisie",
-    "the group must still be named for a screen reader",
-  );
+  await waitFor(() => assert.ok(container.querySelector(GROUP)));
   assert.equal(container.querySelector("label"), null, "no label should wrap beside it");
-  // The icons are decoration: each button is already named by its word.
   for (const svg of container.querySelectorAll("svg")) {
     assert.equal(svg.getAttribute("aria-hidden"), "true");
   }

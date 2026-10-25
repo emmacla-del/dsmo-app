@@ -22,13 +22,13 @@ import { parseYear } from './pilotage-validation';
 export const PILOTAGE_WRITE_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
 ] as const;
 
 export const PILOTAGE_READ_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
   UserRole.REGIONAL_ADMIN,
   UserRole.DIVISIONAL_ADMIN,
   UserRole.CENTRAL_AGENT,
@@ -72,6 +72,23 @@ export class PilotageController {
   getCoverage() {
     throw new GoneException(
       'La couverture annuelle a désormais sa propre route. Utilisez GET /admin/pilotage/coverage/annual?year=YYYY.',
+    );
+  }
+
+  /**
+   * QUARTER coverage: one registration campaign quarter and its approvals.
+   */
+  @Get('coverage/quarter')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getQuarterCoverage(
+    @Query('year') year: string,
+    @Query('quarter') quarter: string,
+    @Req() req: any,
+  ) {
+    return this.pilotage.getQuarterCoverage(
+      territoryFromUser(req.user),
+      parseYear(year),
+      parseQuarter(quarter),
     );
   }
 
@@ -143,6 +160,12 @@ export class PilotageController {
     return this.pilotage.getCampaignReturnsTimeline(territoryFromUser(req.user), id);
   }
 
+  @Get('campaigns/:id/returns/activity')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getCampaignReturnsActivity(@Param('id') id: string, @Req() req: any) {
+    return this.pilotage.getCampaignReturnsActivity(territoryFromUser(req.user), id);
+  }
+
   @Get('campaigns/:id/non-respondents')
   @Roles(...PILOTAGE_READ_ROLES)
   getCampaignNonRespondents(@Param('id') id: string, @Req() req: any) {
@@ -171,6 +194,17 @@ function parseSemester(raw: unknown): number {
   const text = String(raw).trim();
   if (text !== '1' && text !== '2') {
     throw new BadRequestException('Le paramètre « semester » doit valoir 1 ou 2.');
+  }
+  return Number(text);
+}
+
+function parseQuarter(raw: unknown): number {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+    throw new BadRequestException('Le paramètre « quarter » est obligatoire.');
+  }
+  const text = String(raw).trim();
+  if (!['1', '2', '3', '4'].includes(text)) {
+    throw new BadRequestException('Le paramètre « quarter » doit valoir de 1 à 4.');
   }
   return Number(text);
 }

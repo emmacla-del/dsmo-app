@@ -43,7 +43,7 @@ export function VtCrossTableNotice({
           margin: 0,
           fontFamily: "var(--cam-font-sans)",
           fontSize: "var(--cam-font-size-xs)",
-          fontWeight: 700,
+          fontWeight: "var(--cam-font-weight-bold)",
           color: "var(--cam-error)",
         }}
       >
@@ -57,7 +57,7 @@ export function VtCrossTableNotice({
                 margin: 0,
                 fontFamily: "var(--cam-font-sans)",
                 fontSize: "var(--cam-font-size-xs)",
-                fontWeight: 600,
+                fontWeight: "var(--cam-font-weight-semibold)",
                 color: "var(--cam-error)",
                 lineHeight: 1.5,
               }}

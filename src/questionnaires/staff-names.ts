@@ -8,7 +8,11 @@
 // those keys, so a regional or divisional admin never receives a name.
 import { UserRole } from '@prisma/client';
 
-export const STAFF_NAME_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP];
+export const STAFF_NAME_ROLES: string[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+];
 
 const STAFF_LIST_KEY = /^s8q8_/;
 

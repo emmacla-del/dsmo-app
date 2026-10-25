@@ -24,7 +24,6 @@ export interface OnefopLegalAcknowledgmentProps {
 
 export function OnefopLegalAcknowledgment({
   entityType: _entityType,
-  respondentName,
   respondentFunction,
   establishmentName,
   establishmentId,
@@ -56,7 +55,6 @@ export function OnefopLegalAcknowledgment({
     }, 300);
   }
 
-  const nameDisplay = respondentName?.trim() || t("onefopLegalAcknowledgment.defaultRespondentName");
   // Who declares, in what role, for which establishment: the facts the
   // acknowledgment is given under. A part that is not known is left out,
   // never filled with a stand-in role.
@@ -93,32 +91,23 @@ export function OnefopLegalAcknowledgment({
 
       {(flowState === "card" || flowState === "exiting") && (
         <div className={`cam-welcome-body${flowState === "exiting" ? " is-exiting" : ""}`}>
-          {/* The issuing authority over the panel, as on the paper form's
-              letterhead: the notice is the State's, not the platform's. */}
-          <header className="cam-welcome-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/onefop_logo.png" alt={t("onefopLegalAcknowledgment.logoAlt")} width={56} height={56} />
-            <p className="cam-welcome-authority">{t("sovereignMasthead.officialPortalNotice")}</p>
-          </header>
-
-          {/* One panel, an app's start screen: the declaration, the notice,
-              then consent and Begin (owner, 2026-10-12). A hairline edge,
-              no fill or shadow. */}
+          {/* One start card groups the declaration, notice and consent into
+              a clear reading order. */}
           <div className="cam-welcome-panel">
             <h1 className="cam-welcome-title">
               {t(isVocationalTraining ? "onefopLegalAcknowledgment.formTitleVt" : "onefopLegalAcknowledgment.formTitle")}
             </h1>
-            <p className="cam-welcome-greeting">
-              {t("onefopLegalAcknowledgment.welcomeGreeting", { name: nameDisplay })}
-            </p>
-            {declaration ? <p className="cam-welcome-respondent">{declaration}</p> : null}
-            <p className="cam-welcome-time">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" />
-              </svg>
-              {t("onefopLegalAcknowledgment.estimatedTime")}
-            </p>
+
+            <div className="cam-welcome-context">
+              {declaration ? <p className="cam-welcome-respondent">{declaration}</p> : null}
+              <p className="cam-welcome-time">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                {t("onefopLegalAcknowledgment.estimatedTime")}
+              </p>
+            </div>
 
             {/* The notice, with the law it rests on cited under its title. */}
             <section className="cam-welcome-notice" aria-labelledby="cam-welcome-notice-title">
@@ -143,6 +132,9 @@ export function OnefopLegalAcknowledgment({
             </label>
 
             <div className="cam-welcome-actions">
+              <button type="button" className="cam-button cam-button-secondary" onClick={onCancel}>
+                {t("onefopLegalAcknowledgment.goBackButton")}
+              </button>
               <button
                 type="button"
                 className="cam-button cam-button-primary"
@@ -150,9 +142,6 @@ export function OnefopLegalAcknowledgment({
                 disabled={!isAcknowledged}
               >
                 {t("onefopLegalAcknowledgment.beginButton")}
-              </button>
-              <button type="button" className="cam-text-button" onClick={onCancel}>
-                {t("onefopLegalAcknowledgment.goBackButton")}
               </button>
             </div>
           </div>

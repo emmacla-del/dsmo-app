@@ -700,6 +700,28 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
     );
   });
 
+  it('sorts registration records oldest-first before pagination when requested', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      { sortOrder: 'oldest', page: 2 },
+    );
+    expect(prisma.company.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: 'asc' },
+        skip: 20,
+      }),
+    );
+  });
+
+  it('keeps registration records newest-first by default', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
+    expect(prisma.company.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+    );
+  });
+
   it('refuses a region outside the actor jurisdiction instead of widening it', async () => {
     const { service, prisma } = makeService();
     await expect(

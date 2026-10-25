@@ -207,6 +207,9 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
       poBox: 'BP 1', sector: 1, branch: 'Formation', mainMission: 'Insertion', headOffice: 'Yaoundé',
       supervisingMinistry: 'MINEFOP', status: 2, permanentWorkers: 5, vacancies: 1,
     },
+    activities: [
+      { description: 'Formation en couture', targetPopulation: '1', supportType: '1', scope: '3', startDate: '01/2026', duration: '6' },
+    ],
   };
 
   it('Enterprise: a final submission missing S21Q01_RESPONSE_STATUS still fails (existing behavior preserved)', () => {
@@ -258,6 +261,37 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
       projectProgram: { ...projectProgramData.projectProgram, name: '' },
     };
     expect(() => callEnforce(incompleteData, flat, 'projectProgram')).toThrow(BadRequestException);
+  });
+
+  // Section 2 is not optional (owner, 2026-10-22): at least one complete line.
+  it.each([
+    ['no activities key', undefined],
+    ['an empty list', []],
+    ['only incomplete lines', [{ description: 'Formation en couture', targetPopulation: '1' }]],
+    ['a line with a blank cell', [{ ...projectProgramData.activities[0], duration: '  ' }]],
+  ])('Projects & Programs: Section 2 with %s blocks final submission', (_case, activities) => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    const data = { ...projectProgramData, activities };
+    let thrown: unknown;
+    try {
+      callEnforce(data, flat, 'projectProgram');
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(BadRequestException);
+    const body = (thrown as BadRequestException).getResponse() as { message: string; missingFields: string[] };
+    expect(body.missingFields).toEqual(['projectProgram.activities']);
+    expect(body.message).toContain('au moins une prestation offerte');
+    expect(body.message).toContain('at least one service offered');
+  });
+
+  it('Projects & Programs: one complete line among incomplete ones passes', () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    const data = {
+      ...projectProgramData,
+      activities: [{ description: 'Appui' }, ...projectProgramData.activities],
+    };
+    expect(() => callEnforce(data, flat, 'projectProgram')).not.toThrow();
   });
 
   it('Administration: requires projectCount when hasProject is 1', () => {
@@ -1637,6 +1671,9 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
           permanentWorkers: 30,
           vacancies: 5,
         },
+        activities: [
+          { description: 'Appui technique', targetPopulation: '2', supportType: '1', scope: '1', startDate: '03/2026', duration: '12' },
+        ],
       };
 
       const ppStatusFields = [

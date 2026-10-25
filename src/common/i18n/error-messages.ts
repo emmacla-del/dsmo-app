@@ -54,6 +54,19 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     en: 'Your registration request was rejected. For more information, contact your MINEFOP regional delegation or ONEFOP.',
   },
   { fr: 'Trop de tentatives échouées. Réessayez dans {0} minute(s).', en: 'Too many failed attempts. Try again in {0} minute(s).' },
+  { fr: 'Identifiant ou mot de passe incorrect.', en: 'Incorrect identifier or password.' },
+  {
+    fr: 'Jeton d\'authentification invalide.',
+    en: 'Invalid authentication token.',
+  },
+  {
+    fr: 'Session invalide ou expirée.',
+    en: 'Invalid or expired session.',
+  },
+  {
+    fr: 'Votre compte est inactif ou en attente d\'approbation.',
+    en: 'Your account is inactive or awaiting approval.',
+  },
   { fr: 'Utilisateur introuvable.', en: 'User not found.' },
   { fr: 'Utilisateur non trouvé', en: 'User not found' },
   { fr: 'Impossible d\'envoyer le code de vérification pour le moment. Réessayez.', en: 'The verification code cannot be sent right now. Try again.' },
@@ -180,7 +193,16 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Le prénom et le nom sont obligatoires.', en: 'First name and last name are required.' },
   { fr: 'Un compte existe déjà pour cette adresse.', en: 'An account already exists for this address.' },
   { fr: 'Ce service n\'est pas couvert par ce lien.', en: 'This service is not covered by this link.' },
+  { fr: 'Ce service n\'est pas couvert par ce niveau.', en: 'This service is not covered by this level.' },
   { fr: 'Ce poste n\'existe pas dans ce service.', en: 'This post does not exist in this service.' },
+  { fr: 'Choisissez le service auquel ce lien donne accès.', en: 'Choose the service this link gives access to.' },
+  { fr: 'Choisissez le poste auquel ce lien donne accès.', en: 'Choose the post this link gives access to.' },
+  // "Staff number" is what the sign-up form calls it in English.
+  { fr: 'Le matricule est obligatoire.', en: 'The staff number is required.' },
+  { fr: 'Choisissez une région.', en: 'Choose a region.' },
+  { fr: 'Choisissez une région valide.', en: 'Choose a valid region.' },
+  { fr: 'Choisissez un département.', en: 'Choose a department.' },
+  { fr: 'Choisissez un département valide pour la région sélectionnée.', en: 'Choose a valid department for the selected region.' },
   { fr: 'Seul le super administrateur peut inviter un administrateur central.', en: 'Only the super administrator can invite a central administrator.' },
   { fr: 'Vous n\'êtes pas autorisé à inviter des agents.', en: 'You are not allowed to invite officers.' },
   { fr: 'Service inconnu dans l\'organigramme.', en: 'Unknown service in the organisation chart.' },
@@ -253,6 +275,16 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Le paramètre « semester » est obligatoire.', en: 'The "semester" parameter is required.' },
   { fr: 'Le paramètre « semester » doit valoir 1 ou 2.', en: 'The "semester" parameter must be 1 or 2.' },
   { fr: 'Le semestre doit valoir 1 ou 2.', en: 'The semester must be 1 or 2.' },
+  { fr: 'Le paramètre « quarter » est obligatoire.', en: 'The "quarter" parameter is required.' },
+  { fr: 'Le paramètre « quarter » doit valoir de 1 à 4.', en: 'The "quarter" parameter must be 1 to 4.' },
+  { fr: 'Le trimestre doit valoir de 1 à 4.', en: 'The quarter must be 1 to 4.' },
+  // The period parameters of GET /companies, thrown in English: {0} is the
+  // parameter name ("semester", "quarter"), {1} and {2} its bounds.
+  { fr: '{0} doit être un nombre entre {1} et {2}.', en: '{0} must be a number between {1} and {2}.' },
+  {
+    fr: "Le trimestre choisi n'appartient pas au semestre sélectionné.",
+    en: 'The quarter does not belong to the selected semester.',
+  },
   {
     fr: 'Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d\'inscription porte des cibles, pas une collecte.',
     en: 'Return tracking applies to collection campaigns only: a registration campaign carries targets, not a data collection.',
@@ -268,6 +300,9 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'La ligne {0} : « {1} » doit être un entier positif ou nul.', en: 'Row {0}: "{1}" must be a non-negative integer.' },
   { fr: 'La ligne {0} répète un territoire déjà présent dans la requête.', en: 'Row {0} repeats a territory already present in the request.' },
   { fr: 'La région « {0} » mélange un objectif régional et des objectifs départementaux.', en: 'Region "{0}" mixes a regional target and divisional targets.' },
+  { fr: 'La ligne {0} : « entityType » doit être un type d\'entité connu ou null.', en: 'Row {0}: "entityType" must be a known entity type or null.' },
+  { fr: 'La ligne {0} : un quota par type d\'entité se définit au niveau régional, pas départemental.', en: 'Row {0}: a quota per entity type is set at regional level, not divisional.' },
+  { fr: 'La région « {0} » mélange des quotas par type d\'entité avec un quota régional ou départemental.', en: 'Region "{0}" mixes quotas per entity type with a regional or divisional quota.' },
   { fr: 'La région « {0} » ne peut pas combiner « clear » avec d\'autres lignes.', en: 'Region "{0}" cannot combine "clear" with other rows.' },
   { fr: 'Aucune cible définie pour le ressort de cet administrateur.', en: "No target is defined for this administrator's jurisdiction." },
 
@@ -478,7 +513,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Ressource introuvable', en: 'Not Found' },
   { fr: 'Requête invalide', en: 'Bad Request' },
   { fr: 'Erreur interne du serveur', en: 'Internal server error' },
-  { fr: 'Trop de requêtes. Réessayez dans un instant.', en: 'ThrottlerException: Too Many Requests' },
+  { fr: 'Trop de requêtes. Réessayez dans un instant.', en: 'Too many requests. Please try again in a moment.', also: ['ThrottlerException: Too Many Requests'] },
   { fr: 'Validation échouée (UUID attendu)', en: 'Validation failed (uuid is expected)' },
   { fr: 'Validation échouée (nombre attendu)', en: 'Validation failed (numeric string is expected)' },
   { fr: 'Validation échouée (valeur énumérée attendue)', en: 'Validation failed (enum string is expected)' },

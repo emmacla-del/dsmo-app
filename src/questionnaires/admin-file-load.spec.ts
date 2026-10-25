@@ -6,7 +6,7 @@ import { canReadStaffNames, withoutStaffNames } from './staff-names';
  * 2026-10-15: the admin file page of a VT file. It renders the answers from
  * rawData, so GET /admin/questionnaires/:id no longer loads the statistical
  * child tables; review decisions read only the fields they need; and the
- * 8.8 staff names reach SUPER_ADMIN and ADMIN_ONEFOP only (§21).
+ * 8.8 staff names reach Super Admin and submission reviewers only (§21).
  */
 const RAW = {
   VT1_2: 'CFP Test',
@@ -19,10 +19,11 @@ const RAW = {
 const territory = (role: string) => ({ role, region: 'Littoral', department: 'Wouri', regionId: null, departmentId: null }) as any;
 
 describe('staff names (8.8)', () => {
-  it('only the two central ONEFOP roles may read them', () => {
+  it('only central administrators and submission administrators may read them', () => {
     expect(canReadStaffNames('SUPER_ADMIN')).toBe(true);
     expect(canReadStaffNames('ADMIN_ONEFOP')).toBe(true);
-    for (const role of ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT', 'COMPANY', null, undefined]) {
+    expect(canReadStaffNames('ADMIN_ONEFOP_SUBMISSIONS')).toBe(true);
+    for (const role of ['ADMIN_ONEFOP_REGISTRATIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT', 'COMPANY', null, undefined]) {
       expect(canReadStaffNames(role as any)).toBe(false);
     }
   });
@@ -57,9 +58,10 @@ describe('getById for the admin file page', () => {
     }
   });
 
-  it('keeps 8.8 for SUPER_ADMIN and ADMIN_ONEFOP', async () => {
+  it('keeps 8.8 for central and submission administrators', async () => {
     expect((await load('SUPER_ADMIN')).found.rawData.s8q8_row1_lastName).toBe('Nom');
     expect((await load('ADMIN_ONEFOP')).found.rawData.s8q8_row1_lastName).toBe('Nom');
+    expect((await load('ADMIN_ONEFOP_SUBMISSIONS')).found.rawData.s8q8_row1_lastName).toBe('Nom');
   });
 
   it('strips 8.8 for regional, divisional and read-only central roles', async () => {

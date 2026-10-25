@@ -197,7 +197,7 @@ export function RadioGroup({
                   style={{
                     display: "block",
                     fontFamily: "var(--vt-font)",
-                    fontWeight: 400,
+                    fontWeight: "var(--cam-font-weight-regular)",
                     fontSize: "var(--cam-microcopy-size)",
                     color: "var(--cam-microcopy-color)",
                     lineHeight: 1.25,

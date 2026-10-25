@@ -111,7 +111,7 @@ The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was 
 
 ### G14 — Spacing
 
-**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 2=8, 3=12, 4=16, 5=24, 6=32, 7=48). No colour, no border, no radius, no background, no padding literal.
+**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 1-5=6, 2=8, 2-5=10, 3=12, 4=16, 4-5=20, 5=24, 6=32, 7=48). No colour, no border, no radius, no background, no padding literal.
 
 **G14 is the load-bearing rule.** It is the one-sentence form of the measurement above: *inline style positions things, classes paint them.* A page obeying G14 cannot break G1, G4, G5, G11 or G13.
 
@@ -291,13 +291,29 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 
 - **States.** `done` green circle with a check; `current` gold ring; `currentComplete` gold ring on a green fill; `inProgress` dashed gold ring; `todo` grey ring; `error` red ring and "!"; `locked` grey fill. Gold means "you are here", green means "answered". A finished step that can be reopened shows "Modifier".
 - **Breakpoint.** The rail from 1024px, in all three wizards. Below it, registration shows its horizontal phone rail (same circles) and the questionnaires a sections drawer that renders the same rail with `sheet`.
-- **Under a sticky header** the rail pins at `--cam-wizard-rail-top`, which `ModernJobsHeader` publishes from its own height.
+- **Pinned chrome.** The declaration masthead stays at `top: 0`. `ModernJobsHeader` publishes its measured height as `--cam-wizard-rail-top` and `--mj-header-block`; the desktop rail and subsection headings pin immediately below it. The rail's height is the viewport minus the masthead. Phone drawer rails are in the drawer flow, while the masthead and subsection headings remain pinned. Focus and navigation targets use the same measured offset.
 - **Numbering** follows each paper form: Modern Jobs from 0, VT and registration from 1.
 - **Rhythm** is one ladder for all three wide rails, set by the screen's height and never by the wizard (2026-10-21): 48px rows and a 32px gap; 40px rows and 24px from `max-height: 800px`; 32px rows and 16px from `max-height: 620px`. The rows read `--cam-step-row-pad`. The phone drawer is `.cam-sheet` titled « Sommaire » in both questionnaires.
 - **The respondent workspace rail** (`.cam-home-rail`, `app/home/layout.tsx`) is site navigation, but it is the panel a respondent leaves to open a questionnaire, so it matches the wizard rail: `--cam-side-rail-width`, 16px side padding, 14px semibold items in 40px rows, bold green with a 3px green edge for the page in hand, 12px muted identity lines. Classes paint it; no inline style.
 - **The staff console's rail** (`.cam-admin-rail`) is site navigation, not form progress, so it keeps its dark green and its own classes. It shares everything else: `--cam-side-rail-width`, the 24/16/16 padding and 24px gap, 46px rows (a `--cam-step-marker-size` icon box), and 14px semibold items, bold when current.
 
 Do not draw a step list, a step circle or a progress bar for a wizard any other way.
+
+### Unified declaration-wizard elements
+
+Modern Jobs and VT share one declaration-wizard vocabulary. Keep the shared components as the source of truth; do not fork their appearance or behavior by entity or wizard:
+
+| Element | Shared source | Contract |
+|---|---|---|
+| Declaration shell and routing | `WizardShell.tsx` | Routes Modern Jobs and VT while preserving their separate form data and rendering paths. |
+| Masthead | `ModernJobsHeader.tsx` | Shared by Modern Jobs and VT, including establishment/survey identity, save state, preview, exit and the entry-mode slot. Sticky at the viewport top. |
+| Section sidebars | `WizardRail.tsx` + `WizardStepList.tsx` | Shared structure, states, numbering treatment and responsive drawer behavior. Desktop rail is sticky directly below the masthead. |
+| Previous / next actions | `WizardNavigation.tsx` | VT section navigation uses one in-flow surface; it does not become a sticky footer. Modern Jobs keeps its shell-owned action flow on the same button tokens. |
+| Table / guided choice | `EntryModeSwitch.tsx` | One app-wide choice, placed in the masthead; table screens register a slot rather than drawing another switch. |
+| Subsection headings | `FormSection.tsx` + `FormSectionCard.tsx` | Use the shared sticky heading style, pinned below the measured masthead; keep subsection boundaries and heading hierarchy consistent. |
+| Table question | `TableQuestionHeading.tsx` | One title style across adaptive, classic and activities tables, at medium weight (500). |
+
+The sticky masthead, desktop side rail and subsection headings are layout invariants. Keep their measured offsets synchronized when changing masthead height, rail placement, section scroll targets or subsection style. The phone drawer rail is the deliberate exception: it is not sticky inside the drawer. `check:ui-grammar` enforces these contracts and the shared component entry points (G17).
 
 **Fields.** `FormRow`, as in §Shared rules. Sections 2–5 put those rows in `.cam-form-flow` > `.form-single-column`. Section 1's entity choice is `.entity-type-list`, a fieldset of `.entity-type-option` rows, not a `.field`.
 
@@ -319,6 +335,82 @@ The certify checkbox was already `18px`. Only the literal moved onto `--cam-choi
 
 ---
 
+## shadcn/ui (approved 2026-10-23)
+
+**Status:** approved by the owner in chat, 2026-10-23. This is the §12
+architectural review for introducing shadcn/ui into the staff console. It is
+the decision for that adoption only; it is not a standing waiver of G1.
+
+The owner was told, before approving, that this supersedes the `cam-*`
+recipes on the surfaces it reaches, and that the incident this document
+opens with (`339c4a63`) is the failure mode it has to avoid.
+
+**What keeps G1 true.** shadcn components are written against fixed semantic
+variable names (`--background`, `--primary`, `--border`, …). Those names are
+defined in exactly one place, `react-web/src/app/shadcn.css`, and every one
+of them resolves to a `--cam-*` token. Verified in the running app: the
+`bg-primary` utility computes to `rgb(0, 118, 108)` — `--cam-primary`
+`#00766c` — and `bg-success-muted` to `rgb(230, 240, 239)`. So a shadcn
+component and a `.cam-badge-success` read the same palette, and a change in
+`tokens.css` still moves both.
+
+**Rules for this layer.**
+
+- No raw colour value in `shadcn.css`. A missing shade is defined in
+  `tokens.css` and referenced from here.
+- No Tailwind numbered palette class, in a component or a page. The ESLint
+  G1 selector already errors on these; shadcn's own utilities are semantic
+  (`bg-muted`, `text-muted-foreground`) and carry no number, so they pass.
+- `src/components/ui/**` is generated-adjacent but edited in place. A change
+  to a component there is a change to every page using it.
+- Status tone stays a wash behind the tone's own ink, which is what
+  `.cam-badge-*` already did. `Badge` carries `neutral` / `success` /
+  `warning` / `danger` variants for this; shadcn ships no success or
+  warning token of its own.
+- `tw-animate-css` is now registered. Before this, `animate-in` and
+  `fade-in` emitted nothing (see the note at the end of `globals.css`), and
+  every shadcn overlay depends on them.
+
+**Carried over, not replaced.** `AdminPageHeader` (G3), `DataState` /
+`DataStateRow` (G10) and `.cam-admin-page` (G2) stay. They encode
+administrative behaviour — breadcrumbs, and keeping loading, empty, error,
+forbidden and notFound distinct — which no component library supplies.
+
+**Reference pages:** `src/app/admin/journal-audit/page.tsx` and
+`src/app/admin/dossiers/page.tsx`, converted 2026-10-23. Filters, tables,
+badges, pagination and (on dossiers) the selection toolbar and dialog
+contents are shadcn; the headers, the data-state rows and every query are
+untouched.
+
+Three things learned converting those two, worth knowing before the next
+screen:
+
+- **Radix `Select` reserves the empty string.** An "all" option cannot carry
+  `value=""`. `src/lib/select-sentinel.ts` holds the `__all` sentinel and the
+  two converters; state and query parameters keep the `""` the backend has
+  always been sent. Verified against the network log — clearing a filter
+  drops the parameter rather than sending `formType=__all`. Never persist
+  the sentinel.
+- **`Label` is `flex items-center gap-2`.** A `<strong>` beside a text node
+  inside it becomes a second flex item, and the sentence renders as two
+  columns. Wrap mixed content in a single `<span>`.
+- **The filter row stays a grid, not a flex wrap.**
+  `components/admin/FilterBar.tsx` keeps `.cam-admin-filters`' rule,
+  `repeat(auto-fit, minmax(190px, 1fr))`. The first conversion replaced it
+  with `flex flex-wrap` and per-control widths (`w-56`, `w-48`, …), which
+  gave a ragged right edge and orphaned the last field on its own row; the
+  grid balances the columns at every width and was already the better
+  answer. A component library supplies controls, not page layout — reach for
+  CSS grid here, and give a SelectTrigger `w-full` so it fills its cell.
+- **`AdminDialog` is deliberately not replaced.** The native `<dialog>`
+  gives a real focus trap, Escape and focus return — confirmed in the
+  browser, where Escape closed the bulk-rejection dialog and returned focus
+  to the button that opened it. It is shared across the console and guards
+  the most consequential actions in it, so conversions restyle its contents
+  and leave its chrome alone. `ViewSwitch` is shared the same way.
+
+---
+
 ## Enforcement
 
 ### What runs
@@ -336,7 +428,7 @@ Run `check:ui-grammar` after any change under `app/admin/**`, `components/admin/
 | Where | Rules | Why there |
 |---|---|---|
 | `eslint.config.mjs`, scoped `no-restricted-syntax` | G7 `position:"fixed"`, G12 `toLocale*`, G13 literal `fontSize`, G1 Tailwind palette classes | AST-shaped. Reported in the editor, on the exact node. |
-| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, hex in a CSS module, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption, G16 question/answer/hint size | Text-shaped, cross-file, or needing a per-file count. |
+| `scripts/check-admin-ui-grammar.mjs` | hex in TSX, hex in the shared CSS layer, hex in a CSS module, phantom tokens, G6 bare tables, G14 off-scale spacing, G4 card proxy, G10 `DataState` adoption, G16 question/answer/hint size, G17 unified wizard chrome | Text-shaped, cross-file, or needing a per-file count. |
 
 G12 and G13 appear in both: ESLint shows them at the node, the script ratchets the count so they cannot grow while the backlog is still being worked off.
 

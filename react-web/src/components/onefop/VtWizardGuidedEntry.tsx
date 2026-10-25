@@ -85,7 +85,7 @@ const addButtonStyle: CSSProperties = {
   border: "none",
   borderRadius: "var(--cam-radius-sm)",
   fontFamily: "var(--cam-font-sans)",
-  fontWeight: 600,
+  fontWeight: "var(--cam-font-weight-semibold)",
   fontSize: "var(--cam-font-size-base)",
   cursor: "pointer",
 };
@@ -212,7 +212,7 @@ const GuidedRowOwes = memo(function GuidedRowOwes({ labels }: { labels: string[]
     <p
       style={{
         fontFamily: "var(--cam-font-sans)",
-        fontWeight: 600,
+        fontWeight: "var(--cam-font-weight-semibold)",
         fontSize: "var(--cam-font-size-xs)",
         color: "var(--cam-error)",
         margin: "var(--cam-space-hairline) 0 0",
@@ -249,7 +249,7 @@ const GuidedHeaderBox = memo(function GuidedHeaderBox({ title, tinted = true }: 
   }
   return (
     <div style={guidedHeaderBoxStyle}>
-      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 600, fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
+      <p style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-semibold)", fontSize: "var(--cam-font-size-sm)", color: accentGreen, margin: 0 }}>
         {title}
       </p>
     </div>
@@ -380,10 +380,10 @@ const TotalBar = memo(function TotalBar({
   return (
     <div style={{ width: "100%", padding: 16, backgroundColor: "var(--cam-success-bg)", border: `1px solid ${cardBorder}`, borderRadius: "var(--cam-radius-sm)" }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: accentGreen, flex: 1 }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xs)", color: accentGreen, flex: 1 }}>
           {totalsText}
         </span>
-        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: 700, fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-white)", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
+        <span style={{ fontFamily: "var(--cam-font-sans)", fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-3xs)", color: "var(--cam-white)", padding: "4px 8px", backgroundColor: accentGreen, borderRadius: "var(--cam-radius-sm)" }}>
           {countText}
         </span>
       </div>
@@ -1355,7 +1355,7 @@ const GuidedSexToggle = memo(function GuidedSexToggle({
                 background: active ? accentGreen : "transparent",
                 color: active ? "var(--cam-white)" : inkSoft,
                 fontFamily: "var(--cam-font-sans)",
-                fontWeight: 600,
+                fontWeight: "var(--cam-font-weight-semibold)",
                 fontSize: "var(--cam-font-size-2xs)",
                 textTransform: "uppercase",
               }}

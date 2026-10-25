@@ -3,7 +3,7 @@ import { PROGRAMME_PHASES } from "./site-content";
 import { SiteCta } from "./SiteCta";
 import styles from "../portal.module.css";
 
-// Le programme: why it exists, its two pillars, its three phases (the
+// Le programme: why it exists, its two pillars, its four phases (the
 // roadmap is this section, not a page of its own), and who it serves.
 
 export function ProgrammeView() {
@@ -57,18 +57,25 @@ export function ProgrammeView() {
           <h2>{t("progPhasesTitle")}</h2>
           <div className={styles.stack}>
             <p className={styles.muted}>{t("progPhasesIntro")}</p>
-            {PROGRAMME_PHASES.map(({ n, now, items }) => (
-              <article key={n} className={`${styles.card} ${now ? styles.phaseCardNow : ""}`}>
-                <span className={styles.state}>{t(`progPhase${n}State`)}</span>
-                <h3>{t(`progPhase${n}Title`)}</h3>
-                <p className={styles.muted}>{t(`progPhase${n}Body`)}</p>
-                <ul className={styles.bullets}>
-                  {Array.from({ length: items }, (_, i) => (
-                    <li key={i}>{t(`progPhase${n}Item${i + 1}`)}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
+            {/* The home page's numbered sequence, kept stacked: each phase
+                carries its list (2026-10-21). */}
+            <ol className={`${styles.phases} ${styles.phasesVertical}`}>
+              {PROGRAMME_PHASES.map(({ n, now, items }) => (
+                <li key={n} className={now ? styles.phaseNow : undefined}>
+                  <span className={styles.phaseMarker} aria-hidden="true">
+                    {String(n).padStart(2, "0")}
+                  </span>
+                  <span className={styles.state}>{t(`progPhase${n}State`)}</span>
+                  <h3>{t(`progPhase${n}Title`)}</h3>
+                  <p>{t(`progPhase${n}Body`)}</p>
+                  <ul className={styles.bullets}>
+                    {Array.from({ length: items }, (_, i) => (
+                      <li key={i}>{t(`progPhase${n}Item${i + 1}`)}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </section>

@@ -189,7 +189,7 @@ export function MonthYearPicker({
               aria-pressed={chosen}
               className="cam-hoverable"
               style={{
-                padding: "6px 4px",
+                padding: "var(--cam-space-1-5) var(--cam-space-1)",
                 fontSize: "var(--cam-font-size-xs)",
                 border: "1px solid",
                 borderColor: chosen ? "var(--cam-green)" : "transparent",

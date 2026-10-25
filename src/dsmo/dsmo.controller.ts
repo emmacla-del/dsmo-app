@@ -95,13 +95,13 @@ export class DsmoController {
   }
 
   @Get('declarations/pending')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async getPending(@Req() req: any) {
     return this.dsmoService.getPendingDeclarations(req.user);
   }
 
   @Patch('declarations/:id/validate')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async validate(
     @Param('id') id: string,
     @Req() req: any,
@@ -133,7 +133,7 @@ export class DsmoController {
   }
 
   @Get('stats/summary')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async getDeclarationStats(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -145,7 +145,7 @@ export class DsmoController {
   // ===== NOTIFICATION & COMPLIANCE ENDPOINTS =====
 
   @Post('notifications/send')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async sendNotification(
     @Req() req: any,
     @Body('subject') subject: string,
@@ -158,7 +158,7 @@ export class DsmoController {
   // Static route — must come before GET 'notifications/:id' below, otherwise
   // Nest would never reach this one.
   @Get('notifications')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async getNotifications(
     @Req() req: any,
     @Query('page') page: number = 1,
@@ -168,13 +168,13 @@ export class DsmoController {
   }
 
   @Get('notifications/:id')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async getNotificationDetails(@Param('id') id: string) {
     return this.notificationService.getNotificationDetails(id);
   }
 
   @Get('notifications/:id/stats')
-  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL_ADMIN', 'REGIONAL_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS', 'SUPER_ADMIN')
   async getNotificationStats(@Param('id') id: string) {
     return this.notificationService.getNotificationStats(id);
   }

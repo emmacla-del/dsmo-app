@@ -154,7 +154,7 @@ test("target payload helpers: English labels and messages, French default kept",
   const invalid = buildTargetPayload({
     field: "submissionTarget",
     regions: [centre],
-    drafts: { r1: { regionId: "r1", mode: "REGION", regionInput: "-3", departmentInputs: { d1: "" } } },
+    drafts: { r1: { regionId: "r1", mode: "REGION", regionInput: "-3", departmentInputs: { d1: "" }, entityTypeInputs: {} } },
     originalCentral: null,
     centralInput: "",
     locale: "en",
@@ -270,7 +270,7 @@ test("user directory status labels in English", () => {
 });
 
 test("settings role card: every UserRole has a statutory title and description in both catalogues", () => {
-  const roles = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "AUDITOR", "COMPANY"];
+  const roles = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "ADMIN_ONEFOP_SUBMISSIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "AUDITOR", "COMPANY"];
   for (const locale of ["fr", "en"] as const) {
     const catalogue = loadCatalogue(locale);
     for (const role of roles) {
@@ -281,7 +281,7 @@ test("settings role card: every UserRole has a statutory title and description i
 });
 
 test("/home navigation: every role badge and nav item has a label in both catalogues", () => {
-  const roles = ["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR"];
+  const roles = ["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "ADMIN_ONEFOP_SUBMISSIONS", "SUPER_ADMIN", "AUDITOR"];
   for (const locale of ["fr", "en"] as const) {
     const catalogue = loadCatalogue(locale);
     for (const role of roles) {

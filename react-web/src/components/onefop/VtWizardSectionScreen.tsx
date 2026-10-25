@@ -60,6 +60,9 @@ import { FormSection, FormSubsection } from "./form/FormSection";
 import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
 import { CodedLabel } from "./ui/QuestionCode";
 import { AdaptiveStatisticalTable } from "./tables/AdaptiveStatisticalTable";
+import { SectionProgressText } from "./SectionProgress";
+import { WizardNavigation } from "./WizardNavigation";
+import type { SectionProgressStatus } from "@/lib/section-progress";
 import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { VtRosterGrid } from "./tables/VtRosterGrid";
 import { buildVtFixedRowGridDefinition, isVtFixedRowTable, withVtFixedRowTotals } from "./tables/vtFixedRowGrid";
@@ -432,7 +435,7 @@ function VtWizardFieldRows({
           const subDeps = visibleFields.filter((sub) => sub.visibility?.dependsOn === d.id && following.has(sub.id));
           subDeps.forEach((sd) => consumed.add(sd.id));
           return (
-            <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2-5)" }}>
               <VtWizardField
                 field={d}
                 value={data[d.id]}
@@ -621,7 +624,7 @@ function VtWizardTableField({
     const noteStyle = { margin: "4px 0 16px", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", lineHeight: 1.5 } as const;
     const linkStyle = {
       marginLeft: 8, background: "none", border: "none", padding: 0, color: "var(--cam-green)",
-      fontSize: "var(--cam-font-size-xs)", fontWeight: 600, textDecoration: "underline", cursor: "pointer",
+      fontSize: "var(--cam-font-size-xs)", fontWeight: "var(--cam-font-weight-semibold)", textDecoration: "underline", cursor: "pointer",
     } as const;
     if (status === "NONE") {
       return (
@@ -781,7 +784,7 @@ function VtWizardSection1LocalisationRows({
   const issueByFieldId = new Map(issues.map((i) => [i.fieldId, i.message]));
   const rowGroups = vtWizardSection1LocalisationGroups();
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4-5)" }}>
       {rowGroups.map((rg, idx) => (
         <VtWizardFixedRow
           key={idx}
@@ -819,7 +822,7 @@ function VtWizardSection1EnseignementRows({
   const { ids } = vtWizardSection1EnseignementGroup();
   const [ordreId, typeCfpId] = ids;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4-5)" }}>
       <VtWizardFixedRow
         fieldIds={[ordreId]}
         fieldById={fieldById}
@@ -1023,24 +1026,28 @@ function VtWizardBlockProgress({
   if (!summary) return null;
   const { errors, status, remaining } = summary;
 
-  const [text, color] =
-    status === "needsAttention" ? [t("vtWizard.blockToFix", { count: errors }), "var(--cam-error)"] :
-    status === "complete" ? [t("vtWizard.blockComplete"), "var(--cam-green)"] :
-    [t("vtWizard.blockRemaining", { count: remaining }), "var(--cam-text-muted)"];
+  const progressStatus: SectionProgressStatus =
+    status === "needsAttention" ? "has-errors" :
+    status === "complete" ? "complete" :
+    status === "inProgress" ? "in-progress" :
+    "not-started";
+  const text =
+    status === "needsAttention" ? t("vtWizard.blockToFix", { count: errors }) :
+    status === "complete" ? t("vtWizard.blockComplete") :
+    t("vtWizard.blockRemaining", { count: remaining });
 
   return (
-    <span
+    <SectionProgressText
+      status={progressStatus}
       style={{
         flexShrink: 0,
         textAlign: "right",
         fontFamily: "var(--cam-font-sans)",
         fontSize: "var(--cam-font-size-xs)",
-        fontWeight: status === "inProgress" || status === "notStarted" ? 400 : 600,
-        color,
       }}
     >
       {text}
-    </span>
+    </SectionProgressText>
   );
 }
 
@@ -1366,7 +1373,7 @@ export function VtWizardSectionScreen({
             not a Tab stop, and no ring around a title. */}
         {/* The step's one h1 (audit R25), as the preliminary quiz has: the
             tables' own h2/h3 then sit under it. */}
-        <h1 id={vtSectionHeadingId(sectionId)} tabIndex={-1} className="cam-step-title">
+        <h1 id={vtSectionHeadingId(sectionId)} tabIndex={-1} className="cam-step-title cam-rail-named">
           {sectionTitle}
         </h1>
         {groups.length > 0 && <RequiredQuestionsNote />}
@@ -1391,7 +1398,7 @@ export function VtWizardSectionScreen({
               isEn={normalizedLocale === "en"}
             />
             <TableHeadingShownContext.Provider value={true}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4-5)" }}>
                 {groups.map((group, i) => (
                   <FormSection key={i}>
                     <div
@@ -1417,7 +1424,7 @@ export function VtWizardSectionScreen({
             </TableHeadingShownContext.Provider>
           </div>
         ) : groups.length > 1 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4-5)" }}>
             {cardChunks.map((chunk, c) => (
               <FormSection key={c}>
                 {chunk.map((groupIndex, j) => {
@@ -1425,7 +1432,7 @@ export function VtWizardSectionScreen({
                   return (
                     <div key={groupIndex} id={`vt-outline-block-${sectionId}-${groupIndex}`}>
                       {j !== 0 && (
-                        <div style={{ height: 1, backgroundColor: VT_CARD_BORDER, margin: "20px 0" }} />
+                        <div style={{ height: 1, backgroundColor: VT_CARD_BORDER, margin: "var(--cam-space-4-5) 0" }} />
                       )}
                       <VtWizardCardForGroup
                         group={group}
@@ -1447,7 +1454,7 @@ export function VtWizardSectionScreen({
             ))}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4-5)" }}>
             {groups.map((group, i) => (
               <FormSection key={i}>
                 <VtWizardCardForGroup
@@ -1483,56 +1490,22 @@ export function VtWizardSectionScreen({
       </div>
 
       {showBottomBar && (
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            padding: "12px 0",
-            // Sticks to the bottom of the nearest scrolling ancestor (the
-            // section content pane in WizardShell.tsx) so it stays reachable
-            // without scrolling, matching Flutter's Positioned(bottom: 0)
-            // bar and React's own non-VT bottom bar.
-            position: "sticky",
-            bottom: 0,
-            zIndex: 10,
-            backgroundColor: "var(--cam-white)",
-            borderTop: `1px solid ${VT_CARD_BORDER}`,
-            boxShadow: "0 -3px 10px rgba(0,0,0,.06)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={onBack}
-            className="cam-button cam-button-secondary"
-          >
-            ←{" "}
-            {isFirst && onSaveAndExit
-              ? t("vtWizard.cancel", { default: "Annuler" })
-              : t("vtWizard.previous", { default: "Étape précédente" })}
-          </button>
-          <div style={{ flex: 1 }} />
-          {onSaveAndExit && (
-            <button
-              type="button"
-              onClick={onSaveAndExit}
-              disabled={saving}
-              className="cam-button cam-button-secondary"
-            >
-              {t("vtWizard.saveAndExit", { default: "Enregistrer et quitter" })}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onNext}
-            className="cam-button cam-button-primary"
-          >
-            {isLast
-              ? t("vtWizard.proceedToValidation", { default: "Passer à la Validation" })
-              : t("vtWizard.nextStep", { default: "Suivant" })}
-            {" →"}
-          </button>
-        </div>
+        <WizardNavigation
+          ariaLabel={t("wizardRail.title")}
+          onPrevious={onBack}
+          previousLabel={isFirst && onSaveAndExit
+            ? t("vtWizard.cancel", { default: "Annuler" })
+            : t("vtWizard.previous", { default: "\u00C9tape pr\u00E9c\u00E9dente" })}
+          onNext={onNext}
+          nextLabel={isLast
+            ? t("vtWizard.proceedToValidation", { default: "Passer \u00E0 la Validation" })
+            : t("vtWizard.nextStep", { default: "Suivant" })}
+          nextIcon="\u2192"
+          onSaveAndExit={onSaveAndExit}
+          saveAndExitLabel={t("vtWizard.saveAndExit", { default: "Enregistrer et quitter" })}
+          saving={saving}
+          contentMaxWidth="min(1360px, 100%)"
+        />
       )}
     </div>
     </VtSharedCodeContext.Provider>

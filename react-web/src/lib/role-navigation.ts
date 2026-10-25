@@ -35,7 +35,7 @@ export function resolveEffectiveRole(user: User): string {
 // Labels from _roleLabel (home_screen.dart), carried over to the new role
 // names. They are message keys under homeNav.role; each used to be one
 // "Français/ English" string, from before this app had an i18n layer.
-const ROLE_LABEL_KEYS = new Set(["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "SUPER_ADMIN", "AUDITOR", "CENTRAL_AGENT"]);
+const ROLE_LABEL_KEYS = new Set(["COMPANY", "DIVISIONAL_ADMIN", "REGIONAL_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "ADMIN_ONEFOP_SUBMISSIONS", "SUPER_ADMIN", "AUDITOR", "CENTRAL_AGENT"]);
 
 /** Message key for a role's /home badge, or null for an unknown role (shown as stored). */
 export function roleLabelKey(role: string): string | null {
@@ -110,6 +110,17 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },
     { slug: "utilisateurs", labelKey: "homeNav.item.onefopUsers", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
     { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/annuaire" },
+  ],
+  ADMIN_ONEFOP_REGISTRATIONS: [
+    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
+    { slug: "inscriptions", labelKey: "homeNav.item.establishmentRegister", route: "/admin/inscriptions" },
+    { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/etablissements" },
+  ],
+  ADMIN_ONEFOP_SUBMISSIONS: [
+    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
+    { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
+    { slug: "collecte", labelKey: "homeNav.item.surveys", route: "/admin/campagnes" },
+    { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
   ],
   SUPER_ADMIN: [
     { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },

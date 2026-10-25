@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
+import { Search } from "lucide-react";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { directoryRoleLabel } from "@/lib/user-directory";
@@ -24,15 +25,40 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AUDIT_ROLES } from "@/lib/roles";
+import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
+import { FilterBar } from "@/components/admin/FilterBar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const PAGE_SIZE = 12;
 
-// The tone an audit action maps to decides its badge class (G1).
-const TONE_BADGE: Record<"neutral" | "success" | "warn" | "danger", string> = {
-  neutral: "cam-badge-neutral",
-  success: "cam-badge-success",
-  warn: "cam-badge-warning",
-  danger: "cam-badge-error",
+// The tone an audit action maps to decides its badge variant (G1).
+const TONE_VARIANT: Record<
+  "neutral" | "success" | "warn" | "danger",
+  "neutral" | "success" | "warning" | "danger"
+> = {
+  neutral: "neutral",
+  success: "success",
+  warn: "warning",
+  danger: "danger",
 };
 
 /**
@@ -156,7 +182,7 @@ function JournalAuditContent() {
   const actorOptions = useMemo(() => {
     const users = actorsQuery.data?.users ?? [];
     const options = [
-      { value: "", label: t("allUsers") },
+      { value: ALL, label: t("allUsers") },
       ...users
         .map((u) => ({
           value: u.id,
@@ -251,168 +277,176 @@ function JournalAuditContent() {
     <div className="cam-admin-page">
       {header}
 
-      <section className="cam-admin-section">
-        <div className="cam-admin-section-body">
-          <div className="cam-admin-filters">
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-period">{t("periodLabel")}</label>
-              <select
-                id="filter-period"
-                className="cam-select"
-                value={period}
-                onChange={(e) => { setPeriod(e.target.value); setCurrentPage(1); }}
-              >
+      <Card>
+        <CardContent>
+          <FilterBar>
+          <div className="grid gap-2">
+            <Label htmlFor="filter-period">{t("periodLabel")}</Label>
+            <Select value={period} onValueChange={(v) => { setPeriod(v); setCurrentPage(1); }}>
+              <SelectTrigger id="filter-period" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {PERIOD_VALUES.map((value) => (
-                  <option key={value} value={value}>{t(`period.${value}`)}</option>
+                  <SelectItem key={value} value={value}>{t(`period.${value}`)}</SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Acteur — real accounts from GET /auth/users, filtered by id */}
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-actor">{t("actorLabel")}</label>
-              <select
-                id="filter-actor"
-                className="cam-select"
-                value={actor}
-                onChange={(e) => { setActor(e.target.value); setCurrentPage(1); }}
-                disabled={actorsQuery.isLoading}
-              >
+          {/* Acteur — real accounts from GET /auth/users, filtered by id */}
+          <div className="grid gap-2">
+            <Label htmlFor="filter-actor">{t("actorLabel")}</Label>
+            <Select
+              value={toAll(actor)}
+              onValueChange={(v) => { setActor(fromAll(v)); setCurrentPage(1); }}
+              disabled={actorsQuery.isLoading}
+            >
+              <SelectTrigger id="filter-actor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {actorOptions.map((a) => (
-                  <option key={a.value} value={a.value}>{a.label}</option>
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Type d'action — only actions the backend actually writes */}
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-action">{t("actionTypeLabel")}</label>
-              <select
-                id="filter-action"
-                className="cam-select"
-                value={action}
-                onChange={(e) => { setAction(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">{t("allActions")}</option>
+          {/* Type d'action — only actions the backend actually writes */}
+          <div className="grid gap-2">
+            <Label htmlFor="filter-action">{t("actionTypeLabel")}</Label>
+            <Select
+              value={toAll(action)}
+              onValueChange={(v) => { setAction(fromAll(v)); setCurrentPage(1); }}
+            >
+              <SelectTrigger id="filter-action" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("allActions")}</SelectItem>
                 {ACTION_VALUES.map((value) => (
-                  <option key={value} value={value}>{auditActionLabel(value, locale)}</option>
+                  <SelectItem key={value} value={value}>{auditActionLabel(value, locale)}</SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-resource">{t("resourceLabel")}</label>
-              <select
-                id="filter-resource"
-                className="cam-select"
-                value={resourceType}
-                onChange={(e) => { setResourceType(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">{t("allResources")}</option>
+          <div className="grid gap-2">
+            <Label htmlFor="filter-resource">{t("resourceLabel")}</Label>
+            <Select
+              value={toAll(resourceType)}
+              onValueChange={(v) => { setResourceType(fromAll(v)); setCurrentPage(1); }}
+            >
+              <SelectTrigger id="filter-resource" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("allResources")}</SelectItem>
                 {RESOURCE_TYPE_VALUES.map((value) => (
-                  <option key={value} value={value}>{auditResourceLabel(value, locale)}</option>
+                  <SelectItem key={value} value={value}>{auditResourceLabel(value, locale)}</SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Identifiant de la ressource — exact match, server-side */}
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-resource-id">{t("idLabel")}</label>
-              <div className="cam-admin-search">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  id="filter-resource-id"
-                  type="text"
-                  className="cam-input"
-                  placeholder={t("idPlaceholder")}
-                  value={resourceIdInput}
-                  onChange={(e) => setResourceIdInput(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <button type="button" className="cam-button cam-button-secondary" onClick={handleResetFilters}>
-                {t("reset")}
-              </button>
+          {/* Identifiant de la ressource — exact match, server-side */}
+          <div className="grid gap-2">
+            <Label htmlFor="filter-resource-id">{t("idLabel")}</Label>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="filter-resource-id"
+                type="text"
+                className="pl-9"
+                placeholder={t("idPlaceholder")}
+                value={resourceIdInput}
+                onChange={(e) => setResourceIdInput(e.target.value)}
+              />
             </div>
           </div>
-        </div>
 
-      <div className="cam-table-wrapper" role="region" aria-label={t("registerAriaLabel")}>
-        <table className="cam-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("timestampColumn")}</th>
-              <th scope="col">{t("actorColumn")}</th>
-              <th scope="col">{t("actionColumn")}</th>
-              <th scope="col">{t("objectColumn")}</th>
-              <th scope="col">{t("detailsColumn")}</th>
-              <th scope="col" className="text-right">{t("transitionColumn")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Loading, error, authorization refusal and "no records" stay
-                distinct. There is no branch that renders sample rows. */}
-            <DataStateRow
-              colSpan={6}
-              state={tableState}
-              resource={t("resource")}
-              error={auditQuery.error}
-              onRetry={() => auditQuery.refetch()}
-              title={tableState === "empty" ? t("emptyTitle") : undefined}
-              hint={tableState === "empty" ? t("emptyHint") : undefined}
-            />
-            {displayItems.map((row) => (
-              // The action badge carries the tone; the row is not tinted a
-              // second time.
-              <tr key={row.id}>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <span className="cam-admin-meta">{row.timestamp}</span>
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <span className="cam-admin-strong">{row.actor}</span>
-                  {/* Role comes from the audit entry's joined user record;
-                      omitted entirely for system-generated entries. */}
-                  {row.actorRole && (
-                    <span className="cam-admin-meta" style={{ display: "block" }}>{row.actorRole}</span>
-                  )}
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <span className={`cam-badge ${TONE_BADGE[row.actionTone]}`}>{row.action}</span>
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <span className="cam-admin-strong">{row.object}</span>
-                </td>
-                <td
-                  title={row.details}
-                  style={{ maxWidth: 448, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                >
-                  {row.details}
-                </td>
-                <td className="text-right" style={{ whiteSpace: "nowrap" }}>
-                  {row.transition ? (
-                    <span className={`cam-badge ${TONE_BADGE[row.transitionTone ?? "neutral"]}`}>{row.transition}</span>
-                  ) : (
-                    <span className="cam-admin-muted">{NOT_PROVIDED}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      </section>
+          <div>
+            <Button type="button" variant="outline" onClick={handleResetFilters}>
+              {t("reset")}
+            </Button>
+          </div>
+          </FilterBar>
+        </CardContent>
+
+        <CardContent className="border-t pt-6">
+          <div role="region" aria-label={t("registerAriaLabel")}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">{t("timestampColumn")}</TableHead>
+                  <TableHead scope="col">{t("actorColumn")}</TableHead>
+                  <TableHead scope="col">{t("actionColumn")}</TableHead>
+                  <TableHead scope="col">{t("objectColumn")}</TableHead>
+                  <TableHead scope="col">{t("detailsColumn")}</TableHead>
+                  <TableHead scope="col" className="text-right">{t("transitionColumn")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Loading, error, authorization refusal and "no records" stay
+                    distinct. There is no branch that renders sample rows. */}
+                <DataStateRow
+                  colSpan={6}
+                  state={tableState}
+                  resource={t("resource")}
+                  error={auditQuery.error}
+                  onRetry={() => auditQuery.refetch()}
+                  title={tableState === "empty" ? t("emptyTitle") : undefined}
+                  hint={tableState === "empty" ? t("emptyHint") : undefined}
+                />
+                {displayItems.map((row) => (
+                  // The action badge carries the tone; the row is not tinted a
+                  // second time.
+                  <TableRow key={row.id}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {row.timestamp}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <span className="font-medium text-foreground">{row.actor}</span>
+                      {/* Role comes from the audit entry's joined user record;
+                          omitted entirely for system-generated entries. */}
+                      {row.actorRole && (
+                        <span className="block text-muted-foreground">{row.actorRole}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <Badge variant={TONE_VARIANT[row.actionTone]}>{row.action}</Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap font-medium text-foreground">
+                      {row.object}
+                    </TableCell>
+                    <TableCell title={row.details} className="max-w-md truncate">
+                      {row.details}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
+                      {row.transition ? (
+                        <Badge variant={TONE_VARIANT[row.transitionTone ?? "neutral"]}>{row.transition}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">{NOT_PROVIDED}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. No fixed page buttons: the number of pages is
           whatever the real total implies, and the range reflects the rows
           actually returned. */}
-      <div className="cam-pagination">
-        <span className="cam-pagination-info">
+      <div className="flex flex-wrap items-center justify-end gap-4 py-4 text-sm text-muted-foreground">
+        <span>
           {totalEvents === null
             ? NOT_PROVIDED
             : totalEvents === 0
@@ -424,25 +458,27 @@ function JournalAuditContent() {
                   count: totalEvents,
                 })}
         </span>
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           disabled={currentPage === 1}
           onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
         >
           {t("previous")}
-        </button>
-        <span className="cam-pagination-info">
+        </Button>
+        <span>
           {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
         </span>
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           disabled={pageCount === null || currentPage >= pageCount}
           onClick={() => setCurrentPage((prev) => prev + 1)}
         >
           {t("next")}
-        </button>
+        </Button>
       </div>
     </div>
   );

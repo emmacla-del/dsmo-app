@@ -25,6 +25,15 @@ model StaffInvitationLink {
   level         String
   region        String?
   department    String?
+  /// The post this link is for, fixed by the administrator who creates it,
+  /// so the officer confirms their post rather than hunting for it in a
+  /// 126-service organigramme. Plain names, like region and department
+  /// above: the service is validated against the organigramme when the
+  /// link is made, not by a foreign key.
+  /// Null on every link created before 2026-10-25, which let the officer
+  /// choose both; those keep working exactly as they did.
+  serviceCode   String?
+  positionType  String?
   maxUses       Int
   useCount      Int       @default(0)
   expiresAt     DateTime
@@ -1981,6 +1990,8 @@ enum UserRole {
   COMPANY
   SUPER_ADMIN
   ADMIN_ONEFOP
+  ADMIN_ONEFOP_REGISTRATIONS
+  ADMIN_ONEFOP_SUBMISSIONS
   REGIONAL_ADMIN
   DIVISIONAL_ADMIN
   AUDITOR
@@ -2530,6 +2541,12 @@ model CampaignQuota {
   scopeKind        CampaignQuotaScope @default(TERRITORIAL)
   regionId         String?
   departmentId     String?
+  /// The entity type this quota is for, or null for one covering every type.
+  /// Region level only: the chosen grain is region x type, so a row carrying
+  /// both a departmentId and an entityType is refused by parseTargetBody.
+  /// Null on every row written before 2026-10-25, which is why it is nullable
+  /// rather than defaulted - "all types" is a real scope, not a missing value.
+  entityType       OnefopEntityType?
   submissionTarget Int
   createdBy        String
   updatedBy        String
@@ -2544,6 +2561,7 @@ model CampaignQuota {
   @@index([campaignId])
   @@index([regionId])
   @@index([departmentId])
+  @@index([entityType])
   @@index([createdBy])
   @@index([updatedBy])
   @@map("campaign_quotas")

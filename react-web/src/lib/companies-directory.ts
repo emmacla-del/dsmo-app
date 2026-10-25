@@ -63,8 +63,22 @@ export interface CompanyStats {
   suspended: number;
 }
 
+export interface CompanyRegistrationTrend {
+  months: Array<{ month: string; count: number }>;
+  days: Array<{
+    date: string;
+    submitted: number;
+    approved: number;
+    correctionRequested: number;
+  }>;
+}
+
 export function getCompanyStats() {
   return apiFetch<CompanyStats>("/companies/stats");
+}
+
+export function getCompanyRegistrationTrend() {
+  return apiFetch<CompanyRegistrationTrend>("/companies/registration-trend");
 }
 
 export function listCompanies(params: {
@@ -73,6 +87,10 @@ export function listCompanies(params: {
   pageSize?: number;
   status?: string;
   region?: string;
+  sortOrder?: "oldest" | "newest";
+  year?: number;
+  semester?: 1 | 2;
+  quarter?: 1 | 2 | 3 | 4;
 }) {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
@@ -80,6 +98,10 @@ export function listCompanies(params: {
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   if (params.status) query.set("status", params.status);
   if (params.region) query.set("region", params.region);
+  if (params.sortOrder) query.set("sortOrder", params.sortOrder);
+  if (params.year != null) query.set("year", String(params.year));
+  if (params.semester != null) query.set("semester", String(params.semester));
+  if (params.quarter != null) query.set("quarter", String(params.quarter));
   const qs = query.toString();
   return apiFetch<ListCompaniesResult>(`/companies${qs ? `?${qs}` : ""}`);
 }

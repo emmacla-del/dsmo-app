@@ -207,9 +207,8 @@ export function OnefopSidePreviewPanel({
         width: "50%",
         minWidth: "420px",
         maxWidth: "760px",
-        height: "calc(100vh - var(--mj-header-h, 56px))",
-        position: "sticky",
-        top: "var(--mj-header-h, 56px)",
+        height: "auto",
+        position: "static",
         borderLeft: "1px solid var(--cam-border)",
         background: "var(--cam-bg-subtle)",
         display: "flex",
@@ -247,7 +246,7 @@ export function OnefopSidePreviewPanel({
           <span
             style={{
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 700,
+              fontWeight: "var(--cam-font-weight-bold)",
               color: "var(--cam-text)",
               whiteSpace: "nowrap",
               overflow: "hidden",
@@ -309,7 +308,7 @@ export function OnefopSidePreviewPanel({
               color: "var(--cam-text)",
               cursor: "pointer",
               fontSize: "var(--cam-font-size-2xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
               display: "flex",
               alignItems: "center",
               gap: 4,
@@ -337,7 +336,7 @@ export function OnefopSidePreviewPanel({
               color: "var(--cam-text)",
               cursor: "pointer",
               fontSize: "var(--cam-font-size-2xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
               display: "flex",
               alignItems: "center",
               gap: 4,
@@ -364,7 +363,7 @@ export function OnefopSidePreviewPanel({
               display: "grid",
               placeItems: "center",
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 700,
+              fontWeight: "var(--cam-font-weight-bold)",
             }}
           >
             ✕

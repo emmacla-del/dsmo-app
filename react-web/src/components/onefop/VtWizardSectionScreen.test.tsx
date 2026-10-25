@@ -84,7 +84,7 @@ test("a section's title is its one h1", () => {
   );
   const h1 = container.querySelectorAll("h1");
   assert.equal(h1.length, 1);
-  assert.equal(h1[0].className, "cam-step-title");
+  assert.ok(h1[0].classList.contains("cam-step-title"));
 });
 
 // Audit R4: after Next with answers missing, a "There is a problem" summary

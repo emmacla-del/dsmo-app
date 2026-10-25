@@ -101,9 +101,6 @@ const thStyle: LayoutStyle = {
   padding: "var(--cam-space-2)",
   background: "var(--cam-table-head-bg)",
   color: "var(--cam-table-text)",
-  position: "sticky",
-  top: 0,
-  zIndex: 10,
 };
 
 const tdStyle: LayoutStyle = {

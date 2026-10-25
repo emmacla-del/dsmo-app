@@ -160,6 +160,20 @@ export class MinefopServicesService {
     });
   }
 
+  /**
+   * Every active post in the organigramme, flat: which service offers which
+   * position type, with its title. For a screen that picks the POST first and
+   * then the service offering it -- the group invitation link -- which no
+   * per-service call can answer without one request per service.
+   */
+  async getAllPositions() {
+    return this.prisma.servicePosition.findMany({
+      where: { isActive: true },
+      select: { serviceCode: true, positionType: true, title: true, titleEn: true },
+      orderBy: [{ serviceCode: 'asc' }, { orderIndex: 'asc' }],
+    });
+  }
+
   async getServicesByRole(role: $Enums.UserRole) {
     const services = await this.prisma.minefopService.findMany({
       where: {

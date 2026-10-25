@@ -166,8 +166,6 @@ export function WizardShell({
   const [isValidationStage, setIsValidationStage] = useState(false);
   // Training centres: the preliminary quiz stage, between Sections 1 and 2.
   const [isVtQuizStage, setIsVtQuizStage] = useState(false);
-  // The quiz's validate, for the bottom bar's Suivant.
-  const vtQuizValidateRef = useRef<(() => void) | null>(null);
   const [attemptedAdvance, setAttemptedAdvance] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<string | null>(null);
   // The reference the server returned, passed to the receipt as is rather
@@ -374,10 +372,11 @@ export function WizardShell({
             : Array.from({ length: f.table?.matrix?.[0]?.length ?? 0 }, () => TABLE_MAX_DATA_COL_PX),
         ),
     );
+    if (isVtQuizStage) return "var(--cam-container-quiz)";
     return widest === 0
       ? "var(--vt-content-max)"
       : `clamp(var(--vt-content-max), ${widest}px, ${TABLE_MAX_WIDTH_PX}px)`;
-  }, [currentSection, formLocale]);
+  }, [currentSection, formLocale, isVtQuizStage]);
 
   // ── A1: focus, scroll and announcement on every VT step change ──────────
   // (non-VT entities render ModernJobsWizard, which does its own.)
@@ -871,7 +870,7 @@ export function WizardShell({
               isValidationStage={true}
               onGoToValidation={goToValidation}
               // Listed here as on every other step: the review step used to
-              // drop "Preliminary questionnaire" from the list (defect 3).
+              // drop the preliminary quiz from the list (defect 3).
               quiz={
                 vtQuizApplies
                   ? {
@@ -924,7 +923,7 @@ export function WizardShell({
                       fontSize: "var(--cam-font-size-sm)",
                     }}
                   >
-                    <p style={{ margin: 0, fontWeight: 600 }}>
+                    <p style={{ margin: 0, fontWeight: "var(--cam-font-weight-semibold)" }}>
                       {submissionError.summary}
                     </p>
                     <SubmissionErrorItems
@@ -1030,7 +1029,12 @@ export function WizardShell({
             style={{
               flex: 1,
               minWidth: 0,
-              minHeight: 0,
+              // The quiz column is centred in the space under the masthead.
+              // A quiz taller than that space starts at the top (`safe`).
+              minHeight: isVtQuizStage
+                ? "calc(100dvh - var(--mj-header-block, var(--mj-header-h, 0px)))"
+                : 0,
+              justifyContent: isVtQuizStage ? "safe center" : undefined,
               // The pod takes the height that is left; the nav under it
               // takes what it needs.
               display: "flex",
@@ -1046,7 +1050,7 @@ export function WizardShell({
             }}
           >
             <div
-              className={`cam-wizard-pod${podFlush ? " cam-wizard-pod--flush" : ""}`}
+              className={`cam-wizard-pod${podFlush ? " cam-wizard-pod--flush" : ""}${isVtQuizStage ? " cam-wizard-pod--quiz" : ""}`}
               style={{
                 width: "100%",
                 // The body's padding sits inside this, so the content keeps
@@ -1066,11 +1070,8 @@ export function WizardShell({
                   entity={entity}
                   data={data}
                   onChange={onChange}
-                  // The bottom bar's Suivant validates the quiz (VtScopeQuiz
-                  // checks and records the answers, then continues).
                   onComplete={() => showSection(1)}
-                  validateRef={vtQuizValidateRef}
-                  quarterCode={effectiveQuarter}
+                  onBack={() => showSection(0)}
                   locale={formLocale}
                 />
               ) : (
@@ -1105,32 +1106,33 @@ export function WizardShell({
               {/* Previous and Next after the last question, inside the pod
                   and in the flow of the page (owner, 2026-10-12): Next is
                   met when the section is done, and the pod's edges run past
-                  it. Saving is automatic; the PDF preview is the app bar's. */}
+                  it. Saving is automatic; the PDF preview is the app bar's.
+                  Hidden on the preliminary quiz: that screen draws its own
+                  Previous / Continue, as the employer quiz does. */}
+              {!isVtQuizStage && (
               <div className="cam-wizard-pod-nav">
                 <div className="cam-wizard-actions">
                   <button
                     type="button"
                     className="cam-button cam-button-secondary"
-                    // On the quiz: back to Section 1, as the quiz sits after it.
-                    onClick={isVtQuizStage ? () => showSection(0) : handlePrev}
+                    onClick={handlePrev}
                   >
-                    {!isVtQuizStage && clampedSectionIndex === 0 && !!onCancel
+                    {clampedSectionIndex === 0 && !!onCancel
                       ? t("common.cancel")
                       : t("wizardShell.previousStepButton")}
                   </button>
                   <button
                     type="button"
                     className="cam-button cam-button-primary"
-                    // On the quiz: validate it. It records the answers and opens
-                    // Section 2, or marks the questions still unanswered.
-                    onClick={isVtQuizStage ? () => vtQuizValidateRef.current?.() : handleNext}
+                    onClick={handleNext}
                   >
-                    {!isVtQuizStage && clampedSectionIndex === sections.length - 1
+                    {clampedSectionIndex === sections.length - 1
                       ? t("wizardShell.proceedToValidationButton")
                       : t("wizardShell.nextButton")}
                   </button>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </main>
@@ -1172,7 +1174,7 @@ export function WizardShell({
             color:
               saveToast === "failed" ? "var(--cam-error)" : "var(--cam-success)",
             fontSize: "var(--cam-font-size-2xs)",
-            fontWeight: 700,
+            fontWeight: "var(--cam-font-weight-bold)",
             fontFamily: "var(--vt-font)",
             boxShadow: "0 2px 6px rgba(0,0,0,.08)",
           }}

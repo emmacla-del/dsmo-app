@@ -1,5 +1,5 @@
 import { isRegistrationCampaign, type Campaign } from "./campaigns";
-import type { CampaignReturnsResponse, EntityTypeReturnRow } from "./pilotage-targets";
+import type { CampaignReturnsResponse, EntityTypeReturnRow, ReturnMetrics } from "./pilotage-targets";
 
 /**
  * The campaign the dashboard's coverage section reads: the active ONEFOP
@@ -22,7 +22,12 @@ export interface CoverageRow {
   /** "central" is the national administrations row, labelled by the page. */
   kind: "region" | "department" | "central";
   received: number;
+  approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   late: number;
+  registeredStock: number;
+  quota: number | null;
   /** 0–1, null when the territory has no registered establishment. */
   responseRate: number | null;
 }
@@ -41,7 +46,12 @@ export function coverageRows(data: CampaignReturnsResponse): CoverageRow[] {
       name: department.name,
       kind: "department",
       received: department.received,
+      approved: department.approved,
+      pendingReview: department.pendingReview,
+      correctionRequested: department.correctionRequested,
       late: department.late,
+      registeredStock: department.registeredStock,
+      quota: department.quota,
       responseRate: department.responseRate,
     }));
   }
@@ -50,7 +60,12 @@ export function coverageRows(data: CampaignReturnsResponse): CoverageRow[] {
     name: region.name,
     kind: "region",
     received: region.received,
+    approved: region.approved,
+    pendingReview: region.pendingReview,
+    correctionRequested: region.correctionRequested,
     late: region.late,
+    registeredStock: region.registeredStock,
+    quota: region.quota,
     responseRate: region.responseRate,
   }));
   if (data.central) {
@@ -59,7 +74,12 @@ export function coverageRows(data: CampaignReturnsResponse): CoverageRow[] {
       name: "",
       kind: "central",
       received: data.central.received,
+      approved: data.central.approved,
+      pendingReview: data.central.pendingReview,
+      correctionRequested: data.central.correctionRequested,
       late: data.central.late,
+      registeredStock: data.central.registeredStock,
+      quota: data.central.quota,
       responseRate: data.central.responseRate,
     });
   }
@@ -74,6 +94,29 @@ export function coverageRows(data: CampaignReturnsResponse): CoverageRow[] {
  */
 export function entityTypeRows(data: CampaignReturnsResponse): EntityTypeReturnRow[] {
   return data.byEntityType ?? [];
+}
+
+/**
+ * The collection phase ends when every expected return has arrived. A
+ * territory-level quota covers that region; otherwise department quotas (or
+ * the registered stock for departments without a quota) define completion.
+ * Central and unassigned registered establishments use their own quota or
+ * stock. Empty campaigns do not jump to the review phase.
+ */
+export function isCampaignCollectionComplete(data: CampaignReturnsResponse): boolean {
+  const expectedRows: ReturnMetrics[] = [];
+  for (const region of data.regions) {
+    if (region.mode === "REGION" || region.departments.length === 0) {
+      expectedRows.push(region);
+    } else {
+      expectedRows.push(...region.departments);
+    }
+  }
+  if (data.central) expectedRows.push(data.central);
+  if (data.unassigned) expectedRows.push(data.unassigned);
+
+  const hasExpectedSubmissions = expectedRows.some((row) => (row.quota ?? row.registeredStock) > 0 || row.received > 0);
+  return hasExpectedSubmissions && expectedRows.every((row) => row.received >= (row.quota ?? row.registeredStock));
 }
 
 /** A 0–1 ratio as the 0–100 value the shared percent/meter helpers take. */

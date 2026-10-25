@@ -195,6 +195,32 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+.cam-admin-rail-tools-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  align-items: center;
+  gap: var(--cam-space-1);
+}
+
+.cam-admin-rail .cam-admin-scope {
+  min-width: 0;
+  justify-content: center;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--cam-font-size-3xs);
+}
+
+.cam-admin-rail .cam-admin-icon-button {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cam-admin-rail .cam-admin-icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--cam-surface);
+}
+
 .cam-admin-rail-nav {
   flex: 1 0 auto;
   display: flex;
@@ -277,6 +303,8 @@
 }
 
 .cam-admin-rail-account {
+  display: grid;
+  gap: var(--cam-space-2);
   flex-shrink: 0;
   margin-top: auto;
   padding-top: var(--cam-space-3);
@@ -286,7 +314,7 @@
 .cam-admin-rail-user {
   display: flex;
   flex-direction: column;
-  gap: var(--cam-space-3);
+  gap: var(--cam-space-1);
 }
 
 .cam-admin-rail-user-id {
@@ -361,11 +389,16 @@
 
 .cam-admin-rail-locale {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
-.cam-admin-rail-user + .cam-admin-rail-locale {
-  margin-top: var(--cam-space-3);
+.cam-admin-rail .cam-language-link {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-admin-rail .cam-language-link:hover {
+  color: var(--cam-surface);
 }
 
 .cam-admin-campaign {
@@ -516,9 +549,28 @@
 }
 
 /* The sub-tab row spans the header and sits on its bottom rule. */
-.cam-admin-page-header > .cam-admin-tabs {
+.cam-admin-page-header > .cam-admin-tabs,
+.cam-admin-page-header > .cam-admin-tabs-row {
   width: 100%;
   margin: var(--cam-space-3) 0 -1px;
+}
+
+.cam-admin-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  min-width: 0;
+}
+
+.cam-admin-tabs-row > .cam-admin-tabs {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.cam-admin-tabs-action {
+  flex-shrink: 0;
 }
 
 .cam-admin-tab {
@@ -556,9 +608,7 @@
 .cam-admin-status-badge--active     { background: color-mix(in srgb, var(--cam-green) 12%, transparent);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
 .cam-admin-status-badge--neutral    { background: color-mix(in srgb, var(--cam-text-muted) 10%, transparent);    color: var(--cam-text-muted); --cam-status-dot: var(--cam-text-muted); }
 
-/* ── Page header actions (AdminHeaderActions, NotificationBell) ──
-   These classes draw the header as it renders today: they replaced inline
-   styles that had drifted from an earlier version of these same rules. */
+/* ── Persistent admin actions ── */
 /* max-width lets the chips wrap on a phone: unshrinkable at their one-line
    width, they pushed the document wider than the viewport. */
 .cam-admin-header-actions {
@@ -682,6 +732,10 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
+.cam-admin-bell-panel--rail {
+  z-index: calc(var(--cam-z-dialog) + 1);
+}
+
 .cam-admin-bell-head {
   padding: var(--cam-space-3) var(--cam-space-4);
   border-bottom: var(--cam-border-width) solid var(--cam-border);
@@ -701,44 +755,14 @@
   text-align: center;
 }
 
-/* The account bar: the top of every admin page. Signed-in name and role
-   and the language switch (sign-out stays at the foot of the sidebar), right-aligned on the same width as the
-   page below it (.cam-admin-main). On a phone it also carries the drawer
-   toggle, on the left. Plain text on the page background: no card. */
+/* The topbar only remains on narrow screens for the drawer toggle. */
 .cam-admin-topbar {
-  display: flex;
+  display: none;
   align-items: center;
   gap: var(--cam-space-3);
   width: 100%;
   max-width: 1360px;
   padding: var(--cam-space-3) var(--cam-space-6) 0;
-}
-
-.cam-admin-account {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--cam-space-1) var(--cam-space-3);
-  margin-left: auto;
-  font-size: var(--cam-font-size-xs);
-}
-
-.cam-admin-account-name {
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-text);
-}
-
-.cam-admin-account-role {
-  color: var(--cam-text-muted);
-}
-
-/* Phone: name and language on one line; the role would cost a
-   second line on a 375px screen. */
-@media (max-width: 640px) {
-  .cam-admin-account-role {
-    display: none;
-  }
 }
 
 .cam-admin-menu-button {
@@ -805,6 +829,7 @@
   }
 
   .cam-admin-topbar {
+    display: flex;
     padding: var(--cam-space-2) var(--cam-space-4) 0;
   }
 
@@ -1527,6 +1552,34 @@
   box-shadow: 0 24px 64px color-mix(in srgb, var(--cam-text) 22%, transparent);
 }
 
+.cam-admin-form-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--cam-space-3);
+}
+
+.cam-admin-form-section {
+  display: grid;
+  gap: var(--cam-space-2);
+}
+
+.cam-admin-form-heading {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  color: var(--cam-text);
+}
+
+.cam-admin-form-section > .cam-admin-meta {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .cam-admin-form-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .cam-admin-dialog[open] {
   display: flex;
   flex-direction: column;
@@ -1876,8 +1929,42 @@
   flex-direction: column;
   gap: var(--cam-space-1);
   min-width: 0;
+  min-height: 116px;
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-left: 3px solid var(--cam-kpi-accent, var(--cam-border-strong));
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
   color: var(--cam-text);
   text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.cam-kpi-tile--warning { --cam-kpi-accent: var(--cam-warning); }
+.cam-kpi-tile--info { --cam-kpi-accent: var(--cam-info); }
+.cam-kpi-tile--error { --cam-kpi-accent: var(--cam-error); }
+
+.cam-kpi-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+}
+
+.cam-kpi-tile-arrow {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-lg);
+  line-height: 1;
+}
+
+a.cam-kpi-tile:hover {
+  border-color: var(--cam-border-strong);
+  box-shadow: var(--cam-shadow-sm);
+  transform: translateY(-1px);
+}
+
+a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
+  color: var(--cam-green);
 }
 
 a.cam-kpi-tile:focus-visible {
@@ -1900,7 +1987,7 @@ a.cam-kpi-tile:focus-visible {
 }
 
 a.cam-kpi-tile .cam-kpi-tile-label {
-  color: var(--cam-green);
+  color: var(--cam-text-muted);
   font-weight: var(--cam-font-weight-semibold);
 }
 
@@ -1912,13 +1999,95 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   color: var(--cam-placeholder);
 }
 
-/* ── Dashboard (admin/pilotage) ──
-   Each block is its heading on a rule, then its content: no card around a
-   block, no box inside one (owner, 2026-10-21). Figures run on one ladder:
-   the response rate 32px, counts 24px, the campaign's sub-figures 18px. */
+/* ── Dashboard (admin/pilotage) ── */
 .cam-dash-block {
   min-width: 0;
-  padding-top: var(--cam-space-4);
+}
+
+.cam-dash-panel {
+  padding: var(--cam-space-5) var(--cam-space-6);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-dash-panel > .cam-dash-block-head {
+  align-items: center;
+  margin-bottom: var(--cam-space-5);
+  padding: 0;
+  border: 0;
+}
+
+.cam-dash-work > .cam-dash-block-head {
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-dash-workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.7fr) minmax(0, 0.9fr);
+  gap: var(--cam-space-4);
+  align-items: start;
+}
+
+.cam-dash-workflow-grid--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cam-dash-workflow-grid--2 {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr);
+}
+
+.cam-dash-workflow-group {
+  min-width: 0;
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-workflow-title {
+  margin: 0 0 var(--cam-space-3);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-dash-workflow-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-workflow-title-row .cam-dash-workflow-title {
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-dash-workflow-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-workflow-group .cam-kpi-tile {
+  min-height: 104px;
+  padding: var(--cam-space-3) var(--cam-space-4);
+}
+
+.cam-dash-campaign-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+}
+
+.cam-dash-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-2);
 }
 
 .cam-dash-block-head {
@@ -1949,22 +2118,1140 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 .cam-dash-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-4);
+}
+
+/* ── Modernized Card & Section Design (Mockup-aligned) ── */
+.cam-dash-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--cam-primary);
+  margin: 0 0 6px;
+}
+
+.cam-dash-serif {
+  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  letter-spacing: -0.035em;
+}
+
+.cam-dash-number {
+  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-size: 37px;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+
+.cam-dash-hero-title {
+  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-size: clamp(26px, 3.5vw, 38px);
+  margin: 0;
+  font-weight: 600;
+  color: var(--cam-text);
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.cam-dash-hero-lead {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.cam-dash-hero-scope {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  margin: 4px 0 0;
+}
+
+.cam-dash-grid-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cam-dash-grid-four {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cam-dash-campaign-stages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-coverage-analysis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--cam-space-4);
+  margin-top: var(--cam-space-5);
+}
+
+.cam-dash-coverage-analysis > .cam-dash-coverage-breakdown,
+.cam-dash-coverage-analysis > .cam-dash-progress {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cam-dash-coverage-analysis > .cam-dash-coverage-breakdown,
+.cam-dash-coverage-analysis > .cam-dash-progress {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 760px) {
+  .cam-dash-coverage-analysis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cam-dash-coverage-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1);
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: var(--cam-space-3);
+  padding: var(--cam-space-1);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-coverage-tabs [role="tab"] {
+  min-height: 36px;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--cam-radius-sm);
+  background: transparent;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+
+.cam-dash-coverage-tabs [role="tab"][aria-selected="true"] {
+  border-color: var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-primary-dark);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-dash-coverage-tabpanel {
+  min-width: 0;
+}
+
+.cam-dash-action-summary {
+  margin-bottom: var(--cam-space-5);
+}
+
+.cam-dash-register-overview {
+  margin-bottom: var(--cam-space-5);
+}
+
+.cam-dash-register-overview .cam-dash-card-header {
+  align-items: flex-start;
+}
+
+.cam-registration-trend {
+  margin: var(--cam-space-4) 0 0;
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-registration-trend .cam-dash-progress-header {
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-dash-action-summary-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cam-dash-action-summary-grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.cam-dash-campaign-link {
+  align-content: center;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-campaign-link .cam-dash-text-btn {
+  justify-self: start;
+}
+
+.cam-dash-operation-tabs {
+  display: flex;
+  gap: var(--cam-space-2);
+  margin: var(--cam-space-4) 0 var(--cam-space-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-dash-operation-tabs [role="tab"] {
+  min-height: 44px;
+  padding: var(--cam-space-2) var(--cam-space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--cam-text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cam-dash-operation-tabs [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--cam-primary);
+  color: var(--cam-primary);
+}
+
+.cam-dash-operation-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 2px;
+}
+
+.cam-dash-action-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-action-metric {
+  display: block;
+  min-width: 0;
+  color: var(--cam-text);
+  text-decoration: none;
+}
+
+.cam-dash-action-metric-card {
+  min-width: 0;
+}
+
+.cam-dash-action-metric-card > span {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-dash-action-metric-card > strong {
+  font-size: var(--cam-font-size-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-action-metric-card > small {
+  grid-column: 1 / -1;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-dash-action-metric:hover .cam-dash-action-metric-card > span {
+  color: var(--cam-primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cam-dash-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cam-dash-card-panel {
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md, 6px);
+  padding: 22px 24px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cam-dash-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-4);
+  flex-wrap: wrap;
+}
+
+.cam-dash-card-heading {
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  margin: 0;
+  color: var(--cam-text);
+  line-height: var(--cam-line-height-title);
+}
+
+.cam-dash-card-subtext {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  margin: var(--cam-space-1) 0 0;
+  line-height: var(--cam-line-height-base);
+}
+
+.cam-dash-detail-text {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+}
+
+.cam-dash-coverage-summary-box {
+  background: var(--cam-surface-subtle);
+  padding: var(--cam-space-4) var(--cam-space-4-5);
+  border-radius: var(--cam-radius-md, 6px);
+  border: var(--cam-border-width) solid var(--cam-border-soft);
+}
+
+.cam-dash-response-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-response-kpi {
+  min-width: 0;
+  padding: 16px 18px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md, 6px);
+  background: var(--cam-surface);
+}
+
+.cam-dash-response-kpi > span,
+.cam-dash-response-kpi > small {
+  display: block;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  line-height: 1.45;
+}
+
+.cam-dash-response-kpi > strong {
+  display: block;
+  margin: 5px 0 2px;
+  color: var(--cam-text);
+  font-size: clamp(25px, 3vw, 32px);
+  font-weight: var(--cam-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.cam-dash-response-kpi > strong.is-warning {
+  color: var(--cam-warning);
+}
+
+.cam-dash-response-kpi > strong > small {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+.cam-dash-stage-label {
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  display: block;
+}
+
+.cam-dash-stage-note {
+  font-size: var(--cam-font-size-3xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-stat-figure {
+  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-size: var(--cam-font-size-xl);
+  display: block;
+}
+
+.cam-dash-kpi-title {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-text);
+}
+
+.cam-dash-btn-sm {
+  font-size: var(--cam-font-size-2xs);
+  padding: var(--cam-space-1-5) var(--cam-space-3);
+}
+
+.cam-dash-card-interactive {
+  display: block;
+  text-align: left;
+  width: 100%;
+  padding: 20px;
+  min-height: 142px;
+  border-radius: 6px;
+  border: 1px solid var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  text-decoration: none;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.cam-dash-card-interactive:hover {
+  border-color: var(--cam-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-dash-meter {
+  height: 9px;
+  background: var(--cam-surface-subtle);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.cam-dash-meter > span {
+  height: 100%;
+  display: block;
+  background: var(--cam-primary);
+  border-radius: 9px;
+  transition: width 0.3s ease;
+}
+
+.cam-dash-bar-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border-soft);
+  transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+  color: var(--cam-text);
+}
+
+.cam-dash-bar-btn:hover {
+  border-color: var(--cam-primary);
+  background: var(--cam-surface-subtle);
+  transform: translateY(-1px);
+}
+
+.cam-dash-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-dash-stage-card {
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: 6px;
+  border: 1px solid var(--cam-border);
+  background: var(--cam-surface);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.cam-dash-stage-card:hover {
+  border-color: var(--cam-primary);
+  transform: translateY(-1px);
+}
+
+.cam-dash-stage-card strong {
+  display: block;
+  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-size: 26px;
+  margin: 6px 0;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--cam-primary);
+  font-weight: 700;
+  font-size: var(--cam-font-size-sm);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--cam-primary-tint);
+  text-align: left;
+  padding: 4px 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cam-dash-text-btn:hover {
+  color: var(--cam-primary-dark);
+}
+
+.cam-dash-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--cam-primary);
+  border: 1px solid var(--cam-primary);
+  color: var(--cam-surface) !important;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.cam-dash-btn-primary:hover {
+  background: var(--cam-primary-dark);
+}
+
+.cam-dash-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-border-strong);
+  color: var(--cam-text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.cam-dash-btn-secondary:hover {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-pace-card {
+  border-left: 4px solid var(--cam-primary) !important;
+}
+
+/* ── Donut Chart ───────────────────────────────────────────────────────────── */
+.cam-dash-donut-layout {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--cam-space-5);
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .cam-dash-donut-layout {
+    grid-template-columns: 200px 1fr;
+    gap: var(--cam-space-6);
+  }
+}
+
+.cam-dash-donut-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.cam-dash-donut-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.cam-dash-donut-number {
+  font-size: var(--cam-font-size-2xl);
+  font-weight: var(--cam-font-weight-bold);
+  font-family: var(--cam-font-display, inherit);
+}
+
+.cam-dash-donut-sub {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+.cam-dash-donut-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+@media (min-width: 1024px) {
+  .cam-dash-donut-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ── Coverage Bar Chart ────────────────────────────────────────────────────── */
+.cam-dash-barchart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-coverage-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-dash-coverage-search input {
+  width: min(100%, 260px);
+  min-height: 34px;
+  padding: 6px 10px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font: inherit;
+}
+
+.cam-dash-coverage-search input:focus-visible,
+.cam-dash-coverage-table button:focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 2px;
+}
+
+.cam-dash-barchart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-4);
+  padding: 0 var(--cam-space-2) var(--cam-space-2);
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-barchart-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cam-dash-barchart-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cam-primary);
+}
+
+.cam-dash-barchart-legend i.is-critical {
+  background: var(--cam-danger-deep);
+}
+
+.cam-dash-barchart-legend i.is-very-poor {
+  background: var(--cam-error);
+}
+
+.cam-dash-barchart-legend i.is-poor {
+  background: var(--cam-warning);
+}
+
+.cam-dash-barchart-legend i.is-average {
+  background: var(--cam-gold);
+}
+
+.cam-dash-barchart-legend i.is-good {
+  background: color-mix(in srgb, var(--cam-primary) 58%, white);
+}
+
+.cam-dash-barchart-legend i.is-excellent {
+  background: var(--cam-primary);
+}
+
+.cam-dash-barchart-legend i.is-target-line {
+  width: 2px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--cam-text-muted);
+}
+
+.cam-dash-coverage-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.cam-dash-table.cam-dash-coverage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-dash-table.cam-dash-coverage-table th,
+.cam-dash-table.cam-dash-coverage-table td {
+  padding: 9px 8px;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.cam-dash-table.cam-dash-coverage-table thead th {
+  /* The base block fills thead; this grid does not. */
+  background: transparent;
+  color: var(--cam-text-muted);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.cam-dash-coverage-table thead button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cam-dash-coverage-table tbody tr:hover {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-coverage-table .cam-dash-coverage-name {
+  min-width: 130px;
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-dash-coverage-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cam-dash-coverage-name a:hover {
+  color: var(--cam-primary);
+  text-decoration: underline;
+}
+
+.cam-dash-coverage-rate-cell {
+  display: grid;
+  grid-template-columns: 52px minmax(64px, 1fr);
+  align-items: center;
+  gap: var(--cam-space-2);
+  min-width: 145px;
+}
+
+.cam-dash-coverage-count {
+  width: 1%;
+  color: var(--cam-text-muted);
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cam-dash-coverage-empty {
+  padding: 20px 8px !important;
+  color: var(--cam-text-muted);
+  text-align: center !important;
+}
+
+.cam-dash-barchart-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-barchart-rows--two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--cam-space-5);
+  row-gap: var(--cam-space-2);
+}
+
+@media (max-width: 639px) {
+  .cam-dash-barchart-rows--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cam-dash-barchart-item {
+  min-width: 0;
+}
+
+.cam-dash-barchart-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  padding: var(--cam-space-2);
+  border-radius: var(--cam-radius-sm);
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cam-dash-barchart-link:hover {
+  background: var(--cam-surface-subtle);
+  border-color: var(--cam-border);
+}
+
+.cam-dash-barchart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-dash-barchart-name {
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-dash-barchart-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cam-space-3);
+  flex-shrink: 0;
+}
+
+.cam-dash-barchart-pct {
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-barchart-pct.is-very-poor {
+  color: var(--cam-error);
+}
+
+.cam-dash-barchart-pct.is-critical {
+  color: var(--cam-danger-deep);
+}
+
+.cam-dash-barchart-pct.is-poor {
+  color: var(--cam-warning);
+}
+
+.cam-dash-barchart-pct.is-average {
+  color: var(--cam-gold);
+}
+
+.cam-dash-barchart-pct.is-good {
+  color: color-mix(in srgb, var(--cam-primary) 58%, white);
+}
+
+.cam-dash-barchart-pct.is-excellent {
+  color: var(--cam-primary);
+}
+
+.cam-dash-barchart-count {
+  min-width: 34px;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-barchart-track {
+  position: relative;
+  height: 12px;
+  background: var(--cam-surface-subtle);
+  border-radius: var(--cam-radius-full, 9999px);
+  overflow: visible;
+  margin-top: var(--cam-space-1-5);
+}
+
+.cam-dash-barchart-target {
+  position: absolute;
+  z-index: 2;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: color-mix(in srgb, var(--cam-text) 42%, transparent);
+  pointer-events: none;
+}
+
+.cam-dash-barchart-fill {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  background: var(--cam-primary);
+  border-radius: var(--cam-radius-full, 9999px);
+  transition: width 0.35s ease;
+}
+
+.cam-dash-barchart-fill.is-poor {
+  background: var(--cam-warning);
+}
+
+.cam-dash-barchart-fill.is-critical {
+  background: var(--cam-danger-deep);
+}
+
+.cam-dash-barchart-fill.is-very-poor {
+  background: var(--cam-error);
+}
+
+.cam-dash-barchart-fill.is-average {
+  background: var(--cam-gold);
+}
+
+.cam-dash-barchart-fill.is-good {
+  background: color-mix(in srgb, var(--cam-primary) 58%, white);
+}
+
+.cam-dash-barchart-fill.is-excellent {
+  background: var(--cam-primary);
+}
+
+.cam-dash-barchart-fill.is-no-data {
+  background: var(--cam-border-strong);
+}
+
+.cam-dash-review-chart {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.cam-dash-review-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-4);
+  padding: 0 var(--cam-space-2) var(--cam-space-2);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+}
+
+.cam-dash-review-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cam-dash-review-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cam-primary);
+}
+
+.cam-dash-review-legend i.is-pending,
+.cam-dash-review-track .is-pending {
+  background: var(--cam-warning);
+}
+
+.cam-dash-review-legend i.is-correction,
+.cam-dash-review-track .is-correction {
+  background: var(--cam-error);
+}
+
+.cam-dash-review-legend i.is-approved,
+.cam-dash-review-track .is-approved {
+  background: var(--cam-success);
+}
+
+.cam-dash-review-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 1100px) {
+  .cam-dash-review-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--cam-space-4);
+  }
+}
+
+.cam-dash-review-row {
+  display: block;
+  padding: var(--cam-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cam-radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.cam-dash-review-row:hover {
+  border-color: var(--cam-border);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-review-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-dash-review-row-head > span {
+  flex: 0 0 auto;
+  color: var(--cam-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-review-track {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  margin-top: var(--cam-space-1-5);
+  overflow: hidden;
+  border-radius: var(--cam-radius-full, 9999px);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-review-track > span {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.cam-dash-review-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--cam-space-3);
+  margin-top: var(--cam-space-1-5);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-queue-row {
+  border-top: 1px solid var(--cam-border);
+  padding: 14px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.cam-dash-queue-row:first-of-type {
+  border-top: 0;
+}
+
+.cam-dash-queue-row h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--cam-text);
+}
+
+.cam-dash-queue-row p {
+  font-size: 12px;
+  margin: 4px 0 0;
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.15s ease;
+}
+
+.cam-dash-drawer-sheet {
+  width: min(100%, 460px);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--cam-surface);
+  padding: 32px;
+  box-shadow: -12px 0 35px rgba(0, 0, 0, 0.12);
+  border-left: 1px solid var(--cam-border);
+  animation: slideInRight 0.2s ease;
+}
+
+.cam-dash-drawer-detail {
+  border-bottom: 1px solid var(--cam-border-soft);
+  padding: 12px 0;
+}
+
+.cam-dash-drawer-detail dt {
+  font-size: 12px;
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-drawer-detail dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+  color: var(--cam-text);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (max-width: 900px) {
+  .cam-dash-grid-three,
+  .cam-dash-grid-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cam-dash-action-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .cam-dash-action-summary-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cam-dash-action-summary-grid--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cam-dash-grid-three,
+  .cam-dash-grid-four,
+  .cam-dash-grid-two {
+    grid-template-columns: 1fr;
+  }
+  .cam-dash-response-kpis {
+    grid-template-columns: 1fr;
+  }
+  .cam-dash-action-summary-grid--four {
+    grid-template-columns: 1fr;
+  }
+  .cam-dash-action-summary-grid--five {
+    grid-template-columns: 1fr;
+  }
+  .cam-dash-number {
+    font-size: 32px;
+  }
+  .cam-dash-queue-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .cam-dash-campaign-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cam-dash-coverage-tabs {
+    width: 100%;
+  }
+  .cam-dash-coverage-tabs [role="tab"] {
+    flex: 1 1 auto;
+  }
 }
 
 /* Review pace: one line of figures under the "À traiter" tiles, no box. */
 .cam-dash-pace {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--cam-space-2) var(--cam-space-5);
   margin-top: var(--cam-space-4);
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-dash-pace-facts {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--cam-space-1) var(--cam-space-5);
   margin: 0;
   padding: 0;
@@ -1983,43 +3270,442 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   color: var(--cam-warning);
 }
 
-/* The pipeline's stages, in order, as the "À traiter" figures are: a count
-   over its label, no box. They read left to right; a chevron between
-   left-aligned figures sat against the next count and read as part of it. */
-.cam-dash-pipeline {
+.cam-dash-status-bar {
+  display: flex;
+  width: 100%;
+  height: 16px;
+  overflow: hidden;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-status-segment {
+  min-width: 0;
+  transition: width 0.25s ease;
+}
+
+.cam-dash-status-segment.is-pending,
+.cam-dash-status-swatch.is-pending { background: var(--cam-warning); }
+.cam-dash-status-segment.is-correction,
+.cam-dash-status-swatch.is-correction { background: var(--cam-info); }
+.cam-dash-status-segment.is-approved,
+.cam-dash-status-swatch.is-approved { background: var(--cam-success); }
+.cam-dash-status-segment.is-rejected,
+.cam-dash-status-swatch.is-rejected { background: var(--cam-error); }
+
+.cam-dash-status-legend {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--cam-space-5);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+  margin: var(--cam-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-dash-status-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--cam-space-1) var(--cam-space-2);
+  min-width: 0;
+}
+
+.cam-dash-status-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--cam-radius-full);
+}
+
+.cam-dash-status-label {
+  overflow: hidden;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-dash-status-legend strong {
+  grid-column: 2;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-registration-status-panel {
+  display: grid;
+  gap: var(--cam-space-3);
+  margin-block: var(--cam-space-4);
+}
+
+.cam-registration-status-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-4);
+}
+
+.cam-registration-status-head h2 {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-registration-status-head span {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-status-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.cam-dash-pipeline li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-1);
+.cam-registration-status-list li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-content: center;
   min-width: 0;
+  min-height: 72px;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface-subtle);
 }
 
-.cam-dash-pipeline-value {
-  font-size: var(--cam-font-size-xl);
-  font-weight: var(--cam-font-weight-bold);
-  line-height: var(--cam-line-height-tight);
+.cam-registration-status-list strong {
+  grid-column: 2;
   color: var(--cam-text);
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 
-.cam-dash-pipeline-label {
-  font-size: var(--cam-font-size-sm);
-  line-height: var(--cam-line-height-label);
+.cam-registration-overdue-summary {
+  margin: 0;
+  padding-top: var(--cam-space-3);
+  border-top: var(--cam-border-width) solid var(--cam-border-soft);
+}
+
+.cam-registration-queue-card {
+  overflow: hidden;
+  border-color: var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-registration-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-registration-filter-summary-title {
   color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+.cam-registration-filter-chips {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-2);
+}
+
+.cam-registration-filter-chip {
+  max-width: 100%;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  overflow-wrap: anywhere;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  color: var(--cam-text);
+  background: var(--cam-surface-subtle);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-hub-page > .cam-admin-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--cam-space-4);
+  row-gap: var(--cam-space-2);
+}
+
+.cam-registration-hub-page .cam-admin-page-header-main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row {
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
+  margin: 0;
+  justify-self: end;
+}
+
+.coverage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.coverage-summary-card {
+  display: flex;
+  min-width: 0;
+  min-height: 88px;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface-subtle);
+}
+
+.coverage-summary-card > p {
+  margin-top: 0;
+}
+
+.coverage-summary-card > p:first-child {
+  margin-bottom: var(--cam-space-1);
+}
+
+.coverage-summary-card > strong {
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.15;
+}
+
+.coverage-overdue-card {
+  align-items: flex-start;
+  text-decoration: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.coverage-overdue-card > span {
+  margin-bottom: var(--cam-space-1);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+}
+
+.coverage-overdue-card > strong {
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.15;
+}
+
+.coverage-overdue-card > small {
+  margin-top: var(--cam-space-1);
+  font-size: var(--cam-font-size-xs);
+}
+
+.coverage-overdue-card:hover {
+  border-color: var(--cam-border-strong);
+  background: var(--cam-surface);
+}
+
+.coverage-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-registration-coverage-table .coverage-period-column {
+  min-width: 6rem;
+  vertical-align: middle;
+}
+
+.coverage-period-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.coverage-help-trigger {
+  margin: 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-coverage-table {
+  min-width: 72rem;
+  font-size: var(--cam-font-size-sm);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.cam-registration-coverage-table.is-workflow-expanded {
+  min-width: 88rem;
+}
+
+.cam-registration-coverage-table thead th {
+  padding-block: var(--cam-space-3);
+  border-bottom: 2px solid var(--cam-border-strong);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.cam-registration-coverage-table thead .coverage-sticky-column {
+  z-index: 3;
+}
+
+.cam-registration-coverage-table .coverage-sticky-column {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 12rem;
+  box-shadow: 1px 0 0 var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody th,
+.cam-registration-coverage-table tbody td {
+  padding-block: var(--cam-space-2-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody tr:hover {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region {
+  background: var(--cam-surface);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region > .coverage-sticky-column {
+  background: var(--cam-surface);
+  box-shadow: inset 3px 0 0 var(--cam-primary), 1px 0 0 var(--cam-border);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-region:hover > .coverage-sticky-column {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row {
+  background: var(--cam-bg);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept > .coverage-sticky-column,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row > .coverage-sticky-column {
+  background: var(--cam-bg);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row {
+  background: var(--cam-primary-tint);
+  font-weight: var(--cam-font-weight-bold);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row > * {
+  border-top: 2px solid var(--cam-border-strong);
+}
+
+.cam-registration-coverage-table tbody tr.coverage-total-row > .coverage-sticky-column {
+  background: var(--cam-primary-tint);
+}
+
+.cam-registration-coverage-table tbody tr.cam-target-dept:hover > .coverage-sticky-column,
+.cam-registration-coverage-table tbody tr.coverage-bucket-row:hover > .coverage-sticky-column {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-coverage-table .coverage-period-cell,
+.cam-registration-coverage-table thead .coverage-period-header {
+  background: var(--cam-green-wash);
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-registration-coverage-table .coverage-grade-badge {
+  white-space: nowrap;
+}
+
+.cam-registration-coverage-table .coverage-overdue-link {
+  text-decoration: none;
+}
+
+.cam-registration-coverage-table .coverage-overdue-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .cam-registration-status-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cam-registration-hub-page > .cam-admin-page-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header-main,
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs,
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row,
+  .cam-registration-hub-page .cam-admin-page-header-actions {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row {
+    grid-row: 2;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .cam-registration-hub-page .cam-admin-tabs-row > .cam-admin-tabs {
+    flex: 1 1 100%;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header-actions {
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .coverage-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coverage-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .coverage-period-tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  .coverage-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .cam-dash-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  gap: var(--cam-space-6);
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+  gap: var(--cam-space-5);
   align-items: start;
 }
 
@@ -2057,6 +3743,90 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   color: var(--cam-text-muted);
 }
 
+.cam-dash-campaign-heading {
+  padding-bottom: var(--cam-space-4);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-dash-breakdown-title {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-dash-breakdown {
+  min-width: 0;
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
+}
+
+.cam-dash-coverage-bar-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-dash-coverage-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(24px, 0.8fr) auto max-content;
+  align-items: center;
+  column-gap: var(--cam-space-2);
+  min-width: 0;
+  min-height: 30px;
+  padding: var(--cam-space-1) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border-soft);
+}
+
+.cam-dash-coverage-bar-row:last-child {
+  border-bottom: 0;
+}
+
+.cam-dash-coverage-bar-name {
+  min-width: 0;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-label);
+  overflow-wrap: anywhere;
+}
+
+.cam-dash-coverage-bar-rate {
+  flex: 0 0 auto;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-dash-coverage-bar-track {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border);
+}
+
+.cam-dash-coverage-bar-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cam-green);
+}
+
+.cam-dash-coverage-bar-detail {
+  flex: 0 0 auto;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .cam-dash-link {
   font-size: var(--cam-font-size-sm);
   font-weight: 600;
@@ -2075,11 +3845,32 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   color: var(--cam-text-muted);
 }
 
+.cam-dash-context {
+  margin: calc(-1 * var(--cam-space-2)) 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-label);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-table .is-phone-only {
+  display: none;
+}
+
+.cam-dash-meter-cell {
+  min-width: 104px;
+}
+
 .cam-dash-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cam-space-5);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
   margin: 0;
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-dash-stats > div {
+  min-width: 0;
 }
 
 .cam-dash-stats dt {
@@ -2144,6 +3935,17 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   align-items: baseline;
   gap: var(--cam-space-3);
   font-size: var(--cam-font-size-sm);
+  padding-bottom: var(--cam-space-3);
+  border-bottom: var(--cam-border-width) solid var(--cam-border-soft);
+}
+
+.cam-dash-activity li {
+  grid-template-columns: minmax(3.5em, auto) minmax(0, 1fr);
+}
+
+.cam-dash-timeline li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .cam-dash-timeline-time {
@@ -2152,23 +3954,6 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   color: var(--cam-text-muted);
   font-variant-numeric: tabular-nums;
 }
-
-/* On the first line of the entry, not centred on all of them: a centred
-   dot fell between the lines of an entry that wraps. */
-.cam-dash-timeline-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--cam-radius-full);
-  align-self: start;
-  margin-top: 0.45em;
-  background: var(--cam-text-muted);
-}
-
-/* The entry's status tone, chosen from the stored status code. */
-.cam-dash-timeline-dot--success { background: var(--cam-success); }
-.cam-dash-timeline-dot--warning { background: var(--cam-warning); }
-.cam-dash-timeline-dot--error   { background: var(--cam-error); }
-.cam-dash-timeline-dot--info    { background: var(--cam-info); }
 
 .cam-dash-timeline-body a {
   color: var(--cam-text);
@@ -2180,9 +3965,27 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   text-decoration: underline;
 }
 
+.cam-dash-activity-status {
+  display: inline-block;
+  margin-left: var(--cam-space-2);
+  padding: 0.15em 0.55em;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: 0.08em;
+}
+
+.cam-dash-activity-status--success { background: var(--cam-success-bg); color: var(--cam-success); }
+.cam-dash-activity-status--warning { background: var(--cam-warning-bg); color: var(--cam-warning); }
+.cam-dash-activity-status--error { background: var(--cam-error-bg); color: var(--cam-error); }
+
 /* The entry's region, in the entry's own line: plain words, no chip. */
 .cam-dash-tag {
   color: var(--cam-text-muted);
+  margin-left: var(--cam-space-1);
 }
 
 .cam-dash-tag::before {
@@ -2232,7 +4035,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 
 .cam-dash-coverage-figure {
   margin: 0;
-  font-size: var(--cam-font-size-3xl);
+  font-size: clamp(2rem, 3vw, 2.75rem);
   font-weight: var(--cam-font-weight-bold);
   line-height: var(--cam-line-height-tight);
   color: var(--cam-text);
@@ -2275,51 +4078,141 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   }
 }
 
-.cam-dash-meter-cell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--cam-space-3);
-}
-
-.cam-dash-meter-cell .cam-dash-bar {
-  display: block;
-  flex: none;
-  width: 96px;
-  margin-top: 0;
-}
-
 .cam-dash-table-foot {
   margin: var(--cam-space-3) 0 0;
 }
 
-/* Pilotage progress: cumulative declarations per Douala day, a steady-pace
-   reference and the deadlines. One green series; everything else is grey
-   ink, so the line is the only thing that carries colour. Its block's gap
-   sets it apart; it carries no rule of its own. */
+/* Campaign submission trend: daily totals with a selectable date range. */
 .cam-dash-progress {
   min-width: 0;
+  height: 100%;
+  padding: var(--cam-space-4-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
 }
 
 .cam-dash-progress-title {
   margin: 0;
-  font-size: var(--cam-font-size-sm);
-  font-weight: var(--cam-font-weight-semibold);
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
   color: var(--cam-text);
 }
 
-/* min-height is BOX.height in CampaignProgressChart.tsx: the plot keeps its
-   place while the SVG waits for its first width measurement. */
+.cam-dash-progress-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+}
+
+.cam-dash-progress-periods {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dash-progress-periods button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--cam-radius-sm);
+  background: transparent;
+  color: var(--cam-text-muted);
+  font: inherit;
+  font-size: var(--cam-font-size-2xs);
+  cursor: pointer;
+}
+
+.cam-dash-progress-periods button[aria-pressed="true"] {
+  border-color: var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-dash-progress-periods button:focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 2px;
+}
+
+.cam-dash-progress-description {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+  color: var(--cam-text-muted);
+}
+
+.cam-dash-progress-status {
+  width: fit-content;
+  margin: var(--cam-space-2) 0 0;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  border-radius: var(--cam-radius-sm);
+  font-size: var(--cam-font-size-xs);
+  line-height: var(--cam-line-height-label);
+}
+
+.cam-dash-progress-status.is-ahead {
+  background: var(--cam-success-bg);
+  color: var(--cam-success);
+}
+
+.cam-dash-progress-status.is-behind {
+  background: var(--cam-warning-bg);
+  color: var(--cam-warning);
+}
+
+/* The plot keeps its place while the responsive chart measures its container. */
 .cam-dash-progress-plot {
   position: relative;
-  min-height: 200px;
-  margin-top: var(--cam-space-3);
+  min-height: 300px;
+  margin-top: var(--cam-space-4);
+}
+
+.cam-dash-progress-plot--weekly {
+  min-height: 300px;
+  margin-top: var(--cam-space-2);
 }
 
 .cam-dash-progress-svg {
   display: block;
   overflow: visible;
   touch-action: pan-y;
+}
+
+/* Pointer selection should not leave the browser's black SVG outline behind.
+   Keep a visible, branded focus treatment for keyboard users. */
+.cam-dash-progress-svg:focus {
+  outline: none;
+}
+
+.cam-dash-progress-svg:focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 3px;
+  border-radius: var(--cam-radius-sm);
+}
+
+.cam-dash-progress-chart:focus {
+  outline: none;
+}
+
+.cam-dash-progress-chart:focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 3px;
+  border-radius: var(--cam-radius-sm);
+}
+
+.cam-dash-progress-chart :focus-visible {
+  outline: 2px solid var(--cam-primary);
+  outline-offset: 3px;
+  border-radius: var(--cam-radius-sm);
 }
 
 .cam-dash-progress-grid {
@@ -2356,12 +4249,60 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   stroke-dasharray: 4 3;
 }
 
+.cam-dash-progress-today {
+  stroke: var(--cam-primary);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+}
+
+.cam-dash-progress-today-label {
+  font-size: var(--cam-font-size-3xs);
+  font-weight: var(--cam-font-weight-semibold);
+  fill: var(--cam-primary-dark);
+}
+
 .cam-dash-progress-line {
   fill: none;
-  stroke: var(--cam-green);
-  stroke-width: 2;
+  stroke: var(--cam-primary);
+  stroke-width: 2.25;
   stroke-linejoin: round;
   stroke-linecap: round;
+}
+
+.cam-dash-progress-series--submitted {
+  stroke: var(--cam-primary);
+}
+
+.cam-dash-progress-series--approved {
+  stroke: var(--cam-success);
+}
+
+.cam-dash-progress-series--correction {
+  stroke: var(--cam-warning);
+}
+
+.cam-dash-progress-area {
+  fill: var(--cam-green-wash-soft);
+}
+
+.cam-dash-progress-point {
+  fill: var(--cam-surface);
+  stroke: var(--cam-primary);
+  stroke-width: 2;
+}
+
+.cam-dash-progress-point.is-active {
+  stroke-width: 3;
+}
+
+.cam-dash-progress-point.cam-dash-progress-series--submitted { stroke: var(--cam-primary); }
+.cam-dash-progress-point.cam-dash-progress-series--approved { stroke: var(--cam-success); }
+.cam-dash-progress-point.cam-dash-progress-series--correction { stroke: var(--cam-warning); }
+
+.cam-dash-progress-endpoint {
+  fill: var(--cam-primary);
+  stroke: var(--cam-surface);
+  stroke-width: 2;
 }
 
 .cam-dash-progress-cross {
@@ -2390,8 +4331,9 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 .cam-dash-progress-legend {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--cam-space-2) var(--cam-space-5);
-  margin: var(--cam-space-3) 0 0;
+  margin: var(--cam-space-4) 0 0;
   padding: 0;
   list-style: none;
   font-size: var(--cam-font-size-xs);
@@ -2405,12 +4347,48 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 }
 
 .cam-dash-progress-key {
-  width: 16px;
-  border-top: 2px solid var(--cam-green);
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--cam-primary);
+  border-radius: 1px;
+  flex: 0 0 auto;
+}
+
+.cam-dash-progress-key.cam-dash-progress-series--submitted { border-color: var(--cam-primary); }
+.cam-dash-progress-key.cam-dash-progress-series--approved { border-color: var(--cam-success); }
+.cam-dash-progress-key.cam-dash-progress-series--correction { border-color: var(--cam-warning); }
+
+.cam-dash-progress-selection {
+  min-height: 1.25em;
+  margin: var(--cam-space-2) 0 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .cam-dash-progress-key--pace {
   border-top: 2px dashed var(--cam-border-strong);
+}
+
+.cam-dash-progress-key--approved {
+  border-top-color: var(--cam-success);
+}
+
+.cam-dash-progress-key--pending {
+  border-top-color: var(--cam-warning);
+  border-top-style: dashed;
+}
+
+.cam-dash-progress-key--correction {
+  border-top-color: var(--cam-text-muted);
+  border-top-style: dotted;
+}
+
+.cam-dash-progress-key--today {
+  width: 0;
+  height: 12px;
+  border-left: 2px dashed var(--cam-primary);
 }
 
 .cam-dash-progress-details {
@@ -2441,8 +4419,96 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 }
 
 @media (max-width: 639px) {
-  .cam-dash-meter-cell .cam-dash-bar {
-    width: 32px;
+  .cam-admin-dashboard .cam-admin-page-header > .cam-admin-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .cam-admin-workflow-page .cam-admin-page-header > .cam-admin-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .cam-dash-panel {
+    padding: var(--cam-space-4);
+  }
+
+  .cam-dash-workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-dash-workflow-pair {
+    gap: var(--cam-space-2);
+  }
+
+  .cam-dash-campaign-summary-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cam-dash-coverage-bar-row {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    column-gap: var(--cam-space-3);
+    row-gap: var(--cam-space-1);
+    padding: var(--cam-space-2) 0;
+  }
+
+  .cam-dash-coverage-bar-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cam-dash-coverage-bar-rate {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .cam-dash-coverage-bar-track {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cam-dash-coverage-bar-detail {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .cam-dash-coverage-top,
+  .cam-dash-coverage-tables {
+    gap: var(--cam-space-4);
+  }
+
+  .cam-dash-breakdown {
+    padding: var(--cam-space-3);
+  }
+
+  .cam-dash-progress {
+    padding: var(--cam-space-4);
+  }
+
+  .cam-dash-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cam-dash-pace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-dash-pace-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--cam-space-2);
+  }
+
+  .cam-dash-status-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cam-dash-table .is-desktop-only {
+    display: none;
+  }
+
+  .cam-dash-table .is-phone-only {
+    display: table-cell;
   }
 
   /* A column the phone drops so the rate stays in view; its total is
@@ -2458,31 +4524,25 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   }
 }
 
-/* A phone: the figures two by two; the pipeline a list read top to bottom,
-   the label on the left and its count on the right. */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .cam-dash-workflow-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.7fr) minmax(0, 0.9fr);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  .cam-dash-workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A phone: the figures two by two. */
 @media (max-width: 639px) {
   .cam-dash-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--cam-space-4);
   }
 
-  .cam-dash-pipeline {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
-  .cam-dash-pipeline li {
-    flex-direction: row-reverse;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--cam-space-3);
-    padding: var(--cam-space-2) 0;
-    border-bottom: var(--cam-border-width) solid var(--cam-border);
-  }
-
-  .cam-dash-pipeline-value {
-    font-size: var(--cam-font-size-lg);
-  }
 }
 
 /* ── Dossier detail (admin/dossiers/[id]) ── */

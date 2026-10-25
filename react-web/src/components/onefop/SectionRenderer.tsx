@@ -9,7 +9,7 @@ import { EntryModeSwitchSlot } from "./EntryModeSwitch";
 import { FieldRenderer } from "./FieldRenderer";
 import { FormGrid, FormCol } from "./ui/FormGrid";
 import { FormSectionCard } from "./ui/FormSectionCard";
-import { RequiredQuestionsNote } from "./ui/OptionalSuffix";
+import { RequiredQuestionsInfo } from "./ui/OptionalSuffix";
 import type { FormStatus } from "./form/StatusChip";
 import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
 import { Section1ThematicRenderer } from "@/components/modern-jobs/section1/Section1ThematicRenderer";
@@ -579,7 +579,7 @@ export function SectionRenderer({
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
             }}
           >
             <span>
@@ -606,7 +606,7 @@ export function SectionRenderer({
               border: "1px solid var(--cam-green)",
               color: "var(--cam-green)",
               fontSize: "var(--cam-font-size-xs)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
             }}
           >
             <span>
@@ -697,8 +697,8 @@ export function SectionRenderer({
                     border: "none",
                     boxShadow: "none",
                     borderRadius: 0,
-                    padding: "0 0 var(--cam-space-6) 0",
-                    marginBottom: "var(--cam-space-6)",
+                    padding: "0 0 var(--cam-space-4) 0",
+                    marginBottom: "var(--cam-space-5)",
                     borderBottom: index < validChunks.length - 1 ? "1px solid var(--cam-border)" : "none",
                     maxWidth: `${TABLE_MAX_WIDTH_PX}px`,
                     scrollMarginTop: CHUNK_SCROLL_MARGIN,
@@ -785,6 +785,54 @@ export function SectionRenderer({
     );
   };
 
+  // One Tableau/Guidé switch for the section (it portals to the app bar)
+  // and the keyboard cheat sheet. They stay beside the title, and stay on
+  // screen when a wide screen hides the title: the rail already names the
+  // section (owner, 2026-10-22).
+  const toolbar = sectionHasAdaptiveTables ? (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: "var(--cam-space-2, 8px)",
+      }}
+    >
+      <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
+      <button
+        type="button"
+        onClick={() => setShowShortcutsHelp((v) => !v)}
+        aria-expanded={showShortcutsHelp}
+        title={t("shortcutsTitle")}
+        aria-label={t("shortcutsAria")}
+        className="cam-hoverable"
+        style={{
+          background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
+          border: "1px solid var(--cam-border)",
+          borderRadius: "var(--cam-radius-control, 6px)",
+          width: 32,
+          height: 32,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--cam-text-muted)",
+          cursor: "pointer",
+        }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+          <line x1="6" y1="8" x2="6" y2="8" />
+          <line x1="10" y1="8" x2="10" y2="8" />
+          <line x1="14" y1="8" x2="14" y2="8" />
+          <line x1="18" y1="8" x2="18" y2="8" />
+          <line x1="6" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="18" y2="12" />
+          <line x1="7" y1="16" x2="17" y2="16" />
+        </svg>
+      </button>
+    </div>
+  ) : null;
+
   return (
     <GuidedReviewGateContext.Provider value={reviewRegistry}>
     <section
@@ -795,43 +843,32 @@ export function SectionRenderer({
         scrollMarginTop: "80px",
       }}
     >
-      {/* ── Section Masthead ──
-          Guidé fills a screen with one question, and the sidebar and the
-          pinned table list already say where that question is, so there the
-          block is kept for screen readers only (it still labels the
-          <section>). A column of tables says what section it is and how many
-          tables it holds, so in Tableau it stays visible. On smaller screens,
-          where the sidebar is hidden, it is always visible. */}
-      <style>{`
-        @media (min-width: 1024px) {
-          .mj-section-masthead[data-collapse="true"] {
-            position: absolute !important; width: 1px; height: 1px; padding: 0 !important;
-            margin: -1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0 !important;
-          }
-        }
-      `}</style>
+      {/* ── Section masthead ──
+          The rail names the section. On a wide screen this title is kept
+          for the screen reader and for useStepFocus, and is not shown
+          (.cam-rail-named). Under 1024px the rail is a drawer, so the
+          title stays. The mode switch and the required-questions note
+          stay either way: they are not the section's name. */}
       <div
         className="mj-section-masthead"
-        data-collapse={isMultiTableSection && deckMode === "focus" ? "true" : "false"}
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "var(--cam-space-4, 16px)",
           borderBottom: "1px solid var(--cam-border)",
-          paddingBottom: "var(--cam-space-4, 16px)",
-          marginBottom: "var(--cam-space-5)",
+          paddingBottom: "var(--cam-space-3, 12px)",
+          marginBottom: "var(--cam-space-4, 16px)",
           width: "100%",
           boxSizing: "border-box",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "var(--cam-space-4, 16px)",
-          }}
-        >
-          {/* Left: Title + Statistics Subtitle */}
-          <div style={{ flex: 1, minWidth: 260 }}>
+          {/* Title, with the table count in brackets. Each used to take a
+              line of its own between the title and the first table
+              (owner, 2026-10-22). */}
+          <div className="mj-section-heading cam-rail-named" style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", columnGap: "var(--cam-space-2, 8px)" }}>
             <h1
               id={`${section.id}-heading`}
               // Focus target of the wizard on every section change (see
@@ -840,7 +877,7 @@ export function SectionRenderer({
               style={{
                 outline: "none",
                 fontSize: "var(--cam-font-size-xl, 1.5rem)",
-                fontWeight: 700,
+                fontWeight: "var(--cam-font-weight-bold)",
                 color: "var(--cam-text)",
                 margin: 0,
                 lineHeight: 1.25,
@@ -857,6 +894,23 @@ export function SectionRenderer({
                     sectionNumberFromId(section.id, 0),
                   ) || section.id}
             </h1>
+            {isMultiTableSection && (
+              <span
+                style={{
+                  fontFamily: "var(--cam-font-sans)",
+                  fontSize: "var(--cam-font-size-xs, 0.8125rem)",
+                  color: "var(--cam-text-muted)",
+                }}
+              >
+                (
+                {sectionEntryMode === "guided"
+                  ? t("topicsSummary", { total: validChunks.length, completed: completedChunksCount })
+                  : t("tablesSummary", { total: sectionTableFields.length, completed: completedTablesCount })}
+                )
+              </span>
+            )}
+            </div>
+            {!isMultiTableSection && (
             <p
               style={{
                 fontFamily: "var(--cam-font-sans)",
@@ -865,13 +919,7 @@ export function SectionRenderer({
                 margin: "var(--cam-space-1, 4px) 0 0 0",
               }}
             >
-              {isMultiTableSection ? (
-                sectionEntryMode === "guided" ? (
-                  t("topicsSummary", { total: validChunks.length, completed: completedChunksCount })
-                ) : (
-                  t("tablesSummary", { total: sectionTableFields.length, completed: completedTablesCount })
-                )
-              ) : section.id === "section0" ? (
+              {section.id === "section0" ? (
                 // Who the respondent is answering for, in the words of their
                 // own body — the rule S0Q02's label already follows. An
                 // entity with no wording of its own keeps "l'établissement".
@@ -886,63 +934,25 @@ export function SectionRenderer({
                 localized(section.description, locale)
               ) : null}
             </p>
-            {visibleFields.length > 0 && <RequiredQuestionsNote />}
+            )}
           </div>
 
-        </div>
-
+          {(toolbar || visibleFields.length > 0) && (
+            <div
+              className="mj-section-tools"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--cam-space-2, 8px)",
+                marginLeft: "auto",
+              }}
+            >
+              {visibleFields.length > 0 && <RequiredQuestionsInfo />}
+              {toolbar}
+            </div>
+          )}
       </div>
 
-      {/* The section's table list is gone: every table is headed by its own
-          name where it stands, so a pinned index of the same names said them
-          twice and took 50px off the top of every section (owner,
-          2026-10-20). What the bar also carried stays: one Tableau/Guidé
-          switch for the section (it portals to the app bar) and the keyboard
-          cheat sheet, on a line of their own that pins to nothing. */}
-      {sectionHasAdaptiveTables && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: "var(--cam-space-2, 8px)",
-            marginBottom: "var(--cam-space-3, 12px)",
-          }}
-        >
-          <EntryModeSwitchSlot mode={sectionEntryMode} onChange={setSectionEntryMode} />
-          <button
-            type="button"
-            onClick={() => setShowShortcutsHelp((v) => !v)}
-            aria-expanded={showShortcutsHelp}
-            title={t("shortcutsTitle")}
-            aria-label={t("shortcutsAria")}
-            className="cam-hoverable"
-            style={{
-              background: showShortcutsHelp ? "var(--cam-surface-subtle)" : "var(--cam-surface)",
-              border: "1px solid var(--cam-border)",
-              borderRadius: "var(--cam-radius-control, 6px)",
-              width: 32,
-              height: 32,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--cam-text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-              <line x1="6" y1="8" x2="6" y2="8" />
-              <line x1="10" y1="8" x2="10" y2="8" />
-              <line x1="14" y1="8" x2="14" y2="8" />
-              <line x1="18" y1="8" x2="18" y2="8" />
-              <line x1="6" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="18" y2="12" />
-              <line x1="7" y1="16" x2="17" y2="16" />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Shortcuts Help Box (if toggled) */}
       {sectionHasAdaptiveTables && showShortcutsHelp && (
@@ -961,11 +971,11 @@ export function SectionRenderer({
             gap: 16,
           }}
         >
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>Tab</kbd> : {t("shortcutNextCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
-          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>Tab</kbd> : {t("shortcutNextCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyShiftTab")}</kbd> : {t("shortcutPrevCell")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyEnter")}</kbd> : {t("shortcutConfirmNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>{t("keyCtrlEnter")}</kbd> : {t("shortcutJumpNext")}</div>
+          <div><kbd style={{ background: "var(--cam-border)", padding: "2px 6px", borderRadius: 3, fontWeight: "var(--cam-font-weight-bold)" }}>↑ ↓ ← →</kbd> : {t("shortcutArrows")}</div>
         </div>
       )}
 
@@ -1124,7 +1134,7 @@ export function SectionRenderer({
                 <h3
                   style={{
                     fontSize: "var(--cam-font-size-base)",
-                    fontWeight: 700,
+                    fontWeight: "var(--cam-font-weight-bold)",
                     margin: "0 0 8px",
                     color: "var(--cam-text)",
                   }}
@@ -1152,7 +1162,7 @@ export function SectionRenderer({
                       borderRadius: "var(--cam-radius-sm)",
                       padding: "8px 18px",
                       fontSize: "var(--cam-font-size-xs)",
-                      fontWeight: 600,
+                      fontWeight: "var(--cam-font-weight-semibold)",
                       color: "var(--cam-green)",
                       cursor: "pointer",
                       transition: "all 0.15s ease",

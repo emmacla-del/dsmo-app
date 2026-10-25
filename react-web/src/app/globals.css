@@ -1,6 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap");
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./admin-console.css";
+@import "./shadcn.css";
 
 @theme {
   --font-sans: var(--cam-font-sans);
@@ -79,7 +81,7 @@ body {
 
 .cam-title {
   font-size: var(--cam-font-size-lg);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   color: var(--cam-text);
   margin: 0 0 var(--cam-space-2);
   text-align: center;
@@ -101,7 +103,7 @@ body {
 
 .cam-label {
   font-size: var(--cam-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text);
 }
 
@@ -147,7 +149,7 @@ body {
   border-radius: var(--cam-radius-control);
   border: var(--cam-border-width) solid transparent;
   font-size: var(--cam-font-size-base);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   cursor: pointer;
 }
 
@@ -179,7 +181,7 @@ body {
    Sits inside a .cam-dash-card; the tone names a status, not a palette. */
 .cam-summary-value {
   font-size: var(--cam-font-size-2xl);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -904,8 +906,8 @@ body {
    scrollbar inside the card on every long section; do not bring it back.
    The route is a flex column at least 100dvh tall:
 
-     .flow-header   the wordmark, the caption and the progress rail (narrow
-                    screens). An ordinary row: it scrolls away with the page.
+     .flow-header   the wordmark, the caption and the progress rail. An
+                    ordinary row on a narrow screen, pinned on a wide one.
      .flow-body     flex: 1, the frame; as tall as its section needs.
      .flow-footer   one line: back to sign-in, and the help link.
 
@@ -974,6 +976,9 @@ html:has(.cam-masthead) {
   gap: var(--cam-space-2);
   min-width: 0;
   margin: 0 0 var(--cam-space-3);
+  /* The frame's own side padding, so the wordmark starts on the same line
+     as the section title under it. The rail below keeps the full width. */
+  padding: 0 var(--cam-frame-scroll-pad-x);
 }
 
 /* The wizard puts the endorsement on the same line as the wordmark. The
@@ -1072,51 +1077,11 @@ html:has(.cam-masthead) {
   color: var(--cam-border-strong);
 }
 
-/* ── Split: the dossier panel beside the body ──
-   On a narrow screen .flow-split is just the body, between the header and
-   the footer. From 1024px -- the panel, the 600px frame and their gutters
-   side by side -- the panel appears on the left and the header and footer
-   go: the panel carries the identity, the navigation and the way out. */
+/* ── The body ──
+   .flow-split holds the body between the header and the footer. */
 .cam-auth-page--wizard .flow-split {
   flex: 1 1 auto;
   display: flex;
-}
-
-.cam-auth-page--wizard .flow-panel {
-  display: none;
-}
-
-/* The panel is the shared .cam-wizard-rail (WizardRail.tsx): same width,
-   frame and step list as the Modern Jobs and VT wizards. This file only
-   decides when it shows -- see the min-width rule below. */
-
-/* CAMLEAP alone at panel size (owner, 2026-10-15), the endorsement under
-   it. The language switch is in the foot. */
-.cam-auth-page--wizard .flow-panel-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-
-.cam-auth-page--wizard .flow-panel-sub {
-  margin: var(--cam-space-2) 0 0;
-  min-width: 0;
-  font-size: var(--cam-font-size-xs);
-  line-height: var(--cam-line-height-ui);
-  color: var(--cam-text-muted);
-}
-
-/* Panel foot: one quiet help link, nothing else (owner, 2026-10-15). */
-.cam-auth-page--wizard .flow-panel-foot {
-  margin-top: auto;
-  font-size: var(--cam-font-size-sm);
-  line-height: var(--cam-line-height-ui);
-}
-
-
-.cam-auth-page--wizard .flow-panel-foot .flow-footer-sep {
-  display: none;
 }
 
 .cam-auth-page--wizard .flow-help-link {
@@ -1128,26 +1093,6 @@ html:has(.cam-masthead) {
 
 .cam-auth-page--wizard .flow-help-link:hover {
   color: var(--cam-text);
-}
-
-
-/* The logo and, on its right, the language link. */
-.cam-auth-page--wizard .flow-panel-brandrow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cam-space-3);
-}
-
-/* The panel logo is a link home; it keeps the look of a logo. */
-.cam-auth-page--wizard .flow-panel-home {
-  display: inline-block;
-  border-radius: var(--cam-radius-sm);
-}
-
-.cam-auth-page--wizard .flow-panel-home:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 4px;
 }
 
 
@@ -1174,6 +1119,11 @@ html:has(.cam-masthead) {
     padding-right: var(--cam-space-3);
   }
 
+  /* The frame runs edge to edge here; the header keeps its gutter. */
+  .cam-auth-page--wizard .masthead {
+    padding: 0 calc(var(--cam-section-pad) - var(--cam-space-3));
+  }
+
   .cam-auth-page--wizard .flow-body {
     padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-2);
   }
@@ -1194,22 +1144,102 @@ html:has(.cam-masthead) {
   }
 }
 
-/* Wide: the dossier panel replaces the header and the footer. After the
-   short-viewport rule above, so the body's padding here wins at 1366x680. */
-@media (min-width: 1024px) {
-  .cam-auth-page--wizard .flow-header,
-  .cam-auth-page--wizard .flow-footer {
-    display: none;
+/* Wide: the same header as on a narrow screen -- wordmark, then the six
+   steps as a horizontal rail over the frame (owner, 2026-10-22, replacing
+   the dossier side panel on this route).
+
+   1240px, not 1024px, because this row only works when all three of its
+   columns fit. The middle track is fixed at the rail's width (728px) and the
+   side tracks must hold the endorsement, which is nowrap: 179px for « Une
+   plateforme de l'ONEFOP », the longer of the two languages. With the column
+   gaps and the header's own padding that needs about 1197px, so between 1024
+   and 1239 the side track was narrower than its text -- a grid track does not
+   clip, and `justify-self: start` sizes the item to its content, so the
+   endorsement kept its full width, outgrew its 92px column and ran 20px into
+   the rail, over the first step's label. Below this width the stacked header
+   above applies, which has room for both. */
+@media (min-width: 1240px) {
+  /* The wizard masthead scrolls with the page; subsection headings are the
+     only content pinned during form scrolling. */
+  .cam-auth-page--wizard .flow-header {
+    position: static;
+    padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
+    /* A larger rail than on a phone: 32px circles, so the connector, which
+       reads the same token, follows. */
+    --cam-step-marker-size: 32px;
   }
 
-  .cam-auth-page--wizard .flow-panel {
-    display: flex;
+  /* One row the width of the page: the logo at the far left, the rail
+     centred over the form column, the language link at the far right. The
+     masthead's own box steps aside so its three parts are cells of this
+     grid. */
+  .cam-auth-page--wizard .flow-header-inner {
+    max-width: none;
+    display: grid;
+    /* Wider than the form by a step's gutter each side, so every label
+       holds on one line at the larger size. Still centred over the form. */
+    grid-template-columns: 1fr minmax(0, calc(var(--cam-container-wizard) + 2 * var(--cam-space-8))) 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--cam-space-5);
+    align-items: center;
+  }
+
+  .cam-auth-page--wizard .masthead {
+    display: contents;
+  }
+
+  .cam-auth-page--wizard .masthead-lockup {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-self: end;
+  }
+
+  .cam-auth-page--wizard .masthead > .brand-sub {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    justify-self: start;
+    text-align: left;
+    margin-top: var(--cam-space-1);
+  }
+
+  .cam-auth-page--wizard .registration-progress {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .cam-auth-page--wizard .flow-header .cam-step-marker {
+    font-size: var(--cam-font-size-xs);
+  }
+
+  .cam-auth-page--wizard .flow-header .progress-step-label {
+    margin-top: var(--cam-space-2);
+    font-size: var(--cam-font-size-xs);
+    /* One line: « Type d'organisation » is a little wider than its cell and
+       spills into the room its short neighbour leaves. */
+    white-space: nowrap;
+    max-width: none;
+  }
+
+  .cam-auth-page--wizard .masthead-locale {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    justify-self: end;
   }
 
   .cam-auth-page--wizard .flow-body {
     flex: 1 1 auto;
     align-items: flex-start;
-    padding: var(--cam-space-7) var(--cam-space-5) var(--cam-space-6);
+    padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-6);
+  }
+}
+
+/* A field brought into view by focus or a jump to an error lands below the
+   pinned header, not under it. */
+@media (min-width: 1024px) {
+  html:has(.cam-auth-page--wizard) {
+    scroll-padding-top: calc(var(--cam-space-9) + var(--cam-space-4));
   }
 }
 
@@ -1233,12 +1263,21 @@ html:has(.cam-masthead) {
   margin-bottom: var(--cam-step-header-space-after);
 }
 
+/* The step rail already names the section (its caption does on a phone),
+   so the title is not drawn a second time over the form (owner,
+   2026-10-22). It stays in the tree, visually hidden like .sr-only: it is
+   the page's h1, the section's accessible name and the focus target on
+   every section change. The subtitle is what the respondent reads. */
 .cam-auth-page--wizard .step-header-title {
-  font-size: var(--cam-step-title-size);
-  font-weight: var(--cam-font-weight-bold);
-  color: var(--cam-text);
-  line-height: var(--cam-line-height-title);
-  margin: 0 0 var(--cam-step-header-gap);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: var(--cam-sr-offset);
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* The heading takes focus on every section change so the respondent is not
@@ -1545,7 +1584,10 @@ html:has(.cam-masthead) {
 }
 
 /* Under the input, where the hint would be. */
-.cam-auth-page--wizard .field-error {
+/* Also on the login, registration-request and invitation pages: an inline
+   error needs this wherever a form shows one, and the wizard still
+   matches, since its page carries both classes. */
+.cam-auth-page .field-error {
   font-size: var(--cam-field-hint-size);
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-error);
@@ -2104,6 +2146,49 @@ html:has(.cam-masthead) {
   gap: var(--cam-space-3);
 }
 
+/* The same native dialog on a questionnaire, which is not inside
+   .cam-auth-page, so the registration rules above do not reach it. */
+.cam-confirm-dialog {
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  border-radius: var(--cam-radius-lg);
+  border: var(--cam-border-width) solid var(--cam-border);
+  box-shadow: var(--cam-card-shadow);
+  padding: 0;
+  margin: auto;
+  max-width: min(var(--cam-container-compact), calc(100vw - 2 * var(--cam-space-4)));
+  width: 100%;
+}
+
+.cam-confirm-dialog::backdrop {
+  background: var(--cam-scrim);
+}
+
+.cam-confirm-dialog-inner {
+  padding: var(--cam-space-5);
+}
+
+.cam-confirm-dialog h2 {
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  color: var(--cam-text);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.cam-confirm-dialog p {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-5);
+  line-height: var(--cam-line-height-copy);
+}
+
+.cam-confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+}
+
 /* ── Progress rail: the wizard's navigation ──
    Six buttons, not six decorations. The rail replaced the Suivant/Retour pair
    and the collapsed summary lines, so it carries the whole of "where am I,
@@ -2505,13 +2590,14 @@ html:has(.cam-masthead) {
    paragraphs are hard to read past a line or two. */
 .cam-welcome {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cam-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--cam-space-7) var(--cam-space-4);
-  padding-top: calc(var(--cam-space-7) + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(var(--cam-space-7) + env(safe-area-inset-bottom, 0px));
+  padding: var(--cam-space-6) var(--cam-space-4);
+  padding-top: calc(var(--cam-space-6) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--cam-space-6) + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -2588,7 +2674,7 @@ html:has(.cam-masthead) {
 
 .cam-welcome-body {
   width: 100%;
-  max-width: 34rem;
+  max-width: 42rem;
   color: var(--cam-text);
   transition: opacity 0.3s ease;
 }
@@ -2597,83 +2683,64 @@ html:has(.cam-masthead) {
   opacity: 0;
 }
 
-/* The issuing authority over the panel, as on the paper form's letterhead. */
-.cam-welcome-brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--cam-space-3);
-  margin-bottom: var(--cam-space-5);
-  text-align: center;
-}
-
-.cam-welcome-brand img {
-  object-fit: contain;
-}
-
-.cam-welcome-authority {
-  margin: 0;
-  font-size: var(--cam-font-size-xs);
-  line-height: var(--cam-line-height-ui);
-  color: var(--cam-text-muted);
-}
-
 .cam-welcome-panel {
-  padding: var(--cam-space-6);
+  padding: var(--cam-space-7);
   border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-md);
+  border-radius: var(--cam-radius-lg);
   background: var(--cam-surface);
+  box-shadow: var(--cam-shadow-sm);
 }
 
 .cam-welcome-title {
   margin: 0;
-  font-size: var(--cam-font-size-xl);
-  font-weight: var(--cam-font-weight-bold);
+  font-size: var(--cam-font-size-2xl);
+  font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-title);
-  text-align: center;
+  text-align: left;
+}
+
+.cam-welcome-context {
+  margin-top: var(--cam-space-5);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border-soft);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface-subtle);
 }
 
 /* "Bienvenue, …" under the title, then the declaration it is made in:
    role and establishment, the establishment in bold. */
-.cam-welcome-greeting {
-  margin: var(--cam-space-3) 0 0;
-  font-size: var(--cam-font-size-base);
-  line-height: var(--cam-line-height-ui);
-  text-align: center;
-}
-
 .cam-welcome-respondent {
   margin: var(--cam-space-1) 0 0;
   font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
-  text-align: center;
 }
 
 .cam-welcome-time {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--cam-space-1);
-  margin: var(--cam-space-1) 0 0;
+  margin: var(--cam-space-3) 0 0;
   font-size: var(--cam-microcopy-size);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
 }
 
-/* The notice between two rules, its title with a lock, the law it rests on
-   cited under it, then the text. */
+/* The legal notice is grouped in a quiet surface with a clear brand edge. */
 .cam-welcome-notice {
   margin-top: var(--cam-space-5);
-  padding: var(--cam-space-5) 0;
-  border-top: var(--cam-border-width) solid var(--cam-border);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-left: 3px solid var(--cam-primary);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-welcome-notice h2 {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--cam-space-2);
   margin: 0;
   font-size: var(--cam-font-size-lg);
@@ -2683,11 +2750,11 @@ html:has(.cam-masthead) {
 
 /* The legal basis, cited under the title as a reference line. */
 .cam-welcome-notice-basis {
-  margin: var(--cam-space-1) 0 var(--cam-space-4);
+  margin: var(--cam-space-1) 0 var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
-  text-align: center;
+  text-align: left;
 }
 
 /* Left-aligned, not justified like the paper: justified lines open uneven
@@ -2700,7 +2767,7 @@ html:has(.cam-masthead) {
 
 .cam-welcome-consent {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--cam-space-3);
   margin-top: var(--cam-space-5);
   line-height: var(--cam-line-height-ui);
@@ -2716,25 +2783,49 @@ html:has(.cam-masthead) {
   cursor: pointer;
 }
 
-/* Begin across the panel, Back under it: one primary action. */
+/* Return stays secondary; Begin anchors the right side on wider screens. */
 .cam-welcome-actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--cam-space-3);
   margin-top: var(--cam-space-5);
-  text-align: center;
 }
 
-.cam-welcome-actions .cam-text-button {
-  align-self: center;
+.cam-welcome-actions .cam-button-primary {
+  min-width: 11rem;
 }
 
-/* On a phone the panel's edge costs width it cannot spare. */
+/* Compact the card on phones while retaining a clear content inset. */
 @media (max-width: 480px) {
+  .cam-welcome {
+    align-items: flex-start;
+    padding: var(--cam-space-4) var(--cam-space-3);
+    padding-top: calc(var(--cam-space-4) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(var(--cam-space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
   .cam-welcome-panel {
-    padding: 0;
-    border: none;
+    padding: var(--cam-space-5);
+  }
+
+  .cam-welcome-title {
+    font-size: var(--cam-font-size-xl);
+  }
+
+  .cam-welcome-context,
+  .cam-welcome-notice {
+    padding: var(--cam-space-4);
+  }
+
+  .cam-welcome-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cam-welcome-actions .cam-button-primary {
+    width: 100%;
   }
 }
 
@@ -2744,6 +2835,7 @@ html:has(.cam-masthead) {
    changing one there changes every form: registration, Modern Jobs, VT. */
 .cam-question {
   display: block;
+  font-family: var(--cam-font-sans);
   font-size: var(--cam-question-size);
   font-weight: var(--cam-question-weight);
   line-height: var(--cam-question-line-height);
@@ -2784,6 +2876,7 @@ html:has(.cam-masthead) {
   flex: 0 0 var(--cam-side-rail-width);
   width: var(--cam-side-rail-width);
   height: calc(100dvh - var(--cam-wizard-rail-top, 0px));
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-5);
@@ -2792,7 +2885,6 @@ html:has(.cam-masthead) {
   border-right: var(--cam-border-width) solid var(--cam-border);
   color: var(--cam-text);
   font-family: var(--cam-font-sans);
-  /* Scrolls on its own only when an open outline outgrows a short screen. */
   overflow-y: auto;
 }
 
@@ -2975,6 +3067,59 @@ html:has(.cam-masthead) {
   border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
+/* The rail already names the section and the quiz. On a wide screen that
+   same name inside the form is kept for the screen reader and for the
+   step-change focus, and is not shown. Under 1024px the rail is a drawer,
+   so the name stays visible. A step head whose only child is that name
+   collapses with it, so it does not leave an empty rule. */
+@media (min-width: 1024px) {
+  .cam-rail-named {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .cam-step-head:not(:has(:not(.cam-rail-named))) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .mj-section-masthead {
+    border-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .mj-section-masthead:not(:has(.mj-section-tools)) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .mj-section-tools {
+    margin-bottom: var(--cam-space-3);
+  }
+}
+
 .cam-step-title {
   margin: 0;
   font-size: var(--cam-font-size-xl);
@@ -2989,6 +3134,115 @@ html:has(.cam-masthead) {
   font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
+}
+
+/* Last step of the preliminary quiz: one answer per ruled row, without cards.
+   The full line is interactive; facets, status and edit affordance stay clear. */
+.cam-quiz-review {
+  list-style: none;
+  margin: var(--cam-space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-quiz-review > li {
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-quiz-review-line {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--cam-space-2);
+  width: 100%;
+  margin: 0;
+  padding: var(--cam-space-3) 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.cam-quiz-review-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+}
+
+.cam-quiz-review-fact > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cam-quiz-review-fact > .cam-answer {
+  flex: none;
+}
+
+.cam-quiz-review-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  flex: none;
+}
+
+.cam-quiz-review-edit {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-green);
+  opacity: 0.8;
+  transition: opacity var(--cam-transition-fast);
+}
+
+.cam-quiz-review-line:hover .cam-quiz-review-edit {
+  opacity: 1;
+}
+
+.cam-quiz-review-facets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-1) 0 0;
+}
+
+.cam-quiz-review-facet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-ui);
+}
+
+.cam-quiz-review-facet-label {
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-text-muted);
+  min-width: 140px;
+}
+
+.cam-quiz-review-facet-value {
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text);
+  flex: 1 1 auto;
+}
+
+.cam-quiz-review-detail {
+  font-family: var(--cam-font-sans);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-regular);
+  line-height: var(--cam-line-height-copy);
+  color: var(--cam-text);
+}
+
+.cam-quiz-review-line:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
 }
 
 /* Number answer with − / + (NumberStepper.tsx): one box, the height and
@@ -3320,42 +3574,26 @@ html:has(.cam-masthead) {
 }
 
 /* Grid / Guided switch, in the wizard masthead (EntryModeSwitch.tsx).
-   Two toggle buttons, each an icon and its word. */
+   One button naming the other mode, drawn like the masthead's other
+   buttons (ModernJobsHeader.tsx): 32px, 13px semibold, hairline edge. */
 .cam-mode-switch {
   display: inline-flex;
-  padding: 2px;
-  border: var(--cam-border-width) solid var(--cam-border-strong);
-  border-radius: var(--cam-radius-control);
-  background: var(--cam-surface);
-}
-
-.cam-mode-switch button {
-  display: inline-flex;
   align-items: center;
-  gap: var(--cam-space-1);
-  min-height: 28px;
-  padding: 0 var(--cam-space-3);
-  border: none;
-  border-radius: var(--cam-radius-sm);
-  background: transparent;
-  color: var(--cam-text-muted);
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: 6px;
+  background: var(--cam-surface);
+  color: var(--cam-text);
   font-family: inherit;
   font-size: var(--cam-font-size-xs);
-  font-weight: var(--cam-font-weight-medium);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.cam-mode-switch button:hover {
-  color: var(--cam-text);
-}
-
-.cam-mode-switch button[aria-pressed="true"] {
-  background: var(--cam-border-subtle);
-  color: var(--cam-text);
-  font-weight: var(--cam-font-weight-semibold);
-}
-
-.cam-mode-switch button:focus-visible {
+.cam-mode-switch:focus-visible {
   outline: 2px solid var(--cam-focus);
   outline-offset: 1px;
 }
@@ -3434,6 +3672,22 @@ html:has(.cam-masthead) {
   flex: 1 0 auto;
 }
 
+/* The preliminary quiz is one short column in the middle of the pane: the
+   680px quiz measure is centred left to right by the pod's own max-width, and
+   the pane centres that column top to bottom. No edge of its own — a
+   full-height side rule around a short quiz would read as a tall empty
+   frame. The body must not eat spare height, or Next would drop to the
+   bottom of the pane. `safe`, set on the pane, keeps a quiz taller than
+   the pane at the top (owner, 2026-10-22). */
+.cam-wizard-pod--quiz {
+  flex: 0 0 auto;
+  border: none;
+}
+
+.cam-wizard-pod--flush.cam-wizard-pod--quiz > .cam-wizard-pod-body {
+  flex: 0 0 auto;
+}
+
 .cam-wizard-pod--flush > .cam-wizard-pod-nav {
   padding: var(--cam-space-3) var(--cam-wizard-pod-pad) var(--cam-space-4);
 }
@@ -3502,6 +3756,27 @@ html:has(.cam-masthead) {
     gap: var(--cam-space-4);
     padding-top: var(--cam-space-4);
   }
+}
+
+/* A tall screen can spare the room a laptop cannot: VT's eleven steps must
+   not grow a second scrollbar beside the page (CLAUDE.md §13). */
+@media (min-height: 960px) {
+  .cam-wizard-rail:not(.cam-wizard-rail--sheet) {
+    --cam-step-row-pad: var(--cam-space-4);
+  }
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-button {
+  column-gap: var(--cam-space-4);
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step-name {
+  font-size: var(--cam-font-size-base);
+}
+
+.cam-wizard-rail:not(.cam-wizard-rail--sheet) .cam-step:is(.is-current, .is-currentComplete) .cam-step-name {
+  font-size: var(--cam-font-size-lg);
+  line-height: var(--cam-line-height-title);
 }
 
 .cam-step-button[data-inert] {
@@ -4102,7 +4377,7 @@ textarea.sovereign-text-input {
 .cam-dt .cam-dt-rowcode {
   font-family: var(--cam-font-mono);
   font-size: var(--cam-font-size-2xs);
-  font-weight: 600;
+  font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-table-frame);
 }
 
@@ -4164,35 +4439,6 @@ textarea.sovereign-text-input {
 @media (min-width: 1024px) {
   .cam-quiz-card {
     min-height: clamp(34rem, calc(100dvh - 18rem), 46rem);
-  }
-}
-
-.cam-quiz-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cam-space-3, 12px);
-  flex: 1 1 18rem;
-  min-width: 0;
-  align-items: stretch;
-}
-
-.cam-quiz-tabs>button {
-  width: 100%;
-  white-space: normal;
-}
-
-@media (min-width: 900px) {
-  .cam-quiz-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--cam-space-3, 12px) var(--cam-space-6, 32px);
-  }
-
-  .cam-quiz-tabs>button {
-    width: auto;
-    white-space: nowrap;
   }
 }
 
@@ -4294,7 +4540,7 @@ textarea.sovereign-text-input {
   background: var(--cam-surface);
   color: var(--cam-text);
   font-size: var(--cam-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--cam-font-weight-medium);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -4321,7 +4567,7 @@ textarea.sovereign-text-input {
   padding: 2px var(--cam-space-2);
   border-radius: var(--cam-radius-full);
   font-size: var(--cam-font-size-3xs);
-  font-weight: 700;
+  font-weight: var(--cam-font-weight-bold);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -5015,14 +5261,6 @@ textarea.sovereign-text-input {
   .cam-home-main {
     padding: var(--cam-space-5) var(--cam-space-4);
   }
-}
-
-/* Registration panel: its rows and gaps are the shared rail rhythm (see
-   "Wizard rail"); it keeps only a little more room under its foot, where the
-   help link sits (owner, 2026-10-15). Side padding stays the shared 16px: at
-   24px "Type d'organisation" wrapped beside its "Modifier" link. */
-.cam-auth-page--wizard .flow-panel.cam-wizard-rail {
-  padding-bottom: var(--cam-space-5);
 }
 
 /* A quiet text link to the other official language (LanguageLink.tsx):

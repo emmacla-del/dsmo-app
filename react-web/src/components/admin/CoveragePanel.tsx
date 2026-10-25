@@ -1,71 +1,123 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
-import { CoverageTable } from "@/components/admin/CoverageTable";
+import { useAuthStore } from "@/lib/auth-store";
+import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
+import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
+import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
+import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
+import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
-import { formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN } from "@/lib/pilotage-targets";
+import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, parseYearParam, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
+import { count, percent } from "@/lib/admin-data-state";
+import { listCompanyRegistrations } from "@/lib/user-directory";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
- * Annual registration coverage: registered establishments against the
- * registration-campaign targets, per territory.
+ * Registration coverage: registered establishments against the
+ * registration-campaign targets, per territory and selected period.
  *
  * Moved out of /admin/cibles (where it was the "Couverture" tab) into
  * /admin/inscriptions: it measures registrations, not declarations, and sat
  * under a page and a hub about campaign quotas. Same query, same table.
  *
- * Source: GET /admin/pilotage/coverage/annual?year= (PILOTAGE_READ_ROLES —
- * the same four roles as the registration queue), territory-scoped
- * server-side.
+ * One selected period (year, optionally narrowed to semester and quarter)
+ * uses the same territory-scoped coverage endpoints and stays in the table's
+ * original count column.
  *
- * The year lives in the caller's URL (?annee=), so the view survives a
- * reload; `onYearChange` is how the caller writes it back.
+ * The selected year, semester, and quarter live in the caller's URL, so the
+ * view survives a reload; header dropdowns write selections back.
  */
-export function CoveragePanel({ year, onYearChange }: { year: number; onYearChange: (year: number) => void }) {
-  const t = useTranslations("adminTargets");
-  const [yearDraft, setYearDraft] = useState(String(year));
-  useEffect(() => {
-    setYearDraft(String(year));
-  }, [year]);
+export type CoverageSelection = {
+  year: number;
+  semester: 1 | 2 | null;
+  quarter: 1 | 2 | 3 | 4 | null;
+};
 
-  return (
-    <>
-      <div className="cam-target-toolbar">
-        <label className="cam-target-year">
-          {t("yearLabel")}
-          <input
-            className="cam-input"
-            type="number"
-            min={YEAR_MIN}
-            max={YEAR_MAX}
-            value={yearDraft}
-            onChange={(event) => setYearDraft(event.target.value)}
-            onBlur={() => {
-              const parsed = parseYearParam(yearDraft);
-              if (parsed != null && parsed !== year) onYearChange(parsed);
-              else setYearDraft(String(year));
-            }}
-          />
-        </label>
-      </div>
-      <CoverageContent year={year} />
-    </>
-  );
+export function CoveragePanel({
+  year,
+  semester,
+  quarter,
+  onPeriodChange,
+}: CoverageSelection & { onPeriodChange: (selection: CoverageSelection) => void }) {
+  return <CoverageContent year={year} semester={semester} quarter={quarter} onPeriodChange={onPeriodChange} />;
 }
 
-function CoverageContent({ year }: { year: number }) {
+function CoverageContent({
+  year,
+  semester,
+  quarter,
+  onPeriodChange,
+}: CoverageSelection & { onPeriodChange: (selection: CoverageSelection) => void }) {
   const tCommon = useTranslations("common");
+  const tTargets = useTranslations("adminTargets");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
+  /**
+   * A ranked region links to its own registration queue — but only for a
+   * reader who may open that queue. Coverage is PILOTAGE_READ_ROLES and the
+   * queue is APPROVAL_ROLES, so CENTRAL_AGENT reads this view and would
+   * otherwise click into a page that refuses it. `status=ALL` lifts the
+   * queue's default (pending + complements): the ranking counts registered
+   * establishments, not the files still waiting.
+   */
+  const role = useAuthStore((state) => state.user?.role);
+  const canOpenCampaign = canListCampaigns(role);
+  const canReadRegistrationQueue = hasRole(role, APPROVAL_ROLES);
+  const campaignQuery = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: () => listCampaigns(),
+    enabled: canOpenCampaign,
+    staleTime: 60_000,
+  });
+  /**
+   * A ranked entity type links to the same queue, filtered on the type.
+   * `entityType` is the stored code, which is what the queue's own filter
+   * sends; the server checks nothing territorial here because the type is
+   * not a territory, and the reader's own scope still bounds the answer.
+   */
+  const typeQueueHref = hasRole(role, APPROVAL_ROLES)
+    ? (entityType: string) =>
+        `/admin/inscriptions?vue=file&status=ALL&type=${encodeURIComponent(entityType)}`
+    : null;
+  const tRootPanel = useTranslations();
+  const typeLabel = (entityType: string) =>
+    ENTITY_TYPE_OPTION_KEYS[entityType]
+      ? tRootPanel(ENTITY_TYPE_OPTION_KEYS[entityType])
+      : entityTypeLabel(entityType);
+  const queueHref = hasRole(role, APPROVAL_ROLES)
+    ? (regionName: string, departmentName?: string) => {
+        const params = new URLSearchParams({ vue: "file", status: "ALL", region: regionName });
+        if (departmentName) params.set("department", departmentName);
+        return `/admin/inscriptions?${params.toString()}`;
+      }
+    : null;
+  const overdueQueueHref = canReadRegistrationQueue
+    ? (filters: { region?: string; department?: string; entityType?: string }) => {
+        const params = new URLSearchParams({ status: "OVERDUE" });
+        if (filters.region) params.set("region", filters.region);
+        if (filters.department) params.set("department", filters.department);
+        if (filters.entityType) params.set("type", filters.entityType);
+        return `/admin/inscriptions?${params.toString()}`;
+      }
+    : null;
   const query = useQuery({
-    queryKey: ["admin", "pilotage", "coverage", year],
-    queryFn: () => getAnnualCoverage(year),
+    queryKey: ["admin", "pilotage", "coverage", year, semester, quarter],
+    queryFn: () => quarter != null
+      ? getQuarterCoverage(year, quarter)
+      : semester != null
+        ? getSemesterCoverage(year, semester)
+        : getAnnualCoverage(year),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const latestAvailableYear = doualaCalendarYear();
 
   useEffect(() => {
     if (!query.data) return;
@@ -90,10 +142,13 @@ function CoverageContent({ year }: { year: number }) {
   }
   if (!query.data) return null;
 
-  return (
+  const territoryTable = (
     <CoverageTable
       data={query.data}
       expanded={expanded}
+      overdueHref={overdueQueueHref
+        ? (regionName, departmentName) => overdueQueueHref({ region: regionName, department: departmentName })
+        : undefined}
       onToggle={(regionId) =>
         setExpanded((current) => {
           const next = new Set(current);
@@ -104,4 +159,442 @@ function CoverageContent({ year }: { year: number }) {
       }
     />
   );
+  const tableTools = (
+    <div className="coverage-period-tools">
+      <CoverageTableHelp overdueDays={query.data.overdueDays} />
+    </div>
+  );
+  const periodSelector = (
+    <CoveragePeriodSelector
+      year={year}
+      semester={semester}
+      quarter={quarter}
+      latestAvailableYear={latestAvailableYear}
+      onPeriodChange={onPeriodChange}
+    />
+  );
+  const { items: quotaItems, withoutTarget } = registrationQuotaRanking(
+    query.data,
+    tTargets("centralLevel"),
+    queueHref,
+  );
+  const quotaRanking = (
+    <section className="grid gap-3" aria-labelledby="registration-quota-ranking-title">
+      <div>
+        <h2 id="registration-quota-ranking-title" className="text-base font-semibold">{tTargets("quotaCoverageTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{tTargets("quotaCoverageContext")}</p>
+      </div>
+      {quotaItems.length > 0 ? (
+        <CoverageBarChart
+          items={quotaItems}
+          ariaLabel={tTargets("quotaCoverageTitle")}
+          metric="quota"
+          showDistribution
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">{tTargets("noQuotaCoverageAreas")}</p>
+      )}
+      {/* A territory with no quota is absent from the ranking and from the
+          band counts above it. Saying how many were left out keeps the
+          distribution from reading as the whole ressort. */}
+      {withoutTarget > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {tTargets("quotaCoverageWithoutTarget", { count: withoutTarget })}
+        </p>
+      )}
+      {query.data.period.campaignIds.length > 0 ? (
+        <div className="text-sm">
+          <span className="font-medium">{tTargets("quotaCampaignSourcesLabel")}</span>
+          <ul className="mt-1 grid gap-1">
+            {query.data.period.campaignIds.map((campaignId) => {
+              const campaign = campaignQuery.data?.find((item) => item.id === campaignId);
+              const label = campaign?.name
+                ? `${formatCampaignDisplayName(campaign.name)} (${campaign.code})`
+                : campaignId;
+              return (
+                <li key={campaignId}>
+                  {canOpenCampaign ? (
+                    <Link className="underline underline-offset-2" href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaignId)}`}>
+                      {label}
+                    </Link>
+                  ) : (
+                    <code>{label}</code>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {query.data.period.campaignIds.length > 0 && canOpenCampaign && campaignQuery.isError && (
+        <DataState
+          dense
+          state="error"
+          resource={tTargets("campaignNamesResource")}
+          title={tTargets("campaignNamesUnavailable")}
+          error={campaignQuery.error}
+          onRetry={() => campaignQuery.refetch()}
+        />
+      )}
+    </section>
+  );
+
+  const typeRanking = entityTypeQuotaRanking(query.data.byEntityType ?? [], typeLabel, typeQueueHref);
+  const typeQuotaRanking = (
+    <section className="grid gap-3" aria-labelledby="entity-type-quota-ranking-title">
+      <div>
+        <h2 id="entity-type-quota-ranking-title" className="text-base font-semibold">
+          {tTargets("entityTypeQuotaCoverageTitle")}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{tTargets("entityTypeQuotaCoverageContext")}</p>
+      </div>
+      {typeRanking.items.length > 0 ? (
+        <CoverageBarChart
+          items={typeRanking.items}
+          ariaLabel={tTargets("entityTypeQuotaCoverageTitle")}
+          metric="quota"
+          nameLabel={tTargets("entityTypeColumn")}
+          showDistribution
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">{tTargets("noEntityTypeQuotaCoverage")}</p>
+      )}
+      {typeRanking.withoutTarget > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {tTargets("entityTypeQuotaWithoutTarget", { count: typeRanking.withoutTarget })}
+        </p>
+      )}
+    </section>
+  );
+
+  // A backend older than 2026-10-24 sends no byEntityType. Rather than an
+  // empty second tab, the view then stays the single territory grid it was.
+  const byEntityType = query.data.byEntityType;
+  if (!byEntityType) {
+    return (
+      <div className="grid gap-5">
+        <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
+        <div className="coverage-table-toolbar">
+          {periodSelector}
+          {tableTools}
+        </div>
+        {territoryTable}
+        <CoverageAnnualTrend year={year} />
+        {quotaRanking}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5">
+      <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
+      <Tabs defaultValue="territory" className="gap-0">
+        <div className="coverage-table-toolbar">
+          <TabsList>
+            <TabsTrigger value="territory">{tTargets("byTerritoryTab")}</TabsTrigger>
+            <TabsTrigger value="type">{tTargets("byEntityTypeTab")}</TabsTrigger>
+          </TabsList>
+          {periodSelector}
+          {tableTools}
+        </div>
+        <TabsContent value="territory" className="mt-0">{territoryTable}</TabsContent>
+        <TabsContent value="type" className="mt-0">
+          <CoverageEntityTypeTable
+            rows={byEntityType}
+            overdueDays={query.data.overdueDays}
+            overdueHref={overdueQueueHref
+              ? (entityType) => overdueQueueHref({ entityType })
+              : undefined}
+          />
+        </TabsContent>
+      </Tabs>
+      {quotaRanking}
+      {typeQuotaRanking}
+      <CoverageAnnualTrend year={year} />
+    </div>
+  );
+}
+
+function CoverageSummary({ totals, showOverdue }: { totals: CoverageResponse["totals"]; showOverdue: boolean }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
+  const quotaLabel = totals.targetIndeterminate
+    ? t("quotaIndeterminate")
+    : totals.inscriptionTarget == null
+      ? t("quotaNotSet")
+      : count(totals.inscriptionTarget, locale);
+  return (
+    <section className="grid gap-3" aria-label={t("overallCoverageTitle")}>
+      <div className="coverage-summary-grid">
+        <div className="coverage-summary-card">
+          <p className="text-sm text-muted-foreground">{t("annualRegisteredTotal")}</p>
+          <strong className="text-xl tabular-nums">{count(totals.registeredInYear, locale)}</strong>
+          <p className="mt-1 text-xs text-muted-foreground">{t("cumulativeRegisteredCaption", { count: count(totals.registered, locale) })}</p>
+        </div>
+        <div className="coverage-summary-card">
+          <p className="text-sm text-muted-foreground">{t("annualQuotaTotal")}</p>
+          <strong className="text-xl tabular-nums">{quotaLabel}</strong>
+        </div>
+        <div className="coverage-summary-card">
+          <p className="text-sm text-muted-foreground">{t("annualCoverageRate")}</p>
+          <strong className="text-xl tabular-nums">{percent(totals.rate == null ? null : totals.rate * 100, 1, locale, 0)}</strong>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("annualRegisteredOverQuota", {
+              registered: count(totals.registeredInYear, locale),
+              quota: quotaLabel,
+            })}
+          </p>
+        </div>
+        {showOverdue && <CoverageOverdue />}
+      </div>
+    </section>
+  );
+}
+
+function CoverageOverdue() {
+  const tRoot = useTranslations();
+  const t = useTranslations("adminInscriptionsPage");
+  const locale = asUiLocale(useLocale());
+  const query = useQuery({
+    queryKey: ["auth", "company-registrations", "pending-count"],
+    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
+    refetchInterval: 120_000,
+  });
+  const days = query.data?.overdueDays ?? 7;
+  if (query.isError) {
+    return <DataState dense state="error" resource={t("statusOverdue", { days })} error={query.error} onRetry={() => query.refetch()} />;
+  }
+  if (query.isPending || !query.data) {
+    return <DataState dense state="loading" resource={t("statusOverdue", { days })} title={tRoot("adminPilotagePage.metricUnavailable")} />;
+  }
+
+  return (
+    <Link
+      href="/admin/inscriptions?status=OVERDUE"
+      className="coverage-summary-card coverage-overdue-card focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <span className="text-sm font-medium">{tRoot("adminInscriptionsPage.statusOverdue", { days })}</span>
+      <strong className={query.data.counts.overdue ? "text-lg tabular-nums text-destructive" : "text-lg tabular-nums"}>{count(query.data.counts.overdue, locale)}</strong>
+      {/* Both of these live in adminPilotagePage, where the dashboard's own
+          overdue tile already uses them; naming that namespace keeps one
+          wording rather than a second copy drifting here. */}
+      <small className="text-muted-foreground">{tRoot("adminPilotagePage.registrationOverdueCaption")}</small>
+    </Link>
+  );
+}
+
+function CoverageAnnualTrend({ year }: { year: number }) {
+  const t = useTranslations("adminTargets");
+  const locale = asUiLocale(useLocale());
+  const years = Array.from({ length: 5 }, (_, index) => year - 4 + index).filter((item) => item >= YEAR_MIN);
+  const queries = useQueries({
+    queries: years.map((item) => ({
+      queryKey: ["admin", "pilotage", "coverage-trend", item],
+      queryFn: () => getAnnualCoverage(item),
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    })),
+  });
+  if (queries.some((query) => query.isError)) {
+    return <DataState dense state="error" resource={t("registrationTrendTitle")} onRetry={() => queries.forEach((query) => void query.refetch())} />;
+  }
+  if (queries.some((query) => query.isPending)) {
+    return <DataState dense state="loading" resource={t("registrationTrendTitle")} title={t("registrationTrendLoading")} />;
+  }
+
+  const points = years.map((item, index) => ({
+    year: item,
+    value: queries[index].data ? registrationsInYear(queries[index].data) : 0,
+  }));
+  const max = Math.max(1, ...points.map((point) => point.value));
+
+  return (
+    <section className="grid gap-3" aria-labelledby="registration-coverage-trend-title">
+      <div>
+        <h2 id="registration-coverage-trend-title" className="text-base font-semibold">{t("registrationTrendTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("registrationTrendContext")}</p>
+      </div>
+      <ul className="grid gap-2" aria-label={t("registrationTrendTitle")}>
+        {points.map((point) => (
+          <li key={point.year} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3" aria-label={`${point.year}: ${count(point.value, locale)}`}>
+            <span className="text-sm tabular-nums">{point.year}</span>
+            <span aria-hidden="true" className="h-3 overflow-hidden rounded bg-muted">
+              <span className="block h-full rounded bg-primary" style={{ width: `${(point.value / max) * 100}%` }} />
+            </span>
+            <strong className="text-sm tabular-nums">{count(point.value, locale)}</strong>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function registrationsInYear(data: CoverageResponse): number {
+  const territorial = data.regions.reduce(
+    (total, region) => total + region.departments.reduce((regionTotal, department) => regionTotal + department.registeredInYear, 0),
+    0,
+  );
+  return territorial
+    + (data.central?.registeredInYear ?? 0)
+    + (data.unassigned?.registeredInYear ?? 0)
+    + (data.nullEntityType?.registeredInYear ?? 0);
+}
+
+/**
+ * The same ranking for entity types, now that a type can carry a quota
+ * (region x type, 2026-10-25).
+ *
+ * A second list rather than more rows in the first: a type and a territory
+ * are different units, and one ranked scale holding both would invite the
+ * reader to compare « Centre at 40 % » with « Coopérative at 40 % » as though
+ * they were the same kind of shortfall. The bands and their distribution are
+ * computed per list for the same reason.
+ *
+ * ADMINISTRATION is listed like any other type when it carries a quota: its
+ * target is the central cohort row, which the table's note explains.
+ */
+function entityTypeQuotaRanking(
+  rows: CoverageEntityTypeRow[],
+  label: (entityType: string) => string,
+  queueHref: ((entityType: string) => string) | null,
+): QuotaRanking {
+  const items: CoverageBarItem[] = [];
+  let withoutTarget = 0;
+  for (const row of rows) {
+    if (row.inscriptionTarget == null || row.inscriptionTarget <= 0 || row.rate == null) {
+      withoutTarget += 1;
+      continue;
+    }
+    items.push({
+      key: row.entityType,
+      name: label(row.entityType),
+      responseRate: row.rate * 100,
+      // registeredInYear, the rate's own numerator, so the counts cell and
+      // the percentage beside it describe the same thing.
+      received: row.registeredInYear,
+      registered: row.inscriptionTarget,
+      target: null,
+      href: queueHref ? queueHref(row.entityType) : undefined,
+    });
+  }
+  return { items, withoutTarget };
+}
+
+/** The ranking, plus the territories it could not rank. */
+interface QuotaRanking {
+  items: CoverageBarItem[];
+  /**
+   * Territories at the ranked level carrying no measurable target. They are
+   * not ranked — there is no denominator — but they are not nothing either,
+   * so the view says how many were left out rather than dropping them in
+   * silence.
+   */
+  withoutTarget: number;
+}
+
+/**
+ * The ranking lists ONE level, never a region and its own departments.
+ *
+ * A region in DEPARTMENT mode has no target of its own: `summarizeRegion`
+ * sets region.target to the SUM of its departments' targets. Listing both
+ * levels therefore counted the same registrations twice — once in the region
+ * row, once across its department rows — and the legend's distribution counted
+ * the same territory twice over as well.
+ *
+ * The rule is the dashboard's (`coverageRows`, lib/pilotage-coverage.ts):
+ * regions when the answer spans several, departments when it is a single
+ * region, where one region row would say no more than the headline. A single
+ * region whose quota sits at region level (REGION mode, so no department
+ * carries one) falls back to its own row, otherwise a regional reader with a
+ * region-level quota would see an empty ranking.
+ *
+ * A MIXED region is in neither list: summarizeRegion refuses to total it
+ * (region.target is null and so is every rate), so it counts as without a
+ * target, which is what it is.
+ */
+function registrationQuotaRanking(
+  data: CoverageResponse,
+  centralLabel: string,
+  queueHref: ((regionName: string, departmentName?: string) => string) | null,
+): QuotaRanking {
+  const items: CoverageBarItem[] = [];
+  let withoutTarget = 0;
+  const singleRegion = data.regions.length === 1;
+
+  for (const region of data.regions) {
+    const departments = singleRegion ? region.departments : [];
+    const rankedDepartments = departments.filter(
+      (department) => department.inscriptionTarget != null && department.inscriptionTarget > 0 && department.rate != null,
+    );
+
+    // Departments are the ranked level only when at least one of them carries
+    // a quota; otherwise the region itself is, as it is at national scope.
+    if (rankedDepartments.length > 0) {
+      for (const department of departments) {
+        if (department.inscriptionTarget == null || department.inscriptionTarget <= 0 || department.rate == null) {
+          withoutTarget += 1;
+          continue;
+        }
+        items.push({
+          key: department.departmentId,
+          name: department.name,
+          responseRate: department.rate * 100,
+          received: department.registeredInYear,
+          registered: department.inscriptionTarget,
+          target: null,
+          // Region AND department: department names repeat across regions, so
+          // the region has to travel with it for the link to name one place.
+          href: queueHref ? queueHref(region.name, department.name) : undefined,
+        });
+      }
+      continue;
+    }
+
+    const regionQuota = region.inscriptionTarget != null && region.inscriptionTarget > 0 ? region.inscriptionTarget : null;
+    // registeredInYear, not registered: it is the rate's own numerator, so the
+    // counts cell and the percentage beside it describe the same thing. It is
+    // null exactly when the reader's scope hides region stock, which is what
+    // the guard tests.
+    if (regionQuota != null && region.rate != null && region.registeredInYear != null) {
+      items.push({
+        key: region.regionId,
+        name: region.name,
+        responseRate: region.rate * 100,
+        received: region.registeredInYear,
+        registered: regionQuota,
+        target: null,
+        // The queue filters on the region and department NAMES
+        // (Company.region / Company.department, matched case-insensitively
+        // server-side), the vocabulary its own filter options use. Territorial
+        // authority is re-checked there, so a link can never widen what the
+        // reader may see.
+        href: queueHref ? queueHref(region.name) : undefined,
+      });
+      continue;
+    }
+    // A quota the reader cannot measure is not a missing quota: at department
+    // scope a REGION-mode region keeps its target but its stock is withheld
+    // (CoverageRegionRow.registered is null), so it is unranked without being
+    // counted as quota-less, which would be untrue.
+    if (regionQuota == null) withoutTarget += 1;
+  }
+
+  if (data.central) {
+    if (data.central.inscriptionTarget && data.central.inscriptionTarget > 0 && data.central.rate != null) {
+      items.push({
+        key: "central",
+        name: centralLabel,
+        responseRate: data.central.rate * 100,
+        received: data.central.registeredInYear,
+        registered: data.central.inscriptionTarget,
+        target: null,
+        // The ministry cohort is not a region, so the queue's region filter
+        // cannot name it.
+      });
+    } else {
+      withoutTarget += 1;
+    }
+  }
+
+  return { items, withoutTarget };
 }

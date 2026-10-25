@@ -1,9 +1,7 @@
-// The pilotage progress chart: cumulative declarations received per Cameroon
-// calendar day, from GET /admin/pilotage/campaigns/:id/returns/timeline.
+// Campaign return totals and weekly submission/review activity timelines.
 //
-// The server counts exactly as /returns does, so the last `cumulative` is the
-// headline `totals.received`. This module holds the geometry the chart draws,
-// pure and testable: time runs on the Africa/Douala day (UTC+1, no DST), and
+// The returns timeline counts exactly as /returns does. The weekly activity
+// series comes from actual submission and audit-event dates.
 // the "steady pace" reference is a straight line from 0 at the campaign start
 // to the registered stock at the effective deadline. It is a reference, not a
 // forecast.
@@ -33,9 +31,28 @@ export interface CampaignReturnsTimeline {
   days: CampaignReturnsTimelineDay[];
 }
 
+export interface CampaignReturnsActivityDay {
+  date: string;
+  submitted: number;
+  approved: number;
+  correctionRequested: number;
+}
+
+export interface CampaignReturnsActivity {
+  campaign: CampaignReturnsTimeline["campaign"];
+  timeZone: string;
+  days: CampaignReturnsActivityDay[];
+}
+
 export function getCampaignReturnsTimeline(campaignId: string) {
   return apiFetch<CampaignReturnsTimeline>(
     `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/returns/timeline`,
+  );
+}
+
+export function getCampaignReturnsActivity(campaignId: string) {
+  return apiFetch<CampaignReturnsActivity>(
+    `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/returns/activity`,
   );
 }
 
@@ -54,6 +71,31 @@ export function niceMax(value: number): number {
     if (step * power >= value) return step * power;
   }
   return 10 * power;
+}
+
+/**
+ * Computes 3 to 6 neat integer tick values from 0 up to yMax.
+ */
+export function computeYTicks(yMax: number): number[] {
+  if (yMax <= 0) return [0];
+  if (yMax <= 4) return Array.from({ length: yMax + 1 }, (_, i) => i);
+  const rawStep = yMax / 4;
+  const power = 10 ** Math.floor(Math.log10(rawStep));
+  let step = power;
+  for (const factor of [1, 2, 5, 10]) {
+    if (factor * power >= rawStep) {
+      step = factor * power;
+      break;
+    }
+  }
+  const ticks: number[] = [];
+  for (let v = 0; v <= yMax; v += step) {
+    ticks.push(v);
+  }
+  if (ticks[ticks.length - 1] !== yMax) {
+    ticks.push(yMax);
+  }
+  return ticks;
 }
 
 export interface PaceReading {
@@ -100,18 +142,104 @@ export interface ChartMarker {
 }
 
 export interface ChartGeometry {
-  /** The cumulative step line. */
+  /** The cumulative smooth line (tension 0.25, monotonic). */
   line: string;
+  /** Start of the line, for area fill. */
+  start: { x: number; y: number };
   /** End of the line, for the direct label. */
   end: { x: number; y: number; value: number };
   /** The steady-pace reference, or null. */
   pace: { x1: number; y1: number; x2: number; y2: number } | null;
   markers: ChartMarker[];
   yTicks: Array<{ y: number; value: number }>;
+  xTicks: Array<{ x: number; date: string }>;
+  /** Midpoint X coordinate for each day. */
+  dayMidX: number[];
   /** Left edge of each day, then the right edge of the last one. */
   dayX: number[];
   yMax: number;
   domain: { start: number; end: number };
+}
+
+/**
+ * Builds an SVG cubic-Bézier path matching Chart.js line chart tension (0.25).
+ * Uses monotonic tangent clamping so cumulative non-decreasing values never dip.
+ */
+function smoothSpline(
+  pts: ReadonlyArray<{ x: number; y: number }>,
+  tension = 0.25,
+): string {
+  if (pts.length === 0) return "";
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  if (pts.length === 1) return d;
+  if (pts.length === 2) {
+    return `${d} L${pts[1].x.toFixed(1)},${pts[1].y.toFixed(1)}`;
+  }
+  const n = pts.length;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(n - 1, i + 2)];
+
+    let cp1x = p1.x + (p2.x - p0.x) * tension;
+    let cp1y = p1.y + (p2.y - p0.y) * tension;
+    let cp2x = p2.x - (p3.x - p1.x) * tension;
+    let cp2y = p2.y - (p3.y - p1.y) * tension;
+
+    // In SVG, y is inverted (smaller y = higher value).
+    // For non-decreasing cumulative values, p1.y >= p2.y.
+    if (p1.y === p2.y) {
+      // Flat segment: keep control points perfectly horizontal
+      cp1y = p1.y;
+      cp2y = p2.y;
+    } else {
+      // Clamp control points between p1.y and p2.y to avoid any overshoot
+      const minY = Math.min(p1.y, p2.y);
+      const maxY = Math.max(p1.y, p2.y);
+      cp1y = Math.max(minY, Math.min(maxY, cp1y));
+      cp2y = Math.max(minY, Math.min(maxY, cp2y));
+    }
+
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+/** Builds a smooth SVG path for a sampled cumulative series. */
+export function cumulativeSeriesPath(points: ReadonlyArray<{ x: number; y: number }>): string {
+  return smoothSpline(points, 0.25);
+}
+
+/**
+ * Builds an SVG cubic-Bézier path through arbitrary series points
+ * (rising and falling) matching Chart.js line tension (0.25).
+ */
+export function cardinalSplinePath(
+  pts: ReadonlyArray<{ x: number; y: number }>,
+  tension = 0.25,
+): string {
+  if (pts.length === 0) return "";
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  if (pts.length === 1) return d;
+  if (pts.length === 2) {
+    return `${d} L${pts[1].x.toFixed(1)},${pts[1].y.toFixed(1)}`;
+  }
+  const n = pts.length;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(n - 1, i + 2)];
+
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
 }
 
 /**
@@ -144,28 +272,30 @@ export function chartGeometry(
 
   const effective = extendedDeadline ?? deadline;
   const paceTarget = registeredStock && registeredStock > 0 && effective && startDate ? registeredStock : 0;
-  // With a pace target the axis tops out at it (or at the total, if more
-  // came in), so the top gridline is "every registered establishment" and
-  // the pace line ends on a labelled value. A round number above 13 left
-  // the top third of the plot empty and the target unnamed.
   const yMax = paceTarget > 0 ? Math.max(timeline.total, paceTarget) : niceMax(Math.max(timeline.total, 1));
   const y = (v: number) => box.top + plotH - (v / yMax) * plotH;
 
   const dayX = days.map((d) => x(doualaDayStart(d.date)));
   dayX.push(x(lastDayEnd));
+  const dayMidX = days.map((_, i) => (dayX[i] + dayX[i + 1]) / 2);
 
-  // Step-after: each day's arrivals rise at the day's start, then hold. The
-  // line stops at the end of today, not at the end of the axis.
+  // Collect data points up to "now" (Cameroon day)
   const stopAt = x(Math.min(lastDayEnd, Math.max(now, doualaDayStart(days[days.length - 1].date))));
-  let path = `M${dayX[0].toFixed(1)},${y(0).toFixed(1)}`;
-  let previous = 0;
-  days.forEach((day, i) => {
-    if (day.cumulative !== previous) {
-      path += ` L${dayX[i].toFixed(1)},${y(previous).toFixed(1)} L${dayX[i].toFixed(1)},${y(day.cumulative).toFixed(1)}`;
-      previous = day.cumulative;
+  const pts: Array<{ x: number; y: number; cumulative: number }> = [];
+  for (let i = 0; i < days.length; i++) {
+    const mid = dayMidX[i];
+    if (mid > stopAt && i > 0 && days[i].cumulative === days[i - 1].cumulative) {
+      break;
     }
-  });
-  path += ` L${stopAt.toFixed(1)},${y(previous).toFixed(1)}`;
+    pts.push({ x: mid, y: y(days[i].cumulative), cumulative: days[i].cumulative });
+  }
+
+  if (pts.length === 0) {
+    pts.push({ x: dayMidX[0], y: y(0), cumulative: 0 });
+  }
+
+  const path = smoothSpline(pts, 0.25);
+  const lastPt = pts[pts.length - 1];
 
   let pace: ChartGeometry["pace"] = null;
   if (paceTarget > 0 && effective && startDate) {
@@ -182,16 +312,27 @@ export function chartGeometry(
     markers.push({ kind: "extended", x: x(Date.parse(extendedDeadline)), date: extendedDeadline });
   }
 
-  const yTicks = [0, yMax / 2, yMax]
-    .filter((v) => Number.isInteger(v))
-    .map((value) => ({ value, y: y(value) }));
+  const yTicks = computeYTicks(yMax).map((value) => ({ value, y: y(value) }));
+
+  // Generate evenly spaced date ticks across the domain (approx. every 120-160px)
+  const tickCount = Math.min(5, Math.max(2, Math.floor(plotW / 140)));
+  const xTicks: Array<{ x: number; date: string }> = [];
+  for (let i = 0; i < tickCount; i++) {
+    const t = start + (i / (tickCount - 1)) * (end - start);
+    const d = new Date(t);
+    const dateStr = d.toISOString().slice(0, 10);
+    xTicks.push({ x: x(t), date: dateStr });
+  }
 
   return {
     line: path,
-    end: { x: stopAt, y: y(previous), value: previous },
+    start: { x: pts[0].x, y: pts[0].y },
+    end: { x: lastPt.x, y: lastPt.y, value: lastPt.cumulative },
     pace,
     markers,
     yTicks,
+    xTicks,
+    dayMidX,
     dayX,
     yMax,
     domain: { start, end },

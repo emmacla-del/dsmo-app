@@ -808,8 +808,11 @@ Approved changes on record:
   (`src/pdf/i18n/{fr,en}.json` projectProgram.outcomes.current) — for every
   form type, with the kind of period read from the round's own code
   (quarter / semester / year) and the date range kept as the fallback when
-  that code names no kind. The exact bounds are printed once, on the wizard
-  masthead. The project KPI column follows (« Réalisations au cours du
+  that code names no kind. The exact bounds were printed once, on the wizard
+  masthead, until 2026-10-22: the owner then dropped them as repeating the
+  round's name, and the masthead reads one sentence, « Recensement emplois
+  modernes des Entreprises pour le 4e trimestre 2026 »
+  (`ModernJobsHeader.tsx`). The wizard no longer prints the bounds anywhere. The project KPI column follows (« Réalisations au cours du
   trimestre »); its two outlook columns still name no year, which is still
   ONEFOP's to answer. The admin file view rewrites from the file's own round
   code, so a reviewer reads the question the respondent answered. No
@@ -920,6 +923,219 @@ Approved changes on record:
   it would be a new dataset version and a decision of its own. The official PDF
   and the Excel export already read this table correctly and are unchanged.
   Approved by the owner in chat, 2026-10-20.
+- 2026-10-22 — project Section 2 (activities, `PP_S2_ACTIVITIES`) needs at
+  least one complete line (`missingActivitiesCells` / `validateActivitiesTable`
+  in `react-web/src/lib/onefop-validation.ts`). Issue: the table carries
+  `required: false` and no `_RESPONSE_STATUS`, and only a started line was
+  checked, so a project could file Section 2 empty. Owner's rule, in chat
+  2026-10-22: no table or question of the ONEFOP wizard is optional; the quiz
+  hides only the tables it gates, and a table it does not gate is always shown
+  and must be answered. Fix: an empty table owes its whole first line; it
+  blocks Suivant and submission in the wizard. On the server, a final project
+  submission without one line whose six cells are all filled is refused with
+  the usual 400 « Informations obligatoires manquantes … / Missing required
+  information … », `missingFields: ['projectProgram.activities']`
+  (`hasCompleteProjectActivity`, `enforceFinalRequiredFields` in
+  `src/questionnaires/questionnaires.service.ts`); drafts are not checked.
+  Server enforcement approved by the owner in chat, 2026-10-22. NOT done: a
+  quiz question letting a project declare « aucune activité » (written, then
+  withdrawn the same day — it needed a status key the canonical form has no
+  question for, see the 2026-10-19 entry); the AST's `required` flag. Contact and
+  write-in slots (second phones, PO box, website, « Autre (à préciser) »,
+  domain/reason lines 2–3) remain optional pending the owner's ruling.
+
+- 2026-10-25 — registration coverage measures the year, not the register
+  (`coverageRate` in `src/pilotage/pilotage-coverage.ts`, its three call sites
+  in `pilotage.service.ts`). Issue: the rate divided the cumulative
+  `registered` stock — every establishment ever registered and still active —
+  by the sum of that year's registration-campaign quotas
+  (`onefopCampaignIds`, purpose = REGISTRATION). That is a stock over a flow:
+  from the second year on, the ratio passed 100 % on registrations the year's
+  quota never asked for, every territory settled in the top band whatever it
+  had done, and the six attainment bands stopped discriminating. Fix: the
+  numerator becomes `registeredInYear`, which the response already carried and
+  displayed in its own column. Consequences, stated to the owner before
+  approval: every rate on the screen changes, usually downwards; a past year
+  re-reads with its own registrations only; and the ranking's band
+  distribution moves with it. Nothing is removed — the cumulative stock stays
+  in the grid's « Inscrits » column beside the rate, so both readings remain
+  available. The quotas themselves, the campaigns folded, the variables, the
+  exports and the dataset version are untouched; this is the coverage view's
+  ratio alone, and no SPSS, Excel or PDF output reads it. The same numerator
+  is used by the `totals` row added in the same pass, so the headline and the
+  territory rows cannot disagree. Approved by the owner in chat, 2026-10-25,
+  after the trade-off was put to them twice. NOT decided here: whether a
+  registration quota is meant as a target for the register's size rather than
+  for the year's new registrations — if ONEFOP says it is the former, this
+  entry is what to revisit, and the fix would be to change the denominator,
+  not to put the stock back in the numerator.
+
+- 2026-10-25 — registration coverage stays period-specific when viewed by
+  semester or quarter (`getSemesterCoverage`, `getQuarterCoverage` in
+  `src/pilotage/pilotage.service.ts`). Decision: each registration-campaign
+  quota applies to its reference quarter; semester coverage sums the selected
+  two quarters' quotas and approvals, quarter coverage uses that quarter only,
+  and annual coverage folds all four. An annual target must therefore be
+  allocated across the corresponding quarterly campaigns, not entered wholly
+  against one quarter. The UI explains this in the coverage help. No
+  apportionment is inferred, and no formula or stored statistical value
+  changes. Approved by the owner in chat, 2026-10-25.
+
+- 2026-10-25 — registration quotas gain an entity-type dimension, at region ×
+  type (schema change; migration `20261025140000_campaign_quota_entity_type`).
+  Issue: `CampaignQuota` was scoped by territory alone (TERRITORIAL with a
+  region and optional department, or the ADMINISTRATION cohort), so the
+  coverage view's « Par type d'entité » tab could carry no quota and no rate —
+  there was nowhere to store one — and ONEFOP could not state how many
+  establishments of a given type a region was expected to register. Decision:
+  `entityType OnefopEntityType?` on CampaignQuota, nullable, null meaning a
+  quota covering every type, which is what every row written before today is.
+  Additive migration (`ADD COLUMN IF NOT EXISTS`), no row rewritten, no figure
+  moved. GRAIN: region × type, chosen by the owner in chat over department ×
+  type (≈464 cells a quarter) and a national per-type scope; a row carrying
+  both a departmentId and an entityType is refused by `parseTargetBody`, not
+  by a CHECK, so the grain can widen later without a constraint to drop.
+  CONFLICT RULE: a region may be quotaed in exactly one of three ways — one
+  all-types region row (REGION), one row per type (the new ENTITY_TYPE mode),
+  or department rows (DEPARTMENT). Any two together are MIXED with no target,
+  the rule that has always governed the region/department pair, extended to
+  the new axis by the same reasoning: the figures measure overlapping
+  populations, so a sum would count the same registrations twice. Per-type
+  rows DO sum, because the types partition the register — a company has
+  exactly one entityType. ADMINISTRATION keeps its cohort row as its quota,
+  since classifyBucket counts those respondents in `central` and never in a
+  territory; a type nobody quotaed states null, never a target of zero.
+  `replaceScoped` now matches stored rows on (department, type) rather than
+  department alone — on the old key it would have deleted every per-type row
+  but one as unwanted. No statistical variable, export, PDF or dataset version
+  changes: this is the quota model and the coverage view's denominator.
+  Approved by the owner in chat, 2026-10-25, with the grain chosen explicitly.
+  Delivered in three commits the same day: the data layer (c11a14fd), the
+  targets editor's third mode, « Par type d'entité », with one input per type
+  and a live regional sum (34fb82da), and the coverage type tab's Quota, Écart
+  and Taux columns (0ce19047). Two traps the phases turned up, both fixed and
+  pinned by tests: `replaceScoped` matched stored rows on departmentId alone,
+  which would have deleted every per-type row but one; and the editor's
+  `sameEntries` compared on (department, value), so moving a quota from one
+  type to another — same total, different split — read as « no change » and
+  was dropped on save. Switching a region INTO per-type does NOT spread its
+  region total across the types: that split is the writer's judgement, and a
+  guessed one would be stored as though they had made it. STILL OPEN: the
+  ranking above the grid lists territories only, so a type behind its quota is
+  not ranked anywhere; and `entityTypeQuotaNote` (renamed from
+  entityTypeNoQuotaNote, which asserted the absence of what the tab now shows)
+  is what to revisit if the grain ever widens to department × type.
+
+- 2026-10-25 — a region can hold one registration quota per entity type
+  (schema change; migration `20261025150000_campaign_quota_entity_type_unique`).
+  Issue: the entry above gave `CampaignQuota` its `entityType` column but left
+  `campaign_quotas_territorial_region_uidx` as it was — `UNIQUE ("campaignId",
+  "regionId") WHERE "departmentId" IS NULL AND "scopeKind" = 'TERRITORIAL'`.
+  Every per-type row carries exactly that shape (TERRITORIAL, a regionId,
+  departmentId NULL) and the index does not mention `entityType`, so all of a
+  region's per-type rows shared one indexed tuple: the second insert raised
+  Postgres 23505 and, because `writeQuotas` runs in a transaction, took the
+  whole save with it. « Par type d'entité » could store one type per region and
+  no more — the mode was unusable for what it was built for. The 13 unit tests
+  did not see it because they reach the table through the mocked `ScopedTable`
+  interface, which carries no constraints; `entryKey` and `shapeRegion` both
+  key on (region, department, type), so several rows per region is the
+  intended shape, not a misuse. Decision: two partial unique indexes replace
+  the one — `(campaignId, regionId) WHERE departmentId IS NULL AND entityType
+  IS NULL`, which keeps « tous types » to exactly one row as it has always
+  been, and `(campaignId, regionId, entityType) WHERE departmentId IS NULL AND
+  entityType IS NOT NULL`, which gives each named type a row of its own. NOT a
+  single `UNIQUE (campaignId, regionId, entityType)`: Postgres treats NULLs as
+  distinct, so that form would admit any number of all-types rows for one
+  region — a worse defect than the one being fixed. That a region holds EITHER
+  an all-types row OR per-type rows, never both, stays the MIXED rule in
+  `assertNoMixedMode`, kept in application code for the same reason the grain
+  itself was left to `parseTargetBody`: a CHECK would have to be dropped and
+  rewritten when the grain widens. Additive to the data: every row written
+  before 2026-10-25 has `entityType` NULL and lands in the first index exactly
+  as before, so no row is read, rewritten or moved, and no statistical
+  variable, export, PDF or dataset version changes. Verified against the live
+  database inside a rolled-back transaction: three types coexist in one
+  region, a duplicate type is refused with 23505 on the new index, a second
+  all-types row is refused on the old name, department rows are unaffected,
+  and nothing persisted. Approved by the owner in chat, 2026-10-25. The write is
+  now covered against real Postgres by `src/pilotage/campaign-quota-pg.spec.ts`
+  (`npm run test:pg`; opt-in on PG_INTEGRATION=1, every test in a transaction
+  that is always rolled back), which is the one thing the mocked `ScopedTable`
+  tests cannot do: eight tests drive the real `writeQuotas`, including the mode
+  switches and the index refusing a second row for one type. STILL OPEN: the
+  save has never run end to end through the editor — the live database holds
+  no REGISTRATION campaign, so nothing can be saved against one until ONEFOP
+  creates it.
+
+- 2026-10-25 — a group invitation link can carry the post it is for (schema
+  change; migration `20261025160000_staff_invitation_link_post`). Issue: the
+  sign-up form behind a group link asks an incoming officer to find their own
+  service among the 126 nodes of the organigramme and then their post inside
+  it — something the administrator who invites them knows and they often do
+  not. Decision: `StaffInvitationLink` gains `serviceCode` and `positionType`,
+  both nullable `TEXT`, so the administrator fixes the post when creating the
+  link and the officer only confirms it. Plain names, like `region` and
+  `department` on the same table, which are not foreign keys either: the
+  service is validated against the organigramme when the link is made
+  (`assertServiceInScope`), not by a constraint here, so the grain of the
+  organigramme can change without a constraint to drop. Additive
+  (`ADD COLUMN IF NOT EXISTS`), no backfill: every link created before today
+  keeps both NULL, which means what it has always meant — the officer chooses
+  service and post — so no row is read, rewritten or moved, and no live link
+  changes behaviour. That fallback is PERMANENT, not a transition: whether a
+  NEW link may still be made with no post is a rule for link creation and is
+  enforced there, never settled by migrating old rows. No statistical
+  variable, export, PDF or dataset version changes; this is the invitation
+  link's payload. Approved by the owner in chat, 2026-10-25. Nothing reads the
+  two columns yet: link creation, the wizard and ONEFOP's own posts are
+  phases 2 to 4 of `docs/plans/staff-invitation-wizard.md`. STILL OPEN there:
+  whether a link may be created with no post at all, and the two ONEFOP
+  questions of Phase 4, both of which need the owner.
+
+- 2026-10-25 — an officer signing up through a group link chooses their own
+  territory, and the link's territory is its intended scope only (RBAC;
+  `StaffInvitationLinkService.signUp` and `resolveSignupTerritory`,
+  `src/auth/staff-invitation-link.service.ts`; `GroupSignUpForm`). Issue: the
+  link fixed the account's region and department (`region: link.region`), so a
+  WhatsApp group covering a delegation could only produce accounts for that
+  one territory, and the service's own `requiresRegion` /
+  `requiresDepartment` flags — already in the data and already on the wire —
+  were ignored by the form. Decision: the FORM asks for the region, and the
+  department when the chosen service requires one, and the SERVER stores what
+  the officer chose after validating it against the Region and Department
+  tables (by id or normalized name, the department within the chosen region).
+  The link's own region/department are no longer the account's; the sign-up
+  page now labels them « Portée territoriale du lien », not the account's
+  territory. This REPLACES the safety line this service used to carry, « the
+  territory comes from the link, never from the sign-up request », which is
+  why it is recorded here: §14 makes a geographic boundary a security
+  boundary, so a later agent must not read the change as drift and undo it.
+  RESIDUAL RISK, stated plainly: nothing now confines the choice to the link's
+  scope, so a link posted for the Centre delegation can yield a
+  REGIONAL_ADMIN request for any region. The only control is approval — the
+  account is created PENDING_APPROVAL and inactive, as before — and the
+  approver is shown no warning that the chosen territory differs from the
+  link's. The role is still the level's and never the holder's, and a group
+  link still never produces an ADMIN_ONEFOP. The post is likewise the link's
+  when it carries one, and a service or post sent in the request is then
+  ignored, not trusted. Also in this pass: the matricule became required at
+  sign-up (client and server), since an approver checks it against the
+  service's own register; accounts created before today keep none. Approved by
+  the owner in chat and recorded in
+  `docs/plans/staff-invitation-wizard.md` (Phase 3), 2026-10-25; delivered in
+  `f429e41b`, which carried no entry here — this is that entry. NOT decided:
+  whether the approver should see the link's scope beside the chosen
+  territory, and whether a choice outside a delegation link's own region
+  should be refused outright — if ONEFOP wants the link to bound the choice,
+  this entry is what to revisit, and the fix is to check `link.region` in
+  `resolveSignupTerritory`, not to put the link's territory back in the
+  account. A further trap to know: the level, not the service, is what makes
+  an account territorial, but the territory is driven by the service's two
+  flags. Every DREFOP service currently sets `requiresRegion` and every
+  DDEFOP service `requiresDepartment`, so today a delegation sign-up always
+  yields one; a delegation service added with those flags off would silently
+  produce a REGIONAL_ADMIN or DIVISIONAL_ADMIN with no territory.
 
 ---
 

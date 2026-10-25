@@ -1,7 +1,8 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { createContext, useContext, type CSSProperties } from "react";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
+import { InfoTooltip } from "@/components/onefop/ui/InfoTooltip";
 
 /**
  * The one heading a statistical table gets: the question it asks.
@@ -19,12 +20,21 @@ import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
  * flex column with its own gap, the other two in a plain block.
  */
 export const tableQuestionHeadingStyle: CSSProperties = {
+  fontFamily: "var(--cam-font-sans)",
   fontSize: "var(--cam-font-size-lg, 1.125rem)",
-  fontWeight: "var(--cam-font-weight-bold)",
+  fontWeight: "var(--cam-font-weight-medium)",
   color: "var(--cam-text)",
   lineHeight: 1.35,
   margin: 0,
 };
+
+/**
+ * How to fill the table in ("Indiquez le nombre … par catégorie, sexe et
+ * âge"), set by the gateway that opened it (ConditionalTable). It used to be
+ * a bold line of its own between the table's name and its question; it is
+ * now an ⓘ at the end of the question (owner, 2026-10-22).
+ */
+export const TableInstructionContext = createContext<string | null>(null);
 
 export function TableQuestionHeading({
   code,
@@ -35,9 +45,11 @@ export function TableQuestionHeading({
   text: string;
   style?: CSSProperties;
 }) {
+  const instruction = useContext(TableInstructionContext);
   return (
     <h2 style={{ ...tableQuestionHeadingStyle, ...style }}>
       <CodedLabel code={code} text={text} />
+      {instruction && <InfoTooltip content={instruction} />}
     </h2>
   );
 }
