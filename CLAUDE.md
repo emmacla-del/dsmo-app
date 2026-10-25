@@ -1015,6 +1015,44 @@ Approved changes on record:
   entityTypeNoQuotaNote, which asserted the absence of what the tab now shows)
   is what to revisit if the grain ever widens to department × type.
 
+- 2026-10-25 — a region can hold one registration quota per entity type
+  (schema change; migration `20261025150000_campaign_quota_entity_type_unique`).
+  Issue: the entry above gave `CampaignQuota` its `entityType` column but left
+  `campaign_quotas_territorial_region_uidx` as it was — `UNIQUE ("campaignId",
+  "regionId") WHERE "departmentId" IS NULL AND "scopeKind" = 'TERRITORIAL'`.
+  Every per-type row carries exactly that shape (TERRITORIAL, a regionId,
+  departmentId NULL) and the index does not mention `entityType`, so all of a
+  region's per-type rows shared one indexed tuple: the second insert raised
+  Postgres 23505 and, because `writeQuotas` runs in a transaction, took the
+  whole save with it. « Par type d'entité » could store one type per region and
+  no more — the mode was unusable for what it was built for. The 13 unit tests
+  did not see it because they reach the table through the mocked `ScopedTable`
+  interface, which carries no constraints; `entryKey` and `shapeRegion` both
+  key on (region, department, type), so several rows per region is the
+  intended shape, not a misuse. Decision: two partial unique indexes replace
+  the one — `(campaignId, regionId) WHERE departmentId IS NULL AND entityType
+  IS NULL`, which keeps « tous types » to exactly one row as it has always
+  been, and `(campaignId, regionId, entityType) WHERE departmentId IS NULL AND
+  entityType IS NOT NULL`, which gives each named type a row of its own. NOT a
+  single `UNIQUE (campaignId, regionId, entityType)`: Postgres treats NULLs as
+  distinct, so that form would admit any number of all-types rows for one
+  region — a worse defect than the one being fixed. That a region holds EITHER
+  an all-types row OR per-type rows, never both, stays the MIXED rule in
+  `assertNoMixedMode`, kept in application code for the same reason the grain
+  itself was left to `parseTargetBody`: a CHECK would have to be dropped and
+  rewritten when the grain widens. Additive to the data: every row written
+  before 2026-10-25 has `entityType` NULL and lands in the first index exactly
+  as before, so no row is read, rewritten or moved, and no statistical
+  variable, export, PDF or dataset version changes. Verified against the live
+  database inside a rolled-back transaction: three types coexist in one
+  region, a duplicate type is refused with 23505 on the new index, a second
+  all-types row is refused on the old name, department rows are unaffected,
+  and nothing persisted. Approved by the owner in chat, 2026-10-25. STILL
+  OPEN: the per-type save has never run end to end — the live database holds
+  no REGISTRATION campaign, so nothing can be saved against one until ONEFOP
+  creates it, and the editor's own save path is still unexercised by a test
+  that touches Postgres.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
