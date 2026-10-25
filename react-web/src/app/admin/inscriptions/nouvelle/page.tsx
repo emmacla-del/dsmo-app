@@ -1,11 +1,11 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { DIRECTORY_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { DIRECTORY_ROLES, REGISTRATION_NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import {
   ENTITY_CONFIGS,
   entityApiValue,
@@ -35,6 +35,14 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
+import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Organisation types in the order offered, with the public wizard's labels.
 // Those avoid administrative codes (CTD/ONG/CFP) that ENTITY_CONFIGS titles
@@ -81,6 +89,9 @@ const EMPTY_RESPONDENT: Respondent = {
 export default function NouvelleInscriptionPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(DIRECTORY_ROLES);
   const t = useTranslations();
+  useEffect(() => {
+    document.title = `${t("adminInscriptionsNouvellePage.title")} | CAMLEAP`;
+  }, [t]);
   // The console locale (NEXT_LOCALE cookie, set from the sidebar switcher).
   // EntityConfig labels are {fr, en} data and are read in it too.
   const locale = asUiLocale(useLocale());
@@ -89,7 +100,7 @@ export default function NouvelleInscriptionPage() {
   // the starting point. A national role starts empty and picks. The server
   // refuses anything outside the actor's ressort regardless of what these
   // pickers allow (assertTerritorialAuthority), so this is convenience only.
-  const isNational = hasRole(user?.role, NATIONAL_ROLES);
+  const isNational = hasRole(user?.role, REGISTRATION_NATIONAL_ROLES);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const [entityData, setEntityData] = useState<Record<string, string>>({});
   const [respondent, setRespondent] = useState<Respondent>(EMPTY_RESPONDENT);
@@ -265,7 +276,7 @@ export default function NouvelleInscriptionPage() {
       <div className="cam-admin-page">
         <AdminPageHeader
           breadcrumb={[
-            { label: t("adminNav.hubs.declarants") },
+            { label: t("adminNav.hubs.inscriptions") },
             { label: t("adminNav.routes.inscriptions"), href: "/admin/inscriptions" },
             { label: t("adminNav.routes.nouvelleInscription") },
           ]}
@@ -289,7 +300,7 @@ export default function NouvelleInscriptionPage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[
-          { label: t("adminNav.hubs.declarants") },
+          { label: t("adminNav.hubs.inscriptions") },
           { label: t("adminNav.routes.inscriptions"), href: "/admin/inscriptions" },
           { label: t("adminNav.routes.nouvelleInscription") },
         ]}
@@ -301,10 +312,10 @@ export default function NouvelleInscriptionPage() {
       <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
 
       {error && (
-        <div ref={errorRef} tabIndex={-1} role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>{error}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</button>
-        </div>
+        <Alert ref={errorRef} tabIndex={-1} variant="destructive" className="mb-6 flex items-center justify-between gap-4">
+          <AlertDescription>{error}</AlertDescription>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</Button>
+        </Alert>
       )}
 
       <form
@@ -314,22 +325,14 @@ export default function NouvelleInscriptionPage() {
         }}
       >
         <Section title={t("adminInscriptionsNouvellePage.entityTypeTitle")}>
-          <div role="radiogroup" aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--cam-space-3)" }}>
+          <RadioGroup aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} value={entityType ?? ""} onValueChange={(value) => chooseEntityType(value as EntityType)} className="grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
             {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }) => (
-              <label key={type} className="cam-admin-choice">
-                <input
-                  type="radio"
-                  name="entityType"
-                  checked={entityType === type}
-                  onChange={() => chooseEntityType(type)}
-                />
-                <span>
-                  {t(labelKey)}
-                  {hintKey && <span className="cam-admin-choice-hint">{t(hintKey)}</span>}
-                </span>
-              </label>
+              <Label key={type} htmlFor={`entity-${type}`} className="flex cursor-pointer items-start gap-3 rounded-lg border bg-card p-4 font-normal shadow-xs has-[[data-state=checked]]:border-primary">
+                <RadioGroupItem id={`entity-${type}`} value={type} />
+                <span className="grid gap-1"><span className="font-medium">{t(labelKey)}</span>{hintKey && <span className="text-sm text-muted-foreground">{t(hintKey)}</span>}</span>
+              </Label>
             ))}
-          </div>
+          </RadioGroup>
         </Section>
 
         <Section title={t("registerPage.respondentTitle")}>
@@ -375,7 +378,7 @@ export default function NouvelleInscriptionPage() {
 
         <Section title={t("registerPage.locationTitle")}>
           {!isNational && (
-            <p className="cam-admin-lede" style={{ marginTop: 0 }}>
+            <p className="mb-4 text-sm text-muted-foreground">
               {t("adminInscriptionsNouvellePage.locationScopeNote")}
             </p>
           )}
@@ -407,13 +410,13 @@ export default function NouvelleInscriptionPage() {
           </FieldGrid>
         </Section>
 
-        <div style={{ display: "flex", gap: "var(--cam-space-3)", alignItems: "center", margin: "var(--cam-space-2) 0 var(--cam-space-6)" }}>
-          <button type="submit" className="cam-button cam-button-primary" disabled={mutation.isPending}>
+        <div className="mb-10 mt-2 flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
               : t("adminInscriptionsNouvellePage.submitButton")}
-          </button>
-          <Link href="/admin/inscriptions" className="cam-button cam-button-secondary">{t("common.cancel")}</Link>
+          </Button>
+          <Button asChild variant="outline"><Link href="/admin/inscriptions">{t("common.cancel")}</Link></Button>
         </div>
       </form>
 
@@ -424,39 +427,37 @@ export default function NouvelleInscriptionPage() {
         title={result?.company.name ?? ""}
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary" onClick={resetForm}>{t("adminInscriptionsNouvellePage.title")}</button>
-            <Link href="/admin/inscriptions" className="cam-button cam-button-primary">{t("adminInscriptionsNouvellePage.viewQueueLink")}</Link>
+            <Button type="button" variant="outline" onClick={resetForm}>{t("adminInscriptionsNouvellePage.title")}</Button>
+            <Button asChild><Link href="/admin/inscriptions">{t("adminInscriptionsNouvellePage.viewQueueLink")}</Link></Button>
           </>
         }
       >
         {result && (
           <div>
             <p>{t("adminInscriptionsNouvellePage.successBody")}</p>
-            <dl className="cam-admin-kv">
+            <dl className="grid gap-3 sm:grid-cols-2 [&_dd]:font-mono [&_dd]:text-sm [&_dt]:text-sm [&_dt]:text-muted-foreground">
               <div>
                 <dt>{t("adminInscriptionsNouvellePage.loginEmailLabel")}</dt>
-                <dd><span className="cam-admin-code">{result.user.email}</span></dd>
+                <dd>{result.user.email}</dd>
               </div>
               {result.company.establishmentId && (
                 <div>
                   <dt>{t("adminInscriptionsNouvellePage.establishmentIdLabel")}</dt>
-                  <dd><span className="cam-admin-code">{result.company.establishmentId}</span></dd>
+                  <dd>{result.company.establishmentId}</dd>
                 </div>
               )}
               <div>
                 <dt>{t("adminInscriptionsNouvellePage.temporaryPasswordLabel")}</dt>
-                <dd><span className="cam-admin-code">{result.temporaryPassword}</span></dd>
+                <dd>{result.temporaryPassword}</dd>
               </div>
             </dl>
-            <p style={{ display: "flex", gap: "var(--cam-space-3)", alignItems: "center" }}>
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={copyPassword}>
+            <p className="my-4 flex items-center gap-3">
+              <Button type="button" variant="outline" size="sm" onClick={copyPassword}>
                 {t("adminInscriptionsNouvellePage.copyPasswordButton")}
-              </button>
-              {copied && <span className="cam-admin-meta" role="status">{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
+              </Button>
+              {copied && <span className="text-sm text-muted-foreground" role="status">{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
             </p>
-            <div className="cam-admin-notice cam-admin-notice--warn" role="status">
-              {t("adminInscriptionsNouvellePage.passwordShownOnceWarning")}
-            </div>
+            <Alert variant="warning" role="status"><AlertDescription>{t("adminInscriptionsNouvellePage.passwordShownOnceWarning")}</AlertDescription></Alert>
           </div>
         )}
       </AdminDialog>
@@ -466,16 +467,16 @@ export default function NouvelleInscriptionPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: "var(--cam-space-6)" }}>
-      <h2 className="cam-admin-h2" style={{ marginBottom: "var(--cam-space-3)" }}>{title}</h2>
-      {children}
-    </section>
+    <Card className="mb-6 gap-0">
+      <CardHeader className="pb-4"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
 function FieldGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 var(--cam-space-4)" }}>
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-4">
       {children}
     </div>
   );
@@ -500,17 +501,16 @@ function Text({
   after?: ReactNode;
 }) {
   return (
-    <label className="cam-field">
-      <span className="cam-admin-label">{label}{required && <span aria-hidden="true"> *</span>}</span>
-      <input
-        className="cam-input"
+    <label className="mb-4 grid gap-2 text-sm font-medium">
+      <span>{label}{required && <span aria-hidden="true"> *</span>}</span>
+      <Input
         type={type}
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
       />
       {after}
-      {hint && <span className="cam-admin-choice-hint">{hint}</span>}
+      {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
     </label>
   );
 }
@@ -531,16 +531,20 @@ function Select({
   onChange: (value: string) => void;
   required?: boolean;
 }) {
+  const id = useId();
   return (
-    <label className="cam-field">
-      <span className="cam-admin-label">{label}{required && <span aria-hidden="true"> *</span>}</span>
-      <select className="cam-select" value={value} required={required} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{placeholder}</option>
+    <div className="mb-4 grid gap-2 text-sm font-medium">
+      <Label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</Label>
+      <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={required}>
+        <SelectTrigger id={id} className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
+        <SelectContent>
+        <SelectItem value={ALL}>{placeholder}</SelectItem>
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <SelectItem key={option} value={option}>{option}</SelectItem>
         ))}
-      </select>
-    </label>
+        </SelectContent>
+      </ShadcnSelect>
+    </div>
   );
 }
 
@@ -561,6 +565,7 @@ function EntityFieldInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const selectId = useId();
   const label = localized(field.label, locale);
   const hint = field.hint ? localized(field.hint, locale) : undefined;
 
@@ -579,30 +584,36 @@ function EntityFieldInput({
 
   if (field.kind === "branch") {
     return (
-      <label className="cam-field">
-        <span className="cam-admin-label">{label}{field.required && <span aria-hidden="true"> *</span>}</span>
-        <select className="cam-select" value={value} required={field.required} disabled={branches.length === 0} onChange={(e) => onChange(e.target.value)}>
-          <option value="">{selectPlaceholder}</option>
+      <div className="mb-4 grid gap-2 text-sm font-medium">
+        <Label htmlFor={selectId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
+        <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required} disabled={branches.length === 0}>
+          <SelectTrigger id={selectId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
+          <SelectContent>
+          <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
           {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>{sectorLabel(branch, locale)}</option>
+            <SelectItem key={branch.id} value={branch.id}>{sectorLabel(branch, locale)}</SelectItem>
           ))}
-        </select>
-      </label>
+          </SelectContent>
+        </ShadcnSelect>
+      </div>
     );
   }
 
   if (field.kind === "select") {
     return (
-      <label className="cam-field">
-        <span className="cam-admin-label">{label}{field.required && <span aria-hidden="true"> *</span>}</span>
-        <select className="cam-select" value={value} required={field.required} onChange={(e) => onChange(e.target.value)}>
-          <option value="">{selectPlaceholder}</option>
+      <div className="mb-4 grid gap-2 text-sm font-medium">
+        <Label htmlFor={selectId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
+        <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required}>
+          <SelectTrigger id={selectId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
+          <SelectContent>
+          <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
           {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>{localized(option.label, locale)}</option>
+            <SelectItem key={option.value} value={option.value}>{localized(option.label, locale)}</SelectItem>
           ))}
-        </select>
-        {hint && <span className="cam-admin-choice-hint">{hint}</span>}
-      </label>
+          </SelectContent>
+        </ShadcnSelect>
+        {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
+      </div>
     );
   }
 

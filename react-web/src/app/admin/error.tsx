@@ -61,7 +61,7 @@ export default function AdminError({
         </button>
 
         <Link href="/admin/pilotage" className="cam-button cam-button-secondary">
-          {t("backToSupervision")}
+          {t("backToOverview")}
         </Link>
       </div>
 

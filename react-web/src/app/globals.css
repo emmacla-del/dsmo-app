@@ -1,6 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap");
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./admin-console.css";
+@import "./shadcn.css";
 
 @theme {
   --font-sans: var(--cam-font-sans);
@@ -2574,13 +2576,14 @@ html:has(.cam-masthead) {
    paragraphs are hard to read past a line or two. */
 .cam-welcome {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cam-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--cam-space-7) var(--cam-space-4);
-  padding-top: calc(var(--cam-space-7) + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(var(--cam-space-7) + env(safe-area-inset-bottom, 0px));
+  padding: var(--cam-space-6) var(--cam-space-4);
+  padding-top: calc(var(--cam-space-6) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--cam-space-6) + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -2657,7 +2660,7 @@ html:has(.cam-masthead) {
 
 .cam-welcome-body {
   width: 100%;
-  max-width: 34rem;
+  max-width: 42rem;
   color: var(--cam-text);
   transition: opacity 0.3s ease;
 }
@@ -2666,83 +2669,64 @@ html:has(.cam-masthead) {
   opacity: 0;
 }
 
-/* The issuing authority over the panel, as on the paper form's letterhead. */
-.cam-welcome-brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--cam-space-3);
-  margin-bottom: var(--cam-space-5);
-  text-align: center;
-}
-
-.cam-welcome-brand img {
-  object-fit: contain;
-}
-
-.cam-welcome-authority {
-  margin: 0;
-  font-size: var(--cam-font-size-xs);
-  line-height: var(--cam-line-height-ui);
-  color: var(--cam-text-muted);
-}
-
 .cam-welcome-panel {
-  padding: var(--cam-space-6);
+  padding: var(--cam-space-7);
   border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-md);
+  border-radius: var(--cam-radius-lg);
   background: var(--cam-surface);
+  box-shadow: var(--cam-shadow-sm);
 }
 
 .cam-welcome-title {
   margin: 0;
-  font-size: var(--cam-font-size-xl);
-  font-weight: var(--cam-font-weight-bold);
+  font-size: var(--cam-font-size-2xl);
+  font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-title);
-  text-align: center;
+  text-align: left;
+}
+
+.cam-welcome-context {
+  margin-top: var(--cam-space-5);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border-soft);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface-subtle);
 }
 
 /* "Bienvenue, …" under the title, then the declaration it is made in:
    role and establishment, the establishment in bold. */
-.cam-welcome-greeting {
-  margin: var(--cam-space-3) 0 0;
-  font-size: var(--cam-font-size-base);
-  line-height: var(--cam-line-height-ui);
-  text-align: center;
-}
-
 .cam-welcome-respondent {
   margin: var(--cam-space-1) 0 0;
   font-size: var(--cam-font-size-sm);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
-  text-align: center;
 }
 
 .cam-welcome-time {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--cam-space-1);
-  margin: var(--cam-space-1) 0 0;
+  margin: var(--cam-space-3) 0 0;
   font-size: var(--cam-microcopy-size);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
 }
 
-/* The notice between two rules, its title with a lock, the law it rests on
-   cited under it, then the text. */
+/* The legal notice is grouped in a quiet surface with a clear brand edge. */
 .cam-welcome-notice {
   margin-top: var(--cam-space-5);
-  padding: var(--cam-space-5) 0;
-  border-top: var(--cam-border-width) solid var(--cam-border);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-left: 3px solid var(--cam-primary);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-welcome-notice h2 {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--cam-space-2);
   margin: 0;
   font-size: var(--cam-font-size-lg);
@@ -2752,11 +2736,11 @@ html:has(.cam-masthead) {
 
 /* The legal basis, cited under the title as a reference line. */
 .cam-welcome-notice-basis {
-  margin: var(--cam-space-1) 0 var(--cam-space-4);
+  margin: var(--cam-space-1) 0 var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   line-height: var(--cam-line-height-ui);
   color: var(--cam-text-muted);
-  text-align: center;
+  text-align: left;
 }
 
 /* Left-aligned, not justified like the paper: justified lines open uneven
@@ -2769,7 +2753,7 @@ html:has(.cam-masthead) {
 
 .cam-welcome-consent {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--cam-space-3);
   margin-top: var(--cam-space-5);
   line-height: var(--cam-line-height-ui);
@@ -2785,25 +2769,49 @@ html:has(.cam-masthead) {
   cursor: pointer;
 }
 
-/* Begin across the panel, Back under it: one primary action. */
+/* Return stays secondary; Begin anchors the right side on wider screens. */
 .cam-welcome-actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--cam-space-3);
   margin-top: var(--cam-space-5);
-  text-align: center;
 }
 
-.cam-welcome-actions .cam-text-button {
-  align-self: center;
+.cam-welcome-actions .cam-button-primary {
+  min-width: 11rem;
 }
 
-/* On a phone the panel's edge costs width it cannot spare. */
+/* Compact the card on phones while retaining a clear content inset. */
 @media (max-width: 480px) {
+  .cam-welcome {
+    align-items: flex-start;
+    padding: var(--cam-space-4) var(--cam-space-3);
+    padding-top: calc(var(--cam-space-4) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(var(--cam-space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
   .cam-welcome-panel {
-    padding: 0;
-    border: none;
+    padding: var(--cam-space-5);
+  }
+
+  .cam-welcome-title {
+    font-size: var(--cam-font-size-xl);
+  }
+
+  .cam-welcome-context,
+  .cam-welcome-notice {
+    padding: var(--cam-space-4);
+  }
+
+  .cam-welcome-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cam-welcome-actions .cam-button-primary {
+    width: 100%;
   }
 }
 
@@ -2849,11 +2857,12 @@ html:has(.cam-masthead) {
    and the step in hand is usually the one that is not. */
 .cam-wizard-rail {
   position: sticky;
-  top: 0;
+  top: var(--cam-wizard-rail-top, 0px);
   align-self: flex-start;
   flex: 0 0 var(--cam-side-rail-width);
   width: var(--cam-side-rail-width);
-  height: 100dvh;
+  height: calc(100dvh - var(--cam-wizard-rail-top, 0px));
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-5);

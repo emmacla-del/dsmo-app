@@ -235,7 +235,7 @@ function CentreQualiteContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.qualite") }, { label: tRoot("adminNav.routes.centreQualite") }]}
+        breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.centreQualite") }]}
         title={tRoot("adminNav.routes.centreQualite")}
         actions={<AdminHeaderActions />}
       />

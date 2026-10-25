@@ -65,7 +65,7 @@ function hasFigures(observed: unknown, expected: unknown): boolean {
 // The 8.8 staff list names people. The server sends it to these two roles
 // only (src/questionnaires/staff-names.ts, §21); the page uses the same list
 // to say why the table is withheld rather than call it empty.
-const STAFF_NAME_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
+const STAFF_NAME_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS"];
 
 // Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
 // Axis verdict -> .cam-dossier-pill modifier. `neutral` keeps the base pill
@@ -217,10 +217,10 @@ function SubmissionDetailContent() {
   const t = useTranslations("adminDossierPage");
   const tCommon = useTranslations("common");
   const tRoot = useTranslations();
-  // Supervision > Dossiers > (this dossier). The hub and route labels are
+  // Overview > Submission review > (this dossier). The hub and route labels are
   // the sidebar's own keys, so the trail cannot drift from the nav.
   const breadcrumb = [
-    { label: tRoot("adminNav.hubs.supervision") },
+    { label: tRoot("adminNav.hubs.teledeclarations") },
     { label: tRoot("adminNav.routes.dossiers"), href: "/admin/dossiers" },
   ];
   const locale = asUiLocale(useLocale());
@@ -299,13 +299,13 @@ function SubmissionDetailContent() {
   // Every header fact below is the stored value or the neutral marker.
   const name = entityName(detail);
   const ref = dossier?.submissionId ?? id;
-  const submittedOn = stamp(dossier?.submissionDate, false, locale);
+  const submittedOn = stamp(dossier?.submissionDate, true, locale);
   const region = dossier?.region ?? null;
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
   const decisions = allowedDecisions(dossier?.status);
   // The decision in words where the buttons were, dated when the server
   // recorded the review date; without a date the status badge already says it.
-  const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, false, locale) : null;
+  const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, true, locale) : null;
   const decidedLine = !decidedOn
     ? null
     : dossier?.status === "APPROVED"
@@ -671,7 +671,7 @@ function SubmissionDetailContent() {
 
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It
           mixed an Administration page (Tracabilite, AUDIT_ROLES only) into
-          the Supervision row and left out the hub's other pages. A detail
+          the Overview row and left out the hub's other pages. A detail
           page leads back to its list: the back arrow above does that. */}
 
       {/* 3-axis diagnostic strip: each badge is read from the dossier or its

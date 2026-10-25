@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
 import { UserRole, DeclarationStatus, MovementType, UserStatus } from '../types/prisma.types';
@@ -209,6 +210,109 @@ export class DsmoService {
       rejected,
       suspended,
     };
+  }
+
+  /** Registration activity by day for the past year, scoped to the acting admin. */
+  async getCompanyRegistrationTrend(territory?: Territory) {
+    const now = new Date();
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Douala', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now);
+    const firstDay = new Date(`${today}T12:00:00Z`);
+    firstDay.setUTCDate(firstDay.getUTCDate() - 364);
+    const firstDayKey = firstDay.toISOString().slice(0, 10);
+    const role = territory?.role;
+    const nationalRoles: UserRole[] = [
+      UserRole.SUPER_ADMIN,
+      UserRole.ADMIN_ONEFOP,
+      UserRole.ADMIN_ONEFOP_REGISTRATIONS,
+      UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+      UserRole.CENTRAL_AGENT,
+    ];
+    let scope = Prisma.empty;
+
+    if (role === UserRole.REGIONAL_ADMIN) {
+      if (territory?.regionId) scope = Prisma.sql`AND c."regionId" = ${territory.regionId}`;
+      else if (territory?.region?.trim()) scope = Prisma.sql`AND LOWER(c."region") = LOWER(${territory.region.trim()})`;
+      else scope = Prisma.sql`AND 1 = 0`;
+    } else if (role === UserRole.DIVISIONAL_ADMIN) {
+      if (territory?.departmentId) scope = Prisma.sql`AND c."departmentId" = ${territory.departmentId}`;
+      else if (territory?.region?.trim() && territory?.department?.trim()) {
+        scope = Prisma.sql`AND LOWER(c."region") = LOWER(${territory.region.trim()}) AND LOWER(c."department") = LOWER(${territory.department.trim()})`;
+      } else scope = Prisma.sql`AND 1 = 0`;
+    } else if (!nationalRoles.includes(role as UserRole)) {
+      scope = Prisma.sql`AND 1 = 0`;
+    }
+
+    const rows = await this.prisma.$queryRaw<Array<{
+      date: string;
+      submitted: bigint;
+      approved: bigint;
+      correctionRequested: bigint;
+    }>>(Prisma.sql`
+      WITH calendar AS (
+        SELECT generate_series(${firstDayKey}::date, ${today}::date, interval '1 day')::date AS day
+      ), submitted AS (
+        SELECT ((c."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date AS day, COUNT(*) AS count
+        FROM "companies" c
+        WHERE ((c."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
+          AND ((c."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date
+          ${scope}
+        GROUP BY 1
+      ), approved AS (
+        SELECT ((u."approvedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date AS day, COUNT(*) AS count
+        FROM "users" u
+        JOIN "companies" c ON c."userId" = u.id
+        WHERE u.role = 'COMPANY'
+          AND u."approvedAt" IS NOT NULL
+          AND ((u."approvedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
+          AND ((u."approvedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date
+          ${scope}
+        GROUP BY 1
+      ), correction_requested AS (
+        SELECT ((a."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date AS day, COUNT(*) AS count
+        FROM "audit_logs" a
+        JOIN "companies" c ON c."userId" = a."resourceId"
+        WHERE a."resourceType" = 'User'
+          AND a.action = 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED'
+          AND ((a."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
+          AND ((a."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date
+          ${scope}
+        GROUP BY 1
+      )
+      SELECT to_char(calendar.day, 'YYYY-MM-DD') AS date,
+        COALESCE(submitted.count, 0) AS submitted,
+        COALESCE(approved.count, 0) AS approved,
+        COALESCE(correction_requested.count, 0) AS "correctionRequested"
+      FROM calendar
+      LEFT JOIN submitted ON submitted.day = calendar.day
+      LEFT JOIN approved ON approved.day = calendar.day
+      LEFT JOIN correction_requested ON correction_requested.day = calendar.day
+      ORDER BY calendar.day ASC
+    `);
+
+    const days = rows.map((row) => ({
+      date: row.date,
+      submitted: Number(row.submitted),
+      approved: Number(row.approved),
+      correctionRequested: Number(row.correctionRequested),
+    }));
+    const monthly = new Map<string, number>();
+    for (const day of days) {
+      const month = day.date.slice(0, 7);
+      monthly.set(month, (monthly.get(month) ?? 0) + day.submitted);
+    }
+
+    // Keep the established monthly field for any existing dashboard client.
+    const todayDate = new Date(`${today}T12:00:00Z`);
+    const firstMonth = new Date(Date.UTC(todayDate.getUTCFullYear(), todayDate.getUTCMonth() - 11, 1));
+    const months: Array<{ month: string; count: number }> = [];
+    for (let offset = 0; offset < 12; offset += 1) {
+      const date = new Date(Date.UTC(firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + offset, 1));
+      const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+      months.push({ month: key, count: monthly.get(key) ?? 0 });
+    }
+    return { months, days };
   }
 
   /** Admin-facing company directory — scoped by territory if provided. */
@@ -795,7 +899,11 @@ export class DsmoService {
     let nextStatus: DeclarationStatus;
     if (user.role === UserRole.DIVISIONAL_ADMIN) nextStatus = DeclarationStatus.DIVISION_APPROVED;
     else if (user.role === UserRole.REGIONAL_ADMIN) nextStatus = DeclarationStatus.REGION_APPROVED;
-    else if (user.role === UserRole.ADMIN_ONEFOP || user.role === UserRole.SUPER_ADMIN)
+    else if (
+      user.role === UserRole.ADMIN_ONEFOP ||
+      user.role === UserRole.ADMIN_ONEFOP_SUBMISSIONS ||
+      user.role === UserRole.SUPER_ADMIN
+    )
       nextStatus = DeclarationStatus.FINAL_APPROVED;
     else throw new ForbiddenException('Privilèges insuffisants.');
 

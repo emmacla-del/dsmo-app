@@ -63,8 +63,22 @@ export interface CompanyStats {
   suspended: number;
 }
 
+export interface CompanyRegistrationTrend {
+  months: Array<{ month: string; count: number }>;
+  days: Array<{
+    date: string;
+    submitted: number;
+    approved: number;
+    correctionRequested: number;
+  }>;
+}
+
 export function getCompanyStats() {
   return apiFetch<CompanyStats>("/companies/stats");
+}
+
+export function getCompanyRegistrationTrend() {
+  return apiFetch<CompanyRegistrationTrend>("/companies/registration-trend");
 }
 
 export function listCompanies(params: {

@@ -89,18 +89,21 @@ export function ModernJobsHeader({
     }
   })();
 
-  // Publish the header's layout height for quiz centering and scroll targets.
-  // Subsection headings pin to the viewport after this header scrolls away.
+  // Publish the header height so the rail and subsection headings stay pinned
+  // directly below it, and so focus/scroll targets remain visible.
   const headerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const header = headerRef.current;
     const root = header?.parentElement;
-    if (!header || !root || typeof ResizeObserver === "undefined") return;
+    if (!header || !root) return;
     const publish = () => {
-      root.style.setProperty("--mj-header-h", "0px");
-      root.style.setProperty("--mj-header-block", `${header.offsetHeight}px`);
+      const height = `${header.offsetHeight}px`;
+      root.style.setProperty("--mj-header-h", height);
+      root.style.setProperty("--mj-header-block", height);
+      root.style.setProperty("--cam-wizard-rail-top", height);
     };
     publish();
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(publish);
     observer.observe(header);
     return () => {
@@ -152,10 +155,11 @@ export function ModernJobsHeader({
       }}
     >
       <style>{`
-        /* The masthead scrolls away with the page; only subsection headings
-           remain pinned during form entry. */
+        /* The masthead stays pinned above the rail and subsection headings. */
         .cam-masthead {
-          position: static;
+          position: sticky;
+          top: 0;
+          z-index: 50;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           text-rendering: optimizeLegibility;

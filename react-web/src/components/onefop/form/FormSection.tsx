@@ -16,7 +16,7 @@ export type FormSectionVariant = "plain" | "accent";
 /** The group heading stays at the viewport top while its own block is on screen. */
 export const pinnedSubsectionHeadStyle: CSSProperties = {
   position: "sticky",
-  top: 0,
+  top: "var(--mj-header-block, 0px)",
   zIndex: 30,
   background: "var(--cam-surface)",
   paddingBottom: "var(--cam-space-4)",

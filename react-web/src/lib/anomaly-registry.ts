@@ -95,7 +95,7 @@ export function resolveAnomalyRecord(
   });
 }
 
-export { APPROVAL_ROLES as ANOMALY_REGISTRY_ROLES, NATIONAL_ROLES as ANOMALY_DEROGATION_ROLES } from "./roles";
+export { SURVEY_ROLES as ANOMALY_REGISTRY_ROLES, NATIONAL_ROLES as ANOMALY_DEROGATION_ROLES } from "./roles";
 
 /** Establishment name as actually stored, or null when the record has none. */
 export function anomalyCompanyName(a: AnomalyRecord): string | null {

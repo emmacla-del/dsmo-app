@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { elapsedSince, resolveDataState } from "@/lib/admin-data-state";
+import { resolveDataState, stamp } from "@/lib/admin-data-state";
 import { DataState } from "@/components/admin/DataState";
 import { asUiLocale } from "@/lib/register-i18n";
 import {
@@ -176,7 +176,7 @@ export function NotificationBell() {
                   const isRead = !!item.readAt;
                   return (
                     <li key={item.id}>
-                      <span className="cam-dash-timeline-time">{elapsedSince(item.createdAt, locale)}</span>
+                      <span className="cam-dash-timeline-time">{stamp(item.createdAt, true, locale)}</span>
                       {isRead ? (
                         <span className="cam-dash-timeline-dot" aria-hidden="true" style={{ visibility: "hidden" }} />
                       ) : (

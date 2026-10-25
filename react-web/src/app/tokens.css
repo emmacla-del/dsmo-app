@@ -162,6 +162,10 @@
   --cam-danger: #b3261e;
   --cam-danger-bg: #fbeceb;
   --cam-danger-border: #f2b8b5;
+  /* One step deeper than --cam-danger on the same hue: the "critical"
+     band of the coverage bar chart, below "very poor". Defined here so
+     the shared CSS layer carries no hex (G1). */
+  --cam-danger-deep: color-mix(in srgb, var(--cam-danger) 72%, #5b1020);
   --cam-error: var(--cam-danger);
   --cam-error-bg: var(--cam-danger-bg);
   --cam-error-border: var(--cam-danger-border);
@@ -518,15 +522,15 @@
      TableRenderer's grids, VT tables, activities table, guided-mode live
      preview). Values are the slate palette the Modern Jobs grids already
      used (S22Q04 look), consolidated here instead of hardcoded per file. */
-  /* One step darker each (owner, 2026-10-21): the grid lines were the
-     faintest lines a respondent has to follow across a wide table. */
-  --cam-table-frame: var(--cam-slate-700);
+  /* The frame and cell rules stay visible without competing with the
+     entered figures. Strong rules mark totals and group boundaries. */
+  --cam-table-frame: var(--cam-slate-400);
   /* outer frame, header rules, label column rule */
-  --cam-table-line: var(--cam-slate-600);
+  --cam-table-line: var(--cam-slate-300);
   /* cell grid lines */
-  --cam-table-strong: var(--cam-slate-800);
+  --cam-table-strong: var(--cam-slate-600);
   /* total-row rule, sub-header text */
-  --cam-table-group-line: var(--cam-slate-800);
+  --cam-table-group-line: var(--cam-slate-600);
   /* separator between column blocks */
   --cam-table-head-bg: #ffffff;
   --cam-table-text: var(--cam-text);

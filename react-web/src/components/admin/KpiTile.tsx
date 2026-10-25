@@ -23,16 +23,20 @@ export function KpiTile({ value, label, tone, href }: KpiTileProps) {
   const t = useTranslations("adminKpiTile");
   const locale = asUiLocale(useLocale());
   const unavailable = value === null;
+  const interactive = !!href && !unavailable;
   const body = (
     <>
-      <span className="cam-kpi-tile-value">{unavailable ? "—" : count(value, locale)}</span>
+      <span className="cam-kpi-tile-top">
+        <span className="cam-kpi-tile-value">{unavailable ? "—" : count(value, locale)}</span>
+        {interactive && <span className="cam-kpi-tile-arrow" aria-hidden="true">→</span>}
+      </span>
       <span className="cam-kpi-tile-label">{label}</span>
     </>
   );
 
   const className = `cam-kpi-tile cam-kpi-tile--${tone}${unavailable ? " is-unavailable" : ""}`;
 
-  if (href && !unavailable) {
+  if (interactive) {
     return <Link href={href} className={className}>{body}</Link>;
   }
   return (

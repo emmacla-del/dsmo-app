@@ -18,6 +18,8 @@ export interface ReturnMetrics {
   quota: number | null;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   gap: number | null;
@@ -60,8 +62,7 @@ export interface CampaignReturnsResponse {
 /**
  * GET /admin/pilotage/campaigns/:id/returns/timeline: cumulative declarations
  * received per Cameroon calendar day (Africa/Douala). Counted exactly as
- * `totals.received` of /returns (same countedReturns, same visible buckets),
- * so the last day's `cumulative` equals that headline total.
+ * `totals.received` of /returns (same countedReturns, same visible buckets).
  */
 export interface CampaignReturnsTimelineDay {
   /** YYYY-MM-DD, the Douala calendar day. */
@@ -78,6 +79,20 @@ export interface CampaignReturnsTimeline {
   timeZone: string;
   total: number;
   days: CampaignReturnsTimelineDay[];
+}
+
+export interface CampaignReturnsActivityDay {
+  /** YYYY-MM-DD, the Douala calendar day. */
+  date: string;
+  submitted: number;
+  approved: number;
+  correctionRequested: number;
+}
+
+export interface CampaignReturnsActivity {
+  campaign: CampaignReturnsSummary;
+  timeZone: string;
+  days: CampaignReturnsActivityDay[];
 }
 
 /** The submission columns the returns read. */
@@ -231,6 +246,8 @@ export function emptyMetrics(): ReturnMetrics {
     quota: null,
     received: 0,
     approved: 0,
+    pendingReview: 0,
+    correctionRequested: 0,
     onTime: 0,
     late: 0,
     gap: null,
@@ -246,6 +263,8 @@ export function buildMetrics(
   counts: {
     received: number;
     approved: number;
+    pendingReview?: number;
+    correctionRequested?: number;
     onTime: number;
     late: number;
   },
@@ -260,6 +279,8 @@ export function buildMetrics(
     quota,
     received: counts.received,
     approved: counts.approved,
+    pendingReview: counts.pendingReview ?? 0,
+    correctionRequested: counts.correctionRequested ?? 0,
     onTime: counts.onTime,
     late: counts.late,
     gap,
@@ -277,13 +298,15 @@ export function addMetrics(a: ReturnMetrics, b: ReturnMetrics): ReturnMetrics {
       : null;
   const received = a.received + b.received;
   const approved = a.approved + b.approved;
+  const pendingReview = a.pendingReview + b.pendingReview;
+  const correctionRequested = a.correctionRequested + b.correctionRequested;
   const onTime = a.onTime + b.onTime;
   const late = a.late + b.late;
   const registeredStock = a.registeredStock + b.registeredStock;
 
   return buildMetrics(
     combinedQuota,
-    { received, approved, onTime, late },
+    { received, approved, pendingReview, correctionRequested, onTime, late },
     registeredStock,
   );
 }
@@ -297,6 +320,8 @@ export interface EntityTypeReturnRow {
   entityType: string;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   registeredStock: number;
@@ -317,6 +342,8 @@ export const ENTITY_TYPE_ORDER: readonly string[] = [
 interface TypeCell {
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   registeredStock: number;
@@ -336,10 +363,12 @@ export class EntityTypeTally {
     this.cell(bucket, entityType).registeredStock += 1;
   }
 
-  addReturn(bucket: string, entityType: string, approved: boolean, late: boolean): void {
+  addReturn(bucket: string, entityType: string, status: OnefopStatus, late: boolean): void {
     const cell = this.cell(bucket, entityType);
     cell.received += 1;
-    if (approved) cell.approved += 1;
+    if (status === OnefopStatus.APPROVED) cell.approved += 1;
+    if (status === OnefopStatus.PENDING_REVIEW) cell.pendingReview += 1;
+    if (status === OnefopStatus.CORRECTION_REQUESTED) cell.correctionRequested += 1;
     if (late) cell.late += 1;
     else cell.onTime += 1;
   }
@@ -358,6 +387,8 @@ export class EntityTypeTally {
         const sum = sums.get(entityType) ?? emptyCell();
         sum.received += cell.received;
         sum.approved += cell.approved;
+        sum.pendingReview += cell.pendingReview;
+        sum.correctionRequested += cell.correctionRequested;
         sum.onTime += cell.onTime;
         sum.late += cell.late;
         sum.registeredStock += cell.registeredStock;
@@ -390,7 +421,7 @@ export class EntityTypeTally {
 }
 
 function emptyCell(): TypeCell {
-  return { received: 0, approved: 0, onTime: 0, late: 0, registeredStock: 0 };
+  return { received: 0, approved: 0, pendingReview: 0, correctionRequested: 0, onTime: 0, late: 0, registeredStock: 0 };
 }
 
 /**

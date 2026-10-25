@@ -1,44 +1,39 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
-import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
+import { getPilotageQueues } from "@/lib/api-client";
 import { formatCampaignDate, formatCampaignDisplayName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
-import { KpiTile } from "@/components/admin/KpiTile";
-import { CampaignProgressChart } from "@/components/admin/CampaignProgressChart";
+import { CampaignActivityTrendChart } from "@/components/admin/CampaignActivityTrendChart";
+import { CoverageBarChart } from "@/components/admin/CoverageBarChart";
+import { CampaignReviewStatusChart } from "@/components/admin/CampaignReviewStatusChart";
 import { DataState } from "@/components/admin/DataState";
-import { count, days, daysSince, meterWidth, percent, rate, shortStamp, NOT_PROVIDED } from "@/lib/admin-data-state";
-import type { ReviewDelay } from "@/lib/api-client";
-import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
-import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
-import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
+import { StatStrip } from "@/components/admin/StatStrip";
+import { RegistrationTrendChart } from "@/components/admin/RegistrationTrendChart";
+import { count, percent, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { anomalyRegisterHref } from "@/lib/admin-url";
-import { DATA_STATS_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
+import { listCompanyRegistrations } from "@/lib/user-directory";
+import { getCompanyStats } from "@/lib/companies-directory";
+import { APPROVAL_ROLES, CAMPAIGN_ROLES, DIRECTORY_READ_ROLES, PILOTAGE_READ_ROLES, SURVEY_ROLES, hasRole } from "@/lib/roles";
 import {
   getActiveCollectionCampaigns,
   getCampaignReturns,
-  canWritePilotageTargets,
   type PilotageCampaign,
 } from "@/lib/pilotage-targets";
-import { coverageRows, entityTypeRows, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
+import { coverageRows, entityTypeRows, isCampaignCollectionComplete, pickCoverageCampaign, ratioToPercent } from "@/lib/pilotage-coverage";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-
-// The stored submission status decides the label and the timeline dot's tone.
-// `labelKey` is under adminPilotagePage; `tone` is a .cam-dash-timeline-dot
-// modifier. An unknown status keeps the dot's muted default.
-const STATUS_META: Record<string, { labelKey: string; tone: "success" | "warning" | "error" }> = {
-  APPROVED: { labelKey: "statusApproved", tone: "success" },
-  PENDING_REVIEW: { labelKey: "statusPending", tone: "warning" },
-  CORRECTION_REQUESTED: { labelKey: "statusCorrection", tone: "warning" },
-  REJECTED: { labelKey: "statusRejected", tone: "error" },
-};
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /** The console locale, for the shared formatters. */
 function useUiLocale() {
@@ -65,6 +60,60 @@ function BlockHead({ id, title, link }: { id: string; title: string; link?: Reac
   );
 }
 
+/** shadcn Card surface with the dashboard's existing content layout. */
+function DashboardCard({
+  className = "",
+  labelledBy,
+  children,
+}: {
+  className?: string;
+  labelledBy: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card
+      role="region"
+      aria-labelledby={labelledBy}
+      className={`gap-0 p-6 ${className}`}
+    >
+      {children}
+    </Card>
+  );
+}
+
+function DashboardActionLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Button variant="link" size="sm" asChild className="cam-dash-text-btn h-auto px-0 py-1">
+      <Link href={href}>{children}</Link>
+    </Button>
+  );
+}
+
+function DashboardMetricLink({
+  href,
+  label,
+  value,
+  caption,
+}: {
+  href: string;
+  label: ReactNode;
+  value: ReactNode;
+  caption: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="cam-dash-action-metric group rounded-xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <Card className="cam-dash-action-metric-card grid h-full grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1 p-3 transition-colors group-hover:bg-accent">
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{caption}</small>
+      </Card>
+    </Link>
+  );
+}
+
 /**
  * The campaign's coverage, the first thing the dashboard answers: how far
  * the active ONEFOP collection has got, overall and territory by territory.
@@ -84,14 +133,22 @@ function BlockHead({ id, title, link }: { id: string; title: string; link?: Reac
 function CampaignCoverage({
   campaign,
   isLoading,
+  isError,
+  error,
+  onRetry,
   canReadCampaigns,
-  canSetQuotas,
+  canManageCampaigns,
+  canAccessSurveyDetails,
 }: {
   campaign?: PilotageCampaign;
   /** The active campaign is still being fetched: say so, never "Inactive". */
   isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  onRetry: () => void;
   canReadCampaigns: boolean;
-  canSetQuotas: boolean;
+  canManageCampaigns: boolean;
+  canAccessSurveyDetails: boolean;
 }) {
   const t = useTranslations("adminPilotagePage");
   const tRoot = useTranslations();
@@ -99,6 +156,7 @@ function CampaignCoverage({
   const tTargets = useTranslations("adminTargets");
   const tStatus = useTranslations("adminCampagnesPage.status");
   const locale = useUiLocale();
+  const [coverageBreakdown, setCoverageBreakdown] = useState<"territory" | "type">("territory");
 
   const returnsQuery = useQuery({
     queryKey: ["admin", "pilotage", "returns", campaign?.id],
@@ -111,25 +169,34 @@ function CampaignCoverage({
 
   if (!canReadCampaigns) {
     return (
-      <section className="cam-dash-block" aria-labelledby="dash-coverage-title">
+      <section className="cam-dash-block cam-dash-panel" aria-labelledby="dash-coverage-title">
         <BlockHead id="dash-coverage-title" title={t("coverageTitle")} />
         <DataState state="unavailable" resource={resource} title={t("coverageUnavailable")} />
       </section>
     );
   }
 
+  if (isError) {
+    return (
+      <section className="cam-dash-block cam-dash-panel" aria-labelledby="dash-coverage-title">
+        <BlockHead id="dash-coverage-title" title={t("coverageTitle")} />
+        <DataState state="error" resource={resource} error={error} onRetry={onRetry} />
+      </section>
+    );
+  }
+
   if (!campaign) {
     return (
-      <section className="cam-dash-block" aria-labelledby="dash-coverage-title" aria-busy={isLoading || undefined}>
+      <section className="cam-dash-block cam-dash-panel" aria-labelledby="dash-coverage-title" aria-busy={isLoading || undefined}>
         <BlockHead
           id="dash-coverage-title"
           title={t("coverageTitle")}
-          link={<Link href="/admin/campagnes" className="cam-dash-link">{t("manageCampaignsLink")}</Link>}
+          link={canManageCampaigns ? <DashboardActionLink href="/admin/campagnes">{t("manageCampaignsLink")}</DashboardActionLink> : undefined}
         />
         <div>
           <div className="cam-dash-card-title-row">
             <h3 className="cam-dash-card-title">{t("campaignCardTitle")}</h3>
-            {!isLoading && <span className="cam-badge cam-badge-neutral">{t("campaignInactive")}</span>}
+            {!isLoading && <Badge variant="neutral">{t("campaignInactive")}</Badge>}
           </div>
           <p className="cam-dash-card-sub">{isLoading ? tCommon("loading") : t("noActiveCampaign")}</p>
         </div>
@@ -152,545 +219,459 @@ function CampaignCoverage({
   const data = returnsQuery.data;
   const totals = data?.totals;
   const responsePct = ratioToPercent(totals?.responseRate);
-  const rows = data ? coverageRows(data) : [];
-  const typeRows = data ? entityTypeRows(data) : [];
+  const collectionComplete = data ? isCampaignCollectionComplete(data) : false;
+  const lowestRateFirst = <T extends { responseRate: number | null }>(items: T[]) =>
+    items.slice().sort((a, b) =>
+      (a.responseRate ?? Number.POSITIVE_INFINITY) - (b.responseRate ?? Number.POSITIVE_INFINITY),
+    );
+  const rows = data ? lowestRateFirst(coverageRows(data)) : [];
+  const typeRows = data ? lowestRateFirst(entityTypeRows(data)) : [];
+  const reportingRegions = data?.regions.filter((region) => region.received > 0).length ?? 0;
+  const fullyReportingRegions = data?.regions.filter((region) => region.responseRate === 1).length ?? 0;
   const untyped = data?.untypedRegisteredStock ?? 0;
   const detailHref = `/admin/cibles?vue=retours&campagne=${encodeURIComponent(campaign.id)}`;
 
+  const territoryItems = rows.map((row) => ({
+    key: row.key,
+    name: row.kind === "central" ? t("centralLevel") : row.name,
+    responseRate: ratioToPercent(row.responseRate),
+    received: row.received,
+    registered: row.registeredStock,
+    target: row.quota,
+    href: canAccessSurveyDetails ? `${detailHref}&territoire=${encodeURIComponent(row.key)}` : undefined,
+  }));
+
+  const typeItems = typeRows.map((row) => {
+    const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
+    return {
+      key: row.entityType,
+      name: key ? tRoot(key) : entityTypeLabel(row.entityType),
+      responseRate: ratioToPercent(row.responseRate),
+      received: row.received,
+      registered: row.registeredStock,
+      target: null,
+    };
+  });
+  const territoryReviewItems = rows.map((row) => ({
+    key: row.key,
+    name: row.kind === "central" ? t("centralLevel") : row.name,
+    pendingReview: row.pendingReview,
+    correctionRequested: row.correctionRequested,
+    approved: row.approved,
+    href: canAccessSurveyDetails ? `${detailHref}&territoire=${encodeURIComponent(row.key)}` : undefined,
+  }));
+  const typeReviewItems = typeRows.map((row) => {
+    const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
+    return {
+      key: row.entityType,
+      name: key ? tRoot(key) : entityTypeLabel(row.entityType),
+      pendingReview: row.pendingReview,
+      correctionRequested: row.correctionRequested,
+      approved: row.approved,
+    };
+  });
+
   return (
-    <section className="cam-dash-block" aria-labelledby="dash-coverage-title">
-      <BlockHead
-        id="dash-coverage-title"
-        title={t("coverageTitle")}
-        link={<Link href="/admin/campagnes" className="cam-dash-link">{t("campaignDetailsLink")}</Link>}
-      />
-      <div className="cam-dash-block-body">
-        <div>
-          <div className="cam-dash-card-title-row">
-            <h3 className="cam-dash-card-title">{campaign.name ? formatCampaignDisplayName(campaign.name) : referencePeriodLabel(campaign.code, locale)}</h3>
-            <span className={`cam-badge ${campaign.status === "ACTIVE" ? "cam-badge-success" : "cam-badge-neutral"}`}>
+    <>
+      <DashboardCard labelledBy="dash-coverage-title">
+        <div className="cam-dash-card-header">
+          <div>
+            <p className="cam-dash-eyebrow">{t("campaignCardTitle")}</p>
+            <h2 id="dash-coverage-title" className="cam-dash-card-heading">
+              {campaign.name ? formatCampaignDisplayName(campaign.name) : referencePeriodLabel(campaign.code, locale)}
+            </h2>
+            <p className="cam-dash-card-subtext">{when}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant={campaign.status === "ACTIVE" ? "success" : "neutral"}>
               {campaign.status === "ACTIVE"
                 ? t("campaignActive")
                 : tStatus.has(campaign.status) ? tStatus(campaign.status) : campaign.status}
-            </span>
+            </Badge>
+            {canManageCampaigns && (
+              <DashboardActionLink href="/admin/campagnes">
+                {t("campaignDetailsLink")} →
+              </DashboardActionLink>
+            )}
           </div>
-          <p className="cam-dash-card-sub">{when}</p>
         </div>
 
-        {returnsQuery.isError ? (
-          <DataState dense state="error" resource={resource} error={returnsQuery.error} onRetry={() => returnsQuery.refetch()} />
-        ) : !totals ? (
-          <DataState dense state="loading" resource={resource} title={t("loadingCoverage")} />
-        ) : (
-          <>
-            {/* Wide screens: the figures beside the curve, not each
-                stretched across the page. */}
-            <div className="cam-dash-coverage-top">
-              <div className="cam-dash-coverage-figures">
-                <div>
-                  <div className="cam-dash-coverage">
-                    <p className="cam-dash-coverage-figure">{percent(responsePct, 1, locale, 0)}</p>
-                    <div>
-                      <p className="cam-dash-coverage-label">{t("responseRateLabel")}</p>
-                      <p className="cam-dash-card-sub">
-                        {t("responseRateCaption", { received: totals.received, stock: totals.registeredStock })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="cam-dash-bar" aria-hidden="true">
-                    <span style={{ width: meterWidth(responsePct) }} />
-                  </div>
-                </div>
-
-                <dl className="cam-dash-stats">
-                  <div>
-                    <dt>{t("onTimeLabel")}</dt>
-                    <dd>{count(totals.onTime, locale)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("lateLabel")}</dt>
-                    <dd>{count(totals.late, locale)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("endorsedLabel")}</dt>
-                    <dd>{count(totals.approved, locale)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("quotaRateLabel")}</dt>
-                    {/* The quota rate exists only once quotas are set; until then
-                        the absence is named, with the way to set them. */}
-                    <dd>
-                      {totals.quota != null
-                        ? percent(ratioToPercent(totals.quotaRate), 1, locale, 0)
-                        : <span className="cam-admin-muted">{t("noQuota")}</span>}
-                    </dd>
-                    {totals.quota == null && canSetQuotas && (
-                      <Link href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaign.id)}`} className="cam-dash-link">
-                        {t("setQuotasLink")}
-                      </Link>
-                    )}
-                  </div>
-                </dl>
+        <div className="cam-dash-block-body">
+          {returnsQuery.isError ? (
+            <DataState dense state="error" resource={resource} error={returnsQuery.error} onRetry={() => returnsQuery.refetch()} />
+          ) : !totals ? (
+            <DataState dense state="loading" resource={resource} title={t("loadingCoverage")} />
+          ) : (
+            <div className="cam-dash-response-kpis">
+              <div className="cam-dash-response-kpi">
+                <span>{t("responseRateLabel")}</span>
+                <strong>{percent(responsePct, 1, locale, 0)}</strong>
+                <small>{t("responseRateCaption", { received: count(totals.received, locale), stock: count(totals.registeredStock, locale) })}</small>
               </div>
-
-              {/* Is the campaign on pace? The curve ends on totals.received. */}
-              <CampaignProgressChart campaignId={campaign.id} registeredStock={totals.registeredStock} />
+              <div className="cam-dash-response-kpi">
+                <span>{t("regionsReporting")}</span>
+                <strong>{count(reportingRegions, locale)} <small>{t("regionsOf", { total: count(data?.regions.length ?? 0, locale) })}</small></strong>
+                <small>{t("regionsAtFullResponse", { count: count(fullyReportingRegions, locale) })}</small>
+              </div>
+              <div className="cam-dash-response-kpi">
+                <span>{t("lateLabel")}</span>
+                <strong className={totals.late > 0 ? "is-warning" : undefined}>{count(totals.late, locale)}</strong>
+                <small>{totals.late > 0 ? t("lateSubmissionsCaption") : t("nothingOverdue")}</small>
+              </div>
             </div>
+          )}
+        </div>
+      </DashboardCard>
 
-            {/* Wide screens: the two breakdowns side by side. */}
-            <div className="cam-dash-coverage-tables">
-              <div>
-                <div className="cam-dash-table-wrap">
-                  <table className="cam-dash-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">{t("territoryColumn")}</th>
-                        <th scope="col" className="is-num">{t("receivedColumn")}</th>
-                        <th scope="col" className="is-num is-wide-only">{t("lateColumn")}</th>
-                        <th scope="col" className="is-num">{t("responseRateColumn")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.length === 0 ? (
-                        <tr>
-                          <td colSpan={4}>
-                            <p className="cam-dash-empty">{tTargets("noTerritory")}</p>
-                          </td>
-                        </tr>
-                      ) : (
-                        rows.map((row) => {
-                          const pct = ratioToPercent(row.responseRate);
-                          return (
-                            <tr key={row.key}>
-                              <th scope="row">{row.kind === "central" ? t("centralLevel") : row.name}</th>
-                              <td className="is-num">{count(row.received, locale)}</td>
-                              <td className="is-num is-wide-only">{count(row.late, locale)}</td>
-                              <td className="is-num">
-                                <span className="cam-dash-meter-cell">
-                                  <span>{percent(pct, 1, locale, 0)}</span>
-                                  <span className="cam-dash-bar" aria-hidden="true">
-                                    <span style={{ width: meterWidth(pct) }} />
-                                  </span>
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-              </div>
-              <p className="cam-dash-table-foot">
-                <Link href={detailHref} className="cam-dash-link">{t("coverageDetailLink")}</Link>
-              </p>
-              </div>
-
-              {/* The same headline split by type of organisation: the rows add
-                  up to it (server-side, same territory scope). Registered is the
-                  denominator of the rate, so it gives way first on a phone. */}
-              {(typeRows.length > 0 || untyped > 0) && (
-                <div>
-                  {typeRows.length > 0 && (
-                    <div className="cam-dash-table-wrap">
-                      <table className="cam-dash-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">{t("entityTypeColumn")}</th>
-                            <th scope="col" className="is-num is-wide-only">{t("registeredColumn")}</th>
-                            <th scope="col" className="is-num">{t("receivedColumn")}</th>
-                            <th scope="col" className="is-num">{t("responseRateColumn")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {typeRows.map((row) => {
-                            const pct = ratioToPercent(row.responseRate);
-                            const key = ENTITY_TYPE_OPTION_KEYS[row.entityType];
-                            return (
-                              <tr key={row.entityType}>
-                                <th scope="row">{key ? tRoot(key) : entityTypeLabel(row.entityType)}</th>
-                                <td className="is-num is-wide-only">{count(row.registeredStock, locale)}</td>
-                                <td className="is-num">{count(row.received, locale)}</td>
-                                <td className="is-num">
-                                  <span className="cam-dash-meter-cell">
-                                    <span>{percent(pct, 1, locale, 0)}</span>
-                                    <span className="cam-dash-bar" aria-hidden="true">
-                                      <span style={{ width: meterWidth(pct) }} />
-                                    </span>
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {untyped > 0 && (
-                    <p className="cam-dash-table-foot cam-admin-muted">{t("untypedFootnote", { count: untyped })}</p>
-                  )}
-                </div>
+      {/* The timeline and category breakdown answer different questions. */}
+      <div className="cam-dash-coverage-analysis">
+        {totals && (
+          <DashboardCard className="cam-dash-coverage-breakdown" labelledBy="campaign-coverage-heading">
+            <div className="cam-dash-card-header">
+              <h3 id="campaign-coverage-heading" className="cam-dash-card-heading">{collectionComplete ? t("reviewStatusTitle") : t("coverageTitle")}</h3>
+              {!collectionComplete && coverageBreakdown === "territory" && canAccessSurveyDetails && (
+                <DashboardActionLink href={detailHref}>
+                  {t("coverageDetailLink")} &rarr;
+                </DashboardActionLink>
               )}
             </div>
-          </>
+            {/* Radix renders role="tab" / aria-selected itself, so
+                .cam-dash-coverage-tabs keeps styling these unchanged; only the
+                hand-rolled roles, ids and aria-controls wiring are gone. The
+                two panels are mounted per breakdown rather than one panel
+                switching content, which is what gives each its own tab. */}
+            <Tabs
+              value={coverageBreakdown}
+              onValueChange={(value) => setCoverageBreakdown(value === "type" ? "type" : "territory")}
+              className="gap-0"
+            >
+              <TabsList
+                className="cam-dash-coverage-tabs h-auto"
+                aria-label={collectionComplete ? t("reviewStatusTitle") : t("coverageTitle")}
+              >
+                <TabsTrigger value="territory">
+                  {collectionComplete ? t("reviewByScopeTitle") : t("coverageByScopeTitle")}
+                </TabsTrigger>
+                <TabsTrigger value="type">
+                  {collectionComplete ? t("reviewByTypeTitle") : t("coverageByTypeTitle")}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="territory" className="cam-dash-coverage-tabpanel mt-0">
+                {collectionComplete ? (
+                  <CampaignReviewStatusChart items={territoryReviewItems} ariaLabel={t("reviewByScopeTitle")} />
+                ) : rows.length === 0 ? (
+                  <p className="cam-dash-empty">{tTargets("noTerritory")}</p>
+                ) : (
+                  <CoverageBarChart items={territoryItems} ariaLabel={t("coverageByScopeTitle")} />
+                )}
+              </TabsContent>
+
+              <TabsContent value="type" className="cam-dash-coverage-tabpanel mt-0">
+                {collectionComplete ? (
+                  <CampaignReviewStatusChart items={typeReviewItems} ariaLabel={t("reviewByTypeTitle")} />
+                ) : (
+                  <>
+                    {typeRows.length > 0
+                      ? <CoverageBarChart items={typeItems} ariaLabel={t("coverageByTypeTitle")} />
+                      : <p className="cam-dash-empty">{t("progressNone")}</p>}
+                    {untyped > 0 && (
+                      <p className="cam-dash-detail-text mt-3">
+                        {t("untypedFootnote", { count: untyped })}
+                      </p>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
+          </DashboardCard>
         )}
+        <CampaignActivityTrendChart campaignId={campaign.id} />
       </div>
-    </section>
+    </>
   );
 }
-
-// The entity name is NOT a flat `companyName` on /admin/questionnaires items;
-// it is resolved from the per-entity detail relations — see resolveEntityName.
-type ActivitySubmissionItem = NamedSubmission & {
-  id?: string;
-  adminStatus?: string;
-  status?: string;
-  region?: string;
-  submittedAt?: string;
-  createdAt?: string;
-  // `region` is read off the same rawData blob the name resolver walks.
-  rawData?: NamedSubmission["rawData"] & { enterprise?: { region?: string | null } | null };
-};
-
-function RecentActivity({
-  items,
-  isLoading,
-  isError,
-  error,
-  onRetry,
-}: {
-  items: ActivitySubmissionItem[];
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  onRetry: () => void;
-}) {
-  const t = useTranslations("adminPilotagePage");
-  const locale = useUiLocale();
-  return (
-    <section className="cam-dash-block" id="activity" aria-labelledby="dash-activity-title">
-      {/* This feed is the latest submissions, so it continues in the dossier
-          list. It used to point at the audit journal: different data, and
-          AUDIT_ROLES-only, so a 403 for every territorial and ONEFOP admin. */}
-      <BlockHead
-        id="dash-activity-title"
-        title={t("recentActivityTitle")}
-        link={<Link href="/admin/dossiers" className="cam-dash-link">{t("viewAllFilesLink")}</Link>}
-      />
-      {isError ? (
-        <DataState
-          dense
-          state="error"
-          resource={t("recentActivityResource")}
-          error={error}
-          onRetry={onRetry}
-        />
-      ) : isLoading ? (
-        <DataState dense state="loading" resource={t("recentActivityResource")} title={t("loadingActivity")} />
-      ) : items.length === 0 ? (
-        <DataState dense state="empty" resource={t("recentActivityResource")} title={t("noRecentActivity")} />
-      ) : (
-        <ol className="cam-dash-timeline">
-          {items.map((s, idx) => {
-            const statusKey = s.adminStatus || s.status;
-            const known = statusKey ? STATUS_META[statusKey] : undefined;
-            const label = known ? t(known.labelKey) : statusKey || t("statusPending");
-            const region = s.region || s.rawData?.enterprise?.region || null;
-            const name = resolveEntityName(s) ?? (s.id ? t("formRef", { id: s.id.slice(0, 8) }) : NOT_PROVIDED);
-            return (
-              <li key={s.id || idx}>
-                <span className="cam-dash-timeline-time">{shortStamp(s.submittedAt || s.createdAt, locale)}</span>
-                <span
-                  className={`cam-dash-timeline-dot${known ? ` cam-dash-timeline-dot--${known.tone}` : ""}`}
-                  aria-hidden="true"
-                />
-                <span className="cam-dash-timeline-body">
-                  {/* Each entry opens its dossier when the record carries an id. */}
-                  {s.id ? (
-                    <Link href={`/admin/dossiers/${encodeURIComponent(s.id)}`}>{name}</Link>
-                  ) : (
-                    <strong>{name}</strong>
-                  )}{" "}
-                  — <span className="cam-admin-muted">{label}</span>
-                  {region && <span className="cam-dash-tag">{region}</span>}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </section>
-  );
-}
-
-function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySummary | null; fallbackEligibilityPct: number | null }) {
-  const t = useTranslations("adminPilotagePage");
-  const locale = useUiLocale();
-  // Anomalies and warnings are better low: green there would read as good
-  // news whatever the rate, so their meter is grey.
-  const metrics = [
-    { label: t("qualityCompleteness"), value: quality?.completenessRate ?? null, lowerIsBetter: false },
-    { label: t("qualityCoherence"), value: quality?.coherenceRate ?? null, lowerIsBetter: false },
-    { label: t("qualityAnomalies"), value: quality?.anomalyRate ?? null, lowerIsBetter: true },
-    { label: t("qualityWarnings"), value: quality?.warningRate ?? null, lowerIsBetter: true },
-    { label: t("qualityEligibility"), value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct, lowerIsBetter: false },
-  ];
-
-  return (
-    <section className="cam-dash-block" aria-labelledby="dash-quality-title">
-      <BlockHead
-        id="dash-quality-title"
-        title={t("dataQualityTitle")}
-        link={<Link href="/admin/centre-qualite" className="cam-dash-link">{t("qualityCentreLink")}</Link>}
-      />
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-        {metrics.map((m) => (
-          <div key={m.label}>
-            <div className="cam-dash-metric-row">
-              <span>{m.label}</span>
-              <strong>{percent(m.value, 0, locale)}</strong>
-            </div>
-            <div className={`cam-dash-bar${m.lowerIsBetter ? " cam-dash-bar--neutral" : ""}`} aria-hidden="true">
-              <span style={{ width: meterWidth(m.value) }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/**
- * Review pace, under the "À traiter" tiles: how long the oldest file has
- * waited for a decision, how many have waited past the threshold, and the
- * median time from submission to decision. All from pilotage/queues, so the
- * figures cover the same territory as the tiles. `null` = not loaded yet.
- */
-function ReviewPace({ delay }: { delay: ReviewDelay | null }) {
-  const t = useTranslations("adminPilotagePage");
-  const locale = useUiLocale();
-  const oldestDays = delay ? daysSince(delay.oldestPendingSubmittedAt) : null;
-  const overdue = delay?.pendingOverThresholdCount ?? null;
-
-  return (
-    <div className="cam-dash-pace">
-      <ul className="cam-dash-pace-facts">
-        <li>
-          {delay && delay.oldestPendingSubmittedAt === null
-            ? t("paceNonePending")
-            : <>{t("paceOldest")} <strong>{days(oldestDays, locale)}</strong></>}
-        </li>
-        <li>
-          <strong className={overdue ? "is-overdue" : undefined}>{count(overdue, locale)}</strong>{" "}
-          {t("paceOverdue", { days: delay?.thresholdDays ?? 7 })}
-        </li>
-        <li>
-          {delay && delay.decidedMedianDays === null
-            ? t("paceNoDecision", { window: delay.windowDays })
-            : (
-              <>
-                {t("paceMedian", { window: delay?.windowDays ?? 90 })} <strong>{days(delay?.decidedMedianDays, locale)}</strong>{" "}
-                {delay && t("paceDecisions", { count: delay.decidedCount })}
-              </>
-            )}
-        </li>
-      </ul>
-      <Link href="/admin/dossiers?status=PENDING_REVIEW&sort=oldest" className="cam-dash-link">
-        {t("paceLink")}
-      </Link>
-    </div>
-  );
-}
-
-// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PilotagePage() {
+  return (
+    <Suspense fallback={null}>
+      <PilotageDashboard />
+    </Suspense>
+  );
+}
+
+function PilotageDashboard() {
   const t = useTranslations();
   const locale = useUiLocale();
-  const user = useAuthStore((s) => s.user);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedOperation = searchParams.get("operation");
+  const user = useAuthStore((state) => state.user);
   const userRole = user?.role;
-  const isRegional = userRole === "REGIONAL_ADMIN";
-  const isDivisional = userRole === "DIVISIONAL_ADMIN";
-  const isTerritorial = isRegional || isDivisional;
+  const isAuthenticated = useAuthStore((state) => state.status === "authenticated");
+  const canReadSurveySubmissions = hasRole(userRole, PILOTAGE_READ_ROLES);
+  const canReadCampaigns = canReadSurveySubmissions;
+  const canReviewRegistrations = hasRole(userRole, APPROVAL_ROLES);
+  const canReadEstablishmentRegister = hasRole(userRole, DIRECTORY_READ_ROLES);
+  const canReadRegistrationOperation = canReviewRegistrations || canReadEstablishmentRegister;
+  const hasCombinedOperations = canReviewRegistrations && canReadSurveySubmissions;
+  const canManageCampaigns = hasRole(userRole, CAMPAIGN_ROLES);
+  const canAccessSurveyDetails = hasRole(userRole, SURVEY_ROLES);
+  const activeOperation = requestedOperation === "submissions" && canReadSurveySubmissions
+    ? "submissions"
+    : requestedOperation === "registrations" && canReadRegistrationOperation
+      ? "registrations"
+      : canReadRegistrationOperation
+        ? "registrations"
+        : "submissions";
+  function selectOperation(operation: "registrations" | "submissions") {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("operation", operation);
+    router.replace(`/admin/pilotage?${params.toString()}`, { scroll: false });
+  }
 
-  const status = useAuthStore((s) => s.status);
-  const isAuthenticated = status === "authenticated";
-
-  // These figures move at administrative pace, not every 30s. Each poll of the
-  // five queries below opens Prisma connections against Supabase's session-mode
-  // pooler, whose ceiling this page was hitting (intermittent EMAXCONNSESSION
-  // 500s on /admin/pilotage), so they refetch every 2 minutes.
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && canReadSurveySubmissions,
     refetchInterval: 120000,
   });
-
-  // GET /data-management/stats is territory-scoped server-side (territoryWhere).
-  // Role-scoped absence is permanent, so the stage is hidden; scope-scoped absence (the registrations tile below) is temporary and shows "—". Do not unify.
-  const canReadDataStats = hasRole(userRole, DATA_STATS_ROLES);
-  const statsQuery = useQuery({
-    queryKey: ["admin", "data-management", "stats"],
-    queryFn: getDataManagementStats,
-    refetchInterval: 120000,
-    enabled: isAuthenticated && canReadDataStats,
-  });
-
-  const recentQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "recent", 8],
-    queryFn: () => listAdminQuestionnaires({ limit: 8, offset: 0 }),
-    enabled: isAuthenticated,
+  const registrationsQuery = useQuery({
+    queryKey: ["auth", "company-registrations", "pending-count"],
+    queryFn: () => listCompanyRegistrations({ page: 1, pageSize: 1 }),
+    enabled: isAuthenticated && canReviewRegistrations,
     refetchInterval: 120000,
   });
-
-  // The active ONEFOP collection campaign, from the pilotage route every
-  // pilotage reader may call. GET /campaigns would shut DIVISIONAL_ADMIN and
-  // CENTRAL_AGENT out of a figure they may read (§21, 2026-10-17).
-  const canReadCampaigns = hasRole(userRole, PILOTAGE_READ_ROLES);
+  const companyStatsQuery = useQuery({
+    queryKey: ["dsmo", "companies", "stats"],
+    queryFn: getCompanyStats,
+    enabled: isAuthenticated && canReadEstablishmentRegister,
+    refetchInterval: 120000,
+  });
   const campaignsQuery = useQuery({
     queryKey: ["admin", "pilotage", "campaigns", "active"],
     queryFn: getActiveCollectionCampaigns,
-    enabled: canReadCampaigns,
+    enabled: isAuthenticated && canReadCampaigns && activeOperation === "submissions",
   });
   const activeCampaign = pickCoverageCampaign(campaignsQuery.data);
   const campaignLoading = !user || (canReadCampaigns && campaignsQuery.isPending);
-
-  const qualityQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
-    queryFn: () => getQualitySummary(activeCampaign?.id),
-    enabled: isAuthenticated,
-    refetchInterval: 120000,
-  });
-
-  // Registration queue head-count for the "Inscriptions en attente" tile —
-  // the same hook as the sidebar and tab badges. Its gate excludes AUDITOR,
-  // which reaches this page as the /admin fallback route: left ungated the
-  // query would 403 on every poll. Gated off, the count stays null, so the
-  // tile renders the honest absence.
-  const { count: inscriptionsPending } = usePendingRegistrationsCount(isAuthenticated);
-
-  // Authoritative data only. null until loaded or if query errors.
   const queues = queuesQuery.data ?? null;
-  const stats = statsQuery.data ?? null;
-  const quality = qualityQuery.data ?? null;
-
-  // Zero is data: if queues returns 0 submissions, totalSubmissions is 0.
-  // Never substitute national figures for an empty territorial result.
-  const totalSubmissions = queues ? queues.totalSubmissionsCount : null;
-
-  const eligibilityPct = queues ? rate(queues.statisticallyReadyCount, queues.totalSubmissionsCount) : null;
-
-
-  const statusApproved = queues ? queues.approvedCount : null;
-
-  const recentActivity = recentQuery.data?.items ?? [];
-
-  // Inscriptions: GET /data-management/stats is territory-scoped server-side.
-  const totalInscriptions = stats
-    ? (stats.totals?.companies ?? stats.totalCompanies ?? null)
-    : null;
-
-  const nationalCount = !isTerritorial && queues ? queues.pendingNationalVisasCount : null;
-  const readyCount = queues ? queues.statisticallyReadyCount : null;
-
-  // No stage is highlighted: the yellow "Déclarations" box carried no stated
-  // meaning (owner, 2026-10-10).
-  const pipeline = [
-    ...(canReadDataStats ? [{ label: t("adminPilotagePage.pipelineRegistrations"), value: totalInscriptions }] : []),
-    { label: t("adminPilotagePage.pipelineDeclarations"), value: totalSubmissions },
-    { label: t("adminPilotagePage.pipelineNational"), value: nationalCount },
-    { label: t("adminPilotagePage.pipelineApproved"), value: statusApproved },
-    { label: t("adminPilotagePage.pipelineExportable"), value: readyCount },
-  ];
-
-  // 4 "À TRAITER" tiles: null renders "—" when the source is absent for
-  // this actor. Zero is data: an available-but-empty source renders 0.
-  const declarationsReview = queues ? (queues.pendingNationalVisasCount ?? 0) : null;
-  const correctionsCount = queues ? queues.correctionsUnderReviewCount : null;
-  const anomaliesCount = queues ? queues.blockingAnomaliesCount : null;
 
   return (
-    <div className="cam-admin-page">
+    <div className="cam-admin-page cam-admin-dashboard">
       <AdminPageHeader
         breadcrumb={[{ label: t("adminNav.hubs.supervision") }, { label: t("adminNav.routes.pilotage") }]}
         title={t("adminNav.routes.pilotage")}
-        actions={<AdminHeaderActions />}
+        subtitle={t("adminPilotagePage.dashboardSubtitle")}
+        actions={(
+          <div className="cam-dash-header-actions">
+            <AdminHeaderActions showCampaignPill={false} />
+          </div>
+        )}
       />
 
-      {queuesQuery.isError && (
+      {!canReadRegistrationOperation && !canReadSurveySubmissions ? (
         <DataState
-          state="error"
-          resource={t("adminPilotagePage.indicatorsResource")}
-          error={queuesQuery.error}
-          onRetry={() => queuesQuery.refetch()}
+          state="unavailable"
+          resource={t("adminNav.routes.pilotage")}
+          title={t("adminPilotagePage.dashboardUnavailable")}
         />
+      ) : (
+        <>
+          {hasCombinedOperations && (
+            <DashboardCard className="cam-dash-action-summary cam-dash-national-summary" labelledBy="dash-national-summary-title">
+              <div className="cam-dash-card-header">
+                <div>
+                  <h2 id="dash-national-summary-title" className="cam-dash-card-heading">{t("adminPilotagePage.toProcessTitle")}</h2>
+                  <p className="cam-dash-detail-text">{t("adminPilotagePage.dashboardSummaryContext")}</p>
+                </div>
+              </div>
+              <div className="cam-dash-action-summary-grid cam-dash-action-summary-grid--five">
+                <DashboardMetricLink
+                  href="/admin/inscriptions?status=PENDING_APPROVAL"
+                  label={t("adminPilotagePage.kpiPendingRegistrations")}
+                  value={registrationsQuery.data ? count(registrationsQuery.data.counts.pending, locale) : t("adminPilotagePage.metricUnavailable")}
+                  caption={t("adminPilotagePage.registrationPendingCaption")}
+                />
+                <DashboardMetricLink
+                  href="/admin/inscriptions?status=OVERDUE"
+                  label={t("adminInscriptionsPage.statusOverdue", { days: registrationsQuery.data?.overdueDays ?? 7 })}
+                  value={registrationsQuery.data ? count(registrationsQuery.data.counts.overdue, locale) : t("adminPilotagePage.metricUnavailable")}
+                  caption={t("adminPilotagePage.registrationOverdueCaption")}
+                />
+                <DashboardMetricLink
+                  href="/admin/dossiers?status=PENDING_REVIEW"
+                  label={t("adminPilotagePage.statusPending")}
+                  value={queues?.pendingNationalVisasCount != null ? count(queues.pendingNationalVisasCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                  caption={t("adminPilotagePage.kpiDeclarationsToReview")}
+                />
+                <DashboardMetricLink
+                  href="/admin/dossiers?status=CORRECTION_REQUESTED"
+                  label={t("adminPilotagePage.statusCorrection")}
+                  value={queues?.correctionsUnderReviewCount != null ? count(queues.correctionsUnderReviewCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                  caption={t("adminPilotagePage.kpiReturnsToCorrect")}
+                />
+                <DashboardMetricLink
+                  href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
+                  label={t("adminPilotagePage.kpiQualityAlerts")}
+                  value={queues?.blockingAnomaliesCount != null ? count(queues.blockingAnomaliesCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                  caption={t("adminPilotagePage.qualityAnomalies")}
+                />
+              </div>
+            </DashboardCard>
+          )}
+
+          <Tabs
+            value={activeOperation}
+            onValueChange={(value) => {
+              if (value === "registrations" || value === "submissions") selectOperation(value);
+            }}
+            className="gap-0"
+          >
+            {/* flex-wrap, because the triggers are flex-none: at 375px the
+                two of them measured 410px against a 375px viewport and
+                scrolled the whole page sideways. They wrap instead. */}
+            {hasCombinedOperations && (
+              <TabsList className="cam-dash-operation-tabs h-auto w-full flex-wrap justify-start rounded-none bg-transparent p-0" aria-label={t("adminPilotagePage.operationsTabsLabel")}>
+                <TabsTrigger
+                  value="registrations"
+                  id="dash-registrations-tab"
+                  className="flex-none rounded-none bg-transparent data-[state=active]:bg-transparent"
+                >
+                  {t("adminPilotagePage.registrationOperationTab")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="submissions"
+                  id="dash-submissions-tab"
+                  className="flex-none rounded-none bg-transparent data-[state=active]:bg-transparent"
+                >
+                  {t("adminPilotagePage.submissionsOperationTab")}
+                </TabsTrigger>
+              </TabsList>
+            )}
+
+          {activeOperation === "registrations" && canReadRegistrationOperation ? (
+            <TabsContent id="dash-registrations-panel" value="registrations" aria-label={t("adminPilotagePage.registrationOperationTab")} className="mt-0">
+              {canReadEstablishmentRegister && (
+                <DashboardCard className="cam-dash-register-overview" labelledBy="dash-register-overview-title">
+                  <div className="cam-dash-card-header">
+                    <div>
+                      <h2 id="dash-register-overview-title" className="cam-dash-card-heading">
+                        {t("adminPilotagePage.registerStatusTitle")}
+                      </h2>
+                      <p className="cam-dash-detail-text">{t("adminPilotagePage.registerStatusContext")}</p>
+                    </div>
+                    <DashboardActionLink href="/admin/etablissements">
+                      {t("adminPilotagePage.registerStatusLink")} →
+                    </DashboardActionLink>
+                  </div>
+                  <StatStrip
+                    label={t("adminPilotagePage.registerStatusTitle")}
+                    loadingLabel={t("adminLayout.loadingFigures")}
+                    loading={companyStatsQuery.isLoading}
+                    error={companyStatsQuery.isError}
+                    errorLabel={t("adminLayout.figuresUnavailable")}
+                    items={[
+                      { key: "total", value: count(companyStatsQuery.data?.total ?? null, locale), label: t("adminEtablissementsPage.kpiTotal") },
+                      { key: "active", value: count(companyStatsQuery.data?.active ?? null, locale), label: t("adminEtablissementsPage.kpiActive") },
+                      { key: "pending", value: count(companyStatsQuery.data?.pendingValidation ?? null, locale), label: t("adminEtablissementsPage.kpiPending") },
+                      { key: "rejected", value: count(companyStatsQuery.data?.rejected ?? null, locale), label: t("adminEtablissementsPage.kpiRejected") },
+                      { key: "suspended", value: count(companyStatsQuery.data?.suspended ?? null, locale), label: t("adminEtablissementsPage.kpiSuspended") },
+                    ]}
+                  />
+                  <RegistrationTrendChart />
+                </DashboardCard>
+              )}
+
+              {canReviewRegistrations && !hasCombinedOperations && (
+                <DashboardCard className="cam-dash-action-summary" labelledBy="dash-registration-summary-title">
+                  <div className="cam-dash-card-header">
+                    <div>
+                      <h2 id="dash-registration-summary-title" className="cam-dash-card-heading">
+                        {t("adminPilotagePage.registrationSummaryTitle")}
+                      </h2>
+                      <p className="cam-dash-detail-text">{t("adminPilotagePage.registrationSummaryContext")}</p>
+                    </div>
+                    <DashboardActionLink href="/admin/inscriptions">
+                      {t("adminPilotagePage.registrationQueueLink")} →
+                    </DashboardActionLink>
+                  </div>
+                  <div className="cam-dash-action-summary-grid">
+                    <DashboardMetricLink
+                      href="/admin/inscriptions?status=PENDING_APPROVAL"
+                      label={t("adminInscriptionsPage.statusPending")}
+                      value={registrationsQuery.data ? count(registrationsQuery.data.counts.pending, locale) : t("adminPilotagePage.metricUnavailable")}
+                      caption={t("adminPilotagePage.registrationPendingCaption")}
+                    />
+                    <DashboardMetricLink
+                      href="/admin/inscriptions?status=COMPLEMENTS_REQUESTED"
+                      label={t("adminInscriptionsPage.statusComplements")}
+                      value={registrationsQuery.data ? count(registrationsQuery.data.counts.complements, locale) : t("adminPilotagePage.metricUnavailable")}
+                      caption={t("adminPilotagePage.registrationComplementsCaption")}
+                    />
+                    <DashboardMetricLink
+                      href="/admin/inscriptions?status=OVERDUE"
+                      label={t("adminInscriptionsPage.statusOverdue", { days: registrationsQuery.data?.overdueDays ?? 7 })}
+                      value={registrationsQuery.data ? count(registrationsQuery.data.counts.overdue, locale) : t("adminPilotagePage.metricUnavailable")}
+                      caption={t("adminPilotagePage.registrationOverdueCaption")}
+                    />
+                  </div>
+                </DashboardCard>
+              )}
+            </TabsContent>
+          ) : canReadSurveySubmissions ? (
+            <TabsContent id="dash-submissions-panel" value="submissions" aria-label={t("adminPilotagePage.submissionsOperationTab")} className="mt-0">
+              {!hasCombinedOperations && <DashboardCard className="cam-dash-action-summary" labelledBy="dash-submission-summary-title">
+                <div className="cam-dash-card-header">
+                  <div>
+                    <h2 id="dash-submission-summary-title" className="cam-dash-card-heading">
+                      {t("adminPilotagePage.toProcessTitle")}
+                    </h2>
+                    <p className="cam-dash-detail-text">{t("adminPilotagePage.territoryWideContext")}</p>
+                  </div>
+                </div>
+                <div className="cam-dash-action-summary-grid">
+                  <DashboardMetricLink
+                    href="/admin/dossiers?status=PENDING_REVIEW"
+                    label={t("adminPilotagePage.statusPending")}
+                    value={queues?.pendingNationalVisasCount != null ? count(queues.pendingNationalVisasCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                    caption={t("adminPilotagePage.kpiDeclarationsToReview")}
+                  />
+                  <DashboardMetricLink
+                    href="/admin/dossiers?status=CORRECTION_REQUESTED"
+                    label={t("adminPilotagePage.statusCorrection")}
+                    value={queues?.correctionsUnderReviewCount != null ? count(queues.correctionsUnderReviewCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                    caption={t("adminPilotagePage.kpiReturnsToCorrect")}
+                  />
+                  <DashboardMetricLink
+                    href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
+                    label={t("adminPilotagePage.kpiQualityAlerts")}
+                    value={queues?.blockingAnomaliesCount != null ? count(queues.blockingAnomaliesCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                    caption={t("adminPilotagePage.qualityAnomalies")}
+                  />
+                </div>
+              </DashboardCard>}
+
+          {/* The coverage breakdown — by territory and by entity type — is
+              the question this tab exists to answer. A `compact` variant used
+              to suppress it here, along with the "regions reporting" figure;
+              it was the only caller, so the variant has been removed rather
+              than left as a second rendering nobody reached. */}
+          <CampaignCoverage
+            campaign={activeCampaign}
+            isLoading={campaignLoading}
+            isError={campaignsQuery.isError}
+            error={campaignsQuery.error}
+            onRetry={() => campaignsQuery.refetch()}
+            canReadCampaigns={canReadCampaigns}
+            canManageCampaigns={canManageCampaigns}
+            canAccessSurveyDetails={canAccessSurveyDetails}
+          />
+            </TabsContent>
+          ) : null}
+          </Tabs>
+        </>
       )}
-
-      {/* Coverage first: "how far along is the campaign?" is the question
-          this page answers before any queue (owner, 2026-10-17). */}
-      <CampaignCoverage
-        campaign={activeCampaign}
-        isLoading={campaignLoading}
-        canReadCampaigns={canReadCampaigns}
-        canSetQuotas={canWritePilotageTargets(userRole)}
-      />
-
-      <section className="cam-dash-block" aria-labelledby="dash-todo-title">
-        <BlockHead id="dash-todo-title" title={t("adminPilotagePage.toProcessTitle")} />
-
-        <div className="cam-dash-kpis">
-          <KpiTile
-            tone="warning"
-            value={inscriptionsPending}
-            label={t("adminPilotagePage.kpiPendingRegistrations")}
-            href="/admin/inscriptions"
-          />
-          <KpiTile
-            tone="info"
-            value={declarationsReview}
-            label={t("adminPilotagePage.kpiDeclarationsToReview")}
-            href="/admin/dossiers?status=PENDING_REVIEW"
-          />
-          <KpiTile
-            tone="error"
-            value={correctionsCount}
-            label={t("adminPilotagePage.kpiReturnsToCorrect")}
-            href="/admin/dossiers?status=CORRECTION_REQUESTED"
-          />
-          <KpiTile
-            tone="warning"
-            value={anomaliesCount}
-            label={t("adminPilotagePage.kpiQualityAlerts")}
-            // The tile counts open blocking anomalies (blockingAnomaliesCount),
-            // so it opens the register filtered to exactly those rows.
-            href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
-          />
-        </div>
-        <ReviewPace delay={queues?.reviewDelay ?? null} />
-      </section>
-
-      <section className="cam-dash-block" aria-labelledby="dash-pipeline-title">
-        <BlockHead id="dash-pipeline-title" title={t("adminPilotagePage.pipelineTitle")} />
-        <ol className="cam-dash-pipeline">
-          {pipeline.map((stage) => (
-            <li key={stage.label}>
-              <span className="cam-dash-pipeline-value">{count(stage.value, locale)}</span>
-              <span className="cam-dash-pipeline-label">{stage.label}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <div className="cam-dash-columns">
-        <RecentActivity
-          items={recentActivity}
-          isLoading={recentQuery.isLoading}
-          isError={recentQuery.isError}
-          error={recentQuery.error}
-          onRetry={() => recentQuery.refetch()}
-        />
-        <DataQuality quality={quality} fallbackEligibilityPct={eligibilityPct} />
-      </div>
     </div>
   );
 }

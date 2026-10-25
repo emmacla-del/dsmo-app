@@ -1,34 +1,35 @@
 "use client";
 
-import { ReactNode, Suspense, useEffect, useState } from "react";
+import { ReactNode, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
+import { Menu } from "lucide-react";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
-import { ADMIN_ROLES } from "@/lib/roles";
+import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { LanguageLink } from "@/components/LanguageLink";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
-// Layout-level page header: the fallback for admin pages that don't render
-// their own AdminPageHeader yet. When a page is refactored to render its own
-// header, remove its entry here so it never shows two <h1>s. Refactored so
-// far: every admin page, so the table is empty; /admin/sectors was the last
-// entry and rendered two headers until it was removed.
-// `group` / `nav` mirror the page's section and label in AdminSidebar.
-// `detail` labels a sub-route: its breadcrumb becomes group › nav (linking
-// back to the list) › detail. A sub-route without `detail` renders its own.
-// Every value is a message key, resolved from the root namespace.
-const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
-};
+// Every admin page renders its own AdminPageHeader. The layout used to carry
+// a PAGE_TITLES table as the fallback for pages that did not; the last entry
+// (/admin/sectors) was removed once it rendered its own, leaving an empty
+// table and ~15 lines deriving a breadcrumb from it that could never match.
+// Both are gone. A new page renders AdminPageHeader itself — there is no
+// layout-level header to register with.
+
+// The rail is a permanent column from 1024px up and an off-canvas drawer
+// below it (admin-console.css). Only the drawer form traps focus and makes
+// the page behind it inert.
+const DRAWER_QUERY = "(max-width: 1023px)";
+
+let drawerMql: MediaQueryList | null = null;
+const drawerQuery = () => (drawerMql ??= window.matchMedia(DRAWER_QUERY));
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
@@ -36,25 +37,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoading, forbidden, user, isAuthenticated } = useAdminScreenGuard(ADMIN_ROLES);
+  const canReadPilotage = hasRole(user?.role, PILOTAGE_READ_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const wasDrawerOpen = useRef(false);
 
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
-    enabled: !isLoading && !forbidden && isAuthenticated,
-    refetchInterval: 30000,
+    enabled: !isLoading && !forbidden && isAuthenticated && canReadPilotage,
+    refetchInterval: 120000,
   });
 
-  // Pending-registration count for the "Déclarants" badge. Held back until
-  // the console guard has resolved; shares its query with the tab badge and
-  // the pilotage tile (usePendingRegistrationsCount).
-  const { count: pendingRegistrations } = usePendingRegistrationsCount(!isLoading && !forbidden && isAuthenticated);
-
-  // Supervision's badge counts dossiers awaiting a visa. Blocking anomalies
-  // are counted once, on "Contrôle Qualité", where they are resolved — they
-  // used to be added in here too, so the same anomaly lit up two hubs.
-  const pendingCount = queuesQuery.data?.pendingNationalVisasCount ?? 0;
+  // Blocking anomalies are counted once, on the data-quality destination,
+  // where they are resolved.
 
   // The drawer (tablet/phone) closes on Escape as well as on navigation.
   useEffect(() => {
@@ -69,6 +66,93 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
+
+  /**
+   * Which form the rail currently has. Subscribed rather than stored in an
+   * effect: the width is external state, so useSyncExternalStore reads it
+   * without a render-then-correct pass, and renders false on the server.
+   *
+   * Widening past the breakpoint also closes the menu, so the page is never
+   * left inert behind a rail that is no longer a drawer, and narrowing again
+   * does not reopen a drawer the user never asked for.
+   */
+  const subscribeToWidth = useCallback((onChange: () => void) => {
+    const mq = drawerQuery();
+    const handle = () => {
+      if (!mq.matches) setMenuOpen(false);
+      onChange();
+    };
+    mq.addEventListener("change", handle);
+    return () => mq.removeEventListener("change", handle);
+  }, []);
+
+  const isDrawer = useSyncExternalStore(
+    subscribeToWidth,
+    () => drawerQuery().matches,
+    () => false
+  );
+
+  const drawerOpen = menuOpen && isDrawer;
+
+  /**
+   * Contain focus in the open drawer.
+   *
+   * Measured before this existed: the page behind the scrim kept 38
+   * focusable controls, and tabbing out of the drawer walked into them with
+   * nothing to say you had left. `inert` below removes them; this keeps Tab
+   * cycling inside the rail. The closed drawer is already `visibility:
+   * hidden`, so its own links are out of the tab order without help.
+   *
+   * The rail is read by id — the same handle `aria-controls` on the menu
+   * button already uses — rather than by threading a ref through
+   * AdminSidebar's props.
+   */
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const rail = document.getElementById("cam-admin-rail");
+    if (!rail) return;
+
+    const focusable = () =>
+      Array.from(
+        rail.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+      ).filter((el) => el.offsetParent !== null);
+
+    focusable()[0]?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      const outside = !(active instanceof Node) || !rail.contains(active);
+      if (e.shiftKey && (outside || active === first)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (outside || active === last)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  // On close, focus cannot stay on a rail link that is now hidden, so it
+  // returns to the control that opened the drawer. `inert` is already off
+  // by the time this effect runs.
+  useEffect(() => {
+    if (wasDrawerOpen.current && !drawerOpen) {
+      const active = document.activeElement;
+      const rail = document.getElementById("cam-admin-rail");
+      const stranded =
+        !active || active === document.body || (active instanceof Node && rail?.contains(active));
+      if (stranded) menuButtonRef.current?.focus();
+    }
+    wasDrawerOpen.current = drawerOpen;
+  }, [drawerOpen]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -92,27 +176,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || t("adminLayout.defaultDisplayName");
 
-  // Derive current page title from pathname (longest matching prefix wins).
-  // Prefixes only match on a path boundary, so /admin/dossiers-archive would
-  // not match /admin/dossiers. No match = the page renders its own AdminPageHeader.
-  const [matchedPrefix, pageTitle] = Object.entries(PAGE_TITLES)
-    .filter(([prefix]) => pathname === prefix || pathname.startsWith(prefix + "/"))
-    .sort((a, b) => b[0].length - a[0].length)[0] ?? [];
-  const isSubRoute = !!matchedPrefix && pathname !== matchedPrefix;
-  const breadcrumb = pageTitle?.group && pageTitle.nav
-    ? isSubRoute && pageTitle.detail
-      ? [{ label: t(pageTitle.group) }, { label: t(pageTitle.nav), href: matchedPrefix }, { label: t(pageTitle.detail) }]
-      : [{ label: t(pageTitle.group) }, { label: t(pageTitle.nav) }]
-    : undefined;
-
   return (
-    <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
+    <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}`}>
       <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
         <AdminSidebar
           role={user?.role}
-          pendingCount={pendingCount}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
-          inscriptionsCount={pendingRegistrations ?? 0}
           onLogout={() => {
             logout({ intentional: true });
             router.push("/login");
@@ -120,15 +189,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         />
       </Suspense>
 
+      {/* Sibling of the body, not a child, so the scrim stays clickable while
+          the body is inert. */}
       <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
-      <div className="cam-admin-body">
+      {/* The menu button sits inside this element, so it is inert too while
+          the drawer is open — which matches what is on screen, since the
+          scrim covers it. Escape and the scrim are the ways back out. */}
+      <div className="cam-admin-body" inert={drawerOpen}>
         {/* The account bar: the very top of every admin page, right-aligned:
             who is signed in and the console language (owner, 2026-10-10).
             Sign-out stays at the foot of the sidebar. On a phone it also
             holds the menu button that opens the sidebar drawer. */}
         <div className="cam-admin-topbar">
           <button
+            ref={menuButtonRef}
             type="button"
             className="cam-admin-menu-button"
             aria-label={menuOpen ? t("adminLayout.closeMenuAriaLabel") : t("adminLayout.openMenuAriaLabel")}
@@ -136,11 +211,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             aria-controls="cam-admin-rail"
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <line x1="4" y1="7" x2="20" y2="7" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="17" x2="20" y2="17" />
-            </svg>
+            <Menu size={20} aria-hidden="true" />
           </button>
           <div className="cam-admin-account">
             <span className="cam-admin-account-name">{displayName}</span>
@@ -153,17 +224,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <main className="cam-admin-main">
           {/* D8: per-page gate on top of the console gate above. */}
-          <RequireAdminRole>
-            {pageTitle && (!isSubRoute || pageTitle.detail) && (
-              <AdminPageHeader
-                breadcrumb={breadcrumb}
-                title={t(pageTitle.title)}
-                subtitle={t(pageTitle.sub)}
-                actions={<AdminHeaderActions />}
-              />
-            )}
-            {children}
-          </RequireAdminRole>
+          <RequireAdminRole>{children}</RequireAdminRole>
         </main>
       </div>
     </div>
