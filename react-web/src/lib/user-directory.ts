@@ -173,6 +173,8 @@ export function listCompanyRegistrations(params: {
   region?: string;
   from?: string;
   to?: string;
+  organisation?: string;
+  registrationMethod?: string;
   search?: string;
   /** A UserStatus, or "ALL" to lift the default queue filter (pending + complements). */
   status?: string;
@@ -188,6 +190,8 @@ export function listCompanyRegistrations(params: {
   if (params.region) query.set("region", params.region);
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
+  if (params.organisation) query.set("organisation", params.organisation);
+  if (params.registrationMethod) query.set("registrationMethod", params.registrationMethod);
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
   if (params.createdBy) query.set("createdBy", params.createdBy);
@@ -298,6 +302,8 @@ const ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
   fr: {
     SUPER_ADMIN: "Super administrateur",
     ADMIN_ONEFOP: "Admin ONEFOP",
+    ADMIN_ONEFOP_REGISTRATIONS: "Admin ONEFOP – Inscriptions",
+    ADMIN_ONEFOP_SUBMISSIONS: "Admin ONEFOP – Télédéclarations",
     REGIONAL_ADMIN: "Régional",
     DIVISIONAL_ADMIN: "Divisionnaire",
     AUDITOR: "Auditeur",
@@ -307,6 +313,8 @@ const ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
   en: {
     SUPER_ADMIN: "Super administrator",
     ADMIN_ONEFOP: "ONEFOP administrator",
+    ADMIN_ONEFOP_REGISTRATIONS: "ONEFOP registrations administrator",
+    ADMIN_ONEFOP_SUBMISSIONS: "ONEFOP submissions administrator",
     REGIONAL_ADMIN: "Regional",
     DIVISIONAL_ADMIN: "Departmental",
     AUDITOR: "Auditor",
@@ -322,6 +330,8 @@ export function directoryRoleLabel(role: string, locale: UiLocale = "fr"): strin
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: "var(--cam-green-dark)",
   ADMIN_ONEFOP: "var(--cam-green)",
+  ADMIN_ONEFOP_REGISTRATIONS: "var(--cam-green)",
+  ADMIN_ONEFOP_SUBMISSIONS: "var(--cam-green)",
   REGIONAL_ADMIN: "var(--cam-info)",
   DIVISIONAL_ADMIN: "var(--cam-info)",
   AUDITOR: "var(--cam-warning)",

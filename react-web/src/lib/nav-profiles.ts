@@ -52,7 +52,7 @@ import type { UserRole } from "@/lib/roles";
  *
  * Hubs are named by `key` (HubKey), the identifier ADMIN_HUBS already carries.
  * An earlier draft added a parallel `hubId` for this; it was reverted, because
- * two names for the same six hubs is a drift hazard and `key` was already
+ * two names for the same hubs is a drift hazard and `key` was already
  * stable, short, and neither an index nor a label.
  */
 export interface NavProfile {
@@ -73,38 +73,43 @@ export interface NavProfile {
  * profiles because both its sub-routes are NATIONAL_ROLES, and
  * "administration" is absent from both territorial profiles because none of
  * its sub-routes (USER_ADMIN_ROLES, AUDIT_ROLES, SETTINGS_ROLES) include
- * them. /admin/equipe (MONITORING_ROLES), which once gave REGIONAL_ADMIN
- * that hub, now sits under "supervision".
+ * them. Territorial team monitoring has its own hub for MONITORING_ROLES.
  *
  * AUDITOR is the one deliberate exception. It can open the one ungated
- * sub-route under "supervision" (/admin/pilotage has no allowedRoles), so the
+ * sub-route under "overview" (/admin/pilotage has no allowedRoles), so the
  * principle would give it that hub too. Its nav is held
  * to the audit journal alone until the role is designed properly — see the
  * note on its entry below.
  */
 export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   SUPER_ADMIN: {
-    hubs: ["supervision", "collecte", "declarants", "qualite", "donnees", "administration"],
+    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
   },
-  // Same six hubs as SUPER_ADMIN, and intentionally written out rather than
+  // Same hubs as SUPER_ADMIN, and intentionally written out rather than
   // aliased to it: the two diverge inside "administration", where ADMIN_ONEFOP
   // sees only /admin/utilisateurs (USER_ADMIN_ROLES) while the journal
   // (AUDIT_ROLES) and settings (SETTINGS_ROLES) stay hidden by their own
   // sub-route gates. Keeping the lists separate means a later change to one
   // role's nav cannot silently move the other's.
   ADMIN_ONEFOP: {
-    hubs: ["supervision", "collecte", "declarants", "qualite", "donnees", "administration"],
+    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
   },
-  // Territorial profiles. Same hubs; they differ inside them. REGIONAL_ADMIN
-  // also sees /admin/equipe under "supervision" (MONITORING_ROLES), and
+  ADMIN_ONEFOP_REGISTRATIONS: {
+    hubs: ["supervision", "inscriptions"],
+  },
+  ADMIN_ONEFOP_SUBMISSIONS: {
+    hubs: ["supervision", "teledeclarations", "collecte", "donnees"],
+  },
+  // Territorial profiles. They differ in the team hub and campaign routes.
+  // REGIONAL_ADMIN sees /admin/equipe (MONITORING_ROLES), while
   // "collecte" resolves to /admin/campagnes for REGIONAL_ADMIN (it is in
   // CAMPAIGN_ROLES) but to /admin/cibles for DIVISIONAL_ADMIN (it is not).
   // Each hub's own territory scoping is applied server-side.
   REGIONAL_ADMIN: {
-    hubs: ["supervision", "collecte", "declarants", "qualite"],
+    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe"],
   },
   DIVISIONAL_ADMIN: {
-    hubs: ["supervision", "collecte", "declarants", "qualite"],
+    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte"],
   },
   // Deferred, deliberately minimal: "administration" resolves to
   // /admin/journal-audit, the one page in AUDIT_ROLES. The hub therefore reads
@@ -114,13 +119,11 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   AUDITOR: {
     hubs: ["administration"],
   },
-  // Read-only central staff: the national dashboard and the dossiers
-  // ("supervision"), and the establishment directory ("declarants", which
-  // resolves to /admin/etablissements -- the registration queue is
-  // APPROVAL_ROLES). No collecte, qualite, donnees or administration: those
+  // Read-only central staff: the submissions dashboard ("overview"), and the
+  // establishment directory. No collecte, qualite, donnees or administration: those
   // hubs are about acting, and every action is refused to the role.
   CENTRAL_AGENT: {
-    hubs: ["supervision", "declarants"],
+    hubs: ["supervision", "inscriptions", "teledeclarations"],
   },
   // Not a console role: the /admin layout guard (ADMIN_ROLES) turns COMPANY
   // away before any sidebar renders. Present so the Record stays total.

@@ -3,7 +3,7 @@ import { QuestionnairesService } from './questionnaires.service';
 
 /**
  * Defect 13 (2026-10-16 VT run): an endorsed file could never be returned for
- * correction. reopenForCorrection lets the two central ONEFOP roles withdraw
+ * correction. reopenForCorrection lets central admins and submission admins withdraw
  * an endorsement, with a reason, an attestation and an audit entry, while the
  * file's period is still open; the file then follows the correction flow.
  */
@@ -66,8 +66,13 @@ describe('QuestionnairesService.reopenForCorrection', () => {
     await expect(service.reopenForCorrection('db-1', REASON, true, 'sa-1', territory('SUPER_ADMIN'))).resolves.toBeTruthy();
   });
 
+  it('is open to the submissions administrator', async () => {
+    const { service } = setup();
+    await expect(service.reopenForCorrection('db-1', REASON, true, 'sub-admin-1', territory('ADMIN_ONEFOP_SUBMISSIONS'))).resolves.toBeTruthy();
+  });
+
   it('refuses every other role, before reading the file', async () => {
-    for (const role of ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT', 'COMPANY']) {
+    for (const role of ['ADMIN_ONEFOP_REGISTRATIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'CENTRAL_AGENT', 'COMPANY']) {
       const { service, prisma } = setup();
       await expect(service.reopenForCorrection('db-1', REASON, true, 'x', territory(role))).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();

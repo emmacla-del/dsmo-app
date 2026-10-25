@@ -1460,6 +1460,8 @@ export class AuthService {
       region?: string;
       from?: string;
       to?: string;
+      organisation?: string;
+      registrationMethod?: string;
       search?: string;
       status?: string;
       createdBy?: string;
@@ -1517,6 +1519,8 @@ export class AuthService {
     // own region.
     const createdBy = params.createdBy?.trim();
     if (createdBy) userWhere.createdBy = createdBy;
+    const registrationMethod = params.registrationMethod?.trim();
+    if (registrationMethod) userWhere.registrationMethod = registrationMethod;
 
     // Overdue: pending, registered before the cutoff, and not resubmitted
     // since -- the same rule as waitingSince() on each row. It replaces any
@@ -1539,6 +1543,8 @@ export class AuthService {
     };
     if (params.entityType) where.entityType = params.entityType;
     if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+    const organisation = params.organisation?.trim();
+    if (organisation) where.name = { contains: organisation, mode: 'insensitive' };
     const term = params.search?.trim();
     if (term) {
       where.OR = [
@@ -1971,6 +1977,8 @@ export class AuthService {
     'DIVISIONAL_ADMIN',
     'REGIONAL_ADMIN',
     'ADMIN_ONEFOP',
+    'ADMIN_ONEFOP_REGISTRATIONS',
+    'ADMIN_ONEFOP_SUBMISSIONS',
     'SUPER_ADMIN',
     'AUDITOR',
   ];

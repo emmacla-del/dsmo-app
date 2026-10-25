@@ -14,14 +14,14 @@ export class DistributionController {
 
     // ── GET /distribution/lists ───────────────────────────────────────────────
     @Get('lists')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.AUDITOR)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.AUDITOR)
     async getDistributionLists() {
         return this.reportService.getDistributionLists();
     }
 
     // ── POST /distribution/send ───────────────────────────────────────────────
     @Post('send')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS)
     async sendDistribution(
         @Body('reportId') reportId: string,
         @Body('distributionListIds') distributionListIds: string[],

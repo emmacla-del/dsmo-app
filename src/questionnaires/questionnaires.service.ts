@@ -385,7 +385,7 @@ function toLowerEntityType(normalizedEntityType: string): string {
 }
 
 /** The roles that may reopen an endorsed file for correction (defect 13). */
-const REOPEN_ROLES: string[] = ['SUPER_ADMIN', 'ADMIN_ONEFOP'];
+const REOPEN_ROLES: string[] = ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS'];
 
 function normalizeEntityType(type: string): string {
   const upper = type?.toUpperCase()?.replace(/[\s-]+/g, '_') || '';
@@ -3662,7 +3662,7 @@ export class QuestionnairesService {
   const role = territory?.role;
   const isCentralOrSuperAdmin =
     typeof role === 'string' &&
-    (role === 'ADMIN_ONEFOP' || role === 'SUPER_ADMIN');
+    (role === 'ADMIN_ONEFOP' || role === 'ADMIN_ONEFOP_SUBMISSIONS' || role === 'SUPER_ADMIN');
 
   if (!isCentralOrSuperAdmin) {
     return false;
