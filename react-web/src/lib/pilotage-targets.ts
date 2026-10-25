@@ -9,7 +9,13 @@ export const YEAR_MAX = 2100;
 /** PostgreSQL INTEGER. Matches the T.1 API cap. */
 export const TARGET_MAX = 2_147_483_647;
 
-export type TargetMode = "UNSET" | "DEPARTMENT" | "REGION" | "MIXED";
+/**
+ * How a region's quota is set. ENTITY_TYPE joined the union on 2026-10-25
+ * with the region x type grain: one region-level row per entity type, summed,
+ * because the types partition the register. A region in two of these at once
+ * is MIXED and carries no target.
+ */
+export type TargetMode = "UNSET" | "DEPARTMENT" | "REGION" | "ENTITY_TYPE" | "MIXED";
 export type TargetField = "inscriptionTarget" | "submissionTarget";
 
 export interface TargetDepartmentRow {
