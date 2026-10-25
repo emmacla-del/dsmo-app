@@ -132,6 +132,10 @@ describe('error message catalogue covers the backend', () => {
       verificationRefusalMessage(['nameVerified', 'phoneVerified']),
       'La durée doit être comprise entre 1 et 30 jours.',
       "Le nombre d'utilisations doit être compris entre 1 et 200.",
+      // staff-invitation-link assertServiceInScope: the two refusals its
+      // callers pass in, one for creating a link and one for using it.
+      "Ce service n'est pas couvert par ce lien.",
+      "Ce service n'est pas couvert par ce niveau.",
       'name must be a string',
       'year must not be less than 2000',
     ]) {

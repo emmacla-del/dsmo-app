@@ -105,14 +105,31 @@ test("the group link uses ?lien= on the same page", () => {
   assert.equal(groupLinkUrl("https://x.cm", "a+b"), "https://x.cm/inscription-agent?lien=a%2Bb");
 });
 
+// A link made before 2026-10-25 carries no post: its holders still choose
+// their own service and post, and the message still says so.
+const POSTLESS_LINK = {
+  id: "l", label: "Personnel DREFOP", level: "regional" as const, role: "REGIONAL_ADMIN", region: "Centre", department: null,
+  serviceCode: null, serviceName: null, positionType: null, positionTitle: null,
+  maxUses: 50, useCount: 0, expiresAt: "2026-10-14T09:00:00.000Z", revokedAt: null, createdAt: "", state: "active" as const,
+};
+
 test("the group message names the group, the territory, the approval step and the expiry", () => {
-  const link = {
-    id: "l", label: "Personnel DREFOP", level: "regional" as const, role: "REGIONAL_ADMIN", region: "Centre", department: null,
-    maxUses: 50, useCount: 0, expiresAt: "2026-10-14T09:00:00.000Z", revokedAt: null, createdAt: "", state: "active" as const,
-  };
-  const msg = groupLinkMessage(link, "https://x/inscription-agent?lien=t", "fr");
+  const msg = groupLinkMessage(POSTLESS_LINK, "https://x/inscription-agent?lien=t", "fr");
   assert.match(msg, /Personnel DREFOP, Centre\./);
+  assert.match(msg, /choisissez votre service et votre poste/);
   assert.match(msg, /un administrateur validera/);
   assert.match(msg, /2026/);
   assert.ok(msg.endsWith("https://x/inscription-agent?lien=t"));
+});
+
+test("a link that carries a post names it, and stops asking the holder to choose one", () => {
+  const link = {
+    ...POSTLESS_LINK,
+    serviceCode: "DREFOP", serviceName: "Délégation Régionale", positionType: "STAFF", positionTitle: "Cadre",
+  };
+  const msg = groupLinkMessage(link, "https://x/inscription-agent?lien=t", "fr");
+  assert.match(msg, /Personnel DREFOP, Cadre, Délégation Régionale — Centre\./);
+  assert.match(msg, /Ce lien correspond à ce poste/);
+  assert.ok(!msg.includes("choisissez votre service"));
+  assert.match(groupLinkMessage(link, "u", "en"), /This link is for that post/);
 });

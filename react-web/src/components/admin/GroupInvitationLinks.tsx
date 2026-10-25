@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { DataStateRow } from "@/components/admin/DataState";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { formatApiError } from "@/lib/pilotage-targets";
@@ -15,13 +15,19 @@ import {
   GROUP_LINK_MAX_DAYS,
   GROUP_LINK_MAX_USES,
   INVITATION_LEVELS,
+  LEVEL_ROLE,
   createGroupLink,
+  getAllServicePositions,
+  getOrganigramme,
+  getPositionTypesForRole,
   groupLinkMessage,
   groupLinkUrl,
   levelNeedsDepartment,
   levelNeedsRegion,
   listGroupLinks,
+  positionTypesForLevel,
   revokeGroupLink,
+  servicesOfferingPosition,
   territoryPhrase,
   whatsappHref,
   type GroupLink,
@@ -30,9 +36,15 @@ import {
 } from "@/lib/staff-invitations";
 
 // Group invitation links (src/lib/staff-invitations.ts): one link for a
-// group of staff, posted in a WhatsApp group. Each person who opens it picks
-// their service and post within the link's scope, and the account waits for
-// approval in "Demandes en attente" on this page.
+// group of staff, posted in a WhatsApp group. The administrator fixes the
+// post the link is for -- everyone who opens it holds it, typically the
+// "Cadre" of one unit -- and each account waits for approval in "Demandes en
+// attente" on this page.
+//
+// The post is chosen the way the MINEFOP wizard asked for it: the POST
+// first, then the unit, among the units that offer that post. Picking the
+// unit first means reading a 126-service tree to find out which posts it
+// has.
 //
 // The link itself is shown once, right after creation: the server keeps
 // only a hash of it. Revoking stops it at once.
@@ -49,9 +61,13 @@ const EMPTY = {
   level: "" as InvitationLevel | "",
   region: "",
   department: "",
+  positionType: "",
+  serviceCode: "",
   days: String(GROUP_LINK_DEFAULT_DAYS),
   uses: String(GROUP_LINK_DEFAULT_USES),
 };
+
+const INDENT = "  ";
 
 export function GroupInvitationLinks() {
   const t = useTranslations("adminGroupLinks");
@@ -115,7 +131,14 @@ export function GroupInvitationLinks() {
                   {l.createdByName && <span className="cam-admin-meta">{t("createdBy", { name: l.createdByName })}</span>}
                 </td>
                 <td>
-                  {t(`level.${l.level}`)}
+                  {l.positionTitle && l.serviceName ? (
+                    <>
+                      <span className="cam-admin-strong" style={{ display: "block" }}>{l.positionTitle}</span>
+                      <span className="cam-admin-meta" style={{ display: "block" }}>{l.serviceName}</span>
+                    </>
+                  ) : (
+                    <span style={{ display: "block" }}>{t(`level.${l.level}`)}</span>
+                  )}
                   {territoryPhrase(l.region, l.department) && (
                     <span className="cam-admin-meta" style={{ display: "block" }}>{territoryPhrase(l.region, l.department)}</span>
                   )}
@@ -187,6 +210,34 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
   const level = form.level || null;
   const needsRegion = level ? levelNeedsRegion(level) : false;
   const needsDepartment = level ? levelNeedsDepartment(level) : false;
+
+  // The organigramme, and every post in it, once the dialog is open. The
+  // post types come from the server so they carry its own generic labels.
+  const treeQuery = useQuery({ queryKey: ["minefop-services", "tree"], queryFn: getOrganigramme, enabled: open });
+  const postsQuery = useQuery({ queryKey: ["minefop-services", "positions"], queryFn: getAllServicePositions, enabled: open });
+  const typeLabelsQuery = useQuery({
+    queryKey: ["minefop-services", "position-types", level],
+    queryFn: () => getPositionTypesForRole(LEVEL_ROLE[level as InvitationLevel]),
+    enabled: open && !!level,
+  });
+
+  const posts = postsQuery.data ?? [];
+  // The organigramme is the one thing the post fields cannot work without:
+  // until both calls are in, the dropdowns say why they are empty.
+  const positionTypes =
+    level && treeQuery.data ? positionTypesForLevel(treeQuery.data, level, posts, typeLabelsQuery.data ?? [], locale) : [];
+  const services =
+    level && form.positionType && treeQuery.data
+      ? servicesOfferingPosition(treeQuery.data, level, posts, form.positionType, locale)
+      : [];
+  const organigrammeLoading = treeQuery.isLoading || postsQuery.isLoading;
+  const organigrammeState = resolveDataState({
+    isLoading: organigrammeLoading,
+    isError: treeQuery.isError || postsQuery.isError,
+    error: treeQuery.error ?? postsQuery.error,
+    rowCount: treeQuery.data && postsQuery.data ? positionTypes.length : null,
+  });
+
   const days = Number(form.days);
   const uses = Number(form.uses);
   const complete =
@@ -194,6 +245,8 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
     !!level &&
     (!needsRegion || !!form.region) &&
     (!needsDepartment || !!form.department) &&
+    !!form.positionType &&
+    !!form.serviceCode &&
     Number.isInteger(days) && days >= 1 && days <= GROUP_LINK_MAX_DAYS &&
     Number.isInteger(uses) && uses >= 1 && uses <= GROUP_LINK_MAX_USES;
 
@@ -204,6 +257,8 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
         level: level as InvitationLevel,
         region: needsRegion ? form.region : undefined,
         department: needsDepartment ? form.department : undefined,
+        positionType: form.positionType,
+        serviceCode: form.serviceCode,
         expiresInDays: days,
         maxUses: uses,
       }),
@@ -213,12 +268,16 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
     },
   });
 
+  // Changing the level or the post type empties what depended on it: the
+  // services on offer are not the same, and a stale code would be refused by
+  // the server rather than by the form.
   const set = (key: keyof typeof EMPTY) => (value: string) =>
     setForm((f) => ({
       ...f,
       [key]: value,
-      ...(key === "level" ? { department: "" } : {}),
+      ...(key === "level" ? { department: "", positionType: "", serviceCode: "" } : {}),
       ...(key === "region" ? { department: "" } : {}),
+      ...(key === "positionType" ? { serviceCode: "" } : {}),
     }));
 
   const close = () => {
@@ -320,6 +379,52 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
               </label>
             ))}
           </fieldset>
+
+          {level && (
+            <>
+              <DataState
+                state={organigrammeState}
+                resource={t("organigrammeResource")}
+                error={treeQuery.error ?? postsQuery.error}
+                onRetry={() => { treeQuery.refetch(); postsQuery.refetch(); }}
+                dense
+              />
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="group-position">{t("postLabel")}</label>
+                <select
+                  id="group-position"
+                  className="cam-select"
+                  value={form.positionType}
+                  onChange={(e) => set("positionType")(e.target.value)}
+                  disabled={organigrammeState !== "ready"}
+                  required
+                >
+                  <option value="" disabled hidden>{organigrammeLoading ? t("loading") : t("selectPost")}</option>
+                  {positionTypes.map((p) => (
+                    <option key={p.positionType} value={p.positionType}>{p.label}</option>
+                  ))}
+                </select>
+                <p className="cam-admin-meta">{t("postHint")}</p>
+              </div>
+
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="group-service">{t("serviceLabel")}</label>
+                <select
+                  id="group-service"
+                  className="cam-select"
+                  value={form.serviceCode}
+                  onChange={(e) => set("serviceCode")(e.target.value)}
+                  disabled={!form.positionType || organigrammeState !== "ready"}
+                  required
+                >
+                  <option value="" disabled hidden>{form.positionType ? t("selectService") : t("selectPostFirst")}</option>
+                  {services.map((s) => (
+                    <option key={s.code} value={s.code}>{INDENT.repeat(s.depth * 2) + s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
           {needsRegion && (
             <div style={{ display: "grid", gridTemplateColumns: needsDepartment ? "1fr 1fr" : "1fr", gap: "0 var(--cam-space-3)" }}>
