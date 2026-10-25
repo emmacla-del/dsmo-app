@@ -944,6 +944,32 @@ Approved changes on record:
   write-in slots (second phones, PO box, website, « Autre (à préciser) »,
   domain/reason lines 2–3) remain optional pending the owner's ruling.
 
+- 2026-10-25 — registration coverage measures the year, not the register
+  (`coverageRate` in `src/pilotage/pilotage-coverage.ts`, its three call sites
+  in `pilotage.service.ts`). Issue: the rate divided the cumulative
+  `registered` stock — every establishment ever registered and still active —
+  by the sum of that year's registration-campaign quotas
+  (`onefopCampaignIds`, purpose = REGISTRATION). That is a stock over a flow:
+  from the second year on, the ratio passed 100 % on registrations the year's
+  quota never asked for, every territory settled in the top band whatever it
+  had done, and the six attainment bands stopped discriminating. Fix: the
+  numerator becomes `registeredInYear`, which the response already carried and
+  displayed in its own column. Consequences, stated to the owner before
+  approval: every rate on the screen changes, usually downwards; a past year
+  re-reads with its own registrations only; and the ranking's band
+  distribution moves with it. Nothing is removed — the cumulative stock stays
+  in the grid's « Inscrits » column beside the rate, so both readings remain
+  available. The quotas themselves, the campaigns folded, the variables, the
+  exports and the dataset version are untouched; this is the coverage view's
+  ratio alone, and no SPSS, Excel or PDF output reads it. The same numerator
+  is used by the `totals` row added in the same pass, so the headline and the
+  territory rows cannot disagree. Approved by the owner in chat, 2026-10-25,
+  after the trade-off was put to them twice. NOT decided here: whether a
+  registration quota is meant as a target for the register's size rather than
+  for the year's new registrations — if ONEFOP says it is the former, this
+  entry is what to revisit, and the fix would be to change the denominator,
+  not to put the stock back in the numerator.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
