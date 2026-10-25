@@ -119,6 +119,9 @@ const TEXT_ALLOWLIST = new Map([
   ["src/lib/onefop-validation.ts#Year must be ≥ 1900", "validation bound, not a reporting year"],
   ["src/lib/onefop-validation.ts#Saisissez une date réelle au format JJ/MM/AAAA, pas dans le futur (ex. 15/03/2019)", "example date showing the expected format, not a reporting year"],
   ["src/lib/onefop-validation.ts#Enter a real date as DD/MM/YYYY, not in the future (e.g. 15/03/2019)", "example date showing the expected format, not a reporting year"],
+  // Template tails, so each key opens with the ":" printed after the row number.
+  ["src/lib/onefop-validation.ts#: la date de début s'écrit MM/AAAA (ex. 03/2026)", "example date showing the expected format, not a reporting year"],
+  ["src/lib/onefop-validation.ts#: the start date is written MM/YYYY (e.g. 03/2026)", "example date showing the expected format, not a reporting year"],
 ]);
 
 function isTestFile(filePath) {
