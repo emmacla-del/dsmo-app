@@ -1047,11 +1047,15 @@ Approved changes on record:
   database inside a rolled-back transaction: three types coexist in one
   region, a duplicate type is refused with 23505 on the new index, a second
   all-types row is refused on the old name, department rows are unaffected,
-  and nothing persisted. Approved by the owner in chat, 2026-10-25. STILL
-  OPEN: the per-type save has never run end to end — the live database holds
+  and nothing persisted. Approved by the owner in chat, 2026-10-25. The write is
+  now covered against real Postgres by `src/pilotage/campaign-quota-pg.spec.ts`
+  (`npm run test:pg`; opt-in on PG_INTEGRATION=1, every test in a transaction
+  that is always rolled back), which is the one thing the mocked `ScopedTable`
+  tests cannot do: eight tests drive the real `writeQuotas`, including the mode
+  switches and the index refusing a second row for one type. STILL OPEN: the
+  save has never run end to end through the editor — the live database holds
   no REGISTRATION campaign, so nothing can be saved against one until ONEFOP
-  creates it, and the editor's own save path is still unexercised by a test
-  that touches Postgres.
+  creates it.
 
 ---
 
