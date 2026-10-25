@@ -528,7 +528,7 @@ export default function RegisterPage() {
           )}
           {field.kind === "year" ? (
             <select {...controlProps}>
-              <option value=""></option>
+              <option value="" hidden></option>
               {yearOptions(entityData[field.key]).map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -539,7 +539,10 @@ export default function RegisterPage() {
             // Disabled until a sector is chosen, like the department before
             // a region: the list is that sector's branches.
             <select {...controlProps} disabled={!entityData.activitySector}>
-              <option value="">
+              <option
+                value=""
+                hidden={!selectStatusLabel(sectorsQuery, !entityData.activitySector)}
+              >
                 {selectStatusLabel(sectorsQuery, !entityData.activitySector)}
               </option>
               {branchesFor(sectorsQuery.data, entityData.activitySector, entityType).map((b) => (
@@ -550,7 +553,9 @@ export default function RegisterPage() {
             </select>
           ) : field.kind === "select" ? (
             <select {...controlProps}>
-              <option value=""></option>
+              {/* Keep required choices unanswered by default while omitting
+                  the blank option from every opened dropdown in this wizard. */}
+              <option value="" hidden></option>
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {localized(o.label, locale)}
@@ -1639,7 +1644,7 @@ export default function RegisterPage() {
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
-                    <option value=""></option>
+                    <option value="" hidden></option>
                     {getRespondentFunctionOptions(entityType).map((o) => (
                       <option key={o.value} value={o.value}>
                         {localized(o.label, locale)}
@@ -1838,7 +1843,9 @@ export default function RegisterPage() {
                       setSubdivisionName("");
                     }}
                   >
-                    <option value="">{selectStatusLabel(regionsQuery)}</option>
+                    <option value="" hidden={!selectStatusLabel(regionsQuery)}>
+                      {selectStatusLabel(regionsQuery)}
+                    </option>
                     {regionsQuery.data?.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -1871,7 +1878,10 @@ export default function RegisterPage() {
                       setSubdivisionName("");
                     }}
                   >
-                    <option value="">
+                    <option
+                      value=""
+                      hidden={!selectStatusLabel(departmentsQuery, !regionId)}
+                    >
                       {selectStatusLabel(
                         departmentsQuery,
                         !regionId
@@ -1911,7 +1921,10 @@ export default function RegisterPage() {
                       setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
                   >
-                    <option value="">
+                    <option
+                      value=""
+                      hidden={!selectStatusLabel(subdivisionsQuery, !departmentId)}
+                    >
                       {selectStatusLabel(
                         subdivisionsQuery,
                         !departmentId

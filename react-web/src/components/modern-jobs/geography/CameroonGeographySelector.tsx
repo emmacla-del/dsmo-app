@@ -288,7 +288,7 @@ export function CameroonGeographySelector({
               cursor: disabled ? "not-allowed" : "pointer",
             }}
           >
-            <option value="">
+            <option value="" hidden>
               {loadingRegions
                 ? t("loadingRegions")
                 : t("selectRegion")}
@@ -355,7 +355,7 @@ export function CameroonGeographySelector({
                 cursor: disabled || !selectedRegionId ? "not-allowed" : "pointer",
               }}
             >
-              <option value="">
+              <option value="" hidden>
                 {!selectedRegionId
                   ? t("chooseRegionFirst")
                   : t("selectDepartment")}
@@ -425,7 +425,7 @@ export function CameroonGeographySelector({
                 cursor: disabled || !selectedDeptId ? "not-allowed" : "pointer",
               }}
             >
-              <option value="">
+              <option value="" hidden>
                 {!selectedDeptId
                   ? t("chooseDepartmentFirst")
                   : t("selectSubdivision")}

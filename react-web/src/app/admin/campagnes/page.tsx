@@ -983,7 +983,7 @@ function CreateCampaignDialog({
                   onChange={(e) => setReferenceQuarter(e.target.value)}
                   required
                 >
-                  <option value="">{t("select")}</option>
+                  <option value="" hidden>{t("select")}</option>
                   <option value="1">{t("quarter1")}</option>
                   <option value="2">{t("quarter2")}</option>
                   <option value="3">{t("quarter3")}</option>

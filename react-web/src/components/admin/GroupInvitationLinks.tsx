@@ -326,7 +326,7 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
               <div className="cam-field">
                 <label className="cam-admin-label" htmlFor="group-region">{t("regionLabel")}</label>
                 <select id="group-region" className="cam-select" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
-                  <option value="" disabled>{t("selectRegion")}</option>
+                  <option value="" disabled hidden>{t("selectRegion")}</option>
                   {regions.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -341,7 +341,7 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
                     disabled={!form.region}
                     required
                   >
-                    <option value="" disabled>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
+                    <option value="" disabled hidden>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
                     {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
