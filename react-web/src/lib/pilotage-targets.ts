@@ -32,6 +32,12 @@ export interface TargetRegionRow {
   inscriptionTarget?: number | null;
   submissionTarget?: number | null;
   departments: TargetDepartmentRow[];
+  /**
+   * Quota per entity type, keyed by OnefopEntityType code. Empty unless the
+   * region is in ENTITY_TYPE mode; absent from a backend older than
+   * 2026-10-25, which the editor reads as "none set".
+   */
+  byEntityType?: Record<string, number>;
 }
 
 export interface CampaignQuotaSummary {
@@ -181,6 +187,11 @@ export function nonRespondentsHref(campaignId: string): string {
 }
 
 export interface TargetPutEntry {
+  /**
+   * The entity type this quota is for, or null/absent for every type.
+   * Region level only: the server refuses a type on a department row.
+   */
+  entityType?: string | null;
   regionId: string;
   departmentId?: string | null;
   inscriptionTarget?: number;

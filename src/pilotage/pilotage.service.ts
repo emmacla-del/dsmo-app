@@ -1516,6 +1516,12 @@ function labelTargets(regions: ShapedRegion[], field: TargetField) {
       name: department.name,
       [field]: department.target,
     })),
+    /**
+     * The region's per-type quotas, so the targets editor can load what it
+     * is about to edit. An object rather than a Map, because this crosses
+     * the wire; empty unless the region is in ENTITY_TYPE mode.
+     */
+    byEntityType: Object.fromEntries(region.byEntityType),
   }));
 }
 

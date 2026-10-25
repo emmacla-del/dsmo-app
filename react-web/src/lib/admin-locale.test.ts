@@ -154,7 +154,7 @@ test("target payload helpers: English labels and messages, French default kept",
   const invalid = buildTargetPayload({
     field: "submissionTarget",
     regions: [centre],
-    drafts: { r1: { regionId: "r1", mode: "REGION", regionInput: "-3", departmentInputs: { d1: "" } } },
+    drafts: { r1: { regionId: "r1", mode: "REGION", regionInput: "-3", departmentInputs: { d1: "" }, entityTypeInputs: {} } },
     originalCentral: null,
     centralInput: "",
     locale: "en",
