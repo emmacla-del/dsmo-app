@@ -156,8 +156,8 @@ const minefopServices = [
     { code: 'DDEFOP-BAG', category: 'DECONCENTRE', level: 2, parentCode: 'DDEFOP', name: "Bureau des Affaires Générales", acronym: 'BAG', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 308 },
     { code: 'DDEFOP-BACL', category: 'DECONCENTRE', level: 2, parentCode: 'DDEFOP', name: "Bureau de l'Accueil, du Courrier et de Liaison", acronym: 'BACL', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 309 },
 
-    // ─── RATTACHE – roots ──────────────────────────────────────────────────────
-    { code: 'ONEFOP', category: 'RATTACHE', level: 1, parentCode: null, name: "Observatoire National de l'Emploi et de la Formation Professionnelle", acronym: 'ONEFOP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 400 },
+    // ─── RATTACHE services ────────────────────────────────────────────────────
+    { code: 'ONEFOP', category: 'RATTACHE', level: 2, parentCode: 'SG', name: "Observatoire National de l'Emploi et de la Formation Professionnelle", acronym: 'ONEFOP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 43 },
     { code: 'PIAASI', category: 'RATTACHE', level: 1, parentCode: null, name: "Projet Intégré d'Appui aux Acteurs du Secteur Informel", acronym: 'PIAASI', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 401 },
     { code: 'COSUP', category: 'RATTACHE', level: 1, parentCode: null, name: "Centres d'Organisation Scolaire, Universitaire et Professionnelle", acronym: 'COSUP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 402 },
 ];
@@ -332,6 +332,9 @@ export const servicePositions: {
         { serviceCode: 'DDEFOP-SFOE-BGSF', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de la gestion des structures de formation', titleEn: 'Head of Training Structures Management Bureau', level: 1, orderIndex: 1 },
         { serviceCode: 'DDEFOP-BAG', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau des Affaires Générales', titleEn: 'Head of General Affairs Bureau', level: 1, orderIndex: 1 },
         { serviceCode: 'DDEFOP-BACL', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de l\'Accueil, du Courrier et de Liaison', titleEn: 'Head of Reception, Mail and Liaison Bureau', level: 1, orderIndex: 1 },
+        // ONEFOP, attached to the Secrétariat Général
+        { serviceCode: 'ONEFOP', positionType: 'DIRECTEUR', title: 'Secrétaire Permanent', titleEn: 'Permanent Secretary', level: 1, orderIndex: 1 },
+        { serviceCode: 'ONEFOP', positionType: 'CHEF_SERVICE', title: 'Chef du Service des Statistiques', titleEn: 'Head of Statistics Service', level: 1, orderIndex: 2 },
     ];
 
 // ============================================================

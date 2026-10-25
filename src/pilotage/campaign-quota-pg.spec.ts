@@ -30,6 +30,7 @@ import { join } from 'path';
 import { PilotageService } from './pilotage.service';
 import { parseTargetBody, ParsedTargetBody } from './pilotage-validation';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { SystemSettingsService } from '../system-settings/system-settings.service';
 
 const ENABLED = process.env.PG_INTEGRATION === '1';
 const SENTINEL = 'ROLLBACK_SENTINEL';
@@ -137,7 +138,10 @@ const quota = (regionId: string, entityType: string | null, submissionTarget: nu
 
   beforeAll(async () => {
     prisma = new PrismaClient();
-    const service = new PilotageService(prisma as unknown as PrismaService);
+    const service = new PilotageService(
+      prisma as unknown as PrismaService,
+      { getSettings: async () => ({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+    );
     writeQuotas = (service as unknown as { writeQuotas: WriteQuotas }).writeQuotas.bind(
       service,
     ) as WriteQuotas;

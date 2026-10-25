@@ -97,6 +97,15 @@ function CoverageContent({
         return `/admin/inscriptions?${params.toString()}`;
       }
     : null;
+  const overdueQueueHref = canReadRegistrationQueue
+    ? (filters: { region?: string; department?: string; entityType?: string }) => {
+        const params = new URLSearchParams({ status: "OVERDUE" });
+        if (filters.region) params.set("region", filters.region);
+        if (filters.department) params.set("department", filters.department);
+        if (filters.entityType) params.set("type", filters.entityType);
+        return `/admin/inscriptions?${params.toString()}`;
+      }
+    : null;
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year, semester, quarter],
     queryFn: () => quarter != null
@@ -137,6 +146,9 @@ function CoverageContent({
     <CoverageTable
       data={query.data}
       expanded={expanded}
+      overdueHref={overdueQueueHref
+        ? (regionName, departmentName) => overdueQueueHref({ region: regionName, department: departmentName })
+        : undefined}
       onToggle={(regionId) =>
         setExpanded((current) => {
           const next = new Set(current);
@@ -149,7 +161,7 @@ function CoverageContent({
   );
   const tableTools = (
     <div className="coverage-period-tools">
-      <CoverageTableHelp />
+      <CoverageTableHelp overdueDays={query.data.overdueDays} />
     </div>
   );
   const periodSelector = (
@@ -190,7 +202,6 @@ function CoverageContent({
           {tTargets("quotaCoverageWithoutTarget", { count: withoutTarget })}
         </p>
       )}
-      <p className="text-sm text-muted-foreground">{tTargets("quotaCoverageRegisterDefinition")}</p>
       {query.data.period.campaignIds.length > 0 ? (
         <div className="text-sm">
           <span className="font-medium">{tTargets("quotaCampaignSourcesLabel")}</span>
@@ -290,6 +301,10 @@ function CoverageContent({
         <TabsContent value="type" className="mt-0">
           <CoverageEntityTypeTable
             rows={byEntityType}
+            overdueDays={query.data.overdueDays}
+            overdueHref={overdueQueueHref
+              ? (entityType) => overdueQueueHref({ entityType })
+              : undefined}
           />
         </TabsContent>
       </Tabs>

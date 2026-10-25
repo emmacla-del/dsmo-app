@@ -1,14 +1,13 @@
 /**
  * Fills service_positions, and nothing else.
  *
- * The organigramme is in the database -- 126 services -- but the posts they
- * offer are not: service_positions is empty, so every post dropdown in the
- * platform offers only the generic "other post" fallback, and the job title
- * ServicePosition.title is meant to resolve has nothing to resolve from.
+ * The organigramme is in the database -- 126 services -- and this is the
+ * narrow, repeatable updater for their position catalogue. The full
+ * prisma/seed.ts also creates test accounts, sample companies and specimen
+ * ONEFOP submissions, so it must not be run against a database with real
+ * registrations.
  *
- * prisma/seed.ts would fix that, but it also creates test users, sample
- * companies and specimen ONEFOP submissions, which must not touch a database
- * holding real registrations. This takes only the two steps that matter:
+ * This takes only the two position-catalogue steps that matter:
  *
  *   1. the explicit positions, imported from the seed so the two cannot
  *      drift apart;

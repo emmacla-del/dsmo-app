@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -139,6 +140,7 @@ export default function CampagnesPage() {
   const [extendDate, setExtendDate] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionSuccessCampaignId, setActionSuccessCampaignId] = useState<string | null>(null);
 
   const allQuery = useQuery({
     queryKey: ["campaigns", "all"],
@@ -146,9 +148,10 @@ export default function CampagnesPage() {
     enabled: !isLoading && !forbidden,
   });
 
-  const done = (message: string) => {
+  const done = (message: string, registrationCampaignId?: string) => {
     queryClient.invalidateQueries({ queryKey: ["campaigns"] });
     setActionSuccess(message);
+    setActionSuccessCampaignId(registrationCampaignId ?? null);
     setActionError(null);
     setDialog(null);
     setCreateOpen(false);
@@ -241,7 +244,25 @@ export default function CampagnesPage() {
       {actionSuccess && (
         <div role="status" className="cam-admin-notice cam-admin-notice--success">
           <span>{actionSuccess}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setActionSuccess(null)}>×</button>
+          {actionSuccessCampaignId && (
+            <Link
+              className="cam-button cam-button-secondary cam-button-sm"
+              href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(actionSuccessCampaignId)}`}
+            >
+              {t("registrationSetQuotas")}
+            </Link>
+          )}
+          <button
+            type="button"
+            className="cam-admin-notice-close"
+            aria-label={t("closeAriaLabel")}
+            onClick={() => {
+              setActionSuccess(null);
+              setActionSuccessCampaignId(null);
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -567,7 +588,7 @@ export default function CampagnesPage() {
       <CreateCampaignDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(msg) => done(msg)}
+        onCreated={(msg, campaignId) => done(msg, campaignId)}
       />
     </div>
   );
@@ -825,7 +846,7 @@ function CreateCampaignDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (msg: string) => void;
+  onCreated: (msg: string, registrationCampaignId?: string) => void;
 }) {
   const tRoot = useTranslations();
   const t = useTranslations("adminCampagnesPage");
@@ -863,9 +884,10 @@ function CreateCampaignDialog({
         referenceYear: effectiveModule === "ONEFOP" ? Number(referenceYear) : undefined,
         referenceQuarter: effectiveModule === "ONEFOP" ? Number(referenceQuarter) : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (campaign) => {
       onCreated(
         registration ? t("registrationCreated") : t("collectionCreated"),
+        registration ? campaign.id : undefined,
       );
       onClose();
     },
@@ -928,38 +950,46 @@ function CreateCampaignDialog({
             className="cam-select"
             value={purpose}
             onChange={(e) => setPurpose(e.target.value as CampaignPurpose)}
-            aria-describedby="cam-purpose-hint"
+            aria-describedby={registration ? "cam-purpose-hint" : undefined}
           >
             <option value="COLLECTION">{t("purposeCollection")}</option>
             <option value="REGISTRATION">{t("purposeRegistration")}</option>
           </select>
-          <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
-            {t("purposeHint")}
-          </p>
+          {registration && (
+            <p id="cam-purpose-hint" className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
+              {t("purposeHint")}
+            </p>
+          )}
         </div>
 
-        {/* A disabled <select> shows no tooltip of its own, so the reason sits on the field wrapper. */}
-        <div
-          className="cam-field"
-          title={registration ? t("registrationOnefopOnly") : undefined}
-        >
-          <label className="cam-admin-label" htmlFor="cam-col-type">{t("moduleLabel")}</label>
-          <select
-            id="cam-col-type"
-            className="cam-select"
-            value={effectiveModule}
-            onChange={(e) => setCollectionType(e.target.value as "DSMO" | "ONEFOP")}
-            disabled={registration}
-            style={registration ? { pointerEvents: "none" } : undefined}
-          >
-            <option value="DSMO">{t("moduleDsmo")}</option>
-            <option value="ONEFOP">{t("moduleOnefop")}</option>
-          </select>
-        </div>
+        {registration ? (
+          <div className="cam-field" role="group" aria-labelledby="cam-col-type-label" aria-describedby="cam-module-registration-hint">
+            <span id="cam-col-type-label" className="cam-admin-label">{t("moduleLabel")}</span>
+            <p style={{ margin: 0 }}>{t("moduleOnefop")}</p>
+            <p id="cam-module-registration-hint" className="cam-admin-meta" style={{ margin: 0 }}>
+              {t("registrationOnefopOnly")}
+            </p>
+          </div>
+        ) : (
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="cam-col-type">{t("moduleLabel")}</label>
+            <select
+              id="cam-col-type"
+              className="cam-select"
+              value={collectionType}
+              onChange={(e) => setCollectionType(e.target.value as "DSMO" | "ONEFOP")}
+            >
+              <option value="DSMO">{t("moduleDsmo")}</option>
+              <option value="ONEFOP">{t("moduleOnefop")}</option>
+            </select>
+          </div>
+        )}
 
         {effectiveModule === "ONEFOP" && (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
+          <section className="cam-admin-form-section" aria-labelledby="cam-reference-period-title">
+            <h3 id="cam-reference-period-title" className="cam-admin-form-heading">{t("referencePeriodTitle")}</h3>
+            <p className="cam-admin-meta">{t("referencePeriodDescription")}</p>
+            <div className="cam-admin-form-pair">
               <div className="cam-field">
                 <label className="cam-admin-label" htmlFor="cam-ref-year">{t("referenceYear")}</label>
                 <input
@@ -991,52 +1021,55 @@ function CreateCampaignDialog({
                 </select>
               </div>
             </div>
-            <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
-              {t("referenceHint")}
-            </p>
-          </div>
+          </section>
         )}
 
-        <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="cam-freq-type">{t("periodicityLabel")}</label>
-          <select
-            id="cam-freq-type"
-            className="cam-select"
-            value={periodicity}
-            onChange={(e) => setPeriodicity(e.target.value as CampaignPeriodicity)}
-          >
-            {CAMPAIGN_PERIODICITIES.map((value) => (
-              <option key={value} value={value}>
-                {t(`periodicity.${value}`)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <section className="cam-admin-form-section" aria-labelledby="cam-schedule-title">
+          <h3 id="cam-schedule-title" className="cam-admin-form-heading">{t("campaignScheduleTitle")}</h3>
+          <p className="cam-admin-meta">{t("campaignScheduleDescription")}</p>
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="cam-freq-type">{t("periodicityLabel")}</label>
+            <select
+              id="cam-freq-type"
+              className="cam-select"
+              value={periodicity}
+              onChange={(e) => setPeriodicity(e.target.value as CampaignPeriodicity)}
+              aria-describedby="cam-periodicity-hint"
+            >
+              {CAMPAIGN_PERIODICITIES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`periodicity.${value}`)}
+                </option>
+              ))}
+            </select>
+            <p id="cam-periodicity-hint" className="cam-admin-meta">{t("periodicityHint")}</p>
+          </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
-          <div className="cam-field">
-            <label className="cam-admin-label" htmlFor="cam-start-date">{t("startDate")}</label>
-            <input
-              id="cam-start-date"
-              type="date"
-              className="cam-input"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
+          <div className="cam-admin-form-pair">
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="cam-start-date">{t("startDate")} <span aria-hidden="true">*</span></label>
+              <input
+                id="cam-start-date"
+                type="date"
+                className="cam-input"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="cam-field">
+              <label className="cam-admin-label" htmlFor="cam-deadline">{t("deadlineLabel")} <span aria-hidden="true">*</span></label>
+              <input
+                id="cam-deadline"
+                type="date"
+                className="cam-input"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <div className="cam-field">
-            <label className="cam-admin-label" htmlFor="cam-deadline">{t("deadlineLabel")}</label>
-            <input
-              id="cam-deadline"
-              type="date"
-              className="cam-input"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              required
-            />
-          </div>
-        </div>
+        </section>
 
         <div className="cam-field">
           <label className="cam-admin-label" htmlFor="cam-desc">{t("descriptionLabel")}</label>
