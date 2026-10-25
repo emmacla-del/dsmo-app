@@ -1876,6 +1876,7 @@
     "annualCoverageRate": "Overall quota attainment",
     "annualRegisteredOverQuota": "Ratio: {registered} / {quota}",
     "coverageTotalScopeNote": "The total counts each company once, including companies without an entity type.",
+    "coverageTotalIndeterminateNote": "A region mixes a regional quota with department quotas: until its mode is chosen its quota stays indeterminate, and the total states none.",
     "quotaCoverageRegisterDefinition": "The coverage rate counts active companies with an establishment ID approved in the selected year. Register totals count all active accounts, including those without an ID.",
     "quotaCampaignSourcesLabel": "Quota campaigns included:",
     "quotaCampaignIdsLabel": "Quota campaign IDs included:",

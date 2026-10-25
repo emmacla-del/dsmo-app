@@ -245,8 +245,14 @@ export interface CoverageEntityTypeRow extends StockCounts {
 }
 
 export interface CoverageTotals extends StockCounts {
-  inscriptionTarget: number;
+  /**
+   * Null when no total can be stated: a MIXED region in scope has no
+   * determinate quota, so neither has the grid. `targetIndeterminate` says
+   * that is the reason, as opposed to a scope with no quota at all.
+   */
+  inscriptionTarget: number | null;
   rate: number | null;
+  targetIndeterminate?: boolean;
 }
 
 export interface CoverageResponse {

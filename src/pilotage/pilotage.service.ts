@@ -230,7 +230,7 @@ export class PilotageService {
       return {
         year,
         period,
-        totals: { ...emptyCounts(), inscriptionTarget: 0, rate: null },
+        totals: { ...emptyCounts(), inscriptionTarget: 0, rate: null, targetIndeterminate: false },
         central: null,
         unassigned: null,
         nullEntityType: null,
@@ -320,19 +320,36 @@ export class PilotageService {
     // that are intentionally kept out of the territorial and type tables.
     const totalsCounts = emptyCounts();
     for (const company of companies) applyRow(totalsCounts, toStockRow(company), year);
+    /**
+     * A MIXED region has no determinate target, so neither has the grid.
+     *
+     * summarizeRegion refuses to total a region holding both a region-level
+     * quota row and department rows: region.target is null and its own row
+     * reads "—". Summing its departments here would quietly supply the figure
+     * the grid declines to give, drop the region-level row from the sum, and
+     * leave a total that does not equal the column above it. The total says
+     * "—" instead, on the same terms as the row, and the table notes why.
+     *
+     * At department scope the question does not arise: the reader sees one
+     * department, whose own target is unambiguous, and a region-level row
+     * could never apply to it.
+     */
+    const indeterminateTarget = !hideRegionStock && regions.some((region) => region.mode === 'MIXED');
     const territorialTarget = regions.reduce(
       (total, region) => total + (
         hideRegionStock
           ? region.departments.reduce((sum, department) => sum + (department.target ?? 0), 0)
-          : region.target ?? region.departments.reduce((sum, department) => sum + (department.target ?? 0), 0)
+          : region.target ?? 0
       ),
       0,
     );
-    const totalTarget = territorialTarget + (national ? centralTarget ?? 0 : 0);
+    const totalTarget = indeterminateTarget ? null : territorialTarget + (national ? centralTarget ?? 0 : 0);
     const totals = {
       ...totalsCounts,
       inscriptionTarget: totalTarget,
       rate: coverageRate(totalsCounts.registeredInYear, totalTarget),
+      /** True when a MIXED region leaves the grid with no total to state. */
+      targetIndeterminate: indeterminateTarget,
     };
 
     return {
