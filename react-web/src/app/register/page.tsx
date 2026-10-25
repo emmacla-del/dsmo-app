@@ -413,6 +413,78 @@ export default function RegisterPage() {
     );
   }
 
+  /**
+   * One level of the location cascade. The three rows -- region, department,
+   * arrondissement -- differ only in their label, the query behind them, the
+   * level above that gates them, and what a new answer clears below it; every
+   * other part of the row was written out three times.
+   *
+   * `gatedBy` is "the level above is unanswered": it greys the row, keeps the
+   * prompt empty (selectStatusLabel says nothing about a list nobody can
+   * reach yet) and, unless `disabled` says otherwise, disables the control.
+   * A function rather than a component on purpose -- it closes over this
+   * render's helpers, and a component declared here would be a new type on
+   * every render, remounting the select and losing its focus.
+   */
+  function locationRow({
+    id,
+    label,
+    query,
+    value,
+    gatedBy,
+    disabled,
+    hint,
+    onSelect,
+  }: {
+    id: string;
+    label: string;
+    query: {
+      isFetching: boolean;
+      isError: boolean;
+      refetch: () => unknown;
+      data?: { id: string; name: string }[];
+    };
+    value: string;
+    gatedBy?: boolean;
+    disabled?: boolean;
+    hint?: string;
+    /** The chosen id, and its name, which the review step reads back. */
+    onSelect: (id: string, name: string) => void;
+  }) {
+    return (
+      <FormRow
+        htmlFor={id}
+        label={label}
+        required
+        gated={gatedBy}
+        error={fieldErrorLine(id)}
+        hint={hint}
+      >
+        <div className="input-row">
+          <select
+            id={id}
+            aria-required={true}
+            {...invalidProps(id)}
+            value={value}
+            disabled={disabled ?? gatedBy}
+            onChange={(e) => {
+              const next = e.target.value;
+              onSelect(next, query.data?.find((item) => item.id === next)?.name || "");
+            }}
+          >
+            <BlankOption label={selectStatusLabel(query, gatedBy)} />
+            {query.data?.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loadRetry(query)}
+      </FormRow>
+    );
+  }
+
   // Which codes are long enough to need the middle width. Named by key
   // rather than inferred, because "it is a number written as text" describes
   // the NIU and the CNPS number but also the P.O. box, which is short.
@@ -1810,113 +1882,61 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow
-                htmlFor="reg-region"
-                label={t("registerPage.regionLabel")}
-                required
-                error={fieldErrorLine("reg-region")}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-region"
-                    aria-required={true}
-                    {...invalidProps("reg-region")}
-                    value={regionId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      // A new region invalidates the two fields below it.
-                      // That already happened silently; now it says so,
-                      // because a respondent who had answered them would
-                      // otherwise find them blank with no explanation.
-                      if (departmentId || subdivisionId) {
-                        setSnackbar(t("registerPage.locationResetSnackbar"));
-                      }
-                      setRegionId(id);
-                      setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
-                      setDepartmentId("");
-                      setDepartmentName("");
-                      setSubdivisionId("");
-                      setSubdivisionName("");
-                    }}
-                  >
-                    <BlankOption label={selectStatusLabel(regionsQuery)} />
-                    {regionsQuery.data?.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(regionsQuery)}
-              </FormRow>
+              {locationRow({
+                id: "reg-region",
+                label: t("registerPage.regionLabel"),
+                query: regionsQuery,
+                value: regionId,
+                onSelect: (id, name) => {
+                  // A new region invalidates the two fields below it. That
+                  // already happened silently; now it says so, because a
+                  // respondent who had answered them would otherwise find
+                  // them blank with no explanation.
+                  if (departmentId || subdivisionId) {
+                    setSnackbar(t("registerPage.locationResetSnackbar"));
+                  }
+                  setRegionId(id);
+                  setRegionName(name);
+                  setDepartmentId("");
+                  setDepartmentName("");
+                  setSubdivisionId("");
+                  setSubdivisionName("");
+                },
+              })}
 
-              <FormRow
-                htmlFor="reg-department"
-                label={t("registerPage.departmentLabel")}
-                gated={!regionId}
-                required
-                error={fieldErrorLine("reg-department")}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-department"
-                    aria-required={true}
-                    {...invalidProps("reg-department")}
-                    value={departmentId}
-                    disabled={!regionId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setDepartmentId(id);
-                      setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
-                      setSubdivisionId("");
-                      setSubdivisionName("");
-                    }}
-                  >
-                    <BlankOption label={selectStatusLabel(departmentsQuery, !regionId)} />
-                    {departmentsQuery.data?.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(departmentsQuery)}
-              </FormRow>
+              {locationRow({
+                id: "reg-department",
+                label: t("registerPage.departmentLabel"),
+                query: departmentsQuery,
+                value: departmentId,
+                gatedBy: !regionId,
+                onSelect: (id, name) => {
+                  setDepartmentId(id);
+                  setDepartmentName(name);
+                  setSubdivisionId("");
+                  setSubdivisionName("");
+                },
+              })}
 
-              <FormRow
-                htmlFor="reg-subdivision"
-                label={t("registerPage.subdivisionLabel")}
-                gated={!departmentId}
-                required
-                error={fieldErrorLine("reg-subdivision")}
+              {locationRow({
+                id: "reg-subdivision",
+                label: t("registerPage.subdivisionLabel"),
+                query: subdivisionsQuery,
+                value: subdivisionId,
+                gatedBy: !departmentId,
                 // An arrondissement cannot be required of a department the
                 // server has none for; the row says so instead of looking
                 // like an empty dropdown the respondent failed to use.
-                hint={subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined}
-              >
-                <div className="input-row">
-                  <select
-                    id="reg-subdivision"
-                    aria-required={true}
-                    {...invalidProps("reg-subdivision")}
-                    value={subdivisionId}
-                    disabled={!departmentId || subdivisionsStatus === "empty"}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setSubdivisionId(id);
-                      setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
-                    }}
-                  >
-                    <BlankOption label={selectStatusLabel(subdivisionsQuery, !departmentId)} />
-                    {subdivisionsQuery.data?.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {loadRetry(subdivisionsQuery)}
-              </FormRow>
+                disabled: !departmentId || subdivisionsStatus === "empty",
+                hint:
+                  subdivisionsStatus === "empty"
+                    ? t("registerPage.noSubdivisionHint")
+                    : undefined,
+                onSelect: (id, name) => {
+                  setSubdivisionId(id);
+                  setSubdivisionName(name);
+                },
+              })}
 
               {/* Two answers, one choice: radios, not a dropdown (CLAUDE.md
                   section 9). A fieldset named by its legend; the id the
