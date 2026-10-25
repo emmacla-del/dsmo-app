@@ -24,19 +24,6 @@ const NUM = "text-right tabular-nums";
 
 type CoverageStatusMetric = "pendingApproval" | "pendingReview" | "complementsRequested" | "documentsIncomplete" | "draft";
 
-function displayedSemesters(semester: 1 | 2 | null): string {
-  return semester == null ? "S1, S2" : `S${semester}`;
-}
-
-function displayedQuarters(
-  semester: 1 | 2 | null,
-  quarter: 1 | 2 | 3 | 4 | null,
-): string {
-  if (quarter != null) return `Q${quarter}`;
-  const quarters = semester === 1 ? [1, 2] : semester === 2 ? [3, 4] : [1, 2, 3, 4];
-  return quarters.map((value) => `Q${value}`).join(", ");
-}
-
 const COVERAGE_STATUS_METRICS: readonly {
   value: CoverageStatusMetric;
   labelKey: string;
@@ -61,10 +48,7 @@ const COVERAGE_HEADER_LEGEND: readonly {
   { shortLabelKey: "quotaHeaderShort", labelKey: "coverageTargetColumn" },
   { shortLabelKey: "gapHeaderShort", labelKey: "gapColumn" },
   { shortLabelKey: "rateHeaderShort", labelKey: "rateColumn" },
-  { shortLabelKey: "coverageYearHeaderShort", labelKey: "yearLabel" },
-  { shortLabelKey: "coverageSemesterHeaderShort", labelKey: "semesterLabel" },
-  { shortLabelKey: "coverageQuarterHeaderShort", labelKey: "quarterLabel" },
-  { shortLabelKey: "approvedHeaderShort", labelKey: "approvedColumn" },
+  { shortLabelKey: "approvedHeaderShort", labelKey: "inYearColumn" },
   { shortLabelKey: "statusHeaderShort", labelKey: "statusGroupColumn" },
   ...COVERAGE_STATUS_METRICS.map((metric) => ({
     shortLabelKey: metric.shortLabelKey,
@@ -140,6 +124,7 @@ export function CoverageTableHelp() {
           </div>
           <div>
             <p className="mb-1 font-medium">{t("coverageHelpCountsTitle")}</p>
+            <p className="text-muted-foreground">{t("coverageHelpRegistered")}</p>
             <p className="mb-1 mt-3 font-medium">{t("coverageHelpPeriodLegendTitle")}</p>
             <ul className="grid gap-1 text-muted-foreground">
               {COVERAGE_HEADER_LEGEND.map((item) => (
@@ -150,7 +135,6 @@ export function CoverageTableHelp() {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-muted-foreground">{t("coverageHelpRegistered")}</p>
             <p className="mt-1 text-muted-foreground">{t("coverageHelpYearSelection")}</p>
             <p className="mt-1 text-muted-foreground">{t("coverageHelpSemesterSelection")}</p>
             <p className="mt-1 text-muted-foreground">{t("coverageHelpQuarterSelection")}</p>
@@ -184,23 +168,15 @@ export function CoverageTableHelp() {
 
 export function CoverageTable({
   data,
-  year,
-  semester,
-  quarter,
   expanded,
   onToggle,
 }: {
   data: CoverageResponse;
-  year: number;
-  semester: 1 | 2 | null;
-  quarter: 1 | 2 | 3 | 4 | null;
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
 }) {
   const t = useTranslations("adminTargets");
   const locale = asUiLocale(useLocale());
-  const semesterValue = displayedSemesters(semester);
-  const quarterValue = displayedQuarters(semester, quarter);
   const national = data.central != null || data.unassigned != null || data.nullEntityType != null;
 
   if (data.regions.length === 0 && !national) {
@@ -221,10 +197,7 @@ export function CoverageTable({
           <CoverageColumnHeader label={t("coverageTargetColumn")} shortLabel={t("quotaHeaderShort")} numeric />
           <CoverageColumnHeader label={t("gapColumn")} shortLabel={t("gapHeaderShort")} numeric />
           <CoverageColumnHeader label={t("rateColumn")} shortLabel={t("rateHeaderShort")} numeric />
-          <CoverageColumnHeader label={t("yearLabel")} shortLabel={t("coverageYearHeaderShort")} />
-          <CoverageColumnHeader label={t("semesterLabel")} shortLabel={t("coverageSemesterHeaderShort")} />
-          <CoverageColumnHeader label={t("quarterLabel")} shortLabel={t("coverageQuarterHeaderShort")} />
-          <TableHead scope="col" id="coverage-approved-period" aria-label={t("inYearColumn")} rowSpan={2} className={`${NUM} whitespace-nowrap`}>
+          <TableHead scope="col" id="coverage-territory-approved-period" aria-label={t("inYearColumn")} rowSpan={2} className={`${NUM} whitespace-nowrap`}>
             {t("approvedHeaderShort")}
           </TableHead>
           <StatusHeaders idPrefix="coverage-territory-status" />
@@ -261,9 +234,6 @@ export function CoverageTable({
                   target={region.inscriptionTarget}
                   rate={region.rate}
                   registeredInYear={region.registeredInYear}
-                  year={year}
-                  semesterValue={semesterValue}
-                  quarterValue={quarterValue}
                   pendingApproval={region.pendingApproval}
                   pendingReview={region.pendingReview}
                   complementsRequested={region.complementsRequested}
@@ -285,9 +255,6 @@ export function CoverageTable({
                       target={department.inscriptionTarget}
                       rate={department.rate}
                       registeredInYear={department.registeredInYear}
-                      year={year}
-                      semesterValue={semesterValue}
-                      quarterValue={quarterValue}
                       pendingApproval={department.pendingApproval}
                       pendingReview={department.pendingReview}
                       complementsRequested={department.complementsRequested}
@@ -304,13 +271,13 @@ export function CoverageTable({
         {/* The national buckets close the grid: they are not territories, so
             they carry no mode and no target of their own (except central). */}
         {data.central && (
-          <BucketRow name={t("centralLevel")} counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} year={year} semesterValue={semesterValue} quarterValue={quarterValue} statusHeaderPrefix="coverage-territory-status" />
+          <BucketRow name={t("centralLevel")} counts={data.central} target={data.central.inscriptionTarget ?? null} rate={data.central.rate ?? null} statusHeaderPrefix="coverage-territory-status" />
         )}
         {data.unassigned && (
-          <BucketRow name={t("unassigned")} counts={data.unassigned} target={null} rate={null} year={year} semesterValue={semesterValue} quarterValue={quarterValue} statusHeaderPrefix="coverage-territory-status" />
+          <BucketRow name={t("unassigned")} counts={data.unassigned} target={null} rate={null} statusHeaderPrefix="coverage-territory-status" />
         )}
         {data.nullEntityType && (
-          <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} year={year} semesterValue={semesterValue} quarterValue={quarterValue} statusHeaderPrefix="coverage-territory-status" />
+          <BucketRow name={t("missingEntityType")} counts={data.nullEntityType} target={null} rate={null} statusHeaderPrefix="coverage-territory-status" />
         )}
         <TableRow className="cam-target-region font-semibold">
           <TableHead scope="row" className="h-auto whitespace-normal font-semibold text-foreground">{t("total")}</TableHead>
@@ -321,9 +288,6 @@ export function CoverageTable({
             target={data.totals.inscriptionTarget}
             rate={data.totals.rate}
             registeredInYear={data.totals.registeredInYear}
-            year={year}
-            semesterValue={semesterValue}
-            quarterValue={quarterValue}
             pendingApproval={data.totals.pendingApproval}
             pendingReview={data.totals.pendingReview}
             complementsRequested={data.totals.complementsRequested}
@@ -344,18 +308,12 @@ function BucketRow({
   counts,
   target,
   rate,
-  year,
-  semesterValue,
-  quarterValue,
   statusHeaderPrefix,
 }: {
   name: string;
   counts: StockCounts;
   target: number | null;
   rate: number | null;
-  year: number;
-  semesterValue: string;
-  quarterValue: string;
   statusHeaderPrefix: string;
 }) {
   return (
@@ -368,9 +326,6 @@ function BucketRow({
         target={target}
         rate={rate}
         registeredInYear={counts.registeredInYear}
-        year={year}
-        semesterValue={semesterValue}
-        quarterValue={quarterValue}
         pendingApproval={counts.pendingApproval}
         pendingReview={counts.pendingReview}
         complementsRequested={counts.complementsRequested}
@@ -388,9 +343,6 @@ function CountCells({
   target,
   rate,
   registeredInYear,
-  year,
-  semesterValue,
-  quarterValue,
   pendingApproval,
   pendingReview,
   complementsRequested,
@@ -403,9 +355,6 @@ function CountCells({
   target: number | null;
   rate: number | null;
   registeredInYear: number | null;
-  year: number;
-  semesterValue: string;
-  quarterValue: string;
   pendingApproval: number | null;
   pendingReview: number | null;
   complementsRequested: number | null;
@@ -427,10 +376,7 @@ function CountCells({
       <TableCell className={NUM}>{fmt(target, locale)}</TableCell>
       <TableCell className={NUM}>{fmt(target != null && target > 0 && registeredInYear != null ? Math.max(0, target - registeredInYear) : null, locale)}</TableCell>
       <TableCell className={NUM}>{fmtRate(rate, locale)}</TableCell>
-      <TableCell className="text-center tabular-nums">{year}</TableCell>
-      <TableCell className="text-center tabular-nums">{semesterValue}</TableCell>
-      <TableCell className="text-center tabular-nums">{quarterValue}</TableCell>
-      <TableCell className={NUM} headers="coverage-approved-period">
+      <TableCell className={NUM} headers="coverage-territory-approved-period">
         {formatCoverageCount(registeredInYear, companyCount, locale)}
       </TableCell>
       {COVERAGE_STATUS_METRICS.map((metric) => (
@@ -465,20 +411,12 @@ function fmtRate(rate: number | null | undefined, locale: UiLocale): string {
  */
 export function CoverageEntityTypeTable({
   rows,
-  year,
-  semester,
-  quarter,
 }: {
   rows: CoverageEntityTypeRow[];
-  year: number;
-  semester: 1 | 2 | null;
-  quarter: 1 | 2 | 3 | 4 | null;
 }) {
   const t = useTranslations("adminTargets");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
-  const semesterValue = displayedSemesters(semester);
-  const quarterValue = displayedQuarters(semester, quarter);
   const label = (code: string) =>
     ENTITY_TYPE_OPTION_KEYS[code] ? tRoot(ENTITY_TYPE_OPTION_KEYS[code]) : entityTypeLabel(code);
 
@@ -495,10 +433,7 @@ export function CoverageEntityTypeTable({
             <CoverageColumnHeader label={t("coverageTargetColumn")} shortLabel={t("quotaHeaderShort")} numeric />
             <CoverageColumnHeader label={t("gapColumn")} shortLabel={t("gapHeaderShort")} numeric />
             <CoverageColumnHeader label={t("rateColumn")} shortLabel={t("rateHeaderShort")} numeric />
-            <CoverageColumnHeader label={t("yearLabel")} shortLabel={t("coverageYearHeaderShort")} />
-            <CoverageColumnHeader label={t("semesterLabel")} shortLabel={t("coverageSemesterHeaderShort")} />
-            <CoverageColumnHeader label={t("quarterLabel")} shortLabel={t("coverageQuarterHeaderShort")} />
-            <TableHead scope="col" id="coverage-approved-period" aria-label={t("inYearColumn")} rowSpan={2} className={`${NUM} whitespace-nowrap`}>
+            <TableHead scope="col" id="coverage-type-approved-period" aria-label={t("inYearColumn")} rowSpan={2} className={`${NUM} whitespace-nowrap`}>
               {t("approvedHeaderShort")}
             </TableHead>
             <StatusHeaders idPrefix="coverage-type-status" />
@@ -525,10 +460,7 @@ export function CoverageEntityTypeTable({
                 )}
               </TableCell>
               <TableCell className={NUM}>{fmtRate(row.rate ?? null, locale)}</TableCell>
-              <TableCell className="text-center tabular-nums">{year}</TableCell>
-              <TableCell className="text-center tabular-nums">{semesterValue}</TableCell>
-              <TableCell className="text-center tabular-nums">{quarterValue}</TableCell>
-              <TableCell className={NUM} headers="coverage-approved-period">
+              <TableCell className={NUM} headers="coverage-type-approved-period">
                 {formatCoverageCount(row.registeredInYear, row.companyCount, locale)}
               </TableCell>
               {COVERAGE_STATUS_METRICS.map((metric) => {

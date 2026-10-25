@@ -136,9 +136,6 @@ function CoverageContent({
   const territoryTable = (
     <CoverageTable
       data={query.data}
-      year={year}
-      semester={semester}
-      quarter={quarter}
       expanded={expanded}
       onToggle={(regionId) =>
         setExpanded((current) => {
@@ -293,9 +290,6 @@ function CoverageContent({
         <TabsContent value="type" className="mt-0">
           <CoverageEntityTypeTable
             rows={byEntityType}
-            year={year}
-            semester={semester}
-            quarter={quarter}
           />
         </TabsContent>
       </Tabs>

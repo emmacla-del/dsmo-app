@@ -18,7 +18,11 @@ import {
   type CompanyRegistrationItem,
   type CompanyRegistrationsResult,
 } from "@/lib/user-directory";
-import { applyRegistrationDecision, type RegistrationDecisionStatus } from "@/lib/registration-queue-cache";
+import {
+  applyRegistrationDecision,
+  clampRegistrationQueuePage,
+  type RegistrationDecisionStatus,
+} from "@/lib/registration-queue-cache";
 import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel } from "@/lib/display-labels";
@@ -174,7 +178,6 @@ function InscriptionsContent() {
   const initialType = ENTITY_TYPE_VALUES.includes(requestedType) ? requestedType : "";
   const requestedSemester = searchParams.get("semestre");
   const requestedQuarter = searchParams.get("trimestre");
-  const requestedPeriodType = searchParams.get("periode");
   const validSemester = requestedSemester === "1" || requestedSemester === "2"
     ? Number(requestedSemester) as 1 | 2
     : null;
@@ -187,7 +190,6 @@ function InscriptionsContent() {
   const quarter: CoverageSelection["quarter"] = validQuarter != null
     && semester != null
     && (validQuarter <= 2 ? 1 : 2) === semester
-    && (requestedPeriodType === "quarter" || requestedQuarter != null)
     ? validQuarter
     : null;
   // Two views of registrations: the review queue, and coverage against the
@@ -263,8 +265,23 @@ function InscriptionsContent() {
   // "OVERDUE" is a view of the queue, not a stored status: files the
   // reviewers have left waiting past the threshold set in /admin/parametres.
   const overdueOnly = statusFilter === "OVERDUE";
+  const queueQueryKey = [
+    "auth",
+    "company-registrations",
+    organisation,
+    statusFilter,
+    typeFilter,
+    region,
+    department,
+    from,
+    to,
+    createdBy,
+    registrationMethod,
+    sortOrder,
+    page,
+  ] as const;
   const queueQuery = useQuery({
-    queryKey: ["auth", "company-registrations", organisation, statusFilter, typeFilter, region, department, from, to, createdBy, registrationMethod, sortOrder, page],
+    queryKey: queueQueryKey,
     queryFn: () =>
       listCompanyRegistrations({
         organisation,
@@ -308,6 +325,11 @@ function InscriptionsContent() {
         queryClient.setQueryData<CompanyRegistrationsResult>(query.queryKey, (page) =>
           applyRegistrationDecision(page, id, status, typeof view === "string" ? view : undefined),
         );
+      }
+      const currentPage = queryClient.getQueryData<CompanyRegistrationsResult>(queueQueryKey);
+      if (currentPage) {
+        const nextPage = clampRegistrationQueuePage(page, currentPage.total, PAGE_SIZE);
+        if (nextPage !== page) setPage(nextPage);
       }
       void queryClient.invalidateQueries(queue);
     });
@@ -376,8 +398,9 @@ function InscriptionsContent() {
   const overdueDays = queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS;
   const total = queueQuery.data?.total ?? 0;
   const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
-  const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const end = Math.min(page * PAGE_SIZE, total);
+
+  const start = items.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const end = items.length === 0 ? 0 : start + items.length - 1;
 
   const tableState = resolveDataState({
     roleAllowed: canReadQueue,
@@ -435,9 +458,12 @@ function InscriptionsContent() {
       `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`,
     );
   }
+  if (sortOrder !== "newest") {
+    activeQueueFilters.push(`${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`);
+  }
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
-    registrationMethod || dateRange !== "all" || createdBy,
+    registrationMethod || dateRange !== "all" || createdBy || sortOrder !== "newest",
   );
   const clearQueueFilters = () => {
     setOrganisationInput("");
@@ -448,6 +474,7 @@ function InscriptionsContent() {
     setTypeFilter("");
     setRegistrationMethod("");
     setDateRange("all");
+    setSortOrder("newest");
     setCustomDateRange(undefined);
     setPendingDateRange(undefined);
     setPage(1);
@@ -581,7 +608,7 @@ function InscriptionsContent() {
                 ))}
             </ul>
           )}
-          {counts && (
+          {counts && registrationStatusTotal > 0 && (
               <p className="cam-dash-context cam-registration-overdue-summary">
                 {t("overdueSummary", { count: count(counts.overdue, locale), days: overdueDays })}
               </p>

@@ -970,6 +970,17 @@ Approved changes on record:
   entry is what to revisit, and the fix would be to change the denominator,
   not to put the stock back in the numerator.
 
+- 2026-10-25 — registration coverage stays period-specific when viewed by
+  semester or quarter (`getSemesterCoverage`, `getQuarterCoverage` in
+  `src/pilotage/pilotage.service.ts`). Decision: each registration-campaign
+  quota applies to its reference quarter; semester coverage sums the selected
+  two quarters' quotas and approvals, quarter coverage uses that quarter only,
+  and annual coverage folds all four. An annual target must therefore be
+  allocated across the corresponding quarterly campaigns, not entered wholly
+  against one quarter. The UI explains this in the coverage help. No
+  apportionment is inferred, and no formula or stored statistical value
+  changes. Approved by the owner in chat, 2026-10-25.
+
 - 2026-10-25 — registration quotas gain an entity-type dimension, at region ×
   type (schema change; migration `20261025140000_campaign_quota_entity_type`).
   Issue: `CampaignQuota` was scoped by territory alone (TERRITORIAL with a
