@@ -2350,6 +2350,8 @@
     "allTypes": "All types",
     "regionFilterLabel": "Region of origin",
     "allRegions": "All regions",
+    "departmentColumn": "Department",
+    "allDepartments": "All departments",
     "statusFilterLabel": "Status",
     "statusInQueue": "In queue (pending + further information)",
     "statusAll": "All statuses",

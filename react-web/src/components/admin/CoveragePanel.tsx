@@ -81,8 +81,11 @@ function CoverageContent({ year }: { year: number }) {
    */
   const role = useAuthStore((state) => state.user?.role);
   const queueHref = hasRole(role, APPROVAL_ROLES)
-    ? (regionName: string) =>
-        `/admin/inscriptions?vue=file&status=ALL&region=${encodeURIComponent(regionName)}`
+    ? (regionName: string, departmentName?: string) => {
+        const params = new URLSearchParams({ vue: "file", status: "ALL", region: regionName });
+        if (departmentName) params.set("department", departmentName);
+        return `/admin/inscriptions?${params.toString()}`;
+      }
     : null;
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year],
@@ -218,7 +221,7 @@ interface QuotaRanking {
 function registrationQuotaRanking(
   data: CoverageResponse,
   centralLabel: string,
-  queueHref: ((regionName: string) => string) | null,
+  queueHref: ((regionName: string, departmentName?: string) => string) | null,
 ): QuotaRanking {
   const items: CoverageBarItem[] = [];
   let withoutTarget = 0;
@@ -245,9 +248,9 @@ function registrationQuotaRanking(
           received: department.registered,
           registered: department.inscriptionTarget,
           target: null,
-          // No department filter exists on the queue (client or server), so a
-          // department row links to its region or not at all; widening the
-          // click to the whole region without saying so would misreport it.
+          // Region AND department: department names repeat across regions, so
+          // the region has to travel with it for the link to name one place.
+          href: queueHref ? queueHref(region.name, department.name) : undefined,
         });
       }
       continue;
@@ -262,10 +265,11 @@ function registrationQuotaRanking(
         received: region.registered,
         registered: regionQuota,
         target: null,
-        // The queue filters on the region NAME (Company.region, matched
-        // case-insensitively server-side), which is the vocabulary its own
-        // filter options use. Territorial authority is re-checked there, so a
-        // link can never widen what the reader may see.
+        // The queue filters on the region and department NAMES
+        // (Company.region / Company.department, matched case-insensitively
+        // server-side), the vocabulary its own filter options use. Territorial
+        // authority is re-checked there, so a link can never widen what the
+        // reader may see.
         href: queueHref ? queueHref(region.name) : undefined,
       });
       continue;

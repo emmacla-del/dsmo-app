@@ -1458,6 +1458,7 @@ export class AuthService {
     params: {
       entityType?: string;
       region?: string;
+      department?: string;
       from?: string;
       to?: string;
       organisation?: string;
@@ -1485,14 +1486,45 @@ export class AuthService {
     // return early inside the helper.
     const regionFilter = params.region?.trim();
     const regionScope: Record<string, unknown> = { ...scope };
+    const territoryAnd: Array<Record<string, unknown>> = [];
     if (regionFilter) {
       assertTerritorialAuthority(actor, {
         region: regionFilter,
         department: actor.department,
         departmentId: actor.departmentId,
       });
-      regionScope.AND = [{ region: { equals: regionFilter, mode: 'insensitive' } }];
+      territoryAnd.push({ region: { equals: regionFilter, mode: 'insensitive' } });
     }
+
+    /**
+     * The same narrowing one level down, for the coverage ranking's
+     * department rows.
+     *
+     * Checked the same way, with one difference: the region carried into the
+     * target is the requested one when given, otherwise the actor's own.
+     * Without it a REGIONAL_ADMIN naming a department of its own region would
+     * be refused, since that branch compares regions and `target.region` would
+     * be undefined. Nothing is widened by the substitution — `scope` already
+     * confines the query to the actor's territory, so a department name that
+     * repeats across regions still only matches inside it, and a DIVISIONAL
+     * reviewer asking for a department other than its own is refused here.
+     *
+     * `departmentId` is deliberately NOT the actor's own: the DIVISIONAL
+     * branch matches on the id first, so passing actor.departmentId would
+     * compare it with itself and admit any department name. Leaving it null
+     * sends that branch down the name comparison, which is what the requested
+     * department has to pass.
+     */
+    const departmentFilter = params.department?.trim();
+    if (departmentFilter) {
+      assertTerritorialAuthority(actor, {
+        region: regionFilter ?? actor.region,
+        department: departmentFilter,
+        departmentId: null,
+      });
+      territoryAnd.push({ department: { equals: departmentFilter, mode: 'insensitive' } });
+    }
+    if (territoryAnd.length > 0) regionScope.AND = territoryAnd;
 
     const createdAt: Record<string, Date> = {};
     if (params.from) {
