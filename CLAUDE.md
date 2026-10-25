@@ -1057,6 +1057,31 @@ Approved changes on record:
   no REGISTRATION campaign, so nothing can be saved against one until ONEFOP
   creates it.
 
+- 2026-10-25 — a group invitation link can carry the post it is for (schema
+  change; migration `20261025160000_staff_invitation_link_post`). Issue: the
+  sign-up form behind a group link asks an incoming officer to find their own
+  service among the 126 nodes of the organigramme and then their post inside
+  it — something the administrator who invites them knows and they often do
+  not. Decision: `StaffInvitationLink` gains `serviceCode` and `positionType`,
+  both nullable `TEXT`, so the administrator fixes the post when creating the
+  link and the officer only confirms it. Plain names, like `region` and
+  `department` on the same table, which are not foreign keys either: the
+  service is validated against the organigramme when the link is made
+  (`assertServiceInScope`), not by a constraint here, so the grain of the
+  organigramme can change without a constraint to drop. Additive
+  (`ADD COLUMN IF NOT EXISTS`), no backfill: every link created before today
+  keeps both NULL, which means what it has always meant — the officer chooses
+  service and post — so no row is read, rewritten or moved, and no live link
+  changes behaviour. That fallback is PERMANENT, not a transition: whether a
+  NEW link may still be made with no post is a rule for link creation and is
+  enforced there, never settled by migrating old rows. No statistical
+  variable, export, PDF or dataset version changes; this is the invitation
+  link's payload. Approved by the owner in chat, 2026-10-25. Nothing reads the
+  two columns yet: link creation, the wizard and ONEFOP's own posts are
+  phases 2 to 4 of `docs/plans/staff-invitation-wizard.md`. STILL OPEN there:
+  whether a link may be created with no post at all, and the two ONEFOP
+  questions of Phase 4, both of which need the owner.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
