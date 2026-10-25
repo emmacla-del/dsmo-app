@@ -153,7 +153,7 @@ export class PilotageService {
       territory,
       year,
       () => this.onefopCampaignIds(year, ANNUAL_QUARTERS),
-      { quarter: null, semester: null },
+      { quarter: null, semester: null, quarters: ANNUAL_QUARTERS },
     );
   }
 
@@ -168,7 +168,22 @@ export class PilotageService {
       territory,
       year,
       () => this.onefopCampaignIds(year, quarters),
-      { quarter: null, semester },
+      { quarter: null, semester, quarters },
+    );
+  }
+
+  /** Quarter roll-up: only the selected quarter's campaigns and approvals. */
+  async getQuarterCoverage(
+    territory: Territory | null | undefined,
+    year: number,
+    quarter: number,
+  ) {
+    const quarters = quarterQuarters(quarter);
+    return this.coverageFrom(
+      territory,
+      year,
+      () => this.onefopCampaignIds(year, quarters),
+      { quarter, semester: null, quarters },
     );
   }
 
@@ -217,7 +232,7 @@ export class PilotageService {
     territory: Territory | null | undefined,
     year: number,
     resolveCampaignIds: () => Promise<string[]>,
-    bounds: { quarter: number | null; semester: number | null },
+    bounds: { quarter: number | null; semester: number | null; quarters: readonly number[] },
   ) {
     let campaignIds: string[] = [];
     const { scope, regions } = await this.loadGrid(territory, async (current) => {
@@ -290,12 +305,12 @@ export class PilotageService {
       const row = toStockRow(company);
       const key = bucketKey(classifyBucket(row));
       const counts = tallies.get(key) ?? emptyCounts();
-      applyRow(counts, row, year);
+      applyRow(counts, row, year, bounds.quarters);
       tallies.set(key, counts);
 
       if (row.entityType != null) {
         const typeCounts = typeTallies.get(row.entityType) ?? emptyCounts();
-        applyRow(typeCounts, row, year);
+        applyRow(typeCounts, row, year, bounds.quarters);
         typeTallies.set(row.entityType, typeCounts);
       }
     }
@@ -353,7 +368,7 @@ export class PilotageService {
     // Totals use each company once, including rows without an entity type
     // that are intentionally kept out of the territorial and type tables.
     const totalsCounts = emptyCounts();
-    for (const company of companies) applyRow(totalsCounts, toStockRow(company), year);
+    for (const company of companies) applyRow(totalsCounts, toStockRow(company), year, bounds.quarters);
     /**
      * A MIXED region has no determinate target, so neither has the grid.
      *
@@ -1339,6 +1354,11 @@ function semesterQuarters(semester: number): readonly number[] {
   if (semester === 1) return [1, 2];
   if (semester === 2) return [3, 4];
   throw new BadRequestException('Le semestre doit valoir 1 ou 2.');
+}
+
+function quarterQuarters(quarter: number): readonly number[] {
+  if (Number.isInteger(quarter) && quarter >= 1 && quarter <= 4) return [quarter];
+  throw new BadRequestException('Le trimestre doit valoir de 1 à 4.');
 }
 
 /**

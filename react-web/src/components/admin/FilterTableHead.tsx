@@ -10,25 +10,33 @@ export function FilterTableHead({
   label,
   filterLabel,
   active,
+  id,
+  rowSpan,
+  className,
+  centered = false,
   contentClassName,
   children,
 }: {
   label: string;
   filterLabel: string;
   active: boolean;
+  id?: string;
+  rowSpan?: number;
+  className?: string;
+  centered?: boolean;
   contentClassName?: string;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <TableHead scope="col" className="whitespace-nowrap p-0">
+    <TableHead scope="col" id={id} rowSpan={rowSpan} className={`whitespace-nowrap p-0 ${className ?? ""}`}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             aria-label={filterLabel}
-            className={`h-10 w-full justify-start gap-2 rounded-none px-2 ${active ? "text-primary" : "text-foreground"}`}
+            className={`h-10 w-full ${centered ? "justify-center px-1" : "justify-start px-2"} gap-2 rounded-none ${active ? "text-primary" : "text-foreground"}`}
           >
             <span>{label}</span>
             <ChevronDown aria-hidden="true" className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />

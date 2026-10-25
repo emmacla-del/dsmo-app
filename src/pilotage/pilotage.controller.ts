@@ -76,6 +76,23 @@ export class PilotageController {
   }
 
   /**
+   * QUARTER coverage: one registration campaign quarter and its approvals.
+   */
+  @Get('coverage/quarter')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getQuarterCoverage(
+    @Query('year') year: string,
+    @Query('quarter') quarter: string,
+    @Req() req: any,
+  ) {
+    return this.pilotage.getQuarterCoverage(
+      territoryFromUser(req.user),
+      parseYear(year),
+      parseQuarter(quarter),
+    );
+  }
+
+  /**
    * SEMESTER coverage roll-up: Q1+Q2 or Q3+Q4 of the requested year.
    *
    * The year is parsed here rather than in the service, because
@@ -177,6 +194,17 @@ function parseSemester(raw: unknown): number {
   const text = String(raw).trim();
   if (text !== '1' && text !== '2') {
     throw new BadRequestException('Le paramètre « semester » doit valoir 1 ou 2.');
+  }
+  return Number(text);
+}
+
+function parseQuarter(raw: unknown): number {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+    throw new BadRequestException('Le paramètre « quarter » est obligatoire.');
+  }
+  const text = String(raw).trim();
+  if (!['1', '2', '3', '4'].includes(text)) {
+    throw new BadRequestException('Le paramètre « quarter » doit valoir de 1 à 4.');
   }
   return Number(text);
 }

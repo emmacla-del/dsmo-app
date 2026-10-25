@@ -89,3 +89,78 @@ describe('DsmoService.getMyCompany', () => {
     expect(call.select.user).toBeDefined();
   });
 });
+
+describe('DsmoService.listCompanies ordering', () => {
+  function makeService() {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      company: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany,
+      },
+    } as unknown as PrismaService;
+    const service = new DsmoService(
+      prisma,
+      {} as ValidationService,
+      {} as AuditService,
+      {} as PdfService,
+    );
+    return { findMany, service };
+  }
+
+  it('sorts oldest-first before pagination when requested', async () => {
+    const { findMany, service } = makeService();
+    await service.listCompanies({ sortOrder: 'oldest', page: 2 });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: 'asc' },
+        skip: 20,
+      }),
+    );
+  });
+
+  it('keeps companies newest-first by default', async () => {
+    const { findMany, service } = makeService();
+    await service.listCompanies({});
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+    );
+  });
+
+  it('filters a selected year and semester by Douala calendar boundaries before pagination', async () => {
+    const { findMany, service } = makeService();
+    await service.listCompanies({ year: 2024, semester: 1 });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: {
+            gte: new Date('2024-01-01T00:00:00+01:00'),
+            lt: new Date('2024-07-01T00:00:00+01:00'),
+          },
+        }),
+      }),
+    );
+  });
+
+  it('filters a quarter across years when no year is selected', async () => {
+    const { findMany, service } = makeService();
+    await service.listCompanies({ quarter: 4 });
+    const where = findMany.mock.calls[0][0].where;
+    const periodCondition = where.AND.find((condition: any) => condition.OR);
+    const currentDoualaYear = Number(
+      new Intl.DateTimeFormat('en', { timeZone: 'Africa/Douala', year: 'numeric' }).format(new Date()),
+    );
+    expect(periodCondition.OR[0]).toEqual({
+      createdAt: {
+        gte: new Date('2000-10-01T00:00:00+01:00'),
+        lt: new Date('2001-01-01T00:00:00+01:00'),
+      },
+    });
+    expect(periodCondition.OR[periodCondition.OR.length - 1]).toEqual({
+      createdAt: {
+        gte: new Date(`${currentDoualaYear}-10-01T00:00:00+01:00`),
+        lt: new Date(`${currentDoualaYear + 1}-01-01T00:00:00+01:00`),
+      },
+    });
+  });
+});

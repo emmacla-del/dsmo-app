@@ -199,9 +199,10 @@ export class AuthController {
   }
 
   // ── Group invitation links (see staff-invitation-link.service.ts) ──
-  // One link for a group of staff, posted in a WhatsApp group; each person
-  // picks their service and post within the link's scope and gets an account
-  // that waits for approval.
+  // One link for a group of staff, posted in a WhatsApp group. The
+  // administrator fixes the post it is for -- a service and a position type,
+  // both required -- and everyone who opens it gets an account on that post,
+  // waiting for approval.
   @Post('admin/staff-invitation-links')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
@@ -210,6 +211,8 @@ export class AuthController {
     level?: string;
     region?: string;
     department?: string;
+    serviceCode?: string;
+    positionType?: string;
     expiresInDays?: number;
     maxUses?: number;
   }) {
@@ -398,6 +401,7 @@ export class AuthController {
     @Query('status') status?: string,
     @Query('createdBy') createdBy?: string,
     @Query('overdue') overdue?: string,
+    @Query('sortOrder') sortOrder?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -413,6 +417,7 @@ export class AuthController {
       status,
       createdBy,
       overdue: overdue === 'true',
+      sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });

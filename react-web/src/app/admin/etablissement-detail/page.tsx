@@ -19,7 +19,6 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
@@ -227,7 +226,6 @@ function EtablissementDetail() {
           title={t("titleFallback")}
           subtitle={t("subtitle")}
           hideTabs={true}
-          actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
         />
         <DataState
           state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
@@ -289,7 +287,6 @@ function EtablissementDetail() {
         hideTabs={true}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <AdminHeaderActions showCampaignPill={false} showBell={false} />
             {/* Shown only when there is a real account to act on and the role
                 may act on it. The button performs the real call. Secondary,
                 not primary: a header action is not this view's main task. */}

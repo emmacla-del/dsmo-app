@@ -19,7 +19,6 @@ import { getDataManagementStats } from "@/lib/api-client";
 import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatStrip } from "@/components/admin/StatStrip";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
   NOT_PROVIDED,
@@ -29,6 +28,8 @@ import {
 } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { YEAR_MIN } from "@/lib/pilotage-targets";
+import { doualaIsoDate, doualaYear } from "@/lib/douala-date";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,17 @@ import {
 } from "@/components/ui/table";
 
 const PAGE_SIZE = 8;
+type Semester = 1 | 2;
+type Quarter = 1 | 2 | 3 | 4;
+
+function registrationPeriod(value: string | null): { year: number | null; semester: Semester | null; quarter: Quarter | null } {
+  const date = doualaIsoDate(value);
+  if (!date) return { year: null, semester: null, quarter: null };
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const quarter = Math.ceil(month / 3) as Quarter;
+  return { year, semester: quarter <= 2 ? 1 : 2, quarter };
+}
 
 /**
  * The seven live OnefopEntityType values, labelled through the shared
@@ -105,6 +117,9 @@ interface EtabItem {
   regionCity: string | null;
   responsable: string | null;
   dateInscription: string | null;
+  year: number | null;
+  semester: Semester | null;
+  quarter: Quarter | null;
   status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
 }
 
@@ -153,7 +168,21 @@ export default function EtablissementsPage() {
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("newest");
+  const [periodYear, setPeriodYear] = useState<number | null>(null);
+  const [periodSemester, setPeriodSemester] = useState<Semester | null>(null);
+  const [periodQuarter, setPeriodQuarter] = useState<Quarter | null>(null);
   const [page, setPage] = useState(1);
+  const latestAvailableYear = doualaYear(new Date()) ?? new Date().getFullYear();
+  const yearOptions = Array.from(
+    { length: Math.max(0, latestAvailableYear - YEAR_MIN + 1) },
+    (_, index) => latestAvailableYear - index,
+  );
+  const quarterOptions: Quarter[] = periodSemester === 1
+    ? [1, 2]
+    : periodSemester === 2
+      ? [3, 4]
+      : [1, 2, 3, 4];
 
   // Region and status are server-side filters now, so they share the search
   // box's 300ms debounce: one timer, one refetch, and the three controls can
@@ -188,12 +217,16 @@ export default function EtablissementsPage() {
   const serverRegion = appliedRegion !== "Toutes" ? appliedRegion : undefined;
 
   const companiesQuery = useQuery({
-    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", page],
+    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", sortOrder, periodYear, periodSemester, periodQuarter, page],
     queryFn: () =>
       listCompanies({
         search: search || undefined,
         status: serverStatus,
         region: serverRegion,
+        sortOrder,
+        year: periodYear ?? undefined,
+        semester: periodSemester ?? undefined,
+        quarter: periodQuarter ?? undefined,
         page,
         pageSize: PAGE_SIZE,
       }),
@@ -225,6 +258,7 @@ export default function EtablissementsPage() {
       c.user?.email ||
       null,
     dateInscription: c.createdAt ?? null,
+    ...registrationPeriod(c.createdAt),
     // Derived from the linked account's own stored state. A company with no
     // linked account yields "INCONNU" rather than being called suspended.
     status: !c.user
@@ -298,7 +332,7 @@ export default function EtablissementsPage() {
    */
   const exportCsv = () => {
     if (filteredRows.length === 0) return;
-    const headers = ["Nom", "Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Statut"];
+    const headers = ["Nom", "Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Année", "Semestre", "Trimestre", "Statut"];
     const cell = (v: string | null) => `"${(v ?? "").replace(/"/g, '""')}"`;
     const lines = [
       headers.map((h) => cell(h)).join(","),
@@ -310,6 +344,9 @@ export default function EtablissementsPage() {
           cell(r.regionCity),
           cell(r.responsable),
           cell(r.dateInscription ? stamp(r.dateInscription, true) : null),
+          cell(r.year == null ? null : String(r.year)),
+          cell(r.semester == null ? null : `S${r.semester}`),
+          cell(r.quarter == null ? null : `Q${r.quarter}`),
           cell(STATUS_LABELS[r.status]),
         ].join(","),
       ),
@@ -351,7 +388,6 @@ export default function EtablissementsPage() {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <AdminHeaderActions showCampaignPill={false} showBell={false} />
             {!readOnly && (
               <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
                 <Download aria-hidden="true" />
@@ -443,7 +479,95 @@ export default function EtablissementsPage() {
                   )}
                 </FilterTableHead>
                 <TableHead scope="col">{t("contactColumn")}</TableHead>
-                <TableHead scope="col">{t("registrationDateColumn")}</TableHead>
+                <FilterTableHead
+                  label={t("registrationDateColumn")}
+                  filterLabel={t("filterColumn", { column: t("registrationDateColumn") })}
+                  active={sortOrder !== "newest"}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={tRoot("adminDossiersPage.sortLabel")}
+                      value={sortOrder}
+                      onChange={(value) => {
+                        setSortOrder(value === "oldest" ? "oldest" : "newest");
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "newest", label: tRoot("adminDossiersPage.sortNewest") },
+                        { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") },
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("yearColumn")}
+                  filterLabel={t("filterColumn", { column: t("yearColumn") })}
+                  active={periodYear != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("yearColumn")}
+                      value={periodYear == null ? "all" : String(periodYear)}
+                      onChange={(value) => {
+                        setPeriodYear(value === "all" ? null : Number(value));
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allYears") },
+                        ...yearOptions.map((year) => ({ value: String(year), label: String(year) })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("semesterColumn")}
+                  filterLabel={t("filterColumn", { column: t("semesterColumn") })}
+                  active={periodSemester != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("semesterColumn")}
+                      value={periodSemester == null ? "all" : String(periodSemester)}
+                      onChange={(value) => {
+                        setPeriodSemester(value === "all" ? null : value === "1" ? 1 : 2);
+                        setPeriodQuarter(null);
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allSemesters") },
+                        { value: "1", label: "S1" },
+                        { value: "2", label: "S2" },
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("quarterColumn")}
+                  filterLabel={t("filterColumn", { column: t("quarterColumn") })}
+                  active={periodQuarter != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("quarterColumn")}
+                      value={periodQuarter == null ? "all" : String(periodQuarter)}
+                      onChange={(value) => {
+                        setPeriodQuarter(value === "all" ? null : Number(value) as Quarter);
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allQuarters") },
+                        ...quarterOptions.map((quarter) => ({ value: String(quarter), label: `Q${quarter}` })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
                 {/* "Créé par" removed: the Company model records no creator,
                     so the column could only ever be filled with a guess. */}
                 <FilterTableHead
@@ -466,7 +590,7 @@ export default function EtablissementsPage() {
             </TableHeader>
             <TableBody>
               <DataStateRow
-                colSpan={7}
+                colSpan={10}
                 state={tableState}
                 resource={t("registerResource")}
                 error={companiesQuery.error}
@@ -495,6 +619,9 @@ export default function EtablissementsPage() {
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {stamp(item.dateInscription, true, locale)}
                     </TableCell>
+                    <TableCell className="text-center tabular-nums">{item.year ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="text-center tabular-nums">{item.semester == null ? NOT_PROVIDED : `S${item.semester}`}</TableCell>
+                    <TableCell className="text-center tabular-nums">{item.quarter == null ? NOT_PROVIDED : `Q${item.quarter}`}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_TONE[item.status]}>{t(`status.${item.status}`)}</Badge>
                     </TableCell>
