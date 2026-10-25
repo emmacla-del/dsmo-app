@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyRegistrationDecision } from "./registration-queue-cache";
+import { applyRegistrationDecision, clampRegistrationQueuePage } from "./registration-queue-cache";
 import type { CompanyRegistrationItem, CompanyRegistrationsResult } from "./user-directory";
 
 const item = (id: string, status: string, overdue = false) =>
@@ -88,4 +88,23 @@ test("status=ALL holds every status, so no decision takes a row out of it", () =
     assert.equal(next.items[0].status, status);
     assert.equal(next.total, 2, status);
   }
+});
+
+test("a decision that empties the last page moves the queue back to a valid page", () => {
+  const lastPage = {
+    ...page(),
+    items: [item("last", "PENDING_APPROVAL")],
+    total: 9,
+    page: 2,
+    pageSize: 8,
+  };
+  const next = applyRegistrationDecision(lastPage, "last", "ACTIVE")!;
+  assert.equal(next.items.length, 0);
+  assert.equal(next.total, 8);
+  assert.equal(clampRegistrationQueuePage(lastPage.page, next.total, lastPage.pageSize), 1);
+});
+
+test("queue page clamping leaves valid pages and handles an empty result", () => {
+  assert.equal(clampRegistrationQueuePage(2, 16, 8), 2);
+  assert.equal(clampRegistrationQueuePage(2, 0, 8), 1);
 });

@@ -61,6 +61,12 @@ function stillInView(view: string | undefined, status: RegistrationDecisionStatu
   return view === status;
 }
 
+/** Keep a queue page within the range left by a cache update. */
+export function clampRegistrationQueuePage(page: number, total: number, pageSize: number): number {
+  const lastPage = Math.max(1, Math.ceil(Math.max(0, total) / pageSize));
+  return Math.min(Math.max(1, page), lastPage);
+}
+
 /**
  * One page of the queue with the decided file in its new status and the
  * counters moved accordingly. A page that does not hold the file is

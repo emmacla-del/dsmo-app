@@ -32,6 +32,7 @@ import { adminRegisterCompany, type AssistedRegistrationResult } from "@/lib/ins
 import { useEmailAvailability } from "@/lib/use-email-availability";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { UnsavedNavigationGuard } from "@/components/auth/UnsavedNavigationGuard";
 import { DataState } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
@@ -126,43 +127,6 @@ export default function NouvelleInscriptionPage() {
       ? Boolean(region || department)
       : region !== (user?.region ?? "") || department !== (user?.department ?? ""))
   );
-
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    const confirmAnchorNavigation = (event: MouseEvent) => {
-      if (
-        event.defaultPrevented
-        || event.button !== 0
-        || event.metaKey
-        || event.ctrlKey
-        || event.shiftKey
-        || event.altKey
-      ) return;
-      const anchor = event.target instanceof Element
-        ? event.target.closest<HTMLAnchorElement>("a[href]")
-        : null;
-      if (
-        !anchor
-        || anchor.target === "_blank"
-        || anchor.hasAttribute("download")
-        || anchor.origin !== window.location.origin
-      ) return;
-      if (!window.confirm(t("adminInscriptionsNouvellePage.unsavedChangesConfirm"))) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    document.addEventListener("click", confirmAnchorNavigation, true);
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeUnload);
-      document.removeEventListener("click", confirmAnchorNavigation, true);
-    };
-  }, [hasUnsavedChanges, t]);
 
   // The branches of activity (the `sectors` table), the same list and query
   // key as the public wizard.
@@ -503,6 +467,13 @@ export default function NouvelleInscriptionPage() {
           </div>
         )}
       </AdminDialog>
+      <UnsavedNavigationGuard
+        active={hasUnsavedChanges}
+        title={t("adminInscriptionsNouvellePage.leaveTitle")}
+        body={t("adminInscriptionsNouvellePage.leaveBody")}
+        cancelLabel={t("adminInscriptionsNouvellePage.leaveCancel")}
+        confirmLabel={t("adminInscriptionsNouvellePage.leaveConfirm")}
+      />
     </div>
   );
 }
