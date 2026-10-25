@@ -76,6 +76,7 @@ import {
 } from "@/lib/password-strength";
 import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
+import { BlankOption } from "@/components/auth/BlankOption";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
@@ -528,7 +529,7 @@ export default function RegisterPage() {
           )}
           {field.kind === "year" ? (
             <select {...controlProps}>
-              <option value="" hidden></option>
+              <BlankOption />
               {yearOptions(entityData[field.key]).map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -539,12 +540,7 @@ export default function RegisterPage() {
             // Disabled until a sector is chosen, like the department before
             // a region: the list is that sector's branches.
             <select {...controlProps} disabled={!entityData.activitySector}>
-              <option
-                value=""
-                hidden={!selectStatusLabel(sectorsQuery, !entityData.activitySector)}
-              >
-                {selectStatusLabel(sectorsQuery, !entityData.activitySector)}
-              </option>
+              <BlankOption label={selectStatusLabel(sectorsQuery, !entityData.activitySector)} />
               {branchesFor(sectorsQuery.data, entityData.activitySector, entityType).map((b) => (
                 <option key={b.id} value={b.id}>
                   {sectorLabel(b, locale)}
@@ -555,7 +551,7 @@ export default function RegisterPage() {
             <select {...controlProps}>
               {/* Keep required choices unanswered by default while omitting
                   the blank option from every opened dropdown in this wizard. */}
-              <option value="" hidden></option>
+              <BlankOption />
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {localized(o.label, locale)}
@@ -1644,7 +1640,7 @@ export default function RegisterPage() {
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
-                    <option value="" hidden></option>
+                    <BlankOption />
                     {getRespondentFunctionOptions(entityType).map((o) => (
                       <option key={o.value} value={o.value}>
                         {localized(o.label, locale)}
@@ -1843,9 +1839,7 @@ export default function RegisterPage() {
                       setSubdivisionName("");
                     }}
                   >
-                    <option value="" hidden={!selectStatusLabel(regionsQuery)}>
-                      {selectStatusLabel(regionsQuery)}
-                    </option>
+                    <BlankOption label={selectStatusLabel(regionsQuery)} />
                     {regionsQuery.data?.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -1878,15 +1872,7 @@ export default function RegisterPage() {
                       setSubdivisionName("");
                     }}
                   >
-                    <option
-                      value=""
-                      hidden={!selectStatusLabel(departmentsQuery, !regionId)}
-                    >
-                      {selectStatusLabel(
-                        departmentsQuery,
-                        !regionId
-                      )}
-                    </option>
+                    <BlankOption label={selectStatusLabel(departmentsQuery, !regionId)} />
                     {departmentsQuery.data?.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -1921,15 +1907,7 @@ export default function RegisterPage() {
                       setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
                   >
-                    <option
-                      value=""
-                      hidden={!selectStatusLabel(subdivisionsQuery, !departmentId)}
-                    >
-                      {selectStatusLabel(
-                        subdivisionsQuery,
-                        !departmentId
-                      )}
-                    </option>
+                    <BlankOption label={selectStatusLabel(subdivisionsQuery, !departmentId)} />
                     {subdivisionsQuery.data?.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
