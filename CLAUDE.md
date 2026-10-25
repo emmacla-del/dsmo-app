@@ -970,6 +970,41 @@ Approved changes on record:
   entry is what to revisit, and the fix would be to change the denominator,
   not to put the stock back in the numerator.
 
+- 2026-10-25 — registration quotas gain an entity-type dimension, at region ×
+  type (schema change; migration `20261025140000_campaign_quota_entity_type`).
+  Issue: `CampaignQuota` was scoped by territory alone (TERRITORIAL with a
+  region and optional department, or the ADMINISTRATION cohort), so the
+  coverage view's « Par type d'entité » tab could carry no quota and no rate —
+  there was nowhere to store one — and ONEFOP could not state how many
+  establishments of a given type a region was expected to register. Decision:
+  `entityType OnefopEntityType?` on CampaignQuota, nullable, null meaning a
+  quota covering every type, which is what every row written before today is.
+  Additive migration (`ADD COLUMN IF NOT EXISTS`), no row rewritten, no figure
+  moved. GRAIN: region × type, chosen by the owner in chat over department ×
+  type (≈464 cells a quarter) and a national per-type scope; a row carrying
+  both a departmentId and an entityType is refused by `parseTargetBody`, not
+  by a CHECK, so the grain can widen later without a constraint to drop.
+  CONFLICT RULE: a region may be quotaed in exactly one of three ways — one
+  all-types region row (REGION), one row per type (the new ENTITY_TYPE mode),
+  or department rows (DEPARTMENT). Any two together are MIXED with no target,
+  the rule that has always governed the region/department pair, extended to
+  the new axis by the same reasoning: the figures measure overlapping
+  populations, so a sum would count the same registrations twice. Per-type
+  rows DO sum, because the types partition the register — a company has
+  exactly one entityType. ADMINISTRATION keeps its cohort row as its quota,
+  since classifyBucket counts those respondents in `central` and never in a
+  territory; a type nobody quotaed states null, never a target of zero.
+  `replaceScoped` now matches stored rows on (department, type) rather than
+  department alone — on the old key it would have deleted every per-type row
+  but one as unwanted. No statistical variable, export, PDF or dataset version
+  changes: this is the quota model and the coverage view's denominator.
+  Approved by the owner in chat, 2026-10-25, with the grain chosen explicitly.
+  NOT done in this pass: the targets editor cannot yet enter per-type quotas
+  (so the dimension is settable only through the API), and the coverage view's
+  type tab does not yet render the new target, gap and rate. Both are the
+  phases that follow; until the editor ships, every region stays in whichever
+  mode it is in today and nothing on screen changes.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
