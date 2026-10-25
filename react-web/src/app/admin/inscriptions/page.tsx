@@ -153,6 +153,12 @@ function InscriptionsContent() {
   // and the backend re-checks the region against the reader's jurisdiction.
   const initialRegion = searchParams.get("region")?.trim() ?? "";
   const initialDepartment = searchParams.get("department")?.trim() ?? "";
+  // ?type= seeds the entity-type filter, for the coverage view's per-type
+  // ranking. An unknown code is dropped rather than sent: the filter offers
+  // a fixed list, and an unrecognised one would narrow the queue to nothing
+  // with no way to see why.
+  const requestedType = searchParams.get("type")?.trim() ?? "";
+  const initialType = ENTITY_TYPE_VALUES.includes(requestedType) ? requestedType : "";
   // Two views of registrations: the review queue, and coverage against the
   // registration-campaign targets (moved here from /admin/cibles, which
   // forwards its old ?vue=couverture links). Both live in the URL, so a
@@ -190,7 +196,7 @@ function InscriptionsContent() {
   // department, and the server narrows to the reader's territory regardless.
   const { departments: territoryDepartments } = useTerritoryDepartments(region || null);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [typeFilter, setTypeFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState(initialType);
   const [registrationMethod, setRegistrationMethod] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
@@ -380,6 +386,7 @@ function InscriptionsContent() {
     // filters would leave it in the URL to come back on the next reload.
     params.delete("region");
     params.delete("department");
+    params.delete("type");
     router.replace(inscriptionsHref(params.toString(), "file"));
   };
 

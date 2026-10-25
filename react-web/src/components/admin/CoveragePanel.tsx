@@ -6,11 +6,12 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
 import { CoverageEntityTypeTable, CoverageTable } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
-import { canListCampaigns, formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN, type CoverageResponse } from "@/lib/pilotage-targets";
+import { canListCampaigns, formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
 import { listCompanyRegistrations } from "@/lib/user-directory";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,6 +86,21 @@ function CoverageContent({ year }: { year: number }) {
   const role = useAuthStore((state) => state.user?.role);
   const canOpenCampaign = canListCampaigns(role);
   const canReadRegistrationQueue = hasRole(role, APPROVAL_ROLES);
+  /**
+   * A ranked entity type links to the same queue, filtered on the type.
+   * `entityType` is the stored code, which is what the queue's own filter
+   * sends; the server checks nothing territorial here because the type is
+   * not a territory, and the reader's own scope still bounds the answer.
+   */
+  const typeQueueHref = hasRole(role, APPROVAL_ROLES)
+    ? (entityType: string) =>
+        `/admin/inscriptions?vue=file&status=ALL&type=${encodeURIComponent(entityType)}`
+    : null;
+  const tRootPanel = useTranslations();
+  const typeLabel = (entityType: string) =>
+    ENTITY_TYPE_OPTION_KEYS[entityType]
+      ? tRootPanel(ENTITY_TYPE_OPTION_KEYS[entityType])
+      : entityTypeLabel(entityType);
   const queueHref = hasRole(role, APPROVAL_ROLES)
     ? (regionName: string, departmentName?: string) => {
         const params = new URLSearchParams({ vue: "file", status: "ALL", region: regionName });
@@ -188,6 +204,34 @@ function CoverageContent({ year }: { year: number }) {
     </section>
   );
 
+  const typeRanking = entityTypeQuotaRanking(query.data.byEntityType ?? [], typeLabel, typeQueueHref);
+  const typeQuotaRanking = (
+    <section className="grid gap-3" aria-labelledby="entity-type-quota-ranking-title">
+      <div>
+        <h2 id="entity-type-quota-ranking-title" className="text-base font-semibold">
+          {tTargets("entityTypeQuotaCoverageTitle")}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{tTargets("entityTypeQuotaCoverageContext")}</p>
+      </div>
+      {typeRanking.items.length > 0 ? (
+        <CoverageBarChart
+          items={typeRanking.items}
+          ariaLabel={tTargets("entityTypeQuotaCoverageTitle")}
+          metric="quota"
+          nameLabel={tTargets("entityTypeColumn")}
+          showDistribution
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">{tTargets("noEntityTypeQuotaCoverage")}</p>
+      )}
+      {typeRanking.withoutTarget > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {tTargets("entityTypeQuotaWithoutTarget", { count: typeRanking.withoutTarget })}
+        </p>
+      )}
+    </section>
+  );
+
   // A backend older than 2026-10-24 sends no byEntityType. Rather than an
   // empty second tab, the view then stays the single territory grid it was.
   const byEntityType = query.data.byEntityType;
@@ -199,6 +243,7 @@ function CoverageContent({ year }: { year: number }) {
       {canReadRegistrationQueue && <CoverageOverdue />}
       <CoverageAnnualTrend year={year} />
       {quotaRanking}
+      {typeQuotaRanking}
       <Tabs defaultValue="territory" className="gap-0">
         <TabsList className="mb-3">
           <TabsTrigger value="territory">{tTargets("byTerritoryTab")}</TabsTrigger>
@@ -331,6 +376,46 @@ function registrationsInYear(data: CoverageResponse): number {
     + (data.central?.registeredInYear ?? 0)
     + (data.unassigned?.registeredInYear ?? 0)
     + (data.nullEntityType?.registeredInYear ?? 0);
+}
+
+/**
+ * The same ranking for entity types, now that a type can carry a quota
+ * (region x type, 2026-10-25).
+ *
+ * A second list rather than more rows in the first: a type and a territory
+ * are different units, and one ranked scale holding both would invite the
+ * reader to compare « Centre at 40 % » with « Coopérative at 40 % » as though
+ * they were the same kind of shortfall. The bands and their distribution are
+ * computed per list for the same reason.
+ *
+ * ADMINISTRATION is listed like any other type when it carries a quota: its
+ * target is the central cohort row, which the table's note explains.
+ */
+function entityTypeQuotaRanking(
+  rows: CoverageEntityTypeRow[],
+  label: (entityType: string) => string,
+  queueHref: ((entityType: string) => string) | null,
+): QuotaRanking {
+  const items: CoverageBarItem[] = [];
+  let withoutTarget = 0;
+  for (const row of rows) {
+    if (row.inscriptionTarget == null || row.inscriptionTarget <= 0 || row.rate == null) {
+      withoutTarget += 1;
+      continue;
+    }
+    items.push({
+      key: row.entityType,
+      name: label(row.entityType),
+      responseRate: row.rate * 100,
+      // registeredInYear, the rate's own numerator, so the counts cell and
+      // the percentage beside it describe the same thing.
+      received: row.registeredInYear,
+      registered: row.inscriptionTarget,
+      target: null,
+      href: queueHref ? queueHref(row.entityType) : undefined,
+    });
+  }
+  return { items, withoutTarget };
 }
 
 /** The ranking, plus the territories it could not rank. */

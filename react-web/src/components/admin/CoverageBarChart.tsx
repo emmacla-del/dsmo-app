@@ -21,9 +21,15 @@ interface CoverageBarChartProps {
   ariaLabel?: string;
   metric?: "response" | "quota";
   showDistribution?: boolean;
+  /**
+   * Heading of the first column. Defaults to "Territoire", which is what
+   * every caller ranked until entity types joined; a list of types must not
+   * call them territories.
+   */
+  nameLabel?: string;
 }
 
-export function CoverageBarChart({ items, ariaLabel, metric = "response", showDistribution = false }: CoverageBarChartProps) {
+export function CoverageBarChart({ items, ariaLabel, metric = "response", showDistribution = false, nameLabel }: CoverageBarChartProps) {
   const locale = asUiLocale(useLocale());
   const t = useTranslations("adminPilotagePage");
   const tTargets = useTranslations("adminTargets");
@@ -107,7 +113,7 @@ export function CoverageBarChart({ items, ariaLabel, metric = "response", showDi
           <thead>
             <tr>
               {([
-                ["name", t("coverageTerritoryColumn")],
+                ["name", nameLabel ?? t("coverageTerritoryColumn")],
                 ["rate", metric === "quota" ? tTargets("quotaCoverageRateColumn") : t("coverageRateColumn")],
                 ["received", metric === "quota" ? tTargets("quotaCoverageCountsColumn") : t("coverageCountsColumn")],
               ] as const).map(([key, label]) => (
