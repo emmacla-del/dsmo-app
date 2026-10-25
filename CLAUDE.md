@@ -1093,6 +1093,50 @@ Approved changes on record:
   whether a link may be created with no post at all, and the two ONEFOP
   questions of Phase 4, both of which need the owner.
 
+- 2026-10-25 — an officer signing up through a group link chooses their own
+  territory, and the link's territory is its intended scope only (RBAC;
+  `StaffInvitationLinkService.signUp` and `resolveSignupTerritory`,
+  `src/auth/staff-invitation-link.service.ts`; `GroupSignUpForm`). Issue: the
+  link fixed the account's region and department (`region: link.region`), so a
+  WhatsApp group covering a delegation could only produce accounts for that
+  one territory, and the service's own `requiresRegion` /
+  `requiresDepartment` flags — already in the data and already on the wire —
+  were ignored by the form. Decision: the FORM asks for the region, and the
+  department when the chosen service requires one, and the SERVER stores what
+  the officer chose after validating it against the Region and Department
+  tables (by id or normalized name, the department within the chosen region).
+  The link's own region/department are no longer the account's; the sign-up
+  page now labels them « Portée territoriale du lien », not the account's
+  territory. This REPLACES the safety line this service used to carry, « the
+  territory comes from the link, never from the sign-up request », which is
+  why it is recorded here: §14 makes a geographic boundary a security
+  boundary, so a later agent must not read the change as drift and undo it.
+  RESIDUAL RISK, stated plainly: nothing now confines the choice to the link's
+  scope, so a link posted for the Centre delegation can yield a
+  REGIONAL_ADMIN request for any region. The only control is approval — the
+  account is created PENDING_APPROVAL and inactive, as before — and the
+  approver is shown no warning that the chosen territory differs from the
+  link's. The role is still the level's and never the holder's, and a group
+  link still never produces an ADMIN_ONEFOP. The post is likewise the link's
+  when it carries one, and a service or post sent in the request is then
+  ignored, not trusted. Also in this pass: the matricule became required at
+  sign-up (client and server), since an approver checks it against the
+  service's own register; accounts created before today keep none. Approved by
+  the owner in chat and recorded in
+  `docs/plans/staff-invitation-wizard.md` (Phase 3), 2026-10-25; delivered in
+  `f429e41b`, which carried no entry here — this is that entry. NOT decided:
+  whether the approver should see the link's scope beside the chosen
+  territory, and whether a choice outside a delegation link's own region
+  should be refused outright — if ONEFOP wants the link to bound the choice,
+  this entry is what to revisit, and the fix is to check `link.region` in
+  `resolveSignupTerritory`, not to put the link's territory back in the
+  account. A further trap to know: the level, not the service, is what makes
+  an account territorial, but the territory is driven by the service's two
+  flags. Every DREFOP service currently sets `requiresRegion` and every
+  DDEFOP service `requiresDepartment`, so today a delegation sign-up always
+  yields one; a delegation service added with those flags off would silently
+  produce a REGIONAL_ADMIN or DIVISIONAL_ADMIN with no territory.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
