@@ -184,6 +184,8 @@ export function listCompanyRegistrations(params: {
   createdBy?: string;
   /** Only files left waiting past the overdue threshold (/admin/parametres); overrides `status`. */
   overdue?: boolean;
+  /** Sort registration records by their submission date, across all pages. */
+  sortOrder?: "oldest" | "newest";
   page?: number;
   pageSize?: number;
 }) {
@@ -199,6 +201,7 @@ export function listCompanyRegistrations(params: {
   if (params.status) query.set("status", params.status);
   if (params.createdBy) query.set("createdBy", params.createdBy);
   if (params.overdue) query.set("overdue", "true");
+  if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   const qs = query.toString();

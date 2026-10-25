@@ -1469,6 +1469,7 @@ export class AuthService {
       // Only files the reviewers have left waiting past
       // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
       overdue?: boolean;
+      sortOrder?: 'oldest' | 'newest';
       page?: number;
       pageSize?: number;
     },
@@ -1610,7 +1611,7 @@ export class AuthService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: params.sortOrder === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

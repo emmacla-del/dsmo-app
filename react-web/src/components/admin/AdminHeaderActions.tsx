@@ -7,16 +7,11 @@ import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
-import { NotificationBell } from "./NotificationBell";
-
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
 import { asUiLocale } from "@/lib/register-i18n";
+import { NotificationBell } from "./NotificationBell";
 
-/**
- * The active campaign, or undefined when there is none or the user's role
- * cannot read campaigns. Shares its query key with every other caller, so the
- * header and page content trigger a single GET /campaigns?status=ACTIVE.
- */
+/** The active campaign, shared with page content through one query key. */
 export function useActiveCampaign() {
   const user = useAuthStore((s) => s.user);
   const canReadCampaigns = hasRole(user?.role, CAMPAIGN_ROLES);
@@ -25,58 +20,34 @@ export function useActiveCampaign() {
     queryFn: () => listCampaigns("ACTIVE"),
     enabled: canReadCampaigns,
   });
-  // Loading until the user is known and the request has answered. Query
-  // isLoading is false before the request starts (the user still loading),
-  // so callers said "no active campaign" while one was active (defect 24
-  // of the 2026-10-16 VT run).
   return { canReadCampaigns, activeCampaign: query.data?.[0], isLoading: !user || (canReadCampaigns && query.isPending) };
 }
 
-/**
- * Configuration options for right-hand header actions.
- */
 export interface AdminHeaderActionsProps {
   showCampaignPill?: boolean;
-  showBell?: boolean;
 }
 
-/**
- * Right-hand chips shared by every admin page header: active campaign pill,
- * the account's territorial scope.
- */
-export function AdminHeaderActions({
-  showCampaignPill = true,
-  showBell = true,
-}: AdminHeaderActionsProps = {}) {
+/** Page-header action for the active campaign. */
+export function AdminHeaderActions({ showCampaignPill = true }: AdminHeaderActionsProps = {}) {
   const t = useTranslations("adminHeaderActions");
   const tCommon = useTranslations("common");
   const locale = asUiLocale(useLocale());
-  const user = useAuthStore((s) => s.user);
   const { activeCampaign, isLoading: campaignLoading, canReadCampaigns } = useActiveCampaign();
-
-  const scope = computeUserScopeLabel(user, locale);
-
   const rawCampaignName = activeCampaign?.name || activeCampaign?.code || null;
-  // Plain words, never the stored code: "Campagne du 4e trimestre 2026", not
-  // "Campagne QUARTERLY_2026_T4_001". The code stays in the tooltip.
   const campaignName = (() => {
     if (!rawCampaignName) return null;
     const phrase = referencePeriodPhrases(activeCampaign?.code, locale)?.campaign;
     if (phrase) return phrase;
-    const m = rawCampaignName.match(/(PREMIER|DEUXIEME|TROISIEME|QUATRIEME)\s+TRIMESTRE\s+(\d{4})/i);
-    if (m) {
-      const qMap: Record<string, number> = { premier: 1, deuxieme: 2, troisieme: 3, quatrieme: 4 };
-      return t("campaignQuarter", { year: m[2], quarter: qMap[m[1].toLowerCase()] || 1 });
+    const match = rawCampaignName.match(/(PREMIER|DEUXIEME|TROISIEME|QUATRIEME)\s+TRIMESTRE\s+(\d{4})/i);
+    if (match) {
+      const quarterByName: Record<string, number> = { premier: 1, deuxieme: 2, troisieme: 3, quatrieme: 4 };
+      return t("campaignQuarter", { year: match[2], quarter: quarterByName[match[1].toLowerCase()] || 1 });
     }
-    if (rawCampaignName.length > 22) {
-      return rawCampaignName.slice(0, 20) + "…";
-    }
-    return rawCampaignName;
+    return rawCampaignName.length > 22 ? `${rawCampaignName.slice(0, 20)}…` : rawCampaignName;
   })();
 
   return (
     <div className="cam-admin-header-actions">
-      {/* Campaign pill */}
       {showCampaignPill && canReadCampaigns && (
         <Link
           href="/admin/campagnes"
@@ -84,32 +55,27 @@ export function AdminHeaderActions({
           title={activeCampaign ? `${rawCampaignName} (${activeCampaign.code})` : campaignLoading ? undefined : t("noActiveCampaign")}
         >
           <span className={`cam-admin-campaign-pill-dot${activeCampaign ? " is-active" : ""}`} aria-hidden="true" />
-          <span>
-            {campaignLoading ? tCommon("loading") : activeCampaign ? campaignName : t("noActiveCampaign")}
-          </span>
+          <span>{campaignLoading ? tCommon("loading") : activeCampaign ? campaignName : t("noActiveCampaign")}</span>
         </Link>
       )}
+    </div>
+  );
+}
 
-      {/* Territorial scope, stated. It was a chevroned link to /admin/cibles —
-          it looked like a scope selector, and 403'd for AUDITOR. The scope is
-          fixed by the account; there is nothing to select. */}
+/** Persistent scope and utility actions at the top of the sidebar. */
+export function AdminRailActions() {
+  const t = useTranslations("adminHeaderActions");
+  const locale = asUiLocale(useLocale());
+  const user = useAuthStore((s) => s.user);
+  const scope = computeUserScopeLabel(user, locale);
+
+  return (
+    <div className="cam-admin-rail-tools-row">
       <span className="cam-admin-scope" title={t("scopeTitle")}>
         {t("scopeChip", { scope })}
       </span>
-
-      {/* Notification bell — the caller's own in-app inbox (Phase 3). Opens a
-          preview panel; /admin/notifications is the full history. It
-          previously linked to /admin/activite, which is dossier alerts, not
-          notifications addressed to this user. */}
-      {showBell && <NotificationBell />}
-
-      {/* Search: opens the dossier list, whose search box searches dossiers. */}
-      <Link
-        href="/admin/dossiers"
-        className="cam-admin-icon-button"
-        aria-label={t("searchAriaLabel")}
-        title={t("searchTitle")}
-      >
+      <NotificationBell placement="rail" />
+      <Link href="/admin/dossiers" className="cam-admin-icon-button" aria-label={t("searchAriaLabel")} title={t("searchTitle")}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />

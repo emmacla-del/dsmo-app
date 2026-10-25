@@ -6,71 +6,54 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
+import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
-import { CoverageEntityTypeTable, CoverageTable } from "@/components/admin/CoverageTable";
+import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
+import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
-import { canListCampaigns, formatApiError, getAnnualCoverage, parseYearParam, YEAR_MAX, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
+import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, parseYearParam, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
 import { listCompanyRegistrations } from "@/lib/user-directory";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
- * Annual registration coverage: registered establishments against the
- * registration-campaign targets, per territory.
+ * Registration coverage: registered establishments against the
+ * registration-campaign targets, per territory and selected period.
  *
  * Moved out of /admin/cibles (where it was the "Couverture" tab) into
  * /admin/inscriptions: it measures registrations, not declarations, and sat
  * under a page and a hub about campaign quotas. Same query, same table.
  *
- * Source: GET /admin/pilotage/coverage/annual?year= (PILOTAGE_READ_ROLES —
- * the same four roles as the registration queue), territory-scoped
- * server-side.
+ * One selected period (year, optionally narrowed to semester and quarter)
+ * uses the same territory-scoped coverage endpoints and stays in the table's
+ * original count column.
  *
- * The year lives in the caller's URL (?annee=), so the view survives a
- * reload; `onYearChange` is how the caller writes it back.
+ * The selected year, semester, and quarter live in the caller's URL, so the
+ * view survives a reload; header dropdowns write selections back.
  */
-export function CoveragePanel({ year, onYearChange }: { year: number; onYearChange: (year: number) => void }) {
-  const t = useTranslations("adminTargets");
-  const [yearDraft, setYearDraft] = useState(String(year));
-  useEffect(() => {
-    setYearDraft(String(year));
-  }, [year]);
+export type CoverageSelection = {
+  year: number;
+  semester: 1 | 2 | null;
+  quarter: 1 | 2 | 3 | 4 | null;
+};
 
-  return (
-    <Card>
-      <CardContent>
-        {/* The year is the only control this view has, so it sits with the
-            grid it filters rather than as a toolbar band of its own. */}
-        <div className="grid w-40 gap-2">
-          <Label htmlFor="coverage-year">{t("yearLabel")}</Label>
-          <Input
-            id="coverage-year"
-            type="number"
-            min={YEAR_MIN}
-            max={YEAR_MAX}
-            value={yearDraft}
-            onChange={(event) => setYearDraft(event.target.value)}
-            onBlur={() => {
-              const parsed = parseYearParam(yearDraft);
-              if (parsed != null && parsed !== year) onYearChange(parsed);
-              else setYearDraft(String(year));
-            }}
-          />
-        </div>
-      </CardContent>
-      <CardContent className="border-t pt-6">
-        <CoverageContent year={year} />
-      </CardContent>
-    </Card>
-  );
+export function CoveragePanel({
+  year,
+  semester,
+  quarter,
+  onPeriodChange,
+}: CoverageSelection & { onPeriodChange: (selection: CoverageSelection) => void }) {
+  return <CoverageContent year={year} semester={semester} quarter={quarter} onPeriodChange={onPeriodChange} />;
 }
 
-function CoverageContent({ year }: { year: number }) {
+function CoverageContent({
+  year,
+  semester,
+  quarter,
+  onPeriodChange,
+}: CoverageSelection & { onPeriodChange: (selection: CoverageSelection) => void }) {
   const tCommon = useTranslations("common");
   const tTargets = useTranslations("adminTargets");
   const tRoot = useTranslations();
@@ -86,6 +69,12 @@ function CoverageContent({ year }: { year: number }) {
   const role = useAuthStore((state) => state.user?.role);
   const canOpenCampaign = canListCampaigns(role);
   const canReadRegistrationQueue = hasRole(role, APPROVAL_ROLES);
+  const campaignQuery = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: () => listCampaigns(),
+    enabled: canOpenCampaign,
+    staleTime: 60_000,
+  });
   /**
    * A ranked entity type links to the same queue, filtered on the type.
    * `entityType` is the stored code, which is what the queue's own filter
@@ -109,12 +98,17 @@ function CoverageContent({ year }: { year: number }) {
       }
     : null;
   const query = useQuery({
-    queryKey: ["admin", "pilotage", "coverage", year],
-    queryFn: () => getAnnualCoverage(year),
+    queryKey: ["admin", "pilotage", "coverage", year, semester, quarter],
+    queryFn: () => quarter != null
+      ? getQuarterCoverage(year, quarter)
+      : semester != null
+        ? getSemesterCoverage(year, semester)
+        : getAnnualCoverage(year),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const latestAvailableYear = doualaCalendarYear();
 
   useEffect(() => {
     if (!query.data) return;
@@ -142,6 +136,9 @@ function CoverageContent({ year }: { year: number }) {
   const territoryTable = (
     <CoverageTable
       data={query.data}
+      year={year}
+      semester={semester}
+      quarter={quarter}
       expanded={expanded}
       onToggle={(regionId) =>
         setExpanded((current) => {
@@ -151,6 +148,20 @@ function CoverageContent({ year }: { year: number }) {
           return next;
         })
       }
+    />
+  );
+  const tableTools = (
+    <div className="coverage-period-tools">
+      <CoverageTableHelp />
+    </div>
+  );
+  const periodSelector = (
+    <CoveragePeriodSelector
+      year={year}
+      semester={semester}
+      quarter={quarter}
+      latestAvailableYear={latestAvailableYear}
+      onPeriodChange={onPeriodChange}
     />
   );
   const { items: quotaItems, withoutTarget } = registrationQuotaRanking(
@@ -187,20 +198,36 @@ function CoverageContent({ year }: { year: number }) {
         <div className="text-sm">
           <span className="font-medium">{tTargets("quotaCampaignSourcesLabel")}</span>
           <ul className="mt-1 grid gap-1">
-            {query.data.period.campaignIds.map((campaignId) => (
-              <li key={campaignId}>
-                {canOpenCampaign ? (
-                  <Link className="underline underline-offset-2" href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaignId)}`}>
-                    {campaignId}
-                  </Link>
-                ) : (
-                  <code>{campaignId}</code>
-                )}
-              </li>
-            ))}
+            {query.data.period.campaignIds.map((campaignId) => {
+              const campaign = campaignQuery.data?.find((item) => item.id === campaignId);
+              const label = campaign?.name
+                ? `${formatCampaignDisplayName(campaign.name)} (${campaign.code})`
+                : campaignId;
+              return (
+                <li key={campaignId}>
+                  {canOpenCampaign ? (
+                    <Link className="underline underline-offset-2" href={`/admin/cibles?vue=quotas&campagne=${encodeURIComponent(campaignId)}`}>
+                      {label}
+                    </Link>
+                  ) : (
+                    <code>{label}</code>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
+      {query.data.period.campaignIds.length > 0 && canOpenCampaign && campaignQuery.isError && (
+        <DataState
+          dense
+          state="error"
+          resource={tTargets("campaignNamesResource")}
+          title={tTargets("campaignNamesUnavailable")}
+          error={campaignQuery.error}
+          onRetry={() => campaignQuery.refetch()}
+        />
+      )}
     </section>
   );
 
@@ -235,55 +262,81 @@ function CoverageContent({ year }: { year: number }) {
   // A backend older than 2026-10-24 sends no byEntityType. Rather than an
   // empty second tab, the view then stays the single territory grid it was.
   const byEntityType = query.data.byEntityType;
-  if (!byEntityType) return <div className="grid gap-5"><CoverageSummary totals={query.data.totals} />{canReadRegistrationQueue && <CoverageOverdue />}<CoverageAnnualTrend year={year} />{quotaRanking}{territoryTable}</div>;
+  if (!byEntityType) {
+    return (
+      <div className="grid gap-5">
+        <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
+        <div className="coverage-table-toolbar">
+          {periodSelector}
+          {tableTools}
+        </div>
+        {territoryTable}
+        <CoverageAnnualTrend year={year} />
+        {quotaRanking}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-5">
-      <CoverageSummary totals={query.data.totals} />
-      {canReadRegistrationQueue && <CoverageOverdue />}
-      <CoverageAnnualTrend year={year} />
-      {quotaRanking}
-      {typeQuotaRanking}
+      <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
       <Tabs defaultValue="territory" className="gap-0">
-        <TabsList className="mb-3">
-          <TabsTrigger value="territory">{tTargets("byTerritoryTab")}</TabsTrigger>
-          <TabsTrigger value="type">{tTargets("byEntityTypeTab")}</TabsTrigger>
-        </TabsList>
+        <div className="coverage-table-toolbar">
+          <TabsList>
+            <TabsTrigger value="territory">{tTargets("byTerritoryTab")}</TabsTrigger>
+            <TabsTrigger value="type">{tTargets("byEntityTypeTab")}</TabsTrigger>
+          </TabsList>
+          {periodSelector}
+          {tableTools}
+        </div>
         <TabsContent value="territory" className="mt-0">{territoryTable}</TabsContent>
         <TabsContent value="type" className="mt-0">
-          <CoverageEntityTypeTable rows={byEntityType} />
+          <CoverageEntityTypeTable
+            rows={byEntityType}
+            year={year}
+            semester={semester}
+            quarter={quarter}
+          />
         </TabsContent>
       </Tabs>
+      {quotaRanking}
+      {typeQuotaRanking}
+      <CoverageAnnualTrend year={year} />
     </div>
   );
 }
 
-function CoverageSummary({ totals }: { totals: CoverageResponse["totals"] }) {
+function CoverageSummary({ totals, showOverdue }: { totals: CoverageResponse["totals"]; showOverdue: boolean }) {
   const t = useTranslations("adminTargets");
   const locale = asUiLocale(useLocale());
+  const quotaLabel = totals.targetIndeterminate
+    ? t("quotaIndeterminate")
+    : totals.inscriptionTarget == null
+      ? t("quotaNotSet")
+      : count(totals.inscriptionTarget, locale);
   return (
-    <section className="grid gap-3" aria-labelledby="registration-coverage-total-title">
-      <h2 id="registration-coverage-total-title" className="text-base font-semibold">{t("overallCoverageTitle")}</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border p-4">
+    <section className="grid gap-3" aria-label={t("overallCoverageTitle")}>
+      <div className="coverage-summary-grid">
+        <div className="coverage-summary-card">
           <p className="text-sm text-muted-foreground">{t("annualRegisteredTotal")}</p>
           <strong className="text-xl tabular-nums">{count(totals.registeredInYear, locale)}</strong>
           <p className="mt-1 text-xs text-muted-foreground">{t("cumulativeRegisteredCaption", { count: count(totals.registered, locale) })}</p>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="coverage-summary-card">
           <p className="text-sm text-muted-foreground">{t("annualQuotaTotal")}</p>
-          <strong className="text-xl tabular-nums">{count(totals.inscriptionTarget, locale)}</strong>
+          <strong className="text-xl tabular-nums">{quotaLabel}</strong>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="coverage-summary-card">
           <p className="text-sm text-muted-foreground">{t("annualCoverageRate")}</p>
           <strong className="text-xl tabular-nums">{percent(totals.rate == null ? null : totals.rate * 100, 1, locale, 0)}</strong>
           <p className="mt-1 text-xs text-muted-foreground">
             {t("annualRegisteredOverQuota", {
               registered: count(totals.registeredInYear, locale),
-              quota: count(totals.inscriptionTarget, locale),
+              quota: quotaLabel,
             })}
           </p>
         </div>
+        {showOverdue && <CoverageOverdue />}
       </div>
     </section>
   );
@@ -309,14 +362,14 @@ function CoverageOverdue() {
   return (
     <Link
       href="/admin/inscriptions?status=OVERDUE"
-      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="coverage-summary-card coverage-overdue-card focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <span className="text-sm font-medium">{tRoot("adminInscriptionsPage.statusOverdue", { days })}</span>
       <strong className={query.data.counts.overdue ? "text-lg tabular-nums text-destructive" : "text-lg tabular-nums"}>{count(query.data.counts.overdue, locale)}</strong>
       {/* Both of these live in adminPilotagePage, where the dashboard's own
           overdue tile already uses them; naming that namespace keeps one
           wording rather than a second copy drifting here. */}
-      <small className="basis-full text-muted-foreground">{tRoot("adminPilotagePage.registrationOverdueCaption")}</small>
+      <small className="text-muted-foreground">{tRoot("adminPilotagePage.registrationOverdueCaption")}</small>
     </Link>
   );
 }

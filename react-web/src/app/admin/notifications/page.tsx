@@ -14,7 +14,6 @@ import {
   type UserNotification,
 } from "@/lib/notifications-inbox";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { resolveDataState, stamp } from "@/lib/admin-data-state";
 
@@ -75,7 +74,6 @@ export default function NotificationsPage() {
         breadcrumb={[{ label: title }]}
         title={title}
         hideTabs={true}
-        actions={<AdminHeaderActions showCampaignPill={false} />}
       />
 
       {error && (

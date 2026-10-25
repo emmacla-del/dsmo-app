@@ -20,7 +20,6 @@ import {
 } from "@/lib/system-settings";
 import { REGISTRATION_OVERDUE_DEFAULT_DAYS } from "@/lib/inscriptions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import {
   auditActionLabel,
@@ -172,12 +171,6 @@ function ParametresContent() {
       breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.parametres") }]}
       title={tRoot("adminNav.routes.parametres")}
       subtitle={t("subtitle")}
-      actions={
-        <AdminHeaderActions
-          showCampaignPill={false}
-          showBell={false}
-        />
-      }
     />
   );
 

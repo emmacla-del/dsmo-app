@@ -13,7 +13,6 @@ import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { LanguageLink } from "@/components/LanguageLink";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 
 // Every admin page renders its own AdminPageHeader. The layout used to carry
@@ -181,6 +180,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
         <AdminSidebar
           role={user?.role}
+          accountName={displayName}
+          accountRole={user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
           onLogout={() => {
             logout({ intentional: true });
@@ -197,10 +198,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           the drawer is open — which matches what is on screen, since the
           scrim covers it. Escape and the scrim are the ways back out. */}
       <div className="cam-admin-body" inert={drawerOpen}>
-        {/* The account bar: the very top of every admin page, right-aligned:
-            who is signed in and the console language (owner, 2026-10-10).
-            Sign-out stays at the foot of the sidebar. On a phone it also
-            holds the menu button that opens the sidebar drawer. */}
+        {/* On narrow screens this bar contains the drawer toggle. Account
+            details and language live in the sidebar footer at every width. */}
         <div className="cam-admin-topbar">
           <button
             ref={menuButtonRef}
@@ -213,13 +212,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             <Menu size={20} aria-hidden="true" />
           </button>
-          <div className="cam-admin-account">
-            <span className="cam-admin-account-name">{displayName}</span>
-            <span className="cam-admin-account-role">
-              {user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}
-            </span>
-            <LanguageLink />
-          </div>
         </div>
 
         <main className="cam-admin-main">

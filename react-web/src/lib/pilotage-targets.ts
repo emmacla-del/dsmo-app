@@ -283,9 +283,8 @@ export interface CoverageTotals extends StockCounts {
 
 export interface CoverageResponse {
   year: number;
-  // Returned by the API since 3e and shown by CoveragePanel.
-  // quarter and semester are null on this view — only campaignIds is
-  // populated for the annual fold.
+  // The server echoes the selected annual or semester period and its source
+  // campaigns. A null semester indicates the annual fold.
   period: {
     year: number;
     quarter: number | null;
@@ -369,6 +368,16 @@ export function getAnnualCoverage(year: number) {
   return apiFetch<CoverageResponse>(
     `/admin/pilotage/coverage/annual?year=${encodeURIComponent(String(year))}`,
   );
+}
+
+export function getSemesterCoverage(year: number, semester: 1 | 2) {
+  const params = new URLSearchParams({ year: String(year), semester: String(semester) });
+  return apiFetch<CoverageResponse>(`/admin/pilotage/coverage/semester?${params.toString()}`);
+}
+
+export function getQuarterCoverage(year: number, quarter: 1 | 2 | 3 | 4) {
+  const params = new URLSearchParams({ year: String(year), quarter: String(quarter) });
+  return apiFetch<CoverageResponse>(`/admin/pilotage/coverage/quarter?${params.toString()}`);
 }
 
 export function getCampaignQuotas(campaignId: string) {

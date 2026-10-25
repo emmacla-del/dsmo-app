@@ -10,7 +10,6 @@ import { AUDIT_ROLES, MONITORING_ROLES, hasRole } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -140,7 +139,6 @@ function EquipeContent() {
       breadcrumb={[{ label: t("adminNav.hubs.equipe") }, { label: t("adminNav.routes.equipe") }]}
       title={t("adminNav.routes.equipe")}
       subtitle={t("adminEquipePage.subtitle")}
-      actions={<AdminHeaderActions showCampaignPill={false} />}
     />
   );
 

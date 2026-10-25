@@ -19,6 +19,28 @@ import { IgnoredIdentityChange, lockCompanyIdentity } from './company-territory-
 import { Territory, territoryWhere } from '../auth/territory';
 import { formatDoualaDateFr } from '../common/utils/douala-date';
 
+const REGISTRATION_PERIOD_MIN_YEAR = 2000;
+const DOUALA_YEAR_FORMATTER = new Intl.DateTimeFormat('en', {
+  timeZone: 'Africa/Douala',
+  year: 'numeric',
+});
+
+function doualaRegistrationPeriodBounds(
+  year: number,
+  semester?: 1 | 2,
+  quarter?: 1 | 2 | 3 | 4,
+): { gte: Date; lt: Date } {
+  const firstQuarter = quarter ?? (semester === 1 ? 1 : semester === 2 ? 3 : 1);
+  const lastQuarter = quarter ?? (semester === 1 ? 2 : semester === 2 ? 4 : 4);
+  const startMonth = (firstQuarter - 1) * 3 + 1;
+  const endMonth = lastQuarter * 3 + 1;
+  const endYear = endMonth > 12 ? year + 1 : year;
+  const normalizedEndMonth = endMonth > 12 ? endMonth - 12 : endMonth;
+  const start = `${year}-${String(startMonth).padStart(2, '0')}-01T00:00:00+01:00`;
+  const end = `${endYear}-${String(normalizedEndMonth).padStart(2, '0')}-01T00:00:00+01:00`;
+  return { gte: new Date(start), lt: new Date(end) };
+}
+
 @Injectable()
 export class DsmoService {
   constructor(
@@ -321,6 +343,10 @@ export class DsmoService {
       search?: string;
       status?: string;
       region?: string;
+      sortOrder?: 'oldest' | 'newest';
+      year?: number;
+      semester?: 1 | 2;
+      quarter?: 1 | 2 | 3 | 4;
       page?: number;
       pageSize?: number;
     },
@@ -338,6 +364,26 @@ export class DsmoService {
     }
     if (params.region && params.region !== 'Toutes') {
       where.region = { equals: params.region.trim(), mode: 'insensitive' };
+    }
+
+    if (params.year != null || params.semester != null || params.quarter != null) {
+      const years = params.year != null
+        ? [params.year]
+        : Array.from(
+            { length: Number(DOUALA_YEAR_FORMATTER.format(new Date())) - REGISTRATION_PERIOD_MIN_YEAR + 1 },
+            (_, index) => REGISTRATION_PERIOD_MIN_YEAR + index,
+          );
+      const ranges = years.map((year) =>
+        doualaRegistrationPeriodBounds(year, params.semester, params.quarter),
+      );
+      if (ranges.length === 1) {
+        where.createdAt = ranges[0];
+      } else if (ranges.length > 1) {
+        where.AND = [
+          ...(where.AND ?? []),
+          { OR: ranges.map((range) => ({ createdAt: range })) },
+        ];
+      }
     }
 
     const term = params.search?.trim();
@@ -390,7 +436,7 @@ export class DsmoService {
           lastYearWomenCount: true,
           user: { select: { id: true, email: true, isActive: true, status: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: params.sortOrder === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

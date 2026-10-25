@@ -61,6 +61,25 @@ export function isInDoualaYear(instant: Date, year: number): boolean {
   return instant >= start && instant < end;
 }
 
+export function doualaPeriodBounds(year: number, quarters: readonly number[]): { start: Date; end: Date } {
+  if (quarters.length === 0) return doualaYearBounds(year);
+  const firstQuarter = Math.min(...quarters);
+  const lastQuarter = Math.max(...quarters);
+  const startMonth = (firstQuarter - 1) * 3 + 1;
+  const endMonth = lastQuarter * 3 + 1;
+  const endYear = endMonth > 12 ? year + 1 : year;
+  const normalizedEndMonth = endMonth > 12 ? endMonth - 12 : endMonth;
+  return {
+    start: new Date(`${year}-${String(startMonth).padStart(2, '0')}-01T00:00:00+01:00`),
+    end: new Date(`${endYear}-${String(normalizedEndMonth).padStart(2, '0')}-01T00:00:00+01:00`),
+  };
+}
+
+export function isInDoualaPeriod(instant: Date, year: number, quarters: readonly number[]): boolean {
+  const { start, end } = doualaPeriodBounds(year, quarters);
+  return instant >= start && instant < end;
+}
+
 export function hasEstablishmentId(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim() !== '';
 }
@@ -91,11 +110,16 @@ export function classifyBucket(row: CompanyStockRow): CoverageBucket {
   };
 }
 
-export function applyRow(counts: StockCounts, row: CompanyStockRow, year: number): void {
+export function applyRow(
+  counts: StockCounts,
+  row: CompanyStockRow,
+  year: number,
+  quarters: readonly number[] = [1, 2, 3, 4],
+): void {
   counts.companyCount += 1;
   if (isRegistered(row)) {
     counts.registered += 1;
-    if (isInDoualaYear(registeredAt(row), year)) counts.registeredInYear += 1;
+    if (isInDoualaPeriod(registeredAt(row), year, quarters)) counts.registeredInYear += 1;
     return;
   }
   if (row.status === 'PENDING_APPROVAL') counts.pendingApproval += 1;

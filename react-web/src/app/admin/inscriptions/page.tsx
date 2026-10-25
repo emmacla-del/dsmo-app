@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { enGB, fr } from "react-day-picker/locale";
 import { useAuthStore } from "@/lib/auth-store";
@@ -36,12 +36,11 @@ import {
 } from "@/lib/inscriptions";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
-import { CoveragePanel } from "@/components/admin/CoveragePanel";
+import { CoveragePanel, type CoverageSelection } from "@/components/admin/CoveragePanel";
 import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -131,9 +130,23 @@ function formatQueueDate(date: Date, locale: "fr" | "en"): string {
 // Suspense because useSearchParams() requires it in the app router.
 export default function InscriptionsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<InscriptionsLoading />}>
       <InscriptionsContent />
     </Suspense>
+  );
+}
+
+function InscriptionsLoading() {
+  const t = useTranslations("adminInscriptionsPage");
+  const tRoot = useTranslations();
+  return (
+    <div className="cam-admin-page">
+      <DataState
+        state="loading"
+        resource={t("pageTitle")}
+        title={tRoot("common.loading")}
+      />
+    </div>
   );
 }
 
@@ -159,6 +172,24 @@ function InscriptionsContent() {
   // with no way to see why.
   const requestedType = searchParams.get("type")?.trim() ?? "";
   const initialType = ENTITY_TYPE_VALUES.includes(requestedType) ? requestedType : "";
+  const requestedSemester = searchParams.get("semestre");
+  const requestedQuarter = searchParams.get("trimestre");
+  const requestedPeriodType = searchParams.get("periode");
+  const validSemester = requestedSemester === "1" || requestedSemester === "2"
+    ? Number(requestedSemester) as 1 | 2
+    : null;
+  const validQuarter = ["1", "2", "3", "4"].includes(requestedQuarter ?? "")
+    ? Number(requestedQuarter) as 1 | 2 | 3 | 4
+    : null;
+  const semester: CoverageSelection["semester"] = validQuarter != null
+    ? validSemester ?? (validQuarter <= 2 ? 1 : 2)
+    : validSemester;
+  const quarter: CoverageSelection["quarter"] = validQuarter != null
+    && semester != null
+    && (validQuarter <= 2 ? 1 : 2) === semester
+    && (requestedPeriodType === "quarter" || requestedQuarter != null)
+    ? validQuarter
+    : null;
   // Two views of registrations: the review queue, and coverage against the
   // registration-campaign targets (moved here from /admin/cibles, which
   // forwards its old ?vue=couverture links). Both live in the URL, so a
@@ -168,8 +199,6 @@ function InscriptionsContent() {
   const currentQuery = searchParams.toString();
   const role = useAuthStore((s) => s.user?.role);
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
-  // Same four roles the backend's POST /auth/admin/register-company accepts.
-  const canRegisterAssisted = !!role && DIRECTORY_ROLES.includes(role);
   const queryClient = useQueryClient();
   const { regions: territoryRegions } = useTerritoryRegions();
   const tRoot = useTranslations();
@@ -199,6 +228,7 @@ function InscriptionsContent() {
   const [typeFilter, setTypeFilter] = useState(initialType);
   const [registrationMethod, setRegistrationMethod] = useState("");
   const [dateRange, setDateRange] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("newest");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
   const [page, setPage] = useState(1);
@@ -234,7 +264,7 @@ function InscriptionsContent() {
   // reviewers have left waiting past the threshold set in /admin/parametres.
   const overdueOnly = statusFilter === "OVERDUE";
   const queueQuery = useQuery({
-    queryKey: ["auth", "company-registrations", organisation, statusFilter, typeFilter, region, department, from, to, createdBy, registrationMethod, page],
+    queryKey: ["auth", "company-registrations", organisation, statusFilter, typeFilter, region, department, from, to, createdBy, registrationMethod, sortOrder, page],
     queryFn: () =>
       listCompanyRegistrations({
         organisation,
@@ -245,6 +275,7 @@ function InscriptionsContent() {
         region: region || undefined,
         department: department || undefined,
         registrationMethod: registrationMethod || undefined,
+        sortOrder,
         from,
         to,
         page,
@@ -363,6 +394,47 @@ function InscriptionsContent() {
     { key: "rejected", label: t("statusRejected"), value: counts.rejected, tone: "rejected" },
   ] : [];
   const registrationStatusTotal = registrationStatusSegments.reduce((total, segment) => total + segment.value, 0);
+  const activeQueueFilters: string[] = [];
+  if (organisation || organisationInput.trim()) {
+    activeQueueFilters.push(`${t("organisationColumn")}: ${organisation || organisationInput.trim()}`);
+  }
+  if (typeFilter) activeQueueFilters.push(`${t("establishmentTypeColumn")}: ${entityLabel(typeFilter)}`);
+  if (region) activeQueueFilters.push(`${t("regionColumn")}: ${region}`);
+  if (department) activeQueueFilters.push(`${t("departmentColumn")}: ${department}`);
+  if (dateRange !== "all") {
+    const dateLabel = dateRange === "30"
+      ? t("last30Days")
+      : dateRange === "90"
+        ? t("last90Days")
+        : customDateRange?.from && customDateRange.to
+          ? `${formatQueueDate(customDateRange.from, locale)} – ${formatQueueDate(customDateRange.to, locale)}`
+          : t("customDateRange");
+    activeQueueFilters.push(`${t("submissionDateColumn")}: ${dateLabel}`);
+  }
+  if (registrationMethod) {
+    activeQueueFilters.push(
+      `${t("registrationSourceColumn")}: ${registrationMethodLabel(registrationMethod, locale) ?? registrationMethod}`,
+    );
+  }
+  if (statusFilter) {
+    const statusLabel = statusFilter === "ALL"
+      ? t("statusAll")
+      : statusFilter === "OVERDUE"
+        ? t("statusOverdue", { days: overdueDays })
+        : statusFilter === "PENDING_APPROVAL"
+          ? t("statusPending")
+          : statusFilter === "COMPLEMENTS_REQUESTED"
+            ? t("statusComplements")
+            : statusFilter === "ACTIVE"
+              ? t("statusApproved")
+              : t("statusRejected");
+    activeQueueFilters.push(`${t("registrationStatusColumn")}: ${statusLabel}`);
+  }
+  if (createdBy) {
+    activeQueueFilters.push(
+      `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`,
+    );
+  }
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
     registrationMethod || dateRange !== "all" || createdBy,
@@ -382,8 +454,7 @@ function InscriptionsContent() {
     const params = new URLSearchParams(currentQuery);
     params.delete("createdBy");
     params.delete("status");
-    // Also the region the coverage ranking may have seeded, or clearing the
-    // filters would leave it in the URL to come back on the next reload.
+    // Also clear territory filters seeded by the coverage ranking.
     params.delete("region");
     params.delete("department");
     params.delete("type");
@@ -391,37 +462,30 @@ function InscriptionsContent() {
   };
 
   return (
-    <div className="cam-admin-page cam-admin-workflow-page">
-      {/* One tab bar, not two stacked rows plus a breadcrumb.
-          The heading names the hub and the tabs name the destinations inside
-          it, so nothing is said twice: the breadcrumb was a single segment
-          repeating the rail, and the old <h1> repeated whichever tab was
-          active. The two views of this page and the sibling register are one
-          level to the reader, so they are one row. */}
+    <div className="cam-admin-page cam-admin-workflow-page cam-registration-hub-page">
+      {/* Keep the registration action alongside its destinations, not in the sidebar. */}
       <AdminPageHeader
         title={tRoot("adminNav.hubs.inscriptions")}
-        subtitle={t("dashboardSubtitle")}
+        tabsAction={vue === "file" && role && DIRECTORY_ROLES.includes(role) ? (
+          <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
+            <Plus aria-hidden="true" />
+            {tRoot("adminNav.routes.nouvelleInscription")}
+          </Link>
+        ) : undefined}
         tabs={[
           { label: t("viewQueue"), href: inscriptionsHref(currentQuery, "file"), isActive: vue === "file" },
           { label: t("viewCoverage"), href: inscriptionsHref(currentQuery, "couverture"), isActive: vue === "couverture" },
           { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
         ]}
-        actions={
-          <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-            <AdminHeaderActions showCampaignPill={false} />
-            {canRegisterAssisted && (
-              <Button asChild size="sm">
-                <Link href="/admin/inscriptions/nouvelle">
-                  {tRoot("adminNav.routes.nouvelleInscription")}
-                </Link>
-              </Button>
-            )}
-          </div>
-        }
       />
 
       {vue === "couverture" && (
-        <CoveragePanel year={year} onYearChange={(next) => router.replace(inscriptionsHref(currentQuery, "couverture", { annee: next }))} />
+        <CoveragePanel year={year} semester={semester} quarter={quarter} onPeriodChange={(next) => router.replace(inscriptionsHref(currentQuery, "couverture", {
+          annee: next.year,
+          semestre: next.semester,
+          trimestre: next.quarter,
+          periode: null,
+        }))} />
       )}
 
       {vue === "file" && (<>
@@ -485,10 +549,10 @@ function InscriptionsContent() {
       )}
 
       {canReadQueue && (
-        <section className="cam-dash-block cam-dash-panel" aria-labelledby="registration-status-title">
-          <div className="cam-dash-block-head">
-            <h2 id="registration-status-title" className="cam-dash-block-title">{t("statusDistributionTitle")}</h2>
-            <span className="cam-dash-context">{t("statusDistributionContext")}</span>
+        <section className="cam-registration-status-panel" aria-labelledby="registration-status-title">
+          <div className="cam-registration-status-head">
+            <h2 id="registration-status-title">{t("statusDistributionTitle")}</h2>
+            <span>{t("statusDistributionContext")}</span>
           </div>
           {queueQuery.isError ? (
             <DataState
@@ -502,27 +566,12 @@ function InscriptionsContent() {
           ) : registrationStatusTotal === 0 ? (
             <DataState state="empty" resource={t("registrationStatusResource")} dense />
           ) : (
-            <>
-              <div
-                className="cam-dash-status-bar"
-                role="img"
-                aria-label={t("statusDistributionAria", {
-                  pending: counts.pending,
-                  complements: counts.complements,
-                  approved: counts.approved,
-                  rejected: counts.rejected,
-                })}
-              >
-                {/* The width is the datum, so it stays an inline style. */}
-                {registrationStatusSegments.map((segment) => (
-                  <span
-                    key={segment.key}
-                    className={`cam-dash-status-segment is-${segment.tone}`}
-                    style={{ width: `${(segment.value / registrationStatusTotal) * 100}%` }}
-                  />
-                ))}
-              </div>
-              <ul className="cam-dash-status-legend">
+            <ul className="cam-registration-status-list" aria-label={t("statusDistributionAria", {
+              pending: counts.pending,
+              complements: counts.complements,
+              approved: counts.approved,
+              rejected: counts.rejected,
+            })}>
                 {registrationStatusSegments.map((segment) => (
                   <li key={segment.key}>
                     <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
@@ -530,19 +579,26 @@ function InscriptionsContent() {
                     <strong>{count(segment.value, locale)}</strong>
                   </li>
                 ))}
-              </ul>
+            </ul>
+          )}
+          {counts && (
               <p className="cam-dash-context cam-registration-overdue-summary">
                 {t("overdueSummary", { count: count(counts.overdue, locale), days: overdueDays })}
               </p>
-            </>
           )}
         </section>
       )}
 
-      <Card>
+      <Card className="cam-registration-queue-card">
         <CardContent>
           {hasActiveQueueFilters && (
-            <div className="mb-3 flex justify-end">
+            <div className="cam-registration-filter-summary" role="group" aria-label={t("activeFiltersLabel")}>
+              <span className="cam-registration-filter-summary-title">{t("activeFiltersLabel")}</span>
+              <div className="cam-registration-filter-chips">
+                {activeQueueFilters.map((filter) => (
+                  <span className="cam-registration-filter-chip" key={filter}>{filter}</span>
+                ))}
+              </div>
               <Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>
                 {t("clearFilters")}
               </Button>
@@ -610,7 +666,7 @@ function InscriptionsContent() {
                     </div>
                   )}
                 </FilterTableHead>
-                <FilterTableHead label={t("submissionDateColumn")} filterLabel={t("filterColumn", { column: t("submissionDateColumn") })} active={dateRange !== "all"} contentClassName="w-[19rem] p-3">
+                <FilterTableHead label={t("submissionDateColumn")} filterLabel={t("filterColumn", { column: t("submissionDateColumn") })} active={dateRange !== "all" || sortOrder !== "newest"} contentClassName="w-[19rem] p-3">
                   {(close) => (
                     <div className="grid gap-3">
                       <div className="grid gap-1" role="group" aria-label={t("dateFilterLabel")}>
@@ -694,6 +750,21 @@ function InscriptionsContent() {
                             {t("applyDateRange")}
                           </Button>
                         </div>
+                      </div>
+                      <div className="border-t pt-2">
+                        <FilterTableOptions
+                          label={tRoot("adminDossiersPage.sortLabel")}
+                          value={sortOrder}
+                          onChange={(value) => {
+                            setSortOrder(value === "oldest" ? "oldest" : "newest");
+                            setPage(1);
+                          }}
+                          onSelect={close}
+                          options={[
+                            { value: "newest", label: tRoot("adminDossiersPage.sortNewest") },
+                            { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") },
+                          ]}
+                        />
                       </div>
                     </div>
                   )}
@@ -837,7 +908,13 @@ function InscriptionsContent() {
               disabled={pendingMutation || (decision === "APPROVE" && !!approveBlocked)}
               aria-describedby={decision === "APPROVE" && approveBlocked ? "inscription-approve-blocked" : undefined}
             >
-              {pendingMutation ? "…" : t("confirmButton")}
+              {pendingMutation
+                ? t("decisionSubmitting")
+                : decision === "APPROVE"
+                  ? t("approveAccount")
+                  : decision === "REJECT"
+                    ? t("rejectAccount")
+                    : t("requestComplements")}
             </Button>
           </>
         }
@@ -987,14 +1064,20 @@ function InscriptionsContent() {
             {decision !== "APPROVE" && (
               <div className="grid gap-2">
                 <Label htmlFor="inscription-decision-comment">
-                  {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}
+                  {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}{" "}
+                  <span aria-hidden="true">*</span>
                 </Label>
                 <Textarea
                   id="inscription-decision-comment"
                   rows={3}
+                  required
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
+                  aria-describedby="inscription-decision-comment-hint"
                 />
+                <p id="inscription-decision-comment-hint" className="cam-admin-choice-hint m-0">
+                  {decision === "REJECT" ? t("rejectReasonHint") : t("complementsMessageHint")}
+                </p>
               </div>
             )}
           </div>

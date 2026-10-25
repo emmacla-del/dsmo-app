@@ -10,7 +10,6 @@ import { getPilotageQueues } from "@/lib/api-client";
 import { formatCampaignDate, formatCampaignDisplayName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { CampaignActivityTrendChart } from "@/components/admin/CampaignActivityTrendChart";
 import { CoverageBarChart } from "@/components/admin/CoverageBarChart";
 import { CampaignReviewStatusChart } from "@/components/admin/CampaignReviewStatusChart";
@@ -463,11 +462,6 @@ function PilotageDashboard() {
         breadcrumb={[{ label: t("adminNav.hubs.supervision") }, { label: t("adminNav.routes.pilotage") }]}
         title={t("adminNav.routes.pilotage")}
         subtitle={t("adminPilotagePage.dashboardSubtitle")}
-        actions={(
-          <div className="cam-dash-header-actions">
-            <AdminHeaderActions showCampaignPill={false} />
-          </div>
-        )}
       />
 
       {!canReadRegistrationOperation && !canReadSurveySubmissions ? (

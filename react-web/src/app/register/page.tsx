@@ -303,7 +303,14 @@ export default function RegisterPage() {
     queryFn: () => getSubdivisionsByDepartment(departmentId),
     enabled: !!departmentId,
   });
-  const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
+  const sectorsQuery = useQuery({
+    queryKey: ["sectors"],
+    queryFn: getSectors,
+    // Reference data is required to finish registration. Keep recovering from
+    // a temporary API/database outage while the form is open, rather than
+    // leaving the respondent stranded after React Query's initial retries.
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
+  });
 
   // The subdivision list's four distinct states. "No subdivision selected" and
   // "this department has no subdivisions to select" must not collapse into one

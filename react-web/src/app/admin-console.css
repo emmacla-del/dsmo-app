@@ -195,6 +195,32 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+.cam-admin-rail-tools-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  align-items: center;
+  gap: var(--cam-space-1);
+}
+
+.cam-admin-rail .cam-admin-scope {
+  min-width: 0;
+  justify-content: center;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--cam-font-size-3xs);
+}
+
+.cam-admin-rail .cam-admin-icon-button {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cam-admin-rail .cam-admin-icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--cam-surface);
+}
+
 .cam-admin-rail-nav {
   flex: 1 0 auto;
   display: flex;
@@ -277,6 +303,8 @@
 }
 
 .cam-admin-rail-account {
+  display: grid;
+  gap: var(--cam-space-2);
   flex-shrink: 0;
   margin-top: auto;
   padding-top: var(--cam-space-3);
@@ -286,7 +314,7 @@
 .cam-admin-rail-user {
   display: flex;
   flex-direction: column;
-  gap: var(--cam-space-3);
+  gap: var(--cam-space-1);
 }
 
 .cam-admin-rail-user-id {
@@ -361,11 +389,16 @@
 
 .cam-admin-rail-locale {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
-.cam-admin-rail-user + .cam-admin-rail-locale {
-  margin-top: var(--cam-space-3);
+.cam-admin-rail .cam-language-link {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-admin-rail .cam-language-link:hover {
+  color: var(--cam-surface);
 }
 
 .cam-admin-campaign {
@@ -516,9 +549,28 @@
 }
 
 /* The sub-tab row spans the header and sits on its bottom rule. */
-.cam-admin-page-header > .cam-admin-tabs {
+.cam-admin-page-header > .cam-admin-tabs,
+.cam-admin-page-header > .cam-admin-tabs-row {
   width: 100%;
   margin: var(--cam-space-3) 0 -1px;
+}
+
+.cam-admin-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  min-width: 0;
+}
+
+.cam-admin-tabs-row > .cam-admin-tabs {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.cam-admin-tabs-action {
+  flex-shrink: 0;
 }
 
 .cam-admin-tab {
@@ -556,9 +608,7 @@
 .cam-admin-status-badge--active     { background: color-mix(in srgb, var(--cam-green) 12%, transparent);  color: var(--cam-green-dark); --cam-status-dot: var(--cam-green); }
 .cam-admin-status-badge--neutral    { background: color-mix(in srgb, var(--cam-text-muted) 10%, transparent);    color: var(--cam-text-muted); --cam-status-dot: var(--cam-text-muted); }
 
-/* ── Page header actions (AdminHeaderActions, NotificationBell) ──
-   These classes draw the header as it renders today: they replaced inline
-   styles that had drifted from an earlier version of these same rules. */
+/* ── Persistent admin actions ── */
 /* max-width lets the chips wrap on a phone: unshrinkable at their one-line
    width, they pushed the document wider than the viewport. */
 .cam-admin-header-actions {
@@ -682,6 +732,10 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
+.cam-admin-bell-panel--rail {
+  z-index: calc(var(--cam-z-dialog) + 1);
+}
+
 .cam-admin-bell-head {
   padding: var(--cam-space-3) var(--cam-space-4);
   border-bottom: var(--cam-border-width) solid var(--cam-border);
@@ -701,44 +755,14 @@
   text-align: center;
 }
 
-/* The account bar: the top of every admin page. Signed-in name and role
-   and the language switch (sign-out stays at the foot of the sidebar), right-aligned on the same width as the
-   page below it (.cam-admin-main). On a phone it also carries the drawer
-   toggle, on the left. Plain text on the page background: no card. */
+/* The topbar only remains on narrow screens for the drawer toggle. */
 .cam-admin-topbar {
-  display: flex;
+  display: none;
   align-items: center;
   gap: var(--cam-space-3);
   width: 100%;
   max-width: 1360px;
   padding: var(--cam-space-3) var(--cam-space-6) 0;
-}
-
-.cam-admin-account {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--cam-space-1) var(--cam-space-3);
-  margin-left: auto;
-  font-size: var(--cam-font-size-xs);
-}
-
-.cam-admin-account-name {
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-text);
-}
-
-.cam-admin-account-role {
-  color: var(--cam-text-muted);
-}
-
-/* Phone: name and language on one line; the role would cost a
-   second line on a 375px screen. */
-@media (max-width: 640px) {
-  .cam-admin-account-role {
-    display: none;
-  }
 }
 
 .cam-admin-menu-button {
@@ -805,6 +829,7 @@
   }
 
   .cam-admin-topbar {
+    display: flex;
     padding: var(--cam-space-2) var(--cam-space-4) 0;
   }
 
@@ -3276,6 +3301,281 @@ a.cam-dash-review-row:hover {
   color: var(--cam-text);
   font-size: var(--cam-font-size-base);
   font-variant-numeric: tabular-nums;
+}
+
+.cam-registration-status-panel {
+  display: grid;
+  gap: var(--cam-space-3);
+  margin-block: var(--cam-space-4);
+}
+
+.cam-registration-status-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-4);
+}
+
+.cam-registration-status-head h2 {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-registration-status-head span {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-status-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-registration-status-list li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-content: center;
+  min-width: 0;
+  min-height: 72px;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-registration-status-list strong {
+  grid-column: 2;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-registration-overdue-summary {
+  margin: 0;
+  padding-top: var(--cam-space-3);
+  border-top: var(--cam-border-width) solid var(--cam-border-soft);
+}
+
+.cam-registration-queue-card {
+  overflow: hidden;
+  border-color: var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-registration-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-registration-filter-summary-title {
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+.cam-registration-filter-chips {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-2);
+}
+
+.cam-registration-filter-chip {
+  max-width: 100%;
+  padding: var(--cam-space-1) var(--cam-space-2);
+  overflow-wrap: anywhere;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  color: var(--cam-text);
+  background: var(--cam-surface-subtle);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-hub-page > .cam-admin-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--cam-space-4);
+  row-gap: var(--cam-space-2);
+}
+
+.cam-registration-hub-page .cam-admin-page-header-main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row {
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
+  margin: 0;
+  justify-self: end;
+}
+
+.coverage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.coverage-summary-card {
+  display: flex;
+  min-width: 0;
+  min-height: 88px;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface-subtle);
+}
+
+.coverage-summary-card > p {
+  margin-top: 0;
+}
+
+.coverage-summary-card > p:first-child {
+  margin-bottom: var(--cam-space-1);
+}
+
+.coverage-summary-card > strong {
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.15;
+}
+
+.coverage-overdue-card {
+  align-items: flex-start;
+  text-decoration: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.coverage-overdue-card > span {
+  margin-bottom: var(--cam-space-1);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+}
+
+.coverage-overdue-card > strong {
+  font-size: var(--cam-font-size-lg);
+  line-height: 1.15;
+}
+
+.coverage-overdue-card > small {
+  margin-top: var(--cam-space-1);
+  font-size: var(--cam-font-size-xs);
+}
+
+.coverage-overdue-card:hover {
+  border-color: var(--cam-border-strong);
+  background: var(--cam-surface);
+}
+
+.coverage-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-registration-coverage-table .coverage-period-column {
+  min-width: 6rem;
+  vertical-align: middle;
+}
+
+.coverage-period-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.coverage-help-trigger {
+  margin: 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-registration-coverage-table {
+  min-width: 88rem;
+}
+
+.cam-registration-coverage-table thead th {
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .cam-registration-status-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cam-registration-hub-page > .cam-admin-page-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header-main,
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs,
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row,
+  .cam-registration-hub-page .cam-admin-page-header-actions {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs-row {
+    grid-row: 2;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .cam-registration-hub-page .cam-admin-tabs-row > .cam-admin-tabs {
+    flex: 1 1 100%;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header-actions {
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .cam-registration-hub-page .cam-admin-page-header > .cam-admin-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .coverage-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coverage-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .coverage-period-tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  .coverage-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .cam-dash-columns {

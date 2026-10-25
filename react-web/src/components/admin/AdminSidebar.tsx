@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
+import { LanguageLink } from "@/components/LanguageLink";
+import { AdminRailActions } from "@/components/admin/AdminHeaderActions";
 import { useNavProfile } from "@/hooks/useNavProfile";
 import { navHubsFor } from "@/lib/nav-profiles";
 
@@ -30,6 +32,9 @@ export interface AdminSidebarProps {
    * not ADMIN_HUBS filtered by allowedRoles; see that file for why.
    */
   role?: UserRole;
+  /** Signed-in identity shown in the sidebar footer. */
+  accountName?: string;
+  accountRole?: string;
   /** Badge count on data quality */
   anomaliesCount?: number;
   /** Sign-out, kept at the foot of the rail (owner, 2026-10-10). */
@@ -67,6 +72,8 @@ function Badge({ count }: { count: number }) {
 
 export function AdminSidebar({
   role,
+  accountName,
+  accountRole,
   anomaliesCount = 0,
   onLogout,
 }: AdminSidebarProps) {
@@ -96,6 +103,8 @@ export function AdminSidebar({
         <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
       </div>
 
+      <AdminRailActions />
+
       {/* ── Primary Navigation Hubs ── */}
       <nav className="cam-admin-rail-nav">
         {visibleHubs.map((hub) => {
@@ -122,10 +131,16 @@ export function AdminSidebar({
         })}
       </nav>
 
-      {/* ── Footer: sign-out only. Who is signed in and the language switch
-          are in the account bar at the top of the page. ── */}
+      {/* ── Footer: signed-in identity, language, and sign-out. ── */}
       {onLogout && (
         <div className="cam-admin-rail-account">
+          <div className="cam-admin-rail-user">
+            <div className="cam-admin-rail-user-text">
+              {accountName && <div className="cam-admin-rail-user-name">{accountName}</div>}
+              {accountRole && <div className="cam-admin-rail-user-role">{accountRole}</div>}
+            </div>
+            <div className="cam-admin-rail-locale"><LanguageLink /></div>
+          </div>
           <button type="button" onClick={onLogout} className="cam-admin-rail-logout">
             <LogOut size={13} aria-hidden="true" />
             <span>{t("logoutButton")}</span>

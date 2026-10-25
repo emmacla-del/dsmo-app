@@ -165,6 +165,8 @@ export interface AdminPageHeaderProps {
   beforeTitle?: ReactNode;
   /** Right-hand actions (buttons, chips, etc.) */
   actions?: ReactNode;
+  /** Action aligned opposite the sub-navigation tabs, when the task belongs to that view. */
+  tabsAction?: ReactNode;
   /** Explicit tabs to render. If omitted and hideTabs is false, active hub sub-routes are used */
   tabs?: AdminHeaderTab[];
   /** Hide horizontal sub-navigation tabs (useful on deep detail pages) */
@@ -186,6 +188,7 @@ export function AdminPageHeader({
   statusBadge,
   backHref,
   actions,
+  tabsAction,
   tabs,
   hideTabs = false,
 }: AdminPageHeaderProps) {
@@ -225,9 +228,18 @@ export function AdminPageHeader({
 
       {/* ── Bottom: secondary in-page navigation tabs ── */}
       {!shouldHideTabs && (
-        <Suspense fallback={null}>
-          <AdminSubNav customTabs={tabs} />
-        </Suspense>
+        tabsAction ? (
+          <div className="cam-admin-tabs-row">
+            <Suspense fallback={null}>
+              <AdminSubNav customTabs={tabs} />
+            </Suspense>
+            <div className="cam-admin-tabs-action">{tabsAction}</div>
+          </div>
+        ) : (
+          <Suspense fallback={null}>
+            <AdminSubNav customTabs={tabs} />
+          </Suspense>
+        )
       )}
     </header>
   );

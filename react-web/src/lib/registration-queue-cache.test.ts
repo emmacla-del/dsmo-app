@@ -15,8 +15,10 @@ const page = (): CompanyRegistrationsResult => ({
   overdueDays: 7,
 });
 
+// "ALL" so the row stays on the page: this is about the badge and the
+// counters, not about which views hold a decided file (further down).
 test("approving a pending file shows it approved and moves the counters at once", () => {
-  const next = applyRegistrationDecision(page(), "a", "ACTIVE")!;
+  const next = applyRegistrationDecision(page(), "a", "ACTIVE", "ALL")!;
   assert.equal(next.items[0].status, "ACTIVE");
   assert.equal(next.items[0].overdue, false);
   assert.equal(next.items[1].status, "PENDING_APPROVAL", "the other row is untouched");
@@ -59,10 +61,31 @@ test("a decided file leaves the overdue view, which no decided file belongs to",
   }
 });
 
-test("the unfiltered list keeps the row and only restyles it", () => {
+// No status filter is NOT the unfiltered list: the server reads it as the
+// review queue, status IN (PENDING_APPROVAL, COMPLEMENTS_REQUESTED). Reading
+// it as "keep everything" left the approved row in the default view — the one
+// every reviewer uses — which is defect 20 / B11 all over again.
+
+test("a decided file leaves the default queue view unless it is still the reviewers' move", () => {
   for (const view of [undefined, ""]) {
-    const next = applyRegistrationDecision(page(), "a", "ACTIVE", view)!;
+    for (const status of ["ACTIVE", "REJECTED"] as const) {
+      const next = applyRegistrationDecision(page(), "a", status, view)!;
+      assert.deepEqual(next.items.map((i) => i.id), ["b"], `${String(view)} / ${status}`);
+      assert.equal(next.total, 1, `${String(view)} / ${status}`);
+    }
+    // Complements requested stays: the queue filter holds that status.
+    const next = applyRegistrationDecision(page(), "a", "COMPLEMENTS_REQUESTED", view)!;
     assert.deepEqual(next.items.map((i) => i.id), ["a", "b"], String(view));
-    assert.equal(next.total, 2);
+    assert.equal(next.items[0].status, "COMPLEMENTS_REQUESTED");
+    assert.equal(next.total, 2, String(view));
+  }
+});
+
+test("status=ALL holds every status, so no decision takes a row out of it", () => {
+  for (const status of ["ACTIVE", "REJECTED", "COMPLEMENTS_REQUESTED"] as const) {
+    const next = applyRegistrationDecision(page(), "a", status, "ALL")!;
+    assert.deepEqual(next.items.map((i) => i.id), ["a", "b"], status);
+    assert.equal(next.items[0].status, status);
+    assert.equal(next.total, 2, status);
   }
 });
