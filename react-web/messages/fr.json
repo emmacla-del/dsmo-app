@@ -1884,7 +1884,7 @@
     "registrationTrendLoading": "Chargement de l'historique des inscriptions…",
     "quotaCoverageWithoutTarget": "{count, plural, one {# territoire sans quota d'inscription pour l'année choisie : il ne figure pas dans ce classement.} other {# territoires sans quota d'inscription pour l'année choisie : ils ne figurent pas dans ce classement.}}",
     "quotaCoverageRateColumn": "Atteinte du quota",
-    "quotaCoverageCountsColumn": "Inscrits / quota",
+    "quotaCoverageCountsColumn": "Inscrits dans l’année / quota",
     "registerShareColumn": "Part inscrite",
     "quotaCoverageDistributionLabel": "Nombre de territoires par niveau d'atteinte du quota",
     "noQuotaCoverageAreas": "Aucun territoire avec un quota d'inscription mesurable dans ce ressort pour l'année choisie.",

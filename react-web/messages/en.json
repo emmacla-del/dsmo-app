@@ -1884,7 +1884,7 @@
     "registrationTrendLoading": "Loading registration history…",
     "quotaCoverageWithoutTarget": "{count, plural, one {# territory has no registration quota for the selected year and is not ranked here.} other {# territories have no registration quota for the selected year and are not ranked here.}}",
     "quotaCoverageRateColumn": "Quota attainment",
-    "quotaCoverageCountsColumn": "Registered / quota",
+    "quotaCoverageCountsColumn": "Registered within the year / quota",
     "registerShareColumn": "Share registered",
     "quotaCoverageDistributionLabel": "Number of target areas in each quota attainment band",
     "noQuotaCoverageAreas": "No areas with a measurable registration quota are in this scope for the selected year.",
