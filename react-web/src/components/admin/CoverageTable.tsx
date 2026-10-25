@@ -264,6 +264,11 @@ export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[
             <TableHead scope="col">{t("entityTypeColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("registeredColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("registerShareColumn")}</TableHead>
+            {/* Quota, Écart and Taux sit where the territory grid puts them,
+                so the two tabs read the same way round. */}
+            <TableHead scope="col" className={NUM}>{t("coverageTargetColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("gapColumn")}</TableHead>
+            <TableHead scope="col" className={NUM}>{t("rateColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("inYearColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("approvalColumn")}</TableHead>
             <TableHead scope="col" className={NUM}>{t("reviewColumn")}</TableHead>
@@ -280,6 +285,18 @@ export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[
               </TableHead>
               <TableCell className={NUM}>{formatCoverageCount(row.registered, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{fmtRate(row.companyCount > 0 ? row.registered / row.companyCount : null, locale)}</TableCell>
+              <TableCell className={NUM}>{fmt(row.inscriptionTarget ?? null, locale)}</TableCell>
+              {/* The gap counts against the same numerator as the rate: what
+                  the year still owes, never a negative once it is met. */}
+              <TableCell className={NUM}>
+                {fmt(
+                  row.inscriptionTarget != null && row.inscriptionTarget > 0
+                    ? Math.max(0, row.inscriptionTarget - row.registeredInYear)
+                    : null,
+                  locale,
+                )}
+              </TableCell>
+              <TableCell className={NUM}>{fmtRate(row.rate ?? null, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.registeredInYear, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.pendingApproval, row.companyCount, locale)}</TableCell>
               <TableCell className={NUM}>{formatCoverageCount(row.pendingReview, row.companyCount, locale)}</TableCell>
@@ -291,7 +308,7 @@ export function CoverageEntityTypeTable({ rows }: { rows: CoverageEntityTypeRow[
         </TableBody>
       </Table>
       <p className="mt-3 text-sm text-muted-foreground">{t("statusBreakdownNote")}</p>
-      <p className="mt-3 text-sm text-muted-foreground">{t("entityTypeNoQuotaNote")}</p>
+      <p className="mt-3 text-sm text-muted-foreground">{t("entityTypeQuotaNote")}</p>
     </>
   );
 }

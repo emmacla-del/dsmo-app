@@ -1904,7 +1904,7 @@
     "byTerritoryTab": "By territory",
     "byEntityTypeTab": "By entity type",
     "entityTypeColumn": "Entity type",
-    "entityTypeNoQuotaNote": "Quotas are territorial, so quota attainment is not calculated by entity type. The registered share above is registered companies divided by all companies of that type."
+    "entityTypeQuotaNote": "A type's quota is the sum of the per-type quotas of the regions in scope; for administrations it is the central-level quota. A type with no quota shows a dash: nothing has been set, which is not the same as zero."
   },
   "adminCiblesPage": {
     "subtitle": "ONEFOP campaign quotas and declaration returns tracking.",

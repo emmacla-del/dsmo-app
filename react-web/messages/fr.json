@@ -1904,7 +1904,7 @@
     "byTerritoryTab": "Par territoire",
     "byEntityTypeTab": "Par type d'entité",
     "entityTypeColumn": "Type d'entité",
-    "entityTypeNoQuotaNote": "Les quotas sont territoriaux : aucun taux d'atteinte n'est calculé par type. La part inscrite ci-dessus correspond aux inscrits divisés par toutes les entreprises de ce type."
+    "entityTypeQuotaNote": "Le quota d'un type est la somme des quotas par type des régions de ce ressort ; pour les administrations, c'est le quota du niveau central. Un type sans quota affiche « — » : rien n'a été fixé, ce qui n'est pas la même chose que zéro."
   },
   "adminCiblesPage": {
     "subtitle": "Quotas des campagnes ONEFOP et suivi des retours de déclarations.",
