@@ -91,17 +91,14 @@ import {
 } from "@/lib/password-strength";
 import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
-import { LanguageLink } from "@/components/LanguageLink";
+import { BlankOption } from "@/components/auth/BlankOption";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
-import { RegistrationStepList } from "@/components/auth/RegistrationStepList";
-import { WizardRail } from "@/components/wizard/WizardRail";
 import { StepHeader } from "@/components/auth/StepHeader";
-import { BrandLockup } from "@/components/brand/BrandLockup";
 
 // CAM-LEAP Official Administrative Registration Wizard
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
@@ -335,7 +332,14 @@ export default function RegisterPage() {
     enabled: !!departmentId,
     refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
-  const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
+  const sectorsQuery = useQuery({
+    queryKey: ["sectors"],
+    queryFn: getSectors,
+    // Reference data is required to finish registration. Keep recovering from
+    // a temporary API/database outage while the form is open, rather than
+    // leaving the respondent stranded after React Query's initial retries.
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
+  });
 
   // The four required reference lists, read from the copies bundled with the
   // app until the API answers (src/lib/register-reference.ts). Each select
@@ -482,6 +486,7 @@ export default function RegisterPage() {
       isFetching: boolean;
       isError: boolean;
       refetch: () => unknown;
+      data?: { id: string; name: string }[];
     };
     items: { id: string; name: string }[];
     value: string;
@@ -512,9 +517,7 @@ export default function RegisterPage() {
               onSelect(next, items.find((item) => item.id === next)?.name || "");
             }}
           >
-            <option value="">
-              {selectStatusLabel({ ...query, data: items }, gatedBy)}
-            </option>
+            <BlankOption label={selectStatusLabel({ ...query, data: items }, gatedBy)} />
             {items.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -643,7 +646,7 @@ export default function RegisterPage() {
           )}
           {field.kind === "year" ? (
             <select {...controlProps}>
-              <option value=""></option>
+              <BlankOption />
               {yearOptions(entityData[field.key]).map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -654,9 +657,9 @@ export default function RegisterPage() {
             // Disabled until a sector is chosen, like the department before
             // a region: the list is that sector's branches.
             <select {...controlProps} disabled={!entityData.activitySector}>
-              <option value="">
-                {selectStatusLabel({ ...sectorsQuery, data: branches }, !entityData.activitySector)}
-              </option>
+              <BlankOption
+                label={selectStatusLabel({ ...sectorsQuery, data: branches }, !entityData.activitySector)}
+              />
               {branchesFor(branches, entityData.activitySector, entityType).map((b) => (
                 <option key={b.id} value={b.id}>
                   {sectorLabel(b, locale)}
@@ -665,7 +668,9 @@ export default function RegisterPage() {
             </select>
           ) : field.kind === "select" ? (
             <select {...controlProps}>
-              <option value=""></option>
+              {/* Keep required choices unanswered by default while omitting
+                  the blank option from every opened dropdown in this wizard. */}
+              <BlankOption />
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {localized(o.label, locale)}
@@ -1851,7 +1856,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-respondent"
-              title={t("registerPage.respondentTitle")}
+              title={t("registerPage.stepRespondent")}
               subtitle={t("registerPage.respondentSubtitle")}
             />
 
@@ -1914,7 +1919,7 @@ export default function RegisterPage() {
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
-                    <option value=""></option>
+                    <BlankOption />
                     {getRespondentFunctionOptions(entityType).map((o) => (
                       <option key={o.value} value={o.value}>
                         {localized(o.label, locale)}
@@ -2037,7 +2042,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityInfo"
-              title={localized(config.title, locale)}
+              title={t("registerPage.stepEntityInfo")}
               subtitle={localized(config.identification, locale)}
             />
 
@@ -2129,7 +2134,14 @@ export default function RegisterPage() {
                 items: subdivisions,
                 value: subdivisionId,
                 gatedBy: !departmentId,
-                hint: subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined,
+                // An arrondissement cannot be required of a department the
+                // server has none for; the row says so instead of looking
+                // like an empty dropdown the respondent failed to use.
+                disabled: !departmentId || subdivisionsStatus === "empty",
+                hint:
+                  subdivisionsStatus === "empty"
+                    ? t("registerPage.noSubdivisionHint")
+                    : undefined,
                 onSelect: (id, name) => {
                   setSubdivisionId(id);
                   setSubdivisionName(name);
@@ -2182,7 +2194,7 @@ export default function RegisterPage() {
                 ruled note stacked on top of the instruction. */}
             <StepHeader
               titleId="reg-section-title-security"
-              title={t("registerPage.securityTitle")}
+              title={t("registerPage.stepSecurity")}
               subtitle={
                 draftRestored
                   ? t("registerPage.draftPasswordReminder")
@@ -2378,12 +2390,11 @@ export default function RegisterPage() {
   // One frame, one section, one scrollbar -- the page's own.
   //
   // Owner's decision, 2026-10-10: the DOCUMENT scrolls, never a region inside
-  // the frame (CLAUDE.md section 13). On a wide screen the page is two
-  // columns: the dossier panel -- identity, the six steps with what each
-  // holds, the way out -- sticky beside a body holding the frame, an
-  // unbordered column. On a narrow screen the panel is not shown and the page is a column
-  // of the header that carries the rail, the body and a one-line footer.
-  // Either way a long section makes the page longer. Retour and Continuer
+  // the frame (CLAUDE.md section 13). At every width the page is a column:
+  // the header that carries the logo and the rail, the body holding the
+  // frame, and a one-line footer. On a wide screen the header is one row,
+  // pinned, and the form scrolls under it (owner, 2026-10-22: it replaced
+  // the dossier side panel). A long section makes the page longer. Retour and Continuer
   // stay at the end of the frame, not pinned (owner, 2026-10-10).
   //
   // Every revealed section stays MOUNTED and is merely hidden: a section the
@@ -2391,9 +2402,8 @@ export default function RegisterPage() {
   // email-availability check running when they moved on still lands.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
-      {/* Narrow screens only. Sticky by structure, not by position: this is
-          a fixed-size row of the page's flex column, so nothing can scroll
-          underneath it. */}
+      {/* The logo and the rail. Scrolls away on a narrow screen; pinned on a
+          wide one (globals.css). */}
       <header className="flow-header">
         <div className="flow-header-inner">
           <AuthHeader onHomeClick={guardLeave("/")} />
@@ -2407,9 +2417,8 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      {/* The step announcement, outside both navigations: on a wide screen
-          the rail above is not rendered and on a narrow one the panel below
-          is not, and a live region that is not rendered announces nothing.
+      {/* The step announcement, outside the rail: the rail's caption is
+          aria-hidden, and this live region is what says the step changed.
           Visually hidden, so it is in the tree at every width. */}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {t("registerPage.stepIndicator", { current: current + 1, total: STEPS.length })}
@@ -2418,40 +2427,6 @@ export default function RegisterPage() {
       </p>
 
       <div className="flow-split">
-        {/* Wide screens only: the dossier panel. */}
-        <WizardRail
-          className="flow-panel"
-          head={
-            <div className="flow-panel-identity">
-              {/* One logo, CAMLEAP, with ONEFOP named in the endorsement
-                  under it (owner, 2026-10-15; brand.md). The language switch
-                  is in the panel's foot, not up here. */}
-              {/* The logo is the way back to the portal, through the same
-                  leave check as every other link out of the wizard. */}
-              <div className="flow-panel-brandrow">
-                <Link href="/" className="flow-panel-home" onClick={guardLeave("/")}>
-                  <BrandLockup size="panel" emblem={false} />
-                </Link>
-                {/* The one language control, a quiet link to the other
-                    official language (owner, 2026-10-15). */}
-                <LanguageLink />
-              </div>
-              <p className="flow-panel-sub">{t("landingPage.endorsement")}</p>
-            </div>
-          }
-          foot={
-            <div className="flow-panel-foot">{helpLink}</div>
-          }
-        >
-          <RegistrationStepList
-            currentIndex={current}
-            reached={reached}
-            completed={completed}
-            summaries={railSummaries}
-            onSelect={goToSection}
-          />
-        </WizardRail>
-
         <div className="flow-body">
           {/* The frame: the section and its buttons, in one column. */}
           <div className="flow-frame">

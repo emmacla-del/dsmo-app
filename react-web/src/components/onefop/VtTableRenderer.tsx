@@ -25,9 +25,6 @@ const thStyle: LayoutStyle = {
   padding: "var(--cam-space-2)",
   background: "var(--cam-table-head-bg)",
   color: "var(--cam-table-text)",
-  position: "sticky",
-  top: 0,
-  zIndex: 10,
 };
 
 const tdStyle: LayoutStyle = {
@@ -44,7 +41,7 @@ const cellInputStyle: LayoutStyle = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: "var(--cam-font-size-sm)",
-  fontWeight: 600,
+  fontWeight: "var(--cam-font-weight-semibold)",
   marginBottom: "var(--cam-space-2)",
 };
 
@@ -410,7 +407,7 @@ export function VtTableRenderer({ field, data, onChange }: VtTableRendererProps)
                 borderRadius: "var(--cam-radius-sm)",
                 padding: "4px 12px",
                 fontSize: "var(--cam-font-size-sm)",
-                fontWeight: 600,
+                fontWeight: "var(--cam-font-weight-semibold)",
                 cursor: "pointer",
               }}
             >

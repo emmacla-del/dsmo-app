@@ -254,7 +254,7 @@ export function InviteAgentDialog({
           )}
 
           <fieldset style={{ border: "none", margin: "0 0 var(--cam-space-4)", padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-            <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("levelLegend")}</legend>
+            <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("levelLegend")} <span aria-hidden="true">*</span></legend>
             {levels.map((l) => (
               <label key={l} className="cam-admin-choice">
                 <input type="radio" name="invite-level" value={l} checked={form.level === l} onChange={() => set("level")(l)} />
@@ -276,7 +276,7 @@ export function InviteAgentDialog({
                 dense
               />
               <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="invite-service">{t("serviceLabel")}</label>
+                <label className="cam-admin-label" htmlFor="invite-service">{t("serviceLabel")} <span aria-hidden="true">*</span></label>
                 <select
                   id="invite-service"
                   className="cam-select"
@@ -285,7 +285,7 @@ export function InviteAgentDialog({
                   disabled={treeState !== "ready"}
                   required
                 >
-                  <option value="" disabled>{t("selectService")}</option>
+                  <option value="" disabled hidden>{t("selectService")}</option>
                   {services.map((s) => (
                     <option key={s.code} value={s.code}>{INDENT.repeat(s.depth * 2) + s.label}</option>
                   ))}
@@ -293,7 +293,7 @@ export function InviteAgentDialog({
               </div>
 
               <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="invite-position">{t("postLabel")}</label>
+                <label className="cam-admin-label" htmlFor="invite-position">{t("postLabel")} <span aria-hidden="true">*</span></label>
                 <select
                   id="invite-position"
                   className="cam-select"
@@ -302,7 +302,7 @@ export function InviteAgentDialog({
                   disabled={!form.serviceCode || positionsQuery.isLoading}
                   required
                 >
-                  <option value="" disabled>
+                  <option value="" disabled hidden>
                     {!form.serviceCode ? t("selectServiceFirst") : positionsQuery.isLoading ? t("loading") : t("selectPost")}
                   </option>
                   {(positionsQuery.data ?? []).map((p) => (
@@ -313,17 +313,17 @@ export function InviteAgentDialog({
               </div>
 
               {needsRegion && (
-                <div style={{ display: "grid", gridTemplateColumns: needsDepartment ? "1fr 1fr" : "1fr", gap: "0 var(--cam-space-3)" }}>
+                <div className="cam-admin-form-pair">
                   <div className="cam-field">
-                    <label className="cam-admin-label" htmlFor="invite-region">{t("regionLabel")}</label>
+                    <label className="cam-admin-label" htmlFor="invite-region">{t("regionLabel")} <span aria-hidden="true">*</span></label>
                     <select id="invite-region" className="cam-select" value={form.region} onChange={(e) => set("region")(e.target.value)} required>
-                      <option value="" disabled>{t("selectRegion")}</option>
+                      <option value="" disabled hidden>{t("selectRegion")}</option>
                       {regions.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                   {needsDepartment && (
                     <div className="cam-field">
-                      <label className="cam-admin-label" htmlFor="invite-department">{t("departmentLabel")}</label>
+                      <label className="cam-admin-label" htmlFor="invite-department">{t("departmentLabel")} <span aria-hidden="true">*</span></label>
                       <select
                         id="invite-department"
                         className="cam-select"
@@ -332,7 +332,7 @@ export function InviteAgentDialog({
                         disabled={!form.region}
                         required
                       >
-                        <option value="" disabled>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
+                        <option value="" disabled hidden>{form.region ? t("selectDepartment") : t("selectRegionFirst")}</option>
                         {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
@@ -355,7 +355,7 @@ export function InviteAgentDialog({
               )}
 
               <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="invite-email">{t("emailLabel")}</label>
+                <label className="cam-admin-label" htmlFor="invite-email">{t("emailLabel")} <span aria-hidden="true">*</span></label>
                 <input
                   id="invite-email"
                   type="email"

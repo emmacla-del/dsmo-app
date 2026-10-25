@@ -31,7 +31,9 @@ function withPoolDefaults(url: string | undefined): string | undefined {
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    const connectionUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+    // Runtime traffic uses the pooled URL. DIRECT_URL is reserved for Prisma
+    // migrations and may be unreachable from the application host.
+    const connectionUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
     super({
       datasources: {
         db: { url: withPoolDefaults(connectionUrl) },

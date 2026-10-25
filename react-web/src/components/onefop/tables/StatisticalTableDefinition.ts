@@ -307,6 +307,8 @@ export interface BaseStatisticalTableDefinition {
 export interface FixedMatrixDefinition extends BaseStatisticalTableDefinition {
   type: "fixed-matrix";
   rowHeaderLabel: LocalizedText;
+  /** Keep every column group in one grid header; the grid may scroll horizontally. */
+  showAllColumnGroups?: boolean;
   headerGroups?: HeaderGroupDefinition[];
   columns: StatisticalColumnDefinition[];
   rows: StatisticalRowDefinition[];

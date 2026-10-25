@@ -60,7 +60,7 @@ test("any other entity sees the modern-economy jobs title, and unticking the box
   assert.equal(begin.disabled, true);
 });
 
-test("the notice says who declares, in what role, for which establishment", async () => {
+test("the notice confirms the role and establishment without a personal greeting", async () => {
   renderWithProviders(
     <OnefopLegalAcknowledgment
       entityType="vocationalTraining"
@@ -72,7 +72,7 @@ test("the notice says who declares, in what role, for which establishment", asyn
       onCancel={() => {}}
     />,
   );
-  assert.ok(await screen.findByText("Bienvenue, Awa Ngono", {}, CARD_TIMEOUT));
+  assert.equal(screen.queryByText("Bienvenue, Awa Ngono"), null);
   const line = screen.getByText(/Vous déclarez en qualité de Directrice pour/);
   assert.equal(line.textContent, "Vous déclarez en qualité de Directrice pour CFP de Mfou (VT26000103).");
   assert.equal(line.querySelector("strong")?.textContent, "CFP de Mfou");
@@ -80,7 +80,8 @@ test("the notice says who declares, in what role, for which establishment", asyn
 
 test("an unknown role is left out of the notice, never filled with a stand-in", async () => {
   renderAck("vocationalTraining");
-  assert.ok(await screen.findByText("Bienvenue, Awa Ngono", {}, CARD_TIMEOUT));
+  assert.ok(await screen.findByText(ack.formTitleVt, {}, CARD_TIMEOUT));
+  assert.equal(screen.queryByText("Bienvenue, Awa Ngono"), null);
   assert.equal(screen.queryByText(/en qualité de/), null);
   assert.equal(screen.queryByText(/Directeur/), null);
 });

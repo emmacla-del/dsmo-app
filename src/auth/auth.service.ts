@@ -1209,7 +1209,7 @@ export class AuthService {
     actorTerritory?: Territory,
     options?: ApproveRegistrationOptions,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     if (user.role === 'COMPANY') {
@@ -1232,7 +1232,7 @@ export class AuthService {
     actorTerritory: Territory | undefined,
     reason: string,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof reason === 'string' ? reason.trim() : '';
     if (!trimmed) throw new BadRequestException('Le motif de rejet est obligatoire.');
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -1302,7 +1302,7 @@ export class AuthService {
     actorTerritory: Territory | undefined,
     message: string,
   ) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof message === 'string' ? message.trim() : '';
     if (!trimmed) throw new BadRequestException('Le message de demande de compléments est obligatoire.');
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -1356,7 +1356,7 @@ export class AuthService {
   ] as const;
 
   async resubmitRegistration(actorId: string, data?: ResubmitRegistrationDto) {
-    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const user = await this.prisma.user.findUnique({ where: { id: actorId } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     if (user.role !== 'COMPANY') {
@@ -1514,14 +1514,18 @@ export class AuthService {
     params: {
       entityType?: string;
       region?: string;
+      department?: string;
       from?: string;
       to?: string;
+      organisation?: string;
+      registrationMethod?: string;
       search?: string;
       status?: string;
       createdBy?: string;
       // Only files the reviewers have left waiting past
       // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
       overdue?: boolean;
+      sortOrder?: 'oldest' | 'newest';
       page?: number;
       pageSize?: number;
     },
@@ -1539,14 +1543,45 @@ export class AuthService {
     // return early inside the helper.
     const regionFilter = params.region?.trim();
     const regionScope: Record<string, unknown> = { ...scope };
+    const territoryAnd: Array<Record<string, unknown>> = [];
     if (regionFilter) {
       assertTerritorialAuthority(actor, {
         region: regionFilter,
         department: actor.department,
         departmentId: actor.departmentId,
       });
-      regionScope.AND = [{ region: { equals: regionFilter, mode: 'insensitive' } }];
+      territoryAnd.push({ region: { equals: regionFilter, mode: 'insensitive' } });
     }
+
+    /**
+     * The same narrowing one level down, for the coverage ranking's
+     * department rows.
+     *
+     * Checked the same way, with one difference: the region carried into the
+     * target is the requested one when given, otherwise the actor's own.
+     * Without it a REGIONAL_ADMIN naming a department of its own region would
+     * be refused, since that branch compares regions and `target.region` would
+     * be undefined. Nothing is widened by the substitution — `scope` already
+     * confines the query to the actor's territory, so a department name that
+     * repeats across regions still only matches inside it, and a DIVISIONAL
+     * reviewer asking for a department other than its own is refused here.
+     *
+     * `departmentId` is deliberately NOT the actor's own: the DIVISIONAL
+     * branch matches on the id first, so passing actor.departmentId would
+     * compare it with itself and admit any department name. Leaving it null
+     * sends that branch down the name comparison, which is what the requested
+     * department has to pass.
+     */
+    const departmentFilter = params.department?.trim();
+    if (departmentFilter) {
+      assertTerritorialAuthority(actor, {
+        region: regionFilter ?? actor.region,
+        department: departmentFilter,
+        departmentId: null,
+      });
+      territoryAnd.push({ department: { equals: departmentFilter, mode: 'insensitive' } });
+    }
+    if (territoryAnd.length > 0) regionScope.AND = territoryAnd;
 
     const createdAt: Record<string, Date> = {};
     if (params.from) {
@@ -1573,6 +1608,8 @@ export class AuthService {
     // own region.
     const createdBy = params.createdBy?.trim();
     if (createdBy) userWhere.createdBy = createdBy;
+    const registrationMethod = params.registrationMethod?.trim();
+    if (registrationMethod) userWhere.registrationMethod = registrationMethod;
 
     // Overdue: pending, registered before the cutoff, and not resubmitted
     // since -- the same rule as waitingSince() on each row. It replaces any
@@ -1595,6 +1632,8 @@ export class AuthService {
     };
     if (params.entityType) where.entityType = params.entityType;
     if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+    const organisation = params.organisation?.trim();
+    if (organisation) where.name = { contains: organisation, mode: 'insensitive' };
     const term = params.search?.trim();
     if (term) {
       where.OR = [
@@ -1628,7 +1667,7 @@ export class AuthService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: params.sortOrder === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -2027,6 +2066,8 @@ export class AuthService {
     'DIVISIONAL_ADMIN',
     'REGIONAL_ADMIN',
     'ADMIN_ONEFOP',
+    'ADMIN_ONEFOP_REGISTRATIONS',
+    'ADMIN_ONEFOP_SUBMISSIONS',
     'SUPER_ADMIN',
     'AUDITOR',
   ];

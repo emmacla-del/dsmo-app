@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +19,6 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
@@ -31,7 +30,12 @@ import {
   stamp,
   shortRecordId,
 } from "@/lib/admin-data-state";
-import { AUDIT_ROLES, NATIONAL_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { AUDIT_ROLES, DIRECTORY_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Submission statuses render with the file-detail labels (adminDossierPage);
 // an unknown status shows as stored.
@@ -43,11 +47,11 @@ const SUBMISSION_STATUS_KEYS: Record<string, string> = {
   SUPERSEDED: "adminDossierPage.statusSuperseded",
 };
 
-// The stored submission status decides the badge class; anything else is neutral.
-const SUBMISSION_STATUS_BADGE: Record<string, string> = {
-  APPROVED: "cam-badge-success",
-  PENDING_REVIEW: "cam-badge-warning",
-  REJECTED: "cam-badge-error",
+// The stored submission status decides the badge tone; anything else is neutral.
+const SUBMISSION_STATUS_BADGE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
+  APPROVED: "success",
+  PENDING_REVIEW: "warning",
+  REJECTED: "danger",
 };
 
 // Account statuses with a label under adminEtablissementPage.accountStatus.
@@ -58,7 +62,7 @@ const ACCOUNT_STATUS_CODES = new Set(["PENDING_APPROVAL", "ACTIVE", "REJECTED", 
 // loaded yet is not treated as authorised. Account management is SUPER_ADMIN
 // alone (SETTINGS_ROLES membership).
 
-/** One label/value pair inside a .cam-admin-kv list; absent values print the neutral marker. */
+/** One label/value pair inside a definition list; absent values print the neutral marker. */
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
@@ -84,8 +88,9 @@ function EtablissementDetail() {
   const id = searchParams.get("id")?.trim() ?? "";
 
   const role = useAuthStore((s) => s.user?.role);
-  // National readers, the read-only central staff included.
-  const canRead = hasRole(role, NATIONAL_READ_ROLES);
+  // Establishment registration staff need direct detail access too; survey
+  // specialists should not reach the registration directory by URL.
+  const canRead = hasRole(role, DIRECTORY_READ_ROLES);
   const canManageAccount = hasRole(role, SETTINGS_ROLES);
   const canReadAudit = hasRole(role, AUDIT_ROLES);
 
@@ -126,6 +131,10 @@ function EtablissementDetail() {
 
   const company: Company | null = companyQuery.data ?? null;
   const linkedAccount = company?.user ?? null;
+  useEffect(() => {
+    const title = company?.name?.split("—")[0].trim() || t("titleFallback");
+    document.title = `${title} | CAMLEAP`;
+  }, [company?.name, t]);
 
   const pageState = resolveDataState({
     roleAllowed: canRead,
@@ -211,13 +220,12 @@ function EtablissementDetail() {
         <AdminPageHeader
           backHref="/admin/etablissements"
           breadcrumb={[
-            { label: tRoot("adminNav.hubs.declarants") },
+            { label: tRoot("adminNav.hubs.inscriptions") },
             { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
           ]}
           title={t("titleFallback")}
           subtitle={t("subtitle")}
           hideTabs={true}
-          actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
         />
         <DataState
           state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
@@ -263,7 +271,7 @@ function EtablissementDetail() {
       <AdminPageHeader
         backHref="/admin/etablissements"
         breadcrumb={[
-          { label: tRoot("adminNav.hubs.declarants") },
+          { label: tRoot("adminNav.hubs.inscriptions") },
           { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
           { label: shortName ?? NOT_PROVIDED },
         ]}
@@ -278,55 +286,47 @@ function EtablissementDetail() {
         }
         hideTabs={true}
         actions={
-          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
-            <AdminHeaderActions showCampaignPill={false} showBell={false} />
+          <div className="flex flex-wrap items-center gap-2">
             {/* Shown only when there is a real account to act on and the role
                 may act on it. The button performs the real call. Secondary,
                 not primary: a header action is not this view's main task. */}
             {linkedAccount && canManageAccount && (
-              <button
+              <Button
                 type="button"
-                className={`cam-button cam-button-sm ${isSuspended ? "cam-button-secondary" : "cam-button-danger"}`}
+                size="sm"
+                variant={isSuspended ? "outline" : "destructive"}
                 disabled={accountPending}
                 onClick={toggleAccount}
               >
                 {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
-              </button>
+              </Button>
             )}
           </div>
         }
       />
 
       {/* Every value is this establishment's own stored field. */}
-      <p className="cam-admin-meta" style={{ margin: 0 }}>
+      <p className="text-sm text-muted-foreground">
         {company.entityType && <>{typeDisplay(company.entityType)} · </>}
-        {t("idLabel")} <span className="cam-admin-code cam-admin-strong">{fact(company.establishmentId)}</span>
+        {t("idLabel")} <span className="font-mono font-medium text-foreground">{fact(company.establishmentId)}</span>
         {" · "}
-        {t("mainActivityLabel")} <span className="cam-admin-strong">{fact(company.mainActivity)}</span>
+        {t("mainActivityLabel")} <span className="font-medium text-foreground">{fact(company.mainActivity)}</span>
       </p>
 
       {toastMessage && (
-        <div role="status" className="cam-admin-notice cam-admin-notice--success">
-          <span>{toastMessage}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)}>×</button>
-        </div>
+        <Alert variant="success" role="status" className="mb-4 flex items-center justify-between gap-4"><AlertDescription>{toastMessage}</AlertDescription><Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)}>×</Button></Alert>
       )}
 
       {actionError && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>{actionError}</span>
-        </div>
+        <Alert variant="destructive" className="mb-4"><AlertDescription>{actionError}</AlertDescription></Alert>
       )}
 
-      <div className="cam-admin-grid">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
         {/* ── Left column ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
+        <div className="flex min-w-0 flex-col gap-5">
           {/* Identification: Company model fields only. */}
-          <section className="cam-admin-section" aria-labelledby="etab-general-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-general-title" className="cam-admin-h2">{t("generalInfoTitle")}</h2>
-            </div>
-            <dl className="cam-admin-kv cam-admin-section-body">
+          <Card><CardHeader><CardTitle id="etab-general-title" className="text-base">{t("generalInfoTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
               <Field label={t("field.name")} value={company.name} />
               <Field label={t("field.entityType")} value={company.entityType ? typeDisplay(company.entityType) : null} />
               <Field label={t("field.registrationNumber")} value={company.registrationNumber} />
@@ -348,45 +348,37 @@ function EtablissementDetail() {
                 value={respondent ? `${respondent}${company.respondentFunction ? ` — ${respondentFunctionLabel(company.respondentFunction, locale)}` : ""}` : null}
               />
               <Field label={t("field.contactPhone")} value={company.respondentPhone} />
-            </dl>
-          </section>
+            </dl></CardContent>
+          </Card>
 
           {/* Workforce as last declared on the Company record. */}
-          <section className="cam-admin-section" aria-labelledby="etab-workforce-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-workforce-title" className="cam-admin-h2">{t("workforceTitle")}</h2>
-            </div>
-            <dl className="cam-admin-kv cam-admin-section-body">
+          <Card><CardHeader><CardTitle id="etab-workforce-title" className="text-base">{t("workforceTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
               <Field label={t("workforceTotal")} value={count(company.totalEmployees, locale)} />
               <Field label={t("men")} value={count(company.menCount, locale)} />
               <Field label={t("women")} value={count(company.womenCount, locale)} />
               <Field label={t("workforceLastYear")} value={count(company.lastYearTotal, locale)} />
-            </dl>
-          </section>
+            </dl></CardContent>
+          </Card>
 
           {/* Submission history for this company */}
-          <section className="cam-admin-section" aria-labelledby="etab-submissions-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-submissions-title" className="cam-admin-h2">
+          <Card><CardHeader className="flex flex-row items-center justify-between gap-4"><CardTitle id="etab-submissions-title" className="text-base">
                 {t("submissionHistoryTitle")}{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}
-              </h2>
-              <Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`} className="cam-text-button">
+              </CardTitle>
+              <Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}>
                 {t("allFilesLink")}
-              </Link>
-            </div>
+              </Link></Button>
+            </CardHeader>
 
-            <div className="cam-table-wrapper">
-              <table className="cam-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t("submissionColumn.reference")}</th>
-                    <th scope="col">{t("submissionColumn.type")}</th>
-                    <th scope="col">{t("submissionColumn.received")}</th>
-                    <th scope="col">{t("submissionColumn.status")}</th>
-                    <th scope="col" className="text-right">{t("submissionColumn.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <CardContent><Table>
+                <TableHeader><TableRow>
+                    <TableHead scope="col">{t("submissionColumn.reference")}</TableHead>
+                    <TableHead scope="col">{t("submissionColumn.type")}</TableHead>
+                    <TableHead scope="col">{t("submissionColumn.received")}</TableHead>
+                    <TableHead scope="col">{t("submissionColumn.status")}</TableHead>
+                    <TableHead scope="col" className="text-right">{t("submissionColumn.actions")}</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
                   <DataStateRow
                     colSpan={5}
                     state={submissionsState}
@@ -398,36 +390,32 @@ function EtablissementDetail() {
                   />
                   {submissionsState === "ready" &&
                     submissionsQuery.data?.items.map((sub) => (
-                      <tr key={sub.id}>
-                        <td className="cam-admin-strong cam-admin-code" title={sub.submissionId || sub.id}>{shortRecordId(sub.submissionId || sub.id)}</td>
-                        <td>{typeDisplay(sub.formType)}</td>
-                        <td style={{ whiteSpace: "nowrap" }}>{stamp(sub.submissionDate || sub.createdAt, true, locale)}</td>
-                        <td>
-                          <span className={`cam-badge ${SUBMISSION_STATUS_BADGE[sub.status] ?? "cam-badge-neutral"}`}>
+                      <TableRow key={sub.id}>
+                        <TableCell className="font-mono font-medium" title={sub.submissionId || sub.id}>{shortRecordId(sub.submissionId || sub.id)}</TableCell>
+                        <TableCell>{typeDisplay(sub.formType)}</TableCell>
+                        <TableCell>{stamp(sub.submissionDate || sub.createdAt, true, locale)}</TableCell>
+                        <TableCell>
+                          <Badge variant={SUBMISSION_STATUS_BADGE[sub.status] ?? "neutral"}>
                             {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
-                          </span>
-                        </td>
-                        <td className="text-right">
-                          <Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`} className="cam-button cam-button-secondary cam-button-sm">
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button asChild variant="outline" size="sm"><Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`}>
                             {t("openLink")}
-                          </Link>
-                        </td>
-                      </tr>
+                          </Link></Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </TableBody>
+              </Table></CardContent>
+          </Card>
         </div>
 
         {/* ── Right column ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
+        <div className="flex min-w-0 flex-col gap-5">
           {/* Exactly one account can be linked: Company.user is singular. */}
-          <section className="cam-admin-section" aria-labelledby="etab-account-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-account-title" className="cam-admin-h2">{t("linkedAccountTitle")}</h2>
-            </div>
-            <div className="cam-admin-section-body">
+          <Card><CardHeader><CardTitle id="etab-account-title" className="text-base">{t("linkedAccountTitle")}</CardTitle></CardHeader>
+            <CardContent>
               {!linkedAccount ? (
                 <DataState
                   dense
@@ -437,16 +425,16 @@ function EtablissementDetail() {
                   hint={t("noLinkedAccountHint")}
                 />
               ) : (
-                <div style={{ minWidth: 0 }}>
+                <div className="min-w-0">
                   {/* The account's own email. No display name is invented:
                       /companies returns only id, email, status and
                       isActive for the linked user. Active / suspended is the
                       header badge; the approval status is shown here only
                       when it says more than that (pending, rejected,
                       further information requested). */}
-                  <div className="cam-admin-strong">{fact(linkedAccount.email)}</div>
+                  <div className="break-all font-medium">{fact(linkedAccount.email)}</div>
                   {linkedAccount.status !== "ACTIVE" && (
-                    <div className="cam-admin-meta">
+                    <div className="text-sm text-muted-foreground">
                       {t("accountStatusLine", {
                         status: ACCOUNT_STATUS_CODES.has(linkedAccount.status ?? "")
                           ? t(`accountStatus.${linkedAccount.status}`)
@@ -454,13 +442,13 @@ function EtablissementDetail() {
                       })}
                     </div>
                   )}
-                  <button type="button" className="cam-text-button" onClick={() => setAccountOpen(true)}>
+                  <Button type="button" variant="link" className="h-auto px-0" onClick={() => setAccountOpen(true)}>
                     {t("manageTitle")}
-                  </button>
+                  </Button>
                 </div>
               )}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* Registration metadata.
               `createdAt` is the only field the Company model records here. The
@@ -468,15 +456,12 @@ function EtablissementDetail() {
               the registration IP, a geolocation, a last-modified stamp and a
               document-verification status; none of those is stored anywhere,
               so none is shown. */}
-          <section className="cam-admin-section" aria-labelledby="etab-registration-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-registration-title" className="cam-admin-h2">{t("accountInfoTitle")}</h2>
-            </div>
-            <div className="cam-admin-section-body">
-              <dl className="cam-admin-kv">
-                <Field label={t("registrationDate")} value={stamp(company.createdAt, false, locale)} />
+          <Card><CardHeader><CardTitle id="etab-registration-title" className="text-base">{t("accountInfoTitle")}</CardTitle></CardHeader>
+            <CardContent>
+              <dl className="grid gap-4 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
+                <Field label={t("registrationDate")} value={stamp(company.createdAt, true, locale)} />
               </dl>
-              <div style={{ marginTop: "var(--cam-space-4)" }}>
+              <div className="mt-4">
                 <DataState
                   dense
                   state="unavailable"
@@ -485,15 +470,12 @@ function EtablissementDetail() {
                   hint={t("metadataHint")}
                 />
               </div>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* Real audit entries for the linked account. */}
-          <section className="cam-admin-section" aria-labelledby="etab-audit-title">
-            <div className="cam-admin-section-head">
-              <h2 id="etab-audit-title" className="cam-admin-h2">{t("auditTitle")}</h2>
-            </div>
-            <div className="cam-admin-section-body">
+          <Card><CardHeader><CardTitle id="etab-audit-title" className="text-base">{t("auditTitle")}</CardTitle></CardHeader>
+            <CardContent>
               {!linkedAccount ? (
                 <DataState
                   dense
@@ -519,28 +501,28 @@ function EtablissementDetail() {
                   hint={auditState === "empty" ? t("auditEmptyHint") : undefined}
                 />
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+                <div className="flex flex-col gap-4">
                   {(auditQuery.data?.items ?? []).map((e) => (
-                    <div key={e.id}>
-                      <div className="cam-admin-meta">{stamp(e.timestamp, true, locale)}</div>
-                      <div className="cam-admin-strong">{auditActorName(e, locale)}</div>
+                    <div key={e.id} className="border-b pb-3 last:border-0 last:pb-0">
+                      <div className="text-xs text-muted-foreground">{stamp(e.timestamp, true, locale)}</div>
+                      <div className="font-medium">{auditActorName(e, locale)}</div>
                       <div>{auditActionLabel(e.action, locale)}</div>
-                      <div className="cam-admin-meta">{auditDetailsSummary(e, locale)}</div>
+                      <div className="text-sm text-muted-foreground">{auditDetailsSummary(e, locale)}</div>
                       {auditTransition(e, locale) && (
-                        <div className="cam-admin-meta">{auditTransition(e, locale)}</div>
+                        <div className="text-sm text-muted-foreground">{auditTransition(e, locale)}</div>
                       )}
                     </div>
                   ))}
                   <Link
                     href={`/admin/journal-audit?resourceId=${encodeURIComponent(linkedAccount.id)}`}
-                    className="cam-text-button"
+                    className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                   >
                     {t("fullLogLink")}
                   </Link>
                 </div>
               )}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -556,28 +538,26 @@ function EtablissementDetail() {
         wide
         title={t("manageTitle")}
         footer={
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)", width: "100%" }}>
-            <span className="cam-admin-meta">{t("actionsLogged")}</span>
-            <button type="button" className="cam-button cam-button-secondary" onClick={() => setAccountOpen(false)}>
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">{t("actionsLogged")}</span>
+            <Button type="button" variant="outline" onClick={() => setAccountOpen(false)}>
               {t("closeButton")}
-            </button>
+            </Button>
           </div>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)" }}>
+        <div className="flex flex-col gap-5">
           {/* Whose account this is. Was an inline-restyled eyebrow; the
               eyebrow slot is an uppercase label, not a place for an email. */}
           <div>
-            <div className="cam-admin-strong">{fact(linkedAccount?.email)}</div>
-            <div className="cam-admin-meta">
-              {t("registeredOn", { name: fact(shortName), date: stamp(company.createdAt, false, locale) })}
+            <div className="break-all font-medium">{fact(linkedAccount?.email)}</div>
+            <div className="text-sm text-muted-foreground">
+              {t("registeredOn", { name: fact(shortName), date: stamp(company.createdAt, true, locale) })}
             </div>
           </div>
 
           {actionError && (
-            <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-              <span>{actionError}</span>
-            </div>
+            <Alert variant="destructive"><AlertDescription>{actionError}</AlertDescription></Alert>
           )}
 
           {!canManageAccount ? (
@@ -590,29 +570,30 @@ function EtablissementDetail() {
           ) : (
             <>
               <div>
-                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("accountActions")}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
+                <div className="mb-2 text-sm font-medium">{t("accountActions")}</div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="cam-admin-strong">
+                    <div className="font-medium">
                       {isSuspended ? t("reactivateAccount") : t("suspendAccount")}
                     </div>
-                    <div className="cam-admin-meta">
+                    <div className="text-sm text-muted-foreground">
                       {isSuspended ? t("reactivateHint") : t("suspendHint")}
                     </div>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    className={`cam-button cam-button-sm ${isSuspended ? "cam-button-primary" : "cam-button-danger"}`}
+                    size="sm"
+                    variant={isSuspended ? "default" : "destructive"}
                     disabled={accountPending}
                     onClick={toggleAccount}
                   >
                     {accountPending ? t("saving") : isSuspended ? t("reactivate") : t("suspend")}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div>
-                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("signInHistory")}</div>
+                <div className="mb-2 text-sm font-medium">{t("signInHistory")}</div>
                 <DataState
                   dense
                   state="unavailable"
@@ -623,20 +604,21 @@ function EtablissementDetail() {
               </div>
 
               <div>
-                <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>{t("dangerZone")}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
+                <div className="mb-2 text-sm font-medium">{t("dangerZone")}</div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="cam-admin-strong">{t("deleteAccount")}</div>
-                    <div className="cam-admin-meta">{t("deleteHint")}</div>
+                    <div className="font-medium">{t("deleteAccount")}</div>
+                    <div className="text-sm text-muted-foreground">{t("deleteHint")}</div>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    className="cam-button cam-button-danger cam-button-sm"
+                    variant="destructive"
+                    size="sm"
                     disabled={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate()}
                   >
                     {deleteMutation.isPending ? t("deleting") : t("delete")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>

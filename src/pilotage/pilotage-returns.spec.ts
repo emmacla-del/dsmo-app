@@ -37,6 +37,8 @@ describe('pilotage-returns helpers', () => {
         quota: 100,
         received: 80,
         approved: 70,
+        pendingReview: 0,
+        correctionRequested: 0,
         onTime: 60,
         late: 20,
         gap: 20,
@@ -73,6 +75,8 @@ describe('pilotage-returns helpers', () => {
         quota: 100,
         received: 70,
         approved: 55,
+        pendingReview: 0,
+        correctionRequested: 0,
         onTime: 55,
         late: 15,
         gap: 30,
@@ -99,6 +103,8 @@ describe('pilotage-returns helpers', () => {
         quota: null,
         received: 0,
         approved: 0,
+        pendingReview: 0,
+        correctionRequested: 0,
         onTime: 0,
         late: 0,
         gap: null,
@@ -115,10 +121,11 @@ describe('pilotage-returns helpers', () => {
       const tally = new EntityTypeTally();
       tally.addStock('d:r1:d1', 'ENTREPRISE');
       tally.addStock('d:r2:d2', 'ENTREPRISE');
-      tally.addReturn('d:r1:d1', 'ENTREPRISE', true, false);
+      tally.addReturn('d:r1:d1', 'ENTREPRISE', OnefopStatus.APPROVED, false);
       const entreprise = tally.rows(['d:r1:d1'], true).find((row) => row.entityType === 'ENTREPRISE');
       expect(entreprise).toEqual({
-        entityType: 'ENTREPRISE', received: 1, approved: 1, onTime: 1, late: 0, registeredStock: 1, responseRate: 1,
+        entityType: 'ENTREPRISE', received: 1, approved: 1, pendingReview: 0, correctionRequested: 0,
+        onTime: 1, late: 0, registeredStock: 1, responseRate: 1,
       });
     });
 

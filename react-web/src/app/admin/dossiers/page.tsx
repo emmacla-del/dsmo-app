@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { API_BASE_URL, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueues, getToken, listAdminQuestionnaires, localeHeader } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -24,7 +25,23 @@ import {
 } from "@/lib/admin-data-state";
 import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { hrefWith, parseDossierStatus, type DossierStatus, parseDossierSort, type DossierSort } from "@/lib/admin-url";
-import { ViewSwitch } from "@/components/admin/ViewSwitch";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * One dossier row.
@@ -49,6 +66,21 @@ interface DossierItem {
 }
 
 const PAGE_SIZE = 10;
+
+/**
+ * The tone each derived state maps to, as a Badge variant. The tone names on
+ * the left are the ones the derivations below already used; `error` is the
+ * console's word for what the component calls `danger`.
+ */
+const BADGE_VARIANT = {
+  success: "success",
+  info: "info",
+  error: "danger",
+  warning: "warning",
+  neutral: "neutral",
+} as const;
+
+type ToneName = keyof typeof BADGE_VARIANT;
 
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
 const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
@@ -209,18 +241,18 @@ function DossiersContent() {
     placeholderData: keepPreviousData,
   });
 
-  /**
-   * Queue counters for the tab row. Source: GET /admin/questionnaires/
-   * pilotage/queues, territory-scoped server-side. `null` until the server
-   * answers — an unreachable queue is not an empty queue, so a tab badge shows
-   * an em dash rather than a number the server never gave.
-   */
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
   });
   const queues = queuesQuery.data ?? null;
 
+  /**
+   * Queue counters for the tab row. Source: GET /admin/questionnaires/
+   * pilotage/queues, territory-scoped server-side. `null` until the server
+   * answers — an unreachable queue is not an empty queue, so a tab badge shows
+   * an em dash rather than a number the server never gave.
+   */
   // Bulk visa mutation
   const bulkMutation = useMutation({
     mutationFn: bulkVisaDeclarations,
@@ -437,342 +469,337 @@ function DossiersContent() {
     <div className="cam-admin-page">
       {/* ── Page Header matching Figma supervision/dossiers.png ── */}
       <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.supervision") }, { label: tRoot("adminNav.routes.dossiers") }]}
+        breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.dossiers") }]}
         title={tRoot("adminNav.routes.dossiers")}
         subtitle={t("subtitle")}
         actions={<AdminHeaderActions />}
       />
 
       {/* ── Status filter: one control, URL-backed (?status=) ── */}
-      <ViewSwitch
-        label={t("statusFilterAriaLabel")}
-        items={STATUS_VIEWS.map((view) => ({
-          key: view.status || "ALL",
-          label: t(view.labelKey),
-          active: statusFilter === view.status,
-          count: !queues
-            ? null
-            : !view.status
-              ? queues.totalSubmissionsCount
-              : view.status in queues.statusCounts
-                ? queues.statusCounts[view.status as keyof typeof queues.statusCounts]
-                : null,
-          onClick: () => changeFilter(() => setStatus(view.status)),
-        }))}
-      />
-
       {/* The queue's own note, carried over from /admin/files-attente. Shown
           only for the status it describes. */}
       {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
-        <p
-          key={view.labelKey}
-          className="cam-admin-notice cam-admin-notice--info"
-        >
-          {view.noteKey && t(view.noteKey)}
-        </p>
+        <Alert key={view.labelKey} variant="info" className="my-4">
+          <AlertDescription>{view.noteKey && t(view.noteKey)}</AlertDescription>
+        </Alert>
       ))}
 
-      {/* ── Filters, toolbar and table: one section, so the controls read as
-          belonging to the list they act on (the sectors composition). The
-          table wrapper drops its own frame inside a section.
-          Filters. Statut is not here: the control above sets it. ──
-          .cam-admin-filters is auto-fit/minmax, so the row reflows instead of
-          overflowing the way the fixed four-column grid it replaces did. */}
-      <section className="cam-admin-section">
-        <div className="cam-admin-section-body">
-          <div className="cam-admin-filters">
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="dossiers-type">{t("formTypeLabel")}</label>
-              <select
-                id="dossiers-type"
-                className="cam-select"
-                value={typeFilter}
-                onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}
-              >
-                <option value="">{t("allFormTypes")}</option>
-                {FORM_TYPES.map((type) => (
-                  <option key={type} value={type}>{typeLabel(type)}</option>
-                ))}
-              </select>
-            </div>
+      {/* ── Filters, toolbar and table: one card, so the controls read as
+          belonging to the list they act on. The filter row wraps rather than
+          overflowing, the way the fixed four-column grid it replaces did. ──
+          Statut is not here: the control above sets it. */}
+      <Card>
 
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="dossiers-region">{t("regionLabel")}</label>
-              <select
-                id="dossiers-region"
-                className="cam-select"
-                value={regionFilter}
-                onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
-              >
-                <option value="">{t("allRegions")}</option>
-                {territoryRegions.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
+        {/* ── Action toolbar. Says how many dossiers are selected; the visa
+            (the one primary action) and reject appear only once at least one
+            is, so a decision is never offered on an empty selection. Export
+            is the secondary action and is always there. ── */}
+        {!readOnly && (
+          <CardContent className="flex flex-wrap items-center gap-3 border-t pt-6" aria-live="polite">
+            {selectedIds.size > 0 ? (
+              <>
+                <span className="text-sm font-medium text-foreground">{t("selectionCount", { count: selectedIds.size })}</span>
+                <Button type="button" size="sm" onClick={handleOpenBulkModal}>
+                  <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
+                </Button>
+                <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal}>
+                  <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
+                </Button>
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">{t("selectionHint")}</span>
+            )}
 
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="dossiers-period">{t("periodLabel")}</label>
-              <select
-                id="dossiers-period"
-                className="cam-select"
-                value={periodFilter}
-                onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}
-              >
-                {/* "" is the default (see PERIODS): an option of its own, so the
-                    select shows it. A hard-coded 30-day option stood here
-                    instead — a duplicate of PERIODS' own — so the control read
-                    "Derniers 30 jours" while every period was listed. */}
-                <option value="">{t("allPeriods")}</option>
-                {PERIODS.map((p) => (
-                  <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="dossiers-sort">{t("sortLabel")}</label>
-              <select
-                id="dossiers-sort"
-                className="cam-select"
-                value={sortOrder}
-                onChange={(e) => setSort(parseDossierSort(e.target.value))}
-              >
-                <option value="">{t("sortNewest")}</option>
-                <option value="oldest">{t("sortOldest")}</option>
-              </select>
-            </div>
-
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="dossiers-search">{t("freeSearchLabel")}</label>
-              <input
-                id="dossiers-search"
-                type="search"
-                className="cam-input"
-                placeholder={t("freeSearchPlaceholder")}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-            </div>
-          </div>
-
-      {/* ── Action toolbar. Says how many dossiers are selected; the visa
-          (the one primary action) and reject appear only once at least one
-          is, so a decision is never offered on an empty selection. Export
-          is the secondary action and is always there. ── */}
-      {!readOnly && (
-      <div className="cam-admin-selection" aria-live="polite">
-        {selectedIds.size > 0 ? (
-          <>
-            <span className="cam-admin-strong">{t("selectionCount", { count: selectedIds.size })}</span>
-            <button
+            <Button
               type="button"
-              className="cam-button cam-button-primary cam-button-sm"
-              onClick={handleOpenBulkModal}
+              size="sm"
+              variant="outline"
+              className="ms-auto"
+              onClick={() => handleExport("csv")}
+              disabled={exportInProgress}
             >
-              <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
-            </button>
-            <button
-              type="button"
-              className="cam-button cam-button-danger cam-button-sm"
-              onClick={handleOpenRejectModal}
-            >
-              <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
-            </button>
-          </>
-        ) : (
-          <span className="cam-admin-meta">{t("selectionHint")}</span>
+              <Download aria-hidden="true" />
+              {t("exportButton")}
+            </Button>
+          </CardContent>
         )}
 
-        <button
-          type="button"
-          className="cam-button cam-button-secondary cam-button-sm"
-          onClick={() => handleExport("csv")}
-          disabled={exportInProgress}
-          style={{ marginInlineStart: "auto" }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {t("exportButton")}
-        </button>
-      </div>
-      )}
-        </div>
-
-      {/* ── Table. .cam-table-wrapper carries the surface, border, radius
-          and the horizontal scroll this nine-column table needs on a narrow
-          viewport; the inline card it replaces had no scroll at all. ── */}
-      <div className="cam-table-wrapper">
-        <table className="cam-table">
-          <thead>
-            <tr>
-              {!readOnly && (
-                <th scope="col" className="text-center">
-                  <input
-                    type="checkbox"
-                    className="cam-admin-table-check"
-                    checked={allShownSelected}
-                    onChange={(e) => toggleSelectAll(e.target.checked)}
-                    aria-label={t("selectAllAria")}
-                  />
-                </th>
-              )}
-              <th scope="col">{t("formIdColumn")}</th>
-              <th scope="col">{t("respondentColumn")}</th>
-              <th scope="col">{t("organisationColumn")}</th>
-              <th scope="col">{t("typeColumn")}</th>
-              <th scope="col">{t("regionColumn")}</th>
-              <th scope="col" className="text-center">{t("endorsementColumn")}</th>
-              <th scope="col">{t("dataQualityColumn")}</th>
-              <th scope="col" className="text-center">{t("eligibilityColumn")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Loading, error, authorization refusal and "no dossiers" are
-                reported separately; no branch substitutes sample rows. */}
-            <DataStateRow
-              colSpan={readOnly ? 8 : 9}
-              state={tableState}
-              resource={t("filesResource")}
-              error={questionnairesQuery.error}
-              onRetry={() => questionnairesQuery.refetch()}
-              title={tableState === "empty" ? t("noFilesTitle") : undefined}
-              hint={tableState === "empty" ? t("noFilesHint") : undefined}
-            />
-            {dossiers.map((d) => {
-              /**
-               * Visa state, mapped from the stored enum to one badge tone
-               * each. Five states, five tones: CORRECTION_REQUESTED is
-               * `info` rather than a second amber because the dossier is
-               * waiting on the respondent, while PENDING_REVIEW is the one
-               * waiting on the reviewer reading this row.
-               */
-              const visaBadge =
-                d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } :
-                d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } :
-                d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } :
-                d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } :
-                d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } :
-                // An item with no stored status is reported as such rather
-                // than defaulted into the pending queue.
-                { label: t("badgeNoStatus"), tone: "neutral" };
-
-              /**
-               * Data quality, derived from the dossier own anomaly rows
-               * (`anomalies`, included by QuestionnairesService.listForAdmin):
-               *   blockingCount = OPEN && isBlocking
-               *   warningCount  = OPEN && !isBlocking
-               *
-               * An empty anomaly list means "no anomaly recorded", which is
-               * not the same claim as "conforme" — nothing has certified this
-               * dossier, and detection results are not persisted today
-               * (docs/admin-data-integrity-inventory.md §7.1).
-               */
-              const quality =
-                d.blockingCount > 0
-                  ? { tone: "error" as const, glyph: "▲", text: t("blockingAnomalies", { count: d.blockingCount }) }
-                  : d.warningCount > 0
-                    ? { tone: "warning" as const, glyph: "⚐", text: t("warnings", { count: d.warningCount }) }
-                    : { tone: "neutral" as const, glyph: null, text: t("noAnomaly") };
-
-              /**
-               * Statistical eligibility, mirroring the backend own rule
-               * (EligibilityEngineService.isStatisticallyEligible): APPROVED
-               * **and** zero open blocking anomalies. Any other status is
-               * pending; a rejected dossier is excluded. A dossier with no
-               * stored status yields no claim at all.
-               */
-              const eligibility: "eligible" | "notEligible" | "pending" | null =
-                d.adminStatus === null
-                  ? null
-                  : d.adminStatus === "REJECTED"
-                    ? "notEligible"
-                    : d.adminStatus === "APPROVED"
-                      ? (d.blockingCount === 0 ? "eligible" : "notEligible")
-                      : "pending";
-              const eligibilityLabel =
-                eligibility === "eligible" ? t("eligible")
-                  : eligibility === "notEligible" ? t("notEligible")
-                    : eligibility === "pending" ? t("eligibilityPending")
-                      : null;
-              const eligibilityTone =
-                eligibility === "eligible" ? "success"
-                  : eligibility === "pending" ? "warning"
-                    : "neutral";
-
-              return (
-                <tr key={d.id}>
-                  {!readOnly && (
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        className="cam-admin-table-check"
-                        checked={selectedIds.has(d.id)}
-                        onChange={(e) => toggleSelect(d.id, e.target.checked)}
-                        aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })}
+        {/* ── Table. The component's own container carries the horizontal
+            scroll this nine-column table needs on a narrow viewport; the
+            inline card it replaces had no scroll at all. ── */}
+        <CardContent className="border-t pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {!readOnly && (
+                  <TableHead scope="col" className="text-center">
+                    <Checkbox
+                      checked={allShownSelected}
+                      onCheckedChange={(c) => toggleSelectAll(c === true)}
+                      aria-label={t("selectAllAria")}
+                    />
+                  </TableHead>
+                )}
+                <TableHead scope="col">{t("formIdColumn")}</TableHead>
+                <FilterTableHead
+                  label={t("respondentColumn")}
+                  filterLabel={t("filterColumn", { column: t("respondentColumn") })}
+                  active={!!search}
+                >
+                  {(close) => (
+                    <div className="grid gap-2">
+                      <Label htmlFor="dossiers-search">{t("freeSearchLabel")}</Label>
+                      <Input
+                        id="dossiers-search"
+                        type="search"
+                        placeholder={t("freeSearchPlaceholder")}
+                        value={searchInput}
+                        onChange={(event) => setSearchInput(event.target.value)}
+                        onKeyDown={(event) => { if (event.key === "Enter") close(); }}
                       />
-                    </td>
+                    </div>
                   )}
-                  <td>
-                    <Link
-                      href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
-                      className="cam-admin-code cam-admin-strong"
-                      title={d.submissionId}
-                      aria-label={d.submissionId}
-                    >
-                      {shortRecordId(d.submissionId)}
-                    </Link>
-                  </td>
-                  <td className="cam-admin-strong">
-                    {d.respondentName ?? NOT_PROVIDED}
-                  </td>
-                  <td>
-                    {d.companyName ?? NOT_PROVIDED}
-                  </td>
-                  <td>
-                    {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}
-                  </td>
-                  <td>
-                    {/* Territory as stored on the submission. A dossier with
-                        no region is reported as such: inferring one would
-                        invent an authorization-sensitive fact. */}
-                    {d.region ?? NOT_PROVIDED}
-                    {d.department && (
-                      <span className="cam-admin-meta" style={{ display: "block" }}>{d.department}</span>
+                </FilterTableHead>
+                <TableHead scope="col">{t("organisationColumn")}</TableHead>
+                <FilterTableHead
+                  label={t("typeColumn")}
+                  filterLabel={t("filterColumn", { column: t("typeColumn") })}
+                  active={!!typeFilter}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("formTypeLabel")}
+                      value={typeFilter}
+                      onChange={(value) => changeFilter(() => setTypeFilter(value))}
+                      onSelect={close}
+                      options={[
+                        { value: "", label: t("allFormTypes") },
+                        ...FORM_TYPES.map((type) => ({ value: type, label: typeLabel(type) })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("regionColumn")}
+                  filterLabel={t("filterColumn", { column: t("regionColumn") })}
+                  active={!!regionFilter}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("regionLabel")}
+                      value={regionFilter}
+                      onChange={(value) => changeFilter(() => setRegionFilter(value))}
+                      onSelect={close}
+                      options={[
+                        { value: "", label: t("allRegions") },
+                        ...territoryRegions.map((regionName) => ({ value: regionName, label: regionName })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("submittedAtColumn")}
+                  filterLabel={t("filterColumn", { column: t("submittedAtColumn") })}
+                  active={!!periodFilter || !!sortOrder}
+                >
+                  {(close) => (
+                    <div className="grid gap-2">
+                      <FilterTableOptions
+                        label={t("periodLabel")}
+                        value={periodFilter}
+                        onChange={(value) => changeFilter(() => setPeriodFilter(value))}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("allPeriods") },
+                          ...PERIODS.map((period) => ({ value: period.value, label: t(period.labelKey) })),
+                        ]}
+                      />
+                      <div className="border-t pt-2">
+                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t("sortLabel")}</p>
+                        <FilterTableOptions
+                          label={t("sortLabel")}
+                          value={sortOrder || "newest"}
+                          onChange={(value) => setSort(parseDossierSort(value === "newest" ? "" : value))}
+                          onSelect={close}
+                          options={[
+                            { value: "newest", label: t("sortNewest") },
+                            { value: "oldest", label: t("sortOldest") },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("endorsementColumn")}
+                  filterLabel={t("filterColumn", { column: t("endorsementColumn") })}
+                  active={!!statusFilter}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("statusFilterAriaLabel")}
+                      value={statusFilter}
+                      onChange={(value) => changeFilter(() => setStatus(value as DossierStatus | ""))}
+                      onSelect={close}
+                      options={STATUS_VIEWS.map((view) => {
+                        const statusCounts = queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined;
+                        const value = view.status
+                          ? statusCounts?.[view.status]
+                          : queues?.totalSubmissionsCount;
+                        return {
+                          value: view.status,
+                          label: value === undefined
+                            ? t(view.labelKey)
+                            : `${t(view.labelKey)} (${count(value, locale)})`,
+                        };
+                      })}
+                    />
+                  )}
+                </FilterTableHead>
+                <TableHead scope="col">{t("dataQualityColumn")}</TableHead>
+                <TableHead scope="col" className="text-center">{t("eligibilityColumn")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Loading, error, authorization refusal and "no dossiers" are
+                  reported separately; no branch substitutes sample rows. */}
+              <DataStateRow
+                colSpan={readOnly ? 9 : 10}
+                state={tableState}
+                resource={t("filesResource")}
+                error={questionnairesQuery.error}
+                onRetry={() => questionnairesQuery.refetch()}
+                title={tableState === "empty" ? t("noFilesTitle") : undefined}
+                hint={tableState === "empty" ? t("noFilesHint") : undefined}
+              />
+              {dossiers.map((d) => {
+                /**
+                 * Visa state, mapped from the stored enum to one badge tone
+                 * each. Five states, five tones: CORRECTION_REQUESTED is
+                 * `info` rather than a second amber because the dossier is
+                 * waiting on the respondent, while PENDING_REVIEW is the one
+                 * waiting on the reviewer reading this row.
+                 */
+                const visaBadge: { label: string; tone: ToneName } =
+                  d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } :
+                  d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } :
+                  d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } :
+                  d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } :
+                  d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } :
+                  // An item with no stored status is reported as such rather
+                  // than defaulted into the pending queue.
+                  { label: t("badgeNoStatus"), tone: "neutral" };
+
+                /**
+                 * Data quality, derived from the dossier own anomaly rows
+                 * (`anomalies`, included by QuestionnairesService.listForAdmin):
+                 *   blockingCount = OPEN && isBlocking
+                 *   warningCount  = OPEN && !isBlocking
+                 *
+                 * An empty anomaly list means "no anomaly recorded", which is
+                 * not the same claim as "conforme" — nothing has certified this
+                 * dossier, and detection results are not persisted today
+                 * (docs/admin-data-integrity-inventory.md §7.1).
+                 */
+                const quality: { tone: ToneName; glyph: string | null; text: string } =
+                  d.blockingCount > 0
+                    ? { tone: "error", glyph: "▲", text: t("blockingAnomalies", { count: d.blockingCount }) }
+                    : d.warningCount > 0
+                      ? { tone: "warning", glyph: "⚐", text: t("warnings", { count: d.warningCount }) }
+                      : { tone: "neutral", glyph: null, text: t("noAnomaly") };
+
+                /**
+                 * Statistical eligibility, mirroring the backend own rule
+                 * (EligibilityEngineService.isStatisticallyEligible): APPROVED
+                 * **and** zero open blocking anomalies. Any other status is
+                 * pending; a rejected dossier is excluded. A dossier with no
+                 * stored status yields no claim at all.
+                 */
+                const eligibility: "eligible" | "notEligible" | "pending" | null =
+                  d.adminStatus === null
+                    ? null
+                    : d.adminStatus === "REJECTED"
+                      ? "notEligible"
+                      : d.adminStatus === "APPROVED"
+                        ? (d.blockingCount === 0 ? "eligible" : "notEligible")
+                        : "pending";
+                const eligibilityLabel =
+                  eligibility === "eligible" ? t("eligible")
+                    : eligibility === "notEligible" ? t("notEligible")
+                      : eligibility === "pending" ? t("eligibilityPending")
+                        : null;
+                const eligibilityTone: ToneName =
+                  eligibility === "eligible" ? "success"
+                    : eligibility === "pending" ? "warning"
+                      : "neutral";
+
+                return (
+                  <TableRow key={d.id}>
+                    {!readOnly && (
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={selectedIds.has(d.id)}
+                          onCheckedChange={(c) => toggleSelect(d.id, c === true)}
+                          aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })}
+                        />
+                      </TableCell>
                     )}
-                  </td>
-                  <td className="text-center">
-                    <span className={`cam-badge cam-badge-${visaBadge.tone}`}>
-                      {visaBadge.label}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`cam-badge cam-badge-${quality.tone}`}>
-                      {quality.glyph && <span aria-hidden="true">{quality.glyph}</span>}
-                      {quality.text}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <span className={`cam-badge cam-badge-${eligibilityTone}`}>
-                      {eligibilityLabel ?? NOT_PROVIDED}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      </section>
+                    <TableCell>
+                      <Link
+                        href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
+                        className="cam-admin-code font-medium text-foreground"
+                        title={d.submissionId}
+                        aria-label={d.submissionId}
+                      >
+                        {shortRecordId(d.submissionId)}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {d.respondentName ?? NOT_PROVIDED}
+                    </TableCell>
+                    <TableCell>
+                      {d.companyName ?? NOT_PROVIDED}
+                    </TableCell>
+                    <TableCell>
+                      {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}
+                    </TableCell>
+                    <TableCell>
+                      {/* Territory as stored on the submission. A dossier with
+                          no region is reported as such: inferring one would
+                          invent an authorization-sensitive fact. */}
+                      {d.region ?? NOT_PROVIDED}
+                      {d.department && (
+                        <span className="block text-muted-foreground">{d.department}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{stamp(d.submittedAt, true, locale)}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={BADGE_VARIANT[quality.tone]}>
+                        {quality.glyph && <span aria-hidden="true">{quality.glyph}</span>}
+                        {quality.text}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={BADGE_VARIANT[eligibilityTone]}>
+                        {eligibilityLabel ?? NOT_PROVIDED}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. The range reflects the rows actually returned, and
           the page count is whatever the real total implies. */}
-      <div className="cam-pagination">
-        <span className="cam-pagination-info">
+      <div className="flex flex-wrap items-center justify-end gap-4 py-4 text-sm text-muted-foreground">
+        <span>
           {totalCount === null
             ? NOT_PROVIDED
             : totalCount === 0
@@ -784,31 +811,35 @@ function DossiersContent() {
                   count: totalCount,
                 })}
         </span>
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           disabled={offset === 0}
           onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
         >
           {t("previousButton")}
-        </button>
-        <span className="cam-pagination-info">
+        </Button>
+        <span>
           {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
         </span>
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           disabled={pageCount === null || currentPage >= pageCount}
           onClick={() => goToOffset(offset + PAGE_SIZE)}
         >
           {t("nextButton")}
-        </button>
+        </Button>
       </div>
 
       {/* ── Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
           Escape, inert background and focus return that the fixed-position
           overlay here declared with aria-modal but never implemented now
-          actually hold. ── */}
+          actually hold. It is deliberately NOT replaced by the component
+          library: this is the console's most consequential confirmation, and
+          its chrome is already audited. Only the controls inside it moved. ── */}
       <AdminDialog
         open={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
@@ -816,79 +847,74 @@ function DossiersContent() {
         eyebrow={t("bulkEndorseCount", { count: cleanPendingSelected.length })}
         footer={
           <>
-            <button
-              type="button"
-              className="cam-button cam-button-secondary cam-button-sm"
-              onClick={() => setIsBulkModalOpen(false)}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => setIsBulkModalOpen(false)}>
               {tRoot("common.cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="cam-button cam-button-primary cam-button-sm"
+              size="sm"
               onClick={handleConfirmBulkVisa}
               disabled={!certifiedBulk || bulkMutation.isPending}
             >
               {bulkMutation.isPending ? t("validating") : t("confirmEndorsement")}
-            </button>
+            </Button>
           </>
         }
       >
-        <label className="cam-admin-choice">
-          <input
-            type="checkbox"
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="bulk-endorse-certify"
             checked={certifiedBulk}
-            onChange={(e) => setCertifiedBulk(e.target.checked)}
+            onCheckedChange={(c) => setCertifiedBulk(c === true)}
           />
-          <span>{t("bulkEndorseCertify")}</span>
-        </label>
+          <Label htmlFor="bulk-endorse-certify" className="font-normal leading-snug">
+            {t("bulkEndorseCertify")}
+          </Label>
+        </div>
 
         {/* Signatory is the signed-in actor. The authoritative timestamp is
             the one the server returns with the operation, so none is
             predicted before confirmation. */}
-        <div className="cam-admin-section" style={{ marginTop: "var(--cam-space-4)" }}>
-          <div className="cam-admin-section-body">
-            <div className="cam-admin-label">{t("signatoryLabel")}</div>
-            <div className="cam-admin-strong">{signatoryLabel}</div>
-          </div>
-        </div>
+        <Card className="mt-4">
+          <CardContent>
+            <div className="text-sm text-muted-foreground">{t("signatoryLabel")}</div>
+            <div className="font-medium text-foreground">{signatoryLabel}</div>
+          </CardContent>
+        </Card>
 
         {/* The real outcome of the operation, as reported by the server. */}
         {bulkResult && (
-          <div
-            className="cam-admin-notice cam-admin-notice--success"
-            style={{ marginTop: "var(--cam-space-3)" }}
-          >
-            <div>
-              <strong>
-                {t("bulkEndorseResult", {
-                  endorsed: count(bulkResult.processedCount, locale),
-                  skipped: count(bulkResult.rejectedCount, locale),
-                })}
-              </strong>
-              <div>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
-              {bulkResult.rejectedItems?.length > 0 && (
-                <ul style={{ margin: "var(--cam-space-2) 0 0", paddingLeft: "var(--cam-space-4)" }}>
-                  {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
-                    <li key={item.id}>{item.id} — {item.reason}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          <Alert variant="success" className="mt-3">
+            <AlertDescription>
+              <div>
+                <strong>
+                  {t("bulkEndorseResult", {
+                    endorsed: count(bulkResult.processedCount, locale),
+                    skipped: count(bulkResult.rejectedCount, locale),
+                  })}
+                </strong>
+                <div>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
+                {bulkResult.rejectedItems?.length > 0 && (
+                  <ul className="mt-2 ps-4 list-disc">
+                    {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
+                      <li key={item.id}>{item.id} — {item.reason}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {bulkMutation.isError && (
-          <div
-            role="alert"
-            className="cam-admin-notice cam-admin-notice--error"
-            style={{ marginTop: "var(--cam-space-3)" }}
-          >
-            {t("bulkEndorseFailed", { message: (bulkMutation.error as Error)?.message ?? t("unknownError") })}
-          </div>
+          <Alert variant="destructive" className="mt-3">
+            <AlertDescription>
+              {t("bulkEndorseFailed", { message: (bulkMutation.error as Error)?.message ?? t("unknownError") })}
+            </AlertDescription>
+          </Alert>
         )}
 
-        <p className="cam-admin-meta" style={{ marginTop: "var(--cam-space-3)", marginBottom: 0 }}>
+        <p className="mt-3 mb-0 text-sm text-muted-foreground">
           {t("bulkEndorseAudit")}
         </p>
       </AdminDialog>
@@ -901,49 +927,47 @@ function DossiersContent() {
         eyebrow={t("territoryLine", { scope: scopeLabel })}
         footer={
           <>
-            <button
-              type="button"
-              className="cam-button cam-button-secondary cam-button-sm"
-              onClick={() => setIsRejectModalOpen(false)}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => setIsRejectModalOpen(false)}>
               {rejectResult ? t("closeButton") : tRoot("common.cancel")}
-            </button>
+            </Button>
             {!rejectResult && rejectableSelected.length > 0 && (
-              <button
+              <Button
                 type="button"
-                className="cam-button cam-button-danger cam-button-sm"
+                size="sm"
+                variant="destructive"
                 onClick={handleConfirmBulkReject}
                 disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
               >
                 {rejectMutation.isPending ? t("rejecting") : t("rejectCountButton", { count: rejectableSelected.length })}
-              </button>
+              </Button>
             )}
           </>
         }
       >
         {rejectResult ? (
-          <div className="cam-admin-notice cam-admin-notice--error">
-            <div>
-              <strong>{t("bulkRejectResult", { count: count(rejectResult.rejectedCount ?? rejectResult.processedCount, locale) })}</strong>{" "}
-              {t("bulkRejectLogged", { date: stamp(rejectResult.timestamp, true, locale) })}
-            </div>
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              <div>
+                <strong>{t("bulkRejectResult", { count: count(rejectResult.rejectedCount ?? rejectResult.processedCount, locale) })}</strong>{" "}
+                {t("bulkRejectLogged", { date: stamp(rejectResult.timestamp, true, locale) })}
+              </div>
+            </AlertDescription>
+          </Alert>
         ) : rejectableSelected.length === 0 ? (
           <p className="cam-admin-empty">{t("noneRejectable")}</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-            <p style={{ margin: 0 }}>
+          <div className="flex flex-col gap-4">
+            <p className="m-0">
               {t("bulkRejectIntroBefore")} <strong>{t("bulkRejectIntroCount", { count: rejectableSelected.length })}</strong>{" "}
               {t("bulkRejectIntroAfter", { count: rejectableSelected.length })}
             </p>
 
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="bulk-reject-reason">
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-reject-reason">
                 {t("bulkRejectReasonLabel")} <span aria-hidden="true">*</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 id="bulk-reject-reason"
-                className="cam-admin-textarea"
                 rows={3}
                 required
                 value={rejectReason}
@@ -951,27 +975,34 @@ function DossiersContent() {
                 placeholder={t("bulkRejectReasonPlaceholder")}
               />
               {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
-                <p className="cam-field-error" style={{ margin: "var(--cam-space-1) 0 0" }}>
+                <p className="cam-field-error m-0">
                   {t("reasonTooShort", { length: rejectReason.trim().length })}
                 </p>
               )}
             </div>
 
-            <label className="cam-admin-choice">
-              <input
-                type="checkbox"
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="bulk-reject-certify"
                 checked={certifiedReject}
-                onChange={(e) => setCertifiedReject(e.target.checked)}
+                onCheckedChange={(c) => setCertifiedReject(c === true)}
               />
-              <span>
-                <strong>{t("certifyStrong")}</strong> {t("bulkRejectCertifyRest", { count: rejectableSelected.length })}
-              </span>
-            </label>
+              {/* One <span>, not two children: Label is `flex items-center
+                  gap-2`, so a bare <strong> beside the text becomes a second
+                  flex item and the sentence breaks into two columns. */}
+              <Label htmlFor="bulk-reject-certify" className="font-normal leading-snug">
+                <span>
+                  <strong>{t("certifyStrong")}</strong> {t("bulkRejectCertifyRest", { count: rejectableSelected.length })}
+                </span>
+              </Label>
+            </div>
 
             {rejectMutation.isError && (
-              <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         )}

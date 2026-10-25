@@ -25,7 +25,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatStrip } from "@/components/admin/StatStrip";
-import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
+import { useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
@@ -484,12 +484,6 @@ export default function DiffusionPage() {
       breadcrumb={[{ label: tRoot("adminNav.hubs.donnees") }, { label: tRoot("adminNav.routes.diffusion") }]}
       title={tRoot("adminNav.routes.diffusion")}
       subtitle={activeCampaignName ? t("subtitleWithCampaign", { campaign: activeCampaignName }) : t("subtitle")}
-      actions={
-        <AdminHeaderActions
-          showCampaignPill={false}
-          showBell={false}
-        />
-      }
     />
   );
 

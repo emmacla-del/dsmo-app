@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { Download, Plus } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ENTITY_TYPE_OPTION_KEYS,
@@ -18,7 +19,6 @@ import { getDataManagementStats } from "@/lib/api-client";
 import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatStrip } from "@/components/admin/StatStrip";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
   NOT_PROVIDED,
@@ -27,8 +27,35 @@ import {
   stamp,
 } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { YEAR_MIN } from "@/lib/pilotage-targets";
+import { doualaIsoDate, doualaYear } from "@/lib/douala-date";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const PAGE_SIZE = 8;
+type Semester = 1 | 2;
+type Quarter = 1 | 2 | 3 | 4;
+
+function registrationPeriod(value: string | null): { year: number | null; semester: Semester | null; quarter: Quarter | null } {
+  const date = doualaIsoDate(value);
+  if (!date) return { year: null, semester: null, quarter: null };
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const quarter = Math.ceil(month / 3) as Quarter;
+  return { year, semester: quarter <= 2 ? 1 : 2, quarter };
+}
 
 /**
  * The seven live OnefopEntityType values, labelled through the shared
@@ -90,6 +117,9 @@ interface EtabItem {
   regionCity: string | null;
   responsable: string | null;
   dateInscription: string | null;
+  year: number | null;
+  semester: Semester | null;
+  quarter: Quarter | null;
   status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
 }
 
@@ -102,13 +132,13 @@ const STATUS_LABELS: Record<EtabItem["status"], string> = {
   INCONNU: "Aucun compte lié",
 };
 
-// The derived account state decides the badge class. A company with no linked
+// The derived account state decides the badge tone. A company with no linked
 // account is neutral, not folded into "suspendu".
-const STATUS_BADGE: Record<EtabItem["status"], string> = {
-  ACTIF: "cam-badge-success",
-  EN_ATTENTE: "cam-badge-warning",
-  SUSPENDU: "cam-badge-error",
-  INCONNU: "cam-badge-neutral",
+const STATUS_TONE: Record<EtabItem["status"], "success" | "warning" | "danger" | "neutral"> = {
+  ACTIF: "success",
+  EN_ATTENTE: "warning",
+  SUSPENDU: "danger",
+  INCONNU: "neutral",
 };
 
 export default function EtablissementsPage() {
@@ -116,6 +146,9 @@ export default function EtablissementsPage() {
   const tRoot = useTranslations();
   const t = useTranslations("adminEtablissementsPage");
   const tStats = useTranslations("adminLayout");
+  useEffect(() => {
+    document.title = `${t("pageTitle")} | CAMLEAP`;
+  }, [t]);
   const locale = asUiLocale(useLocale());
   const typeDisplay = (type: string) =>
     ENTITY_TYPE_OPTION_KEYS[type] ? tRoot(ENTITY_TYPE_OPTION_KEYS[type]) : entityTypeLabel(type);
@@ -135,7 +168,21 @@ export default function EtablissementsPage() {
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("newest");
+  const [periodYear, setPeriodYear] = useState<number | null>(null);
+  const [periodSemester, setPeriodSemester] = useState<Semester | null>(null);
+  const [periodQuarter, setPeriodQuarter] = useState<Quarter | null>(null);
   const [page, setPage] = useState(1);
+  const latestAvailableYear = doualaYear(new Date()) ?? new Date().getFullYear();
+  const yearOptions = Array.from(
+    { length: Math.max(0, latestAvailableYear - YEAR_MIN + 1) },
+    (_, index) => latestAvailableYear - index,
+  );
+  const quarterOptions: Quarter[] = periodSemester === 1
+    ? [1, 2]
+    : periodSemester === 2
+      ? [3, 4]
+      : [1, 2, 3, 4];
 
   // Region and status are server-side filters now, so they share the search
   // box's 300ms debounce: one timer, one refetch, and the three controls can
@@ -170,12 +217,16 @@ export default function EtablissementsPage() {
   const serverRegion = appliedRegion !== "Toutes" ? appliedRegion : undefined;
 
   const companiesQuery = useQuery({
-    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", page],
+    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", sortOrder, periodYear, periodSemester, periodQuarter, page],
     queryFn: () =>
       listCompanies({
         search: search || undefined,
         status: serverStatus,
         region: serverRegion,
+        sortOrder,
+        year: periodYear ?? undefined,
+        semester: periodSemester ?? undefined,
+        quarter: periodQuarter ?? undefined,
         page,
         pageSize: PAGE_SIZE,
       }),
@@ -207,6 +258,7 @@ export default function EtablissementsPage() {
       c.user?.email ||
       null,
     dateInscription: c.createdAt ?? null,
+    ...registrationPeriod(c.createdAt),
     // Derived from the linked account's own stored state. A company with no
     // linked account yields "INCONNU" rather than being called suspended.
     status: !c.user
@@ -280,7 +332,7 @@ export default function EtablissementsPage() {
    */
   const exportCsv = () => {
     if (filteredRows.length === 0) return;
-    const headers = ["Nom", "Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Statut"];
+    const headers = ["Nom", "Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Année", "Semestre", "Trimestre", "Statut"];
     const cell = (v: string | null) => `"${(v ?? "").replace(/"/g, '""')}"`;
     const lines = [
       headers.map((h) => cell(h)).join(","),
@@ -291,12 +343,15 @@ export default function EtablissementsPage() {
           cell(r.typeLabel),
           cell(r.regionCity),
           cell(r.responsable),
-          cell(r.dateInscription ? stamp(r.dateInscription, false) : null),
+          cell(r.dateInscription ? stamp(r.dateInscription, true) : null),
+          cell(r.year == null ? null : String(r.year)),
+          cell(r.semester == null ? null : `S${r.semester}`),
+          cell(r.quarter == null ? null : `Q${r.quarter}`),
           cell(STATUS_LABELS[r.status]),
         ].join(","),
       ),
     ];
-    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -317,38 +372,40 @@ export default function EtablissementsPage() {
 
   return (
     <div className="cam-admin-page">
-      {/* Page actions sit in the header. The hand-made Inscriptions /
-          Établissements / Annuaire pills are gone: the header's hub tabs
-          carry the Déclarants navigation, and Annuaire moved to
+      {/* Page actions sit in the header; this destination is the establishment
+          register under its own navigation group. Annuaire moved to
           Administration. */}
+      {/* The same single tab bar as /admin/inscriptions, so the two pages of
+          this hub read as one place with three destinations rather than two
+          screens each restating where they are. */}
       <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.declarants") }, { label: tRoot("adminNav.routes.etablissements") }]}
-        title={tRoot("adminNav.routes.etablissements")}
+        title={tRoot("adminNav.hubs.inscriptions")}
         subtitle={t("subtitle")}
+        tabs={[
+          { label: tRoot("adminInscriptionsPage.viewQueue"), href: "/admin/inscriptions" },
+          { label: tRoot("adminInscriptionsPage.viewCoverage"), href: "/admin/inscriptions?vue=couverture" },
+          { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements", isActive: true },
+        ]}
         actions={
-          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center", flexWrap: "wrap" }}>
-            <AdminHeaderActions showCampaignPill={false} showBell={false} />
+          <div className="flex flex-wrap items-center gap-2">
             {!readOnly && (
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={exportCsv}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {t("exportButton")}
-            </button>
+              <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+                <Download aria-hidden="true" />
+                {t("exportButton")}
+              </Button>
             )}
             {!readOnly && (
-            <button
-              type="button"
-              className="cam-button cam-button-primary cam-button-sm"
-              // Admin-assisted registration, inside the console. This used to
-              // open the public /register self-signup, which left the console
-              // and recorded no admin attribution (createdBy).
-              onClick={() => router.push("/admin/inscriptions/nouvelle")}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              {tRoot("adminNav.routes.nouvelleInscription")}
-            </button>
+              <Button
+                type="button"
+                size="sm"
+                // Admin-assisted registration, inside the console. This used to
+                // open the public /register self-signup, which left the console
+                // and recorded no admin attribution (createdBy).
+                onClick={() => router.push("/admin/inscriptions/nouvelle")}
+              >
+                <Plus aria-hidden="true" />
+                {tRoot("adminNav.routes.nouvelleInscription")}
+              </Button>
             )}
           </div>
         }
@@ -363,117 +420,238 @@ export default function EtablissementsPage() {
         items={volume.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
       />
 
-      <section className="cam-admin-section">
-        <div className="cam-admin-section-body">
-          <div className="cam-admin-filters">
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="etab-type">{t("typeFilterLabel")}</label>
-              <select id="etab-type" className="cam-select" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-                <option value="ALL">{t("allMasculine")}</option>
-                {ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{typeDisplay(value)}</option>)}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="etab-region">{t("regionFilterLabel")}</label>
-              <select id="etab-region" className="cam-select" value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}>
-                {CAMEROON_REGIONS.map((r) => <option key={r} value={r}>{r === "Toutes" ? t("allRegions") : r}</option>)}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="etab-status">{t("statusFilterLabel")}</label>
-              <select id="etab-status" className="cam-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-                {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="etab-search">{t("searchLabel")}</label>
-              <div className="cam-admin-search">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input
-                  id="etab-search"
-                  type="text"
-                  className="cam-input"
-                  placeholder={t("searchPlaceholder")}
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+      <Card>
 
-      <div className="cam-table-wrapper">
-        <table className="cam-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("establishmentColumn")}</th>
-              <th scope="col">{t("idColumn")}</th>
-              <th scope="col">{t("regionCityColumn")}</th>
-              <th scope="col">{t("contactColumn")}</th>
-              <th scope="col">{t("registrationDateColumn")}</th>
-              {/* "Créé par" removed: the Company model records no creator,
-                  so the column could only ever be filled with a guess. */}
-              <th scope="col">{t("accountStatusColumn")}</th>
-              <th scope="col" className="text-right">{t("actionsColumn")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <DataStateRow
-              colSpan={7}
-              state={tableState}
-              resource={t("registerResource")}
-              error={companiesQuery.error}
-              onRetry={() => companiesQuery.refetch()}
-              title={tableState === "empty" ? t("noEstablishmentTitle") : undefined}
-              hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
-            />
-            {filteredRows.map((item) => {
-              const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`;
-              return (
-                <tr key={item.id}>
-                  <td style={{ maxWidth: 260 }}>
-                    <Link href={detailHref} className="cam-text-button" style={{ display: "block" }}>
-                      {item.name ?? NOT_PROVIDED}
-                    </Link>
-                    {/* Entity type badge only when the record carries one. */}
-                    {item.type && item.typeLabel && (
-                      <span className="cam-badge cam-badge-neutral">{typeDisplay(item.type)}</span>
-                    )}
-                  </td>
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    <span className="cam-admin-code cam-admin-strong">{item.identifier ?? NOT_PROVIDED}</span>
-                  </td>
-                  <td style={{ whiteSpace: "nowrap" }}>{item.regionCity ?? NOT_PROVIDED}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{item.responsable ?? NOT_PROVIDED}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    <span className="cam-admin-meta">{stamp(item.dateInscription, false, locale)}</span>
-                  </td>
-                  <td>
-                    <span className={`cam-badge ${STATUS_BADGE[item.status]}`}>{t(`status.${item.status}`)}</span>
-                  </td>
-                  {/* Two plain links. They replace a "···" popover that had no
-                      menu role, no Escape, no outside-click close and no focus
-                      handling. */}
-                  <td className="text-right">
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", whiteSpace: "nowrap" }}>
-                      <Link href={detailHref} className="cam-text-button">{t("viewDetails")}</Link>
-                      {!readOnly && (
-                        <Link href={`${detailHref}&manage=true`} className="cam-text-button">{t("manageUsers")}</Link>
-                      )}
+        <CardContent className="border-t pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <FilterTableHead
+                  label={t("establishmentColumn")}
+                  filterLabel={t("filterColumn", { column: t("establishmentColumn") })}
+                  active={!!searchInput.trim() || selectedType !== "ALL"}
+                  contentClassName="w-72 p-3"
+                >
+                  {(close) => (
+                    <div className="grid gap-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="etab-search">{t("searchLabel")}</Label>
+                        <Input
+                          id="etab-search"
+                          value={searchInput}
+                          onChange={(event) => setSearchInput(event.target.value)}
+                          placeholder={t("searchPlaceholder")}
+                          onKeyDown={(event) => { if (event.key === "Enter") close(); }}
+                        />
+                      </div>
+                      <div className="border-t pt-2">
+                        <FilterTableOptions
+                          label={t("typeFilterLabel")}
+                          value={selectedType}
+                          onChange={setSelectedType}
+                          onSelect={close}
+                          options={[
+                            { value: "ALL", label: t("allMasculine") },
+                            ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: typeDisplay(value) })),
+                          ]}
+                        />
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      </section>
+                  )}
+                </FilterTableHead>
+                <TableHead scope="col">{t("idColumn")}</TableHead>
+                <FilterTableHead
+                  label={t("regionCityColumn")}
+                  filterLabel={t("filterColumn", { column: t("regionCityColumn") })}
+                  active={selectedRegion !== "Toutes"}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("regionFilterLabel")}
+                      value={selectedRegion}
+                      onChange={setSelectedRegion}
+                      onSelect={close}
+                      options={CAMEROON_REGIONS.map((region) => ({
+                        value: region,
+                        label: region === "Toutes" ? t("allRegions") : region,
+                      }))}
+                    />
+                  )}
+                </FilterTableHead>
+                <TableHead scope="col">{t("contactColumn")}</TableHead>
+                <FilterTableHead
+                  label={t("registrationDateColumn")}
+                  filterLabel={t("filterColumn", { column: t("registrationDateColumn") })}
+                  active={sortOrder !== "newest"}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={tRoot("adminDossiersPage.sortLabel")}
+                      value={sortOrder}
+                      onChange={(value) => {
+                        setSortOrder(value === "oldest" ? "oldest" : "newest");
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "newest", label: tRoot("adminDossiersPage.sortNewest") },
+                        { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") },
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("yearColumn")}
+                  filterLabel={t("filterColumn", { column: t("yearColumn") })}
+                  active={periodYear != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("yearColumn")}
+                      value={periodYear == null ? "all" : String(periodYear)}
+                      onChange={(value) => {
+                        setPeriodYear(value === "all" ? null : Number(value));
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allYears") },
+                        ...yearOptions.map((year) => ({ value: String(year), label: String(year) })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("semesterColumn")}
+                  filterLabel={t("filterColumn", { column: t("semesterColumn") })}
+                  active={periodSemester != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("semesterColumn")}
+                      value={periodSemester == null ? "all" : String(periodSemester)}
+                      onChange={(value) => {
+                        setPeriodSemester(value === "all" ? null : value === "1" ? 1 : 2);
+                        setPeriodQuarter(null);
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allSemesters") },
+                        { value: "1", label: "S1" },
+                        { value: "2", label: "S2" },
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                <FilterTableHead
+                  label={t("quarterColumn")}
+                  filterLabel={t("filterColumn", { column: t("quarterColumn") })}
+                  active={periodQuarter != null}
+                  centered
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("quarterColumn")}
+                      value={periodQuarter == null ? "all" : String(periodQuarter)}
+                      onChange={(value) => {
+                        setPeriodQuarter(value === "all" ? null : Number(value) as Quarter);
+                        setPage(1);
+                      }}
+                      onSelect={close}
+                      options={[
+                        { value: "all", label: t("allQuarters") },
+                        ...quarterOptions.map((quarter) => ({ value: String(quarter), label: `Q${quarter}` })),
+                      ]}
+                    />
+                  )}
+                </FilterTableHead>
+                {/* "Créé par" removed: the Company model records no creator,
+                    so the column could only ever be filled with a guess. */}
+                <FilterTableHead
+                  label={t("accountStatusColumn")}
+                  filterLabel={t("filterColumn", { column: t("accountStatusColumn") })}
+                  active={selectedStatus !== "ALL"}
+                >
+                  {(close) => (
+                    <FilterTableOptions
+                      label={t("statusFilterLabel")}
+                      value={selectedStatus}
+                      onChange={setSelectedStatus}
+                      onSelect={close}
+                      options={ACCOUNT_STATUSES.map((status) => ({ value: status.value, label: t(status.labelKey) }))}
+                    />
+                  )}
+                </FilterTableHead>
+                <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <DataStateRow
+                colSpan={10}
+                state={tableState}
+                resource={t("registerResource")}
+                error={companiesQuery.error}
+                onRetry={() => companiesQuery.refetch()}
+                title={tableState === "empty" ? t("noEstablishmentTitle") : undefined}
+                hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
+              />
+              {filteredRows.map((item) => {
+                const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`;
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="max-w-[260px]">
+                      <Button asChild variant="link" size="sm" className="block h-auto px-0 py-0 text-left">
+                        <Link href={detailHref}>{item.name ?? NOT_PROVIDED}</Link>
+                      </Button>
+                      {/* Entity type badge only when the record carries one. */}
+                      {item.type && item.typeLabel && (
+                        <Badge variant="neutral">{typeDisplay(item.type)}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <span className="cam-admin-code font-medium text-foreground">{item.identifier ?? NOT_PROVIDED}</span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{item.regionCity ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.responsable ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {stamp(item.dateInscription, true, locale)}
+                    </TableCell>
+                    <TableCell className="text-center tabular-nums">{item.year ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="text-center tabular-nums">{item.semester == null ? NOT_PROVIDED : `S${item.semester}`}</TableCell>
+                    <TableCell className="text-center tabular-nums">{item.quarter == null ? NOT_PROVIDED : `Q${item.quarter}`}</TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_TONE[item.status]}>{t(`status.${item.status}`)}</Badge>
+                    </TableCell>
+                    {/* Two plain links. They replace a "···" popover that had no
+                        menu role, no Escape, no outside-click close and no focus
+                        handling. */}
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-3 whitespace-nowrap">
+                        <Button asChild variant="link" size="sm" className="h-auto px-0">
+                          <Link href={detailHref}>{t("viewDetails")}</Link>
+                        </Button>
+                        {!readOnly && (
+                          <Button asChild variant="link" size="sm" className="h-auto px-0">
+                            <Link href={`${detailHref}&manage=true`}>{t("manageUsers")}</Link>
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Pager figures, all from the response GET /companies returned. The
           current page is text, not a button: it is where the reader already is. */}
-      <div className="cam-pagination">
-        <span className="cam-pagination-info">
+      <div className="flex flex-wrap items-center justify-end gap-2 py-4 text-sm text-muted-foreground">
+        <span className="me-2">
           {companiesQuery.isLoading
             ? NOT_PROVIDED
             : localNarrowing
@@ -482,31 +660,33 @@ export default function EtablissementsPage() {
                 ? NOT_PROVIDED
                 : t("showingRange", { from: count(rangeFrom, locale), to: count(rangeTo, locale), total: count(filteredTotal, locale) })}
         </span>
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page <= 1}
         >
           {t("previousButton")}
-        </button>
+        </Button>
         {pageWindow.map((n) =>
           n === page ? (
-            <span key={n} className="cam-pagination-info" aria-current="page">{count(n, locale)}</span>
+            <span key={n} aria-current="page" className="px-2 font-medium text-foreground">{count(n, locale)}</span>
           ) : (
-            <button key={n} type="button" className="cam-pagination-btn" onClick={() => setPage(n)}>
+            <Button key={n} type="button" variant="outline" size="sm" onClick={() => setPage(n)}>
               {count(n, locale)}
-            </button>
+            </Button>
           ),
         )}
-        <button
+        <Button
           type="button"
-          className="cam-pagination-btn"
+          variant="outline"
+          size="sm"
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           disabled={page >= totalPages}
         >
           {t("nextButton")}
-        </button>
+        </Button>
       </div>
     </div>
   );

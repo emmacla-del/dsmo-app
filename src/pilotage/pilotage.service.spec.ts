@@ -3,6 +3,7 @@ import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prism
 import { PilotageService } from './pilotage.service';
 import { PilotageController } from './pilotage.controller';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 interface TargetRow {
   id: string;
@@ -14,6 +15,8 @@ interface TargetRow {
   scopeKind?: 'TERRITORIAL' | 'ADMINISTRATION';
   regionId: string | null;
   departmentId: string | null;
+  /** Null on a quota covering every entity type, as every pre-v? row is. */
+  entityType?: string | null;
   submissionTarget?: number;
   campaignId?: string;
   createdBy?: string;
@@ -164,6 +167,18 @@ function createHarness() {
         audits.push(data);
         return data;
       }),
+      findMany: jest.fn(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+        const resourceIds = (where?.resourceId as { in?: string[] } | undefined)?.in;
+        const since = (where?.createdAt as { gte?: Date } | undefined)?.gte;
+        return audits
+          .filter((row) =>
+            row.action === where?.action &&
+            row.resourceType === where?.resourceType &&
+            (!resourceIds || resourceIds.includes(String(row.resourceId))) &&
+            (!since || (row.createdAt as Date) >= since),
+          )
+          .map((row) => ({ resourceId: row.resourceId }));
+      }),
     },
     $transaction: jest.fn(),
   };
@@ -173,7 +188,10 @@ function createHarness() {
   });
 
   return {
-    service: new PilotageService(prisma as unknown as PrismaService),
+    service: new PilotageService(
+      prisma as unknown as PrismaService,
+      { getSettings: jest.fn().mockResolvedValue({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+    ),
     prisma,
     campaignQuotas,
     companies,
@@ -421,17 +439,27 @@ describe('PilotageService writes', () => {
 });
 
 describe('PilotageService coverage', () => {
+  let companySeq = 0;
+
   function company(overrides: Record<string, unknown> = {}) {
+    const { user: userOverride, ...companyOverrides } = overrides;
     return {
+      id: `company-${++companySeq}`,
       entityType: 'ENTREPRISE',
       regionId: 'r-centre',
       departmentId: 'd-mfoundi',
       establishmentId: 'EN26000100',
       establishmentIdGeneratedAt: new Date('2026-06-01T10:00:00.000Z'),
-      createdAt: new Date('2026-01-15T10:00:00.000Z'),
+      createdAt: new Date(),
       departmentRef: { regionId: 'r-centre' },
-      user: { status: 'ACTIVE', isActive: true },
-      ...overrides,
+      user: {
+        id: `user-${companySeq}`,
+        status: 'ACTIVE',
+        isActive: true,
+        approvedAt: null,
+        ...(userOverride as Record<string, unknown> | undefined),
+      },
+      ...companyOverrides,
     };
   }
 
@@ -475,6 +503,24 @@ describe('PilotageService coverage', () => {
       scopeKind: 'TERRITORIAL',
       regionId,
       departmentId,
+      submissionTarget,
+    };
+  }
+
+  /** A region-level quota for one entity type (the region x type grain). */
+  function typeQuota(
+    campaignId: string,
+    regionId: string,
+    entityType: string,
+    submissionTarget: number,
+  ): TargetRow {
+    return {
+      id: `q-${campaignId}-${regionId}-${entityType}`,
+      campaignId,
+      scopeKind: 'TERRITORIAL',
+      regionId,
+      departmentId: null,
+      entityType,
       submissionTarget,
     };
   }
@@ -563,7 +609,9 @@ describe('PilotageService coverage', () => {
       pendingReview: 1,
       complementsRequested: 1,
       inscriptionTarget: 10,
-      rate: 0.3,
+      // registeredInYear 2 / 10, not the cumulative 3: the quota is the
+      // year's, so the numerator is the year's too.
+      rate: 0.2,
     });
     expect(mfoundiOf(centre)).toMatchObject({
       companyCount: 7,
@@ -573,10 +621,60 @@ describe('PilotageService coverage', () => {
       pendingReview: 1,
       complementsRequested: 1,
       inscriptionTarget: 10,
-      rate: 0.2,
+      rate: 0.1,
     });
     const lekie = centre.departments.find((department: { name: string }) => department.name === 'Lékié');
     expect(lekie).toMatchObject({ companyCount: 1, registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('counts overdue pending registrations by territory and entity type, excluding recent resubmissions', async () => {
+    const harness = createHarness();
+    seedQuarters(harness);
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    harness.companies.push(
+      company({
+        id: 'overdue-centre',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-overdue-centre', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+      company({
+        id: 'recently-resubmitted',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-recent-resubmission', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+      company({
+        id: 'overdue-littoral',
+        regionId: 'r-littoral',
+        departmentId: 'd-wouri',
+        departmentRef: { regionId: 'r-littoral' },
+        entityType: 'COOPERATIVE',
+        createdAt: oldCreatedAt,
+        establishmentId: null,
+        user: { id: 'user-overdue-littoral', status: 'PENDING_APPROVAL', isActive: true },
+      }),
+    );
+    harness.audits.push({
+      action: 'COMPANY_REGISTRATION_RESUBMITTED',
+      resourceType: 'User',
+      resourceId: 'user-recent-resubmission',
+      createdAt: new Date(),
+    });
+
+    const result = await harness.service.getCoverage(national, '2026');
+    const centre = centreOf(result);
+    const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral')!;
+    const enterprise = result.byEntityType.find((row: { entityType: string }) => row.entityType === 'ENTREPRISE');
+    const cooperative = result.byEntityType.find((row: { entityType: string }) => row.entityType === 'COOPERATIVE');
+
+    expect(result.overdueDays).toBe(7);
+    expect(result.totals.overdue).toBe(2);
+    expect(centre.overdue).toBe(1);
+    expect(mfoundiOf(centre).overdue).toBe(1);
+    expect(littoral.overdue).toBe(1);
+    expect(enterprise.overdue).toBe(1);
+    expect(cooperative.overdue).toBe(1);
   });
 
   it('sums the four quarters for the annual view and the right two for a semester', async () => {
@@ -682,6 +780,90 @@ describe('PilotageService coverage', () => {
     // MIXED with no target rather than added up.
     expect(centreOf(result)).toMatchObject({ mode: 'MIXED', inscriptionTarget: null, rate: null, registered: 1 });
     expect(mfoundiOf(centreOf(result))).toMatchObject({ inscriptionTarget: 20 });
+    // And the grid states no total either: summing the departments of a MIXED
+    // region would supply the figure its own row declines to give, drop the
+    // region-level row from the sum, and leave a total disagreeing with the
+    // column above it. The counts are still complete.
+    expect(result.totals).toMatchObject({
+      inscriptionTarget: null,
+      rate: null,
+      targetIndeterminate: true,
+      registered: 1,
+    });
+  });
+
+  /**
+   * Region x type quotas: the grain chosen on 2026-10-25. A per-type row is
+   * region level, the types partition the register, so they sum.
+   */
+  it('gives each entity type its own quota and rate', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      typeQuota(t1, 'r-centre', 'ENTREPRISE', 8),
+      typeQuota(t1, 'r-centre', 'VOCATIONAL_TRAINING', 2),
+    );
+    harness.companies.push(
+      company(),
+      company({ establishmentId: 'EN26000300' }),
+      company({ entityType: 'VOCATIONAL_TRAINING', establishmentId: 'VT26000100' }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    const typeRow = (entityType: string) =>
+      result.byEntityType.find((row: { entityType: string }) => row.entityType === entityType);
+    expect(typeRow('ENTREPRISE')).toMatchObject({ registeredInYear: 2, inscriptionTarget: 8, rate: 0.25 });
+    expect(typeRow('VOCATIONAL_TRAINING')).toMatchObject({ registeredInYear: 1, inscriptionTarget: 2, rate: 0.5 });
+    // A type nobody set a quota for states none, never a target of zero.
+    expect(typeRow('COOPERATIVE')).toMatchObject({ inscriptionTarget: null, rate: null });
+    // The region's own target is the sum of its per-type rows, and its mode
+    // says which of the three ways it was quotaed.
+    expect(centreOf(result)).toMatchObject({ mode: 'ENTITY_TYPE', inscriptionTarget: 10 });
+  });
+
+  it('refuses to total a region mixing per-type quotas with a regional one', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      typeQuota(t1, 'r-centre', 'ENTREPRISE', 8),
+      quota(t1, 'r-centre', null, 30),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(centreOf(result)).toMatchObject({ mode: 'MIXED', inscriptionTarget: null, rate: null });
+    expect(result.totals).toMatchObject({ inscriptionTarget: null, targetIndeterminate: true });
+  });
+
+  it('takes the ADMINISTRATION quota from the cohort row, not a territory', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(cohort(t1, 6));
+    harness.companies.push(
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000100' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000200' }),
+      company({ entityType: 'ADMINISTRATION', establishmentId: 'AD26000300' }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    const administration = result.byEntityType.find(
+      (row: { entityType: string }) => row.entityType === 'ADMINISTRATION',
+    );
+    // Its respondents are the national cohort, counted in `central`, so its
+    // quota is central's and the two rates agree.
+    expect(administration).toMatchObject({ inscriptionTarget: 6, rate: 0.5 });
+    expect(result.central).toMatchObject({ inscriptionTarget: 6, rate: 0.5 });
+  });
+
+  it('totals the quotas when no region is MIXED', async () => {
+    const harness = createHarness();
+    const [t1] = seedQuarters(harness, [1]);
+    harness.campaignQuotas.push(
+      quota(t1, 'r-centre', 'd-mfoundi', 6),
+      quota(t1, 'r-littoral', null, 4),
+      cohort(t1, 2),
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(national, '2026');
+    // 6 (summed from Centre's departments) + 4 (Littoral's own) + 2 (cohort).
+    expect(result.totals).toMatchObject({ inscriptionTarget: 12, targetIndeterminate: false });
   });
 
   it('never asks for a campaign whose reference quarter is null', async () => {
@@ -894,7 +1076,25 @@ describe('PilotageService coverage', () => {
     harness.campaignQuotas.push(quota('c-t1', 'r-centre', 'd-mfoundi', 10));
     await expect(harness.service.getCoverage(undefined, '2026')).resolves.toEqual({
       year: 2026,
+      overdueDays: 7,
       period: { year: 2026, quarter: null, semester: null, campaignIds: [] },
+      // A fail-closed scope still answers a totals row, all zeros: the view
+      // renders it unconditionally, and a missing key would read as a crash
+      // rather than as "nothing in your ressort".
+      totals: {
+        companyCount: 0,
+        registered: 0,
+        registeredInYear: 0,
+        pendingApproval: 0,
+        pendingReview: 0,
+        complementsRequested: 0,
+        documentsIncomplete: 0,
+        draft: 0,
+        overdue: 0,
+        inscriptionTarget: 0,
+        rate: null,
+        targetIndeterminate: false,
+      },
       central: null,
       unassigned: null,
       nullEntityType: null,
@@ -1534,10 +1734,12 @@ describe('PilotageService.getCampaignReturns', () => {
         'ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING',
       ]);
       expect(row(res, 'ENTREPRISE')).toEqual({
-        entityType: 'ENTREPRISE', received: 2, approved: 1, onTime: 2, late: 0, registeredStock: 2, responseRate: 1,
+        entityType: 'ENTREPRISE', received: 2, approved: 1, pendingReview: 1, correctionRequested: 0,
+        onTime: 2, late: 0, registeredStock: 2, responseRate: 1,
       });
       expect(row(res, 'VOCATIONAL_TRAINING')).toEqual({
-        entityType: 'VOCATIONAL_TRAINING', received: 1, approved: 0, onTime: 0, late: 1, registeredStock: 2, responseRate: 0.5,
+        entityType: 'VOCATIONAL_TRAINING', received: 1, approved: 0, pendingReview: 1, correctionRequested: 0,
+        onTime: 0, late: 1, registeredStock: 2, responseRate: 0.5,
       });
       expect(row(res, 'ADMINISTRATION')).toMatchObject({ received: 1, registeredStock: 1, responseRate: 1 });
       // A type nobody registered is listed, with no rate rather than 0 %.
@@ -1934,7 +2136,13 @@ describe('PilotageService.getActiveCollectionCampaigns', () => {
 
   function serviceWith(rows: unknown[]) {
     const findMany = jest.fn().mockResolvedValue(rows);
-    return { findMany, service: new PilotageService({ dataCampaign: { findMany } } as unknown as PrismaService) };
+    return {
+      findMany,
+      service: new PilotageService(
+        { dataCampaign: { findMany } } as unknown as PrismaService,
+        { getSettings: jest.fn().mockResolvedValue({ registrationOverdueDays: 7 }) } as unknown as SystemSettingsService,
+      ),
+    };
   }
 
   it('asks for ACTIVE collection campaigns only, and includes nothing', async () => {

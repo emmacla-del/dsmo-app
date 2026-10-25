@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { RadioGroup } from "./form/Radio";
-import { VtWizardFieldError } from "./VtWizardFields";
-import { referencePeriodPhrases } from "@/lib/onefop-period-label";
+import { createContext, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { tableQuestionHeadingStyle } from "./table/TableQuestionHeading";
+import { QuizAnswerReview, QuizBeatNav, QuizYesNo, type QuizAnswerRow } from "./QuizAnswerReview";
 import type { FormData, OnefopEntity, OnefopField } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
 import {
@@ -12,6 +12,7 @@ import {
   isVtQuizQuestionAsked,
   readVtQuiz,
   type VtQuizAnswers,
+  type VtQuizQuestion,
   type VtQuizQuestionId,
 } from "@/lib/vt-quiz";
 
@@ -25,14 +26,12 @@ interface VtScopeQuizProps {
   entity: OnefopEntity;
   data: FormData;
   onChange: (fieldId: string, value: unknown) => void;
-  /** Quiz validated: continue to Section 2. */
+  /** Quiz confirmed: continue to Section 2. */
   onComplete: () => void;
-  /** The wizard's bottom bar drives the quiz (Précédent / Suivant, as on
-   *  every section): its Suivant calls the validate held here. With a
-   *  question unanswered, validate marks it and does not continue. */
-  validateRef: MutableRefObject<(() => void) | null>;
-  /** The campaign, named in the intro ("pour le 4e trimestre 2026"). */
-  quarterCode?: string;
+  /** First question's Previous: back to Section 1. The quiz draws its own
+   *  Previous / Continue, as the employer quiz does, so the wizard bar
+   *  stays hidden while it is open. */
+  onBack: () => void;
   locale: "fr" | "en";
 }
 
@@ -42,37 +41,54 @@ function tableHasData(field: OnefopField | undefined, data: FormData): boolean {
   );
 }
 
+function askedQuestions(answers: VtQuizAnswers): VtQuizQuestion[] {
+  return VT_QUIZ_QUESTIONS.filter((q) => isVtQuizQuestionAsked(q, answers));
+}
+
+function withAnswer(prev: VtQuizAnswers, id: VtQuizQuestionId, value: boolean): VtQuizAnswers {
+  const next: VtQuizAnswers = { ...prev, [id]: value };
+  // A follow-up is asked only after "Oui" to its parent.
+  if (value === false) {
+    for (const q of VT_QUIZ_QUESTIONS) {
+      if (q.parent === id) delete next[q.id];
+    }
+  }
+  return next;
+}
+
+function scrollQuizToTop() {
+  if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 /**
- * The training-centre preliminary quiz: one Oui/Non question per table that
- * can honestly be empty (vt-quiz.ts). "Oui" opens the table; "Non" records
- * it as nothing to report, and erases anything already typed in it. It gates
- * tables only — every ordinary question stays in its section.
+ * The training-centre preliminary quiz, in the same shape as the employer
+ * one: one Oui/Non question at a time, then a review of the answers.
+ * "Oui" opens that table; "Non" records it as nothing to report, and
+ * erases anything already typed in it when the review is confirmed.
+ * Gating stays here — it is not the employer quiz's.
  */
-export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, quarterCode, locale }: VtScopeQuizProps) {
+export function VtScopeQuiz({ entity, data, onChange, onComplete, onBack, locale }: VtScopeQuizProps) {
+  const tRail = useTranslations("wizardRail");
+  const tEvent = useTranslations("modernJobs.event");
+  const tReview = useTranslations("modernJobs.vtFactsReview");
   const isEn = locale === "en";
-  const [answers, setAnswers] = useState<VtQuizAnswers>(() => ({ ...(readVtQuiz(data) ?? {}) }));
-  // Suivant was pressed with a question unanswered: mark every gap.
-  const [attempted, setAttempted] = useState(false);
+  const initial = useMemo(() => ({ ...(readVtQuiz(data) ?? {}) }), [data]);
+  const [answers, setAnswers] = useState<VtQuizAnswers>(initial);
+  const [phase, setPhase] = useState<"question" | "review">(() =>
+    isVtQuizComplete(initial) ? "review" : "question",
+  );
+  const [beatId, setBeatId] = useState<VtQuizQuestionId>(() => {
+    const beats = askedQuestions(initial);
+    return (beats.find((q) => typeof initial[q.id] !== "boolean") ?? beats[0]).id;
+  });
 
   const tableById = useMemo(
     () => new Map(entity.sections.flatMap((s) => s.fields).filter((f) => f.table).map((f) => [f.id, f])),
     [entity],
   );
 
-  const asked = VT_QUIZ_QUESTIONS.filter((q) => isVtQuizQuestionAsked(q, answers));
-  const complete = isVtQuizComplete(answers);
-  const answeredCount = asked.filter((q) => typeof answers[q.id] === "boolean").length;
-
-  const answer = (id: VtQuizQuestionId, value: boolean) => {
-    setAnswers((prev) => {
-      const next = { ...prev, [id]: value };
-      // A follow-up is asked only after "Oui" to its parent.
-      for (const q of VT_QUIZ_QUESTIONS) {
-        if (q.parent === id && value === false) delete next[q.id];
-      }
-      return next;
-    });
-  };
+  const beats = askedQuestions(answers);
+  const beat = beats.find((q) => q.id === beatId) ?? beats[0];
 
   // Tables the current answers turn off that still hold typed figures.
   const tablesToErase = VT_QUIZ_QUESTIONS.filter((q) => {
@@ -80,19 +96,36 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, q
     return off && tableHasData(tableById.get(q.tableId), data);
   });
 
-  // The question each warning sits under: a follow-up switched off by its
-  // parent's Non is no longer shown, so its warning moves to the parent.
-  const erasedUnder = new Set(
-    tablesToErase.map((q) => (q.parent !== undefined && answers[q.parent] === false ? q.parent : q.id)),
-  );
+  const erasesOnNo = (id: VtQuizQuestionId) =>
+    VT_QUIZ_QUESTIONS.some((q) => (q.id === id || q.parent === id) && tableHasData(tableById.get(q.tableId), data));
+
+  const goAfter = (from: VtQuizQuestionId, nextAnswers: VtQuizAnswers) => {
+    const order = askedQuestions(nextAnswers);
+    const idx = order.findIndex((q) => q.id === from);
+    const following = order[idx + 1];
+    if (following) setBeatId(following.id);
+    else setPhase("review");
+    scrollQuizToTop();
+  };
+
+  const answer = (id: VtQuizQuestionId, value: boolean) => {
+    const next = withAnswer(answers, id, value);
+    setAnswers(next);
+    // A Non that would erase figures stays on the question, so the warning
+    // is read before Continue. Anything else moves on, as a Yes or No does
+    // on the employer quiz.
+    if (value === false && erasesOnNo(id)) return;
+    goAfter(id, next);
+  };
 
   const handleValidate = () => {
-    if (!complete) {
-      setAttempted(true);
-      const first = asked.find((q) => typeof answers[q.id] !== "boolean");
-      const group = first ? document.getElementById(`vt-quiz-${first.id}`) : null;
-      group?.scrollIntoView({ behavior: "smooth", block: "center" });
-      group?.focus({ preventScroll: true });
+    if (!isVtQuizComplete(answers)) {
+      const first = askedQuestions(answers).find((q) => typeof answers[q.id] !== "boolean");
+      if (first) {
+        setPhase("question");
+        setBeatId(first.id);
+        scrollQuizToTop();
+      }
       return;
     }
     for (const q of tablesToErase) {
@@ -108,89 +141,93 @@ export function VtScopeQuiz({ entity, data, onChange, onComplete, validateRef, q
     onComplete();
   };
 
-  // Hand the current validate (it closes over the latest answers) and its
-  // readiness to the wizard's bottom bar.
-  useEffect(() => {
-    validateRef.current = handleValidate;
-  });
-  useEffect(
-    () => () => {
-      validateRef.current = null;
-    },
-    [validateRef],
-  );
+  const reviewRows: QuizAnswerRow[] = beats.map((q) => ({
+    id: q.id,
+    title: localized(q.text, locale),
+    answer: answers[q.id] === true ? "yes" : answers[q.id] === false ? "no" : null,
+  }));
 
-  const period = referencePeriodPhrases(quarterCode, locale);
+  const openQuestion = (id: VtQuizQuestionId) => {
+    setPhase("question");
+    setBeatId(id);
+    scrollQuizToTop();
+  };
 
   return (
     <div>
       <header className="cam-step-head">
-        <h1 id={VT_QUIZ_HEADING_ID} tabIndex={-1} className="cam-step-title">
-          {isEn ? "Preliminary questionnaire" : "Questionnaire préliminaire"}
+        <h1 id={VT_QUIZ_HEADING_ID} tabIndex={-1} className="cam-step-title cam-rail-named">
+          {tRail("quiz")}
         </h1>
-        <p className="cam-step-lede">
-          {isEn
-            ? `Answer each question ${period?.forPeriod ?? "for the period"}.`
-            : `Répondez à chaque question ${period?.forPeriod ?? "pour la période"}.`}
-        </p>
-        <p aria-live="polite" className="cam-step-lede">
-          {isEn ? `${answeredCount} of ${asked.length} answered` : `${answeredCount} sur ${asked.length} répondues`}
-        </p>
       </header>
 
-      <ol style={{ listStyle: "none", margin: "var(--cam-space-2) 0 0", padding: 0 }}>
-        {asked.map((q, qIndex) => {
-          const value = answers[q.id];
-          const label = localized(q.text, locale);
-          const groupId = `vt-quiz-${q.id}`;
-          const missing = attempted && typeof value !== "boolean";
-          return (
-            <li
-              key={q.id}
+      {phase === "review" ? (
+        <QuizAnswerReview
+          rows={reviewRows}
+          copy={{ title: tReview("title") }}
+          warning={
+            tablesToErase.length > 0
+              ? isEn
+                ? "You had already entered figures for a question you answered No. They will be erased when you confirm."
+                : "Vous aviez déjà saisi des chiffres pour une question à laquelle vous avez répondu Non. Ils seront effacés quand vous confirmerez."
+              : undefined
+          }
+          onSelect={(id) => openQuestion(id as VtQuizQuestionId)}
+          onProceed={handleValidate}
+        />
+      ) : (
+        <section aria-labelledby={`vt-quiz-q-${beat.id}`}>
+          <h2 id={`vt-quiz-q-${beat.id}`} style={tableQuestionHeadingStyle}>
+            {localized(beat.text, locale)}
+          </h2>
+          <QuizYesNo
+            fieldId={`vt-quiz-${beat.id}`}
+            ariaLabel={localized(beat.text, locale)}
+            yesLabel={isEn ? "Yes" : "Oui"}
+            noLabel={isEn ? "No" : "Non"}
+            value={answers[beat.id] ?? null}
+            onChange={(choice) => answer(beat.id, choice)}
+            required
+          />
+          {/* Figures already typed that this Non turns off. The respondent
+              answers about the centre, never about tables, so the warning
+              names neither a table nor its code. */}
+          {answers[beat.id] === false && erasesOnNo(beat.id) && (
+            <p
+              role="status"
+              className="cam-hint"
               style={{
-                padding: "var(--cam-space-4) 0",
-                paddingLeft: q.parent ? "var(--cam-space-6)" : 0,
-                // The last one needs no rule: the actions row draws its own.
-                borderBottom: qIndex < asked.length - 1 ? "var(--cam-border-width) solid var(--cam-border)" : undefined,
+                margin: "var(--cam-space-2) 0 0",
+                padding: "var(--cam-space-2) var(--cam-space-3)",
+                borderRadius: "var(--cam-radius-sm)",
+                background: "var(--cam-warning-bg)",
+                border: "1px solid var(--cam-warning-border)",
+                color: "var(--cam-text)",
               }}
             >
-              <div className="cam-question" aria-hidden="true">
-                {label}
-              </div>
-              <div style={{ marginTop: "var(--cam-field-stack-gap)" }}>
-                <RadioGroup
-                  fieldId={groupId}
-                  ariaLabel={label}
-                  options={[
-                    { value: "yes", label: isEn ? "Yes" : "Oui" },
-                    { value: "no", label: isEn ? "No" : "Non" },
-                  ]}
-                  value={value === true ? "yes" : value === false ? "no" : undefined}
-                  onChange={(_, choice) => answer(q.id, choice === "yes")}
-                  layout="horizontal"
-                  invalid={missing}
-                  describedBy={missing ? `${groupId}-error` : undefined}
-                  required
-                />
-              </div>
-              <VtWizardFieldError
-                id={`${groupId}-error`}
-                message={missing ? (isEn ? "Answer this question." : "Répondez à cette question.") : undefined}
-              />
-              {/* Figures already typed that this answer turns off. The
-                  respondent answers about the centre, never about tables,
-                  so the warning names neither a table nor its code. */}
-              {erasedUnder.has(q.id) && (
-                <p role="status" className="cam-hint" style={{ margin: "var(--cam-space-2) 0 0", padding: "var(--cam-space-2) var(--cam-space-3)", borderRadius: "var(--cam-radius-sm)", background: "var(--cam-warning-bg)", border: "1px solid var(--cam-warning-border)", color: "var(--cam-text)" }}>
-                  {isEn
-                    ? "You had already entered figures for this question. They will be erased when you click Next."
-                    : "Vous aviez déjà saisi des chiffres pour cette question. Ils seront effacés quand vous cliquerez sur Suivant."}
-                </p>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+              {isEn
+                ? "You had already entered figures for this question. They will be erased when you confirm."
+                : "Vous aviez déjà saisi des chiffres pour cette question. Ils seront effacés quand vous confirmerez."}
+            </p>
+          )}
+          <QuizBeatNav
+            previousLabel={tEvent("previous")}
+            nextLabel={beats[beats.length - 1]?.id === beat.id ? tEvent("openTables") : tEvent("continue")}
+            nextDisabled={typeof answers[beat.id] !== "boolean"}
+            onPrevious={() => {
+              const idx = beats.findIndex((q) => q.id === beat.id);
+              if (idx > 0) {
+                setBeatId(beats[idx - 1].id);
+                scrollQuizToTop();
+              } else onBack();
+            }}
+            onNext={() => {
+              if (typeof answers[beat.id] !== "boolean") return;
+              goAfter(beat.id, answers);
+            }}
+          />
+        </section>
+      )}
     </div>
   );
 }

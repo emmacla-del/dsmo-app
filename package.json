@@ -6,7 +6,7 @@
     "node": ">=20.x"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "ts-node -T prisma/seed.ts"
   },
   "scripts": {
     "build": "prisma generate && nest build && node -e \"const{cpSync}=require('fs');cpSync('src/pdf/templates','dist/pdf/templates',{recursive:true});cpSync('src/pdf/assets','dist/pdf/assets',{recursive:true});cpSync('src/pdf/i18n','dist/pdf/i18n',{recursive:true})\"",
@@ -17,6 +17,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
     "test": "jest",
+    "test:pg": "node scripts/run-pg-tests.js",
+    "seed:positions": "ts-node -T scripts/seed-service-positions.ts",
     "spss:registry": "ts-node -T scripts/spss-variable-registry.ts"
   },
   "jest": {

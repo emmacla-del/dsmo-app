@@ -177,7 +177,7 @@ function findPerLine(files, predicate, { stripComments = false } = {}) {
 }
 
 // G14 — the 4/8 scale --cam-space-* defines, plus 0.
-const SPACING_SCALE = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+const SPACING_SCALE = new Set([0, 4, 6, 8, 10, 12, 16, 20, 24, 32, 48]);
 const SPACING_PROPS =
   "padding|paddingTop|paddingBottom|paddingLeft|paddingRight|paddingBlock|paddingInline|" +
   "margin|marginTop|marginBottom|marginLeft|marginRight|marginBlock|marginInline|" +
@@ -227,6 +227,16 @@ function formTextSize(files) {
         out.push({ file, line: block.line, text: `<${tag[1]}> fontSize: ${m[1].trim()}` });
       }
     }
+  }
+  return out;
+}
+
+/** Report missing source-level contracts that the UI must keep across edits. */
+function missingUiContracts(contracts) {
+  const out = [];
+  for (const { file, name, pattern } of contracts) {
+    const src = readFileSync(file, "utf-8");
+    if (!pattern.test(src)) out.push({ file, line: 1, text: `missing UI contract: ${name}` });
   }
   return out;
 }
@@ -318,7 +328,7 @@ const RULES = [
     key: "spacing-off-scale",
     rule: "G14",
     title: "Inline length off the 4/8 spacing scale",
-    fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
+    fix: "Use var(--cam-space-*): 1=4 1-5=6 2=8 2-5=10 3=12 4=16 4-5=20 5=24 6=32 7=48.",
     warn: true,
     run: () => offScaleSpacing(collectAll(ADMIN_DIRS, [".tsx"])),
   },
@@ -331,6 +341,8 @@ const RULES = [
     run: () => {
       const out = [];
       for (const file of collectAll(ADMIN_DIRS, [".tsx"])) {
+        // Admin dashboard (admin/pilotage) is permitted to use cards
+        if (file.replace(/\\/g, "/").includes("admin/pilotage")) continue;
         const src = readFileSync(file, "utf-8");
         for (const block of inlineStyleBlocks(src)) {
           const hasBg = /\b(background|backgroundColor):/.test(block.text);
@@ -426,7 +438,7 @@ const RULES = [
     key: "respondent-spacing-off-scale",
     rule: "G14",
     title: "Inline length off the 4/8 spacing scale (respondent)",
-    fix: "Use var(--cam-space-*): 1=4 2=8 3=12 4=16 5=24 6=32 7=48.",
+    fix: "Use var(--cam-space-*): 1=4 1-5=6 2=8 2-5=10 3=12 4=16 4-5=20 5=24 6=32 7=48.",
     warn: true,
     run: () => offScaleSpacing(collectRespondent([".tsx"])),
   },
@@ -442,6 +454,94 @@ const RULES = [
     title: "<label> or <legend> on a respondent form sizing its own text",
     fix: "Use .cam-question / .cam-answer / .cam-hint, or var(--cam-question-size) / var(--cam-answer-size) / var(--cam-microcopy-size).",
     run: () => formTextSize(collectAll(FORM_DIRS, [".tsx"])),
+  },
+  {
+    key: "unified-wizard-chrome",
+    rule: "G17",
+    title: "Unified wizard components and pinned navigation chrome",
+    fix: "Keep the shared wizard shell, masthead, section rail, and subsection headings unified. Pin the masthead at the top, with the rail and subsection headings directly below its measured height.",
+    run: () => missingUiContracts([
+      {
+        file: join(root, "src", "components", "onefop", "ModernJobsHeader.tsx"),
+        name: "shared masthead stays sticky at viewport top",
+        pattern: /\.cam-masthead\s*\{\s*position:\s*sticky;\s*top:\s*0;\s*z-index:\s*50;/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "ModernJobsHeader.tsx"),
+        name: "masthead publishes its measured height to the rail",
+        pattern: /setProperty\("--cam-wizard-rail-top",\s*height\)/,
+      },
+      {
+        file: join(root, "src", "app", "globals.css"),
+        name: "desktop rail stays sticky below the masthead",
+        pattern: /\.cam-wizard-rail\s*\{\s*position:\s*sticky;\s*top:\s*var\(--cam-wizard-rail-top,\s*0px\);[\s\S]*?height:\s*calc\(100dvh\s*-\s*var\(--cam-wizard-rail-top,\s*0px\)\);/,
+      },
+      {
+        file: join(root, "src", "app", "globals.css"),
+        name: "phone drawer rail remains in the drawer flow",
+        pattern: /\.cam-wizard-rail--sheet\s*\{\s*position:\s*static;/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "form", "FormSection.tsx"),
+        name: "subsection headings stay sticky below the masthead",
+        pattern: /position:\s*"sticky",\s*top:\s*"var\(--mj-header-block,\s*0px\)"/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "WizardShell.tsx"),
+        name: "one shell routes Modern Jobs and VT through shared chrome",
+        pattern: /ModernJobsWizard[\s\S]*VtWizardSectionScreen/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "ModernJobsWizard.tsx"),
+        name: "Modern Jobs uses the shared masthead and entry-mode provider",
+        pattern: /ModernJobsHeader[\s\S]*EntryModeSlotProvider/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "WizardShell.tsx"),
+        name: "VT uses the shared masthead and entry-mode provider",
+        pattern: /ModernJobsHeader[\s\S]*EntryModeSlotProvider/,
+      },
+      {
+        file: join(root, "src", "components", "wizard", "WizardRail.tsx"),
+        name: "all wizard sidebars use the shared WizardRail",
+        pattern: /className=.*cam-wizard-rail/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "ModernJobsSidebar.tsx"),
+        name: "Modern Jobs sidebar uses shared rail and step list",
+        pattern: /WizardRail[\s\S]*WizardStepList/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "VtWizardSidebar.tsx"),
+        name: "VT sidebar uses shared rail and step list",
+        pattern: /WizardRail[\s\S]*WizardStepList/,
+      },
+      {
+        file: join(root, "src", "components", "wizard", "WizardStepList.tsx"),
+        name: "all wizard outlines use the shared WizardStepList",
+        pattern: /export function WizardStepList/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "EntryModeSwitch.tsx"),
+        name: "Modern Jobs and VT share the entry-mode control",
+        pattern: /export function EntryModeSwitch/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "VtWizardSectionScreen.tsx"),
+        name: "VT screens use the shared entry-mode slot",
+        pattern: /EntryModeSwitchSlot/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "SectionRenderer.tsx"),
+        name: "Modern Jobs screens use the shared entry-mode slot",
+        pattern: /EntryModeSwitchSlot/,
+      },
+      {
+        file: join(root, "src", "components", "onefop", "table", "TableQuestionHeading.tsx"),
+        name: "table questions use the shared heading component",
+        pattern: /export function TableQuestionHeading/,
+      },
+    ]),
   },
 
   // ── Copy: retired terms in the admin catalogue (plan Part 4, §5.4) ──

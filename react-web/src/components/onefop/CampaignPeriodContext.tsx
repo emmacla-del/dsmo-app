@@ -5,9 +5,8 @@ import type { CampaignPeriod } from "@/lib/campaign-period";
 
 /**
  * The active round's data-collection period (lib/campaign-period.ts), for
- * the wizard pieces that print it outside the schema text — the KPI table's
- * column headers and the masthead, which carries the exact bounds now that
- * the questions name the round instead of printing its dates. Defaults to
+ * the wizard pieces that print it outside the schema text, such as the KPI
+ * table's column headers. Defaults to
  * "not set", never to a date.
  */
 export const CampaignPeriodContext = createContext<CampaignPeriod>({ start: null, end: null, code: null });

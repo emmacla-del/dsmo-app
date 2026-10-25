@@ -2,7 +2,9 @@ import type { FormData, OnefopField, OnefopSection, VtTableMeta } from "@/lib/on
 import { isFieldVisible, isVtSectionWaived } from "@/lib/onefop-schema";
 import { isOptionalField, validateSectionData } from "@/lib/onefop-validation";
 import { isVtCentreClosed, missingVtTableCells, vtTableStatus } from "@/lib/vt-quiz";
-import { isVt85Field, VT85_FIELD_IDS } from "@/lib/vt-review-counts";
+import { isVt85Field, VT85_FIELD_IDS, vtSectionTableCounts } from "@/lib/vt-review-counts";
+import { fieldOwnsIssue } from "@/lib/wizard-navigation";
+import type { SectionProgressStatus, SectionProgressSummary } from "@/lib/section-progress";
 
 export const VT_NO_STEPPER_IDS = new Set(["VT2_19", "VT2_20", "VT2_21", "VT2_22"]);
 /** The two Sexe questions: short two-option radios, laid out like Yes/No. */
@@ -112,6 +114,48 @@ export function vtWizardGroupStats(fields: OnefopField[], data: FormData): VtWiz
 
 export function vtWizardSectionStats(section: OnefopSection, data: FormData): VtWizardSectionStats {
   return vtWizardGroupStats(section.fields, data);
+}
+
+function sectionHasTableData(section: OnefopSection, data: FormData): boolean {
+  return section.fields.some((field) =>
+    (field.table?.matrix ?? []).some((row) =>
+      row.some((id) => data[id] !== undefined && data[id] !== null && data[id] !== ""),
+    ),
+  );
+}
+
+/** VT-specific completion rules, normalized to the shared wizard summary shape. */
+export function vtWizardSectionProgress(
+  section: OnefopSection,
+  data: FormData,
+  includeUnansweredAsError = false,
+): SectionProgressSummary {
+  const questions = vtWizardSectionStats(section, data);
+  const issues = validateSectionData(section, data);
+  const ownedIssues = issues.filter((issue) => section.fields.some((field) => fieldOwnsIssue(field, issue.fieldId)));
+  const tables = vtSectionTableCounts(section, data, ownedIssues);
+  const hasEnteredInvalidValue = ownedIssues.some((issue) => {
+    const value = data[issue.fieldId];
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  });
+  const answeredSomething = questions.filled > 0 || sectionHasTableData(section, data);
+  const sectionIsComplete =
+    isVtSectionWaived(section.id, data) ||
+    (issues.length === 0 && (questions.total === 0 || questions.filled === questions.total));
+  const status: SectionProgressStatus = sectionIsComplete
+    ? "complete"
+    : !answeredSomething
+      ? "not-started"
+      : hasEnteredInvalidValue || (includeUnansweredAsError && ownedIssues.length > 0)
+        ? "has-errors"
+        : "in-progress";
+
+  return {
+    status,
+    questions: { answered: questions.filled, total: questions.total },
+    tables: { completed: tables.complete, total: tables.total },
+    issueCount: ownedIssues.length,
+  };
 }
 
 export type VtWizardSectionOutlineStatus = "notStarted" | "inProgress" | "complete" | "needsAttention";

@@ -10,7 +10,6 @@ import { AUDIT_ROLES, MONITORING_ROLES, hasRole } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -137,10 +136,9 @@ function EquipeContent() {
 
   const header = (
     <AdminPageHeader
-      breadcrumb={[{ label: t("adminNav.hubs.supervision") }, { label: t("adminNav.routes.equipe") }]}
+      breadcrumb={[{ label: t("adminNav.hubs.equipe") }, { label: t("adminNav.routes.equipe") }]}
       title={t("adminNav.routes.equipe")}
       subtitle={t("adminEquipePage.subtitle")}
-      actions={<AdminHeaderActions showCampaignPill={false} />}
     />
   );
 
@@ -428,7 +426,7 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
       <td className="is-num">
         {count(actor.field.registrationsMade, locale)}
         <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
-          {t("lastRegistrationShort", { date: stamp(actor.field.lastRegistrationAt, false, locale) })}
+          {t("lastRegistrationShort", { date: stamp(actor.field.lastRegistrationAt, true, locale) })}
         </span>
       </td>
       <td className="is-num">

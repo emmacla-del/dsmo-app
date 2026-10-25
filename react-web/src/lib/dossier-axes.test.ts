@@ -75,12 +75,13 @@ test("allowedDecisions mirrors the server's decision guards", () => {
 });
 
 // Defect 13 (2026-10-16 VT run): an endorsed file can be reopened for
-// correction by the two central ONEFOP roles only; the server says the same.
-test("only SUPER_ADMIN and ADMIN_ONEFOP may reopen an endorsed file", async () => {
+// correction by the central ONEFOP admins and submission specialists; the server says the same.
+test("submission administrators may reopen an endorsed file", async () => {
   const { canReopenForCorrection } = await import("./dossier-axes");
   assert.equal(canReopenForCorrection("APPROVED", "SUPER_ADMIN"), true);
   assert.equal(canReopenForCorrection("APPROVED", "ADMIN_ONEFOP"), true);
-  for (const role of ["REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "CENTRAL_AGENT", "COMPANY", null, undefined]) {
+  assert.equal(canReopenForCorrection("APPROVED", "ADMIN_ONEFOP_SUBMISSIONS"), true);
+  for (const role of ["ADMIN_ONEFOP_REGISTRATIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "CENTRAL_AGENT", "COMPANY", null, undefined]) {
     assert.equal(canReopenForCorrection("APPROVED", role), false, String(role));
   }
   for (const status of ["PENDING_REVIEW", "CORRECTION_REQUESTED", "REJECTED", null]) {

@@ -162,6 +162,10 @@
   --cam-danger: #b3261e;
   --cam-danger-bg: #fbeceb;
   --cam-danger-border: #f2b8b5;
+  /* One step deeper than --cam-danger on the same hue: the "critical"
+     band of the coverage bar chart, below "very poor". Defined here so
+     the shared CSS layer carries no hex (G1). */
+  --cam-danger-deep: color-mix(in srgb, var(--cam-danger) 72%, #5b1020);
   --cam-error: var(--cam-danger);
   --cam-error-bg: var(--cam-danger-bg);
   --cam-error-border: var(--cam-danger-border);
@@ -194,9 +198,12 @@
 
   /* ── Spacing (4px base) ── */
   --cam-space-1: 4px;
+  --cam-space-1-5: 6px;
   --cam-space-2: 8px;
+  --cam-space-2-5: 10px;
   --cam-space-3: 12px;
   --cam-space-4: 16px;
+  --cam-space-4-5: 20px;
   --cam-space-5: 24px;
   --cam-space-6: 32px;
   --cam-space-7: 48px;
@@ -397,6 +404,10 @@
      page scrolls, so this caps width alone. */
   --cam-container-wizard: 600px;
 
+  /* The preliminary quizzes contain answer reviews wider than a form field
+     column. Keep the single-field form measure at 600px. */
+  --cam-container-quiz: 680px;
+
   /* Space between two field rows, and between a label and the input
      beneath it. (No label-column tokens: the wizard is one column at every
      width -- owner's decision, 2026-10-10.) */
@@ -511,15 +522,15 @@
      TableRenderer's grids, VT tables, activities table, guided-mode live
      preview). Values are the slate palette the Modern Jobs grids already
      used (S22Q04 look), consolidated here instead of hardcoded per file. */
-  /* One step darker each (owner, 2026-10-21): the grid lines were the
-     faintest lines a respondent has to follow across a wide table. */
-  --cam-table-frame: var(--cam-slate-700);
+  /* The frame and cell rules stay visible without competing with the
+     entered figures. Strong rules mark totals and group boundaries. */
+  --cam-table-frame: var(--cam-slate-400);
   /* outer frame, header rules, label column rule */
-  --cam-table-line: var(--cam-slate-600);
+  --cam-table-line: var(--cam-slate-300);
   /* cell grid lines */
-  --cam-table-strong: var(--cam-slate-800);
+  --cam-table-strong: var(--cam-slate-600);
   /* total-row rule, sub-header text */
-  --cam-table-group-line: var(--cam-slate-800);
+  --cam-table-group-line: var(--cam-slate-600);
   /* separator between column blocks */
   --cam-table-head-bg: #ffffff;
   --cam-table-text: var(--cam-text);

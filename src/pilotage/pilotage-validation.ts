@@ -5,13 +5,33 @@ export const YEAR_MAX = 2100;
 /** PostgreSQL INTEGER. Larger values would fail in the database as a 500. */
 export const TARGET_MAX = 2_147_483_647;
 
-export type TargetMode = 'DEPARTMENT' | 'REGION' | 'UNSET' | 'MIXED';
+export type TargetMode = 'DEPARTMENT' | 'REGION' | 'ENTITY_TYPE' | 'UNSET' | 'MIXED';
 export type TargetField = 'inscriptionTarget' | 'submissionTarget';
+
+/**
+ * The entity types a quota may name, in the registration screen's order.
+ * Declared here rather than imported from pilotage-returns so the validator
+ * keeps no dependency on the returns module; a spec pins the two equal.
+ */
+export const QUOTA_ENTITY_TYPES: readonly string[] = [
+  'ENTREPRISE',
+  'COOPERATIVE',
+  'CTD',
+  'ONG',
+  'ADMINISTRATION',
+  'PROJECT_PROGRAM',
+  'VOCATIONAL_TRAINING',
+];
 
 export interface TargetEntry {
   regionId: string;
   /** null is a region-level row. */
   departmentId: string | null;
+  /**
+   * null is a row covering every entity type, which is what every quota
+   * written before 2026-10-25 is. A named type is region level only.
+   */
+  entityType: string | null;
   target: number;
 }
 
@@ -28,6 +48,7 @@ export interface ParsedTargetBody {
 
 export interface StoredTarget {
   departmentId: string | null;
+  entityType: string | null;
   target: number;
 }
 
@@ -84,16 +105,39 @@ export function assertEntryCount(count: number, cap: number): void {
   }
 }
 
-/** Region target from stored rows. A mixed set is reported and not added up. */
+/**
+ * Region target from stored rows. A mixed set is reported and not added up.
+ *
+ * Three ways to quota a region, and only one may be in use at a time:
+ *  - one region-level row covering every type      -> REGION
+ *  - one region-level row per entity type          -> ENTITY_TYPE
+ *  - one row per department, every type            -> DEPARTMENT
+ *
+ * Any two together are MIXED with no target, the rule that has always
+ * governed the region/department pair: the figures measure overlapping
+ * populations, so a sum would count the same registrations twice and the
+ * grid would state a total it cannot justify. Per-type rows DO sum, because
+ * the types partition the register — a company has exactly one entityType.
+ */
 export function summarizeRegion(rows: StoredTarget[]): { mode: TargetMode; target: number | null } {
   if (rows.length === 0) return { mode: 'UNSET', target: null };
-  const regionRows = rows.filter((row) => row.departmentId === null);
   const departmentRows = rows.filter((row) => row.departmentId !== null);
-  if (regionRows.length > 0 && departmentRows.length > 0) return { mode: 'MIXED', target: null };
-  if (regionRows.length > 1) return { mode: 'MIXED', target: null };
-  if (regionRows.length === 1) return { mode: 'REGION', target: regionRows[0].target };
-  const target = departmentRows.reduce((sum, row) => sum + row.target, 0);
-  return { mode: 'DEPARTMENT', target };
+  const allTypeRows = rows.filter((row) => row.departmentId === null && row.entityType === null);
+  const typedRows = rows.filter((row) => row.departmentId === null && row.entityType !== null);
+
+  const axes = [allTypeRows.length > 0, typedRows.length > 0, departmentRows.length > 0]
+    .filter(Boolean).length;
+  if (axes > 1) return { mode: 'MIXED', target: null };
+
+  if (allTypeRows.length > 1) return { mode: 'MIXED', target: null };
+  if (allTypeRows.length === 1) return { mode: 'REGION', target: allTypeRows[0].target };
+  if (typedRows.length > 0) {
+    // Duplicate types cannot reach here: entryKey and the stored grain both
+    // key on (region, department, type), so one row per type is the most
+    // there can be.
+    return { mode: 'ENTITY_TYPE', target: typedRows.reduce((sum, row) => sum + row.target, 0) };
+  }
+  return { mode: 'DEPARTMENT', target: departmentRows.reduce((sum, row) => sum + row.target, 0) };
 }
 
 type ParsedItem =
@@ -134,11 +178,28 @@ function parseEntry(item: unknown, index: number, field: TargetField): ParsedIte
     }
     departmentId = record.departmentId.trim();
   }
+  let entityType: string | null = null;
+  if (Object.prototype.hasOwnProperty.call(record, 'entityType') && record.entityType !== null) {
+    if (typeof record.entityType !== 'string' || !QUOTA_ENTITY_TYPES.includes(record.entityType)) {
+      throw new BadRequestException(
+        `La ligne ${line} : « entityType » doit être un type d'entité connu ou null.`,
+      );
+    }
+    // Region x type is the grain in force. A department-level row naming a
+    // type would be a quota nothing measures: coverageFrom tallies types over
+    // the region, and the editor offers no such cell.
+    if (departmentId !== null) {
+      throw new BadRequestException(
+        `La ligne ${line} : un quota par type d'entité se définit au niveau régional, pas départemental.`,
+      );
+    }
+    entityType = record.entityType;
+  }
   if (!Object.prototype.hasOwnProperty.call(record, field)) {
     throw new BadRequestException(`La ligne ${line} : « ${field} » doit être un entier positif ou nul.`);
   }
   const target = requireTarget(record[field], `La ligne ${line} : « ${field} » doit être un entier positif ou nul.`);
-  return { kind: 'target', entry: { regionId, departmentId, target }, line };
+  return { kind: 'target', entry: { regionId, departmentId, entityType, target }, line };
 }
 
 function parseCentral(value: unknown, field: TargetField): number | null {
@@ -163,7 +224,7 @@ function requireTarget(value: unknown, message: string): number {
 }
 
 function entryKey(entry: TargetEntry): string {
-  return `${entry.regionId}\u0000${entry.departmentId ?? ''}`;
+  return `${entry.regionId}\u0000${entry.departmentId ?? ''}\u0000${entry.entityType ?? ''}`;
 }
 
 function assertUniqueEntries(items: ParsedItem[]): void {
@@ -184,15 +245,24 @@ export function assertNoMixedMode(
   entries: TargetEntry[],
   regionNames?: Map<string, string>,
 ): void {
-  const byRegion = new Map<string, { regionLevel: boolean; departmentLevel: boolean }>();
+  const byRegion = new Map<string, { regionLevel: boolean; typeLevel: boolean; departmentLevel: boolean }>();
   for (const entry of entries) {
-    const flags = byRegion.get(entry.regionId) ?? { regionLevel: false, departmentLevel: false };
-    if (entry.departmentId === null) flags.regionLevel = true;
-    else flags.departmentLevel = true;
+    const flags = byRegion.get(entry.regionId)
+      ?? { regionLevel: false, typeLevel: false, departmentLevel: false };
+    if (entry.departmentId !== null) flags.departmentLevel = true;
+    else if (entry.entityType !== null) flags.typeLevel = true;
+    else flags.regionLevel = true;
+    const name = regionNames?.get(entry.regionId) ?? entry.regionId;
     if (flags.regionLevel && flags.departmentLevel) {
-      const name = regionNames?.get(entry.regionId) ?? entry.regionId;
       throw new BadRequestException(
         `La région « ${name} » mélange un objectif régional et des objectifs départementaux.`,
+      );
+    }
+    // The same rule on the new axis: a region total and per-type rows
+    // measure the same registrations, so one of them has to go.
+    if (flags.typeLevel && (flags.regionLevel || flags.departmentLevel)) {
+      throw new BadRequestException(
+        `La région « ${name} » mélange des quotas par type d'entité avec un quota régional ou départemental.`,
       );
     }
     byRegion.set(entry.regionId, flags);

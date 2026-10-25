@@ -32,7 +32,7 @@ export function StatusChip({ status, label }: { status: FormStatus; label: strin
         color: s.fg,
         fontSize: "var(--cam-font-size-3xs)",
         fontFamily: "var(--cam-font-sans)",
-        fontWeight: 600,
+        fontWeight: "var(--cam-font-weight-semibold)",
         whiteSpace: "nowrap",
       }}
     >

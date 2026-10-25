@@ -20,8 +20,9 @@ import { OnefopAnalyticsService } from '../analytics/onefop-analytics.service';
     ReportPdfService,
     ActorSummaryService,
     // Phase 4 reuses getCoverage so the dashboard's coverage figures are the
-    // /admin/cibles figures. PilotageModule does not export the service, and it
-    // depends only on the global PrismaService, so it is provided here.
+    // /admin/cibles figures. PilotageModule does not export the service, and
+    // it injects only globally provided services (PrismaService and
+    // SystemSettingsService, whose module is @Global), so it is provided here.
     PilotageService,
     // Required so ReportService can inject OnefopAnalyticsService.
     // This ensures reports use the same correct flat-key aggregation

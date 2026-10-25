@@ -28,14 +28,43 @@ function bucket(status: string): keyof Omit<Counts, "overdue"> | null {
 }
 
 /**
+ * The statuses an unfiltered list holds. No status filter does NOT mean "every
+ * file": the server reads it as the review queue, `status IN (PENDING_APPROVAL,
+ * COMPLEMENTS_REQUESTED)` (AuthService.listCompanyRegistrations). "ALL" is what
+ * lifts the filter.
+ */
+const QUEUE_STATUSES: readonly string[] = ["PENDING_APPROVAL", "COMPLEMENTS_REQUESTED"];
+
+/**
  * Whether a file in `status` still belongs in a list filtered by `view`.
- * "" is the unfiltered list and keeps everything; "OVERDUE" is a view of the
- * queue rather than a stored status, and a decided file is never overdue.
+ *
+ * The three non-status views are the server's own, and they are not
+ * interchangeable:
+ *  - "" (or absent) is the review queue, so an approved or rejected file
+ *    leaves it and only COMPLEMENTS_REQUESTED stays;
+ *  - "ALL" is the unfiltered list (?createdBy= and the coverage links), which
+ *    holds every status, so no decision ever takes a row out of it;
+ *  - "OVERDUE" is a view of the queue rather than a stored status, and a
+ *    decided file is never overdue.
+ * Anything else is an exact status.
+ *
+ * Reading "" as unfiltered and "ALL" as a status to match — the two exactly
+ * the wrong way round — left an approved row sitting in the default queue
+ * under its new badge until the refetch answered (defect 20 / B11, the very
+ * thing this module exists to prevent), and dropped a decided row out of
+ * ?createdBy= with the total, before both came back.
  */
 function stillInView(view: string | undefined, status: RegistrationDecisionStatus): boolean {
-  if (!view) return true;
+  if (!view) return QUEUE_STATUSES.includes(status);
+  if (view === "ALL") return true;
   if (view === "OVERDUE") return false;
   return view === status;
+}
+
+/** Keep a queue page within the range left by a cache update. */
+export function clampRegistrationQueuePage(page: number, total: number, pageSize: number): number {
+  const lastPage = Math.max(1, Math.ceil(Math.max(0, total) / pageSize));
+  return Math.min(Math.max(1, page), lastPage);
 }
 
 /**

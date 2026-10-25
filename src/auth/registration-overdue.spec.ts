@@ -155,3 +155,78 @@ describe('AuthService.listCompanyRegistrations — overdue view', () => {
     expect(peak).toBeLessThanOrEqual(2);
   });
 });
+
+/**
+ * The department filter, added so the registration-coverage ranking can link
+ * a department row to the files behind it. It narrows; it never widens.
+ */
+describe('AuthService.listCompanyRegistrations — department filter', () => {
+  function makeService() {
+    const prisma: any = {
+      company: { count: jest.fn(async () => 0), findMany: jest.fn(async () => []) },
+      auditLog: { findMany: jest.fn(async () => []) },
+      user: { groupBy: jest.fn(async () => []) },
+    };
+    const systemSettings: any = { getSettings: jest.fn(async () => ({ registrationOverdueDays: 7 })) };
+    return { prisma, service: new AuthService(prisma, {} as any, {} as any, {} as any, systemSettings) };
+  }
+
+  const andOf = (prisma: any) => prisma.company.findMany.mock.calls[0][0].where.AND;
+
+  it('matches the department case-insensitively, beside the region', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'SUPER_ADMIN' },
+      { region: 'Centre', department: ' Mfoundi ' },
+    );
+    expect(andOf(prisma)).toEqual([
+      { region: { equals: 'Centre', mode: 'insensitive' } },
+      { department: { equals: 'Mfoundi', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('applies on its own, without a region', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, { department: 'Wouri' });
+    expect(andOf(prisma)).toEqual([{ department: { equals: 'Wouri', mode: 'insensitive' } }]);
+  });
+
+  it('is absent when blank, so the queue is not narrowed to nothing', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, { department: '   ' });
+    expect(prisma.company.findMany.mock.calls[0][0].where.AND).toBeUndefined();
+  });
+
+  it('lets a regional reviewer name a department of its own region', async () => {
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { department: 'Wouri' },
+    );
+    expect(andOf(prisma)).toEqual([{ department: { equals: 'Wouri', mode: 'insensitive' } }]);
+  });
+
+  it("refuses a divisional reviewer another department, including by case", async () => {
+    const actor = { role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Mfoundi', departmentId: 'd-1' };
+    for (const department of ['Lekie', 'Mefou-et-Afamba']) {
+      const { service } = makeService();
+      await expect(
+        service.listCompanyRegistrations(actor as any, { department }),
+      ).rejects.toThrow(/département d'affectation/);
+    }
+    // Its own department, in any case, is allowed.
+    const { prisma, service } = makeService();
+    await service.listCompanyRegistrations(actor as any, { department: 'mfoundi' });
+    expect(andOf(prisma)).toEqual([{ department: { equals: 'mfoundi', mode: 'insensitive' } }]);
+  });
+
+  it('refuses a regional reviewer a department of another region', async () => {
+    const { service } = makeService();
+    await expect(
+      service.listCompanyRegistrations(
+        { role: 'REGIONAL_ADMIN', region: 'Littoral' } as any,
+        { region: 'Centre', department: 'Mfoundi' },
+      ),
+    ).rejects.toThrow(/région d'affectation/);
+  });
+});

@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { getPilotageQueues } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { usePendingRegistrationsCount } from "@/hooks/usePendingRegistrationsCount";
 import { getActiveHub, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
 
 // ── Breadcrumb ──────────────────────────────────────────────────────────────
@@ -19,9 +18,25 @@ interface BreadcrumbItem {
 
 function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   const t = useTranslations("adminPageHeader");
+  /**
+   * A hub whose only sub-route is itself names both the same thing, so the
+   * trail would read "Dashboard › Dashboard" (and did read "Équipe
+   * territoriale › Équipe territoriale" before this). A segment that only
+   * repeats the one before it is dropped — unless it carries the link back,
+   * in which case it is the plain one that goes.
+   */
+  const trail = items.reduce<BreadcrumbItem[]>((kept, item) => {
+    const prev = kept[kept.length - 1];
+    if (prev && prev.label === item.label) {
+      if (item.href && !prev.href) kept[kept.length - 1] = item;
+      return kept;
+    }
+    kept.push(item);
+    return kept;
+  }, []);
   return (
     <nav aria-label={t("breadcrumbAriaLabel")} className="cam-admin-breadcrumb">
-      {items.map((item, i) => (
+      {trail.map((item, i) => (
         <span key={i}>
           {i > 0 && <span aria-hidden="true" className="cam-admin-breadcrumb-sep">›</span>}
           {item.href
@@ -63,11 +78,8 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
     staleTime: 30000,
+    enabled: !customTabs || customTabs.length === 0,
   });
-
-  // Pending registrations, for the "inscriptions" tab badge — the same hook
-  // as the sidebar badge and the pilotage tile.
-  const { count: pendingRegistrations } = usePendingRegistrationsCount();
 
   if (customTabs && customTabs.length > 0) {
     return (
@@ -115,7 +127,6 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
         let badge: number | undefined;
         if (sub.badgeKey === "pending") badge = pendingCount || undefined;
         if (sub.badgeKey === "anomalies") badge = anomaliesCount || undefined;
-        if (sub.badgeKey === "inscriptions") badge = pendingRegistrations || undefined;
 
         return (
           <Link
@@ -154,6 +165,8 @@ export interface AdminPageHeaderProps {
   beforeTitle?: ReactNode;
   /** Right-hand actions (buttons, chips, etc.) */
   actions?: ReactNode;
+  /** Action aligned opposite the sub-navigation tabs, when the task belongs to that view. */
+  tabsAction?: ReactNode;
   /** Explicit tabs to render. If omitted and hideTabs is false, active hub sub-routes are used */
   tabs?: AdminHeaderTab[];
   /** Hide horizontal sub-navigation tabs (useful on deep detail pages) */
@@ -175,6 +188,7 @@ export function AdminPageHeader({
   statusBadge,
   backHref,
   actions,
+  tabsAction,
   tabs,
   hideTabs = false,
 }: AdminPageHeaderProps) {
@@ -214,9 +228,18 @@ export function AdminPageHeader({
 
       {/* ── Bottom: secondary in-page navigation tabs ── */}
       {!shouldHideTabs && (
-        <Suspense fallback={null}>
-          <AdminSubNav customTabs={tabs} />
-        </Suspense>
+        tabsAction ? (
+          <div className="cam-admin-tabs-row">
+            <Suspense fallback={null}>
+              <AdminSubNav customTabs={tabs} />
+            </Suspense>
+            <div className="cam-admin-tabs-action">{tabsAction}</div>
+          </div>
+        ) : (
+          <Suspense fallback={null}>
+            <AdminSubNav customTabs={tabs} />
+          </Suspense>
+        )
       )}
     </header>
   );

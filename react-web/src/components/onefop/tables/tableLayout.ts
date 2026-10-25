@@ -57,6 +57,32 @@ export const TABLE_WIDEST_DATA_COL_COUNT = 9;
 /** The table frame's border, on each side. */
 export const TABLE_FRAME_BORDER_PX = 1;
 
+/**
+ * A long table repeats its column headings partway down, the way a printed
+ * statistical table does, so the respondent reading row 18 still knows which
+ * column is which.
+ *
+ * Why not a sticky header (owner's question, 2026-10-24): the frame's
+ * scroller is `overflow-x: auto`, which computes `overflow-y: auto`, so it is
+ * the nearest scrollport — a sticky thead pins inside that box and rides the
+ * page with it. Measured live: after a 600px scroll the "pinned" header sat
+ * at -567px. Making it stick would mean giving the table its own vertical
+ * scroll area, a nested scrollbar §13 tells us not to create, and it would
+ * spend 40-68px of the screen permanently under the two layers that already
+ * pin (the masthead and the subsection heading). A repeated row costs its
+ * height once and nothing thereafter.
+ *
+ * Only a table taller than the screen needs it. Measured in the app at a
+ * 1100px frame, a body row is 35px: the tallest fixed table, VT 4.7 (24
+ * single-year age rows), comes to 970px against the 510-570px a laptop
+ * leaves below the pinned chrome, while 4.2 and 8.2 (13 rows) come to 547px
+ * and keep their headings in view. So the threshold sits above those: 4.7 is
+ * the one table this applies to today.
+ */
+export const TABLE_REPEAT_HEADINGS_ABOVE_ROWS = 16;
+/** Body rows between one repeat of the headings and the next. */
+export const TABLE_REPEAT_HEADINGS_EVERY = 12;
+
 /** Width below which the table starts scrolling inside its frame. */
 export function tableMinWidthPx(dataColumnCount: number, labelColumnPx: number = TABLE_LABEL_COL_PX): number {
   return labelColumnPx + dataColumnCount * TABLE_MIN_DATA_COL_PX;

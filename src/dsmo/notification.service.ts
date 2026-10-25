@@ -70,7 +70,7 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP] as UserRole[];
+        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.SUPER_ADMIN] as UserRole[];
 
         if (!([UserRole.DIVISIONAL_ADMIN, UserRole.REGIONAL_ADMIN] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can send notifications');
@@ -350,7 +350,7 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP] as UserRole[];
+        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP_SUBMISSIONS, UserRole.SUPER_ADMIN] as UserRole[];
 
         if (!([UserRole.DIVISIONAL_ADMIN, UserRole.REGIONAL_ADMIN] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can view notifications');

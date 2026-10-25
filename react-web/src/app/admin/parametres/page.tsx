@@ -20,7 +20,6 @@ import {
 } from "@/lib/system-settings";
 import { REGISTRATION_OVERDUE_DEFAULT_DAYS } from "@/lib/inscriptions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import {
   auditActionLabel,
@@ -49,11 +48,13 @@ const RECENT_AUDIT_LIMIT = 6;
 const SYSTEM_ROLE_ORDER: Record<UserRole, number> = {
   SUPER_ADMIN: 0,
   ADMIN_ONEFOP: 1,
-  REGIONAL_ADMIN: 2,
-  DIVISIONAL_ADMIN: 3,
-  AUDITOR: 4,
-  CENTRAL_AGENT: 5,
-  COMPANY: 6,
+  ADMIN_ONEFOP_REGISTRATIONS: 2,
+  ADMIN_ONEFOP_SUBMISSIONS: 3,
+  REGIONAL_ADMIN: 4,
+  DIVISIONAL_ADMIN: 5,
+  AUDITOR: 6,
+  CENTRAL_AGENT: 7,
+  COMPANY: 8,
 };
 
 export default function ParametresPage() {
@@ -170,12 +171,6 @@ function ParametresContent() {
       breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.parametres") }]}
       title={tRoot("adminNav.routes.parametres")}
       subtitle={t("subtitle")}
-      actions={
-        <AdminHeaderActions
-          showCampaignPill={false}
-          showBell={false}
-        />
-      }
     />
   );
 

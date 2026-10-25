@@ -198,6 +198,69 @@ export function localeHeader(): Record<string, string> {
   return { "X-Locale": currentUiLocale() };
 }
 
+/**
+ * Replaces opaque HTTP status strings (e.g. "Unauthorized", "Forbidden", "Bad Request")
+ * with clear, user-friendly messages in the current interface language.
+ */
+function humanizeErrorMessage(status: number, message: string, path: string): string {
+  const isEn = currentUiLocale() === "en";
+  const trimmed = message.trim();
+  const isGeneric =
+    trimmed === "Unauthorized" ||
+    trimmed === "Non autorisé" ||
+    trimmed === "Forbidden" ||
+    trimmed === "Forbidden resource" ||
+    trimmed === "Accès refusé" ||
+    trimmed === "Ressource interdite" ||
+    trimmed === "Not Found" ||
+    trimmed === "Ressource introuvable" ||
+    trimmed === "Bad Request" ||
+    trimmed === "Requête invalide" ||
+    trimmed === "Internal server error" ||
+    trimmed === "Erreur interne du serveur" ||
+    trimmed === "ThrottlerException: Too Many Requests" ||
+    /^HTTP\s+\d+$/i.test(trimmed);
+
+  if (!isGeneric) return message;
+
+  if (status === 401) {
+    if (path === "/auth/login" || path.startsWith("/auth/login?")) {
+      return isEn
+        ? "Incorrect email/identifier or password. Please verify your credentials."
+        : "Identifiant ou mot de passe incorrect. Veuillez vérifier vos informations de connexion.";
+    }
+    return isEn
+      ? "Your session has expired or authentication is required. Please sign in again."
+      : "Votre session a expiré ou l'authentification est requise. Veuillez vous reconnecter.";
+  }
+
+  if (status === 403) {
+    return isEn
+      ? "Access denied. You do not have permission to perform this action."
+      : "Accès refusé. Vous n'avez pas l'autorisation d'effectuer cette action.";
+  }
+
+  if (status === 404) {
+    return isEn
+      ? "The requested resource could not be found."
+      : "La ressource demandée est introuvable.";
+  }
+
+  if (status === 429 || trimmed === "ThrottlerException: Too Many Requests") {
+    return isEn
+      ? "Too many requests. Please wait a moment before trying again."
+      : "Trop de requêtes. Veuillez patienter un instant avant de réessayer.";
+  }
+
+  if (status >= 500) {
+    return isEn
+      ? "A server error occurred. Please try again in a moment."
+      : "Une erreur serveur est survenue. Veuillez réessayer dans un instant.";
+  }
+
+  return message;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -254,7 +317,8 @@ export async function apiFetch<T>(
     if (res.status === 401) {
       handleUnauthorized(path);
     }
-    throw new ApiError(res.status, message, body);
+    const userFacingMessage = humanizeErrorMessage(res.status, message, path);
+    throw new ApiError(res.status, userFacingMessage, body);
   }
 
   // 204/empty-body responses (none in this surface today, but apiFetch is

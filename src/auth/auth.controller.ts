@@ -7,7 +7,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { READ_ONLY_NATIONAL_ROLES, TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES } from './staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
@@ -200,9 +200,10 @@ export class AuthController {
   }
 
   // ── Group invitation links (see staff-invitation-link.service.ts) ──
-  // One link for a group of staff, posted in a WhatsApp group; each person
-  // picks their service and post within the link's scope and gets an account
-  // that waits for approval.
+  // One link for a group of staff, posted in a WhatsApp group. The
+  // administrator fixes the post it is for -- a service and a position type,
+  // both required -- and everyone who opens it gets an account on that post,
+  // waiting for approval.
   @Post('admin/staff-invitation-links')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
@@ -211,6 +212,8 @@ export class AuthController {
     level?: string;
     region?: string;
     department?: string;
+    serviceCode?: string;
+    positionType?: string;
     expiresInDays?: number;
     maxUses?: number;
   }) {
@@ -249,6 +252,8 @@ export class AuthController {
     firstName?: string;
     lastName?: string;
     matricule?: string;
+    region?: string;
+    department?: string;
     password?: string;
   }) {
     return this.staffInvitationLinks.signUp(body);
@@ -272,7 +277,7 @@ export class AuthController {
   // its own attribution or pick the declarant's password.
   @Post('admin/register-company')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_REGISTRATIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
   async adminRegisterCompany(@Request() req: any, @Body() body: AssistedRegistrationDto) {
     return this.authService.adminRegisterCompany(
@@ -345,7 +350,7 @@ export class AuthController {
   // which USER_ADMIN_ROLES already covers.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
+  @Roles(...REGISTRATION_ADMIN_ROLES)
   // The body carries the review dialog's confirmations: the "structure
   // centrale" checkbox for an ADMINISTRATION file, and the reviewer's marks on
   // the entity's name, phone, contact email and CNPS. The service refuses the
@@ -365,14 +370,14 @@ export class AuthController {
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
+  @Roles(...REGISTRATION_ADMIN_ROLES)
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
     return this.authService.rejectUser(id, req.user.id, req.user.role, territoryFromUser(req.user), reason ?? '');
   }
 
   @Patch('request-complements/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
+  @Roles(...REGISTRATION_ADMIN_ROLES)
   async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
     return this.authService.requestComplements(
       id,
@@ -385,29 +390,37 @@ export class AuthController {
 
   @Get('company-registrations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES, ...READ_ONLY_NATIONAL_ROLES)
+  @Roles(...REGISTRATION_ADMIN_ROLES, ...READ_ONLY_NATIONAL_ROLES)
   async listCompanyRegistrations(
     @Request() req: any,
     @Query('entityType') entityType?: string,
     @Query('region') region?: string,
+    @Query('department') department?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('organisation') organisation?: string,
+    @Query('registrationMethod') registrationMethod?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('createdBy') createdBy?: string,
     @Query('overdue') overdue?: string,
+    @Query('sortOrder') sortOrder?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
     return this.authService.listCompanyRegistrations(territoryFromUser(req.user), {
       entityType,
       region,
+      department,
       from,
       to,
+      organisation,
+      registrationMethod,
       search,
       status,
       createdBy,
       overdue: overdue === 'true',
+      sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });

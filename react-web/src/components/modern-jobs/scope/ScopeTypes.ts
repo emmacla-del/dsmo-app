@@ -43,6 +43,8 @@ export type TrackerColumnKey =
 export interface TrackerChipItem {
   label: string;
   tooltip?: string;
+  /** The follow-up this line reopens. A group without one reopens the question. */
+  beat?: ChildBeatId;
 }
 
 export interface TrackerRow {

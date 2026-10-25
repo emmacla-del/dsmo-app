@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { pinnedSubsectionHeadStyle } from "../form/FormSection";
 import { StatusChip, type FormStatus } from "../form/StatusChip";
 
 interface FormSectionCardProps {
@@ -50,11 +51,11 @@ export function FormSectionCard({
       {(title || badge || status) && (
         <div
           style={{
+            ...(title ? pinnedSubsectionHeadStyle : { marginBottom: 16 }),
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 12,
-            marginBottom: 16,
             flexWrap: "wrap",
           }}
         >
@@ -64,7 +65,7 @@ export function FormSectionCard({
                 style={{
                   display: "inline-block",
                   fontSize: "var(--cam-font-size-2xs)",
-                  fontWeight: 700,
+                  fontWeight: "var(--cam-font-weight-bold)",
                   letterSpacing: "0.05em",
                   textTransform: "uppercase",
                   color: "var(--cam-green-dark)",
@@ -82,7 +83,7 @@ export function FormSectionCard({
             {title && (
               <h2
                 style={{
-                  fontSize: "var(--cam-font-size-base)",
+                  fontSize: "var(--cam-font-size-xl)",
                   fontWeight: "var(--cam-font-weight-bold)",
                   lineHeight: "var(--cam-line-height-title)",
                   color: "var(--cam-text)",

@@ -9,7 +9,13 @@ export const YEAR_MAX = 2100;
 /** PostgreSQL INTEGER. Matches the T.1 API cap. */
 export const TARGET_MAX = 2_147_483_647;
 
-export type TargetMode = "UNSET" | "DEPARTMENT" | "REGION" | "MIXED";
+/**
+ * How a region's quota is set. ENTITY_TYPE joined the union on 2026-10-25
+ * with the region x type grain: one region-level row per entity type, summed,
+ * because the types partition the register. A region in two of these at once
+ * is MIXED and carries no target.
+ */
+export type TargetMode = "UNSET" | "DEPARTMENT" | "REGION" | "ENTITY_TYPE" | "MIXED";
 export type TargetField = "inscriptionTarget" | "submissionTarget";
 
 export interface TargetDepartmentRow {
@@ -26,6 +32,12 @@ export interface TargetRegionRow {
   inscriptionTarget?: number | null;
   submissionTarget?: number | null;
   departments: TargetDepartmentRow[];
+  /**
+   * Quota per entity type, keyed by OnefopEntityType code. Empty unless the
+   * region is in ENTITY_TYPE mode; absent from a backend older than
+   * 2026-10-25, which the editor reads as "none set".
+   */
+  byEntityType?: Record<string, number>;
 }
 
 export interface CampaignQuotaSummary {
@@ -58,6 +70,8 @@ export interface ReturnMetrics {
   quota: number | null;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   gap: number | null;
@@ -99,6 +113,8 @@ export interface EntityTypeReturnRow {
   entityType: string;
   received: number;
   approved: number;
+  pendingReview: number;
+  correctionRequested: number;
   onTime: number;
   late: number;
   registeredStock: number;
@@ -171,6 +187,11 @@ export function nonRespondentsHref(campaignId: string): string {
 }
 
 export interface TargetPutEntry {
+  /**
+   * The entity type this quota is for, or null/absent for every type.
+   * Region level only: the server refuses a type on a department row.
+   */
+  entityType?: string | null;
   regionId: string;
   departmentId?: string | null;
   inscriptionTarget?: number;
@@ -195,6 +216,9 @@ export interface StockCounts {
   pendingApproval: number;
   pendingReview: number;
   complementsRequested: number;
+  documentsIncomplete: number;
+  draft: number;
+  overdue: number;
 }
 
 export interface CoverageDepartmentRow extends StockCounts {
@@ -215,6 +239,9 @@ export interface CoverageRegionRow {
   pendingApproval: number | null;
   pendingReview: number | null;
   complementsRequested: number | null;
+  documentsIncomplete: number | null;
+  draft: number | null;
+  overdue: number | null;
   inscriptionTarget: number | null;
   rate: number | null;
   departments: CoverageDepartmentRow[];
@@ -225,20 +252,58 @@ export interface CoverageBucket extends StockCounts {
   rate?: number | null;
 }
 
+/**
+ * Registration stock for one entity type, over the reader's own territory
+ * scope. There is no quota-attainment rate because quotas are territorial
+ * (scopeKind TERRITORIAL / ADMINISTRATION); the UI derives registered share
+ * from registered / companyCount.
+ */
+export interface CoverageEntityTypeRow extends StockCounts {
+  /** An OnefopEntityType code, e.g. "VOCATIONAL_TRAINING". */
+  entityType: string;
+  /**
+   * The type's quota over the reader's scope: the sum of the region-level
+   * per-type rows, or for ADMINISTRATION the national cohort row. Null when
+   * nobody set one, which is not a target of zero. Absent from a backend
+   * older than 2026-10-25.
+   */
+  inscriptionTarget?: number | null;
+  /** registeredInYear / inscriptionTarget, 0-1; null without a quota. */
+  rate?: number | null;
+}
+
+export interface CoverageTotals extends StockCounts {
+  /**
+   * Null when no total can be stated: a MIXED region in scope has no
+   * determinate quota, so neither has the grid. `targetIndeterminate` says
+   * that is the reason, as opposed to a scope with no quota at all.
+   */
+  inscriptionTarget: number | null;
+  rate: number | null;
+  targetIndeterminate?: boolean;
+}
+
 export interface CoverageResponse {
   year: number;
-  // Returned by the API since 3e; not yet rendered by CoverageTable.
-  // quarter and semester are null on this view — only campaignIds is
-  // populated for the annual fold.
+  overdueDays: number;
+  // The server echoes the selected annual or semester period and its source
+  // campaigns. A null semester indicates the annual fold.
   period: {
     year: number;
     quarter: number | null;
     semester: number | null;
     campaignIds: string[];
   };
+  totals: CoverageTotals;
   central: CoverageBucket | null;
   unassigned: StockCounts | null;
   nullEntityType: StockCounts | null;
+  /**
+   * The same stock split by entity type, listed on the same terms as
+   * CampaignReturnsResponse.byEntityType. Optional: a backend older than
+   * 2026-10-24 does not send it.
+   */
+  byEntityType?: CoverageEntityTypeRow[];
   regions: CoverageRegionRow[];
 }
 
@@ -306,6 +371,16 @@ export function getAnnualCoverage(year: number) {
   return apiFetch<CoverageResponse>(
     `/admin/pilotage/coverage/annual?year=${encodeURIComponent(String(year))}`,
   );
+}
+
+export function getSemesterCoverage(year: number, semester: 1 | 2) {
+  const params = new URLSearchParams({ year: String(year), semester: String(semester) });
+  return apiFetch<CoverageResponse>(`/admin/pilotage/coverage/semester?${params.toString()}`);
+}
+
+export function getQuarterCoverage(year: number, quarter: 1 | 2 | 3 | 4) {
+  const params = new URLSearchParams({ year: String(year), quarter: String(quarter) });
+  return apiFetch<CoverageResponse>(`/admin/pilotage/coverage/quarter?${params.toString()}`);
 }
 
 export function getCampaignQuotas(campaignId: string) {

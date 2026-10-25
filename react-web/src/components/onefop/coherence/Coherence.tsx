@@ -167,7 +167,7 @@ function CornerMark() {
 const tipButtonStyle: React.CSSProperties = {
   padding: "4px 10px",
   fontSize: "var(--cam-font-size-3xs)",
-  fontWeight: 600,
+  fontWeight: "var(--cam-font-weight-semibold)",
   fontFamily: "var(--cam-font-sans)",
   color: "var(--cam-warning)",
   background: "var(--cam-surface)",
@@ -179,7 +179,7 @@ const tipButtonStyle: React.CSSProperties = {
 const tipLinkStyle: React.CSSProperties = {
   padding: "4px 2px",
   fontSize: "var(--cam-font-size-3xs)",
-  fontWeight: 600,
+  fontWeight: "var(--cam-font-weight-semibold)",
   fontFamily: "var(--cam-font-sans)",
   color: "var(--cam-text-muted)",
   background: "none",
@@ -213,7 +213,7 @@ function AnomalyBody({
   );
   return (
     <div>
-      <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-warning)", marginBottom: 4 }}>
+      <div style={{ fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-warning)", marginBottom: 4 }}>
         {flag.title[locale]}
       </div>
       <p style={{ margin: "0 0 6px", fontSize: "var(--cam-font-size-xs)", lineHeight: 1.45, color: "var(--cam-text)" }}>
@@ -532,7 +532,7 @@ export function CoherenceChip({ tableFieldId, style }: { tableFieldId?: string; 
           width: "fit-content",
           padding: "3px 10px",
           fontSize: "var(--cam-font-size-3xs)",
-          fontWeight: 700,
+          fontWeight: "var(--cam-font-weight-bold)",
           fontFamily: "var(--cam-font-sans)",
           color: "var(--cam-warning)",
           background: "var(--cam-warning-bg)",
@@ -621,7 +621,7 @@ export function CoherenceReviewList({ onGoTo }: { onGoTo?: (cell: CoherenceCell)
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>{flag.title[locale]}</div>
+              <div style={{ fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>{flag.title[locale]}</div>
               <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)", lineHeight: 1.45 }}>{flag.message[locale]}</div>
             </div>
             <button

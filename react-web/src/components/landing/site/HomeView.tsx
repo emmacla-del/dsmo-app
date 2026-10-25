@@ -27,7 +27,9 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <p className={styles.lede}>{t("homeLede")}</p>
             {/* Who may register, before the button that registers: read
                 after it, the condition came too late (2026-10-21). */}
-            <p className={styles.pilotNote}>{t("homePilotNote")}</p>
+            <p className={styles.pilotNote}>
+              {t.rich("homePilotNote", { b: (chunks) => <strong>{chunks}</strong> })}
+            </p>
             <div className={styles.actions}>
               <PortalEntryLink className={styles.btn} guestLabel={t("registerAction")} />
               <Link href="/programme" className={styles.textLink}>
@@ -48,17 +50,22 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <span className={styles.kicker}>{t("homeProgrammeTitle")}</span>
             <h2>{t("homeProgrammeLede")}</h2>
           </div>
-          {/* Number, state, title, sentence: no icon tile and no pill. The
-              state names the pilot itself (2026-10-21). */}
-          <ul className={styles.phases}>
+          {/* Numbered marker, state, title, sentence: no icon tile and no
+              pill. The state names the pilot itself; the list's order gives
+              the number to screen readers, so the marker is hidden from them
+              (2026-10-21). */}
+          <ol className={styles.phases}>
             {HOME_PHASES.map(({ n, now }) => (
               <li key={n} className={now ? styles.phaseNow : undefined}>
+                <span className={styles.phaseMarker} aria-hidden="true">
+                  {String(n).padStart(2, "0")}
+                </span>
                 <span className={styles.state}>{t(`homePhase${n}State`)}</span>
                 <h3>{t(`homePhase${n}Title`)}</h3>
                 <p>{t(`homePhase${n}Body`)}</p>
               </li>
             ))}
-          </ul>
+          </ol>
           {/* After the four phases, read once they have been read; set apart
               from the columns by more than their gap, so it does not read as
               the first phase's link (2026-10-21). */}

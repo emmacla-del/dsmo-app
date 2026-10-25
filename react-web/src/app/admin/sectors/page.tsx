@@ -8,7 +8,6 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 
@@ -46,7 +45,6 @@ export default function AdminSectorsPage() {
       breadcrumb={[{ label: t("adminNav.hubs.donnees") }, { label: t("adminNav.routes.sectors") }]}
       title={t("adminNav.routes.sectors")}
       subtitle={t("adminLayout.sectorsSubtitle")}
-      actions={<AdminHeaderActions showCampaignPill={false} />}
     />
   );
 

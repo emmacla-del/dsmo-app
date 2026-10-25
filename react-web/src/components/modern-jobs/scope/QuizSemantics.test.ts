@@ -427,6 +427,32 @@ test("Administration: recruitment Yes with disability No → S21Q02 REPORTED, S2
 });
 
 // ── D10: Certified Zero Transparency & D5: Visibility Invalidation ───────────
+test("D10 (PP): the project quiz's nil tables are listed; Section 2 never is", () => {
+  const e = entity("projectProgram");
+  const pp = (cfg: Record<string, unknown>): FormData => ({
+    _scopeConfig: { projectProgram: { completedAt: "2026-10-22T10:00:00.000Z", ...cfg } },
+  });
+
+  // Nothing declared: Section 3 and all six Section 4 tables.
+  const none = getZeroedTablesList(
+    e,
+    pp({ noOutcomes: true, outcomes: [], hasPermanentStaff: false, hasTemporaryStaff: false, hasRecruitment: false, recruitmentTypes: [] }),
+  );
+  assert.deepEqual(none.map((z) => z.code), ["3", "4.1", "4.2", "4.3", "4.4", "4.5", "4.6"]);
+  assert.ok(none.every((z) => z.tableId && z.title && z.reason === "QUIZ_DECLARED_NONE"));
+
+  // One outcome, permanent staff, permanent recruitment only: 3, 4.1 and 4.3 stay open.
+  const some = getZeroedTablesList(
+    e,
+    pp({ noOutcomes: false, outcomes: ["trained"], hasPermanentStaff: true, hasTemporaryStaff: false, hasRecruitment: true, recruitmentTypes: ["permanent"] }),
+  );
+  assert.deepEqual(some.map((z) => z.code), ["4.2", "4.4", "4.5", "4.6"]);
+
+  // Quiz not finished: nothing is certified.
+  assert.deepEqual(getZeroedTablesList(e, { _scopeConfig: { projectProgram: { noOutcomes: true } } }), []);
+  assert.deepEqual(getZeroedTablesList(e, {}), []);
+});
+
 test("D10: getZeroedTablesList lists all tables certified to zero via scoping quiz", () => {
   const e = entity("enterprise");
   // With ALL_NO, all optional tables in Enterprise should be certified to zero (NONE)

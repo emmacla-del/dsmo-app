@@ -15,7 +15,12 @@ export interface Territory {
   departmentId?: string | null;
 }
 
-const NATIONAL_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP];
+const NATIONAL_ROLES: string[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_REGISTRATIONS,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+];
 
 /**
  * Roles that READ nationally: NATIONAL_ROLES plus CENTRAL_AGENT, the

@@ -3,9 +3,10 @@
 import { WizardRail } from "@/components/wizard/WizardRail";
 import { WizardStepList, type WizardStep, type WizardStepState } from "@/components/wizard/WizardStepList";
 import { useTranslations, useLocale } from "next-intl";
-import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
+import type { FormData, OnefopEntity } from "@/lib/onefop-schema";
 import { localized } from "@/lib/onefop-schema";
-import { isVtSectionComplete, getVtSectionShortLabel } from "./vt-wizard-utils";
+import { getVtSectionShortLabel, vtWizardSectionProgress } from "./vt-wizard-utils";
+import type { SectionProgressStatus } from "@/lib/section-progress";
 
 interface VtWizardSidebarProps {
   entity: OnefopEntity;
@@ -47,8 +48,8 @@ export function VtWizardSidebar({
   const locale = useLocale();
   const sections = entity.sections;
 
-  const isSectionComplete = (sec: OnefopSection): boolean => isVtSectionComplete(sec, data);
-  const doneCount = sections.filter(isSectionComplete).length;
+  const sectionProgress = sections.map((section) => vtWizardSectionProgress(section, data, isValidationStage));
+  const doneCount = sectionProgress.filter((summary) => summary.status === "complete").length;
 
   const stateLabel = (state: WizardStepState) =>
     t(
@@ -56,19 +57,33 @@ export function VtWizardSidebar({
         ? "stateDone"
         : state === "current" || state === "currentComplete"
           ? "stateCurrent"
-          : state === "locked"
-            ? "stateLocked"
-            : "stateTodo",
+          : state === "inProgress"
+            ? "stateInProgress"
+            : state === "error"
+              ? "stateError"
+              : state === "locked"
+                ? "stateLocked"
+                : "stateTodo",
     );
 
-  const stepState = (current: boolean, done: boolean, lockReason: string | null): WizardStepState =>
-    current ? (done ? "currentComplete" : "current") : lockReason ? "locked" : done ? "done" : "todo";
+  const stepState = (current: boolean, status: SectionProgressStatus, lockReason: string | null): WizardStepState => {
+    if (current) {
+      if (status === "complete") return "currentComplete";
+      if (status === "has-errors") return "error";
+      return "current";
+    }
+    if (lockReason) return "locked";
+    if (status === "complete") return "done";
+    if (status === "has-errors") return "error";
+    if (status === "in-progress") return "inProgress";
+    return "todo";
+  };
 
   const steps: WizardStep[] = [];
   sections.forEach((sec, idx) => {
     const isCurrent = !isValidationStage && !quiz?.isCurrent && idx === currentSectionIndex;
     const lockReason = sectionLockReason?.(idx) ?? null;
-    const state = stepState(isCurrent, isSectionComplete(sec), lockReason);
+    const state = stepState(isCurrent, sectionProgress[idx].status, lockReason);
     steps.push({
       key: sec.id,
       marker: idx + 1,
@@ -81,7 +96,7 @@ export function VtWizardSidebar({
 
     if (idx === 0 && quiz) {
       const quizLock = quiz.lockReason ?? null;
-      const quizState = stepState(quiz.isCurrent, quiz.isComplete, quizLock);
+      const quizState = stepState(quiz.isCurrent, quiz.isComplete ? "complete" : "not-started", quizLock);
       steps.push({
         key: "vt-quiz",
         marker: "?",

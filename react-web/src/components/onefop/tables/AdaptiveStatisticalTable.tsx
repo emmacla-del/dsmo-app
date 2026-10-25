@@ -140,6 +140,7 @@ export function AdaptiveStatisticalTable({
 }: AdaptiveStatisticalTableProps) {
   const locale = useLocale().startsWith("en") ? "en" : "fr";
   const t = useTranslations("modernJobs.adaptive");
+  const gridT = useTranslations("modernJobs.grid");
   // The screen's heading already names the table (VT Sections 4 and 8).
   const headingShown = useContext(TableHeadingShownContext);
 
@@ -234,12 +235,40 @@ export function AdaptiveStatisticalTable({
     return () => observer.disconnect();
   }, [frameEl]);
 
-  const columnBlocks = useMemo(
-    () => (effectiveDefinition.type === "fixed-matrix" ? buildColumnBlocks(effectiveDefinition.columns) : null),
-    [effectiveDefinition],
-  );
-  const editableBlocks = useMemo(() => columnBlocks?.filter((b) => !b.computedOnly) ?? [], [columnBlocks]);
-  const pinnedBlocks = useMemo(() => columnBlocks?.filter((b) => b.computedOnly) ?? [], [columnBlocks]);
+  const [totalsView, setTotalsView] = useState({ definitionId: definition.id, expanded: false });
+  const showCalculatedTotals = totalsView.definitionId === definition.id && totalsView.expanded;
+  const matrixDefinition = effectiveDefinition.type === "fixed-matrix" ? effectiveDefinition : null;
+
+  // The overall TOTAL group is optional in the entry grid. Keep those values
+  // in the form model and PDF, while leaving smaller subtotals (such as each
+  // gender's age-band total) visible.
+  const grandTotalColumns = matrixDefinition?.columns.filter((column) => {
+    const isOverallTotalGroup = [column.group?.en, column.group?.fr]
+      .some((label) => label?.trim().toLocaleLowerCase().replace(/\s+/g, " ") === "total");
+    return isOverallTotalGroup;
+  }) ?? [];
+  const hiddenGrandTotalColumns = showCalculatedTotals ? [] : grandTotalColumns;
+  const hiddenGrandTotalColumnKeys = new Set(hiddenGrandTotalColumns.map((column) => column.key));
+  const compactDefinition: FixedMatrixDefinition | null = matrixDefinition && hiddenGrandTotalColumnKeys.size
+    ? {
+        ...matrixDefinition,
+        columns: matrixDefinition.columns.filter((column) => !hiddenGrandTotalColumnKeys.has(column.key)),
+        rows: matrixDefinition.rows.map((row) => ({
+          ...row,
+          cells: Object.fromEntries(
+            Object.entries(row.cells).filter(([key]) => !hiddenGrandTotalColumnKeys.has(key)),
+          ),
+        })),
+        headerGroups: matrixDefinition.headerGroups?.length
+          ? buildColumnBlocks(matrixDefinition.columns.filter((column) => !hiddenGrandTotalColumnKeys.has(column.key)))
+              ?.map((block) => ({ title: block.title, colSpan: block.columns.length }))
+          : matrixDefinition.headerGroups,
+      }
+    : matrixDefinition;
+
+  const columnBlocks = compactDefinition ? buildColumnBlocks(compactDefinition.columns) : null;
+  const editableBlocks = columnBlocks?.filter((b) => !b.computedOnly) ?? [];
+  const pinnedBlocks = columnBlocks?.filter((b) => b.computedOnly) ?? [];
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
   const [focusAfterBlockSwitch, setFocusAfterBlockSwitch] = useState(false);
   const clampedBlockIdx = Math.min(activeBlockIdx, Math.max(editableBlocks.length - 1, 0));
@@ -351,10 +380,11 @@ export function AdaptiveStatisticalTable({
   // frame in between — a 1366px laptop with the rail, among others — showed
   // all nine columns and scrolled horizontally instead.
   const preferredTableWidth = tablePreferredWidthPx(
-    matrixDataColumnWidthsPx(effectiveDefinition, locale),
+    matrixDataColumnWidthsPx(compactDefinition!, locale),
   );
   const useBlockTabs =
     viewMode === "grid" &&
+    !effectiveDefinition.showAllColumnGroups &&
     editableBlocks.length > 1 &&
     preferredTableWidth > frameWidth;
   const activeBlock = useBlockTabs ? editableBlocks[clampedBlockIdx] : undefined;
@@ -364,12 +394,12 @@ export function AdaptiveStatisticalTable({
   // recalculates against the full effectiveDefinition).
   const gridDefinition: FixedMatrixDefinition = activeBlock
     ? {
-        ...effectiveDefinition,
+        ...compactDefinition!,
         id: `${effectiveDefinition.id}__${activeBlock.key}`,
         columns: [...activeBlock.columns, ...pinnedBlocks.flatMap((b) => b.columns)],
         headerGroups: [activeBlock, ...pinnedBlocks].map((b) => ({ title: b.title, colSpan: b.columns.length })),
       }
-    : effectiveDefinition;
+    : compactDefinition!;
 
   const fieldId = tableFieldId || definition.id;
   const cleanId = fieldId.replace(/^FIELD_/i, "");
@@ -491,10 +521,6 @@ export function AdaptiveStatisticalTable({
             borderBottom: "1px solid var(--cam-border)",
             padding: "6px 0",
             overflowX: "auto",
-            // Pinned under the header + section pills while the table scrolls.
-            position: "sticky",
-            top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px))",
-            zIndex: 26,
             background: "var(--cam-surface)",
           }}
         >
@@ -512,7 +538,7 @@ export function AdaptiveStatisticalTable({
                 style={{
                   padding: "6px 14px",
                   fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-                  fontWeight: 700,
+                  fontWeight: "var(--cam-font-weight-bold)",
                   borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
                   borderBottom: "2px solid",
                   borderColor: isActive ? "var(--cam-green)" : "transparent",
@@ -534,6 +560,18 @@ export function AdaptiveStatisticalTable({
       {/* ── Active Renderer ── */}
       {viewMode === "grid" ? (
         <div ref={setFrameEl} className="w-full" style={{ maxWidth: TABLE_MAX_WIDTH_PX }}>
+          {grandTotalColumns.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "var(--cam-space-2, 8px)" }}>
+              <button
+                type="button"
+                aria-expanded={showCalculatedTotals}
+                onClick={() => setTotalsView({ definitionId: definition.id, expanded: !showCalculatedTotals })}
+                className="cam-button cam-button-secondary cam-button-sm"
+              >
+                {showCalculatedTotals ? gridT("hideCalculatedTotals") : gridT("showCalculatedTotals")}
+              </button>
+            </div>
+          )}
           {useBlockTabs && activeBlock && (
             <BlockTabs
               blocks={editableBlocks}
@@ -548,6 +586,10 @@ export function AdaptiveStatisticalTable({
             definition={gridDefinition}
             data={data}
             onChange={handleCellChange}
+            // A pasted block, a recopied cell or a zeroed row is one change
+            // and one recalculation, not a write per cell.
+            onBatchChange={handleBatchChange}
+            columnSliced={useBlockTabs}
             disabled={disabled}
             onAdvanceTable={gridAdvance}
             onPreviousTable={gridPrevious}
@@ -615,16 +657,30 @@ function BlockTabs({
         alignItems: "flex-end",
         gap: 4,
         overflowX: "auto",
-        marginBottom: -1.5,
-        // Pinned under the header, the section pills and (S22Q03) the
-        // category tabs while the table scrolls.
-        position: "sticky",
-        top: "calc(var(--mj-header-h, 0px) + var(--mj-pills-h, 0px) + var(--mj-csp-h, 0px))",
-        zIndex: 25,
+        // This opaque strip is a layer of its own, snapped to whole device
+        // pixels, so at a fractional scale (125%) it lands on the frame's
+        // 1px top border and erases it across the whole width — with or
+        // without a margin between them (owner, 2026-10-22). So the strip
+        // draws the table's top edge itself: it overlaps the frame by that
+        // 1px and paints the line over its own bottom row, above the tabs.
         background: "var(--cam-surface)",
         paddingTop: 4,
+        marginBottom: -1,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 1,
+          background: "var(--cam-table-frame)",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
       {blocks.map((block, idx) => {
         const isActive = idx === activeIdx;
         const state = fillState(block);
@@ -649,15 +705,36 @@ function BlockTabs({
               gap: 6,
               padding: "7px 14px",
               fontSize: "var(--cam-font-size-xs, 0.8125rem)",
-              fontWeight: 600,
+              fontWeight: "var(--cam-font-weight-semibold)",
               fontFamily: "var(--cam-font-sans)",
               whiteSpace: "nowrap",
               cursor: "pointer",
-              color: isActive ? "var(--cam-text)" : "var(--cam-text-muted)",
-              background: isActive ? "var(--cam-surface)" : "transparent",
-              border: "1px solid",
-              borderColor: isActive ? "var(--cam-text-muted)" : "transparent",
-              borderBottomColor: isActive ? "var(--cam-surface)" : "transparent",
+              // The block's fill state in colour, active or not, so which sex
+              // is done and which is still to fill shows at a glance (owner,
+              // 2026-10-22): green complete, amber begun, grey not begun.
+              // The active block is the one with the frame's outline.
+              color:
+                state === "complete"
+                  ? "var(--cam-success)"
+                  : state === "partial"
+                    ? "var(--cam-warning)"
+                    : isActive
+                      ? "var(--cam-text)"
+                      : "var(--cam-text-muted)",
+              background:
+                state === "complete"
+                  ? "var(--cam-success-bg)"
+                  : state === "partial"
+                    ? "var(--cam-warning-bg)"
+                    : isActive
+                      ? "var(--cam-surface)"
+                      : "transparent",
+              borderStyle: "solid",
+              borderWidth: 1,
+              borderTopColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderLeftColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderRightColor: isActive ? "var(--cam-table-frame)" : "transparent",
+              borderBottomColor: "transparent",
               borderRadius: "var(--cam-radius-sm) var(--cam-radius-sm) 0 0",
             }}
           >
@@ -677,13 +754,13 @@ function BlockTabs({
                   state === "complete"
                     ? "var(--cam-success)"
                     : state === "partial"
-                      ? "var(--cam-success)"
+                      ? "var(--cam-warning)"
                       : "var(--cam-border-strong)",
                 background:
                   state === "complete"
                     ? "var(--cam-success)"
                     : state === "partial"
-                      ? "linear-gradient(90deg, var(--cam-success) 50%, transparent 50%)"
+                      ? "linear-gradient(90deg, var(--cam-warning) 50%, transparent 50%)"
                       : "transparent",
               }}
             >

@@ -15,7 +15,7 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
-import { APPROVAL_ROLES } from "@/lib/roles";
+import { SURVEY_ROLES } from "@/lib/roles";
 import { formatApiError } from "@/lib/pilotage-targets";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
@@ -41,7 +41,7 @@ const QUESTIONNAIRES: { schemaKey: string; formType: string }[] = [
 
 export default function QuestionnairesPage() {
   const role = useAuthStore((s) => s.user?.role);
-  const canReadSubmissions = !!role && APPROVAL_ROLES.includes(role);
+  const canReadSubmissions = !!role && SURVEY_ROLES.includes(role);
   const schemaQuery = useOnefopSchema();
   const tRoot = useTranslations();
   const t = useTranslations("adminQuestionnairesPage");

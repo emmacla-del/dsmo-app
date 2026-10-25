@@ -5,11 +5,14 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { UserRole } from '../types/prisma.types';
 import { PILOTAGE_READ_ROLES, PILOTAGE_WRITE_ROLES, PilotageController } from './pilotage.controller';
 
-// The six values UserRole actually holds. The role collapse folded five of
-// the old eleven into ADMIN_ONEFOP and two into SUPER_ADMIN, so this list
-// carried duplicates until it was deduped back to the real enum.
+// The values UserRole actually holds. The role collapse folded five of the
+// old eleven into ADMIN_ONEFOP and two into SUPER_ADMIN, so this list carried
+// duplicates until it was deduped back to the real enum; the 2026-10-25 split
+// then added the two ONEFOP specialist roles beside it.
 const ENUM_ROLES = [
   'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP_REGISTRATIONS',
+  'ADMIN_ONEFOP_SUBMISSIONS',
   'AUDITOR',
   'CENTRAL_AGENT',
   'COMPANY',

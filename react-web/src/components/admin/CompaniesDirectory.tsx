@@ -76,7 +76,7 @@ function useColumns(t: ReturnType<typeof useTranslations>, locale: UiLocale): Co
       key: "createdAt",
       labelKey: "companiesDirectory.createdAtColumn",
       compare: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      render: (c) => stamp(c.createdAt, false, locale),
+      render: (c) => stamp(c.createdAt, true, locale),
     },
     {
       key: "contact",
@@ -336,7 +336,7 @@ function CompanyDetail({ company: c }: { company: Company }) {
             [t("companiesDirectory.cnpsNumberLabel"), c.cnpsNumber],
             [t("companiesDirectory.yearOfCreationLabel"), c.yearOfCreation],
             [t("companiesDirectory.enterpriseSizeLabel"), c.enterpriseSize],
-            [t("companiesDirectory.registeredOnLabel"), stamp(c.createdAt, false, locale)],
+            [t("companiesDirectory.registeredOnLabel"), stamp(c.createdAt, true, locale)],
           ]}
         />
         <DetailSection

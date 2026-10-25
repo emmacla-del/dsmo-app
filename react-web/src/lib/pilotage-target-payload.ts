@@ -9,7 +9,23 @@ import {
 import { NOT_PROVIDED } from "./admin-data-state";
 import type { UiLocale } from "./register-i18n";
 
-export type EditMode = "DEPARTMENT" | "REGION";
+/**
+ * The three ways a writer may quota a region, matching the server's
+ * summarizeRegion. ENTITY_TYPE is one region-level row per entity type;
+ * the server refuses it mixed with either of the others.
+ */
+export type EditMode = "DEPARTMENT" | "REGION" | "ENTITY_TYPE";
+
+/** Entity types a quota may name, in the registration screen's order. */
+export const QUOTA_ENTITY_TYPES: readonly string[] = [
+  "ENTREPRISE",
+  "COOPERATIVE",
+  "CTD",
+  "ONG",
+  "ADMINISTRATION",
+  "PROJECT_PROGRAM",
+  "VOCATIONAL_TRAINING",
+];
 
 export interface NormalizedDepartment {
   departmentId: string;
@@ -23,6 +39,8 @@ export interface NormalizedRegion {
   mode: TargetMode;
   target: number | null;
   departments: NormalizedDepartment[];
+  /** Stored quota per entity type; empty unless mode is ENTITY_TYPE. */
+  byEntityType: Record<string, number>;
 }
 
 export interface RegionDraft {
@@ -31,6 +49,8 @@ export interface RegionDraft {
   mode: EditMode | null;
   regionInput: string;
   departmentInputs: Record<string, string>;
+  /** One input per entity type, used only in ENTITY_TYPE mode. */
+  entityTypeInputs: Record<string, string>;
   /** When true, the PUT clears every stored row for this region. */
   clear?: boolean;
 }
@@ -53,6 +73,7 @@ const TEXT = {
     invalidInt: "doit être un entier positif ou nul.",
     byDepartment: "Par département",
     regionOnly: "Région seule",
+    byEntityType: "Par type d'entité",
     mixed: "Mixte",
     notSet: "Non défini",
     invalidValue: "valeur invalide",
@@ -66,6 +87,7 @@ const TEXT = {
     invalidInt: "must be a whole number, zero or more.",
     byDepartment: "By department",
     regionOnly: "Region only",
+    byEntityType: "By entity type",
     mixed: "Mixed",
     notSet: "Not set",
     invalidValue: "invalid value",
@@ -88,7 +110,23 @@ export function normalizeRegions(regions: TargetRegionRow[], field: TargetField)
       name: department.name,
       target: numberOrNull(department[field]),
     })),
+    byEntityType: region.byEntityType ?? {},
   }));
+}
+
+/** Blank inputs for every entity type, the starting point in both drafts. */
+function emptyTypeInputs(): Record<string, string> {
+  return Object.fromEntries(QUOTA_ENTITY_TYPES.map((entityType) => [entityType, ""]));
+}
+
+/** The stored per-type quotas as inputs; blank where no quota is set. */
+function storedTypeInputs(region: NormalizedRegion): Record<string, string> {
+  return Object.fromEntries(
+    QUOTA_ENTITY_TYPES.map((entityType) => {
+      const target = region.byEntityType[entityType];
+      return [entityType, target == null ? "" : String(target)];
+    }),
+  );
 }
 
 export function initRegionDraft(region: NormalizedRegion): RegionDraft {
@@ -103,6 +141,7 @@ export function initRegionDraft(region: NormalizedRegion): RegionDraft {
           department.target == null ? "" : String(department.target),
         ]),
       ),
+      entityTypeInputs: emptyTypeInputs(),
     };
   }
   if (region.mode === "REGION") {
@@ -111,6 +150,16 @@ export function initRegionDraft(region: NormalizedRegion): RegionDraft {
       mode: "REGION",
       regionInput: region.target == null ? "" : String(region.target),
       departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+      entityTypeInputs: emptyTypeInputs(),
+    };
+  }
+  if (region.mode === "ENTITY_TYPE") {
+    return {
+      regionId: region.regionId,
+      mode: "ENTITY_TYPE",
+      regionInput: "",
+      departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+      entityTypeInputs: storedTypeInputs(region),
     };
   }
   return {
@@ -118,6 +167,7 @@ export function initRegionDraft(region: NormalizedRegion): RegionDraft {
     mode: null,
     regionInput: "",
     departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+    entityTypeInputs: emptyTypeInputs(),
   };
 }
 
@@ -131,6 +181,7 @@ export function clearRegionDraft(region: NormalizedRegion): RegionDraft {
     mode: null,
     regionInput: "",
     departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+    entityTypeInputs: emptyTypeInputs(),
     clear: true,
   };
 }
@@ -147,6 +198,20 @@ export function applyEditMode(region: NormalizedRegion, mode: EditMode): RegionD
           department.target == null ? "" : String(department.target),
         ]),
       ),
+      entityTypeInputs: emptyTypeInputs(),
+    };
+  }
+  if (mode === "ENTITY_TYPE") {
+    // Switching INTO per-type seeds the stored per-type rows if there are
+    // any, and otherwise starts blank. It deliberately does not spread a
+    // region total across the types: the split is the writer's judgement,
+    // and a guessed one would be saved as though they had made it.
+    return {
+      regionId: region.regionId,
+      mode,
+      regionInput: "",
+      departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+      entityTypeInputs: storedTypeInputs(region),
     };
   }
   const sum = sumFilled(Object.fromEntries(
@@ -160,6 +225,7 @@ export function applyEditMode(region: NormalizedRegion, mode: EditMode): RegionD
     mode,
     regionInput: region.target != null ? String(region.target) : sum != null ? String(sum) : "",
     departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+    entityTypeInputs: emptyTypeInputs(),
   };
 }
 
@@ -188,6 +254,7 @@ export function modeLabel(mode: TargetMode | EditMode | null, locale: UiLocale =
   const text = TEXT[locale];
   if (mode === "DEPARTMENT") return text.byDepartment;
   if (mode === "REGION") return text.regionOnly;
+  if (mode === "ENTITY_TYPE") return text.byEntityType;
   if (mode === "MIXED") return text.mixed;
   return text.notSet;
 }
@@ -223,6 +290,11 @@ export function describeStored(region: NormalizedRegion, locale: UiLocale = "fr"
     const total = filled.reduce((sum, department) => sum + (department.target ?? 0), 0);
     return filled.length === 0 ? text.byDepartment : `${text.byDepartment} · ${fmt(total, locale)}`;
   }
+  if (region.mode === "ENTITY_TYPE") {
+    const values = Object.values(region.byEntityType);
+    const total = values.reduce((sum, target) => sum + target, 0);
+    return values.length === 0 ? text.byEntityType : `${text.byEntityType} · ${fmt(total, locale)}`;
+  }
   return text.mixed;
 }
 
@@ -235,9 +307,43 @@ export function describeDraft(region: NormalizedRegion, draft: RegionDraft, loca
     if (parsed === "invalid") return `${text.regionOnly} · ${text.invalidValue}`;
     return parsed == null ? text.notSet : `${text.regionOnly} · ${fmt(parsed, locale)}`;
   }
+  if (draft.mode === "ENTITY_TYPE") {
+    const sum = sumFilled(draft.entityTypeInputs);
+    return sum == null ? text.notSet : `${text.byEntityType} · ${fmt(sum, locale)}`;
+  }
   const sum = sumFilled(draft.departmentInputs);
   return sum == null ? text.notSet : `${text.byDepartment} · ${fmt(sum, locale)}`;
 }
+
+/**
+ * An entity type's name for a validation message. The console's own catalogue
+ * holds these labels; this module takes no next-intl dependency, so it falls
+ * back to the code, which is still unambiguous in an error line.
+ */
+function typeLabel(entityType: string, locale: UiLocale): string {
+  return TYPE_LABELS[locale][entityType] ?? entityType;
+}
+
+const TYPE_LABELS: Record<UiLocale, Record<string, string>> = {
+  fr: {
+    ENTREPRISE: "Entreprise",
+    COOPERATIVE: "Coopérative",
+    CTD: "CTD",
+    ONG: "ONG",
+    ADMINISTRATION: "Administration",
+    PROJECT_PROGRAM: "Projet ou programme",
+    VOCATIONAL_TRAINING: "Centre de formation professionnelle",
+  },
+  en: {
+    ENTREPRISE: "Enterprise",
+    COOPERATIVE: "Cooperative",
+    CTD: "LRA",
+    ONG: "NGO",
+    ADMINISTRATION: "Administration",
+    PROJECT_PROGRAM: "Project or programme",
+    VOCATIONAL_TRAINING: "Vocational training centre",
+  },
+};
 
 export function buildTargetPayload(args: {
   field: TargetField;
@@ -323,6 +429,29 @@ function desiredEntries(field: TargetField, region: NormalizedRegion, draft: Reg
     return { kind: "send", entries: desired };
   }
 
+  if (draft.mode === "ENTITY_TYPE") {
+    const desiredTypes: TargetPutEntry[] = [];
+    for (const entityType of QUOTA_ENTITY_TYPES) {
+      const parsed = parseTargetInput(draft.entityTypeInputs[entityType] ?? "");
+      if (parsed === "invalid") {
+        return {
+          kind: "error",
+          errors: [`${text.region(region.name)}${text.separator}${typeLabel(entityType, locale)}${text.separator}${text.invalidInt}`],
+        };
+      }
+      if (parsed == null) continue;
+      desiredTypes.push({ regionId: region.regionId, departmentId: null, entityType, [field]: parsed });
+    }
+    // Every cell emptied means the writer wants this region's quotas gone,
+    // the same reading the department branch gives an all-blank grid.
+    if (desiredTypes.length === 0) {
+      if (region.mode === "UNSET") return { kind: "skip" };
+      return { kind: "send", entries: [{ regionId: region.regionId, clear: true }] };
+    }
+    if (sameEntries(storedRegionEntries(region), desiredTypes, field)) return { kind: "skip" };
+    return { kind: "send", entries: desiredTypes };
+  }
+
   const desired: TargetPutEntry[] = [];
   for (const department of region.departments) {
     const parsed = parseTargetInput(draft.departmentInputs[department.departmentId] ?? "");
@@ -362,11 +491,24 @@ function storedRegionEntries(region: NormalizedRegion): TargetPutEntry[] {
         submissionTarget: department.target as number,
       }));
   }
+  if (region.mode === "ENTITY_TYPE") {
+    return Object.entries(region.byEntityType).map(([entityType, target]) => ({
+      regionId: region.regionId,
+      departmentId: null,
+      entityType,
+      inscriptionTarget: target,
+      submissionTarget: target,
+    }));
+  }
   return [];
 }
 
 function sameEntries(stored: TargetPutEntry[], desired: TargetPutEntry[], field: TargetField): boolean {
-  const key = (entry: TargetPutEntry) => `${entry.departmentId ?? ""}:${entry[field] ?? entry.inscriptionTarget ?? entry.submissionTarget}`;
+  // The type joins the key: without it, two per-type rows of equal value
+  // would compare equal to each other and a changed split would read as
+  // "no change", so the writer's edit would be silently dropped.
+  const key = (entry: TargetPutEntry) =>
+    `${entry.departmentId ?? ""}:${entry.entityType ?? ""}:${entry[field] ?? entry.inscriptionTarget ?? entry.submissionTarget}`;
   const a = stored.map(key).sort();
   const b = desired.map(key).sort();
   if (a.length !== b.length) return false;
@@ -418,6 +560,9 @@ export function hasUnsavedChanges(args: {
     if (draft.regionInput.trim() !== initial.regionInput.trim()) return true;
     for (const [deptId, val] of Object.entries(draft.departmentInputs)) {
       if (val.trim() !== (initial.departmentInputs[deptId] ?? "").trim()) return true;
+    }
+    for (const [entityType, val] of Object.entries(draft.entityTypeInputs)) {
+      if (val.trim() !== (initial.entityTypeInputs[entityType] ?? "").trim()) return true;
     }
   }
   return false;
