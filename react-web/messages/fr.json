@@ -2350,6 +2350,8 @@
     "allTypes": "Tous les types",
     "regionFilterLabel": "Région d'origine",
     "allRegions": "Toutes les régions",
+    "departmentColumn": "Département",
+    "allDepartments": "Tous les départements",
     "statusFilterLabel": "Statut",
     "statusInQueue": "En file (attente + compléments)",
     "statusAll": "Tous les statuts",

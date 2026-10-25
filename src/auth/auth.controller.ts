@@ -389,6 +389,7 @@ export class AuthController {
     @Request() req: any,
     @Query('entityType') entityType?: string,
     @Query('region') region?: string,
+    @Query('department') department?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('organisation') organisation?: string,
@@ -403,6 +404,7 @@ export class AuthController {
     return this.authService.listCompanyRegistrations(territoryFromUser(req.user), {
       entityType,
       region,
+      department,
       from,
       to,
       organisation,

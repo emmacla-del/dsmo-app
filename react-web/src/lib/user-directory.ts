@@ -171,6 +171,8 @@ export interface CompanyRegistrationsResult {
 export function listCompanyRegistrations(params: {
   entityType?: string;
   region?: string;
+  /** A department NAME, as Company.department stores it; narrows within `region`. */
+  department?: string;
   from?: string;
   to?: string;
   organisation?: string;
@@ -188,6 +190,7 @@ export function listCompanyRegistrations(params: {
   const query = new URLSearchParams();
   if (params.entityType) query.set("entityType", params.entityType);
   if (params.region) query.set("region", params.region);
+  if (params.department) query.set("department", params.department);
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
   if (params.organisation) query.set("organisation", params.organisation);

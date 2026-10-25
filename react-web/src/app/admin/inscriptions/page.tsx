@@ -34,7 +34,7 @@ import {
   REGISTRATION_OVERDUE_DEFAULT_DAYS,
   daysWaiting,
 } from "@/lib/inscriptions";
-import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -152,6 +152,7 @@ function InscriptionsContent() {
   // filter: changing it afterwards is local state, as every other filter is,
   // and the backend re-checks the region against the reader's jurisdiction.
   const initialRegion = searchParams.get("region")?.trim() ?? "";
+  const initialDepartment = searchParams.get("department")?.trim() ?? "";
   // Two views of registrations: the review queue, and coverage against the
   // registration-campaign targets (moved here from /admin/cibles, which
   // forwards its old ?vue=couverture links). Both live in the URL, so a
@@ -184,6 +185,10 @@ function InscriptionsContent() {
   const [organisationInput, setOrganisationInput] = useState("");
   const [organisation, setOrganisation] = useState("");
   const [region, setRegion] = useState(initialRegion);
+  const [department, setDepartment] = useState(initialDepartment);
+  // The department list follows the chosen region; unscoped it is every
+  // department, and the server narrows to the reader's territory regardless.
+  const { departments: territoryDepartments } = useTerritoryDepartments(region || null);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [typeFilter, setTypeFilter] = useState("");
   const [registrationMethod, setRegistrationMethod] = useState("");
@@ -223,7 +228,7 @@ function InscriptionsContent() {
   // reviewers have left waiting past the threshold set in /admin/parametres.
   const overdueOnly = statusFilter === "OVERDUE";
   const queueQuery = useQuery({
-    queryKey: ["auth", "company-registrations", organisation, statusFilter, typeFilter, region, from, to, createdBy, registrationMethod, page],
+    queryKey: ["auth", "company-registrations", organisation, statusFilter, typeFilter, region, department, from, to, createdBy, registrationMethod, page],
     queryFn: () =>
       listCompanyRegistrations({
         organisation,
@@ -232,6 +237,7 @@ function InscriptionsContent() {
         createdBy: createdBy || undefined,
         entityType: typeFilter || undefined,
         region: region || undefined,
+        department: department || undefined,
         registrationMethod: registrationMethod || undefined,
         from,
         to,
@@ -352,13 +358,14 @@ function InscriptionsContent() {
   ] : [];
   const registrationStatusTotal = registrationStatusSegments.reduce((total, segment) => total + segment.value, 0);
   const hasActiveQueueFilters = Boolean(
-    organisationInput.trim() || organisation || region || statusFilter || typeFilter ||
+    organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
     registrationMethod || dateRange !== "all" || createdBy,
   );
   const clearQueueFilters = () => {
     setOrganisationInput("");
     setOrganisation("");
     setRegion("");
+    setDepartment("");
     setStatusFilter("");
     setTypeFilter("");
     setRegistrationMethod("");
@@ -372,6 +379,7 @@ function InscriptionsContent() {
     // Also the region the coverage ranking may have seeded, or clearing the
     // filters would leave it in the URL to come back on the next reload.
     params.delete("region");
+    params.delete("department");
     router.replace(inscriptionsHref(params.toString(), "file"));
   };
 
@@ -564,18 +572,35 @@ function InscriptionsContent() {
                     />
                   )}
                 </FilterTableHead>
-                <FilterTableHead label={t("regionColumn")} filterLabel={t("filterColumn", { column: t("regionColumn") })} active={!!region}>
+                {/* One column shows "Région / Département", so it carries both
+                    selectors rather than splitting the cell in two. The
+                    department list follows the chosen region; with no region
+                    chosen it is every department, which the server still
+                    narrows to the reader's own territory. */}
+                <FilterTableHead label={t("regionColumn")} filterLabel={t("filterColumn", { column: t("regionColumn") })} active={!!region || !!department}>
                   {(close) => (
-                    <FilterTableOptions
-                      label={t("regionColumn")}
-                      value={region}
-                      onChange={(value) => { setRegion(value); setPage(1); }}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("allRegions") },
-                        ...territoryRegions.map((item) => ({ value: item, label: item })),
-                      ]}
-                    />
+                    <div className="grid gap-3">
+                      <FilterTableOptions
+                        label={t("regionColumn")}
+                        value={region}
+                        onChange={(value) => { setRegion(value); setDepartment(""); setPage(1); }}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("allRegions") },
+                          ...territoryRegions.map((item) => ({ value: item, label: item })),
+                        ]}
+                      />
+                      <FilterTableOptions
+                        label={t("departmentColumn")}
+                        value={department}
+                        onChange={(value) => { setDepartment(value); setPage(1); }}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("allDepartments") },
+                          ...territoryDepartments.map((item) => ({ value: item, label: item })),
+                        ]}
+                      />
+                    </div>
                   )}
                 </FilterTableHead>
                 <FilterTableHead label={t("submissionDateColumn")} filterLabel={t("filterColumn", { column: t("submissionDateColumn") })} active={dateRange !== "all"} contentClassName="w-[19rem] p-3">
