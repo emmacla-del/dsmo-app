@@ -3636,11 +3636,13 @@
     "eyebrow": "Account-creation link to send over WhatsApp",
     "levelLegend": "Where will the officer serve?",
     "level": {
+      "territorial": "Regional and divisional delegations (DREFOP and DDEFOP)",
       "regional": "Regional delegation (DREFOP)",
       "departmental": "Divisional delegation (DDEFOP)",
       "central": "Central and attached services"
     },
     "levelHint": {
+      "territorial": "All delegation staff in one region; the officer chooses their service",
       "regional": "Regional delegate and delegation staff, for one region",
       "departmental": "Divisional delegate and delegation staff, for one division",
       "central": "Read-only central officer (ONEFOP, directorates, inspectorates…)"

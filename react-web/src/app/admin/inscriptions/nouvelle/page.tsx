@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DIRECTORY_ROLES } from "@/lib/roles";
 import {
@@ -150,6 +150,7 @@ export default function NouvelleInscriptionPage() {
   const credentialsAtRisk = Boolean(result) && !credentialsAcknowledged;
   const hasUnsavedChanges = formHasUnsavedChanges || credentialsAtRisk;
 
+  const queryClient = useQueryClient();
   // The branches of activity (the `sectors` table), the same list and query
   // key as the public wizard.
   const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
@@ -170,6 +171,7 @@ export default function NouvelleInscriptionPage() {
       setCredentialsAcknowledged(false);
       setError(null);
       setCopied(false);
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
     },
     onError: (e: unknown) => reportError(formatApiError(e, locale)),
   });
