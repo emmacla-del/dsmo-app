@@ -54,6 +54,7 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { resolveStaffTerritory } from '../territory/territory-resolver';
 import { emailMatch, normalizeEmail } from './auth.service';
 import { toPublicUser } from './public-user';
+import { GENERIC_POSITION_TYPE, assertPostIsVacant } from './service-post';
 import { assertCanManageRole } from './staff-scope';
 
 export const STAFF_INVITATION_PURPOSE = 'staff_invitation';
@@ -70,7 +71,9 @@ const SERVICE_ROLES: readonly string[] = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 
 // Any service may take an agent who holds none of its head posts: "Cadre".
 // The organigramme seed lists head posts only (delegue, chef de service,
 // chef de bureau...), so without this an ordinary agent could not be placed.
-export const GENERIC_POSITION_TYPE = 'STAFF';
+// It lives in service-post.ts, beside the rule that every OTHER post is held
+// by one officer per territory; re-exported here for its earlier importers.
+export { GENERIC_POSITION_TYPE } from './service-post';
 const GENERIC_POSITION_TITLE = 'Cadre';
 
 const CENTRAL_TTL_SECONDS = 24 * 60 * 60;
@@ -295,6 +298,16 @@ export class StaffInvitationService {
     } catch {
       throw new GoneException(INVALID_INVITATION);
     }
+
+    // The post must still be free: an invitation signed a day ago may name a
+    // post somebody has since taken, and a head post has one holder per
+    // territory.
+    await assertPostIsVacant(this.prisma, {
+      serviceCode: payload.serviceCode,
+      positionType: payload.positionType,
+      region: payload.region ?? null,
+      department: payload.department ?? null,
+    });
 
     const passwordHash = await bcrypt.hash(password, 10);
     let user;

@@ -195,6 +195,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Ce service n\'est pas couvert par ce lien.', en: 'This service is not covered by this link.' },
   { fr: 'Ce service n\'est pas couvert par ce niveau.', en: 'This service is not covered by this level.' },
   { fr: 'Ce poste n\'existe pas dans ce service.', en: 'This post does not exist in this service.' },
+  {
+    fr: 'Ce poste est déjà occupé dans ce territoire. Contactez votre délégation.',
+    en: 'This post is already held in this territory. Contact your delegation.',
+  },
   { fr: 'Choisissez le service auquel ce lien donne accès.', en: 'Choose the service this link gives access to.' },
   { fr: 'Choisissez le poste auquel ce lien donne accès.', en: 'Choose the post this link gives access to.' },
   // "Staff number" is what the sign-up form calls it in English.

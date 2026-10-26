@@ -74,7 +74,7 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { normalizeTerritoryName, resolveStaffTerritory } from '../territory/territory-resolver';
 import { emailMatch, normalizeEmail } from './auth.service';
 import { assertCanManageRole } from './staff-scope';
-import { GENERIC_POSITION_TYPE } from './staff-invitation.service';
+import { GENERIC_POSITION_TYPE, assertPostIsVacant } from './service-post';
 
 // 'territorial' is one region's whole staff: the DREFOP services AND the
 // DDEFOP ones, so a regional delegation needs one link rather than one per
@@ -395,6 +395,16 @@ export class StaffInvitationLinkService {
     if (await this.prisma.user.findFirst({ where: emailMatch(email) })) {
       throw new ConflictException('Un compte existe déjà pour cette adresse.');
     }
+    // A head post has one holder per territory, so the second person to pick
+    // it is refused rather than queued behind the first. It matters most for
+    // the délégué posts, whose holder approves the territory's staff: it is
+    // what stops a second person reaching that authority through the link.
+    await assertPostIsVacant(this.prisma, {
+      serviceCode,
+      positionType,
+      region: territory.region,
+      department: territory.department,
+    });
 
     const passwordHash = await bcrypt.hash(password, 10);
     let user: { id: string; email: string };

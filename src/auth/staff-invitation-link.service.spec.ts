@@ -67,7 +67,25 @@ function makePrisma() {
         POSITIONS.filter((p) => (where.serviceCode.in as string[]).includes(p.serviceCode))),
     },
     user: {
-      findFirst: jest.fn(async ({ where }: any) => users.find((u) => u.email === where.email.equals.toLowerCase()) ?? null),
+      findFirst: jest.fn(async ({ where }: any) => {
+        if (where.email) return users.find((u) => u.email === where.email.equals.toLowerCase()) ?? null;
+        // The post-occupancy lookup (service-post.ts): the same post of the
+        // same service in the same territory, held by a live account.
+        const matches = (filter: any, value: any) =>
+          filter === null
+            ? value === null || value === undefined
+            : String(value ?? '').toLowerCase() === String(filter.equals).toLowerCase();
+        return (
+          users.find(
+            (u) =>
+              u.serviceCode === where.serviceCode &&
+              u.positionType === where.positionType &&
+              matches(where.region, u.region) &&
+              matches(where.department, u.department) &&
+              where.status.in.includes(u.status),
+          ) ?? null
+        );
+      }),
       create: jest.fn(async ({ data }: any) => {
         const row = { id: `user-${users.length + 1}`, ...data };
         users.push(row);
@@ -216,6 +234,22 @@ describe('StaffInvitationLinkService.signUp', () => {
     const { service, prisma, link } = await withLink({ ...REGIONAL_LINK, serviceCode: 'DREFOP-SPE', positionType: 'CHEF_SERVICE' });
     await service.signUp({ ...PERSON, token: link.token });
     expect(prisma.__users[0].poste).toBe("Chef du Service de la Promotion de l'Emploi");
+  });
+
+  it('refuses a head post the territory already has a holder for', async () => {
+    const { service, prisma, link } = await withLink({
+      ...REGIONAL_LINK, serviceCode: 'DREFOP-SPE', positionType: 'CHEF_SERVICE',
+    });
+    await service.signUp({ ...PERSON, token: link.token });
+    // One Chef du Service de la Promotion de l'Emploi per region: the second
+    // person to open the link is refused, not queued behind the first. The
+    // use already spent by the first is not refunded, and theirs is not spent.
+    await expect(service.signUp({ ...PERSON, email: 'second@minefop.cm', token: link.token }))
+      .rejects.toThrow(ConflictException);
+    expect(prisma.__users).toHaveLength(1);
+    expect(prisma.__links[0].useCount).toBe(1);
+    // Cadres are not singular -- 'stops at the use limit' opens two of them
+    // on one service.
   });
 
   it('the matricule is required', async () => {
