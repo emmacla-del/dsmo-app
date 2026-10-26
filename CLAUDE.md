@@ -1260,6 +1260,108 @@ Approved changes on record:
   turns up in the pilot, the fix is to tell the admin their posting is
   incomplete, not to open the field.
 
+- 2026-10-26 — a territory's DELEGATE approves its own staff, and who approved
+  is recorded (RBAC and schema change; migration
+  `20261026120000_user_approved_by`; `staffApprovalScope`,
+  `assertCanApproveRegistration`, `STAFF_LIST_ROLES` in
+  `src/auth/staff-scope.ts`; `approverIdentity`, `listUsers` in
+  `src/auth/auth.service.ts`; `assertPostIsVacant` in
+  `src/auth/service-post.ts`).
+  Issue: staff approval was national only, so the single reader of « I am the
+  Littoral delegate, matricule M-12345 » was an officer in Yaoundé who had
+  never met them and could verify nothing — while the register's territorial
+  truth is what the platform exists for. At pilot scale (10 regions × 17
+  services, 58 divisions × 11) that reader would also have been the
+  bottleneck for several hundred approvals they could not check.
+  THE OWNER'S MATRIX, in chat 2026-10-26:
+    staff, regional territory    → regional délégué   | national
+    staff, divisional territory  → divisional délégué | regional délégué → national
+    entity, regional territory   → regional délégué OR regional admin, either suffices | national
+    entity, divisional territory → divisional délégué OR divisional admin, either     | regional → national
+  KEYED ON THE POST, NOT THE ROLE. Every service of a regional delegation maps
+  to REGIONAL_ADMIN, so the délégué and each of their cadres hold the same
+  role; a rule written on the role would let any cadre approve their own
+  peers, and could not express the matrix's third row at all.
+  `staffApprovalScope` reads DELEGUE_REGIONAL / DELEGUE_DEPARTEMENTAL, which
+  the organigramme guarantees is one person per territory (`ServicePosition`
+  is unique per service, one DREFOP, one DDEFOP). `positionType` therefore
+  becomes authorization-bearing: checked first, it has NO write path after an
+  account is created (the user mutations are role, territory, suspend,
+  activate, delete, two-factor), and it is read from the DATABASE, never from
+  the browser-stored token (§15), which may predate a change of post. The one
+  door left is `PATCH /users/:id/territory`, national only, which moves a
+  delegate's scope with their posting — coherent, and noted here so it is not
+  a surprise.
+  CONTAINMENT, NOT STRICT TIERS: the regional délégué covers their region AND
+  the divisions inside it, reusing `assertTerritorialAuthority`. Without it
+  nobody could approve a division's FIRST delegate — the only authority would
+  have been the post being filled. Fails closed throughout: a delegate with
+  no territory of their own gets nothing, a non-delegate territorial admin
+  gets no staff account at all, and an actor with no id gets no scope.
+  THIS REVERSES, in this narrower shape, the half of the owner's 2026-10-07
+  decision that `staff-scope.ts` records as « neither create staff accounts
+  nor approve them ». Approval returns to the délégué; CREATION does not —
+  delegates still issue no link, and `manageableRolesFor` still returns [] for
+  both territorial roles, so suspend, delete and re-role stay national, each
+  route keeping its own USER_ADMIN_ROLES.
+  THE ENTITY ROWS NEEDED NO CODE: `approveCompanyRegistration` asks
+  `assertTerritorialAuthority` and nothing else — role and territory, no post
+  — which is already « either suffices, first to act wins », including a
+  regional admin acting inside their own region's divisions. A test pins that
+  the company path does not consult the post, so unifying the two guards
+  cannot quietly start demanding the délégué's post for a company file.
+  SCHEMA: `User.approvedBy`, nullable, self-referencing like `createdBy` with
+  ON DELETE SET NULL, written beside `approvedAt` on every approval. Who
+  approved is no longer derivable from anything stored — delegate,
+  non-delegate admin or national may each have acted — which is why it is
+  recorded, and why the entity rows made it essential rather than nice to
+  have. No backfill: an account approved before today reads null, stating
+  truthfully that the platform did not record it. Classified secret in
+  `public-user.ts`. Rejection still records its actor in the audit log only;
+  no `rejectedBy` was added.
+  THE SINGULAR HEAD POST (`assertPostIsVacant`): every post but « Cadre » has
+  one holder per territory, refused with 409 « Ce poste est déjà occupé dans
+  ce territoire. » on BOTH paths that put an account on a post — the group
+  link's signUp and the one-person invitation's accept, where a token signed
+  yesterday may name a post since taken. ACTIVE and PENDING_APPROVAL hold it
+  (two people must not queue for one post); REJECTED never did; a suspended
+  or inactive account does not block a replacement. Under this entry it is
+  not tidiness: it is what stops a second person reaching a délégué's
+  approval authority through a link.
+  THE QUEUE: `GET /auth/users` carries `STAFF_LIST_ROLES`, so a délégué can
+  see what they must approve, scoped by the SAME `staffApprovalScope` — their
+  territory forced into the where clause (a `region` in the query is
+  overridden, not honoured), the roles they may approve, and nothing at all
+  for a territorial admin who is not a délégué. A READ widens and nothing
+  else.
+  VERIFIED against the live database by `src/auth/staff-signup-pg.spec.ts`
+  (`npm run test:pg`, opt-in on PG_INTEGRATION=1, every test in a transaction
+  always rolled back): 5 tests drove the real create / signUp / preview,
+  proved the live organigramme carries the flags the model assumes (DREFOP
+  REGIONAL_ADMIN + requiresRegion; DDEFOP DIVISIONAL_ADMIN + both), that a
+  division of another region is refused, that a held head post is refused,
+  and — by re-counting users, links and audit rows, then querying the
+  sentinel — that nothing persisted. Delivered in `4cbab848` (authority),
+  `f6cc404f` (queue), `9906adaa` (singular post) and the spec.
+  STILL OPEN:
+  (1) no delegate can reach the queue IN THE APP — `nav-profiles.ts` and
+  `/admin/utilisateurs` were left alone by instruction, being edited
+  elsewhere; that page's toolbar also calls `users/search` and count queries
+  still on USER_ADMIN_ROLES, which need scoping or hiding before the hub
+  opens to delegates.
+  (2) THE ROLE MODEL IS THE REAL RESIDUAL RISK: every cadre of a regional
+  delegation is a REGIONAL_ADMIN, so a délégué approving their own staff is
+  opening region-wide accounts, and the platform cannot express a read-only
+  territorial officer (CENTRAL_AGENT is national). The ceiling is the
+  delegate's own territory and every approval is now attributable, but if
+  ONEFOP wants regional clerks without regional authority, that is a new role,
+  not a change to this entry.
+  (3) a vacant délégué post routes its territory's approvals to national —
+  the fallback working as designed, which makes vacancies operational.
+  (4) delegates still cannot ISSUE links, so the region on a territorial link
+  is ONEFOP's typing rather than a delegate account's own; that is the other
+  half of 2026-10-07 and is still the owner's to decide.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
