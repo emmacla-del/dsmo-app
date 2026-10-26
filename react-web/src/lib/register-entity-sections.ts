@@ -67,6 +67,7 @@ const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: st
   vocationalTraining: [
     { title: { fr: "Identification du centre", en: "Centre identification" }, keys: ["centerName", "sigle", "taxNumber", "cnpsNumber", "yearOfCreation", "cfpType", "educationSystem"] },
     { title: { fr: "Situation opérationnelle", en: "Operational status" }, keys: ["functionalStatus", "nonFunctionalReason", "nonFunctionalReasonOther"] },
+    { title: { fr: "Agrément de fonctionnement", en: "Operating authorization" }, keys: ["authorizationStatus", "authorizationYear", "authorizationOrderNumber", "authorizationOrderDate"] },
     { title: { fr: "Localisation et contact", en: "Location and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
     // Carries the "Promoteur / Directeur" the four promoter LABELS used to
     // repeat in full, 33-37 characters each.

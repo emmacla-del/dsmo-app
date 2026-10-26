@@ -110,7 +110,7 @@ export interface EntityField {
   // Conditional visibility within the same entity's field set — mirrors
   // register_constants.dart's dependsOn/dependsValue (itself mirroring the
   // ONEFOP AST's own shape), used only by vocationalTraining's
-  // functionalStatus -> nonFunctionalReason -> nonFunctionalReasonOther chain.
+  // functional status/reason chain and authorization status/details.
   dependsOn?: string;
   dependsValue?: string;
 }
@@ -147,6 +147,7 @@ export function isFieldVisible(
 
 import {
   CFP_TYPE_OPTIONS,
+  AUTHORIZATION_STATUS_OPTIONS,
   COOPERATIVE_TYPE_OPTIONS,
   CTD_TYPE_OPTIONS,
   EDUCATION_SYSTEM_OPTIONS,
@@ -405,6 +406,10 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "cfpType", label: { fr: "Type de CFP", en: "VTC type" }, required: true, kind: "select", options: CFP_TYPE_OPTIONS },
       { key: "educationSystem", label: { fr: "Ordre d'enseignement", en: "Education system" }, required: true, kind: "select", options: EDUCATION_SYSTEM_OPTIONS },
       { key: "functionalStatus", label: { fr: "Situation du centre", en: "Centre status" }, required: true, kind: "select", options: FUNCTIONAL_STATUS_OPTIONS },
+      { key: "authorizationStatus", label: { fr: "Le centre est-il agréé ?", en: "Does the centre have an authorization?" }, required: true, kind: "radio", options: AUTHORIZATION_STATUS_OPTIONS },
+      { key: "authorizationYear", label: { fr: "Année du dernier agrément", en: "Year of last authorization" }, required: true, kind: "year", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
+      { key: "authorizationOrderNumber", label: { fr: "N° de l'arrêté d'autorisation", en: "Authorization order number" }, required: true, kind: "text", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
+      { key: "authorizationOrderDate", label: { fr: "Date de l'arrêté d'autorisation", en: "Authorization order date" }, hint: { fr: "Format : JJ/MM/AAAA", en: "Format: DD/MM/YYYY" }, required: true, kind: "text", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
       {
         key: "nonFunctionalReason",
         // Was "Raison (si non-fonctionnelle)" (29) / "Reason (if

@@ -263,6 +263,12 @@ export function companyToInitialData(
       setIfPresent(data, "VT1_13_OTHER", comp.nonFunctionalReasonOther);
       setIfPresent(data, "VT1_14", comp.yearOfCreation);
 
+      // Section 2.1.13: registration-time authorization details.
+      setIfPresent(data, "VT2_14", comp.authorizationStatus);
+      setIfPresent(data, "VT2_15", comp.authorizationYear);
+      setIfPresent(data, "VT2_16", comp.authorizationOrderNumber);
+      setIfPresent(data, "VT2_17", comp.authorizationOrderDate);
+
       // Section 1.15: Respondent block for VT
       if (fullName) data["VT1_15_NAME"] = fullName;
       if (fn) data["VT1_15_FUNCTION"] = fn;

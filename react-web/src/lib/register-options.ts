@@ -151,6 +151,11 @@ export const FUNCTIONAL_STATUS_OPTIONS: RegisterOption[] = [
   { value: "Fermée", label: { fr: "Fermée", en: "Closed" } },
 ];
 
+export const AUTHORIZATION_STATUS_OPTIONS: RegisterOption[] = [
+  { value: "Oui/ Yes", label: { fr: "Oui", en: "Yes" } },
+  { value: "Non/ No", label: { fr: "Non", en: "No" } },
+];
+
 export const NON_FUNCTIONAL_REASON_OPTIONS: RegisterOption[] = [
   { value: "Manque d'apprenants", label: { fr: "Manque d'apprenants", en: "Lack of trainees" } },
   { value: "Manque de formateur", label: { fr: "Manque de formateur", en: "Lack of trainers" } },

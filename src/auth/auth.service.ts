@@ -179,6 +179,10 @@ export interface CompanyRegistrationData {
   cfpType?: string;
   educationSystem?: string;
   functionalStatus?: string;
+  authorizationStatus?: string;
+  authorizationYear?: string;
+  authorizationOrderNumber?: string;
+  authorizationOrderDate?: string;
   nonFunctionalReason?: string;
   nonFunctionalReasonOther?: string;
   // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
@@ -786,6 +790,10 @@ export class AuthService {
           cfpType: companyData.cfpType,
           educationSystem: companyData.educationSystem,
           functionalStatus: companyData.functionalStatus,
+          authorizationStatus: companyData.authorizationStatus,
+          authorizationYear: companyData.authorizationStatus === 'Oui/ Yes' ? companyData.authorizationYear : undefined,
+          authorizationOrderNumber: companyData.authorizationStatus === 'Oui/ Yes' ? companyData.authorizationOrderNumber : undefined,
+          authorizationOrderDate: companyData.authorizationStatus === 'Oui/ Yes' ? companyData.authorizationOrderDate : undefined,
           nonFunctionalReason: companyData.nonFunctionalReason,
           nonFunctionalReasonOther: companyData.nonFunctionalReasonOther,
           promoterName: companyData.promoterName,
