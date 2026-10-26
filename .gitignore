@@ -76,3 +76,7 @@ Claude outputs/
 test/failures/
 test/goldens/
 test-failures.txt
+
+.worktrees/
+tmp/
+work/
