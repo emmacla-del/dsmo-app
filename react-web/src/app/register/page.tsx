@@ -46,6 +46,14 @@ import {
 import { asUiLocale, localized } from "@/lib/register-i18n";
 import { sectorLabel } from "@/lib/display-labels";
 import { branchesFor, dropUnofferedBranch } from "@/lib/register-activity";
+import {
+  branchList,
+  departmentList,
+  regionList,
+  subdivisionList,
+  subdivisionsStatusOf,
+} from "@/lib/register-reference";
+import { bundledSubdivisions } from "@/lib/location-nomenclature";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
@@ -292,16 +300,22 @@ export default function RegisterPage() {
   const [branchName, setBranchName] = useState("");
   const [branchNameEn, setBranchNameEn] = useState("");
 
-  const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions });
+  const regionsQuery = useQuery({
+    queryKey: ["locations", "regions"],
+    queryFn: getRegions,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
+  });
   const departmentsQuery = useQuery({
     queryKey: ["locations", "departments", regionId],
     queryFn: () => getDepartmentsByRegion(regionId),
     enabled: !!regionId,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
   const subdivisionsQuery = useQuery({
     queryKey: ["locations", "subdivisions", departmentId],
     queryFn: () => getSubdivisionsByDepartment(departmentId),
     enabled: !!departmentId,
+    refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
   const sectorsQuery = useQuery({
     queryKey: ["sectors"],
@@ -312,20 +326,26 @@ export default function RegisterPage() {
     refetchInterval: (query) => (query.state.status === "error" ? 30_000 : false),
   });
 
+  // The four required reference lists, read from the copies bundled with the
+  // app until the API answers (src/lib/register-reference.ts). Each select
+  // therefore has something to offer from the first render, as the sector and
+  // the year beside them always had; a live answer replaces the bundled list
+  // for the rest of the session, so a referential edit is still picked up.
+  const branches = branchList(sectorsQuery);
+  const regions = regionList(regionsQuery);
+  const departments = departmentList(departmentsQuery, regionId);
+  const subdivisions = subdivisionList(subdivisionsQuery, departmentId);
+
   // The subdivision list's four distinct states. "No subdivision selected" and
   // "this department has no subdivisions to select" must not collapse into one
   // another: the first has to block, the second must not, or a department the
   // server has no arrondissements for would strand the respondent here. See
   // SubdivisionsStatus for the full reasoning.
-  const subdivisionsStatus: SubdivisionsStatus = !departmentId
-    ? "idle"
-    : subdivisionsQuery.isFetching
-      ? "loading"
-      : subdivisionsQuery.isError
-        ? "error"
-        : (subdivisionsQuery.data?.length ?? 0) === 0
-          ? "empty"
-          : "ready";
+  const subdivisionsStatus: SubdivisionsStatus = subdivisionsStatusOf(
+    departmentId,
+    subdivisionsQuery,
+    departmentId ? bundledSubdivisions(departmentId) : [],
+  );
 
   // Immutable snapshot handed to the pure completeness checks. Assembled here
   // rather than inside isSectionComplete so that function never touches a hook.
@@ -367,10 +387,10 @@ export default function RegisterPage() {
   function setEntityField(key: string, value: string) {
     // A new sector drops a branch that belongs to another one.
     setEntityData((prev) =>
-      dropUnofferedBranch({ ...prev, [key]: value }, sectorsQuery.data, entityType)
+      dropUnofferedBranch({ ...prev, [key]: value }, branches, entityType)
     );
     if (key === "branchId") {
-      const picked = sectorsQuery.data?.find((s) => s.id === value);
+      const picked = branches.find((s) => s.id === value);
       setBranchName(picked?.name || "");
       setBranchNameEn(picked?.nameEn || "");
     }
@@ -395,16 +415,23 @@ export default function RegisterPage() {
     gated = false
   ): string {
     if (gated) return "";
+    if ((query.data?.length ?? 0) > 0) return "";
     if (query.isFetching) return t("registerPage.loadingOptions");
     if (query.isError) return t("registerPage.loadErrorOptions");
     if ((query.data?.length ?? 0) === 0) return t("registerPage.noOptions");
     return "";
   }
 
-  // A list that failed to load is a dead end unless the respondent can ask
-  // for it again: the select alone only says "Échec du chargement". Shown
-  // under the select, and only once the failed request has settled.
-  function loadRetry(query: { isError: boolean; isFetching: boolean; refetch: () => unknown }) {
+  // A list with nothing in it is a dead end unless the respondent can ask for
+  // it again: the select alone would only say "Échec du chargement". Shown
+  // under the select, and only once the failed request has settled -- never
+  // when the bundled list already offers something, where a failed refresh is
+  // the app's business and not the respondent's.
+  function loadRetry(
+    query: { isError: boolean; isFetching: boolean; refetch: () => unknown },
+    items: readonly unknown[],
+  ) {
+    if (items.length > 0) return null;
     if (!query.isError || query.isFetching) return null;
     return (
       <p className="field-hint" role="alert">
@@ -437,6 +464,7 @@ export default function RegisterPage() {
     id,
     label,
     query,
+    items,
     value,
     gatedBy,
     disabled,
@@ -449,8 +477,8 @@ export default function RegisterPage() {
       isFetching: boolean;
       isError: boolean;
       refetch: () => unknown;
-      data?: { id: string; name: string }[];
     };
+    items: { id: string; name: string }[];
     value: string;
     gatedBy?: boolean;
     disabled?: boolean;
@@ -476,18 +504,18 @@ export default function RegisterPage() {
             disabled={disabled ?? gatedBy}
             onChange={(e) => {
               const next = e.target.value;
-              onSelect(next, query.data?.find((item) => item.id === next)?.name || "");
+              onSelect(next, items.find((item) => item.id === next)?.name || "");
             }}
           >
-            <BlankOption label={selectStatusLabel(query, gatedBy)} />
-            {query.data?.map((item) => (
+            <BlankOption label={selectStatusLabel({ ...query, data: items }, gatedBy)} />
+            {items.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
             ))}
           </select>
         </div>
-        {loadRetry(query)}
+        {loadRetry(query, items)}
       </FormRow>
     );
   }
@@ -619,8 +647,10 @@ export default function RegisterPage() {
             // Disabled until a sector is chosen, like the department before
             // a region: the list is that sector's branches.
             <select {...controlProps} disabled={!entityData.activitySector}>
-              <BlankOption label={selectStatusLabel(sectorsQuery, !entityData.activitySector)} />
-              {branchesFor(sectorsQuery.data, entityData.activitySector, entityType).map((b) => (
+              <BlankOption
+                label={selectStatusLabel({ ...sectorsQuery, data: branches }, !entityData.activitySector)}
+              />
+              {branchesFor(branches, entityData.activitySector, entityType).map((b) => (
                 <option key={b.id} value={b.id}>
                   {sectorLabel(b, locale)}
                 </option>
@@ -646,7 +676,7 @@ export default function RegisterPage() {
             />
           )}
         </div>
-        {field.kind === "branch" && loadRetry(sectorsQuery)}
+        {field.kind === "branch" && loadRetry(sectorsQuery, branches)}
       </FormRow>
     );
   }
@@ -861,11 +891,11 @@ export default function RegisterPage() {
     }
   };
 
-  const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
-  const resolvedDepartmentName = departmentName || departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
-  const resolvedSubdivisionName = subdivisionName || subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
+  const resolvedRegionName = regionName || regions.find((r) => r.id === regionId)?.name;
+  const resolvedDepartmentName = departmentName || departments.find((d) => d.id === departmentId)?.name;
+  const resolvedSubdivisionName = subdivisionName || subdivisions.find((s) => s.id === subdivisionId)?.name;
   const branchId = entityData.branchId ?? "";
-  const pickedBranch = branchId ? sectorsQuery.data?.find((s) => s.id === branchId) : undefined;
+  const pickedBranch = branchId ? branches.find((s) => s.id === branchId) : undefined;
   const resolvedBranchName = branchId ? pickedBranch?.name || branchName : "";
   const resolvedBranchNameEn = branchId ? pickedBranch?.nameEn || branchNameEn : "";
 
@@ -1080,7 +1110,7 @@ export default function RegisterPage() {
       // rather than relying on that alone.
       // A branch the new type is not offered goes too.
       setEntityData((prev) =>
-        dropUnofferedBranch(pruneEntityDataForType(prev, next), sectorsQuery.data, next)
+        dropUnofferedBranch(pruneEntityDataForType(prev, next), branches, next)
       );
     }
     setEntityType(next);
@@ -1893,6 +1923,7 @@ export default function RegisterPage() {
                 id: "reg-region",
                 label: t("registerPage.regionLabel"),
                 query: regionsQuery,
+                items: regions,
                 value: regionId,
                 onSelect: (id, name) => {
                   // A new region invalidates the two fields below it. That
@@ -1915,6 +1946,7 @@ export default function RegisterPage() {
                 id: "reg-department",
                 label: t("registerPage.departmentLabel"),
                 query: departmentsQuery,
+                items: departments,
                 value: departmentId,
                 gatedBy: !regionId,
                 onSelect: (id, name) => {
@@ -1929,6 +1961,7 @@ export default function RegisterPage() {
                 id: "reg-subdivision",
                 label: t("registerPage.subdivisionLabel"),
                 query: subdivisionsQuery,
+                items: subdivisions,
                 value: subdivisionId,
                 gatedBy: !departmentId,
                 // An arrondissement cannot be required of a department the
