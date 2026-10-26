@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
-import { DayPicker, type DateRange } from "react-day-picker";
-import { enGB, fr } from "react-day-picker/locale";
+import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   approveUser,
@@ -44,7 +44,7 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
-import { CoveragePanel, type CoverageSelection } from "@/components/admin/CoveragePanel";
+import type { CoverageSelection } from "@/components/admin/CoveragePanel";
 import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,20 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 const PAGE_SIZE = 8;
+
+const CoveragePanel = dynamic(
+  () => import("@/components/admin/CoveragePanel").then((module) => module.CoveragePanel),
+  {
+    loading: () => <InlineLoading className="cam-admin-section cam-registration-coverage-loading" />,
+  },
+);
+
+const RegistrationQueueDatePicker = dynamic(
+  () => import("@/components/admin/RegistrationQueueDatePicker").then((module) => module.RegistrationQueueDatePicker),
+  {
+    loading: () => <InlineLoading className="cam-registration-calendar-loading" />,
+  },
+);
 
 /** The console tones, as Badge variants. */
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
@@ -150,6 +164,15 @@ function InscriptionsLoading() {
         resource={t("pageTitle")}
         title={tRoot("common.loading")}
       />
+    </div>
+  );
+}
+
+function InlineLoading({ className }: { className: string }) {
+  const t = useTranslations("common");
+  return (
+    <div className={className} role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{t("loading")}</span>
     </div>
   );
 }
@@ -327,6 +350,8 @@ function InscriptionsContent() {
         pageSize: PAGE_SIZE,
       }),
     enabled: canReadQueue && vue === "file",
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
   });
 
   const closeReview = () => {
@@ -425,9 +450,11 @@ function InscriptionsContent() {
   // The threshold the server applied, so the labels match the flags.
   const overdueDays = queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS;
   const total = queueQuery.data?.total ?? 0;
+  const queueUpdating = queueQuery.isFetching && queueQuery.data !== undefined;
   const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
 
-  const start = items.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const displayedPage = queueQuery.data?.page ?? page;
+  const start = items.length === 0 ? 0 : (displayedPage - 1) * PAGE_SIZE + 1;
   const end = items.length === 0 ? 0 : start + items.length - 1;
 
   const tableState = resolveDataState({
@@ -586,6 +613,13 @@ function InscriptionsContent() {
         </Alert>
       )}
 
+      {vue === "file" && queueUpdating && (
+        <p className="cam-registration-queue-updating" role="status" aria-live="polite">
+          <span className="cam-registration-queue-spinner" aria-hidden="true" />
+          {t("updatingQueue")}
+        </p>
+      )}
+
       {/* Files the reviewers have not decided in time. The national
           administration may decide any file; this is where it sees which. */}
       {!!counts?.overdue && !overdueOnly && (
@@ -604,7 +638,7 @@ function InscriptionsContent() {
       )}
 
       {canReadQueue && (
-        <section className="cam-registration-status-panel" aria-labelledby="registration-status-title">
+        <section className="cam-registration-status-panel" aria-labelledby="registration-status-title" aria-busy={queueUpdating}>
           <div className="cam-registration-status-head">
             <h2 id="registration-status-title">{t("statusDistributionTitle")}</h2>
             <span>{t("statusDistributionContext")}</span>
@@ -644,7 +678,7 @@ function InscriptionsContent() {
         </section>
       )}
 
-      <Card className="cam-registration-queue-card">
+      <Card className="cam-registration-queue-card" aria-busy={queueUpdating}>
         <CardContent>
           {hasActiveQueueFilters && (
             <div className="cam-registration-filter-summary" role="group" aria-label={t("activeFiltersLabel")}>
@@ -751,36 +785,10 @@ function InscriptionsContent() {
                       </div>
                       <div className="border-t pt-3">
                         <p className="mb-2 text-sm font-medium">{t("customDateRange")}</p>
-                        <DayPicker
-                          mode="range"
+                        <RegistrationQueueDatePicker
                           selected={pendingDateRange}
                           onSelect={setPendingDateRange}
-                          locale={locale === "fr" ? fr : enGB}
-                          disabled={{ after: new Date() }}
-                          className="mx-auto"
-                          classNames={{
-                            months: "flex",
-                            month: "space-y-3",
-                            month_caption: "relative flex h-8 items-center justify-center",
-                            caption_label: "text-sm font-medium",
-                            nav: "flex items-center gap-1",
-                            button_previous: "absolute left-0 inline-flex size-8 items-center justify-center rounded-md border border-input bg-background hover:bg-accent",
-                            button_next: "absolute right-0 inline-flex size-8 items-center justify-center rounded-md border border-input bg-background hover:bg-accent",
-                            month_grid: "w-full border-collapse",
-                            weekdays: "flex",
-                            weekday: "w-9 rounded-md text-center text-[0.8rem] font-normal text-muted-foreground",
-                            weeks: "mt-2 flex flex-col gap-1",
-                            week: "flex w-full",
-                            day: "relative size-9 p-0 text-center text-sm focus-within:z-20 [&:has([aria-selected])]:bg-accent/60",
-                            day_button: "inline-flex size-9 items-center justify-center rounded-md p-0 font-normal hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                            range_start: "rounded-l-md bg-accent",
-                            range_end: "rounded-r-md bg-accent",
-                            range_middle: "rounded-none bg-accent/60",
-                            today: "font-semibold text-primary",
-                            outside: "text-muted-foreground opacity-50",
-                            disabled: "text-muted-foreground opacity-40",
-                          }}
+                          locale={locale}
                         />
                         <p className="mt-2 min-h-5 text-xs text-muted-foreground" aria-live="polite">
                           {pendingDateRange?.from
@@ -916,6 +924,7 @@ function InscriptionsContent() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        disabled={queueUpdating}
                         onClick={() => { setNotice(null); setReviewing(item); }}
                       >
                         {t("reviewButton")}
@@ -937,10 +946,10 @@ function InscriptionsContent() {
           <span>
             {t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}
           </span>
-          <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+          <Button type="button" variant="outline" size="sm" disabled={queueUpdating || page <= 1} onClick={() => setPage((current) => current - 1)}>
             {t("previousButton")}
           </Button>
-          <Button type="button" variant="outline" size="sm" disabled={end >= total} onClick={() => setPage((current) => current + 1)}>
+          <Button type="button" variant="outline" size="sm" disabled={queueUpdating || end >= total} onClick={() => setPage((current) => current + 1)}>
             {t("nextButton")}
           </Button>
         </div>

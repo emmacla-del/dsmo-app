@@ -15,6 +15,9 @@ export const PROJECT_NATURE_VALUES = [
 
 export const CAMEROON_PHONE_PATTERN = /^(?:(?:\+|00)?237[\s().-]*)?[\s().-]*[26](?:[\s().-]*\d){8}$/;
 
+// The two values the VT registration form's promoter-sex question offers.
+export const PROMOTER_SEX_VALUES = ['Masculin', 'Féminin'] as const;
+
 /**
  * Every company-registration field except the password.
  *
@@ -198,7 +201,7 @@ export class CompanyRegistrationFieldsDto {
   nonFunctionalReasonOther?: string;
 
   @IsOptional() @IsString() promoterName?: string;
-  @IsOptional() @IsString() promoterSex?: string;
+  @IsOptional() @IsString() @IsIn(PROMOTER_SEX_VALUES) promoterSex?: string;
   @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
   @IsString() @Matches(CAMEROON_PHONE_PATTERN)
   promoterPhone1?: string;

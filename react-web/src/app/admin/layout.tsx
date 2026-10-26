@@ -216,7 +216,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <main className="cam-admin-main">
           {/* D8: per-page gate on top of the console gate above. */}
-          <RequireAdminRole>{children}</RequireAdminRole>
+          <div key={pathname} className="cam-admin-route-transition">
+            <RequireAdminRole>{children}</RequireAdminRole>
+          </div>
         </main>
       </div>
     </div>
