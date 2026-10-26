@@ -210,6 +210,10 @@ model User {
   createdBy                  String?
   // Free text until the values settle (e.g. SELF_REGISTRATION, ADMIN_CREATED).
   registrationMethod         String?
+  // Browser-generated idempotency key for a self-registration queued offline.
+  // A retry after an uncertain connection reuses this key instead of creating
+  // a second account.
+  registrationRequestId      String?            @unique
   // Reserved for session invalidation ("réinitialiser la session"); not read yet.
   tokenVersion               Int                @default(0)
   // Human-readable registration number (e.g. INS-2026-0847); no generator yet.
