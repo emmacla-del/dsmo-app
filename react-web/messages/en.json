@@ -489,6 +489,8 @@
     "queuedTitle": "Signup saved on this device",
     "queuedBody": "We couldn't confirm your signup. An encrypted copy is saved on this device and will sync when a connection is available. If the server already received it, retry protection prevents a duplicate account.",
     "queuedSyncSuccess": "Your saved signup was sent when the connection returned.",
+    "queuedAlreadyCreated": "Your account was already created successfully.",
+    "queuedConflictReview": "Your saved signup needs review before it can be retried. It was removed from this device.",
     "queuedEmailExists": "Your saved signup was not sent because an account with this email already exists. Please review it, then sign in or use a different email.",
     "dismissNotice": "Dismiss",
     "queuedDateLabel": "Saved on this device",

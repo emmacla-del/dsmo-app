@@ -489,6 +489,8 @@
     "queuedTitle": "Inscription enregistrée sur cet appareil",
     "queuedBody": "Nous n'avons pas pu confirmer votre inscription. Une copie chiffrée est enregistrée sur cet appareil et sera synchronisée dès qu'une connexion sera disponible. Si le serveur l'a déjà reçue, la protection contre les répétitions évite de créer un doublon.",
     "queuedSyncSuccess": "Votre inscription enregistrée a été envoyée lorsque la connexion est revenue.",
+    "queuedAlreadyCreated": "Votre compte a déjà été créé avec succès.",
+    "queuedConflictReview": "Votre inscription enregistrée doit être vérifiée avant une nouvelle tentative. Elle a été supprimée de cet appareil.",
     "queuedEmailExists": "Votre inscription enregistrée n'a pas été envoyée, car un compte existe déjà avec cette adresse e-mail. Vérifiez-la, puis connectez-vous ou utilisez une autre adresse.",
     "dismissNotice": "Fermer",
     "queuedDateLabel": "Enregistrée sur cet appareil",
