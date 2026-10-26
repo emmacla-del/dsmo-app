@@ -1898,7 +1898,7 @@ export class AuthService {
           });
           const updated = await tx.user.update({
             where: { id: user.id },
-            data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
+            data: { status: 'ACTIVE', isActive: true, approvedAt: new Date(), approvedBy: actorId },
           });
           await tx.auditLog.create({
             data: {
