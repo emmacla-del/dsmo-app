@@ -10,6 +10,11 @@ interface AdminDialogProps {
   eyebrow?: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /**
+   * When false, Escape and the close button cannot dismiss the dialog.
+   * Used while a one-time credential is on screen.
+   */
+  dismissible?: boolean;
   children: ReactNode;
 }
 
@@ -18,7 +23,16 @@ interface AdminDialogProps {
  * trapping, Escape-to-close, an inert background and focus return for free,
  * which the previous hand-rolled fixed-position overlays lacked.
  */
-export function AdminDialog({ open, onClose, title, eyebrow, footer, wide, children }: AdminDialogProps) {
+export function AdminDialog({
+  open,
+  onClose,
+  title,
+  eyebrow,
+  footer,
+  wide,
+  dismissible = true,
+  children,
+}: AdminDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const t = useTranslations("adminDialog");
 
@@ -34,6 +48,9 @@ export function AdminDialog({ open, onClose, title, eyebrow, footer, wide, child
       ref={ref}
       className={`cam-admin-dialog${wide ? " is-wide" : ""}`}
       aria-labelledby="cam-admin-dialog-title"
+      onCancel={(event) => {
+        if (!dismissible) event.preventDefault();
+      }}
       onClose={onClose}
     >
       {open && (
@@ -45,9 +62,11 @@ export function AdminDialog({ open, onClose, title, eyebrow, footer, wide, child
                 {title}
               </h2>
             </div>
-            <button type="button" className="cam-admin-dialog-close" aria-label={t("closeAriaLabel")} onClick={onClose}>
-              ×
-            </button>
+            {dismissible && (
+              <button type="button" className="cam-admin-dialog-close" aria-label={t("closeAriaLabel")} onClick={onClose}>
+                ×
+              </button>
+            )}
           </div>
           <div className="cam-admin-dialog-body">{children}</div>
           {footer && <div className="cam-admin-dialog-foot">{footer}</div>}

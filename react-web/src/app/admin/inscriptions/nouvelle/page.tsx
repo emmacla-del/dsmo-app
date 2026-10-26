@@ -20,6 +20,7 @@ import {
   type EntityType,
 } from "@/lib/register-constants";
 import { asUiLocale, localized, type UiLocale } from "@/lib/register-i18n";
+import { dateForCalendar, dateFromCalendar } from "@/lib/register-date";
 import { branchesFor, dropUnofferedBranch, type BranchRow } from "@/lib/register-activity";
 import { getSectors } from "@/lib/api-client";
 import { sectorLabel } from "@/lib/display-labels";
@@ -38,6 +39,7 @@ import { formatApiError } from "@/lib/pilotage-targets";
 import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -135,7 +137,8 @@ export default function NouvelleInscriptionPage() {
   }
   const [result, setResult] = useState<AssistedRegistrationResult | null>(null);
   const [copied, setCopied] = useState(false);
-  const hasUnsavedChanges = !result && (
+  const [credentialsAcknowledged, setCredentialsAcknowledged] = useState(false);
+  const formHasUnsavedChanges = !result && (
     Boolean(entityType)
     || Object.values(entityData).some((value) => value.trim() !== "")
     || Object.values(respondent).some((value) => value.trim() !== "")
@@ -144,6 +147,8 @@ export default function NouvelleInscriptionPage() {
     // region or department is not state and was never typed here.
     || Boolean(chosenRegion || chosenDepartment)
   );
+  const credentialsAtRisk = Boolean(result) && !credentialsAcknowledged;
+  const hasUnsavedChanges = formHasUnsavedChanges || credentialsAtRisk;
 
   // The branches of activity (the `sectors` table), the same list and query
   // key as the public wizard.
@@ -162,6 +167,7 @@ export default function NouvelleInscriptionPage() {
     mutationFn: adminRegisterCompany,
     onSuccess: (data) => {
       setResult(data);
+      setCredentialsAcknowledged(false);
       setError(null);
       setCopied(false);
     },
@@ -202,6 +208,12 @@ export default function NouvelleInscriptionPage() {
     setError(null);
     setResult(null);
     setCopied(false);
+    setCredentialsAcknowledged(false);
+  }
+
+  function closeResult() {
+    if (!credentialsAcknowledged) return;
+    resetForm();
   }
 
   /** The first unmet requirement, or null when the form may be sent. */
@@ -457,13 +469,29 @@ export default function NouvelleInscriptionPage() {
 
       <AdminDialog
         open={!!result}
-        onClose={resetForm}
+        onClose={closeResult}
+        dismissible={!result || credentialsAcknowledged}
         eyebrow={t("adminInscriptionsNouvellePage.successEyebrow")}
         title={result?.company.name ?? ""}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={resetForm}>{t("adminInscriptionsNouvellePage.title")}</Button>
-            <Button asChild><Link href="/admin/inscriptions">{t("adminInscriptionsNouvellePage.viewQueueLink")}</Link></Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeResult}
+              disabled={!credentialsAcknowledged}
+            >
+              {t("adminInscriptionsNouvellePage.title")}
+            </Button>
+            {credentialsAcknowledged ? (
+              <Button asChild>
+                <Link href="/admin/inscriptions">{t("adminInscriptionsNouvellePage.viewQueueLink")}</Link>
+              </Button>
+            ) : (
+              <Button type="button" disabled>
+                {t("adminInscriptionsNouvellePage.viewQueueLink")}
+              </Button>
+            )}
           </>
         }
       >
@@ -493,15 +521,37 @@ export default function NouvelleInscriptionPage() {
               {copied && <span className="text-sm text-muted-foreground" role="status">{t("adminInscriptionsNouvellePage.copiedLabel")}</span>}
             </p>
             <Alert variant="warning" role="status"><AlertDescription>{t("adminInscriptionsNouvellePage.passwordShownOnceWarning")}</AlertDescription></Alert>
+            <div className="mt-4 flex items-start gap-2">
+              <Checkbox
+                id="assisted-credentials-acknowledged"
+                checked={credentialsAcknowledged}
+                onCheckedChange={(checked) => setCredentialsAcknowledged(checked === true)}
+              />
+              <Label htmlFor="assisted-credentials-acknowledged" className="font-normal leading-snug">
+                {t("adminInscriptionsNouvellePage.credentialsAcknowledged")}
+              </Label>
+            </div>
           </div>
         )}
       </AdminDialog>
       <UnsavedNavigationGuard
         active={hasUnsavedChanges}
-        title={t("adminInscriptionsNouvellePage.leaveTitle")}
-        body={t("adminInscriptionsNouvellePage.leaveBody")}
+        title={
+          credentialsAtRisk
+            ? t("adminInscriptionsNouvellePage.credentialsLeaveTitle")
+            : t("adminInscriptionsNouvellePage.leaveTitle")
+        }
+        body={
+          credentialsAtRisk
+            ? t("adminInscriptionsNouvellePage.credentialsLeaveBody")
+            : t("adminInscriptionsNouvellePage.leaveBody")
+        }
         cancelLabel={t("adminInscriptionsNouvellePage.leaveCancel")}
-        confirmLabel={t("adminInscriptionsNouvellePage.leaveConfirm")}
+        confirmLabel={
+          credentialsAtRisk
+            ? t("adminInscriptionsNouvellePage.credentialsLeaveConfirm")
+            : t("adminInscriptionsNouvellePage.leaveConfirm")
+        }
       />
     </div>
   );
@@ -620,9 +670,70 @@ function EntityFieldInput({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const selectId = useId();
+  const fieldId = useId();
   const label = localized(field.label, locale);
   const hint = field.hint ? localized(field.hint, locale) : undefined;
+
+  if (field.kind === "radio") {
+    const hintId = hint ? `${fieldId}-hint` : undefined;
+    return (
+      <fieldset className="mb-4 grid gap-2 text-sm font-medium" aria-describedby={hintId}>
+        <legend>
+          {label}
+          {field.required && <span aria-hidden="true"> *</span>}
+        </legend>
+        <RadioGroup
+          value={value}
+          onValueChange={onChange}
+          required={field.required}
+          aria-required={field.required || undefined}
+          className="gap-2"
+        >
+          {(field.options ?? []).map((option, index) => {
+            const optionId = `${fieldId}-${index}`;
+            return (
+              <div key={option.value} className="flex items-center gap-2">
+                <RadioGroupItem id={optionId} value={option.value} />
+                <Label htmlFor={optionId} className="font-normal">
+                  {localized(option.label, locale)}
+                </Label>
+              </div>
+            );
+          })}
+        </RadioGroup>
+        {hint && (
+          <span id={hintId} className="text-xs font-normal text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </fieldset>
+    );
+  }
+
+  if (field.kind === "date") {
+    const hintId = hint ? `${fieldId}-hint` : undefined;
+    return (
+      <div className="mb-4 grid gap-2 text-sm font-medium">
+        <Label htmlFor={fieldId}>
+          {label}
+          {field.required && <span aria-hidden="true"> *</span>}
+        </Label>
+        <Input
+          id={fieldId}
+          type="date"
+          value={dateForCalendar(value)}
+          required={field.required}
+          aria-describedby={hintId}
+          onChange={(event) => onChange(dateFromCalendar(event.target.value))}
+        />
+        {hint && (
+          <span id={hintId} className="text-xs font-normal text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   if (field.kind === "year") {
     return (
@@ -640,9 +751,9 @@ function EntityFieldInput({
   if (field.kind === "branch") {
     return (
       <div className="mb-4 grid gap-2 text-sm font-medium">
-        <Label htmlFor={selectId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
+        <Label htmlFor={fieldId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
         <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required} disabled={branches.length === 0}>
-          <SelectTrigger id={selectId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
+          <SelectTrigger id={fieldId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
           <SelectContent>
           <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
           {branches.map((branch) => (
@@ -657,9 +768,9 @@ function EntityFieldInput({
   if (field.kind === "select") {
     return (
       <div className="mb-4 grid gap-2 text-sm font-medium">
-        <Label htmlFor={selectId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
+        <Label htmlFor={fieldId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
         <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required}>
-          <SelectTrigger id={selectId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
+          <SelectTrigger id={fieldId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
           <SelectContent>
           <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
           {(field.options ?? []).map((option) => (
