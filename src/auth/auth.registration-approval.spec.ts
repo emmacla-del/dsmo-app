@@ -125,6 +125,16 @@ describe('AuthService company registration approval', () => {
     expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ establishmentId: expect.stringMatching(/^EN\d{6}12$/) }),
     }));
+    // Who approved is stored beside approvedAt, so the approval stays
+    // attributable after the fact.
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u-co' },
+      data: expect.objectContaining({
+        status: 'ACTIVE',
+        approvedAt: expect.any(Date),
+        approvedBy: 'actor-1',
+      }),
+    }));
   });
 
   it('approves a file that already holds its ID: no generation, no ID write, -01 from that ID', async () => {
