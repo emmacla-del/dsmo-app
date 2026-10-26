@@ -18,6 +18,7 @@ import {
   LEVEL_ROLE,
   createGroupLink,
   getAllServicePositions,
+  levelFixesPost,
   getOrganigramme,
   getPositionTypesForRole,
   groupLinkMessage,
@@ -210,15 +211,19 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
   const level = form.level || null;
   const needsRegion = level ? levelNeedsRegion(level) : false;
   const needsDepartment = level ? levelNeedsDepartment(level) : false;
+  // A territorial link is a region, not a post: it names no unit and no
+  // post, and the officer who opens it picks their own.
+  const fixesPost = !!level && levelFixesPost(level);
+  const levelRole = level ? LEVEL_ROLE[level] : undefined;
 
   // The organigramme, and every post in it, once the dialog is open. The
   // post types come from the server so they carry its own generic labels.
-  const treeQuery = useQuery({ queryKey: ["minefop-services", "tree"], queryFn: getOrganigramme, enabled: open });
-  const postsQuery = useQuery({ queryKey: ["minefop-services", "positions"], queryFn: getAllServicePositions, enabled: open });
+  const treeQuery = useQuery({ queryKey: ["minefop-services", "tree"], queryFn: getOrganigramme, enabled: open && fixesPost });
+  const postsQuery = useQuery({ queryKey: ["minefop-services", "positions"], queryFn: getAllServicePositions, enabled: open && fixesPost });
   const typeLabelsQuery = useQuery({
-    queryKey: ["minefop-services", "position-types", level],
-    queryFn: () => getPositionTypesForRole(LEVEL_ROLE[level as InvitationLevel]),
-    enabled: open && !!level,
+    queryKey: ["minefop-services", "position-types", levelRole],
+    queryFn: () => getPositionTypesForRole(levelRole as string),
+    enabled: open && !!levelRole,
   });
 
   const posts = postsQuery.data ?? [];
@@ -245,8 +250,7 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
     !!level &&
     (!needsRegion || !!form.region) &&
     (!needsDepartment || !!form.department) &&
-    !!form.positionType &&
-    !!form.serviceCode &&
+    (!fixesPost || (!!form.positionType && !!form.serviceCode)) &&
     Number.isInteger(days) && days >= 1 && days <= GROUP_LINK_MAX_DAYS &&
     Number.isInteger(uses) && uses >= 1 && uses <= GROUP_LINK_MAX_USES;
 
@@ -257,8 +261,7 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
         level: level as InvitationLevel,
         region: needsRegion ? form.region : undefined,
         department: needsDepartment ? form.department : undefined,
-        positionType: form.positionType,
-        serviceCode: form.serviceCode,
+        ...(fixesPost ? { positionType: form.positionType, serviceCode: form.serviceCode } : {}),
         expiresInDays: days,
         maxUses: uses,
       }),
@@ -380,7 +383,7 @@ function CreateGroupLinkDialog({ open, onClose, onCreated }: { open: boolean; on
             ))}
           </fieldset>
 
-          {level && (
+          {level && fixesPost && (
             <>
               <DataState
                 state={organigrammeState}

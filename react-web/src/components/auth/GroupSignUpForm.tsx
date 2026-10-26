@@ -15,6 +15,7 @@ import {
   previewFixesPost,
   previewGroupLink,
   servicesForLevel,
+  signupTerritoryAsked,
   type OrgServiceNode,
   signUpWithGroupLink,
   territoryPhrase,
@@ -31,9 +32,17 @@ import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityTo
 // success screen says plainly so nobody tries to sign in and thinks it
 // failed.
 //
-// A link made before 2026-10-25 carries no post, and for it the service and
-// post dropdowns remain. Both old and new links ask for the territory only
-// when the chosen service requires it.
+// Two kinds of link keep the service and post dropdowns. A TERRITORIAL link
+// is a whole region -- it names no post on purpose, and offers the regional
+// delegation's units and the divisional ones under it in one list, so the
+// officer says which bureau they work in. A link made before 2026-10-25
+// carries no post either.
+//
+// The territory is asked for only where the link does not already pin it,
+// and only as much as the chosen unit needs: a territorial link answers the
+// region itself, so a divisional officer is asked for their division alone,
+// and it can only be a division of that region. A regional or central unit
+// is asked for nothing.
 
 const MIN_LENGTH = 8;
 const MIN_STRENGTH = 0.35;
@@ -145,8 +154,12 @@ export function GroupSignUpForm({ token }: { token: string }) {
   const services = link && treeQuery.data ? servicesForLevel(treeQuery.data, link.level, locale) : [];
   const selectedServiceCode = fixedPost ? link?.serviceCode : serviceCode;
   const selectedService = findServiceNode(treeQuery.data, selectedServiceCode);
-  const needsRegion = !!selectedService && (selectedService.requiresRegion || selectedService.requiresDepartment);
-  const needsDepartment = !!selectedService?.requiresDepartment;
+  // How much territory the unit needs, LESS what the link already pins. A
+  // link made for a region answers the region itself, so its holder is asked
+  // only for the division, and only if the unit they picked has one.
+  const territoryAsked = signupTerritoryAsked(link ?? { region: null, department: null }, selectedService);
+  const needsRegion = territoryAsked.region;
+  const needsDepartment = territoryAsked.department;
   const regions = territoryQuery.data ?? [];
   const departments = getValidDepartments(territoryQuery.data, region);
 

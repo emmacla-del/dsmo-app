@@ -196,14 +196,15 @@ describe('StaffInvitationLinkService.signUp', () => {
 
   it('creates a PENDING_APPROVAL account on the post the link carries, whatever the request says', async () => {
     const { service, prisma, link } = await withLink();
-    // Service and post belong to the link; the officer's selected territory
-    // is validated and used for the account.
+    // The service, the post AND the region belong to the link: a request
+    // naming another unit, another post and another region gets none of
+    // them.
     const r = await service.signUp({
       ...PERSON, token: link.token, serviceCode: 'DREFOP-SPE-BAE', positionType: 'CHEF_SERVICE', region: 'Littoral',
     } as any);
     expect(r).toEqual({ email: 'agent.un@minefop.cm', status: 'PENDING_APPROVAL' });
     expect(prisma.__users[0]).toMatchObject({
-      role: 'REGIONAL_ADMIN', region: 'Littoral', department: null,
+      role: 'REGIONAL_ADMIN', region: 'Centre', department: null,
       serviceCode: 'DREFOP', positionType: 'STAFF', poste: 'Cadre', matricule: 'M-12345',
       status: 'PENDING_APPROVAL', isActive: false, createdBy: SUPER.id, registrationMethod: 'INVITATION_LINK',
     });
@@ -227,23 +228,36 @@ describe('StaffInvitationLinkService.signUp', () => {
     expect(prisma.__links[0].useCount).toBe(0);
   });
 
-  it('requires territory from the officer according to the linked service', async () => {
-    const regional = await withLink();
-    const { region, ...withoutRegion } = PERSON;
-    await expect(regional.service.signUp({ ...withoutRegion, token: regional.link.token }))
-      .rejects.toThrow('Choisissez une région.');
-    expect(regional.prisma.__links[0].useCount).toBe(0);
-
+  it('a link that pins a territory gives it, and a different one in the request changes nothing', async () => {
+    // The departmental link pins both halves, so neither is asked for and
+    // neither can be talked out of: this is what ties a staff account to the
+    // delegation that invited it.
     const departmental = await withLink({
       label: 'Personnel DDEFOP', level: 'departmental', region: 'Centre', department: 'Mfoundi',
       serviceCode: 'DDEFOP', positionType: 'STAFF',
     });
     await expect(departmental.service.signUp({ ...PERSON, token: departmental.link.token, department: '' }))
-      .rejects.toThrow('Choisissez un département.');
+      .resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
     await expect(departmental.service.signUp({
-      ...PERSON, token: departmental.link.token, region: 'Littoral', department: 'Wouri',
+      ...PERSON, email: 'other@m.cm', token: departmental.link.token, region: 'Littoral', department: 'Wouri',
     })).resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
-    expect(departmental.prisma.__users[0]).toMatchObject({ region: 'Littoral', department: 'Wouri' });
+    expect(departmental.prisma.__users.map((u: any) => [u.region, u.department])).toEqual([
+      ['Centre', 'Mfoundi'],
+      ['Centre', 'Mfoundi'],
+    ]);
+  });
+
+  it('a link that pins no territory asks the officer for what the service needs', async () => {
+    // The national link that creates the delegates themselves: few enough
+    // that a national officer checks each claim by hand.
+    const { service, prisma, link } = withLegacyLink({ region: null, department: null });
+    const { region, ...withoutRegion } = PERSON;
+    await expect(service.signUp({ ...withoutRegion, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF' }))
+      .rejects.toThrow('Choisissez une région.');
+    expect(prisma.__links[0].useCount).toBe(0);
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'STAFF', region: 'Littoral' }))
+      .resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
+    expect(prisma.__users[0]).toMatchObject({ region: 'Littoral', department: null });
   });
 
   it('refuses the link whose service has left the organigramme since it was made', async () => {
@@ -322,6 +336,88 @@ describe('StaffInvitationLinkService.signUp', () => {
     await expect(service.preview(link.token)).resolves.toMatchObject({
       serviceCode: null, serviceName: null, positionType: null, positionTitle: null,
     });
+  });
+});
+
+/**
+ * One link for a whole regional delegation: the regional services and the
+ * divisional ones under it. The region is the link's and is never asked; the
+ * unit decides the role; a divisional unit then asks for the division, and
+ * only the divisions of the link's own region are accepted.
+ */
+describe('StaffInvitationLinkService territorial link', () => {
+  const TERRITORIAL = { label: 'Personnel de la région du Centre', level: 'territorial', region: 'Centre' };
+
+  async function withTerritorialLink(input: any = TERRITORIAL) {
+    const ctx = makeService();
+    const link = await ctx.service.create(input, SUPER);
+    return { ...ctx, link };
+  }
+
+  it('is made for a region, with no post and no department', async () => {
+    const { service, prisma } = makeService();
+    const r = await service.create(TERRITORIAL, ONEFOP);
+    expect(r).toMatchObject({
+      level: 'territorial', region: 'Centre', department: null,
+      serviceCode: null, serviceName: null, positionType: null, positionTitle: null,
+      // Which of the two roles it produces is not known until a unit is
+      // picked, so the link promises neither.
+      role: null,
+    });
+    expect(prisma.__links[0]).toMatchObject({ serviceCode: null, positionType: null });
+  });
+
+  it('needs its region, and a post sent with it is not stored', async () => {
+    const { service, prisma } = makeService();
+    await expect(service.create({ ...TERRITORIAL, region: '' }, SUPER)).rejects.toThrow(BadRequestException);
+    await service.create({ ...TERRITORIAL, serviceCode: 'DREFOP', positionType: 'STAFF' }, SUPER);
+    expect(prisma.__links[0]).toMatchObject({ level: 'territorial', serviceCode: null, positionType: null });
+  });
+
+  it('a regional unit gives REGIONAL_ADMIN in the link region, with no division asked', async () => {
+    const { service, prisma, link } = await withTerritorialLink();
+    const { region, ...noRegion } = PERSON;
+    await service.signUp({ ...noRegion, token: link.token, serviceCode: 'DREFOP-SPE', positionType: 'CHEF_SERVICE' });
+    expect(prisma.__users[0]).toMatchObject({
+      role: 'REGIONAL_ADMIN', region: 'Centre', department: null,
+      serviceCode: 'DREFOP-SPE', poste: "Chef du Service de la Promotion de l'Emploi",
+    });
+  });
+
+  it('a divisional unit gives DIVISIONAL_ADMIN, the division chosen inside the link region', async () => {
+    const { service, prisma, link } = await withTerritorialLink();
+    const { region, ...noRegion } = PERSON;
+    await service.signUp({ ...noRegion, token: link.token, serviceCode: 'DDEFOP-BAG', positionType: 'STAFF', department: 'Mfoundi' });
+    expect(prisma.__users[0]).toMatchObject({
+      role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Mfoundi', serviceCode: 'DDEFOP-BAG', poste: 'Cadre',
+    });
+  });
+
+  it('refuses a division of another region, and a division left blank', async () => {
+    const { service, prisma, link } = await withTerritorialLink();
+    // Wouri is Littoral's: the link pins Centre, so it is not on offer.
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DDEFOP', positionType: 'STAFF', department: 'Wouri' }))
+      .rejects.toThrow('Choisissez un département valide pour la région sélectionnée.');
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DDEFOP', positionType: 'STAFF' }))
+      .rejects.toThrow('Choisissez un département.');
+    expect(prisma.__users).toHaveLength(0);
+    expect(prisma.__links[0].useCount).toBe(0);
+  });
+
+  it('offers neither a central service nor a post the unit does not have', async () => {
+    const { service, link } = await withTerritorialLink();
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL' }))
+      .rejects.toThrow('Ce service n\'est pas couvert par ce lien.');
+    await expect(service.signUp({ ...PERSON, token: link.token, serviceCode: 'DREFOP', positionType: 'MINISTRE' }))
+      .rejects.toThrow("Ce poste n'existe pas dans ce service.");
+  });
+
+  it('a central link is unaffected: no territory at all', async () => {
+    const { service, prisma, link } = await withTerritorialLink({
+      label: 'Services centraux', level: 'central', serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL',
+    });
+    await service.signUp({ ...PERSON, token: link.token });
+    expect(prisma.__users[0]).toMatchObject({ role: 'CENTRAL_AGENT', region: null, department: null });
   });
 });
 

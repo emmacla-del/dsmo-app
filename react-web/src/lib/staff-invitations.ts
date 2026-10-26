@@ -72,17 +72,30 @@ export function getPositionTypesForRole(role: string) {
  * organigramme: the two delegations are the DREFOP and DDEFOP subtrees,
  * "central" is every central and attached service.
  */
-export type InvitationLevel = "regional" | "departmental" | "central";
+/**
+ * "territorial" is one region's whole staff -- the regional delegation's
+ * services and the divisional ones under it -- so a delegation needs one
+ * link instead of one per division. It is the only level that fixes no post:
+ * its holder picks their own unit, which decides whether they are a regional
+ * or a divisional officer.
+ */
+export type InvitationLevel = "regional" | "departmental" | "territorial" | "central";
 
-export const INVITATION_LEVELS: readonly InvitationLevel[] = ["regional", "departmental", "central"];
+export const INVITATION_LEVELS: readonly InvitationLevel[] = ["territorial", "regional", "departmental", "central"];
+
+/** A level that fixes no post: the holder picks their unit inside it. */
+export function levelFixesPost(level: InvitationLevel): boolean {
+  return level !== "territorial";
+}
 
 /**
  * The role each level produces, mirroring LEVEL_ROLE in
  * staff-invitation-link.service.ts. Only used to ask the organigramme which
  * post types a level's services carry; the role an account gets is always
- * the server's to decide.
+ * the server's to decide -- and on a territorial link it is decided by the
+ * unit, which is why that level names none here.
  */
-export const LEVEL_ROLE: Record<InvitationLevel, string> = {
+export const LEVEL_ROLE: Partial<Record<InvitationLevel, string>> = {
   regional: "REGIONAL_ADMIN",
   departmental: "DIVISIONAL_ADMIN",
   central: "CENTRAL_AGENT",
@@ -104,9 +117,13 @@ export function canGrantAdminOnefop(actorRole: string | null | undefined, level:
   return actorRole === "SUPER_ADMIN" && level === "central";
 }
 
-const LEVEL_ROOT: Record<Exclude<InvitationLevel, "central">, string> = {
-  regional: "DREFOP",
-  departmental: "DDEFOP",
+// The organigramme roots each level opens, mirroring LEVEL_ROOTS on the
+// server. Central has none: its services are taken by category instead.
+const LEVEL_ROOTS: Record<InvitationLevel, readonly string[]> = {
+  regional: ["DREFOP"],
+  departmental: ["DDEFOP"],
+  territorial: ["DREFOP", "DDEFOP"],
+  central: [],
 };
 
 /** One selectable service, already indented for a <select>. */
@@ -126,14 +143,18 @@ function walk(nodes: OrgServiceNode[], depth: number, locale: UiLocale, out: Ser
 
 /**
  * The services of one level, in organigramme order, root first. For a
- * delegation the root itself is included: the délégué's post is on it.
+ * delegation the root itself is included: the délégué's post is on it. A
+ * territorial level walks both delegation roots, the regional subtree first,
+ * so one list holds every unit of a region.
  */
 export function servicesForLevel(tree: OrgServiceNode[], level: InvitationLevel, locale: UiLocale): ServiceOption[] {
   const out: ServiceOption[] = [];
   if (level === "central") {
     walk(tree.filter((n) => n.category === "CENTRALE" || n.category === "RATTACHE"), 0, locale, out);
-  } else {
-    const root = tree.find((n) => n.code === LEVEL_ROOT[level]);
+    return out;
+  }
+  for (const code of LEVEL_ROOTS[level]) {
+    const root = tree.find((n) => n.code === code);
     if (root) walk([root], 0, locale, out);
   }
   return out;
@@ -192,13 +213,38 @@ export function findPost(posts: OrgPostRef[], serviceCode: string, positionType:
   return posts.find((p) => p.serviceCode === serviceCode && p.positionType === positionType) ?? null;
 }
 
-/** Territory a level needs, mirroring resolveStaffTerritory on the server. */
+/**
+ * Territory a level needs AT CREATION, mirroring resolveStaffTerritory on
+ * the server. A territorial link pins a region and no department: a link
+ * pinned to a department is a departmental one, which is the level that
+ * means that.
+ */
 export function levelNeedsRegion(level: InvitationLevel): boolean {
   return level !== "central";
 }
 
 export function levelNeedsDepartment(level: InvitationLevel): boolean {
   return level === "departmental";
+}
+
+/**
+ * What the SIGN-UP form must still ask, mirroring resolveSignupTerritory on
+ * the server: the chosen unit decides how much territory the account needs,
+ * and the link answers whatever it pins. A region the link carries is never
+ * asked -- that is what keeps a delegation's staff inside that delegation --
+ * so a territorial link asks only for the division, and only of someone who
+ * picked a divisional unit.
+ */
+export function signupTerritoryAsked(
+  link: Pick<GroupLinkPreview, "region" | "department">,
+  service: Pick<OrgServiceNode, "requiresRegion" | "requiresDepartment"> | null,
+): { region: boolean; department: boolean } {
+  if (!service) return { region: false, department: false };
+  const needsRegion = service.requiresRegion || service.requiresDepartment;
+  return {
+    region: needsRegion && !link.region,
+    department: service.requiresDepartment && !link.department,
+  };
 }
 
 /**
@@ -364,9 +410,10 @@ export interface CreateGroupLinkBody {
   level: InvitationLevel;
   region?: string;
   department?: string;
-  // Both required by the server since 2026-10-25: a link is made for a post.
-  serviceCode: string;
-  positionType: string;
+  // Required by the server on every level that names one unit; left out on a
+  // territorial link, which is a region and whose holder picks the unit.
+  serviceCode?: string;
+  positionType?: string;
   expiresInDays?: number;
   maxUses?: number;
 }
@@ -389,11 +436,14 @@ export function revokeGroupLink(id: string) {
 export interface GroupLinkPreview {
   label: string;
   level: InvitationLevel;
-  role: string;
+  // Null on a territorial link: the unit the holder picks decides whether
+  // they are a regional or a divisional officer, so there is no role to
+  // state before they have picked one.
+  role: string | null;
   region: string | null;
   department: string | null;
-  // The post the link fixes, named by the server. Null on a link made before
-  // 2026-10-25: that form still asks the holder to choose.
+  // The post the link fixes, named by the server. Null on a territorial
+  // link, and on a link made before 2026-10-25: both ask the holder.
   serviceCode: string | null;
   serviceName: string | null;
   positionType: string | null;

@@ -15,11 +15,22 @@
 // is unreliable), so an approver checks name and post before the account
 // opens. Approval is the existing PATCH /auth/approve-user/:id.
 //
-// The post is required on every link created from 2026-10-25. Links created
-// before then carry none (serviceCode and positionType are null) and still
-// work exactly as they did: their holders choose their own service and post,
-// in the form and here. That fallback is permanent -- an old link stays
-// valid until it expires -- and it is why the two columns are nullable.
+// A link is made in one of two shapes:
+//
+//  - FOR A POST: a service and a position type, required on the regional,
+//    departmental and central levels. Its holders all hold that post.
+//  - FOR A REGION ('territorial'): no post at all. It serves a whole
+//    delegation -- both the regional services and the divisional ones, some
+//    twenty-eight units -- so one delegation needs one link instead of one
+//    per division. Its holder picks their own unit, which decides their
+//    role, and a divisional one then picks their division from that region's
+//    divisions only.
+//
+// Links created before 2026-10-25 carry no post either (serviceCode and
+// positionType are null) and still work exactly as they did: their holders
+// choose their own service and post. That fallback is permanent -- an old
+// link stays valid until it expires -- and it is why the columns are
+// nullable. A territorial link is the same nullability used on purpose.
 //
 // Safety:
 //  - the secret is random and stored only as its SHA-256 (tokenHash);
@@ -28,12 +39,17 @@
 //  - the use counter is incremented with a conditional update inside the
 //    same transaction as the account, so concurrent sign-ups cannot exceed
 //    the limit;
-//  - the role is the level's, never chosen: regional -> REGIONAL_ADMIN,
-//    departmental -> DIVISIONAL_ADMIN, central -> CENTRAL_AGENT. A group
-//    link never produces an ADMIN_ONEFOP;
-//  - the role comes from the level; the post comes from the link when set;
-//  - the officer chooses the territory required by the service, and it is
-//    validated against the geography;
+//  - the role comes from the UNIT the account sits in (roleMapping), and the
+//    level bounds which roles it may be at all: regional -> REGIONAL_ADMIN,
+//    departmental -> DIVISIONAL_ADMIN, central -> CENTRAL_AGENT, territorial
+//    -> either of the first two, whichever the chosen unit maps to. A unit
+//    outside the level is refused, and a group link never produces an
+//    ADMIN_ONEFOP;
+//  - the post comes from the link when it carries one;
+//  - the territory comes from the LINK wherever the link pins one, and is
+//    never asked for there. What the link leaves open the officer supplies
+//    and the geography validates -- on a territorial link the division, and
+//    only a division of the link's own region;
 //  - when a link carries a post, the service and
 //    post in the sign-up request are ignored, and the link's pair is checked
 //    again at sign-up, so an organigramme change since cannot let an account
@@ -60,19 +76,43 @@ import { emailMatch, normalizeEmail } from './auth.service';
 import { assertCanManageRole } from './staff-scope';
 import { GENERIC_POSITION_TYPE } from './staff-invitation.service';
 
-export const LINK_LEVELS = ['regional', 'departmental', 'central'] as const;
+// 'territorial' is one region's whole staff: the DREFOP services AND the
+// DDEFOP ones, so a regional delegation needs one link rather than one per
+// division. The other three levels open one subtree each, as before.
+export const LINK_LEVELS = ['regional', 'departmental', 'territorial', 'central'] as const;
 export type LinkLevel = (typeof LINK_LEVELS)[number];
 
-const LEVEL_ROLE: Record<LinkLevel, string> = {
+/**
+ * The role a level's link produces, when the level names exactly one.
+ *
+ * A 'territorial' link names two: which of them an account gets is decided
+ * by the UNIT its holder works in -- a DREFOP service maps to REGIONAL_ADMIN,
+ * a DDEFOP service to DIVISIONAL_ADMIN -- because the organigramme already
+ * carries that on every service (roleMapping) and the holder is the only one
+ * who knows which bureau they sit in. LEVEL_ROLES below is what a level may
+ * produce at all, and it is what bounds the choice.
+ */
+const LEVEL_ROLE: Partial<Record<LinkLevel, string>> = {
   regional: 'REGIONAL_ADMIN',
   departmental: 'DIVISIONAL_ADMIN',
   central: 'CENTRAL_AGENT',
 };
 
-// The organigramme root a delegation level's services must descend from.
-const LEVEL_ROOT: Partial<Record<LinkLevel, string>> = {
-  regional: 'DREFOP',
-  departmental: 'DDEFOP',
+/** Every role a level's link may produce. A link can never widen past it. */
+const LEVEL_ROLES: Record<LinkLevel, readonly string[]> = {
+  regional: ['REGIONAL_ADMIN'],
+  departmental: ['DIVISIONAL_ADMIN'],
+  territorial: ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'],
+  central: ['CENTRAL_AGENT'],
+};
+
+// The organigramme roots a level's services must descend from. A central
+// link has none: its services are checked by category instead.
+const LEVEL_ROOTS: Record<LinkLevel, readonly string[]> = {
+  regional: ['DREFOP'],
+  departmental: ['DDEFOP'],
+  territorial: ['DREFOP', 'DDEFOP'],
+  central: [],
 };
 
 export const LINK_DEFAULT_DAYS = 7;
@@ -166,7 +206,9 @@ function assertCanManageLinks(actorRole: string | undefined, level: LinkLevel): 
   if (actorRole !== 'SUPER_ADMIN' && actorRole !== 'ADMIN_ONEFOP') {
     throw new ForbiddenException("Vous n'êtes pas autorisé à gérer les liens d'invitation.");
   }
-  assertCanManageRole(actorRole, LEVEL_ROLE[level]);
+  // Every role the level can produce must be within the actor's remit: a
+  // territorial link makes both, so holding one of the two is not enough.
+  for (const role of LEVEL_ROLES[level]) assertCanManageRole(actorRole, role);
 }
 
 @Injectable()
@@ -194,21 +236,32 @@ export class StaffInvitationLinkService {
     }
     const days = boundedInt(input.expiresInDays, LINK_DEFAULT_DAYS, 1, LINK_MAX_DAYS, `La durée doit être comprise entre 1 et ${LINK_MAX_DAYS} jours.`);
     const maxUses = boundedInt(input.maxUses, LINK_DEFAULT_USES, 1, LINK_MAX_USES, `Le nombre d'utilisations doit être compris entre 1 et ${LINK_MAX_USES}.`);
-    const territory = await resolveStaffTerritory(this.prisma, LEVEL_ROLE[level], {
-      region: input.region,
-      department: input.department,
-    });
+    // A territorial link is a REGION, not a post: its holders span both
+    // delegation levels and some twenty-eight units, so no single service or
+    // post could stand for them. The region is resolved as a REGIONAL_ADMIN's
+    // would be -- one region, no department: a link pinned to a department is
+    // a 'departmental' link, which is the level that means that.
+    const territorial = level === 'territorial';
+    const territory = await resolveStaffTerritory(
+      this.prisma,
+      territorial ? 'REGIONAL_ADMIN' : LEVEL_ROLE[level],
+      { region: input.region, department: territorial ? undefined : input.department },
+    );
 
-    // The post the link is for. Required: an administrator knows which unit
-    // and which post they are inviting, and the holder should not have to
-    // find themselves in a 126-service organigramme.
-    const serviceCode = trimmed(input.serviceCode);
-    if (!serviceCode) throw new BadRequestException(SERVICE_REQUIRED);
-    await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LEVEL);
-    const positionType = trimmed(input.positionType);
-    if (!positionType) throw new BadRequestException(POSITION_REQUIRED);
-    // Refuses a post the service does not offer, and resolves its title.
-    await this.positionTitle(serviceCode, positionType);
+    // The post the link is for. Required on every level that names one unit:
+    // an administrator knows which unit and which post they are inviting, and
+    // the holder should not have to find themselves in a 127-service
+    // organigramme. A territorial link carries neither, and its holder picks
+    // the unit inside the region the link pins.
+    const serviceCode = territorial ? '' : trimmed(input.serviceCode);
+    const positionType = territorial ? '' : trimmed(input.positionType);
+    if (!territorial) {
+      if (!serviceCode) throw new BadRequestException(SERVICE_REQUIRED);
+      await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LEVEL);
+      if (!positionType) throw new BadRequestException(POSITION_REQUIRED);
+      // Refuses a post the service does not offer, and resolves its title.
+      await this.positionTitle(serviceCode, positionType);
+    }
 
     const token = crypto.randomBytes(24).toString('base64url');
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -219,8 +272,8 @@ export class StaffInvitationLinkService {
         level,
         region: territory.region,
         department: territory.department,
-        serviceCode,
-        positionType,
+        serviceCode: serviceCode || null,
+        positionType: positionType || null,
         maxUses,
         expiresAt,
         createdBy: actor.id,
@@ -228,7 +281,9 @@ export class StaffInvitationLinkService {
     });
 
     await this.audit(actor.id, 'STAFF_INVITATION_LINK_CREATED', link.id, {
-      label, level, ...territory, serviceCode, positionType, maxUses, expiresAt: expiresAt.toISOString(),
+      label, level, ...territory,
+      serviceCode: serviceCode || null, positionType: positionType || null,
+      maxUses, expiresAt: expiresAt.toISOString(),
     });
 
     const [presented] = await this.presented([link]);
@@ -282,7 +337,10 @@ export class StaffInvitationLinkService {
     return {
       label: link.label,
       level: link.level,
-      role: LEVEL_ROLE[link.level as LinkLevel],
+      // Null on a territorial link: which of its two roles an account gets
+      // is decided by the unit its holder picks, so there is nothing to
+      // promise here before they have picked one.
+      role: LEVEL_ROLE[link.level as LinkLevel] ?? null,
       region: link.region,
       department: link.department,
       serviceCode: named.serviceCode,
@@ -297,7 +355,6 @@ export class StaffInvitationLinkService {
   async signUp(input: LinkSignUpInput) {
     const link = await this.findUsable(input.token);
     const level = link.level as LinkLevel;
-    const role = LEVEL_ROLE[level];
 
     const email = normalizeEmail(trimmed(input.email));
     if (!EMAIL_PATTERN.test(email)) throw new BadRequestException('Adresse e-mail invalide.');
@@ -315,19 +372,25 @@ export class StaffInvitationLinkService {
       throw new BadRequestException(`Le mot de passe doit contenir au moins ${passwordMinLength} caractères`);
     }
 
-    // The post comes from the LINK when it carries one. Like the role,
-    // it is not the holder's to choose: a request that still
+    // The post comes from the LINK when it carries one: a request that still
     // sends a service and a post -- a page open since before the link was
     // made, or a crafted one -- is ignored here, not trusted. It is checked
     // again all the same, because the organigramme can change after a link
     // is created: a service since deactivated or moved out of the level
     // stops the sign-up instead of producing an account on a dead service.
+    //
+    // A territorial link carries no post, and its holder picks their unit
+    // among the twenty-eight the region has. The ROLE then follows that unit
+    // (service.roleMapping), bounded by what the level may produce at all --
+    // so a unit the link's level does not cover is refused rather than
+    // quietly producing an account the level was never allowed to make.
     const fixedPost = !!(link.serviceCode && link.positionType);
     const serviceCode = fixedPost ? link.serviceCode! : trimmed(input.serviceCode);
     const positionType = fixedPost ? link.positionType! : trimmed(input.positionType);
     const service = await this.assertServiceInScope(serviceCode, level, SERVICE_OUT_OF_LINK);
     const positionTitle = await this.positionTitle(serviceCode, positionType);
-    const territory = await this.resolveSignupTerritory(service, input.region, input.department);
+    const role = service.roleMapping;
+    const territory = await this.resolveSignupTerritory(service, link, input.region, input.department);
 
     if (await this.prisma.user.findFirst({ where: emailMatch(email) })) {
       throw new ConflictException('Un compte existe déjà pour cette adresse.');
@@ -389,24 +452,30 @@ export class StaffInvitationLinkService {
     return link;
   }
 
-  /** The service exists, is active, belongs to the level and maps to its role. */
+  /**
+   * The service exists, is active, descends from one of the level's roots and
+   * maps to a role the level may produce. Returns it, because the caller
+   * needs its roleMapping (the account's role) and its two territory flags.
+   */
   private async assertServiceInScope(
     serviceCode: string,
     level: LinkLevel,
     message: string,
-  ): Promise<{ requiresRegion: boolean; requiresDepartment: boolean }> {
+  ): Promise<{ roleMapping: string; requiresRegion: boolean; requiresDepartment: boolean }> {
     const outOfScope = () => new BadRequestException(message);
     const service = serviceCode ? await this.prisma.minefopService.findUnique({ where: { code: serviceCode } }) : null;
-    if (!service || !service.isActive || service.roleMapping !== LEVEL_ROLE[level]) throw outOfScope();
+    if (!service || !service.isActive || !LEVEL_ROLES[level].includes(service.roleMapping)) throw outOfScope();
 
-    const root = LEVEL_ROOT[level];
-    if (!root) {
+    const roots = LEVEL_ROOTS[level];
+    if (!roots.length) {
       if (service.category !== 'CENTRALE' && service.category !== 'RATTACHE') throw outOfScope();
       return service;
     }
+    // A territorial link has two roots, so the walk stops at whichever of
+    // them the unit descends from; that root's subtree is what it may offer.
     let current: { code: string; parentCode: string | null } | null = service;
     for (let step = 0; current && step < MAX_ANCESTOR_STEPS; step++) {
-      if (current.code === root) return service;
+      if (roots.includes(current.code)) return service;
       current = current.parentCode
         ? await this.prisma.minefopService.findUnique({ where: { code: current.parentCode } })
         : null;
@@ -414,16 +483,33 @@ export class StaffInvitationLinkService {
     throw outOfScope();
   }
 
-  /** The service, rather than the invitation link, determines signup territory. */
+  /**
+   * The account's territory: how much of it the service needs, and where
+   * each half comes from.
+   *
+   * The LINK's own territory wins wherever it has one. A link pinned to a
+   * region is the delegation that issued or asked for it, so its holders are
+   * not asked which region they work in and cannot say otherwise -- the
+   * guarantee the register depends on, since nothing yet connects a name to
+   * a bureau. What the link does NOT pin, the holder supplies and the
+   * geography validates: on a territorial link that is the DIVISION, and
+   * only the divisions of the link's own region are accepted, which is what
+   * bounds a divisional clerk to their regional delegate's territory.
+   *
+   * A link with no territory at all -- the national link that creates the
+   * delegates themselves -- asks for both, as it did before. Those are few
+   * and a national officer checks each one by hand.
+   */
   private async resolveSignupTerritory(
     service: { requiresRegion: boolean; requiresDepartment: boolean },
+    link: { region: string | null; department: string | null },
     regionValue: unknown,
     departmentValue: unknown,
   ): Promise<{ region: string | null; department: string | null }> {
     const needsRegion = service.requiresRegion || service.requiresDepartment;
     if (!needsRegion) return { region: null, department: null };
 
-    const regionInput = trimmed(regionValue);
+    const regionInput = link.region ?? trimmed(regionValue);
     if (!regionInput) throw new BadRequestException('Choisissez une région.');
     const regions = await this.prisma.region.findMany({ select: { id: true, name: true } });
     const normalizedRegion = normalizeTerritoryName(regionInput);
@@ -433,7 +519,7 @@ export class StaffInvitationLinkService {
     if (!region) throw new BadRequestException('Choisissez une région valide.');
     if (!service.requiresDepartment) return { region: region.name, department: null };
 
-    const departmentInput = trimmed(departmentValue);
+    const departmentInput = link.department ?? trimmed(departmentValue);
     if (!departmentInput) throw new BadRequestException('Choisissez un département.');
     const departments = await this.prisma.department.findMany({
       where: { regionId: region.id },

@@ -9,10 +9,12 @@ import {
   invitationLevelsFor,
   invitationMessage,
   invitationUrl,
+  levelFixesPost,
   positionTypesForLevel,
   previewFixesPost,
   servicesForLevel,
   servicesOfferingPosition,
+  signupTerritoryAsked,
   territoryPhrase,
   whatsappHref,
   type OrgPostRef,
@@ -58,8 +60,13 @@ const LABELS = [
 ];
 
 test("both administrator roles invite to every level; nobody else invites", () => {
-  assert.deepEqual(invitationLevelsFor("SUPER_ADMIN"), ["regional", "departmental", "central"]);
-  assert.deepEqual(invitationLevelsFor("ADMIN_ONEFOP"), ["regional", "departmental", "central"]);
+  // Territorial first: one link for a whole region is what a delegation
+  // normally wants, so it leads the list the dialog renders.
+  const every = ["territorial", "regional", "departmental", "central"];
+  assert.deepEqual(invitationLevelsFor("SUPER_ADMIN"), every);
+  assert.deepEqual(invitationLevelsFor("ADMIN_ONEFOP"), every);
+  // A delegate still issues no link: that remains the national administration's
+  // (decision of 2026-10-07, in staff-scope.ts).
   assert.deepEqual(invitationLevelsFor("REGIONAL_ADMIN"), []);
   assert.deepEqual(invitationLevelsFor("CENTRAL_AGENT"), []);
   assert.deepEqual(invitationLevelsFor(undefined), []);
@@ -160,6 +167,42 @@ test("a post type narrows the services to the ones offering it", () => {
   assert.deepEqual(servicesOfferingPosition(TREE, "regional", POSTS, "SECRETAIRE_GENERAL", "fr"), []);
   assert.equal(findPost(POSTS, "DREFOP-SPE", "CHEF_SERVICE")?.title, "Chef du Service SPE");
   assert.equal(findPost(POSTS, "DREFOP-SPE", "DELEGUE_REGIONAL"), null);
+});
+
+test("a territorial level is one region's whole staff: both delegation subtrees", () => {
+  const territorial = servicesForLevel(TREE, "territorial", "fr").map((s) => s.code);
+  assert.deepEqual(territorial, ["DREFOP", "DREFOP-SPE", "DREFOP-SPE-BAE", "DDEFOP", "DDEFOP-BAG"]);
+  // The single-subtree levels are unchanged, and no central service is in any
+  // of them.
+  assert.deepEqual(servicesForLevel(TREE, "regional", "fr").map((s) => s.code), ["DREFOP", "DREFOP-SPE", "DREFOP-SPE-BAE"]);
+  assert.deepEqual(servicesForLevel(TREE, "departmental", "fr").map((s) => s.code), ["DDEFOP", "DDEFOP-BAG"]);
+  assert.ok(!territorial.includes("SG"));
+  // It is the one level that fixes no post: its holder picks the unit.
+  assert.equal(levelFixesPost("territorial"), false);
+  for (const level of ["regional", "departmental", "central"] as const) assert.equal(levelFixesPost(level), true);
+});
+
+test("the sign-up form asks only for the territory the link does not pin", () => {
+  const regionalUnit = { requiresRegion: true, requiresDepartment: false };
+  const divisionalUnit = { requiresRegion: true, requiresDepartment: true };
+  const centralUnit = { requiresRegion: false, requiresDepartment: false };
+  const pinnedRegion = { region: "Centre", department: null };
+  const pinnedBoth = { region: "Centre", department: "Mfoundi" };
+  const pinnedNothing = { region: null, department: null };
+
+  // A link made for a region answers the region: a divisional officer is
+  // asked for their division alone, a regional one for nothing.
+  assert.deepEqual(signupTerritoryAsked(pinnedRegion, divisionalUnit), { region: false, department: true });
+  assert.deepEqual(signupTerritoryAsked(pinnedRegion, regionalUnit), { region: false, department: false });
+  // A departmental link pins both halves, so it asks nothing at all.
+  assert.deepEqual(signupTerritoryAsked(pinnedBoth, divisionalUnit), { region: false, department: false });
+  // The national link that creates the delegates pins nothing.
+  assert.deepEqual(signupTerritoryAsked(pinnedNothing, divisionalUnit), { region: true, department: true });
+  assert.deepEqual(signupTerritoryAsked(pinnedNothing, regionalUnit), { region: true, department: false });
+  // A central unit is territorial nowhere, and nothing is asked before a
+  // unit is picked.
+  assert.deepEqual(signupTerritoryAsked(pinnedNothing, centralUnit), { region: false, department: false });
+  assert.deepEqual(signupTerritoryAsked(pinnedRegion, null), { region: false, department: false });
 });
 
 test("a preview fixes the post only when it names both halves of it", () => {
