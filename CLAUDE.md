@@ -1124,9 +1124,19 @@ Approved changes on record:
   service's own register; accounts created before today keep none. Approved by
   the owner in chat and recorded in
   `docs/plans/staff-invitation-wizard.md` (Phase 3), 2026-10-25; delivered in
-  `f429e41b`, which carried no entry here — this is that entry. NOT decided:
-  whether the approver should see the link's scope beside the chosen
-  territory, and whether a choice outside a delegation link's own region
+  `f429e41b`, which carried no entry here — this is that entry.
+  SINCE SETTLED, 2026-10-26 (`cf0c32a7`): the approver DOES see the link's
+  scope. `AuthService.listUsers` carries the scope of the link an account
+  came through — read from the sign-up's STAFF_INVITATION_LINK_USED audit
+  row, so no column was added to User — and the pending-staff queue names it
+  under the territory the officer chose, with a warning when the two differ
+  (`invitationScopeMismatch`, `react-web/src/lib/user-directory.ts`). Only
+  what the link actually fixed is compared, so a central link (no territory)
+  and a regional link (no department) never report a mismatch, and a missing
+  audit row or deleted link reports none either. It is a SIGNAL, NOT A BLOCK:
+  the officer's choice is still stored as given and the server still does not
+  refuse it, which is what the owner approved. STILL NOT decided: whether a
+  choice outside a delegation link's own region
   should be refused outright — if ONEFOP wants the link to bound the choice,
   this entry is what to revisit, and the fix is to check `link.region` in
   `resolveSignupTerritory`, not to put the link's territory back in the
