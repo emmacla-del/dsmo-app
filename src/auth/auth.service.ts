@@ -108,6 +108,19 @@ function displayNameOf(
  * admin-assisted one. Extracted verbatim from registerCompany's former inline
  * literal so both paths are typed by one declaration rather than two copies.
  */
+/**
+ * The scope a group invitation link was created for, as the staff listing
+ * reports it beside the territory the officer chose for themselves. Names,
+ * not ids, matching the columns on StaffInvitationLink. A central link
+ * names no territory, so both are null and there is nothing to compare.
+ */
+export interface InvitationScope {
+  label: string;
+  level: string;
+  region: string | null;
+  department: string | null;
+}
+
 export interface CompanyRegistrationData {
   name: string;
   parentCompany?: string;
@@ -611,6 +624,7 @@ export class AuthService {
     companyData: CompanyRegistrationData,
     attribution: {
       registrationMethod: string;
+      registrationRequestId?: string;
       createdBy?: string | null;
       assigneeId?: string | null;
       /**
@@ -697,7 +711,8 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 10);
 
     try {
-      const user = await this.prisma.user.create({
+      const { user, company } = await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
         data: {
           email,
           passwordHash: hashed,
@@ -710,12 +725,13 @@ export class AuthService {
           isActive: true,
           emailVerified: false,
           registrationMethod: attribution.registrationMethod,
+          registrationRequestId: attribution.registrationRequestId,
           createdBy: attribution.createdBy ?? null,
           assigneeId: attribution.assigneeId ?? null,
         },
-      });
+        });
 
-      const company = await this.prisma.company.create({
+        const company = await tx.company.create({
         data: {
           userId: user.id,
           name: companyData.name,
@@ -772,6 +788,8 @@ export class AuthService {
           establishmentId,
           establishmentIdGeneratedAt: new Date(),
         },
+      });
+        return { user, company };
       });
 
       // Issuance journal. The migration's sequence seed also reads these
@@ -839,10 +857,30 @@ export class AuthService {
     email: string,
     password: string,
     companyData: CompanyRegistrationData,
+    clientRequestId?: string,
   ) {
-    const created = await this.createCompanyRegistration(email, password, companyData, {
-      registrationMethod: 'SELF_REGISTRATION',
-    });
+    const requestId = clientRequestId?.trim() || undefined;
+    if (requestId) {
+      const replay = await this.replayCompanyRegistration(requestId, email, password);
+      if (replay) return replay;
+    }
+
+    let created: Awaited<ReturnType<AuthService['createCompanyRegistration']>>;
+    try {
+      created = await this.createCompanyRegistration(email, password, companyData, {
+        registrationMethod: 'SELF_REGISTRATION',
+        registrationRequestId: requestId,
+      });
+    } catch (error) {
+      // Two retries can arrive together. The unique request key lets the
+      // loser return the account created by the winner once its company row
+      // is present, while still refusing a request key reused by someone else.
+      if (requestId) {
+        const replay = await this.replayCompanyRegistration(requestId, email, password);
+        if (replay) return replay;
+      }
+      throw error;
+    }
 
     const loginResult = await this.login(created.user);
     return {
@@ -853,6 +891,37 @@ export class AuthService {
         establishmentId: created.establishmentId,
         taxNumber: created.company.taxNumber,
         entityType: created.company.entityType,
+        attestationUrl: null,
+      },
+    };
+  }
+
+  private async replayCompanyRegistration(requestId: string, email: string, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { registrationRequestId: requestId },
+    });
+    if (!user) return null;
+
+    const sameEmail = normalizeEmail(user.email) === normalizeEmail(email);
+    const samePassword = await bcrypt.compare(password, user.passwordHash);
+    if (!sameEmail || !samePassword) {
+      throw new ConflictException('Cette demande d’inscription a déjà été utilisée.');
+    }
+
+    const company = await this.prisma.company.findUnique({ where: { userId: user.id } });
+    if (!company) {
+      throw new ConflictException('Cette inscription est en cours de traitement. Réessayez dans un instant.');
+    }
+
+    const loginResult = await this.login(user);
+    return {
+      ...loginResult,
+      company: {
+        id: company.id,
+        name: company.name,
+        establishmentId: company.establishmentId,
+        taxNumber: company.taxNumber,
+        entityType: company.entityType,
         attestationUrl: null,
       },
     };
@@ -2022,6 +2091,53 @@ export class AuthService {
    * roster, and approveUser/rejectUser already special-case COMPANY out
    * of the equivalent pending-list query above.
    */
+  /**
+   * The invitation link each listed account came through, when it came
+   * through one, so an approver can weigh the territory the officer CHOSE
+   * against the scope the link was MADE for.
+   *
+   * Since 2026-10-25 an officer states their own region and department, and
+   * a group link's territory is its intended scope only (CLAUDE.md §21).
+   * That leaves approval as the only control on the choice, and an approver
+   * who cannot see the link's scope has nothing to check the choice against.
+   *
+   * Read from the audit row the sign-up already writes
+   * (STAFF_INVITATION_LINK_USED, resourceId = the link), so no column is
+   * added to User and no write path changes. Two batched queries for the
+   * whole page, whatever its size. An account with no such row -- one made
+   * another way, or one whose best-effort audit write failed -- simply has
+   * no scope to show, and is not reported as a mismatch.
+   */
+  private async invitationScopesFor(userIds: string[]): Promise<Map<string, InvitationScope>> {
+    const scopes = new Map<string, InvitationScope>();
+    if (userIds.length === 0) return scopes;
+    const used = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'STAFF_INVITATION_LINK_USED',
+        resourceType: 'StaffInvitationLink',
+        userId: { in: userIds },
+      },
+      select: { userId: true, resourceId: true },
+    });
+    if (used.length === 0) return scopes;
+    const links = await this.prisma.staffInvitationLink.findMany({
+      where: { id: { in: [...new Set(used.map((row: { resourceId: string }) => row.resourceId))] } },
+      select: { id: true, label: true, level: true, region: true, department: true },
+    });
+    const byId = new Map(links.map((link: { id: string }) => [link.id, link]));
+    for (const row of used) {
+      const link: any = byId.get(row.resourceId);
+      if (!link) continue;
+      scopes.set(row.userId, {
+        label: link.label,
+        level: link.level,
+        region: link.region,
+        department: link.department,
+      });
+    }
+    return scopes;
+  }
+
   async listUsers(
     params: Omit<UserListFilterParams, 'allowedRoles'> & {
       page?: number;
@@ -2078,11 +2194,20 @@ export class AuthService {
       }),
     ]);
 
+    // Only staff reach an account through a group link; a declarant never
+    // does, so the lookup is limited to the rows that can have one.
+    const invitationScopes = await this.invitationScopesFor(
+      users
+        .filter((u: any) => u.registrationMethod === 'INVITATION_LINK')
+        .map((u: any) => u.id),
+    );
+
     const mappedUsers = users.map((u: any) => ({
       ...u,
       submissionsCount: u._count?.onefopSubmissions ?? 0,
       createdByName: displayNameOf(u.createdByUser),
       createdByUser: undefined,
+      invitationScope: invitationScopes.get(u.id) ?? null,
     }));
 
     return { users: mappedUsers, total, page, pageSize };

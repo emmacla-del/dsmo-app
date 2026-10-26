@@ -480,6 +480,15 @@
     "phoneHint": "9 digits, starting with 6 (mobile) or 2 (landline).",
     "emailHint": "You will use it to sign in and to receive notices from the platform.",
     "submitConnectionError": "The connection to the server failed. Your answers are kept on this page: try again in a moment.",
+    "queuedStorageError": "Your signup could not be saved securely on this device. Keep this page open and try again when your connection returns.",
+    "queuedRetryError": "This signup is still waiting to sync. Check your connection and try again.",
+    "queuedTitle": "Signup saved on this device",
+    "queuedBody": "Your encrypted signup is waiting for a connection. It has not reached the server yet, so your account is not created. Keep this device and send it when you are back online.",
+    "queuedDateLabel": "Saved on this device",
+    "queuedStatus": "Waiting to sync",
+    "queuedSyncButton": "Send signup now",
+    "queuedSyncing": "Sendingâ€¦",
+    "queuedDiscardButton": "Delete saved signup",
     "helpLinkAria": "Need help? Message support on WhatsApp (opens in a new tab)",
     "optionalLabel": "optional",
     "errorSummaryTitle": "There is a problem",
@@ -3693,6 +3702,7 @@
     "groupLinkTerritoryLabel": "Invitation territory",
     "groupLevelLabel": "For",
     "groupLevel": {
+      "territorial": "Staff of the region",
       "regional": "Regional delegation (DREFOP)",
       "departmental": "Divisional delegation (DDEFOP)",
       "central": "Central and attached services"
@@ -3744,11 +3754,13 @@
       "revoked": "Revoked"
     },
     "level": {
+      "territorial": "A whole region (regional and divisional delegations)",
       "regional": "Regional delegation (DREFOP)",
       "departmental": "Divisional delegation (DDEFOP)",
       "central": "Central and attached services"
     },
     "levelHint": {
+      "territorial": "One link for all the region's staff: each person states their unit, and divisional staff their division",
       "regional": "Staff of a regional delegation; the link fixes the region",
       "departmental": "Staff of a divisional delegation; region and division fixed",
       "central": "Read-only central officers (never administrators)"
@@ -3793,7 +3805,7 @@
   },
   "adminPendingStaff": {
     "title": "Pending requests",
-    "intro": "Accounts requested through a group link. The email address is not verified: check the name, post and territory before approving.",
+    "intro": "Accounts requested through a group link. The email address is not verified and the territory is the officer’s own answer: check the name, post and territory — whether or not the link was for that territory — before approving.",
     "count": "{count, plural, =0 {no requests} one {# request} other {# requests}}",
     "resource": "the requests",
     "personColumn": "Officer",
@@ -3803,6 +3815,9 @@
     "actionsColumn": "Actions",
     "matricule": "Staff no. {value}",
     "national": "National",
+    "linkScope": "Link scope: {scope}",
+    "linkScopeNone": "no territory",
+    "territoryDiffers": "Territory differs from the link",
     "emptyTitle": "No pending requests",
     "emptyHint": "Requests sent through a group link will appear here.",
     "approve": "Approve",

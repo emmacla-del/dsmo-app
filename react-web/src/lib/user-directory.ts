@@ -37,6 +37,43 @@ export interface DirectoryUser {
   registrationMethod?: string | null;
   createdBy?: string | null;
   createdByName?: string | null;
+  // The scope of the group link this account came through, when it came
+  // through one (AuthService.listUsers, from the sign-up's audit row). The
+  // officer states their own territory, so this is what an approver checks
+  // that choice against -- see invitationScopeMismatch below. Null for an
+  // account created any other way.
+  invitationScope?: InvitationScope | null;
+}
+
+/** The scope a group invitation link was created for. Territory names, not ids. */
+export interface InvitationScope {
+  label: string;
+  level: string;
+  region: string | null;
+  department: string | null;
+}
+
+/**
+ * Whether the territory an officer chose at sign-up departs from the scope
+ * of the link they used.
+ *
+ * Only what the link actually names is compared: a central link names no
+ * territory, and a regional link names no department, so neither reports a
+ * mismatch on what it never fixed. The comparison is on the stored names,
+ * which is what both sides hold -- the link and the account are written from
+ * the same Region and Department tables.
+ *
+ * This is a signal for the approver, never a block: the owner's decision of
+ * 2026-10-25 is that the officer's choice stands (CLAUDE.md §21). A mismatch
+ * is often legitimate -- an officer posted to one delegation given a
+ * neighbour's link -- and the approver is the one who can tell.
+ */
+export function invitationScopeMismatch(user: Pick<DirectoryUser, "region" | "department" | "invitationScope">): boolean {
+  const scope = user.invitationScope;
+  if (!scope) return false;
+  const differs = (fixed: string | null, chosen: string | null) =>
+    !!fixed && fixed.trim().toLocaleLowerCase() !== (chosen ?? "").trim().toLocaleLowerCase();
+  return differs(scope.region, user.region) || differs(scope.department, user.department);
 }
 
 export interface ListUsersParams {

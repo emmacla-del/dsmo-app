@@ -480,6 +480,15 @@
     "phoneHint": "9 chiffres, commençant par 6 (mobile) ou 2 (fixe).",
     "emailHint": "Elle vous servira à vous connecter et à recevoir les avis de la plateforme.",
     "submitConnectionError": "La connexion au serveur a échoué. Vos réponses sont conservées sur cette page : réessayez dans un instant.",
+    "queuedStorageError": "Votre inscription n'a pas pu être enregistrée de façon sécurisée sur cet appareil. Gardez cette page ouverte et réessayez lorsque la connexion sera rétablie.",
+    "queuedRetryError": "Cette inscription attend toujours sa synchronisation. Vérifiez votre connexion et réessayez.",
+    "queuedTitle": "Inscription enregistrée sur cet appareil",
+    "queuedBody": "Votre inscription chiffrée attend une connexion. Elle n'a pas encore été reçue par le serveur : votre compte n'est donc pas créé. Gardez cet appareil et envoyez-la lorsque vous serez de nouveau en ligne.",
+    "queuedDateLabel": "Enregistrée sur cet appareil",
+    "queuedStatus": "En attente de synchronisation",
+    "queuedSyncButton": "Envoyer l'inscription",
+    "queuedSyncing": "Envoiâ€¦",
+    "queuedDiscardButton": "Supprimer l'inscription enregistrée",
     "helpLinkAria": "Besoin d'aide ? Écrire à l'assistance sur WhatsApp (nouvel onglet)",
     "optionalLabel": "facultatif",
     "errorSummaryTitle": "Il y a un problème",
@@ -3693,6 +3702,7 @@
     "groupLinkTerritoryLabel": "Portée territoriale du lien",
     "groupLevelLabel": "Pour",
     "groupLevel": {
+      "territorial": "Personnel de la région",
       "regional": "Délégation régionale (DREFOP)",
       "departmental": "Délégation départementale (DDEFOP)",
       "central": "Services centraux et rattachés"
@@ -3744,11 +3754,13 @@
       "revoked": "Révoqué"
     },
     "level": {
+      "territorial": "Toute une région (délégation régionale et départementales)",
       "regional": "Délégation régionale (DREFOP)",
       "departmental": "Délégation départementale (DDEFOP)",
       "central": "Services centraux et rattachés"
     },
     "levelHint": {
+      "territorial": "Un seul lien pour tout le personnel de la région : chacun indique son unité, et le personnel départemental son département",
       "regional": "Agents d'une délégation régionale ; la région est fixée par le lien",
       "departmental": "Agents d'une délégation départementale ; région et département fixés",
       "central": "Agents centraux en lecture seule (jamais administrateurs)"
@@ -3793,7 +3805,7 @@
   },
   "adminPendingStaff": {
     "title": "Demandes en attente",
-    "intro": "Comptes demandés par lien de groupe. L'adresse e-mail n'est pas vérifiée : contrôlez le nom, le poste et le territoire avant de valider.",
+    "intro": "Comptes demandés par lien de groupe. L'adresse e-mail n'est pas vérifiée et le territoire est déclaré par l'agent : contrôlez le nom, le poste et le territoire, que le lien soit ou non celui de ce territoire, avant de valider.",
     "count": "{count, plural, =0 {aucune demande} one {# demande} other {# demandes}}",
     "resource": "les demandes",
     "personColumn": "Agent",
@@ -3803,6 +3815,9 @@
     "actionsColumn": "Actions",
     "matricule": "Matricule {value}",
     "national": "National",
+    "linkScope": "Portée du lien : {scope}",
+    "linkScopeNone": "aucun territoire",
+    "territoryDiffers": "Territoire différent du lien",
     "emptyTitle": "Aucune demande en attente",
     "emptyHint": "Les demandes envoyées par lien de groupe apparaîtront ici.",
     "approve": "Valider",

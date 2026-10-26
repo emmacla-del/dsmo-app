@@ -10,7 +10,7 @@ import { registrationMethodLabel } from "@/lib/inscriptions";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { asUiLocale } from "@/lib/register-i18n";
 import { territoryPhrase } from "@/lib/staff-invitations";
-import { approveUser, directoryRoleLabel, listUsers, rejectUser, type DirectoryUser } from "@/lib/user-directory";
+import { approveUser, directoryRoleLabel, invitationScopeMismatch, listUsers, rejectUser, type DirectoryUser } from "@/lib/user-directory";
 
 // Staff accounts waiting for approval -- in practice the ones requested
 // through a group invitation link (registrationMethod INVITATION_LINK).
@@ -20,6 +20,14 @@ import { approveUser, directoryRoleLabel, listUsers, rejectUser, type DirectoryU
 // What the approver weighs: who the person says they are (name, email) and
 // the post they claim in the organigramme. The email is not verified, so
 // the post and the territory are what to check against what you know.
+//
+// The territory is the officer's OWN answer -- since 2026-10-25 a group
+// link's territory is its intended scope, not the account's (CLAUDE.md
+// §21), which leaves this screen as the only control on that choice. So the
+// cell names the link's scope under the chosen territory, and says when the
+// two differ. It is a signal, not a block: a mismatch is often legitimate
+// (an officer given a neighbouring delegation's link), and the approver is
+// the one who can tell. Reject carries a reason for when it is not.
 
 const PAGE_SIZE = 50;
 
@@ -101,7 +109,9 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
                   {u.poste ?? NOT_PROVIDED}
                   <span className="cam-admin-meta" style={{ display: "block" }}>{directoryRoleLabel(u.role, locale)}</span>
                 </td>
-                <td>{territoryPhrase(u.region, u.department) || t("national")}</td>
+                <td>
+                  <TerritoryCell user={u} />
+                </td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   <span className="cam-admin-meta" style={{ display: "block" }}>{stamp(u.createdAt, true, locale)}</span>
                   {registrationMethodLabel(u.registrationMethod, locale) && (
@@ -165,5 +175,36 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
         </AdminDialog>
       )}
     </section>
+  );
+}
+
+/**
+ * The territory the officer chose, then the scope of the link they used.
+ *
+ * The link line is shown whenever the account came through a link, not only
+ * on a mismatch: an approver who sees it every time learns what to expect,
+ * and a warning that only ever appears on the exception is one nobody has
+ * calibrated. A central link fixes no territory, so it states that rather
+ * than implying a comparison it cannot make.
+ */
+function TerritoryCell({ user }: { user: DirectoryUser }) {
+  const t = useTranslations("adminPendingStaff");
+  const chosen = territoryPhrase(user.region, user.department) || t("national");
+  const scope = user.invitationScope;
+  const mismatch = invitationScopeMismatch(user);
+  return (
+    <>
+      <span style={{ display: "block" }}>{chosen}</span>
+      {scope && (
+        <span className="cam-admin-meta" style={{ display: "block" }}>
+          {t("linkScope", { scope: territoryPhrase(scope.region, scope.department) || t("linkScopeNone") })}
+        </span>
+      )}
+      {mismatch && (
+        <span className="cam-badge cam-badge-warning" style={{ marginTop: "var(--cam-space-1)" }}>
+          {t("territoryDiffers")}
+        </span>
+      )}
+    </>
   );
 }
