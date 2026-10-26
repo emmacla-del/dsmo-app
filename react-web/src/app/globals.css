@@ -952,6 +952,9 @@ html:has(.cam-masthead) {
 }
 
 .cam-auth-page--wizard .flow-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   flex: 0 0 auto;
   background: var(--cam-surface);
   border-bottom: var(--cam-border-width) solid var(--cam-border);
@@ -1159,10 +1162,8 @@ html:has(.cam-masthead) {
    the rail, over the first step's label. Below this width the stacked header
    above applies, which has room for both. */
 @media (min-width: 1240px) {
-  /* The wizard masthead scrolls with the page; subsection headings are the
-     only content pinned during form scrolling. */
+  /* The wizard masthead stays above the form as the document scrolls. */
   .cam-auth-page--wizard .flow-header {
-    position: static;
     padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
     /* A larger rail than on a phone: 32px circles, so the connector, which
        reads the same token, follows. */
@@ -1237,10 +1238,8 @@ html:has(.cam-masthead) {
 
 /* A field brought into view by focus or a jump to an error lands below the
    pinned header, not under it. */
-@media (min-width: 1024px) {
-  html:has(.cam-auth-page--wizard) {
-    scroll-padding-top: calc(var(--cam-space-9) + var(--cam-space-4));
-  }
+html:has(.cam-auth-page--wizard) {
+  scroll-padding-top: 9rem;
 }
 
 /* The cascade affordance on the location step. It used to be a separate flex
