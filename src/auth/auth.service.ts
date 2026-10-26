@@ -1228,14 +1228,29 @@ export class AuthService {
     if (user.role === 'COMPANY') {
       return this.approveCompanyRegistration(user, actorId, actorRole, actorTerritory, options);
     }
-    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
+    assertCanApproveRegistration(await this.approverIdentity(actorId, actorRole, actorTerritory), user);
     if (user.status !== 'PENDING_APPROVAL') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
     return toPublicUser(await this.prisma.user.update({
       where: { id },
-      data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
+      data: { status: 'ACTIVE', isActive: true, approvedAt: new Date(), approvedBy: actorId },
     }));
+  }
+
+  /**
+   * The acting administrator, as the staff-approval rule needs them: role and
+   * territory as the token gives them (unchanged), and the POST read from the
+   * database. The post decides whether they are their territory's delegate,
+   * so it is never taken from the token -- which is browser-stored and may
+   * predate a change of post.
+   */
+  private async approverIdentity(actorId: string, actorRole: string, actorTerritory?: Territory) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { positionType: true },
+    });
+    return { ...actorTerritory, role: actorRole, positionType: actor?.positionType ?? null };
   }
 
   async rejectUser(
@@ -1281,7 +1296,7 @@ export class AuthService {
         .catch((error) => this.logger.error(`Failed to send rejection email: ${(error as Error).message}`));
       return toPublicUser(updated);
     }
-    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
+    assertCanApproveRegistration(await this.approverIdentity(actorId, actorRole, actorTerritory), user);
     // D3 grants REGIONAL/DIVISIONAL registration review only: without this,
     // "reject" on an ACTIVE colleague would deactivate the account.
     if ((TERRITORIAL_APPROVER_ROLES as readonly string[]).includes(actorRole) && user.status !== 'PENDING_APPROVAL') {

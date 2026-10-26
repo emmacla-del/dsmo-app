@@ -101,22 +101,83 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
 export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
 
 /**
+ * The post whose holder is the DELEGATE of a territory. A territory has one
+ * of each: `ServicePosition` is unique per service, and the organigramme
+ * holds one DREFOP and one DDEFOP, so one délégué per region and one per
+ * division.
+ */
+export const DELEGATE_POSITION_TYPE: Record<string, string> = {
+  REGIONAL_ADMIN: 'DELEGUE_REGIONAL',
+  DIVISIONAL_ADMIN: 'DELEGUE_DEPARTEMENTAL',
+};
+
+export interface StaffApprovalScope {
+  /** Roles of the staff accounts this delegate may approve. */
+  roles: readonly string[];
+  region: string;
+  /** A divisional delegate only; a regional one covers every division. */
+  department?: string;
+}
+
+/**
+ * What a territorial DELEGATE may approve among STAFF accounts, or null for
+ * anyone who is not one.
+ *
+ * Keyed on the POST, not the role: every service of a regional delegation
+ * maps to REGIONAL_ADMIN, so the délégué and each of their cadres hold the
+ * same role, and a rule written on the role would let any cadre approve
+ * their own peers. The délégué's post is what tells them apart, and
+ * `positionType` has no write path after an account is created.
+ *
+ * Fails closed: a delegate whose own account carries no territory -- there
+ * are unassigned accounts -- gets no authority from this.
+ */
+export function staffApprovalScope(
+  actor: (Territory & { positionType?: string | null }) | null | undefined,
+): StaffApprovalScope | null {
+  const role = actor?.role;
+  if (!actor || !role) return null;
+  const delegatePost = DELEGATE_POSITION_TYPE[role];
+  if (!delegatePost || actor.positionType !== delegatePost) return null;
+  const region = typeof actor.region === 'string' ? actor.region.trim() : '';
+  if (!region) return null;
+  if (role === 'REGIONAL_ADMIN') {
+    // Their region AND its divisions: the regional délégué approves the
+    // divisional delegates, which is also what lets a division's FIRST
+    // delegate be approved by someone other than the post being filled.
+    return { roles: ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'], region };
+  }
+  const department = typeof actor.department === 'string' ? actor.department.trim() : '';
+  if (!department) return null;
+  return { roles: ['DIVISIONAL_ADMIN'], region, department };
+}
+
+/**
  * Authorization for approving or rejecting a pending STAFF account
  * (PATCH /auth/approve-user/:id and /auth/reject-user/:id on a non-company
  * target; company files go through assertTerritorialAuthority instead).
  *
- * Staff accounts are opened by the national administration only, the same
- * rule as every other user-management action: SUPER_ADMIN for any account,
- * ADMIN_ONEFOP for the staff roles it manages. REGIONAL_ADMIN and
- * DIVISIONAL_ADMIN are refused even inside their own territory -- they
- * review company registrations (D3), not staff.
+ * Two authorities, and national is always one of them:
  *
- * Until 2026-10-07 the territorial roles could approve staff in their
- * territory; the user withdrew that: regional admins neither initiate staff
- * account creation nor approve it.
+ *  - the DELEGATE of the territory the account sits in -- the regional
+ *    délégué for their region and for the divisional delegates and staff
+ *    inside it, the divisional délégué for their own division;
+ *  - the national administration: SUPER_ADMIN for any account, ADMIN_ONEFOP
+ *    for the staff roles it manages. It is the fallback at every tier, so a
+ *    vacant délégué post never freezes a territory's approvals.
+ *
+ * A NON-delegate territorial admin -- a regional technical secretary, a
+ * divisional chief of service -- approves ENTITY accounts in their territory
+ * (the company path, unchanged since D3) and no staff account at all.
+ *
+ * History: until 2026-10-07 the territorial roles could approve staff; the
+ * owner withdrew it that day and restored it on 2026-10-26 in this narrower
+ * shape -- delegates only, approval only. Suspend, delete and re-role stay
+ * national: manageableRolesFor returns [] for both territorial roles, and
+ * those routes carry USER_ADMIN_ROLES of their own.
  */
 export function assertCanApproveRegistration(
-  actor: Territory,
+  actor: (Territory & { positionType?: string | null }) | null | undefined,
   target: {
     role: string;
     region?: string | null;
@@ -125,5 +186,16 @@ export function assertCanApproveRegistration(
     departmentId?: string | null;
   },
 ): void {
+  const scope = staffApprovalScope(actor);
+  if (scope) {
+    if (!scope.roles.includes(target.role)) {
+      throw new ForbiddenException("Ce compte ne relève pas de votre périmètre d'administration.");
+    }
+    // Containment, from the helper the company path already uses: a regional
+    // délégué matches on region, so a division inside it passes; a divisional
+    // délégué matches on region AND department.
+    assertTerritorialAuthority(actor as Territory, target);
+    return;
+  }
   assertCanManageRole(actor?.role ?? undefined, target.role);
 }

@@ -56,6 +56,9 @@ export const SECRET_USER_FIELDS = [
   // PUBLIC_USER_SELECT only when a screen needs it.
   'lastLoginAt',
   'approvedAt',
+  // Who approved, beside approvedAt: reviewer-facing, and read by the staff
+  // queue through its own select rather than through this allowlist.
+  'approvedBy',
   'tokenVersion',
   'registrationNumber',
   'assigneeId',

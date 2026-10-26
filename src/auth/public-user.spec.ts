@@ -11,6 +11,7 @@ const SECRETS: Record<(typeof SECRET_USER_FIELDS)[number], unknown> = {
   twoFactorCodeExpires: new Date(),
   lastLoginAt: new Date(),
   approvedAt: new Date(),
+  approvedBy: 'delegate-1',
   tokenVersion: 0,
   registrationNumber: 'INS-2026-0847',
   assigneeId: 'agent-1',
