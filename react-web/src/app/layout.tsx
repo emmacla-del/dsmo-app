@@ -6,6 +6,8 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { QueryProvider } from "./query-provider";
 import { AuthInitializer } from "./auth-initializer";
+import { ServiceWorkerRegistration } from "./service-worker-registration";
+import { RegistrationOutboxSync } from "./registration-outbox-sync";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -63,6 +65,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             provider's new locale and messages re-render what reads them. */}
         <NextIntlClientProvider locale={locale} messages={messages}>
           <QueryProvider>
+            <ServiceWorkerRegistration />
+            <RegistrationOutboxSync />
             <AuthInitializer />
             {children}
           </QueryProvider>

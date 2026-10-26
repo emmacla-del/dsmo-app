@@ -76,6 +76,7 @@ import {
   getRespondentFunctionOptions,
 } from "@/lib/register-options";
 import { saveLoginIdentifier } from "@/lib/login-handoff";
+import { enqueueSignup, getQueuedSignups } from "@/lib/registration-outbox";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
 import {
   passwordStrength,
@@ -112,6 +113,15 @@ const SNACKBAR_MS = 6000;
 // Beyond five, the list pushes the rest of the step down more than a
 // dropdown costs in clicks.
 const MAX_RADIO_OPTIONS = 5;
+
+function newClientRequestId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
 
 const PASSWORD_ERROR_KEY = {
   required: "registerPage.errorPasswordRequired",
@@ -266,6 +276,7 @@ export default function RegisterPage() {
   const [obscurePassword, setObscurePassword] = useState(true);
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [queuedOnDevice, setQueuedOnDevice] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     establishmentId?: string | null;
@@ -287,6 +298,41 @@ export default function RegisterPage() {
     const onBeforePrint = () => setPrintedAt(new Date());
     window.addEventListener("beforeprint", onBeforePrint);
     return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, []);
+
+  useEffect(() => {
+    const onRegistrationSynced = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        companyName: string;
+        establishmentId?: string | null;
+        status?: string | null;
+      }>).detail;
+      setQueuedOnDevice(false);
+      setSubmitError(null);
+      setResult({
+        companyName: detail.companyName,
+        establishmentId: detail.establishmentId,
+        status: detail.status,
+        registeredAt: new Date(),
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("camleap:registration-synced", onRegistrationSynced);
+    return () => window.removeEventListener("camleap:registration-synced", onRegistrationSynced);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getQueuedSignups()
+      .then((queued) => {
+        if (active && queued.length > 0) setQueuedOnDevice(true);
+      })
+      .catch(() => {
+        // The global sync notice reports an unreadable queue; don't block the form here.
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
@@ -900,12 +946,17 @@ export default function RegisterPage() {
   const resolvedBranchNameEn = branchId ? pickedBranch?.nameEn || branchNameEn : "";
 
   async function submit() {
+    if (queuedOnDevice) {
+      setSubmitError(t("registerPage.queuedBody"));
+      return;
+    }
     if (!entityType || !config) {
       setSubmitError(t("registerPage.errorEntityTypeMissing"));
       return;
     }
     setSubmitting(true);
     setSubmitError(null);
+    let submissionPayload: RegisterCompanyPayload | null = null;
     try {
       // Hidden dependent fields must not reach the payload -- see
       // visibleEntityDataForType. Every read below goes through this copy.
@@ -926,6 +977,7 @@ export default function RegisterPage() {
       }
 
       const payload: RegisterCompanyPayload = {
+        clientRequestId: newClientRequestId(),
         email: respondent.email.trim(),
         password,
         firstName: respondent.firstName.trim(),
@@ -981,6 +1033,19 @@ export default function RegisterPage() {
         respondentPhone: normalizeCameroonPhone(respondent.phone1),
         respondentPhone2: respondent.phone2 ? normalizeCameroonPhone(respondent.phone2) : undefined,
       };
+      submissionPayload = payload;
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        try {
+          await enqueueSignup(payload);
+          setQueuedOnDevice(true);
+          setSubmitError(t("registerPage.queuedBody"));
+          window.dispatchEvent(new Event("camleap:registration-outbox-updated"));
+        } catch {
+          setSubmitError(t("registerPage.queuedStorageError"));
+        }
+        return;
+      }
 
       const response = await registerCompany(payload);
       setResult({
@@ -994,11 +1059,23 @@ export default function RegisterPage() {
       }
     } catch (e) {
       // A refusal the server explains (an address already taken, a field it
-      // rejects) is shown in its own words. A connection that never reached
-      // it, a server error, or anything that is not an API answer at all is
-      // said plainly instead, with what matters: nothing typed is lost.
+      // rejects) is shown in its own words. Transient failures are saved for
+      // retry with the same idempotency key.
       const explained = e instanceof ApiError && e.status >= 400 && e.status < 500;
-      setSubmitError(explained ? e.message : t("registerPage.submitConnectionError"));
+      if (explained) {
+        setSubmitError(e.message);
+      } else if (!submissionPayload) {
+        setSubmitError(t("registerPage.submitConnectionError"));
+      } else {
+        try {
+          await enqueueSignup(submissionPayload);
+          setQueuedOnDevice(true);
+          setSubmitError(t("registerPage.queuedBody"));
+          window.dispatchEvent(new Event("camleap:registration-outbox-updated"));
+        } catch {
+          setSubmitError(t("registerPage.queuedStorageError"));
+        }
+      }
       if (typeof window !== "undefined") {
         setTimeout(() => {
           const errEl = document.querySelector(".auth-error-box");
