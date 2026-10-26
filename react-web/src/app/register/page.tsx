@@ -333,7 +333,9 @@ export default function RegisterPage() {
     window.addEventListener("camleap:registration-synced", onRegistrationSynced);
     const onRegistrationAlreadyCreated = () => {
       setQueuedOnDevice(false);
-      setSubmitError(t("registerPage.queuedSyncSuccess"));
+      // RegistrationOutboxSync owns the success notice. Clear any stale form
+      // error so the page doesn't present the recovered submission as failed.
+      setSubmitError(null);
     };
     const onRegistrationEmailExists = () => {
       setQueuedOnDevice(false);
@@ -344,12 +346,18 @@ export default function RegisterPage() {
       setCurrent(respondentIndex);
       window.setTimeout(() => document.getElementById("reg-email")?.focus(), 50);
     };
+    const onRegistrationReviewConflict = () => {
+      setQueuedOnDevice(false);
+      setSubmitError(t("registerPage.queuedConflictReview"));
+    };
     window.addEventListener("camleap:registration-already-created", onRegistrationAlreadyCreated);
     window.addEventListener("camleap:registration-email-exists", onRegistrationEmailExists);
+    window.addEventListener("camleap:registration-review-conflict", onRegistrationReviewConflict);
     return () => {
       window.removeEventListener("camleap:registration-synced", onRegistrationSynced);
       window.removeEventListener("camleap:registration-already-created", onRegistrationAlreadyCreated);
       window.removeEventListener("camleap:registration-email-exists", onRegistrationEmailExists);
+      window.removeEventListener("camleap:registration-review-conflict", onRegistrationReviewConflict);
     };
   }, [current, t]);
 
