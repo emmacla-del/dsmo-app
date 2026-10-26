@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -258,6 +258,7 @@ function InscriptionsContent() {
   const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
   const [page, setPage] = useState(1);
   const [reviewing, setReviewing] = useState<CompanyRegistrationItem | null>(null);
+  const reviewingIdRef = useRef<string | null>(null);
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_COMPLEMENTS">("APPROVE");
   const [comment, setComment] = useState("");
   const [centralChecked, setCentralChecked] = useState(false);
@@ -355,6 +356,7 @@ function InscriptionsContent() {
   });
 
   const closeReview = () => {
+    reviewingIdRef.current = null;
     setReviewing(null);
     setDecision("APPROVE");
     setComment("");
@@ -387,7 +389,7 @@ function InscriptionsContent() {
       void queryClient.invalidateQueries(queue);
     });
     setNotice({ tone: "success", text });
-    closeReview();
+    if (reviewingIdRef.current === id) closeReview();
   };
 
   const failed = (e: Error & { status?: number }) => {
@@ -931,7 +933,7 @@ function InscriptionsContent() {
                         variant="outline"
                         size="sm"
                         disabled={queueUpdating}
-                        onClick={() => { setNotice(null); setReviewing(item); }}
+                        onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}
                       >
                         {t("reviewButton")}
                       </Button>

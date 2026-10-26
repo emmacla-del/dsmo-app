@@ -3636,11 +3636,13 @@
     "eyebrow": "Lien de création de compte à envoyer par WhatsApp",
     "levelLegend": "Où l'agent sera-t-il affecté ?",
     "level": {
+      "territorial": "Délégations régionale et départementale (DREFOP et DDEFOP)",
       "regional": "Délégation régionale (DREFOP)",
       "departmental": "Délégation départementale (DDEFOP)",
       "central": "Services centraux et rattachés"
     },
     "levelHint": {
+      "territorial": "Tous les agents des délégations d'une région ; l'agent choisit son service",
       "regional": "Délégué régional et agents de la délégation, pour une région",
       "departmental": "Délégué départemental et agents de la délégation, pour un département",
       "central": "Agent central en lecture seule (ONEFOP, directions, inspections…)"
