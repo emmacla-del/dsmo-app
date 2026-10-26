@@ -52,8 +52,12 @@ function onPhone(): boolean {
 }
 
 function getSnapshot(): EntryMode {
-  if (onPhone()) return "guided";
-  return readStored() ?? "grid";
+  if (onPhone()) {
+    // Phones: guided only. Never honor a stored 'grid' choice.
+    return "guided";
+  }
+  const stored = readStored();
+  return stored ?? "grid";
 }
 
 function getServerSnapshot(): EntryMode {
