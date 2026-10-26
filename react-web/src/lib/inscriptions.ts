@@ -24,6 +24,14 @@ import { apiFetch } from "./api-client";
 import { REGISTRATION_NATIONAL_ROLES, hasRole } from "./roles";
 import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
 import type { UiLocale } from "./register-i18n";
+import {
+  entityApiValue,
+  resolveAddress,
+  resolveCompanyName,
+  resolveMainActivity,
+  visibleEntityDataForType,
+  type EntityType,
+} from "./register-constants";
 
 /**
  * The assisted-registration body: the public RegisterCompanyPayload minus
@@ -66,6 +74,10 @@ export interface AssistedRegistrationPayload {
   cfpType?: string;
   educationSystem?: string;
   functionalStatus?: string;
+  authorizationStatus?: string;
+  authorizationYear?: string;
+  authorizationOrderNumber?: string;
+  authorizationOrderDate?: string;
   nonFunctionalReason?: string;
   nonFunctionalReasonOther?: string;
   promoterName?: string;
@@ -79,6 +91,85 @@ export interface AssistedRegistrationPayload {
   respondentPhone?: string;
   respondentPhone2?: string;
   trainingDomains?: string;
+}
+
+export interface AssistedRegistrationInput {
+  entityType: EntityType;
+  entityData: Record<string, string>;
+  respondent: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    function: string;
+    phone1: string;
+    phone2: string;
+  };
+  region: string;
+  department: string;
+  subdivision: string;
+  branchName?: string;
+}
+
+export function buildAssistedRegistrationPayload({
+  entityType,
+  entityData,
+  respondent,
+  region,
+  department,
+  subdivision,
+  branchName,
+}: AssistedRegistrationInput): AssistedRegistrationPayload {
+  const data = visibleEntityDataForType(entityData, entityType);
+  const fallbackName = `${respondent.firstName} ${respondent.lastName}`.trim();
+
+  return {
+    email: respondent.email.trim(),
+    firstName: respondent.firstName.trim(),
+    lastName: respondent.lastName.trim(),
+    companyName: resolveCompanyName(data, fallbackName),
+    address: resolveAddress(data),
+    mainActivity: resolveMainActivity(data),
+    region,
+    department,
+    subdivision,
+    entityType: entityApiValue(entityType),
+    taxNumber: data.taxNumber,
+    parentCompany: data.parentCompany,
+    secondaryActivity: data.secondaryActivity,
+    cnpsNumber: data.cnpsNumber,
+    socialCapital: data.socialCapital ? Number(data.socialCapital) : undefined,
+    legalStatus: data.legalStatus,
+    cooperativeType: data.cooperativeType,
+    yearOfCreation: data.yearOfCreation,
+    ctdType: data.ctdType,
+    projectNature: data.projectNature,
+    mainMission: data.mainMission,
+    registrationNumber: data.registrationNumber,
+    sectorId: data.branchId || undefined,
+    branch: data.branchId ? branchName : undefined,
+    poBox: data.poBox,
+    phone: data.phone,
+    phone2: data.phone2,
+    sigle: data.sigle,
+    cfpType: data.cfpType,
+    educationSystem: data.educationSystem,
+    functionalStatus: data.functionalStatus,
+    authorizationStatus: data.authorizationStatus,
+    authorizationYear: data.authorizationYear,
+    authorizationOrderNumber: data.authorizationOrderNumber,
+    authorizationOrderDate: data.authorizationOrderDate,
+    nonFunctionalReason: data.nonFunctionalReason,
+    nonFunctionalReasonOther: data.nonFunctionalReasonOther,
+    promoterName: data.promoterName,
+    promoterSex: data.promoterSex,
+    promoterPhone1: data.promoterPhone1,
+    promoterPhone2: data.promoterPhone2,
+    respondentFirstName: respondent.firstName.trim(),
+    respondentLastName: respondent.lastName.trim(),
+    respondentFunction: respondent.function || undefined,
+    respondentPhone: respondent.phone1 || undefined,
+    respondentPhone2: respondent.phone2 || undefined,
+  };
 }
 
 export interface AssistedRegistrationResult {
