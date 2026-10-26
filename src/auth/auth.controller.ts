@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { StaffInvitationService } from './staff-invitation.service';
@@ -78,8 +78,28 @@ export class AuthController {
   // skipMissingProperties: true, which would silently skip validation of
   // any field the client omits entirely from the body — defeating
   // @IsString()/@ValidateIf() requiredness checks below.
-  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: false,
+    transform: true,
+    skipMissingProperties: false,
+    exceptionFactory: (errors) => new BadRequestException({
+      code: 'VALIDATION_FAILED',
+      message: 'Les données du formulaire sont invalides.',
+      fields: errors.map((error) => ({
+        property: error.property,
+        constraints: Object.keys(error.constraints ?? {}),
+      })),
+    }),
+  }))
   async registerCompany(@Body() body: RegisterCompanyDto) {
+    if (!body.respondentPhone?.trim()) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Les données du formulaire sont invalides.',
+        fields: [{ property: 'respondentPhone', constraints: ['isDefined', 'isNotEmpty'] }],
+      });
+    }
     return this.authService.registerCompany(
       body.email,
       body.password,

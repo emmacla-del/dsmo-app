@@ -88,6 +88,13 @@ export function emailMatch(email: string) {
   return { email: { equals: email.trim(), mode: 'insensitive' as const } };
 }
 
+function emailExistsConflict() {
+  return new ConflictException({
+    code: 'EMAIL_EXISTS',
+    message: 'Un utilisateur avec cet email existe déjà',
+  });
+}
+
 /**
  * A staff account's name for display next to a record it authored, falling
  * back to the address when neither name part is set (seeded and
@@ -639,7 +646,7 @@ export class AuthService {
     email = normalizeEmail(email);
     const existingUser = await this.prisma.user.findFirst({ where: emailMatch(email) });
     if (existingUser) {
-      throw new ConflictException('Un utilisateur avec cet email existe déjà');
+      throw emailExistsConflict();
     }
 
     // Only enforce the NIU-uniqueness check for entity types that actually
@@ -842,7 +849,15 @@ export class AuthService {
       return { user: activeUser, company, establishmentId: company.establishmentId as string };
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Email ou numéro contribuable déjà utilisé');
+        const target = error.meta?.target;
+        const targets = Array.isArray(target) ? target : [target];
+        if (targets.some((field) => typeof field === 'string' && field.toLowerCase().includes('email'))) {
+          throw emailExistsConflict();
+        }
+        throw new ConflictException({
+          code: 'REGISTRATION_CONFLICT',
+          message: 'Email ou numéro contribuable déjà utilisé',
+        });
       }
       throw error;
     }
@@ -905,12 +920,18 @@ export class AuthService {
     const sameEmail = normalizeEmail(user.email) === normalizeEmail(email);
     const samePassword = await bcrypt.compare(password, user.passwordHash);
     if (!sameEmail || !samePassword) {
-      throw new ConflictException('Cette demande d’inscription a déjà été utilisée.');
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'Cette demande d’inscription a déjà été utilisée.',
+      });
     }
 
     const company = await this.prisma.company.findUnique({ where: { userId: user.id } });
     if (!company) {
-      throw new ConflictException('Cette inscription est en cours de traitement. Réessayez dans un instant.');
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_PENDING',
+        message: 'Cette inscription est en cours de traitement. Réessayez dans un instant.',
+      });
     }
 
     const loginResult = await this.login(user);

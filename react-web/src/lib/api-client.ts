@@ -118,6 +118,31 @@ export class ApiError extends Error {
   }
 }
 
+export function apiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || !error.body || typeof error.body !== "object") return undefined;
+  const code = (error.body as Record<string, unknown>).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+export interface ApiValidationField {
+  property: string;
+  constraints: string[];
+}
+
+export function apiValidationFields(error: unknown): ApiValidationField[] {
+  if (!(error instanceof ApiError) || !error.body || typeof error.body !== "object") return [];
+  const fields = (error.body as Record<string, unknown>).fields;
+  if (!Array.isArray(fields)) return [];
+  return fields.filter(
+    (field): field is ApiValidationField =>
+      !!field &&
+      typeof field === "object" &&
+      typeof (field as ApiValidationField).property === "string" &&
+      Array.isArray((field as ApiValidationField).constraints) &&
+      (field as ApiValidationField).constraints.every((constraint) => typeof constraint === "string"),
+  );
+}
+
 /** ActiveCompanyGuard's refusal code — see src/auth/active-company.guard.ts. */
 export const COMPANY_NOT_ACTIVE = "COMPANY_NOT_ACTIVE";
 
@@ -248,8 +273,8 @@ function humanizeErrorMessage(status: number, message: string, path: string): st
 
   if (status === 429 || trimmed === "ThrottlerException: Too Many Requests") {
     return isEn
-      ? "Too many requests. Please wait a moment before trying again."
-      : "Trop de requêtes. Veuillez patienter un instant avant de réessayer.";
+      ? "Too many attempts. Please wait a minute before trying again."
+      : "Trop de tentatives. Veuillez attendre une minute avant de réessayer.";
   }
 
   if (status >= 500) {

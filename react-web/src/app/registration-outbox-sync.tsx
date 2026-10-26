@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { registerCompany } from "@/lib/api-client";
+import { ApiError, apiErrorCode, registerCompany } from "@/lib/api-client";
 import { getQueuedSignups, sendQueuedSignup } from "@/lib/registration-outbox";
 
 export function RegistrationOutboxSync() {
   const t = useTranslations();
   const syncing = useRef(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: "success" | "warning" | "error" | "info";
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -19,20 +22,43 @@ export function RegistrationOutboxSync() {
       try {
         const queued = await getQueuedSignups();
         for (const signup of queued) {
-          const { payload, response } = await sendQueuedSignup(signup.id, registerCompany);
-          window.dispatchEvent(
-            new CustomEvent("camleap:registration-synced", {
-              detail: {
-                companyName: response.company.name ?? payload.companyName,
-                establishmentId: response.company.establishmentId,
-                status: response.user.status,
-              },
-            }),
+          const { payload, response: syncResult } = await sendQueuedSignup(
+            signup.id,
+            async (payload) => {
+              try {
+                return { kind: "created" as const, result: await registerCompany(payload) };
+              } catch (error) {
+                if (error instanceof ApiError && error.status === 409) {
+                  const code = apiErrorCode(error);
+                  if (code === "IDEMPOTENT_SUCCESS") return { kind: "already-created" as const };
+                  if (code === "EMAIL_EXISTS") return { kind: "email-exists" as const };
+                }
+                throw error;
+              }
+            },
           );
-          if (active) setNotice(t("registerPage.queuedSyncSuccess"));
+
+          if (syncResult.kind === "email-exists") {
+            window.dispatchEvent(new Event("camleap:registration-email-exists"));
+            if (active) setNotice({ message: t("registerPage.queuedEmailExists"), tone: "error" });
+          } else if (syncResult.kind === "already-created") {
+            window.dispatchEvent(new Event("camleap:registration-already-created"));
+            if (active) setNotice({ message: t("registerPage.queuedSyncSuccess"), tone: "success" });
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("camleap:registration-synced", {
+                detail: {
+                  companyName: syncResult.result.company.name ?? payload.companyName,
+                  establishmentId: syncResult.result.company.establishmentId,
+                  status: syncResult.result.user.status,
+                },
+              }),
+            );
+            if (active) setNotice({ message: t("registerPage.queuedSyncSuccess"), tone: "success" });
+          }
         }
       } catch {
-        if (active) setNotice(t("registerPage.queuedRetryError"));
+        if (active) setNotice({ message: t("registerPage.queuedRetryError"), tone: "warning" });
       } finally {
         syncing.current = false;
       }
@@ -46,10 +72,12 @@ export function RegistrationOutboxSync() {
     } else {
       void getQueuedSignups()
         .then((queued) => {
-          if (active && queued.length > 0) setNotice(t("registerPage.queuedBody"));
+          if (active && queued.length > 0) {
+            setNotice({ message: t("registerPage.queuedBody"), tone: "info" });
+          }
         })
         .catch(() => {
-          if (active) setNotice(t("registerPage.queuedRetryError"));
+          if (active) setNotice({ message: t("registerPage.queuedRetryError"), tone: "warning" });
         });
     }
 
@@ -61,13 +89,19 @@ export function RegistrationOutboxSync() {
   }, [t]);
 
   if (!notice) return null;
+  const toneClass = {
+    success: "border-emerald-200 text-emerald-950",
+    warning: "border-amber-300 text-amber-950",
+    error: "border-red-300 text-red-950",
+    info: "border-slate-300 text-slate-950",
+  }[notice.tone];
   return (
     <div
-      className="fixed bottom-4 left-4 z-[100] max-w-sm rounded-md border border-emerald-200 bg-white p-4 text-sm text-emerald-950 shadow-lg"
-      role="status"
+      className={`fixed bottom-4 left-4 z-[100] max-w-sm rounded-md border bg-white p-4 text-sm shadow-lg ${toneClass}`}
+      role={notice.tone === "error" ? "alert" : "status"}
       aria-live="polite"
     >
-      {notice}
+      {notice.message}
       <button
         type="button"
         className="ml-3 underline"

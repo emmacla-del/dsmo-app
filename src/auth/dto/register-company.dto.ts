@@ -1,4 +1,4 @@
-import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min, ValidateIf } from 'class-validator';
+import { IsDefined, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CNPS_REQUIRED_ENTITY_TYPES } from '../registration-verification';
 
@@ -12,6 +12,8 @@ export const PROJECT_NATURE_VALUES = [
   'Structure sous-tutelle/ Structure under supervision',
   'Autres/ Other',
 ];
+
+export const CAMEROON_PHONE_PATTERN = /^(?:(?:\+|00)?237[\s().-]*)?[\s().-]*[26](?:[\s().-]*\d){8}$/;
 
 /**
  * Every company-registration field except the password.
@@ -29,9 +31,11 @@ export const PROJECT_NATURE_VALUES = [
  */
 export class CompanyRegistrationFieldsDto {
   @IsEmail()
+  @IsNotEmpty()
   email!: string;
 
   @IsString()
+  @IsNotEmpty()
   companyName!: string;
 
   @IsString()
@@ -47,6 +51,7 @@ export class CompanyRegistrationFieldsDto {
   subdivision!: string;
 
   @IsString()
+  @IsNotEmpty()
   address!: string;
 
   @IsOptional() @IsString() parentCompany?: string;
@@ -78,8 +83,12 @@ export class CompanyRegistrationFieldsDto {
   cnpsNumber?: string;
   @IsOptional() @IsString() area?: string;
   @IsOptional() @IsString() sectorId?: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsOptional() @IsString() phone2?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  phone?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  phone2?: string;
   @IsOptional() @IsString() poBox?: string;
   @IsOptional() @IsString() legalStatus?: string;
   @IsOptional() @IsString() cooperativeType?: string;
@@ -88,13 +97,25 @@ export class CompanyRegistrationFieldsDto {
   @IsOptional() @IsString() mainMission?: string;
   @IsOptional() @IsString() registrationNumber?: string;
   @IsOptional() @IsString() trainingDomains?: string;
-  @IsOptional() @IsString() respondentPhone?: string;
-  @IsOptional() @IsString() respondentPhone2?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  respondentPhone?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  respondentPhone2?: string;
   @IsOptional() @IsString() respondentFunction?: string;
-  @IsOptional() @IsString() respondentFirstName?: string;
-  @IsOptional() @IsString() respondentLastName?: string;
-  @IsOptional() @IsString() firstName?: string;
-  @IsOptional() @IsString() lastName?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @IsNotEmpty()
+  respondentFirstName?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @IsNotEmpty()
+  respondentLastName?: string;
+  @ValidateIf((o) => !o.respondentFirstName)
+  @IsDefined() @IsString() @IsNotEmpty()
+  firstName?: string;
+  @ValidateIf((o) => !o.respondentLastName)
+  @IsDefined() @IsString() @IsNotEmpty()
+  lastName?: string;
   @IsOptional() @IsString() branch?: string;
 
   // VOCATIONAL_TRAINING-specific identification fields.
@@ -147,8 +168,12 @@ export class CompanyRegistrationFieldsDto {
 
   @IsOptional() @IsString() promoterName?: string;
   @IsOptional() @IsString() promoterSex?: string;
-  @IsOptional() @IsString() promoterPhone1?: string;
-  @IsOptional() @IsString() promoterPhone2?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  promoterPhone1?: string;
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString() @Matches(CAMEROON_PHONE_PATTERN)
+  promoterPhone2?: string;
 
   // Required for PROJECT_PROGRAM only: the registration form asks it there,
   // and the wizard pre-fills PP_S1Q01 from it. @IsDefined because the global
@@ -162,6 +187,7 @@ export class CompanyRegistrationFieldsDto {
 /** The public POST /auth/register-company body: the fields plus a password. */
 export class RegisterCompanyDto extends CompanyRegistrationFieldsDto {
   @IsString()
+  @IsNotEmpty()
   password!: string;
 
   // Stable across an offline queue retry. This is optional for existing

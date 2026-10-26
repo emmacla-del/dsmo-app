@@ -93,8 +93,20 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Aucune attestation n\'est disponible pour ce compte.', en: 'No certificate is available for this account.' },
 
   // ── Registration, companies, establishments ──────────────────────────
+  {
+    fr: 'Les données du formulaire sont invalides.',
+    en: 'The registration form contains invalid fields.',
+  },
   { fr: 'Rôle invalide pour la création directe', en: 'Invalid role for direct creation' },
   { fr: 'Un utilisateur avec cet email existe déjà', en: 'A user with this email already exists' },
+  {
+    fr: 'Cette demande d’inscription a déjà été utilisée.',
+    en: 'This registration request has already been used.',
+  },
+  {
+    fr: 'Cette inscription est en cours de traitement. Réessayez dans un instant.',
+    en: 'This registration is still being processed. Try again in a moment.',
+  },
   { fr: 'Une entreprise avec ce numéro contribuable existe déjà', en: 'A company with this taxpayer number already exists' },
   { fr: 'Type d\'entité inconnu.', en: 'Unknown entity type.' },
   { fr: 'Type d\'entité inconnu : {0}', en: 'Unknown entity type: {0}' },

@@ -4,6 +4,11 @@ import type { RegisterCompanyPayload } from "./api-client";
 const DATABASE_NAME = "camleap-registration-outbox";
 const KEY_ID = "signup-payload-key-v1";
 const MAX_PENDING_SIGNUPS = 1;
+const CLIENT_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidClientRequestId(value: unknown): value is string {
+  return typeof value === "string" && CLIENT_REQUEST_ID_PATTERN.test(value);
+}
 
 interface EncryptedSignup {
   id: string;
@@ -96,7 +101,9 @@ function requireOutbox(): RegistrationOutboxDb {
 /** Store the complete request encrypted; never write applicant data/password in clear text. */
 export async function enqueueSignup(payload: RegisterCompanyPayload): Promise<string> {
   const db = requireOutbox();
-  if (!payload.clientRequestId) throw new Error("An offline signup request needs an idempotency key.");
+  if (!isValidClientRequestId(payload.clientRequestId)) {
+    throw new Error("An offline signup request needs a valid idempotency key.");
+  }
   if ((await db.entries.count()) >= MAX_PENDING_SIGNUPS) {
     throw new Error("A signup is already waiting to sync from this browser.");
   }
@@ -120,16 +127,42 @@ export async function getQueuedSignups(): Promise<QueuedSignup[]> {
   const db = requireOutbox();
   const entries = await db.entries.orderBy("createdAt").toArray();
   if (entries.length === 0) return [];
-  const keyRecord = await db.keys.get(KEY_ID);
-  if (!keyRecord) throw new Error("The saved signup can no longer be decrypted on this device.");
 
-  return Promise.all(
-    entries.map(async (entry) => ({
-      id: entry.id,
-      createdAt: entry.createdAt,
-      payload: await decryptSignupPayload(entry, keyRecord.key),
-    })),
-  );
+  const validEntries: EncryptedSignup[] = [];
+  for (const entry of entries) {
+    if (!isValidClientRequestId(entry.id)) await db.entries.delete(entry.id);
+    else validEntries.push(entry);
+  }
+  if (validEntries.length === 0) {
+    await db.keys.delete(KEY_ID);
+    return [];
+  }
+
+  const keyRecord = await db.keys.get(KEY_ID);
+  if (!keyRecord) {
+    await db.entries.bulkDelete(validEntries.map((entry) => entry.id));
+    await db.keys.delete(KEY_ID);
+    return [];
+  }
+
+  const queued: QueuedSignup[] = [];
+  for (const entry of validEntries) {
+    try {
+      const payload = await decryptSignupPayload(entry, keyRecord.key);
+      if (!isValidClientRequestId(payload.clientRequestId) || payload.clientRequestId !== entry.id) {
+        await db.entries.delete(entry.id);
+        continue;
+      }
+      queued.push({ id: entry.id, createdAt: entry.createdAt, payload });
+    } catch {
+      // A corrupt record cannot be authenticated or replayed safely. Drop it
+      // so an unreadable item does not block the one-entry outbox forever.
+      await db.entries.delete(entry.id);
+    }
+  }
+
+  if (queued.length === 0) await db.keys.delete(KEY_ID);
+  return queued;
 }
 
 /** Keep the encrypted request until the server confirms it accepted the signup. */
@@ -140,10 +173,30 @@ export async function sendQueuedSignup<T>(
   const db = requireOutbox();
   const entry = await db.entries.get(id);
   if (!entry) throw new Error("This queued signup is no longer on this device.");
+  if (!isValidClientRequestId(id)) {
+    await db.entries.delete(id);
+    if ((await db.entries.count()) === 0) await db.keys.delete(KEY_ID);
+    throw new Error("This queued signup has an invalid idempotency key and was discarded.");
+  }
   const keyRecord = await db.keys.get(KEY_ID);
-  if (!keyRecord) throw new Error("The saved signup can no longer be decrypted on this device.");
+  if (!keyRecord) {
+    await db.entries.delete(id);
+    throw new Error("This queued signup could not be decrypted and was discarded.");
+  }
 
-  const payload = await decryptSignupPayload(entry, keyRecord.key);
+  let payload: RegisterCompanyPayload;
+  try {
+    payload = await decryptSignupPayload(entry, keyRecord.key);
+  } catch {
+    await db.entries.delete(id);
+    if ((await db.entries.count()) === 0) await db.keys.delete(KEY_ID);
+    throw new Error("This queued signup could not be authenticated and was discarded.");
+  }
+  if (!payload || typeof payload !== "object" || !isValidClientRequestId(payload.clientRequestId) || payload.clientRequestId !== id) {
+    await db.entries.delete(id);
+    if ((await db.entries.count()) === 0) await db.keys.delete(KEY_ID);
+    throw new Error("This queued signup does not match its idempotency key and was discarded.");
+  }
   const response = await send(payload);
   await db.entries.delete(id);
   if ((await db.entries.count()) === 0) await db.keys.delete(KEY_ID);

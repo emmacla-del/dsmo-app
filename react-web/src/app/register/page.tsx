@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
+  apiErrorCode,
+  apiValidationFields,
   ApiError,
   checkEmailAvailable,
   getDepartmentsByRegion,
@@ -276,7 +278,9 @@ export default function RegisterPage() {
   const [obscurePassword, setObscurePassword] = useState(true);
   const [obscureConfirm, setObscureConfirm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitSlow, setSubmitSlow] = useState(false);
   const [queuedOnDevice, setQueuedOnDevice] = useState(false);
+  const [serverFieldErrors, setServerFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     establishmentId?: string | null;
@@ -301,6 +305,15 @@ export default function RegisterPage() {
   }, []);
 
   useEffect(() => {
+    if (!submitting) {
+      setSubmitSlow(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSubmitSlow(true), 30_000);
+    return () => window.clearTimeout(timeout);
+  }, [submitting]);
+
+  useEffect(() => {
     const onRegistrationSynced = (event: Event) => {
       const detail = (event as CustomEvent<{
         companyName: string;
@@ -318,8 +331,27 @@ export default function RegisterPage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
     window.addEventListener("camleap:registration-synced", onRegistrationSynced);
-    return () => window.removeEventListener("camleap:registration-synced", onRegistrationSynced);
-  }, []);
+    const onRegistrationAlreadyCreated = () => {
+      setQueuedOnDevice(false);
+      setSubmitError(t("registerPage.queuedSyncSuccess"));
+    };
+    const onRegistrationEmailExists = () => {
+      setQueuedOnDevice(false);
+      setEmailAvailable(false);
+      setSubmitError(null);
+      const respondentIndex = STEPS.indexOf("respondent");
+      if (current !== respondentIndex) headingFocusPendingRef.current = true;
+      setCurrent(respondentIndex);
+      window.setTimeout(() => document.getElementById("reg-email")?.focus(), 50);
+    };
+    window.addEventListener("camleap:registration-already-created", onRegistrationAlreadyCreated);
+    window.addEventListener("camleap:registration-email-exists", onRegistrationEmailExists);
+    return () => {
+      window.removeEventListener("camleap:registration-synced", onRegistrationSynced);
+      window.removeEventListener("camleap:registration-already-created", onRegistrationAlreadyCreated);
+      window.removeEventListener("camleap:registration-email-exists", onRegistrationEmailExists);
+    };
+  }, [current, t]);
 
   useEffect(() => {
     let active = true;
@@ -956,6 +988,7 @@ export default function RegisterPage() {
     }
     setSubmitting(true);
     setSubmitError(null);
+    setServerFieldErrors({});
     let submissionPayload: RegisterCompanyPayload | null = null;
     try {
       // Hidden dependent fields must not reach the payload -- see
@@ -1061,8 +1094,94 @@ export default function RegisterPage() {
       // A refusal the server explains (an address already taken, a field it
       // rejects) is shown in its own words. Transient failures are saved for
       // retry with the same idempotency key.
+      const emailExists =
+        e instanceof ApiError && e.status === 409 && apiErrorCode(e) === "EMAIL_EXISTS";
       const explained = e instanceof ApiError && e.status >= 400 && e.status < 500;
-      if (explained) {
+      if (e instanceof ApiError && e.status === 400 && apiErrorCode(e) === "VALIDATION_FAILED") {
+        const entityNameField: Record<EntityType, string> = {
+          enterprise: "companyName",
+          cooperative: "cooperativeName",
+          ong: "ngoName",
+          administration: "administrationName",
+          ctd: "ctdName",
+          projectProgram: "projectProgramName",
+          vocationalTraining: "centerName",
+        };
+        const aliases: Record<string, string> = {
+          entityType: "reg-entity-type",
+          companyName: entityType ? `reg-entity-${entityNameField[entityType]}` : "reg-entity-companyName",
+          address: entityType === "cooperative" ? "reg-entity-cooperativeHeadOffice" : "reg-entity-address",
+          firstName: "reg-first-name",
+          lastName: "reg-last-name",
+          respondentFirstName: "reg-first-name",
+          respondentLastName: "reg-last-name",
+          respondentFunction: "reg-function",
+          respondentPhone: "reg-phone1",
+          respondentPhone2: "reg-phone2",
+          phone: "reg-entity-phone",
+          phone2: "reg-entity-phone2",
+          promoterPhone1: "reg-entity-promoterPhone1",
+          promoterPhone2: "reg-entity-promoterPhone2",
+          region: "reg-region",
+          regionId: "reg-region",
+          department: "reg-department",
+          departmentId: "reg-department",
+          subdivision: "reg-subdivision",
+          subdivisionId: "reg-subdivision",
+          area: "reg-area",
+          email: "reg-email",
+          password: "reg-password",
+        };
+        const fieldErrors: Record<string, string> = {};
+        for (const field of apiValidationFields(e)) {
+          const candidates = [
+            aliases[field.property],
+            `reg-entity-${field.property}`,
+            `reg-${field.property}`,
+          ].filter((candidate): candidate is string => !!candidate);
+          const controlId = candidates.find((candidate) => document.getElementById(candidate));
+          if (!controlId) continue;
+
+          const constraints = field.constraints.map((constraint) => constraint.toLowerCase());
+          const isRequired = constraints.some((constraint) => constraint === "isdefined" || constraint === "isnotempty");
+          const message = field.property.toLowerCase().includes("phone")
+            ? t(isRequired ? "registerPage.errorPhoneRequired" : "registerPage.errorPhoneFormat")
+            : field.property === "email"
+              ? t("registerPage.errorEmailFormat")
+              : field.property === "password"
+                ? t("registerPage.errorPasswordRequired")
+                : isRequired
+                  ? t(isChoiceField(controlId) ? "registerPage.missingChoiceError" : "registerPage.missingEntryError")
+                  : t("registerPage.serverFieldInvalid");
+          fieldErrors[controlId] = message;
+        }
+
+        setServerFieldErrors(fieldErrors);
+        setSubmitError(t("registerPage.serverValidationSummary"));
+        const firstControlId = Object.keys(fieldErrors)[0];
+        if (firstControlId) {
+          const stepId = firstControlId === "reg-entity-type"
+            ? "entityType"
+            : firstControlId.startsWith("reg-entity-")
+              ? "entityInfo"
+              : ["reg-region", "reg-department", "reg-subdivision", "reg-area"].includes(firstControlId)
+                ? "location"
+                : firstControlId === "reg-password"
+                  ? "security"
+                  : "respondent";
+          const stepIndex = STEPS.indexOf(stepId as RegistrationStepId);
+          if (stepIndex >= 0 && stepIndex !== current) headingFocusPendingRef.current = true;
+          if (stepIndex >= 0) setCurrent(stepIndex);
+          window.setTimeout(() => document.getElementById(firstControlId)?.focus(), 50);
+        }
+      } else if (emailExists) {
+        setEmailAvailable(false);
+        setSubmitError(null);
+        const respondentIndex = STEPS.indexOf("respondent");
+        if (current !== respondentIndex) headingFocusPendingRef.current = true;
+        setCurrent(respondentIndex);
+        window.setTimeout(() => document.getElementById("reg-email")?.focus(), 50);
+      } else if (explained) {
         setSubmitError(e.message);
       } else if (!submissionPayload) {
         setSubmitError(t("registerPage.submitConnectionError"));
@@ -1076,7 +1195,7 @@ export default function RegisterPage() {
           setSubmitError(t("registerPage.queuedStorageError"));
         }
       }
-      if (typeof window !== "undefined") {
+      if (!emailExists && typeof window !== "undefined") {
         setTimeout(() => {
           const errEl = document.querySelector(".auth-error-box");
           errEl?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1391,6 +1510,7 @@ export default function RegisterPage() {
   // What a control says under itself: missing after Continuer, or left with
   // an answer in the wrong shape.
   function fieldError(id: string): string | null {
+    if (serverFieldErrors[id]) return serverFieldErrors[id];
     if (shownMissingIds.has(id)) {
       return t(isChoiceField(id) ? "registerPage.missingChoiceError" : "registerPage.missingEntryError");
     }
@@ -2392,12 +2512,26 @@ export default function RegisterPage() {
                   {submitError}
                 </div>
               )}
+              {submitting && submitSlow && (
+                <p className="field-hint" role="status">
+                  {t("registerPage.submitSlowNotice")}
+                </p>
+              )}
 
               <form
                 className="cam-form-flow"
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSubmitPress();
+                }}
+                onChangeCapture={(event) => {
+                  const id = (event.target as HTMLElement).id;
+                  if (!id || !serverFieldErrors[id]) return;
+                  setServerFieldErrors((previous) => {
+                    const next = { ...previous };
+                    delete next[id];
+                    return next;
+                  });
                 }}
                 onKeyDown={handleFormKeyDown}
               >
