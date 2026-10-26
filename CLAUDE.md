@@ -1147,6 +1147,65 @@ Approved changes on record:
   yields one; a delegation service added with those flags off would silently
   produce a REGIONAL_ADMIN or DIVISIONAL_ADMIN with no territory.
 
+- 2026-10-26 — one invitation link for a whole region, serving both delegation
+  levels, and the link's territory is the account's again (RBAC;
+  `LINK_LEVELS`, `LEVEL_ROLES`, `LEVEL_ROOTS`, `assertServiceInScope`,
+  `resolveSignupTerritory` in `src/auth/staff-invitation-link.service.ts`;
+  `GroupSignUpForm`, `GroupInvitationLinks`, `staff-invitations.ts`).
+  Issue: with the territory self-declared (the entry above), nothing said
+  which region a territorial officer belonged to except a sentence typed by
+  someone no one had verified, read by a national approver who may never have
+  met them — and the register's territorial truth is exactly what the
+  platform is for. One link per post per territory was the alternative, and
+  it needs 10 links for the regional delegations and 58 for the divisional
+  ones. Decision (owner, in chat, 2026-10-26): a fourth level, `territorial`,
+  which is one REGION's entire staff. It pins the region, names no post, and
+  offers both delegation subtrees — 28 units instead of 127. The holder picks
+  their unit; the ROLE follows that unit's `roleMapping` (DREFOP →
+  REGIONAL_ADMIN, DDEFOP → DIVISIONAL_ADMIN), bounded by `LEVEL_ROLES` so a
+  unit the level does not cover is refused; the region is never asked and
+  cannot be contradicted; a divisional unit is then asked for its DIVISION,
+  and only the divisions of the link's own region are accepted. That is what
+  ties a divisional clerk to their regional delegate's territory.
+  WHY THE DATA ALLOWED IT: the organigramme is a template — ONE `DREFOP` node
+  with `requiresRegion`, ONE `DDEFOP` node with `requiresRegion` and
+  `requiresDepartment`, 17 and 11 services in their subtrees — so a region
+  was always a property of the account, not of the service.
+  THIS REVERSES, for every link that pins a territory, the 2026-10-25 entry
+  above: `resolveSignupTerritory` now takes each half from the link where the
+  link has one. That entry named this as the fix to make if ONEFOP wanted the
+  link to bound the choice, and it is the fix that was made — not by putting
+  the territory back on the account blindly, but by asking the officer only
+  for what the link leaves open. What the previous pass built remains in use
+  as the branch for a link with NO territory: the national link that creates
+  the ten regional delegates themselves, few enough for a national officer to
+  check by hand. The approval queue's "link scope" line (cf0c32a7) still
+  reads true; on a pinned link the scope and the account's territory are now
+  the same by construction.
+  The role is no longer the level's alone — it is the unit's, bounded by the
+  level — which is why this is recorded as an RBAC decision: a holder who
+  picks a DREFOP unit on a territorial link gets authority over the whole
+  region, a divisional one over a division. A false claim there is caught by
+  the approver, not by the system; nothing in the data ties a person to a
+  bureau before their account exists. NOT changed: a group link still never
+  produces an ADMIN_ONEFOP; the post is still the link's when it carries one;
+  the matricule is still required.
+  No schema change: `level` is already a String column, and a territorial
+  link stores `serviceCode` and `positionType` NULL — the nullability those
+  columns already had.
+  STILL OPEN, and the reason this model needs a second half: a delegate
+  cannot issue a link. `manageableRolesFor` gives REGIONAL_ADMIN and
+  DIVISIONAL_ADMIN nothing, and `staff-scope.ts` records the owner's
+  withdrawal of 2026-10-07 — territorial roles "neither create staff accounts
+  nor approve them". Until that is revisited, ONEFOP creates one territorial
+  link per region (ten), and the delegate forwards it; the region on those
+  links is ONEFOP's typing, not a delegate account's own. If the owner lets
+  delegates issue links for their own territory — distribution only, never
+  approval — the region becomes inherited from an approved account and the
+  chain of custody is complete. Also still open: the head-post cardinality
+  rule (one DELEGUE_REGIONAL per region, refused at sign-up), and
+  `LINK_MAX_USES` (200), which a region-wide link can approach.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
