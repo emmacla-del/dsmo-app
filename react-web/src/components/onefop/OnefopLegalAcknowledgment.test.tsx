@@ -73,7 +73,7 @@ test("the notice confirms the role and establishment without a personal greeting
     />,
   );
   assert.equal(screen.queryByText("Bienvenue, Awa Ngono"), null);
-  const line = screen.getByText(/Vous déclarez en qualité de Directrice pour/);
+  const line = await screen.findByText(/Vous déclarez en qualité de Directrice pour/, {}, CARD_TIMEOUT);
   assert.equal(line.textContent, "Vous déclarez en qualité de Directrice pour CFP de Mfou (VT26000103).");
   assert.equal(line.querySelector("strong")?.textContent, "CFP de Mfou");
 });

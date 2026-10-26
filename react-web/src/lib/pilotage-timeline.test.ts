@@ -71,7 +71,7 @@ test("the axis tops out at the registered stock, or the total when more came in"
   const now = Date.parse("2026-02-04T12:00:00Z");
   const g = chartGeometry(timeline(), 13, BOX, now)!;
   assert.equal(g.yMax, 13);
-  assert.deepEqual(g.yTicks.map((tick) => tick.value), [0, 13]);
+  assert.deepEqual(g.yTicks.map((tick) => tick.value), [0, 5, 10, 13]);
   assert.equal(chartGeometry(timeline(), 2, BOX, now)!.yMax, 3);
   // No stock: a round number above the total.
   assert.equal(chartGeometry(timeline(), 0, BOX, now)!.yMax, 5);

@@ -132,6 +132,9 @@ test("entityInfo section does not block on a required field whose gate is closed
     cfpType: "Public",
     educationSystem: "Francophone",
     functionalStatus: "Non-fonctionnelle",
+    // "Non" leaves the authorization details' gate closed, so this fixture
+    // isolates the functional-status chain.
+    authorizationStatus: "Non/ No",
     yearOfCreation: "2010",
     address: "Douala",
     phone: "655000000",

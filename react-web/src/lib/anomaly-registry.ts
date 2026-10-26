@@ -23,6 +23,7 @@
 // treat an empty page as the expected steady state.
 
 import { apiFetch } from "./api-client";
+import type { UserRole } from "./roles";
 
 export type AnomalyStatus = "OPEN" | "RESOLVED" | "WAIVED";
 export type AnomalySeverity = "CRITICAL" | "WARNING" | "INFO";
@@ -95,7 +96,14 @@ export function resolveAnomalyRecord(
   });
 }
 
-export { SURVEY_ROLES as ANOMALY_REGISTRY_ROLES, NATIONAL_ROLES as ANOMALY_DEROGATION_ROLES } from "./roles";
+export { SURVEY_ROLES as ANOMALY_REGISTRY_ROLES } from "./roles";
+
+/**
+ * Roles allowed to waive an anomaly by legal derogation. Mirrors the explicit
+ * allowlist in EligibilityEngineService.resolveAnomaly, which does not include
+ * the submissions specialist role.
+ */
+export const ANOMALY_DEROGATION_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
 
 /** Establishment name as actually stored, or null when the record has none. */
 export function anomalyCompanyName(a: AnomalyRecord): string | null {

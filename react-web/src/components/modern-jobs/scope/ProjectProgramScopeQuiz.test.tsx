@@ -51,7 +51,7 @@ async function reachReviewWithRecruitmentTypes(user: { click: (el: Element) => P
 // time, then a shared answer review before its existing scope commit runs.
 test("project quiz asks one labelled Oui/Non question at a time", async () => {
   const { user, container, unmount } = renderQuiz();
-  assert.equal(screen.getAllByRole("radiogroup").length, 0, "the first beat is the outcomes checklist");
+  assert.equal(screen.queryAllByRole("radiogroup").length, 0, "the first beat is the outcomes checklist");
   await next(user);
   const group = await within(container).findByRole("radiogroup", { name: "Personnel permanent" });
   assert.equal(within(group).getAllByRole("radio").length, 2);
