@@ -390,7 +390,13 @@ function InscriptionsContent() {
     closeReview();
   };
 
-  const failed = (e: Error) => setNotice({ tone: "error", text: e.message });
+  const failed = (e: Error & { status?: number }) => {
+    if (e?.status === 409) {
+      setNotice({ tone: "error", text: e.message || t("staleFileError") });
+      return;
+    }
+    setNotice({ tone: "error", text: e.message });
+  };
 
   const approveMutation = useMutation({
     mutationFn: ({ id, options }: { id: string; options: ApproveUserOptions }) => approveUser(id, options),
@@ -398,12 +404,12 @@ function InscriptionsContent() {
     onError: failed,
   });
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectUser(id, reason),
+    mutationFn: ({ id, reason, expectedRevision }: { id: string; reason: string; expectedRevision?: string }) => rejectUser(id, reason, expectedRevision),
     onSuccess: (_data, { id }) => done(t("rejectedNotice"), id, "REJECTED"),
     onError: failed,
   });
   const complementsMutation = useMutation({
-    mutationFn: ({ id, message }: { id: string; message: string }) => requestComplements(id, message),
+    mutationFn: ({ id, message, expectedRevision }: { id: string; message: string; expectedRevision?: string }) => requestComplements(id, message, expectedRevision),
     onSuccess: (_data, { id }) => done(t("complementsNotice"), id, "COMPLEMENTS_REQUESTED"),
     onError: failed,
   });
@@ -425,20 +431,20 @@ function InscriptionsContent() {
       if (approveBlocked) return;
       approveMutation.mutate({
         id: reviewing.id,
-        options: { centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks) },
+        options: { centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks), expectedRevision: reviewing.updatedAt },
       });
     } else if (decision === "REJECT") {
       if (!comment.trim()) {
         setNotice({ tone: "error", text: t("rejectReasonRequired") });
         return;
       }
-      rejectMutation.mutate({ id: reviewing.id, reason: comment.trim() });
+      rejectMutation.mutate({ id: reviewing.id, reason: comment.trim(), expectedRevision: reviewing.updatedAt });
     } else {
       if (!comment.trim()) {
         setNotice({ tone: "error", text: t("complementsMessageRequired") });
         return;
       }
-      complementsMutation.mutate({ id: reviewing.id, message: comment.trim() });
+      complementsMutation.mutate({ id: reviewing.id, message: comment.trim(), expectedRevision: reviewing.updatedAt });
     }
   };
 

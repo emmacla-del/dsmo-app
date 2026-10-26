@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 /**
  * PATCH /auth/approve-user/:id — the reviewer's confirmations.
@@ -17,4 +17,5 @@ export class ApproveRegistrationDto {
   @IsOptional() @IsBoolean() phoneVerified?: boolean;
   @IsOptional() @IsBoolean() contactEmailVerified?: boolean;
   @IsOptional() @IsBoolean() cnpsVerified?: boolean;
+  @IsOptional() @IsString() expectedRevision?: string;
 }

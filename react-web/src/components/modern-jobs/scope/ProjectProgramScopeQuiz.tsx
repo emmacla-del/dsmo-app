@@ -720,6 +720,19 @@ export function ProjectProgramScopeQuiz({
 
   return (
     <div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {phase === "review"
+          ? (isEn ? "Quiz review" : "Revue du questionnaire préliminaire")
+          : beatId === "outcomes"
+            ? (isEn ? "Placement and training results question" : "Question : résultats d'insertion et de formation")
+            : beatId === "permanent"
+              ? (isEn ? "Permanent staff question" : "Question : personnel permanent")
+              : beatId === "temporary"
+                ? (isEn ? "Temporary staff question" : "Question : personnel temporaire")
+                : beatId === "recruitment"
+                  ? (isEn ? "Recruitments question" : "Question : recrutements")
+                  : (isEn ? "Recruitment categories question" : "Question : catégories de recrutement")}
+      </div>
       <header className="cam-step-head">
         <h1
           // Focus target of ModernJobsWizard when the quiz opens (useStepFocus).
@@ -812,7 +825,6 @@ export function ProjectProgramScopeQuiz({
             value={hasPermanentStaff}
             onSelect={(val) => {
               setHasPermanentStaff(val);
-              goAfter("permanent");
             }}
             ariaLabel={isEn ? "Permanent staff" : "Personnel permanent"}
             isEn={isEn}
@@ -845,7 +857,6 @@ export function ProjectProgramScopeQuiz({
             value={hasTemporaryStaff}
             onSelect={(val) => {
               setHasTemporaryStaff(val);
-              goAfter("temporary");
             }}
             ariaLabel={isEn ? "Temporary staff" : "Personnel temporaire"}
             isEn={isEn}
@@ -880,12 +891,8 @@ export function ProjectProgramScopeQuiz({
               setHasRecruitment(val);
               if (!val) {
                 setRecruitmentTypes([]);
-                setPhase("review");
-                scrollQuizToTop();
-                return;
               }
-              setBeatId("recruitmentTypes");
-              scrollQuizToTop();
+              // Do not auto-advance. Use Continue/QuizBeatNav.
             }}
             ariaLabel={isEn ? "Recruitments during the period" : "Recrutements au cours de la période"}
             isEn={isEn}

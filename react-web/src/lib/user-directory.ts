@@ -126,11 +126,12 @@ export interface ApproveUserOptions {
   phoneVerified?: boolean;
   contactEmailVerified?: boolean;
   cnpsVerified?: boolean;
+  expectedRevision?: string;
 }
 
 export function approveUser(id: string, options: ApproveUserOptions = {}) {
   const body = Object.fromEntries(
-    Object.entries(options).map(([key, value]) => [key, value === true]),
+    Object.entries(options).map(([key, value]) => (key === "expectedRevision" ? [key, value] : [key, value === true])),
   );
   return apiFetch(`/auth/approve-user/${id}`, {
     method: "PATCH",
@@ -138,17 +139,22 @@ export function approveUser(id: string, options: ApproveUserOptions = {}) {
   });
 }
 
-export function rejectUser(id: string, reason?: string) {
+export function rejectUser(id: string, reason?: string, expectedRevision?: string) {
+  const body: Record<string, unknown> = {};
+  if (reason) body.reason = reason;
+  if (expectedRevision) body.expectedRevision = expectedRevision;
   return apiFetch(`/auth/reject-user/${id}`, {
     method: "PATCH",
-    body: reason ? JSON.stringify({ reason }) : undefined,
+    body: Object.keys(body).length ? JSON.stringify(body) : undefined,
   });
 }
 
-export function requestComplements(id: string, message: string) {
+export function requestComplements(id: string, message: string, expectedRevision?: string) {
+  const body: Record<string, unknown> = { message };
+  if (expectedRevision) body.expectedRevision = expectedRevision;
   return apiFetch(`/auth/request-complements/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -193,6 +199,7 @@ export interface CompanyRegistrationItem {
   // false when the file is not the reviewers' move (src/auth/registration-overdue.ts).
   waitingSince: string | null;
   overdue: boolean;
+  updatedAt: string;
 }
 
 export interface CompanyRegistrationsResult {
