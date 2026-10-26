@@ -110,6 +110,16 @@ const LAST_INDEX = STEPS.length - 1;
 // short enough not to sit over the form the respondent went back to.
 const SNACKBAR_MS = 6000;
 
+function dateForCalendar(value: string | undefined): string {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value ?? "");
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
+}
+
+function dateFromCalendar(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
+}
+
 // validatePassword returns a code. The sentence the respondent reads is the
 // catalogue's, in the active language.
 // The longest option list shown as radio buttons rather than a dropdown.
@@ -644,11 +654,18 @@ export default function RegisterPage() {
       id,
       "aria-required": field.required ? true : undefined,
       ...invalidProps(id, ...(field.kind === "tel" || field.hint ? [`${id}-hint`] : [])),
-      value: entityData[field.key] ?? "",
+      value:
+        field.kind === "date"
+          ? dateForCalendar(entityData[field.key])
+          : entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setEntityField(
           field.key,
-          digitsOnly ? e.target.value.replace(/\D/g, "") : e.target.value
+          digitsOnly
+            ? e.target.value.replace(/\D/g, "")
+            : field.kind === "date"
+              ? dateFromCalendar(e.target.value)
+              : e.target.value
         ),
     };
 
@@ -757,7 +774,7 @@ export default function RegisterPage() {
           ) : (
             <input
               {...controlProps}
-              type={isTel ? "tel" : "text"}
+              type={isTel ? "tel" : field.kind === "date" ? "date" : "text"}
               autoComplete={ENTITY_AUTOCOMPLETE[field.key] ?? "off"}
               inputMode={digitsOnly ? "numeric" : isTel ? "tel" : undefined}
             />
