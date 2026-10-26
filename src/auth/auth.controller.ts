@@ -393,26 +393,37 @@ export class AuthController {
       phoneVerified: body?.phoneVerified,
       contactEmailVerified: body?.contactEmailVerified,
       cnpsVerified: body?.cnpsVerified,
+      expectedRevision: body?.expectedRevision,
     });
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...REGISTRATION_ADMIN_ROLES)
-  async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, req.user.id, req.user.role, territoryFromUser(req.user), reason ?? '');
+  async rejectUser(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+    const reason = typeof body?.reason === 'string' ? body.reason : (typeof body === 'string' ? body : '');
+    return this.authService.rejectUser(
+      id,
+      req.user.id,
+      req.user.role,
+      territoryFromUser(req.user),
+      reason ?? '',
+      typeof body?.expectedRevision === 'string' ? body.expectedRevision : undefined,
+    );
   }
 
   @Patch('request-complements/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...REGISTRATION_ADMIN_ROLES)
-  async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
+  async requestComplements(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+    const message = typeof body?.message === 'string' ? body.message : '';
     return this.authService.requestComplements(
       id,
       req.user.id,
       req.user.role,
       territoryFromUser(req.user),
       message ?? '',
+      typeof body?.expectedRevision === 'string' ? body.expectedRevision : undefined,
     );
   }
 

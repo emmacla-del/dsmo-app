@@ -24,6 +24,7 @@ import {
   TABLE_MAX_WIDTH_PX,
   tablePreferredWidthPx,
 } from "./tableLayout";
+import { useIsPhoneViewport } from "@/lib/use-entry-mode";
 import { CoherenceChip, useCoherence } from "../coherence/Coherence";
 
 /**
@@ -197,18 +198,21 @@ export function AdaptiveStatisticalTable({
     };
   }, [definition, isMultiCsp, activeCsp]);
 
+  // Phone enforcement is handled by useEntryMode/useIsPhoneViewport; import already added
+  const isPhoneViewport = useIsPhoneViewport();
   // User manual override state (null = follow strategy)
   const [userOverride, setUserOverride] = useState<TablePresentationMode | null>(
-    mode ?? initialMode ?? null
+    isPhoneViewport ? null : (mode ?? initialMode ?? null)
   );
 
   useEffect(() => {
-    if (mode) {
+    if (mode && !isPhoneViewport) {
       setUserOverride(mode);
     }
-  }, [mode]);
+  }, [mode, isPhoneViewport]);
 
   const handleSetMode = (newMode: TablePresentationMode) => {
+    if (isPhoneViewport) return;
     setUserOverride(newMode);
     onModeChange?.(newMode);
   };
@@ -318,11 +322,11 @@ export function AdaptiveStatisticalTable({
 
   // Authoritatively resolve active presentation mode and capabilities
   const decision = resolveAdaptiveStrategy(effectiveDefinition, {
-    isMobile,
-    userOverride,
+    isMobile: isPhoneViewport || isMobile,
+    userOverride: isPhoneViewport ? null : userOverride,
   });
-  const viewMode = decision.mode;
-  const canToggle = allowToggle && decision.allowToggle;
+  const viewMode = isPhoneViewport ? "guided" : decision.mode;
+  const canToggle = !isPhoneViewport && allowToggle && decision.allowToggle;
 
   // Authoritative batch cell change with definition.recalc execution
   const handleBatchChange = (updates: Record<string, unknown>) => {

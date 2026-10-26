@@ -210,6 +210,7 @@ export interface CompanyRegistrationData {
  */
 export interface ApproveRegistrationOptions extends VerificationFlags {
   centralStructureConfirmed?: boolean;
+  expectedRevision?: string;
 }
 
 @Injectable()
@@ -1288,6 +1289,7 @@ export class AuthService {
     actorRole: string,
     actorTerritory: Territory | undefined,
     reason: string,
+    expectedRevision?: string,
   ) {
     if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof reason === 'string' ? reason.trim() : '';
@@ -1299,6 +1301,12 @@ export class AuthService {
       assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
       if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
         throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+      }
+      if (expectedRevision) {
+        const expected = new Date(expectedRevision);
+        if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
+          throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+        }
       }
       const updated = await this.prisma.user.update({
         where: { id },
@@ -1358,6 +1366,7 @@ export class AuthService {
     actorRole: string,
     actorTerritory: Territory | undefined,
     message: string,
+    expectedRevision?: string,
   ) {
     if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
     const trimmed = typeof message === 'string' ? message.trim() : '';
@@ -1371,6 +1380,12 @@ export class AuthService {
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
     if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+    }
+    if (expectedRevision) {
+      const expected = new Date(expectedRevision);
+      if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
+        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+      }
     }
     const updated = await this.prisma.user.update({
       where: { id },
@@ -1817,6 +1832,13 @@ export class AuthService {
     if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
+    const expectedRevision = (options as any)?.expectedRevision;
+    if (expectedRevision) {
+      const expected = new Date(expectedRevision);
+      if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
+        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+      }
+    }
     if (!company.entityType) {
       throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
     }
@@ -2029,6 +2051,7 @@ export class AuthService {
       region: string;
       department: string;
       createdAt: Date;
+      updatedAt: Date;
       phone: string | null;
       respondentFirstName: string | null;
       respondentLastName: string | null;
@@ -2112,6 +2135,7 @@ export class AuthService {
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,
         createdByName: displayNameOf(row.user.createdByUser),
+        updatedAt: row.updatedAt,
       };
     });
   }
