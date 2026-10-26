@@ -11,7 +11,7 @@ import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-direct
 import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
 import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
-import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp } from "@/components/admin/CoverageTable";
+import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp, type CoverageColumns } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
 import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, parseYearParam, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
@@ -117,6 +117,9 @@ function CoverageContent({
     refetchOnWindowFocus: false,
   });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // The two grids share one toolbar, so the tab is held here: the help
+  // popover in it must describe the columns actually on screen.
+  const [tab, setTab] = useState<CoverageColumns>("territory");
   const latestAvailableYear = doualaCalendarYear();
 
   useEffect(() => {
@@ -159,9 +162,16 @@ function CoverageContent({
       }
     />
   );
-  const tableTools = (
+  // A region row carries no figures of its own at department scope, which the
+  // help explains only where it happens.
+  const regionStockHidden = query.data.regions.some((region) => region.companyCount === null);
+  const tableTools = (columns: CoverageColumns) => (
     <div className="coverage-period-tools">
-      <CoverageTableHelp overdueDays={query.data.overdueDays} />
+      <CoverageTableHelp
+        overdueDays={query.data.overdueDays}
+        columns={columns}
+        regionStockHidden={regionStockHidden}
+      />
     </div>
   );
   const periodSelector = (
@@ -276,7 +286,7 @@ function CoverageContent({
         <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
         <div className="coverage-table-toolbar">
           {periodSelector}
-          {tableTools}
+          {tableTools("territory")}
         </div>
         {territoryTable}
         <CoverageAnnualTrend year={year} />
@@ -288,14 +298,18 @@ function CoverageContent({
   return (
     <div className="grid gap-5">
       <CoverageSummary totals={query.data.totals} showOverdue={canReadRegistrationQueue} />
-      <Tabs defaultValue="territory" className="gap-0">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value === "type" ? "type" : "territory")}
+        className="gap-0"
+      >
         <div className="coverage-table-toolbar">
           <TabsList>
             <TabsTrigger value="territory">{tTargets("byTerritoryTab")}</TabsTrigger>
             <TabsTrigger value="type">{tTargets("byEntityTypeTab")}</TabsTrigger>
           </TabsList>
           {periodSelector}
-          {tableTools}
+          {tableTools(tab)}
         </div>
         <TabsContent value="territory" className="mt-0">{territoryTable}</TabsContent>
         <TabsContent value="type" className="mt-0">

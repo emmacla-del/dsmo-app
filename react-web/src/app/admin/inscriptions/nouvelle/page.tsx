@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { DIRECTORY_ROLES, REGISTRATION_NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { DIRECTORY_ROLES } from "@/lib/roles";
 import {
   ENTITY_CONFIGS,
   entityApiValue,
@@ -28,7 +28,7 @@ import {
   useTerritoryRegions,
   useTerritorySubdivisions,
 } from "@/hooks/useTerritoryStructure";
-import { adminRegisterCompany, type AssistedRegistrationResult } from "@/lib/inscriptions";
+import { adminRegisterCompany, registrationTerritoryChoice, type AssistedRegistrationResult } from "@/lib/inscriptions";
 import { useEmailAvailability } from "@/lib/use-email-availability";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -95,18 +95,35 @@ export default function NouvelleInscriptionPage() {
   // EntityConfig labels are {fr, en} data and are read in it too.
   const locale = asUiLocale(useLocale());
 
-  // A territorial admin registers inside its own ressort, so its assignment is
-  // the starting point. A national role starts empty and picks. The server
-  // refuses anything outside the actor's ressort regardless of what these
-  // pickers allow (assertTerritorialAuthority), so this is convenience only.
-  const isNational = hasRole(user?.role, REGISTRATION_NATIONAL_ROLES);
+  // A territorial admin registers inside its own ressort. What it may still
+  // choose differs by level, and follows what the server allows rather than
+  // what its own posting names:
+  //
+  //   national         picks the region and the department;
+  //   REGIONAL_ADMIN   has its region fixed and picks any department of it --
+  //                    assertTerritorialAuthority admits the whole region,
+  //                    and resolveStaffTerritory requires such an account's
+  //                    department to be NULL, so locking the field to the
+  //                    account's own department left the form unsubmittable;
+  //   DIVISIONAL_ADMIN has both fixed by its posting.
+  //
+  // The server refuses anything outside the actor's ressort regardless of
+  // what these pickers allow, so this is convenience only.
+  const { choosesRegion, choosesDepartment } = registrationTerritoryChoice(user?.role);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const [entityData, setEntityData] = useState<Record<string, string>>({});
   const [respondent, setRespondent] = useState<Respondent>(EMPTY_RESPONDENT);
   // Same debounced check as the public wizard; blocks submit when taken.
   const emailAvailable = useEmailAvailability(respondent.email);
-  const [region, setRegion] = useState(isNational ? "" : user?.region ?? "");
-  const [department, setDepartment] = useState(isNational ? "" : user?.department ?? "");
+  // Only the chooseable half is state. A fixed region or department is read
+  // from `user` on every render instead of seeded into state: the auth store
+  // starts at "loading" with no user, so a state initialiser -- which runs on
+  // the first render only -- kept the empty string for the whole session on a
+  // cold load, and the field stayed blank for the admin it was prefilled for.
+  const [chosenRegion, setChosenRegion] = useState("");
+  const [chosenDepartment, setChosenDepartment] = useState("");
+  const region = choosesRegion ? chosenRegion : user?.region ?? "";
+  const department = choosesDepartment ? chosenDepartment : user?.department ?? "";
   const [subdivision, setSubdivision] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Bumped on every failed submit, so the same message repeated still moves
@@ -123,9 +140,9 @@ export default function NouvelleInscriptionPage() {
     || Object.values(entityData).some((value) => value.trim() !== "")
     || Object.values(respondent).some((value) => value.trim() !== "")
     || Boolean(subdivision)
-    || (isNational
-      ? Boolean(region || department)
-      : region !== (user?.region ?? "") || department !== (user?.department ?? ""))
+    // Both are empty until the admin picks one, whatever its level: a fixed
+    // region or department is not state and was never typed here.
+    || Boolean(chosenRegion || chosenDepartment)
   );
 
   // The branches of activity (the `sectors` table), the same list and query
@@ -179,8 +196,8 @@ export default function NouvelleInscriptionPage() {
     setEntityType(null);
     setEntityData({});
     setRespondent(EMPTY_RESPONDENT);
-    setRegion(isNational ? "" : user?.region ?? "");
-    setDepartment(isNational ? "" : user?.department ?? "");
+    setChosenRegion("");
+    setChosenDepartment("");
     setSubdivision("");
     setError(null);
     setResult(null);
@@ -383,43 +400,46 @@ export default function NouvelleInscriptionPage() {
         )}
 
         <Section title={t("registerPage.locationTitle")}>
-          {!isNational && (
+          {/* What the note says must match the fields below it: a regional
+              admin is told its region is fixed, not its department. */}
+          {!choosesRegion && (
             <p className="mb-4 text-sm text-muted-foreground">
-              {t("adminInscriptionsNouvellePage.locationScopeNote")}
+              {t(choosesDepartment
+                ? "adminInscriptionsNouvellePage.locationScopeNoteRegion"
+                : "adminInscriptionsNouvellePage.locationScopeNote")}
             </p>
           )}
           <FieldGrid>
-            {isNational ? (
-              <>
-                <Select
-                  label={t("registerPage.regionLabel")}
-                  placeholder={selectPlaceholder}
-                  required
-                  value={region}
-                  options={regions}
-                  onChange={(v) => {
-                    setRegion(v);
-                    setDepartment("");
-                    setSubdivision("");
-                  }}
-                />
-                <Select
-                  label={t("registerPage.departmentLabel")}
-                  placeholder={selectPlaceholder}
-                  required
-                  value={department}
-                  options={departments}
-                  onChange={(v) => {
-                    setDepartment(v);
-                    setSubdivision("");
-                  }}
-                />
-              </>
+            {choosesRegion ? (
+              <Select
+                label={t("registerPage.regionLabel")}
+                placeholder={selectPlaceholder}
+                required
+                value={region}
+                options={regions}
+                onChange={(v) => {
+                  setChosenRegion(v);
+                  setChosenDepartment("");
+                  setSubdivision("");
+                }}
+              />
             ) : (
-              <>
-                <ReadOnlyLocation label={t("registerPage.regionLabel")} value={region} />
-                <ReadOnlyLocation label={t("registerPage.departmentLabel")} value={department} />
-              </>
+              <ReadOnlyLocation label={t("registerPage.regionLabel")} value={region} />
+            )}
+            {choosesDepartment ? (
+              <Select
+                label={t("registerPage.departmentLabel")}
+                placeholder={selectPlaceholder}
+                required
+                value={department}
+                options={departments}
+                onChange={(v) => {
+                  setChosenDepartment(v);
+                  setSubdivision("");
+                }}
+              />
+            ) : (
+              <ReadOnlyLocation label={t("registerPage.departmentLabel")} value={department} />
             )}
             <Select label={t("registerPage.subdivisionLabel")} placeholder={selectPlaceholder} required value={subdivision} options={subdivisions} onChange={setSubdivision} />
           </FieldGrid>

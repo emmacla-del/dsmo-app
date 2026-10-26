@@ -251,6 +251,34 @@ function InscriptionsContent() {
     return () => clearTimeout(timer);
   }, [organisationInput]);
 
+  /**
+   * The filters the URL carries, re-applied whenever its own values change.
+   *
+   * The state initialisers above run on the first render only, and the
+   * coverage view is this same route: a ranked region, a ranked type and an
+   * overdue count all link to /admin/inscriptions?status=…&region=…&type=…,
+   * which switches `vue` (derived per render) without remounting. Without
+   * this the queue opened on whatever filter it already had — the default
+   * pending + complements — and the chips said nothing was filtered.
+   *
+   * Keyed on the four values, not on the query string, so the period selector
+   * and the view toggle (both of which keep every other parameter) leave a
+   * filter the reviewer has since changed by hand alone. Compared during the
+   * render rather than in an effect: this adjusts React state to React state,
+   * which an effect would turn into a cascading render (and which
+   * react-hooks/set-state-in-effect refuses).
+   */
+  const urlFilters = `${initialStatus}\u0000${initialRegion}\u0000${initialDepartment}\u0000${initialType}`;
+  const [appliedUrlFilters, setAppliedUrlFilters] = useState(urlFilters);
+  if (appliedUrlFilters !== urlFilters) {
+    setAppliedUrlFilters(urlFilters);
+    setStatusFilter(initialStatus);
+    setRegion(initialRegion);
+    setDepartment(initialDepartment);
+    setTypeFilter(initialType);
+    setPage(1);
+  }
+
   const from = dateRange === "30"
     ? daysAgo(30)
     : dateRange === "90"

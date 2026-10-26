@@ -21,6 +21,7 @@
 // both from the authenticated actor. A client cannot claim an attribution it
 // does not have.
 import { apiFetch } from "./api-client";
+import { REGISTRATION_NATIONAL_ROLES, hasRole } from "./roles";
 import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
 import type { UiLocale } from "./register-i18n";
 
@@ -103,6 +104,36 @@ export function adminRegisterCompany(payload: AssistedRegistrationPayload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * Which of the two territory fields /admin/inscriptions/nouvelle lets the
+ * acting admin choose. A field it does not choose is read from the account,
+ * never typed, so the form has nothing to collect for it.
+ *
+ * Mirrors the server, which is the enforcing copy:
+ *
+ *   - assertTerritorialAuthority (src/auth/territory.ts) admits a
+ *     REGIONAL_ADMIN anywhere in its own region, so the form offers that
+ *     region's departments;
+ *   - resolveStaffTerritory (src/territory/territory-resolver.ts) requires a
+ *     REGIONAL_ADMIN's own department to be null. A form that fixed the
+ *     department to the account's therefore showed that role an empty field
+ *     it could not fill, an empty arrondissement list keyed on it, and a
+ *     submission refused for a missing department: the whole level could open
+ *     the page and never register anyone. Do not lock it again;
+ *   - a DIVISIONAL_ADMIN is admitted in its own department only, and a
+ *     national registration role anywhere.
+ */
+export function registrationTerritoryChoice(role: string | null | undefined): {
+  choosesRegion: boolean;
+  choosesDepartment: boolean;
+} {
+  const national = hasRole(role, REGISTRATION_NATIONAL_ROLES);
+  return {
+    choosesRegion: national,
+    choosesDepartment: national || role === "REGIONAL_ADMIN",
+  };
 }
 
 /**

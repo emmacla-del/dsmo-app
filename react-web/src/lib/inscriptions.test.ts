@@ -7,7 +7,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { approvalGate, daysWaiting, inscriptionsHref, verificationFlags, verificationRows } from "./inscriptions";
+import {
+  approvalGate,
+  daysWaiting,
+  inscriptionsHref,
+  registrationTerritoryChoice,
+  verificationFlags,
+  verificationRows,
+} from "./inscriptions";
 
 test("the queue is the default view: no ?vue=", () => {
   assert.equal(inscriptionsHref("", "file"), "/admin/inscriptions");
@@ -133,4 +140,44 @@ test("daysWaiting counts whole days, and nothing for a file not waiting", () => 
   assert.equal(daysWaiting("2026-10-06T13:00:00Z", now), 8);
   assert.equal(daysWaiting("2026-10-15T11:00:00Z", now), 0);
   assert.equal(daysWaiting(null, now), null);
+});
+
+// The assisted-registration form's territory fields, per level. A
+// REGIONAL_ADMIN has no department of its own (resolveStaffTerritory requires
+// it to be null), so it must be offered the picker: fixing the field to the
+// account's department left the whole level unable to register anyone.
+test("a regional admin picks the department, within its fixed region", () => {
+  assert.deepEqual(registrationTerritoryChoice("REGIONAL_ADMIN"), {
+    choosesRegion: false,
+    choosesDepartment: true,
+  });
+});
+
+test("a divisional admin picks neither: both are its posting", () => {
+  assert.deepEqual(registrationTerritoryChoice("DIVISIONAL_ADMIN"), {
+    choosesRegion: false,
+    choosesDepartment: false,
+  });
+});
+
+test("the national registration roles pick both", () => {
+  for (const role of ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS"]) {
+    assert.deepEqual(registrationTerritoryChoice(role), {
+      choosesRegion: true,
+      choosesDepartment: true,
+    }, role);
+  }
+});
+
+test("an unknown or absent role picks nothing", () => {
+  // The page is role-gated, so this is the loading render: no user yet, and
+  // the fields read as the account's (empty) until one arrives.
+  assert.deepEqual(registrationTerritoryChoice(null), {
+    choosesRegion: false,
+    choosesDepartment: false,
+  });
+  assert.deepEqual(registrationTerritoryChoice("CENTRAL_AGENT"), {
+    choosesRegion: false,
+    choosesDepartment: false,
+  });
 });

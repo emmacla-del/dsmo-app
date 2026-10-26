@@ -38,27 +38,56 @@ const COVERAGE_STATUS_METRICS: readonly {
   { value: "draft", labelKey: "draftColumn", shortLabelKey: "draftShortColumn" },
 ];
 
-const COVERAGE_HEADER_LEGEND: readonly {
-  shortLabelKey: string;
-  labelKey: string;
-}[] = [
-  { shortLabelKey: "territoryHeaderShort", labelKey: "territoryColumn" },
-  { shortLabelKey: "entityTypeHeaderShort", labelKey: "entityTypeColumn" },
-  { shortLabelKey: "modeHeaderShort", labelKey: "modeColumn" },
-  { shortLabelKey: "companyCountHeaderShort", labelKey: "companyCountColumn" },
-  { shortLabelKey: "registeredHeaderShort", labelKey: "registeredColumn" },
-  { shortLabelKey: "registerShareHeaderShort", labelKey: "registerShareColumn" },
-  { shortLabelKey: "quotaHeaderShort", labelKey: "coverageTargetColumn" },
-  { shortLabelKey: "gapHeaderShort", labelKey: "gapColumn" },
-  { shortLabelKey: "rateHeaderShort", labelKey: "rateColumn" },
-  { shortLabelKey: "coverageGradeHeaderShort", labelKey: "coverageGradeColumn" },
-  { shortLabelKey: "registeredInPeriodHeaderShort", labelKey: "inYearColumn" },
-  { shortLabelKey: "overdueHeaderShort", labelKey: "overdueCoverageColumn" },
+/** Which tab's columns a legend or help popover describes. */
+export type CoverageColumns = "territory" | "type";
+
+type HeaderLegendEntry = { shortLabelKey: string; labelKey: string };
+
+/** The status group and its five optional columns, which both tabs end with. */
+const STATUS_HEADER_LEGEND: readonly HeaderLegendEntry[] = [
   { shortLabelKey: "statusHeaderShort", labelKey: "statusGroupColumn" },
   ...COVERAGE_STATUS_METRICS.map((metric) => ({
     shortLabelKey: metric.shortLabelKey,
     labelKey: metric.labelKey,
   })),
+];
+
+/**
+ * The header abbreviations of each tab, in the order that tab prints them.
+ *
+ * One shared list used to describe both tabs at once, so a reader on « Par
+ * territoire » was given Type and Part — columns that tab does not have — and
+ * Mode, which is no header at all: the quota mode is a sub-line under the
+ * region name, and « Quota et couverture » below explains it.
+ *
+ * Exported so the tests can hold each list against the abbreviations its own
+ * grid prints: a column added to one table without a line here fails there.
+ */
+export const TERRITORY_HEADER_LEGEND: readonly HeaderLegendEntry[] = [
+  { shortLabelKey: "territoryHeaderShort", labelKey: "territoryColumn" },
+  { shortLabelKey: "companyCountHeaderShort", labelKey: "companyCountColumn" },
+  { shortLabelKey: "registeredHeaderShort", labelKey: "registeredColumn" },
+  { shortLabelKey: "registeredInPeriodHeaderShort", labelKey: "inYearColumn" },
+  { shortLabelKey: "quotaHeaderShort", labelKey: "coverageTargetColumn" },
+  { shortLabelKey: "gapHeaderShort", labelKey: "gapColumn" },
+  { shortLabelKey: "rateHeaderShort", labelKey: "rateColumn" },
+  { shortLabelKey: "coverageGradeHeaderShort", labelKey: "coverageGradeColumn" },
+  { shortLabelKey: "overdueHeaderShort", labelKey: "overdueCoverageColumn" },
+  ...STATUS_HEADER_LEGEND,
+];
+
+export const ENTITY_TYPE_HEADER_LEGEND: readonly HeaderLegendEntry[] = [
+  { shortLabelKey: "entityTypeHeaderShort", labelKey: "entityTypeColumn" },
+  { shortLabelKey: "companyCountHeaderShort", labelKey: "companyCountColumn" },
+  { shortLabelKey: "registeredHeaderShort", labelKey: "registeredColumn" },
+  { shortLabelKey: "registerShareHeaderShort", labelKey: "registerShareColumn" },
+  { shortLabelKey: "registeredInPeriodHeaderShort", labelKey: "inYearColumn" },
+  { shortLabelKey: "quotaHeaderShort", labelKey: "coverageTargetColumn" },
+  { shortLabelKey: "gapHeaderShort", labelKey: "gapColumn" },
+  { shortLabelKey: "rateHeaderShort", labelKey: "rateColumn" },
+  { shortLabelKey: "coverageGradeHeaderShort", labelKey: "coverageGradeColumn" },
+  { shortLabelKey: "overdueHeaderShort", labelKey: "overdueCoverageColumn" },
+  ...STATUS_HEADER_LEGEND,
 ];
 
 function CoverageColumnHeader({
@@ -79,6 +108,10 @@ function CoverageColumnHeader({
       scope="col"
       rowSpan={rowSpan}
       aria-label={label}
+      // The cell prints the abbreviation and names itself in full to a screen
+      // reader; `title` gives a sighted reader the same thing on hover, which
+      // the help popover alone did not (the header does not stay on screen).
+      title={label}
       className={[numeric ? NUM : "", className ?? ""].filter(Boolean).join(" ")}
     >
       {shortLabel}
@@ -90,7 +123,7 @@ function StatusHeaders({ idPrefix }: { idPrefix: string }) {
   const t = useTranslations("adminTargets");
   return (
     <>
-      <TableHead scope="colgroup" colSpan={COVERAGE_STATUS_METRICS.length} id={`${idPrefix}-group`} aria-label={t("statusGroupColumn")} className="text-center">
+      <TableHead scope="colgroup" colSpan={COVERAGE_STATUS_METRICS.length} id={`${idPrefix}-group`} aria-label={t("statusGroupColumn")} title={t("statusGroupColumn")} className="text-center">
         {t("statusHeaderShort")}
       </TableHead>
     </>
@@ -107,6 +140,7 @@ function StatusSubheaders({ idPrefix }: { idPrefix: string }) {
           scope="col"
           id={`${idPrefix}-${metric.value}`}
           aria-label={t(metric.labelKey)}
+          title={t(metric.labelKey)}
           className={`${NUM} px-2`}
         >
           {t(metric.shortLabelKey)}
@@ -116,8 +150,19 @@ function StatusSubheaders({ idPrefix }: { idPrefix: string }) {
   );
 }
 
-export function CoverageTableHelp({ overdueDays }: { overdueDays: number }) {
+export function CoverageTableHelp({
+  overdueDays,
+  columns,
+  regionStockHidden = false,
+}: {
+  overdueDays: number;
+  /** The tab on screen: the legend lists that tab's columns, and no others. */
+  columns: CoverageColumns;
+  /** True when a region row carries no figures of its own (department scope). */
+  regionStockHidden?: boolean;
+}) {
   const t = useTranslations("adminTargets");
+  const legend = columns === "type" ? ENTITY_TYPE_HEADER_LEGEND : TERRITORY_HEADER_LEGEND;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -134,7 +179,14 @@ export function CoverageTableHelp({ overdueDays }: { overdueDays: number }) {
           <div>
             <p className="mb-1 font-medium">{t("coverageHelpRowsTitle")}</p>
             <p className="text-muted-foreground">{t("coverageHelpRows")}</p>
-            <p className="mt-1 text-muted-foreground">{t("coverageHelpTotal")}</p>
+            {/* The Total row and the region rows belong to the territory grid;
+                the type tab has neither. */}
+            {columns === "territory" && (
+              <p className="mt-1 text-muted-foreground">{t("coverageHelpTotal")}</p>
+            )}
+            {columns === "territory" && regionStockHidden && (
+              <p className="mt-1 text-muted-foreground">{t("coverageHelpRegionOutOfScope")}</p>
+            )}
           </div>
           <div>
             <p className="mb-1 font-medium">{t("coverageHelpCountsTitle")}</p>
@@ -143,8 +195,8 @@ export function CoverageTableHelp({ overdueDays }: { overdueDays: number }) {
             <p className="mt-1 text-muted-foreground">{t("coverageHelpCompanyCount")}</p>
             <p className="mt-1 text-muted-foreground">{t("coverageHelpOverdue", { days: overdueDays })}</p>
             <p className="mb-1 mt-3 font-medium">{t("coverageHelpPeriodLegendTitle")}</p>
-            <ul className="grid gap-1 text-muted-foreground">
-              {COVERAGE_HEADER_LEGEND.map((item) => (
+            <ul className="grid gap-1 text-muted-foreground" aria-label={t("coverageHelpPeriodLegendTitle")}>
+              {legend.map((item) => (
                 <li key={item.shortLabelKey}>
                   <strong className="font-medium text-foreground">{t(item.shortLabelKey)}</strong>
                   {" = "}
@@ -162,17 +214,22 @@ export function CoverageTableHelp({ overdueDays }: { overdueDays: number }) {
             <p className="mb-1 font-medium">{t("coverageHelpQuotaTitle")}</p>
             <p className="mb-2 text-muted-foreground">{t("coverageHelpGrade")}</p>
             <ul className="grid gap-1 text-muted-foreground">
-              <li><strong className="font-medium text-foreground">{t("modeColumn")}</strong> — {t("coverageHelpMode")}</li>
+              {/* The quota mode is printed under each region name, so it is
+                  explained on the tab that has region rows. */}
+              {columns === "territory" && (
+                <li><strong className="font-medium text-foreground">{t("modeColumn")}</strong> — {t("coverageHelpMode")}</li>
+              )}
               <li><strong className="font-medium text-foreground">{t("coverageTargetColumn")}</strong> — {t("coverageHelpQuota")}</li>
               <li><strong className="font-medium text-foreground">{t("gapColumn")}</strong> — {t("coverageHelpGap")}</li>
               <li><strong className="font-medium text-foreground">{t("rateColumn")}</strong> — {t("coverageHelpRate")}</li>
-              <li>
-                <strong className="font-medium text-foreground">{t("registerShareColumn")}</strong>
-                {" — "}
-                {t("coverageHelpRegisterShare")}
-                {" "}
-                <span>({t("byEntityTypeTab")})</span>
-              </li>
+              {/* Part inscrite is a column of the type tab alone. */}
+              {columns === "type" && (
+                <li>
+                  <strong className="font-medium text-foreground">{t("registerShareColumn")}</strong>
+                  {" — "}
+                  {t("coverageHelpRegisterShare")}
+                </li>
+              )}
             </ul>
           </div>
           <div>
@@ -230,8 +287,13 @@ export function CoverageTable({
       <TableHeader>
         <TableRow>
           <CoverageColumnHeader label={t("territoryColumn")} shortLabel={t("territoryHeaderShort")} rowSpan={showWorkflowDetails ? 2 : 1} className="coverage-sticky-column" />
+          {/* Base sits where the type tab puts it, and for the same reason it
+              is needed here: every count in this grid reads "—" rather than 0
+              when a territory holds no company account at all, and without
+              this column nothing on screen said which case a dash was. */}
+          <CoverageColumnHeader label={t("companyCountColumn")} shortLabel={t("companyCountHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
           <CoverageColumnHeader label={t("registeredColumn")} shortLabel={t("registeredHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
-          <TableHead scope="col" id="coverage-territory-registered-period" aria-label={t("inYearColumn")} rowSpan={showWorkflowDetails ? 2 : 1} className={`${NUM} whitespace-nowrap coverage-period-header`}>
+          <TableHead scope="col" id="coverage-territory-registered-period" aria-label={t("inYearColumn")} title={t("inYearColumn")} rowSpan={showWorkflowDetails ? 2 : 1} className={`${NUM} whitespace-nowrap coverage-period-header`}>
             {t("registeredInPeriodHeaderShort")}
           </TableHead>
           <CoverageColumnHeader label={t("coverageTargetColumn")} shortLabel={t("quotaHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
@@ -246,6 +308,16 @@ export function CoverageTable({
       <TableBody>
         {data.regions.map((region) => {
           const open = expanded.has(region.regionId);
+          /**
+           * At department scope the server sends the region row with every
+           * count null (`hideRegionStock`), because the reader's remit is one
+           * department. Its quota then described a population the row does
+           * not state and the reader is not answerable for, inviting a
+           * comparison with their own department's registrations. It is dashed
+           * with the rest, which is what the server already does for the other
+           * quota modes (`scope.kind === 'department' && mode !== 'REGION'`).
+           */
+          const stockHidden = region.companyCount === null;
           return (
             <Fragment key={region.regionId}>
               <TableRow className="cam-target-region">
@@ -263,14 +335,18 @@ export function CoverageTable({
                       : <ChevronRight className="size-4 shrink-0" aria-hidden="true" />}
                     <span>{region.name}</span>
                   </button>
+                  {/* The quota mode describes the quota this row prints, so
+                      where there is none to print it gives way to the reason. */}
                   <span className="ms-5 block text-xs text-muted-foreground">
-                    {region.mode === "UNSET" ? t("quotaModeNotSet") : modeLabel(region.mode, locale)}
+                    {stockHidden
+                      ? t("regionOutOfScopeNote")
+                      : region.mode === "UNSET" ? t("quotaModeNotSet") : modeLabel(region.mode, locale)}
                   </span>
                 </TableHead>
                 <CountCells
                   companyCount={region.companyCount}
                   registered={region.registered}
-                  target={region.inscriptionTarget}
+                  target={stockHidden ? null : region.inscriptionTarget}
                   rate={region.rate}
                   registeredInYear={region.registeredInYear}
                   pendingApproval={region.pendingApproval}
@@ -425,6 +501,10 @@ function CountCells({
   };
   return (
     <>
+      {/* The denominator of the dash rule, so it is never itself dashed for
+          being zero: a territory with no company account states 0 here and
+          "—" in every measurement beside it. */}
+      <TableCell className={NUM}>{fmt(companyCount, locale)}</TableCell>
       <TableCell className={NUM}>{formatCoverageCount(registered, companyCount, locale)}</TableCell>
       <TableCell className={`${NUM} coverage-period-cell`} headers="coverage-territory-registered-period">
         {formatCoverageCount(registeredInYear, companyCount, locale)}
@@ -532,7 +612,7 @@ export function CoverageEntityTypeTable({
             <CoverageColumnHeader label={t("companyCountColumn")} shortLabel={t("companyCountHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
             <CoverageColumnHeader label={t("registeredColumn")} shortLabel={t("registeredHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
             <CoverageColumnHeader label={t("registerShareColumn")} shortLabel={t("registerShareHeaderShort")} numeric rowSpan={showWorkflowDetails ? 2 : 1} />
-            <TableHead scope="col" id="coverage-type-registered-period" aria-label={t("inYearColumn")} rowSpan={showWorkflowDetails ? 2 : 1} className={`${NUM} whitespace-nowrap coverage-period-header`}>
+            <TableHead scope="col" id="coverage-type-registered-period" aria-label={t("inYearColumn")} title={t("inYearColumn")} rowSpan={showWorkflowDetails ? 2 : 1} className={`${NUM} whitespace-nowrap coverage-period-header`}>
               {t("registeredInPeriodHeaderShort")}
             </TableHead>
             {/* Quota, Écart and Taux sit where the territory grid puts them,
