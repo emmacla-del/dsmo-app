@@ -46,6 +46,7 @@ import {
   requiredEntityGroups,
 } from "@/lib/register-entity-sections";
 import { asUiLocale, localized } from "@/lib/register-i18n";
+import { dateForCalendar, dateFromCalendar } from "@/lib/register-date";
 import { sectorLabel } from "@/lib/display-labels";
 import { branchesFor, dropUnofferedBranch } from "@/lib/register-activity";
 import {
@@ -109,16 +110,6 @@ const LAST_INDEX = STEPS.length - 1;
 // How long a reset notice stays on screen. Long enough to read a sentence,
 // short enough not to sit over the form the respondent went back to.
 const SNACKBAR_MS = 6000;
-
-function dateForCalendar(value: string | undefined): string {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value ?? "");
-  return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
-}
-
-function dateFromCalendar(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
-}
 
 // validatePassword returns a code. The sentence the respondent reads is the
 // catalogue's, in the active language.

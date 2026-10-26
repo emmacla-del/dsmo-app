@@ -1,5 +1,9 @@
 import { ArgumentMetadata, BadRequestException, ValidationPipe } from '@nestjs/common';
-import { PROJECT_NATURE_VALUES, RegisterCompanyDto } from './dto/register-company.dto';
+import {
+  PROJECT_NATURE_VALUES,
+  PROMOTER_SEX_VALUES,
+  RegisterCompanyDto,
+} from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
 
 // The global pipe from main.ts, options copied verbatim. skipMissingProperties
@@ -17,6 +21,8 @@ const assistedBody: ArgumentMetadata = { type: 'body', metatype: AssistedRegistr
 function body(overrides: Record<string, unknown> = {}) {
   const b: Record<string, unknown> = {
     email: 'contact@societe.cm',
+    firstName: 'Jean',
+    lastName: 'Test',
     companyName: 'Societe Test',
     region: 'Littoral',
     department: 'Wouri',
@@ -177,6 +183,23 @@ describe('RegisterCompanyDto — VOCATIONAL_TRAINING fields', () => {
   it('applies the same rule to the assisted route', async () => {
     await expect(
       pipe.transform(vt({ cfpType: undefined, password: undefined }), assistedBody),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts only the two promoter-sex option values the form offers', async () => {
+    for (const promoterSex of PROMOTER_SEX_VALUES) {
+      await expect(pipe.transform(vt({ promoterSex }), publicBody)).resolves.toMatchObject({
+        promoterSex,
+      });
+    }
+  });
+
+  it('refuses a promoter sex outside the two option values', async () => {
+    await expect(pipe.transform(vt({ promoterSex: 'Femme' }), publicBody)).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(
+      pipe.transform(vt({ promoterSex: 'Femme', password: undefined }), assistedBody),
     ).rejects.toThrow(BadRequestException);
   });
 });

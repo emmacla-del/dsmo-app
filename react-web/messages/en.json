@@ -1675,7 +1675,11 @@
     "temporaryPasswordLabel": "Temporary password",
     "copyPasswordButton": "Copy password",
     "copiedLabel": "Copied.",
-    "passwordShownOnceWarning": "This password will not be shown again. Note it down before closing this window."
+    "passwordShownOnceWarning": "This password will not be shown again. Note it down before closing this window.",
+    "credentialsAcknowledged": "I have recorded or handed over the password. I understand it will not be shown again.",
+    "credentialsLeaveTitle": "Close without recording the password?",
+    "credentialsLeaveBody": "The temporary password will not be shown again. If you close or reload this page now, it will be lost permanently.",
+    "credentialsLeaveConfirm": "Close anyway"
   },
   "adminPilotagePage": {
     "dashboardSubtitle": "An overview of account registrations, survey submissions, campaign coverage, and data quality.",

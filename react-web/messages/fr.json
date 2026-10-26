@@ -1675,7 +1675,11 @@
     "temporaryPasswordLabel": "Mot de passe temporaire",
     "copyPasswordButton": "Copier le mot de passe",
     "copiedLabel": "Copié.",
-    "passwordShownOnceWarning": "Ce mot de passe ne sera plus affiché. Notez-le avant de fermer cette fenêtre."
+    "passwordShownOnceWarning": "Ce mot de passe ne sera plus affiché. Notez-le avant de fermer cette fenêtre.",
+    "credentialsAcknowledged": "J'ai noté ou transmis le mot de passe. Je comprends qu'il ne sera plus affiché.",
+    "credentialsLeaveTitle": "Fermer sans avoir noté le mot de passe ?",
+    "credentialsLeaveBody": "Le mot de passe temporaire ne sera plus affiché. Si vous fermez ou rechargez cette page maintenant, il sera définitivement perdu.",
+    "credentialsLeaveConfirm": "Fermer quand même"
   },
   "adminPilotagePage": {
     "dashboardSubtitle": "Vue d’ensemble des inscriptions, des télédéclarations, de la couverture des campagnes et de la qualité des données.",
