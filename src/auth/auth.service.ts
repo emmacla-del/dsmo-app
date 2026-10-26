@@ -18,7 +18,7 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
-import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
+import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
 import { toPublicUser } from './public-user';
 import { isOverdue, overdueCutoff, overdueDaysFrom, waitingSince } from './registration-overdue';
@@ -2159,15 +2159,33 @@ export class AuthService {
       pageSize?: number;
     },
     actorRole: string,
+    actorId?: string,
+    actorTerritory?: Territory,
   ) {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize =
       params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
 
+    // A territory's délégué reads exactly what they may approve: the roles of
+    // their staffApprovalScope, inside their own territory. Anyone else keeps
+    // the national ceiling, which is [] for a territorial admin who is not a
+    // délégué -- so they see no staff account, matching their authority over
+    // entity accounts only. Without an actor id there is no delegate scope,
+    // which fails closed the same way.
+    const scope = actorId
+      ? staffApprovalScope(await this.approverIdentity(actorId, actorRole, actorTerritory))
+      : null;
+
     const where: any = buildUserListWhere({
       ...params,
-      allowedRoles: manageableRolesFor(actorRole),
+      allowedRoles: scope ? scope.roles : manageableRolesFor(actorRole),
     });
+    if (scope) {
+      // Overrides any region the caller asked for: the territory is not a
+      // filter here, it is the boundary.
+      where.region = { equals: scope.region, mode: 'insensitive' };
+      if (scope.department) where.department = { equals: scope.department, mode: 'insensitive' };
+    }
 
     const [total, users] = await Promise.all([
       this.prisma.user.count({ where }),

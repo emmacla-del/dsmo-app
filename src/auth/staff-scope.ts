@@ -59,6 +59,7 @@ export const SURVEY_READ_ROLES = [...SURVEY_ADMIN_ROLES, ...READ_ONLY_NATIONAL_R
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
 export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 
+
 /**
  * Roles allowed to read the establishment directory (GET /companies,
  * GET /companies/stats). Wider than USER_ADMIN_ROLES because the territorial
@@ -99,6 +100,19 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
  * approve them (decision of 2026-10-07; see assertCanApproveRegistration).
  */
 export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
+
+/**
+ * Roles that may READ the staff list (GET /auth/users) -- and only read it.
+ *
+ * The two territorial roles are here so that a délégué can see the accounts
+ * they are now expected to approve; the list itself decides what they see.
+ * AuthService.listUsers gives a delegate their own territory and the roles
+ * in their staffApprovalScope, and gives a territorial admin who is NOT a
+ * délégué nothing at all, since manageableRolesFor returns [] for them.
+ * Every mutation keeps USER_ADMIN_ROLES of its own, so this widens a read
+ * and nothing else.
+ */
+export const STAFF_LIST_ROLES = [...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES] as const;
 
 /**
  * The post whose holder is the DELEGATE of a territory. A territory has one

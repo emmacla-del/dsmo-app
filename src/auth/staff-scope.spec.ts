@@ -41,8 +41,12 @@ describe('staff administration scope', () => {
 });
 
 describe('AuthService user management enforces the scope server-side', () => {
-  const accounts: Record<string, { id: string; role: string; status: string; region?: string | null; department?: string | null; passwordHash?: string; passwordResetTokenHash?: string }> = {
+  const accounts: Record<string, { id: string; role: string; status: string; region?: string | null; department?: string | null; positionType?: string | null; passwordHash?: string; passwordResetTokenHash?: string }> = {
     regional: { id: 'regional', role: 'REGIONAL_ADMIN', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri', passwordHash: '$2b$10$secret', passwordResetTokenHash: 'reset-secret' },
+    // The two délégués, and a cadre of the same role as the first.
+    regionalDelegate: { id: 'regionalDelegate', role: 'REGIONAL_ADMIN', status: 'ACTIVE', region: 'Littoral', department: null, positionType: 'DELEGUE_REGIONAL' },
+    divisionalDelegate: { id: 'divisionalDelegate', role: 'DIVISIONAL_ADMIN', status: 'ACTIVE', region: 'Littoral', department: 'Wouri', positionType: 'DELEGUE_DEPARTEMENTAL' },
+    regionalCadre: { id: 'regionalCadre', role: 'REGIONAL_ADMIN', status: 'ACTIVE', region: 'Littoral', department: null, positionType: 'CHEF_SERVICE' },
     regionOnly: { id: 'regionOnly', role: 'REGIONAL_ADMIN', status: 'ACTIVE', region: 'Littoral', department: null },
     departmentOnly: { id: 'departmentOnly', role: 'ADMIN_ONEFOP', status: 'ACTIVE', region: null, department: 'Wouri' },
     noTerritory: { id: 'noTerritory', role: 'ADMIN_ONEFOP', status: 'ACTIVE', region: null, department: null },
@@ -133,6 +137,37 @@ describe('AuthService user management enforces the scope server-side', () => {
     await service.listUsers({ roles: 'REGIONAL_ADMIN,SUPER_ADMIN' }, 'ADMIN_ONEFOP');
     expect(prisma.user.findMany.mock.calls[0][0].where.role).toEqual({ in: ['REGIONAL_ADMIN'] });
   });
+
+  // The queue a délégué approves from: the same scope as their authority.
+  it('gives a regional délégué their own region, and the two roles they approve', async () => {
+    await service.listUsers({}, 'REGIONAL_ADMIN', 'regionalDelegate', { role: 'REGIONAL_ADMIN', region: 'Littoral' });
+    const where = prisma.user.findMany.mock.calls[0][0].where;
+    expect(where.role).toEqual({ in: ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] });
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+    // Their region's divisions are inside their scope, so no department
+    // clause narrows it.
+    expect(where.department).toBeUndefined();
+  });
+
+  it('gives a divisional délégué their own division alone', async () => {
+    await service.listUsers({}, 'DIVISIONAL_ADMIN', 'divisionalDelegate', { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' });
+    const where = prisma.user.findMany.mock.calls[0][0].where;
+    expect(where.role).toEqual({ in: ['DIVISIONAL_ADMIN'] });
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+    expect(where.department).toEqual({ equals: 'Wouri', mode: 'insensitive' });
+  });
+
+  it('ignores a region a délégué asks for: the territory is the boundary, not a filter', async () => {
+    await service.listUsers({ region: 'Centre' }, 'REGIONAL_ADMIN', 'regionalDelegate', { role: 'REGIONAL_ADMIN', region: 'Littoral' });
+    expect(prisma.user.findMany.mock.calls[0][0].where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+  });
+
+  it('shows no staff account to a territorial admin who is not a délégué, nor to one with no id', async () => {
+    await service.listUsers({}, 'REGIONAL_ADMIN', 'regionalCadre', { role: 'REGIONAL_ADMIN', region: 'Littoral' });
+    expect(prisma.user.findMany.mock.calls[0][0].where.role).toEqual({ in: [] });
+    await service.listUsers({}, 'REGIONAL_ADMIN');
+    expect(prisma.user.findMany.mock.calls[1][0].where.role).toEqual({ in: [] });
+  });
 });
 
 describe('assertCanApproveRegistration (staff accounts)', () => {
@@ -140,8 +175,11 @@ describe('assertCanApproveRegistration (staff accounts)', () => {
   const divisional = { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' };
 
   // Decision of 2026-10-07: regional and departmental admins neither create
-  // nor approve staff accounts -- not even inside their own territory.
-  it('refuses REGIONAL and DIVISIONAL on every staff account, in territory or not', () => {
+  // nor approve staff accounts. On 2026-10-26 the owner restored approval to
+  // the DÉLÉGUÉ of a territory -- and to no other holder of the same role.
+  // These two actors carry no delegate post, so every refusal below still
+  // holds; staff-approval-scope.spec.ts covers the delegates themselves.
+  it('refuses a REGIONAL or DIVISIONAL admin who is not a délégué, in territory or not', () => {
     for (const target of [
       { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' },
       { role: 'REGIONAL_ADMIN', region: 'Littoral' },

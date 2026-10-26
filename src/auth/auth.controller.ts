@@ -7,7 +7,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, USER_ADMIN_ROLES } from './staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, STAFF_LIST_ROLES, USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
@@ -437,9 +437,14 @@ export class AuthController {
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
 
+  // STAFF_LIST_ROLES, not USER_ADMIN_ROLES: a territory's délégué reads the
+  // accounts they approve. The service decides what they see -- their own
+  // territory, the roles they may approve, and nothing for a territorial
+  // admin who is not a délégué. Every mutation below keeps
+  // USER_ADMIN_ROLES.
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...STAFF_LIST_ROLES)
   async listUsers(
     @Request() req: any,
     @Query('search') search?: string,
@@ -464,7 +469,7 @@ export class AuthController {
       toCreatedAt,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
-    }, req.user.role);
+    }, req.user.role, req.user.id, territoryFromUser(req.user));
   }
 
   // Autocomplete for the audit journal's actor filter, which matches
