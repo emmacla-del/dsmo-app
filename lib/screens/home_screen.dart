@@ -2164,6 +2164,10 @@ Map<String, dynamic> companyToInitialData(
       setIfPresent(data, 'VT1_13', company['nonFunctionalReason']);
       setIfPresent(data, 'VT1_13_OTHER', company['nonFunctionalReasonOther']);
       setIfPresent(data, 'VT1_14', company['yearOfCreation']?.toString());
+      setIfPresent(data, 'VT2_14', company['authorizationStatus']);
+      setIfPresent(data, 'VT2_15', company['authorizationYear']?.toString());
+      setIfPresent(data, 'VT2_16', company['authorizationOrderNumber']);
+      setIfPresent(data, 'VT2_17', company['authorizationOrderDate']);
       // VT has no synthetic Section 0 — its respondent fields (§1.15)
       // are declared under its own Section 1 AST keys, not the shared
       // S0Q01/S0Q02/S0Q03_* keys set above for the other six entities.

@@ -311,6 +311,10 @@ class ApiClient {
     String? cfpType,
     String? educationSystem,
     String? functionalStatus,
+    String? authorizationStatus,
+    String? authorizationYear,
+    String? authorizationOrderNumber,
+    String? authorizationOrderDate,
     String? nonFunctionalReason,
     String? nonFunctionalReasonOther,
     String? promoterName,
@@ -366,6 +370,10 @@ class ApiClient {
         if (cfpType != null) 'cfpType': cfpType,
         if (educationSystem != null) 'educationSystem': educationSystem,
         if (functionalStatus != null) 'functionalStatus': functionalStatus,
+        if (authorizationStatus != null) 'authorizationStatus': authorizationStatus,
+        if (authorizationYear != null) 'authorizationYear': authorizationYear,
+        if (authorizationOrderNumber != null) 'authorizationOrderNumber': authorizationOrderNumber,
+        if (authorizationOrderDate != null) 'authorizationOrderDate': authorizationOrderDate,
         if (nonFunctionalReason != null)
           'nonFunctionalReason': nonFunctionalReason,
         if (nonFunctionalReasonOther != null)

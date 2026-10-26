@@ -519,6 +519,10 @@ export interface RegisterCompanyPayload {
   cfpType?: string;
   educationSystem?: string;
   functionalStatus?: string;
+  authorizationStatus?: string;
+  authorizationYear?: string;
+  authorizationOrderNumber?: string;
+  authorizationOrderDate?: string;
   nonFunctionalReason?: string;
   nonFunctionalReasonOther?: string;
   promoterName?: string;
@@ -595,6 +599,10 @@ export interface CompanyProfile {
   fax?: string;
   taxNumber?: string;
   cnpsNumber?: string;
+  authorizationStatus?: string | null;
+  authorizationYear?: string | null;
+  authorizationOrderNumber?: string | null;
+  authorizationOrderDate?: string | null;
   socialCapital?: number;
   totalEmployees?: number;
   menCount?: number;

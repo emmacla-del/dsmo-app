@@ -144,6 +144,37 @@ export class CompanyRegistrationFieldsDto {
   @IsNotEmpty()
   functionalStatus?: string;
 
+  // Section 2.1.13 accreditation details. Kept optional at the API boundary
+  // for older mobile clients; current web and Flutter forms collect status,
+  // and require the supporting details when the answer is Yes.
+  @IsOptional()
+  @IsIn(['Oui/ Yes', 'Non/ No'])
+  authorizationStatus?: string;
+
+  @ValidateIf(
+    (o) =>
+      o.entityType === 'VOCATIONAL_TRAINING' &&
+      o.authorizationStatus === 'Oui/ Yes',
+  )
+  @IsDefined() @IsString() @Matches(/^\d{4}$/)
+  authorizationYear?: string;
+
+  @ValidateIf(
+    (o) =>
+      o.entityType === 'VOCATIONAL_TRAINING' &&
+      o.authorizationStatus === 'Oui/ Yes',
+  )
+  @IsDefined() @IsString() @IsNotEmpty()
+  authorizationOrderNumber?: string;
+
+  @ValidateIf(
+    (o) =>
+      o.entityType === 'VOCATIONAL_TRAINING' &&
+      o.authorizationStatus === 'Oui/ Yes',
+  )
+  @IsDefined() @IsString() @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
+  authorizationOrderDate?: string;
+
   // dependsOn chain: only required when functionalStatus is 'Non-fonctionnelle'.
   @ValidateIf(
     (o) =>

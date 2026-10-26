@@ -477,6 +477,7 @@
     "errorEntityTypeRequired": "Choose your organization type.",
     "errorRequiredFields": "Please complete all required fields.",
     "errorPhoneFormat": "Invalid phone number: 9 digits starting with 2 or 6 (e.g. 677123456).",
+    "errorAuthorizationDateFormat": "Enter a valid date in DD/MM/YYYY format.",
     "errorPhoneRequired": "Enter a valid respondent phone number.",
     "phoneHint": "9 digits, starting with 6 (mobile) or 2 (landline).",
     "emailHint": "You will use it to sign in and to receive notices from the platform.",

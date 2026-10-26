@@ -80,6 +80,7 @@ import {
 import { saveLoginIdentifier } from "@/lib/login-handoff";
 import { enqueueSignup, getQueuedSignups } from "@/lib/registration-outbox";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
+import { isValidDayMonthYear } from "@/lib/onefop-validation";
 import {
   passwordStrength,
   passwordStrengthBand,
@@ -798,6 +799,14 @@ export default function RegisterPage() {
           if (field.kind === "tel" && isFieldVisible(field) && value && !isValidCameroonPhone(value)) {
             return { message: t("registerPage.errorPhoneFormat"), focusId: `reg-entity-${field.key}` };
           }
+          if (
+            field.key === "authorizationOrderDate" &&
+            isFieldVisible(field) &&
+            value &&
+            !isValidDayMonthYear(value)
+          ) {
+            return { message: t("registerPage.errorAuthorizationDateFormat"), focusId: `reg-entity-${field.key}` };
+          }
         }
         return null;
       }
@@ -1060,6 +1069,10 @@ export default function RegisterPage() {
         cfpType: visibleData.cfpType,
         educationSystem: visibleData.educationSystem,
         functionalStatus: visibleData.functionalStatus,
+        authorizationStatus: visibleData.authorizationStatus,
+        authorizationYear: visibleData.authorizationYear,
+        authorizationOrderNumber: visibleData.authorizationOrderNumber,
+        authorizationOrderDate: visibleData.authorizationOrderDate,
         nonFunctionalReason: visibleData.nonFunctionalReason,
         nonFunctionalReasonOther: visibleData.nonFunctionalReasonOther,
         promoterName: visibleData.promoterName,

@@ -153,6 +153,11 @@ const List<LocalizedOption> kFunctionalStatusOptions = [
   LocalizedOption('Fermée', LocalizedText(fr: 'Fermée', en: 'Closed')),
 ];
 
+const List<LocalizedOption> kAuthorizationStatusOptions = [
+  LocalizedOption('Oui/ Yes', LocalizedText(fr: 'Oui', en: 'Yes')),
+  LocalizedOption('Non/ No', LocalizedText(fr: 'Non', en: 'No')),
+];
+
 const List<LocalizedOption> kNonFunctionalReasonOptions = [
   LocalizedOption("Manque d'apprenants",
       LocalizedText(fr: "Manque d'apprenants", en: 'Lack of trainees')),
@@ -229,6 +234,9 @@ class EntityField {
   /// True when the field should use the phone-specific widget.
   final bool isPhone;
 
+  /// True when a required text field must contain a real DD/MM/YYYY date.
+  final bool isDate;
+
   /// The ONEFOP form section this field pre-fills (informational).
   final String? onefopSection;
 
@@ -240,9 +248,7 @@ class EntityField {
   /// — keyed by [dependsOn] — currently holds the value [dependsValue].
   /// Mirrors the AST's own dependsOn/dependsValue shape (form_ast.dart)
   /// rather than inventing a new one. Currently used only by
-  /// vocationalTraining's functionalStatus → nonFunctionalReason (and
-  /// nonFunctionalReason → nonFunctionalReasonOther) pair — not a
-  /// general-purpose feature, just enough for that one case.
+  /// vocationalTraining's status/reason and authorization/detail fields.
   final String? dependsOn;
   final String? dependsValue;
 
@@ -254,6 +260,7 @@ class EntityField {
     this.keyboardType,
     this.options,
     this.isPhone = false,
+    this.isDate = false,
     this.onefopSection,
     this.dsmoField,
     this.dependsOn,
@@ -857,6 +864,46 @@ const Map<EntityType, EntityConfig> entityConfigs = {
             fr: 'Situation du Centre', en: 'Status of the center'),
         options: kFunctionalStatusOptions,
         onefopSection: 'VT1.12',
+      ),
+      EntityField(
+        key: 'authorizationStatus',
+        label: LocalizedText(
+            fr: 'Le centre est-il agréé ?',
+            en: 'Does the centre have an authorization?'),
+        options: kAuthorizationStatusOptions,
+        onefopSection: 'VT2.14',
+      ),
+      EntityField(
+        key: 'authorizationYear',
+        label: LocalizedText(
+            fr: 'Année du dernier agrément',
+            en: 'Year of last authorization'),
+        keyboardType: TextInputType.number,
+        dependsOn: 'authorizationStatus',
+        dependsValue: 'Oui/ Yes',
+        onefopSection: 'VT2.15',
+      ),
+      EntityField(
+        key: 'authorizationOrderNumber',
+        label: LocalizedText(
+            fr: "N° de l'arrêté d'autorisation",
+            en: 'Authorization order number'),
+        dependsOn: 'authorizationStatus',
+        dependsValue: 'Oui/ Yes',
+        onefopSection: 'VT2.16',
+      ),
+      EntityField(
+        key: 'authorizationOrderDate',
+        label: LocalizedText(
+            fr: "Date de l'arrêté d'autorisation",
+            en: 'Authorization order date'),
+        hint: LocalizedText(
+            fr: 'Format : JJ/MM/AAAA', en: 'Format: DD/MM/YYYY'),
+        keyboardType: TextInputType.datetime,
+        isDate: true,
+        dependsOn: 'authorizationStatus',
+        dependsValue: 'Oui/ Yes',
+        onefopSection: 'VT2.17',
       ),
       EntityField(
         key: 'nonFunctionalReason',

@@ -10,6 +10,21 @@ import '../core/i18n/localized_text.dart';
 import '../data/minefop_models.dart';
 import '../widgets/public_chrome.dart';
 
+bool _isValidRegistrationDate(String value) {
+  final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(value);
+  if (match == null) return false;
+  final day = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  final year = int.parse(match.group(3)!);
+  if (year < 1900) return false;
+  final date = DateTime(year, month, day);
+  final today = DateTime.now();
+  return date.year == year &&
+      date.month == month &&
+      date.day == day &&
+      !date.isAfter(DateTime(today.year, today.month, today.day));
+}
+
 // ════════════════════════════════════════════════════════════════
 // STEP 0 — Role selection
 // ════════════════════════════════════════════════════════════════
@@ -418,11 +433,23 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
           hasError: false,
           hintText: field.hint?.of(context.loc),
         ),
-        validator: field.required
-            ? (v) => (v == null || v.trim().isEmpty)
-                ? context.l10n.requiredShort
-                : null
-            : null,
+        validator: (v) {
+          if (field.required && (v == null || v.trim().isEmpty)) {
+            return context.l10n.requiredShort;
+          }
+          if (field.key == 'authorizationYear' &&
+              (v == null || !RegExp(r'^\d{4}$').hasMatch(v.trim()))) {
+            return Localizations.localeOf(context).languageCode == 'fr'
+                ? 'Saisissez une année valide à quatre chiffres.'
+                : 'Enter a valid four-digit year.';
+          }
+          if (field.isDate && (v == null || !_isValidRegistrationDate(v.trim()))) {
+            return Localizations.localeOf(context).languageCode == 'fr'
+                ? 'Saisissez une date valide au format JJ/MM/AAAA.'
+                : 'Enter a valid date in DD/MM/YYYY format.';
+          }
+          return null;
+        },
         onChanged: (_) => widget.onChanged(),
       ),
     );

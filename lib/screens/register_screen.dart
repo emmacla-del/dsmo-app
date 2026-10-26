@@ -685,6 +685,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           cfpType: _entityData['cfpType'] as String?,
           educationSystem: _entityData['educationSystem'] as String?,
           functionalStatus: _entityData['functionalStatus'] as String?,
+          authorizationStatus: _entityData['authorizationStatus'] as String?,
+          authorizationYear: _entityData['authorizationStatus'] == 'Oui/ Yes'
+              ? _entityData['authorizationYear'] as String?
+              : null,
+          authorizationOrderNumber:
+              _entityData['authorizationStatus'] == 'Oui/ Yes'
+                  ? _entityData['authorizationOrderNumber'] as String?
+                  : null,
+          authorizationOrderDate: _entityData['authorizationStatus'] == 'Oui/ Yes'
+              ? _entityData['authorizationOrderDate'] as String?
+              : null,
           nonFunctionalReason: _entityData['nonFunctionalReason'] as String?,
           nonFunctionalReasonOther:
               _entityData['nonFunctionalReasonOther'] as String?,

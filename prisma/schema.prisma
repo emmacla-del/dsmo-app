@@ -317,6 +317,10 @@ model Company {
   cfpType                    String?
   educationSystem            String?
   functionalStatus           String?
+  authorizationStatus        String?
+  authorizationYear          String?
+  authorizationOrderNumber   String?
+  authorizationOrderDate     String?
   nonFunctionalReason        String?
   nonFunctionalReasonOther   String?
   // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
