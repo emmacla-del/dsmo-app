@@ -25,6 +25,21 @@ bool _isValidRegistrationDate(String value) {
       !date.isAfter(DateTime(today.year, today.month, today.day));
 }
 
+DateTime? _registrationDateFromText(String value) {
+  final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(value);
+  if (match == null) return null;
+  final day = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  final year = int.parse(match.group(3)!);
+  if (year < 1900) return null;
+  final date = DateTime(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) return null;
+  return date;
+}
+
+String _registrationDateToText(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().padLeft(4, '0')}';
+
 // ════════════════════════════════════════════════════════════════
 // STEP 0 — Role selection
 // ════════════════════════════════════════════════════════════════
@@ -417,6 +432,21 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
     }
     final controller = widget.controllers[field.key];
     if (controller == null) return const SizedBox.shrink();
+    Future<void> pickDate() async {
+      final current = _registrationDateFromText(controller.text);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selected = await showDatePicker(
+        context: context,
+        initialDate: current != null && !current.isAfter(today) ? current : today,
+        firstDate: DateTime(1900),
+        lastDate: today,
+      );
+      if (selected == null) return;
+      controller.text = _registrationDateToText(selected);
+      widget.onChanged();
+    }
+
     return FormRow(
       label: label,
       required: field.required,
@@ -424,6 +454,8 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
       child: TextFormField(
         controller: controller,
         keyboardType: field.keyboardType,
+        readOnly: field.isDate,
+        onTap: field.isDate ? pickDate : null,
         textInputAction: TextInputAction.next,
         inputFormatters: field.keyboardType == TextInputType.number
             ? [FilteringTextInputFormatter.digitsOnly]
@@ -432,6 +464,16 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         decoration: modernInput(
           hasError: false,
           hintText: field.hint?.of(context.loc),
+        ).copyWith(
+          suffixIcon: field.isDate
+              ? IconButton(
+                  tooltip: Localizations.localeOf(context).languageCode == 'fr'
+                      ? 'Choisir une date'
+                      : 'Choose a date',
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  onPressed: pickDate,
+                )
+              : null,
         ),
         validator: (v) {
           if (field.required && (v == null || v.trim().isEmpty)) {

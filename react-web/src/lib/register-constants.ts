@@ -103,7 +103,7 @@ export interface EntityField {
   // "branch": the branch of activity, a dropdown of the `sectors` table's
   // rows narrowed to the chosen sector (register-activity.ts); its options
   // come from the API, so it declares none here.
-  kind: "text" | "tel" | "number" | "year" | "select" | "radio" | "branch";
+  kind: "text" | "tel" | "number" | "year" | "date" | "select" | "radio" | "branch";
   options?: import("./register-options").RegisterOption[];
   // A "select" short enough to be shown as radios stays a dropdown.
   dropdown?: boolean;
@@ -409,7 +409,7 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       { key: "authorizationStatus", label: { fr: "Le centre est-il agréé ?", en: "Does the centre have an authorization?" }, required: true, kind: "radio", options: AUTHORIZATION_STATUS_OPTIONS },
       { key: "authorizationYear", label: { fr: "Année du dernier agrément", en: "Year of last authorization" }, required: true, kind: "year", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
       { key: "authorizationOrderNumber", label: { fr: "N° de l'arrêté d'autorisation", en: "Authorization order number" }, required: true, kind: "text", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
-      { key: "authorizationOrderDate", label: { fr: "Date de l'arrêté d'autorisation", en: "Authorization order date" }, hint: { fr: "Format : JJ/MM/AAAA", en: "Format: DD/MM/YYYY" }, required: true, kind: "text", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
+      { key: "authorizationOrderDate", label: { fr: "Date de l'arrêté d'autorisation", en: "Authorization order date" }, hint: { fr: "Choisissez une date dans le calendrier ; elle sera enregistrée au format JJ/MM/AAAA.", en: "Choose a date from the calendar; it will be saved as DD/MM/YYYY." }, required: true, kind: "date", dependsOn: "authorizationStatus", dependsValue: "Oui/ Yes" },
       {
         key: "nonFunctionalReason",
         // Was "Raison (si non-fonctionnelle)" (29) / "Reason (if

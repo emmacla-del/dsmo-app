@@ -898,7 +898,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
             fr: "Date de l'arrêté d'autorisation",
             en: 'Authorization order date'),
         hint: LocalizedText(
-            fr: 'Format : JJ/MM/AAAA', en: 'Format: DD/MM/YYYY'),
+            fr: 'Choisissez une date dans le calendrier ; elle sera enregistrée au format JJ/MM/AAAA.',
+            en: 'Choose a date from the calendar; it will be saved as DD/MM/YYYY.'),
         keyboardType: TextInputType.datetime,
         isDate: true,
         dependsOn: 'authorizationStatus',
