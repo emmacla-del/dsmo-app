@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ENTITY_CONFIGS, type EntityType } from "@/lib/register-constants";
+import { ENTITY_CONFIGS, isFieldVisible, type EntityType } from "@/lib/register-constants";
 import { isSectionComplete, type RegState } from "@/lib/register-completeness";
 import { lastEntityFieldKey } from "@/lib/register-entity-sections";
 import {
@@ -49,20 +49,27 @@ function emptyState(overrides: Partial<RegState> = {}): RegState {
 // Fills exactly the required, visible fields of a type's section 3 -- and
 // deliberately nothing else, which is the whole point of these tests.
 function requiredOnlyEntityData(type: EntityType): Record<string, string> {
+  const fields = ENTITY_CONFIGS[type].fields;
   const data: Record<string, string> = {};
-  for (const field of ENTITY_CONFIGS[type].fields) {
-    if (!field.required) continue;
-    // A gated field is not on screen unless its gate is open, and these
-    // states never open one.
-    if (field.dependsOn) continue;
-    // A phone must be a valid Cameroonian number: a wrong one keeps the
-    // section unfinished, which is not what these tests are about.
-    data[field.key] =
-      field.kind === "number" || field.kind === "year"
-        ? "2020"
-        : field.kind === "tel"
-          ? "677123456"
-          : (field.options?.[0]?.value ?? "x");
+  // Answering one required field can open a gate that makes more required
+  // fields visible (the centre's authorization status does). Keep filling
+  // visible required fields until the set settles.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const field of fields) {
+      if (!field.required || data[field.key] !== undefined) continue;
+      if (!isFieldVisible(field, data, fields)) continue;
+      // A phone must be a valid Cameroonian number: a wrong one keeps the
+      // section unfinished, which is not what these tests are about.
+      data[field.key] =
+        field.kind === "number" || field.kind === "year"
+          ? "2020"
+          : field.kind === "tel"
+            ? "677123456"
+            : (field.options?.[0]?.value ?? "x");
+      changed = true;
+    }
   }
   return data;
 }

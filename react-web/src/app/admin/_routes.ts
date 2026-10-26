@@ -143,7 +143,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // /admin/centre-qualite (ADMIN_ROLES) has always admitted the role, so
       // the entry now shows for it. Narrowing the route is an RBAC decision,
       // not a navigation one, and is not taken here.
-      { label: "Centre qualité des données", labelKey: "centreQualite", href: "/admin/centre-qualite", allowedRoles: SURVEY_ROLES },
+      { label: "Centre qualité des données", labelKey: "centreQualite", href: "/admin/centre-qualite", allowedRoles: SURVEY_READ_ROLES },
       // The "Anomalies" entry pointed at /admin/files-attente?tab=anomalies.
       // That page rendered the same blocking-anomaly registry and the same
       // resolution dialog /admin/centre-qualite already carries, so it was
