@@ -8,13 +8,8 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DIRECTORY_ROLES } from "@/lib/roles";
 import {
   ENTITY_CONFIGS,
-  entityApiValue,
   isFieldVisible,
   pruneEntityDataForType,
-  resolveAddress,
-  resolveCompanyName,
-  resolveMainActivity,
-  visibleEntityDataForType,
   yearOptions,
   type EntityField,
   type EntityType,
@@ -29,7 +24,12 @@ import {
   useTerritoryRegions,
   useTerritorySubdivisions,
 } from "@/hooks/useTerritoryStructure";
-import { adminRegisterCompany, registrationTerritoryChoice, type AssistedRegistrationResult } from "@/lib/inscriptions";
+import {
+  adminRegisterCompany,
+  buildAssistedRegistrationPayload,
+  registrationTerritoryChoice,
+  type AssistedRegistrationResult,
+} from "@/lib/inscriptions";
 import { useEmailAvailability } from "@/lib/use-email-availability";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -245,56 +245,19 @@ export default function NouvelleInscriptionPage() {
     }
     // Hidden dependent fields must not reach the payload — the same gate the
     // public wizard applies (visibleEntityDataForType).
-    const data = visibleEntityDataForType(entityData, entityType);
-    const fallbackName = `${respondent.firstName} ${respondent.lastName}`.trim();
-
-    mutation.mutate({
-      email: respondent.email.trim(),
-      firstName: respondent.firstName.trim(),
-      lastName: respondent.lastName.trim(),
-      companyName: resolveCompanyName(data, fallbackName),
-      address: resolveAddress(data),
-      mainActivity: resolveMainActivity(data),
-      region,
-      department,
-      subdivision,
-      entityType: entityApiValue(entityType),
-      taxNumber: data.taxNumber,
-      parentCompany: data.parentCompany,
-      secondaryActivity: data.secondaryActivity,
-      cnpsNumber: data.cnpsNumber,
-      socialCapital: data.socialCapital ? Number(data.socialCapital) : undefined,
-      legalStatus: data.legalStatus,
-      cooperativeType: data.cooperativeType,
-      yearOfCreation: data.yearOfCreation,
-      ctdType: data.ctdType,
-      projectNature: data.projectNature,
-      mainMission: data.mainMission,
-      registrationNumber: data.registrationNumber,
-      // The branch's id (Company.sectorId) and French name (Company.branch).
-      sectorId: data.branchId || undefined,
-      branch: data.branchId
-        ? sectorsQuery.data?.find((b) => b.id === data.branchId)?.name
-        : undefined,
-      poBox: data.poBox,
-      phone: data.phone,
-      phone2: data.phone2,
-      sigle: data.sigle,
-      cfpType: data.cfpType,
-      educationSystem: data.educationSystem,
-      functionalStatus: data.functionalStatus,
-      nonFunctionalReason: data.nonFunctionalReason,
-      nonFunctionalReasonOther: data.nonFunctionalReasonOther,
-      promoterName: data.promoterName,
-      promoterSex: data.promoterSex,
-      promoterPhone1: data.promoterPhone1,
-      promoterPhone2: data.promoterPhone2,
-      respondentFirstName: respondent.firstName.trim(),
-      respondentLastName: respondent.lastName.trim(),
-      respondentFunction: respondent.function || undefined,
-      respondentPhone: respondent.phone1 || undefined,
-      respondentPhone2: respondent.phone2 || undefined,
-    });
+    mutation.mutate(
+      buildAssistedRegistrationPayload({
+        entityType,
+        entityData,
+        respondent,
+        region,
+        department,
+        subdivision,
+        branchName: entityData.branchId
+          ? sectorsQuery.data?.find((b) => b.id === entityData.branchId)?.name
+          : undefined,
+      }),
+    );
   }
 
   async function copyPassword() {

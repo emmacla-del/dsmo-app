@@ -9,6 +9,7 @@ import test from "node:test";
 
 import {
   approvalGate,
+  buildAssistedRegistrationPayload,
   daysWaiting,
   inscriptionsHref,
   registrationTerritoryChoice,
@@ -180,4 +181,66 @@ test("an unknown or absent role picks nothing", () => {
     choosesRegion: false,
     choosesDepartment: false,
   });
+});
+
+const vtRespondent = {
+  firstName: "Awa",
+  lastName: "Nkeng",
+  email: "awa@example.cm",
+  function: "Promotrice",
+  phone1: "655000000",
+  phone2: "",
+};
+
+test("assisted VT registration sends the accreditation block", () => {
+  const payload = buildAssistedRegistrationPayload({
+    entityType: "vocationalTraining",
+    entityData: {
+      centerName: "Centre de formation Awa",
+      taxNumber: "NIU-1",
+      cnpsNumber: "CNPS-1",
+      cfpType: "Privé",
+      educationSystem: "Formation professionnelle",
+      functionalStatus: "Fonctionnelle",
+      authorizationStatus: "Oui/ Yes",
+      authorizationYear: "2025",
+      authorizationOrderNumber: "0123/ARR",
+      authorizationOrderDate: "15/03/2025",
+    },
+    respondent: vtRespondent,
+    region: "Centre",
+    department: "Mfoundi",
+    subdivision: "Yaoundé I",
+  });
+
+  assert.equal(payload.entityType, "VOCATIONAL_TRAINING");
+  assert.equal(payload.authorizationStatus, "Oui/ Yes");
+  assert.equal(payload.authorizationYear, "2025");
+  assert.equal(payload.authorizationOrderNumber, "0123/ARR");
+  assert.equal(payload.authorizationOrderDate, "15/03/2025");
+});
+
+test("assisted VT registration drops hidden accreditation details", () => {
+  const payload = buildAssistedRegistrationPayload({
+    entityType: "vocationalTraining",
+    entityData: {
+      centerName: "Centre de formation Awa",
+      cfpType: "Privé",
+      educationSystem: "Formation professionnelle",
+      functionalStatus: "Fonctionnelle",
+      authorizationStatus: "Non/ No",
+      authorizationYear: "2025",
+      authorizationOrderNumber: "0123/ARR",
+      authorizationOrderDate: "15/03/2025",
+    },
+    respondent: vtRespondent,
+    region: "Centre",
+    department: "Mfoundi",
+    subdivision: "Yaoundé I",
+  });
+
+  assert.equal(payload.authorizationStatus, "Non/ No");
+  assert.equal(payload.authorizationYear, undefined);
+  assert.equal(payload.authorizationOrderNumber, undefined);
+  assert.equal(payload.authorizationOrderDate, undefined);
 });
