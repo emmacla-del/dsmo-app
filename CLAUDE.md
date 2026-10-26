@@ -1206,6 +1206,60 @@ Approved changes on record:
   rule (one DELEGUE_REGIONAL per region, refused at sign-up), and
   `LINK_MAX_USES` (200), which a region-wide link can approach.
 
+- 2026-10-26 — the assisted-registration form asks a regional admin for the
+  department, and a fixed territory is read from the account
+  (`registrationTerritoryChoice` in `react-web/src/lib/inscriptions.ts`;
+  `react-web/src/app/admin/inscriptions/nouvelle/page.tsx`).
+  Issue: /admin/inscriptions/nouvelle split on `REGISTRATION_NATIONAL_ROLES`
+  alone — a national role picked the region and the department, every other
+  level had BOTH locked to its own posting. But `resolveStaffTerritory`
+  (`src/territory/territory-resolver.ts`) requires a REGIONAL_ADMIN's own
+  department to be NULL. That level therefore saw « — » in a read-only
+  department field, an empty arrondissement list keyed on it, and every
+  submit refused with « Région, département et arrondissement sont
+  obligatoires » — with no control on screen that could fix it. The page is
+  in DIRECTORY_ROLES, so a regional delegate could open it and register
+  nobody, ever. The note above the fields said « La région et le département
+  sont fixés selon votre ressort », which was false for them: their ressort
+  fixes a region only.
+  NOT AN AUTHORIZATION CHANGE, which is why it was safe to fix without
+  widening anything: `assertTerritorialAuthority` (`src/auth/territory.ts`)
+  already admits a REGIONAL_ADMIN anywhere in its own region, so the FORM was
+  stricter than the server. This removes a client-side block over a boundary
+  the server never drew; the server remains the enforcing copy and still
+  refuses a department outside the actor's region, on the territory it
+  resolves (`resolveAndValidateTerritory`), not on what the body spelled.
+  Decision: one helper states what each level may choose — national picks
+  both; REGIONAL_ADMIN has its region fixed and picks any department of it;
+  DIVISIONAL_ADMIN has both fixed. The scope note follows the fields, with
+  `locationScopeNoteRegion` for the regional case.
+  RECORDED HERE BECAUSE OF §14: a later agent reading « the department is no
+  longer fixed to the admin's posting » must not restore the lock. The lock
+  was never the control, and restoring it disables the level again. Four
+  tests in `react-web/src/lib/inscriptions.test.ts` pin the three levels and
+  the no-role render, with that reason beside them.
+  Second defect fixed in the same lines, and the reason the fixed half is no
+  longer state: the locked region and department were seeded into
+  `useState`, but `useAuthStore` starts at status "loading" with `user` null
+  and restores asynchronously, so on a cold load the initialiser — which runs
+  on the first render only — kept the empty string for the whole session and
+  the prefill a DIVISIONAL_ADMIN was meant to get never appeared. It worked
+  only on a client-side navigation inside an already-restored session. A
+  fixed region or department is now read from `user` on every render; only
+  the chooseable half is state, which also simplified `hasUnsavedChanges`
+  and `resetForm`.
+  NOT CHANGED: the route and its roles, `assertTerritorialAuthority`,
+  `resolveStaffTerritory`, the public registration wizard, and what the form
+  sends. No schema, statistical variable, export, PDF or dataset version
+  change. Approved by the owner in chat, 2026-10-26.
+  STILL OPEN: the fix has not been exercised signed in — there is no staging
+  backend, so it rests on the tests and on the server rules it mirrors. And a
+  DIVISIONAL_ADMIN whose account carries no department (which
+  `resolveStaffTerritory` forbids today, but a legacy row may hold) still
+  reads « — » and cannot submit, with nothing on screen saying why; if that
+  turns up in the pilot, the fix is to tell the admin their posting is
+  incomplete, not to open the field.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
