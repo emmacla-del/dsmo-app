@@ -272,6 +272,7 @@
   /* 32–44px: the one h1 per page */
   --cam-line-height-display: 1.12;
   --cam-line-height-base: 1.5;
+  --cam-line-height-heading: 1.2;
   /* Named by job. --cam-line-height-label is load-bearing: the wizard
      label rule and the side-by-side alignment calc both read it, so the
      label's first line stays on the input's text. */
