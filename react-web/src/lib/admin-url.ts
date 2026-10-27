@@ -41,6 +41,45 @@ export function parseDossierSort(raw: string | null): DossierSort {
   return raw === "oldest" ? "oldest" : "";
 }
 
+/** ?vue= on /admin/dossiers; the file list unless coverage is asked for. */
+export const DOSSIER_VUES = ["dossiers", "couverture"] as const;
+export type DossierVue = (typeof DOSSIER_VUES)[number];
+
+export function parseDossierVue(raw: string | null): DossierVue {
+  return (DOSSIER_VUES as readonly string[]).includes(raw ?? "") ? (raw as DossierVue) : "dossiers";
+}
+
+/**
+ * A flag filter such as ?late=1 or ?overdue=1. Only an explicit true is
+ * active: an absent parameter, an empty one, or an unknown one means "no
+ * filter", never "false".
+ */
+export function parseDossierFlag(raw: string | null): boolean {
+  return raw === "1" || raw?.toLowerCase() === "true";
+}
+
+/** ?quarterCode=YYYY-Tn; null for absent or malformed values. */
+export function parseDossierQuarter(raw: string | null): string | null {
+  const value = raw?.trim() ?? "";
+  return /^\d{4}-T[1-4]$/.test(value) ? value : null;
+}
+
+/** The most recent quarter codes, newest first, for the list's quarter filter. */
+export function recentDossierQuarters(now: Date, count = 8): string[] {
+  let year = now.getUTCFullYear();
+  let quarter = Math.floor(now.getUTCMonth() / 3) + 1;
+  const codes: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    codes.push(`${year}-T${quarter}`);
+    quarter -= 1;
+    if (quarter === 0) {
+      quarter = 4;
+      year -= 1;
+    }
+  }
+  return codes;
+}
+
 // ── /admin/centre-qualite ───────────────────────────────────────────────────
 
 export const QUALITE_VUES = ["indicateurs", "registre", "regles"] as const;

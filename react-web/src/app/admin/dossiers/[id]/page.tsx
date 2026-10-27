@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  ApiError,
   getAdminDossier,
   getDossierDiagnostic,
   approveDossier,
@@ -18,6 +19,7 @@ import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
+import { DossierAnswerSections } from "@/components/admin/DossierAnswerSections";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
@@ -26,7 +28,6 @@ import {
   dossierEntity,
   dossierSections,
   questionnaireAsks,
-  sectionBackingTables,
 } from "@/lib/dossier-sections";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import {
@@ -142,6 +143,10 @@ const CORRECTION_DELAYS: { value: string; labelKey: string }[] = [
 ];
 
 type Detail = Record<string, unknown>;
+
+function isStaleRevision(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409;
+}
 
 // The structure card's fields, per structure type, in reading order. Each
 // type has its own detail record (Onefop*Detail in prisma/schema.prisma);
@@ -390,7 +395,7 @@ function SubmissionDetailContent() {
       ]
         .filter(Boolean)
         .join(" — ");
-      return requestCorrectionDossier(id, fullComments, certifiedCorrection);
+      return requestCorrectionDossier(id, fullComments, certifiedCorrection, dossier?.updatedAt ?? "");
     },
     onSuccess: () => {
       setCorrectionSuccess(true);
@@ -412,7 +417,7 @@ function SubmissionDetailContent() {
   const [rejectSuccess, setRejectSuccess] = useState(false);
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectDossier(id, rejectReason.trim(), certifiedReject),
+    mutationFn: () => rejectDossier(id, rejectReason.trim(), certifiedReject, dossier?.updatedAt ?? ""),
     onSuccess: () => {
       setRejectSuccess(true);
       invalidateDossier();
@@ -426,7 +431,7 @@ function SubmissionDetailContent() {
   const [reopenSuccess, setReopenSuccess] = useState(false);
 
   const reopenMutation = useMutation({
-    mutationFn: () => reopenDossierForCorrection(id, reopenReason.trim(), certifiedReopen),
+    mutationFn: () => reopenDossierForCorrection(id, reopenReason.trim(), certifiedReopen, dossier?.updatedAt ?? ""),
     onSuccess: () => {
       setReopenSuccess(true);
       // The header and its actions follow at once, as after an endorsement
@@ -459,7 +464,7 @@ function SubmissionDetailContent() {
   const [approveSuccess, setApproveSuccess] = useState(false);
 
   const approveMutation = useMutation({
-    mutationFn: () => approveDossier(id),
+    mutationFn: () => approveDossier(id, dossier?.updatedAt ?? ""),
     onSuccess: (approvedData: any) => {
       setApproveSuccess(true);
       // Defect 9: cancel any in-flight refetches for the dossier and diagnostic queries,
@@ -834,30 +839,18 @@ function SubmissionDetailContent() {
           )}
 
           {laterSections.map((section) => (
-            <details
+            <DossierAnswerSections
               key={section.id}
-              className="cam-dossier-section"
+              entity={entity}
+              sectionId={section.id}
+              title={section.title}
+              data={(dossier.rawData ?? null) as Record<string, unknown> | null}
               open={openSectionId === section.id}
-              onToggle={(e) => {
-                if (e.currentTarget.open) setExpandedSection(section.id);
+              onToggle={(isOpen) => {
+                if (isOpen) setExpandedSection(section.id);
                 else setExpandedSection((cur) => (cur === section.id ? null : cur));
               }}
-            >
-              <summary>{section.title}</summary>
-              <div className="cam-dossier-section-body">
-                <DataState
-                  dense
-                  state="unavailable"
-                  resource={t("sectionDataResource")}
-                  title={t("sectionDataTitle")}
-                  hint={
-                    sectionBackingTables(section.id)
-                      ? t("sectionDataHint", { tables: sectionBackingTables(section.id) as string })
-                      : t("sectionDataHintNoTables")
-                  }
-                />
-              </div>
-            </details>
+            />
           ))}
           </>
           )}
@@ -1118,7 +1111,9 @@ function SubmissionDetailContent() {
 
             {correctionMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                {t("correctionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownError") })}
+                {isStaleRevision(correctionMutation.error)
+                  ? t("staleFileModified")
+                  : t("correctionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
             )}
           </div>
@@ -1160,7 +1155,9 @@ function SubmissionDetailContent() {
             <p style={{ margin: 0 }}>{t("approveBody")}</p>
             {approveMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginTop: "var(--cam-space-3)" }}>
-                {t("approveFailed", { message: (approveMutation.error as Error)?.message ?? t("unknownError") })}
+                {isStaleRevision(approveMutation.error)
+                  ? t("staleFileModified")
+                  : t("approveFailed", { message: (approveMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
             )}
           </>
@@ -1236,7 +1233,9 @@ function SubmissionDetailContent() {
 
             {rejectMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                {t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
+                {isStaleRevision(rejectMutation.error)
+                  ? t("staleFileModified")
+                  : t("rejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
             )}
           </div>
@@ -1312,7 +1311,9 @@ function SubmissionDetailContent() {
 
             {reopenMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-                {t("reopenFailed", { message: (reopenMutation.error as Error)?.message ?? t("unknownError") })}
+                {isStaleRevision(reopenMutation.error)
+                  ? t("staleFileModified")
+                  : t("reopenFailed", { message: (reopenMutation.error as Error)?.message ?? t("unknownError") })}
               </div>
             )}
           </div>

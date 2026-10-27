@@ -857,6 +857,11 @@ export function listAdminQuestionnaires(
   params: {
     status?: string; formType?: string; period?: string; region?: string; search?: string;
     companyId?: string;
+    department?: string;
+    campaignId?: string;
+    quarterCode?: string;
+    late?: boolean;
+    overdue?: boolean;
     /** "oldest" lists the longest-waiting first; the server default is newest first. */
     sort?: "oldest";
     limit?: number; offset?: number;
@@ -869,6 +874,11 @@ export function listAdminQuestionnaires(
   if (params.region) query.set("region", params.region);
   if (params.search) query.set("search", params.search);
   if (params.companyId) query.set("companyId", params.companyId);
+  if (params.department) query.set("department", params.department);
+  if (params.campaignId) query.set("campaignId", params.campaignId);
+  if (params.quarterCode) query.set("quarterCode", params.quarterCode);
+  if (params.late) query.set("late", "1");
+  if (params.overdue) query.set("overdue", "1");
   if (params.sort) query.set("sort", params.sort);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
@@ -882,6 +892,7 @@ export interface AdminDossier {
   submissionId: string;
   formType: string;
   status: string;
+  updatedAt: string;
   region: string | null;
   department: string | null;
   subdivision: string | null;
@@ -920,23 +931,24 @@ export function getDossierDiagnostic(id: string) {
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic`);
 }
 
-export function approveDossier(id: string) {
+export function approveDossier(id: string, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/approve`, {
     method: "PATCH",
+    body: JSON.stringify({ expectedRevision }),
   });
 }
 
-export function rejectDossier(id: string, reason: string, certified: boolean) {
+export function rejectDossier(id: string, reason: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reject`, {
     method: "PATCH",
-    body: JSON.stringify({ reason, certified }),
+    body: JSON.stringify({ reason, certified, expectedRevision }),
   });
 }
 
-export function requestCorrectionDossier(id: string, comments: string, certified: boolean) {
+export function requestCorrectionDossier(id: string, comments: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/request-correction`, {
     method: "PATCH",
-    body: JSON.stringify({ comments, certified }),
+    body: JSON.stringify({ comments, certified, expectedRevision }),
   });
 }
 
@@ -946,10 +958,10 @@ export function requestCorrectionDossier(id: string, comments: string, certified
  * enforced server-side; the reason and the attestation are required and
  * recorded (AUDIT_REOPEN).
  */
-export function reopenDossierForCorrection(id: string, reason: string, certified: boolean) {
+export function reopenDossierForCorrection(id: string, reason: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reopen-for-correction`, {
     method: "PATCH",
-    body: JSON.stringify({ reason, certified }),
+    body: JSON.stringify({ reason, certified, expectedRevision }),
   });
 }
 

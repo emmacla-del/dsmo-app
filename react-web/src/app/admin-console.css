@@ -5080,6 +5080,13 @@ a.cam-dash-review-row:hover {
   outline-offset: 2px;
 }
 
+.cam-target-table .cam-target-scope-link {
+  margin-inline-start: var(--cam-space-2);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .cam-target-dept th {
   padding-left: var(--cam-space-7);
   font-weight: 500;
