@@ -237,6 +237,7 @@ model User {
   archivedByUser             User?              @relation("UserArchive", fields: [archivedBy], references: [id], onDelete: SetNull)
   archivedUsers              User[]             @relation("UserArchive")
   archivedOnefop             OnefopSubmission[] @relation("OnefopArchive")
+  assignedOnefopSubmissions  OnefopSubmission[] @relation("OnefopAssignee")
   assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assignedUsers              User[]             @relation("UserAssignee")
   auditLogs                  AuditLog[]
@@ -891,6 +892,9 @@ model OnefopSubmission {
   department            String?
   subdivision           String?
   submittedBy           String?
+  // Agent the file's review is assigned to (phase 5, team workflow). Null
+  // means unclaimed.
+  assigneeId            String?
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
   companyId             String?
@@ -958,6 +962,7 @@ model OnefopSubmission {
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
   subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
   user                  User?                         @relation(fields: [submittedBy], references: [id])
+  assignee              User?                         @relation("OnefopAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   trainingNeeds         OnefopTrainingNeed[]
   vulnerableData        OnefopVulnerableData[]
   anomalies             OnefopAnomaly[]
@@ -967,6 +972,7 @@ model OnefopSubmission {
   @@index([surveyYear])
   @@index([region])
   @@index([submittedBy])
+  @@index([assigneeId])
   @@index([establishmentId], map: "idx_onefop_submissions_establishmentId")
   @@index([quarterCode], map: "idx_onefop_submissions_quarterCode")
   @@index([taxNumber])
