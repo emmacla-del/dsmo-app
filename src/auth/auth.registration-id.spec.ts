@@ -195,10 +195,11 @@ describe('issuance audit row', () => {
     });
   });
 
-  it('does not fail the registration when the audit write fails', async () => {
+  it('fails registration when the issuance audit write fails', async () => {
     const prisma = makePrisma({ auditFails: true });
-    const result = await makeService(prisma).registerCompany('contact@societe.cm', 'password123', COMPANY_DATA);
-    expect(result.company.establishmentId).toMatch(/^EN/);
+    await expect(
+      makeService(prisma).registerCompany('contact@societe.cm', 'password123', COMPANY_DATA),
+    ).rejects.toThrow('audit down');
   });
 });
 
