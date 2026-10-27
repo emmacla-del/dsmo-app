@@ -57,7 +57,7 @@ export function RegistrationReview({
         return (
           <Fragment key={step}>
             <div className="review-header-row">
-              {/* h2: the review's own title is the page's h1 (StepHeader). */}
+              {/* The review title is a subsection heading under the form title. */}
               <h2 className="review-section-title">
                 {stepNumber(step)}. {sectionTitle}
               </h2>
