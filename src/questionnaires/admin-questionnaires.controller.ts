@@ -124,6 +124,13 @@ export class AdminQuestionnairesController {
     private readonly eligibilityEngine: EligibilityEngineService,
   ) {}
 
+  private requireExpectedRevision(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim() || Number.isNaN(new Date(value).getTime())) {
+      throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
+    }
+    return value;
+  }
+
   /**
    * Authoritative Quality Summary & Indicator Aggregates (Axis 1 & 2)
    */
@@ -325,8 +332,13 @@ export class AdminQuestionnairesController {
   }
 
   @Patch(':id/approve')
-  async approve(@Param('id') id: string, @Request() req: any) {
-    return this.service.approve(id, req.user?.id, territoryFromUser(req.user));
+  async approve(@Param('id') id: string, @Body('expectedRevision') expectedRevision: unknown, @Request() req: any) {
+    return this.service.approve(
+      id,
+      req.user?.id,
+      territoryFromUser(req.user),
+      this.requireExpectedRevision(expectedRevision),
+    );
   }
 
   @Patch(':id/reject')
@@ -334,12 +346,19 @@ export class AdminQuestionnairesController {
     @Param('id') id: string,
     @Body('reason') reason: string,
     @Body('certified') certified: boolean,
+    @Body('expectedRevision') expectedRevision: unknown,
     @Request() req: any,
   ) {
     if (certified !== true) {
       throw new BadRequestException('Vous devez certifier la décision de rejet avant de confirmer.');
     }
-    return this.service.reject(id, reason, req.user?.id, territoryFromUser(req.user));
+    return this.service.reject(
+      id,
+      reason,
+      req.user?.id,
+      territoryFromUser(req.user),
+      this.requireExpectedRevision(expectedRevision),
+    );
   }
 
   @Patch(':id/request-correction')
@@ -347,9 +366,17 @@ export class AdminQuestionnairesController {
     @Param('id') id: string,
     @Body('comments') comments: string,
     @Body('certified') certified: boolean,
+    @Body('expectedRevision') expectedRevision: unknown,
     @Request() req: any,
   ) {
-    return this.service.requestCorrection(id, comments, certified, req.user?.id, territoryFromUser(req.user));
+    return this.service.requestCorrection(
+      id,
+      comments,
+      certified,
+      req.user?.id,
+      territoryFromUser(req.user),
+      this.requireExpectedRevision(expectedRevision),
+    );
   }
 
   /**
@@ -363,8 +390,16 @@ export class AdminQuestionnairesController {
     @Param('id') id: string,
     @Body('reason') reason: string,
     @Body('certified') certified: boolean,
+    @Body('expectedRevision') expectedRevision: unknown,
     @Request() req: any,
   ) {
-    return this.service.reopenForCorrection(id, reason, certified, req.user?.id, territoryFromUser(req.user));
+    return this.service.reopenForCorrection(
+      id,
+      reason,
+      certified,
+      req.user?.id,
+      territoryFromUser(req.user),
+      this.requireExpectedRevision(expectedRevision),
+    );
   }
 }

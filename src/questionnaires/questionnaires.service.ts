@@ -3652,10 +3652,57 @@ export class QuestionnairesService {
   private async findForDecision(id: string, territory?: Territory) {
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
-      select: { id: true, status: true, quarterCode: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
+      select: { id: true, status: true, updatedAt: true, quarterCode: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;
+  }
+
+  /**
+   * Apply a review decision only to the exact revision the reviewer opened.
+   * The conditional update is atomic: a concurrent edit or decision changes
+   * updatedAt (and usually status), making the updateMany match zero rows.
+   * Keeping the audit entry in the same transaction prevents a rejected stale
+   * decision from leaving an audit event behind.
+   */
+  private async updateDecisionAtRevision(
+    submission: any,
+    expectedRevision: string | undefined,
+    data: Record<string, unknown>,
+    auditData?: Record<string, unknown>,
+  ) {
+    const revisionText = expectedRevision?.trim() || submission.updatedAt?.toISOString?.();
+    const revision = revisionText ? new Date(revisionText) : null;
+    if (!revision || Number.isNaN(revision.getTime())) {
+      throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.onefopSubmission.updateMany({
+        where: {
+          id: submission.id,
+          status: submission.status,
+          updatedAt: revision,
+        },
+        data: data as any,
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
+      }
+      if (auditData) await tx.auditLog.create({ data: auditData as any });
+      return tx.onefopSubmission.findUnique({ where: { id: submission.id } });
+    });
+  }
+
+  private assertDecisionRevision(submission: any, expectedRevision?: string): void {
+    if (!expectedRevision) return;
+    const expected = new Date(expectedRevision);
+    if (Number.isNaN(expected.getTime())) {
+      throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
+    }
+    if (!(submission.updatedAt instanceof Date) || submission.updatedAt.getTime() !== expected.getTime()) {
+      throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
+    }
   }
 
   private isViaCentralFallback(territory: Territory | undefined, submission: any): boolean {
@@ -3710,62 +3757,64 @@ export class QuestionnairesService {
   return true;
 }
 
-  async approve(id: string, reviewedBy?: string, territory?: Territory) {
+  async approve(id: string, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
     const submission = await this.findForDecision(id, territory);
+    this.assertDecisionRevision(submission, expectedRevision);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
     await this.eligibilityEngine!.assertCanApprove(submission.id);
-    if (reviewedBy) {
-      const viaCentralFallback = this.isViaCentralFallback(territory, submission);
-      await (this.prisma as any).auditLog.create({
-        data: {
-          userId: reviewedBy,
-          action: 'AUDIT_APPROVE',
-          resourceType: 'OnefopSubmission',
-          resourceId: submission.id,
-          details: {
-            campaignId: submission.campaignId ?? null,
-            establishmentId: submission.establishmentId ?? null,
-            previousStatus: submission.status,
-            newStatus: 'APPROVED',
-            viaCentralFallback,
-          },
-        },
-      });
-    }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const auditData = reviewedBy ? {
+      userId: reviewedBy,
+      action: 'AUDIT_APPROVE',
+      resourceType: 'OnefopSubmission',
+      resourceId: submission.id,
+      details: {
+        campaignId: submission.campaignId ?? null,
+        establishmentId: submission.establishmentId ?? null,
+        previousStatus: submission.status,
+        newStatus: 'APPROVED',
+        viaCentralFallback: this.isViaCentralFallback(territory, submission),
+      },
+    } : undefined;
+    const updated = await this.updateDecisionAtRevision(
+      submission,
+      expectedRevision,
+      { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
+      auditData,
+    );
     // Campaign progress B4: best-effort, never fails the approval.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
     return updated;
   }
 
-  async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory) {
+  async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
     if (!reason || reason.trim().length < 10) {
       throw new BadRequestException('La justification du rejet doit comporter au moins 10 caractères.');
     }
     const submission = await this.findForDecision(id, territory);
+    this.assertDecisionRevision(submission, expectedRevision);
     if (submission.status !== 'PENDING_REVIEW' && submission.status !== 'CORRECTION_REQUESTED') {
       throw new BadRequestException(`Impossible de rejeter un dossier au statut ${submission.status}.`);
     }
-    if (reviewedBy) {
-      await (this.prisma as any).auditLog.create({
-        data: {
-          userId: reviewedBy,
-          action: 'AUDIT_REJECT',
-          resourceType: 'OnefopSubmission',
-          resourceId: submission.id,
-          details: { reason },
-        },
-      });
-    }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await this.updateDecisionAtRevision(
+      submission,
+      expectedRevision,
+      { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
+      reviewedBy ? {
+        userId: reviewedBy,
+        action: 'AUDIT_REJECT',
+        resourceType: 'OnefopSubmission',
+        resourceId: submission.id,
+        details: { reason },
+      } : undefined,
+    );
     // Campaign progress B4: best-effort, never fails the rejection.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'NOT_STARTED');
     return updated;
   }
 
-  async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
+  async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
     if (certified !== true) {
       throw new BadRequestException('La certification est requise pour confirmer la demande de correction.');
     }
@@ -3773,21 +3822,22 @@ export class QuestionnairesService {
       throw new BadRequestException('La justification de la demande de correction doit comporter au moins 10 caractères.');
     }
     const submission = await this.findForDecision(id, territory);
+    this.assertDecisionRevision(submission, expectedRevision);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible de demander une correction sur un dossier au statut ${submission.status}.`);
     }
-    if (reviewedBy) {
-      await (this.prisma as any).auditLog.create({
-        data: {
-          userId: reviewedBy,
-          action: 'AUDIT_CORRECTION',
-          resourceType: 'OnefopSubmission',
-          resourceId: submission.id,
-          details: { comments, previousStatus: submission.status, certified: true },
-        },
-      });
-    }
-    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id: submission.id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await this.updateDecisionAtRevision(
+      submission,
+      expectedRevision,
+      { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
+      reviewedBy ? {
+        userId: reviewedBy,
+        action: 'AUDIT_CORRECTION',
+        resourceType: 'OnefopSubmission',
+        resourceId: submission.id,
+        details: { comments, previousStatus: submission.status, certified: true },
+      } : undefined,
+    );
     // Campaign progress B4: best-effort, never fails the correction request.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;
@@ -3806,7 +3856,7 @@ export class QuestionnairesService {
    *   CORRECTION_REQUESTED, the reason shown to the respondent, who submits
    *   a corrected declaration as a new file for review.
    */
-  async reopenForCorrection(id: string, reason: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
+  async reopenForCorrection(id: string, reason: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
     if (!territory?.role || !REOPEN_ROLES.includes(territory.role)) {
       throw new ForbiddenException('Seuls les administrateurs centraux de l\'ONEFOP peuvent rouvrir un dossier visé.');
     }
@@ -3817,6 +3867,7 @@ export class QuestionnairesService {
       throw new BadRequestException('Le motif de la réouverture doit comporter au moins 10 caractères.');
     }
     const submission = await this.findForDecision(id, territory);
+    this.assertDecisionRevision(submission, expectedRevision);
     if (submission.status !== 'APPROVED') {
       throw new BadRequestException(`Seul un dossier visé peut être rouvert ; ce dossier est au statut ${submission.status}.`);
     }
@@ -3834,28 +3885,25 @@ export class QuestionnairesService {
         `Ce dossier ne peut pas être rouvert : sa période ${submission.quarterCode ?? ''} n'est plus ouverte, le déclarant ne pourrait pas le soumettre à nouveau.`,
       );
     }
-    if (reviewedBy) {
-      await (this.prisma as any).auditLog.create({
-        data: {
-          userId: reviewedBy,
-          action: 'AUDIT_REOPEN',
-          resourceType: 'OnefopSubmission',
-          resourceId: submission.id,
-          details: {
-            reason: reason.trim(),
-            previousStatus: submission.status,
-            newStatus: 'CORRECTION_REQUESTED',
-            certified: true,
-            campaignId: submission.campaignId ?? null,
-            establishmentId: submission.establishmentId ?? null,
-          },
+    const updated = await this.updateDecisionAtRevision(
+      submission,
+      expectedRevision,
+      { status: 'CORRECTION_REQUESTED', rejectionReason: reason.trim(), reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
+      reviewedBy ? {
+        userId: reviewedBy,
+        action: 'AUDIT_REOPEN',
+        resourceType: 'OnefopSubmission',
+        resourceId: submission.id,
+        details: {
+          reason: reason.trim(),
+          previousStatus: submission.status,
+          newStatus: 'CORRECTION_REQUESTED',
+          certified: true,
+          campaignId: submission.campaignId ?? null,
+          establishmentId: submission.establishmentId ?? null,
         },
-      });
-    }
-    const updated = await (this.prisma as any).onefopSubmission.update({
-      where: { id: submission.id },
-      data: { status: 'CORRECTION_REQUESTED', rejectionReason: reason.trim(), reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
-    });
+      } : undefined,
+    );
     // Campaign progress B4: best-effort, never fails the reopening.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;
