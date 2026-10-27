@@ -7,11 +7,6 @@ npm install --include=dev
 echo "⚙️ Generating Prisma client..."
 npx prisma generate
 
-# --- DEBUG LINES ---
-echo "DEBUG DATABASE_URL: ${DATABASE_URL:0:35}"
-echo "DEBUG DIRECT_URL: ${DIRECT_URL:0:35}"
-# -------------------
-
 echo "🚀 Running database migrations..."
 npx prisma migrate deploy
 
