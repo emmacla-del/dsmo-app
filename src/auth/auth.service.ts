@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { Prisma } from '@prisma/client';
+import { UserStatus } from '../types/prisma.types';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
@@ -39,6 +40,7 @@ const TWO_FACTOR_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const TWO_FACTOR_CHALLENGE_JWT_TTL = '10m';
 const MAX_LOGIN_ATTEMPTS = 8; // consecutive failures before lockout
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+type RegistrationCountsView = 'queue' | 'organisations' | 'all';
 
 // Demo-grade self-service reset: fixed pool of 4 questions answered
 // against existing Company fields. No new table — see
@@ -1313,6 +1315,7 @@ export class AuthService {
           isActive: false,
           rejectionReason: trimmed,
           rejectedAt: new Date(),
+          rejectedBy: actorId,
         },
       });
       await this.prisma.auditLog.create({
@@ -1344,6 +1347,7 @@ export class AuthService {
         isActive: false,
         rejectionReason: trimmed,
         rejectedAt: new Date(),
+        rejectedBy: actorId,
       },
     });
     await this.prisma.auditLog.create({
@@ -1591,6 +1595,8 @@ export class AuthService {
       registrationMethod?: string;
       search?: string;
       status?: string;
+      statuses?: string;
+      view?: string;
       createdBy?: string;
       // Only files the reviewers have left waiting past
       // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
@@ -1602,6 +1608,29 @@ export class AuthService {
   ) {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
+    if (params.status !== undefined && params.statuses !== undefined) {
+      throw new BadRequestException('status and statuses are mutually exclusive.');
+    }
+    let statuses: UserStatus[] | undefined;
+    if (params.statuses !== undefined) {
+      const requested = params.statuses.split(',').map((value) => value.trim()).filter(Boolean);
+      if (requested.length === 0) {
+        throw new BadRequestException('statuses must contain at least one UserStatus value.');
+      }
+      const allowed = new Set<string>(Object.values(UserStatus));
+      const invalid = requested.find((value) => value === 'OVERDUE' || !allowed.has(value));
+      if (invalid === 'OVERDUE') {
+        throw new BadRequestException('OVERDUE is not a stored status; use overdue=true.');
+      }
+      if (invalid) {
+        throw new BadRequestException(`Unknown registration status: ${invalid}.`);
+      }
+      statuses = [...new Set(requested)] as UserStatus[];
+    }
+    const countsView = (params.view ?? 'all') as RegistrationCountsView;
+    if (!['queue', 'organisations', 'all'].includes(countsView)) {
+      throw new BadRequestException(`Unknown registration counts view: ${params.view}.`);
+    }
     const scope = territoryWhere(actor);
 
     // Narrowing the queue to one region is a filter, not a widening: the
@@ -1674,7 +1703,8 @@ export class AuthService {
     // status filter, for "every file this agent registered" (/admin/equipe).
     if (params.status === 'ALL') {
       // no status condition
-    } else if (params.status) userWhere.status = params.status;
+    } else if (statuses) userWhere.status = { in: statuses };
+    else if (params.status) userWhere.status = params.status;
     else userWhere.status = { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] };
     // Files registered by one admin (assisted registration). A filter within
     // the actor's territory scope, never a widening of it: `regionScope`
@@ -1732,6 +1762,10 @@ export class AuthService {
               email: true,
               status: true,
               createdAt: true,
+              approvedAt: true,
+              approvedBy: true,
+              rejectedAt: true,
+              rejectedBy: true,
               approvalComment: true,
               rejectionReason: true,
               registrationNumber: true,
@@ -1770,10 +1804,10 @@ export class AuthService {
     // docs/plans/admin-modules-phase1-contract.md C.1.
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
-    const counts = await this.companyRegistrationCounts(regionScope, cutoff);
+    const counts = await this.companyRegistrationCounts(regionScope, cutoff, countsView);
     // overdueDays travels with the list so the screen words "plus de N jours"
     // with the threshold actually applied.
-    return { items: itemsWithResubmission, total, page, pageSize, counts, overdueDays };
+    return { items: itemsWithResubmission, total, page, pageSize, counts, countsView, overdueDays };
   }
 
   /**
@@ -2003,7 +2037,11 @@ export class AuthService {
   // (queue | organisations | all). Counts are territory-scoped and ignore
   // search/type/date filters by design; the response exposes countsView. See
   // docs/plans/admin-modules-phase1-contract.md C.1.
-  private async companyRegistrationCounts(scope: Record<string, unknown>, cutoff: Date) {
+  private async companyRegistrationCounts(
+    scope: Record<string, unknown>,
+    cutoff: Date,
+    view: RegistrationCountsView = 'all',
+  ) {
     // One groupBy instead of four parallel counts: the session-mode pool is
     // small (15), Prisma opens a connection per concurrent query, and wide
     // fan-outs have exhausted it before (EMAXCONNSESSION).
@@ -2014,11 +2052,16 @@ export class AuthService {
     // company matches the scope" counts the same rows as "companies in scope
     // whose user is a COMPANY with status S". The territory scope is applied
     // unchanged, through `company: { is: scope }`.
+    const viewStatuses: UserStatus[] = view === 'queue'
+      ? [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED]
+      : view === 'organisations'
+        ? [UserStatus.ACTIVE, UserStatus.REJECTED]
+        : [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED, UserStatus.ACTIVE, UserStatus.REJECTED];
     const statusGroups = await this.prisma.user.groupBy({
       by: ['status'],
       where: {
         role: 'COMPANY',
-        status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED', 'ACTIVE', 'REJECTED'] },
+        status: { in: viewStatuses },
         company: { is: scope as Prisma.CompanyWhereInput },
       },
       _count: { _all: true },
@@ -2029,8 +2072,8 @@ export class AuthService {
     const approved = byStatus.get('ACTIVE') ?? 0;
     const rejected = byStatus.get('REJECTED') ?? 0;
     // Sequential, after the groupBy, for the same reason.
-    const recentlyResubmitted = await this.usersResubmittedSince(cutoff);
-    const overdue = await this.prisma.company.count({
+    const recentlyResubmitted = view === 'organisations' ? [] : await this.usersResubmittedSince(cutoff);
+    const overdue = view === 'organisations' ? 0 : await this.prisma.company.count({
       where: {
         ...scope,
         createdAt: { lt: cutoff },
@@ -2076,6 +2119,10 @@ export class AuthService {
         email: string;
         status: string;
         createdAt: Date;
+        approvedAt: Date | null;
+        approvedBy: string | null;
+        rejectedAt: Date | null;
+        rejectedBy: string | null;
         approvalComment: string | null;
         rejectionReason: string | null;
         registrationNumber: string | null;
@@ -2130,6 +2177,10 @@ export class AuthService {
         region: row.region,
         department: row.department,
         status: row.user.status,
+        approvedAt: row.user.approvedAt?.toISOString() ?? null,
+        approvedBy: row.user.approvedBy ?? null,
+        rejectedAt: row.user.rejectedAt?.toISOString() ?? null,
+        rejectedBy: row.user.rejectedBy ?? null,
         taxNumber: row.taxNumber,
         cnpsNumber: row.cnpsNumber,
         phone: row.phone,

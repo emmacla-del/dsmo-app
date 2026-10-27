@@ -281,6 +281,14 @@ describe('AuthService company registration approval', () => {
     );
     const result = await service.rejectUser('u-co', 'actor-1', 'SUPER_ADMIN', undefined, 'Dossier incomplet');
     expect(result).toMatchObject({ status: 'REJECTED', isActive: false });
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u-co' },
+      data: expect.objectContaining({
+        status: 'REJECTED',
+        rejectedAt: expect.any(Date),
+        rejectedBy: 'actor-1',
+      }),
+    }));
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: 'actor-1',
@@ -288,6 +296,19 @@ describe('AuthService company registration approval', () => {
         details: expect.objectContaining({ reason: 'Dossier incomplet' }),
       }),
     });
+  });
+
+  it('records the rejecting actor for a staff registration in the same update', async () => {
+    userRow.role = 'DIVISIONAL_ADMIN';
+    await service.rejectUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, 'Dossier incomplet');
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u-co' },
+      data: expect.objectContaining({
+        status: 'REJECTED',
+        rejectedAt: expect.any(Date),
+        rejectedBy: 'actor-1',
+      }),
+    }));
   });
 
   it('requests complements and resubmits back to PENDING_APPROVAL', async () => {

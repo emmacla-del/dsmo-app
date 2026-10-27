@@ -176,6 +176,7 @@ model User {
   isActive                   Boolean            @default(true)
   rejectionReason            String?
   rejectedAt                 DateTime?
+  rejectedBy                 String?
   passwordResetTokenHash     String?
   passwordResetExpires       DateTime?
   failedLoginAttempts        Int                @default(0)
@@ -228,6 +229,8 @@ model User {
   createdUsers               User[]             @relation("UserCreatedBy")
   approvedByUser             User?              @relation("UserApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
   approvedUsers              User[]             @relation("UserApprovedBy")
+  rejectedByUser             User?              @relation("UserRejectedBy", fields: [rejectedBy], references: [id], onDelete: SetNull)
+  rejectedUsers              User[]             @relation("UserRejectedBy")
   assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assignedUsers              User[]             @relation("UserAssignee")
   auditLogs                  AuditLog[]

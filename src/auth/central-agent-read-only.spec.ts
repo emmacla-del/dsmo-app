@@ -87,6 +87,7 @@ describe('CENTRAL_AGENT is read-only', () => {
     'admin/questionnaires/:id',
     'companies',
     'companies/stats',
+    'auth/company-registrations',
     'onefop/submissions/:id',
     'data-management/stats',
   ])('can read %s', (route) => {
