@@ -167,6 +167,10 @@ export interface CompanyRegistrationItem {
   region: string;
   department: string;
   status: string;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  rejectedAt: string | null;
+  rejectedBy: string | null;
   taxNumber: string;
   cnpsNumber: string | null;
   /** The entity's phone ("Téléphone / WhatsApp"), a verified review row. */
@@ -208,6 +212,7 @@ export interface CompanyRegistrationsResult {
   page: number;
   pageSize: number;
   counts: { pending: number; complements: number; approved: number; rejected: number; overdue: number };
+  countsView?: "queue" | "organisations" | "all";
   // The overdue threshold applied, in days (the /admin/parametres setting).
   overdueDays: number;
 }
@@ -220,6 +225,8 @@ export function listCompanyRegistrations(params: {
   from?: string;
   to?: string;
   organisation?: string;
+  statuses?: string;
+  view?: "queue" | "organisations" | "all";
   registrationMethod?: string;
   search?: string;
   /** A UserStatus, or "ALL" to lift the default queue filter (pending + complements). */
@@ -240,6 +247,8 @@ export function listCompanyRegistrations(params: {
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
   if (params.organisation) query.set("organisation", params.organisation);
+  if (params.statuses) query.set("statuses", params.statuses);
+  if (params.view) query.set("view", params.view);
   if (params.registrationMethod) query.set("registrationMethod", params.registrationMethod);
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);

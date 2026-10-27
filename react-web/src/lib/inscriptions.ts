@@ -291,15 +291,15 @@ export function registrationMethodBadgeClass(method: string | null | undefined):
 }
 
 /** The two views of /admin/inscriptions: the review queue and registration coverage. */
-export type InscriptionsView = "file" | "couverture";
+export type InscriptionsView = "queue" | "organisations" | "coverage";
 
 /**
  * URL of an /admin/inscriptions view, built from the current query string.
  *
  * Every other parameter is kept — ?createdBy= (the équipe deep link), ?annee=
  * (the coverage year) — so toggling between the two views never drops an
- * active filter; each view ignores the parameters it does not use. "file" is
- * the default view, so it is expressed by the absence of ?vue=.
+ * active filter; each view ignores the parameters it does not use. Queue is
+ * emitted explicitly as the canonical ?vue=queue.
  *
  * `changes` sets a parameter (a year) or removes one (null).
  */
@@ -309,8 +309,7 @@ export function inscriptionsHref(
   changes: Record<string, string | number | null> = {},
 ): string {
   const params = new URLSearchParams(current);
-  if (view === "couverture") params.set("vue", "couverture");
-  else params.delete("vue");
+  params.set("vue", view);
   for (const [key, value] of Object.entries(changes)) {
     if (value == null) params.delete(key);
     else params.set(key, String(value));

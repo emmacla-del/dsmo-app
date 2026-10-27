@@ -383,7 +383,7 @@ export default function EtablissementsPage() {
         subtitle={t("subtitle")}
         tabs={[
           { label: tRoot("adminInscriptionsPage.viewQueue"), href: "/admin/inscriptions" },
-          { label: tRoot("adminInscriptionsPage.viewCoverage"), href: "/admin/inscriptions?vue=couverture" },
+          { label: tRoot("adminInscriptionsPage.viewCoverage"), href: "/admin/inscriptions?vue=coverage" },
           { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements", isActive: true },
         ]}
         actions={

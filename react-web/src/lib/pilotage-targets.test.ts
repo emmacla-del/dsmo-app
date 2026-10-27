@@ -10,13 +10,13 @@ import test from "node:test";
 import { coverageHref, groupNonRespondents, nonRespondentsHref, YEAR_MAX, YEAR_MIN, type NonRespondentRow } from "./pilotage-targets";
 
 test("a valid ?annee= is carried over to the coverage view", () => {
-  assert.equal(coverageHref("2025"), "/admin/inscriptions?vue=couverture&annee=2025");
-  assert.equal(coverageHref(" 2024 "), "/admin/inscriptions?vue=couverture&annee=2024");
-  assert.equal(coverageHref(2026), "/admin/inscriptions?vue=couverture&annee=2026");
+  assert.equal(coverageHref("2025"), "/admin/inscriptions?vue=coverage&annee=2025");
+  assert.equal(coverageHref(" 2024 "), "/admin/inscriptions?vue=coverage&annee=2024");
+  assert.equal(coverageHref(2026), "/admin/inscriptions?vue=coverage&annee=2026");
 });
 
 test("a missing or invalid year is dropped, not forwarded", () => {
-  const bare = "/admin/inscriptions?vue=couverture";
+  const bare = "/admin/inscriptions?vue=coverage";
   assert.equal(coverageHref(null), bare);
   assert.equal(coverageHref(""), bare);
   assert.equal(coverageHref("abc"), bare);

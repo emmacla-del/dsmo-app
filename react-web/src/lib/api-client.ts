@@ -817,7 +817,8 @@ export interface PilotageQueues {
   statisticallyReadyCount: number;
   totalSubmissionsCount: number;
   /** Per-status counts over the caller's whole territory (server-side). */
-  statusCounts: Record<"PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED", number>;
+  statusCounts: Record<"PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | "SUPERSEDED", number>;
+  countsView?: "queue" | "completed" | "all";
   approvedCount: number;
   /** Per stored region value; null = no region recorded. */
   regionCounts: Array<{ region: string | null; count: number }>;
@@ -846,16 +847,24 @@ export function getPilotageQueues() {
   return apiFetch<PilotageQueues>("/admin/questionnaires/pilotage/queues");
 }
 
+export function getPilotageQueuesForView(view: "queue" | "completed" | "all") {
+  const query = view ? `?view=${encodeURIComponent(view)}` : "";
+  return apiFetch<PilotageQueues>(`/admin/questionnaires/pilotage/queues${query}`);
+}
+
 export interface AdminQuestionnairesPage {
   items: any[];
   /** Count of the whole filtered query (territory + status + type + period + region + search, drafts excluded), not of this page. */
   total: number;
+  countsView?: "queue" | "completed" | "all";
+  counts?: Record<string, number>;
 }
 
 // TODO(backend, S): delete QuestionnairesService.getAllQuestionnaires in a follow-up — dead code since 40529d79 (GET /admin/questionnaires now uses listForAdmin)
 export function listAdminQuestionnaires(
   params: {
-    status?: string; formType?: string; period?: string; region?: string; search?: string;
+    status?: string; statuses?: string; view?: "queue" | "completed" | "all";
+    formType?: string; period?: string; region?: string; search?: string;
     companyId?: string;
     department?: string;
     campaignId?: string;
@@ -869,6 +878,8 @@ export function listAdminQuestionnaires(
 ) {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
+  if (params.statuses) query.set("statuses", params.statuses);
+  if (params.view) query.set("view", params.view);
   if (params.formType) query.set("formType", params.formType);
   if (params.period) query.set("period", params.period);
   if (params.region) query.set("region", params.region);

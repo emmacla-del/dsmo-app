@@ -83,7 +83,7 @@ function CoverageContent({
    */
   const typeQueueHref = hasRole(role, APPROVAL_ROLES)
     ? (entityType: string) =>
-        `/admin/inscriptions?vue=file&status=ALL&type=${encodeURIComponent(entityType)}`
+        `/admin/inscriptions?vue=queue&status=ALL&type=${encodeURIComponent(entityType)}`
     : null;
   const tRootPanel = useTranslations();
   const typeLabel = (entityType: string) =>

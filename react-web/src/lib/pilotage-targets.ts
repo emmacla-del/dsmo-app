@@ -336,7 +336,7 @@ export function parseYearParam(raw: string | null): number | null {
  */
 export function coverageHref(annee: string | number | null): string {
   const year = typeof annee === "number" ? parseYearParam(String(annee)) : parseYearParam(annee);
-  return `/admin/inscriptions?vue=couverture${year != null ? `&annee=${year}` : ""}`;
+  return `/admin/inscriptions?vue=coverage${year != null ? `&annee=${year}` : ""}`;
 }
 
 export function formatApiError(error: unknown, locale: UiLocale = "fr"): string {

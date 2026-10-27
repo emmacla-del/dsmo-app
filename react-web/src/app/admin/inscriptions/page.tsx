@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,6 +18,8 @@ import {
   type CompanyRegistrationItem,
   type CompanyRegistrationsResult,
 } from "@/lib/user-directory";
+import { parseRegistrationVue } from "@/lib/admin-url";
+import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import {
   applyRegistrationDecision,
   clampRegistrationQueuePage,
@@ -42,7 +44,6 @@ import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerrito
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import type { CoverageSelection } from "@/components/admin/CoveragePanel";
 import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
@@ -224,7 +225,7 @@ function InscriptionsContent() {
   // vue is presentation only and grants no permission. Update parsers, tabs,
   // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
   // Phase 3.
-  const vue: "file" | "couverture" = searchParams.get("vue") === "couverture" ? "couverture" : "file";
+  const vue = parseRegistrationVue(searchParams.get("vue"));
   const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
   const currentQuery = searchParams.toString();
   const role = useAuthStore((s) => s.user?.role);
@@ -235,7 +236,7 @@ function InscriptionsContent() {
   const t = useTranslations("adminInscriptionsPage");
   const locale = asUiLocale(useLocale());
   useEffect(() => {
-    document.title = `${vue === "couverture" ? t("viewCoverage") : t("pageTitle")} | CAMLEAP`;
+    document.title = `${vue === "coverage" ? t("viewCoverage") : vue === "organisations" ? t("viewOrganisations") : t("pageTitle")} | CAMLEAP`;
   }, [t, vue]);
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "—";
@@ -247,8 +248,12 @@ function InscriptionsContent() {
     return String(value);
   };
 
-  const [organisationInput, setOrganisationInput] = useState("");
-  const [organisation, setOrganisation] = useState("");
+  const requestedSearch = searchParams.get("search") ?? searchParams.get("organisation") ?? "";
+  const requestedMethod = searchParams.get("registrationMethod") ?? "";
+  const requestedDateRange = ["all", "30", "90", "custom"].includes(searchParams.get("dateRange") ?? "")
+    ? searchParams.get("dateRange") ?? "all" : "all";
+  const [organisationInput, setOrganisationInput] = useState(requestedSearch);
+  const [organisation, setOrganisation] = useState(requestedSearch.trim());
   const [region, setRegion] = useState(initialRegion);
   const [department, setDepartment] = useState(initialDepartment);
   // The department list follows the chosen region; unscoped it is every
@@ -256,10 +261,14 @@ function InscriptionsContent() {
   const { departments: territoryDepartments } = useTerritoryDepartments(region || null);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [typeFilter, setTypeFilter] = useState(initialType);
-  const [registrationMethod, setRegistrationMethod] = useState("");
-  const [dateRange, setDateRange] = useState("all");
-  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("newest");
-  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
+  const [registrationMethod, setRegistrationMethod] = useState(requestedMethod);
+  const [dateRange, setDateRange] = useState(requestedDateRange);
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">(searchParams.get("sort") === "oldest" ? "oldest" : "newest");
+  const dateFromParam = searchParams.get("from");
+  const dateToParam = searchParams.get("to");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(
+    dateFromParam && dateToParam ? { from: new Date(dateFromParam), to: new Date(dateToParam) } : undefined,
+  );
   const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
   const [page, setPage] = useState(1);
   const [reviewing, setReviewing] = useState<CompanyRegistrationItem | null>(null);
@@ -272,13 +281,36 @@ function InscriptionsContent() {
   const [marks, setMarks] = useState<VerificationMarks>({});
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
+  const applyStatus = (value: string) => { setStatusFilter(value); setUrlFilters({ status: value || null }); };
+  const applyType = (value: string) => { setTypeFilter(value); setUrlFilters({ type: value || null }); };
+  const applyRegion = (value: string) => { setRegion(value); setDepartment(""); setUrlFilters({ region: value || null, department: null }); };
+  const applyDepartment = (value: string) => { setDepartment(value); setUrlFilters({ department: value || null }); };
+  const applyMethod = (value: string) => { setRegistrationMethod(value); setUrlFilters({ registrationMethod: value || null }); };
+  const applySort = (value: string) => {
+    const next = value === "oldest" ? "oldest" : "newest";
+    setSortOrder(next);
+    setUrlFilters({ sort: next === "newest" ? null : next });
+  };
+  const applyDateRange = (value: string) => {
+    setDateRange(value);
+    setCustomDateRange(undefined);
+    setPendingDateRange(undefined);
+    setUrlFilters({ dateRange: value === "all" ? null : value, from: null, to: null });
+  };
+
+  const setUrlFilters = useCallback((changes: Record<string, string | number | null>) => {
+    setPage(1);
+    router.replace(inscriptionsHref(currentQuery, vue, { page: null, ...changes }));
+  }, [currentQuery, router, vue]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      setOrganisation(organisationInput.trim());
-      setPage(1);
+      const next = organisationInput.trim();
+      setOrganisation(next);
+      setUrlFilters({ search: next || null, organisation: null });
     }, 300);
     return () => clearTimeout(timer);
-  }, [organisationInput]);
+  }, [organisationInput, setUrlFilters]);
 
   /**
    * The filters the URL carries, re-applied whenever its own values change.
@@ -297,7 +329,7 @@ function InscriptionsContent() {
    * which an effect would turn into a cascading render (and which
    * react-hooks/set-state-in-effect refuses).
    */
-  const urlFilters = `${initialStatus}\u0000${initialRegion}\u0000${initialDepartment}\u0000${initialType}`;
+  const urlFilters = `${initialStatus}\u0000${initialRegion}\u0000${initialDepartment}\u0000${initialType}\u0000${requestedMethod}\u0000${requestedDateRange}\u0000${searchParams.get("sort") ?? ""}\u0000${requestedSearch}\u0000${dateFromParam ?? ""}\u0000${dateToParam ?? ""}`;
   const [appliedUrlFilters, setAppliedUrlFilters] = useState(urlFilters);
   if (appliedUrlFilters !== urlFilters) {
     setAppliedUrlFilters(urlFilters);
@@ -305,6 +337,12 @@ function InscriptionsContent() {
     setRegion(initialRegion);
     setDepartment(initialDepartment);
     setTypeFilter(initialType);
+    setRegistrationMethod(requestedMethod);
+    setDateRange(requestedDateRange);
+    setSortOrder(searchParams.get("sort") === "oldest" ? "oldest" : "newest");
+    setOrganisationInput(requestedSearch);
+    setOrganisation(requestedSearch.trim());
+    setCustomDateRange(dateFromParam && dateToParam ? { from: new Date(dateFromParam), to: new Date(dateToParam) } : undefined);
     setPage(1);
   }
 
@@ -325,6 +363,7 @@ function InscriptionsContent() {
   const queueQueryKey = [
     "auth",
     "company-registrations",
+    "queue",
     organisation,
     statusFilter,
     typeFilter,
@@ -341,7 +380,8 @@ function InscriptionsContent() {
     queryKey: queueQueryKey,
     queryFn: () =>
       listCompanyRegistrations({
-        organisation,
+        search: organisation || undefined,
+        view: "queue",
         status: overdueOnly ? undefined : statusFilter || undefined,
         overdue: overdueOnly || undefined,
         createdBy: createdBy || undefined,
@@ -355,7 +395,26 @@ function InscriptionsContent() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    enabled: canReadQueue && vue === "file",
+    enabled: canReadQueue && vue === "queue",
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+  });
+
+  const organisationsQuery = useQuery({
+    queryKey: ["auth", "company-registrations", "organisations", organisation, typeFilter, region, department, statusFilter, from, to, page],
+    queryFn: () => listCompanyRegistrations({
+      search: organisation || undefined,
+      statuses: statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ACTIVE,REJECTED",
+      view: "organisations",
+      entityType: typeFilter || undefined,
+      region: region || undefined,
+      department: department || undefined,
+      from,
+      to,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    enabled: canReadQueue && vue === "organisations",
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
@@ -459,7 +518,10 @@ function InscriptionsContent() {
   // territory scope, so paging and the totals stay consistent with it.
   const items = queueQuery.data?.items ?? [];
   // null until the queue answers: a tile never shows a zero it has not read.
-  const counts = queueQuery.data?.counts ?? null;
+  const counts = selectAdminViewCounts(queueQuery.data?.countsView, "queue", queueQuery.data?.counts);
+  const organisationsResult = organisationsQuery.data;
+  const organisationItems = organisationsResult?.items ?? [];
+  const organisationCounts = selectAdminViewCounts(organisationsResult?.countsView, "organisations", organisationsResult?.counts);
   // The threshold the server applied, so the labels match the flags.
   const overdueDays = queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS;
   const total = queueQuery.data?.total ?? 0;
@@ -477,21 +539,32 @@ function InscriptionsContent() {
     error: queueQuery.error,
     rowCount: queueQuery.data ? items.length : null,
   });
+  const organisationsTableState = resolveDataState({
+    roleAllowed: canReadQueue,
+    isLoading: organisationsQuery.isLoading,
+    isError: organisationsQuery.isError,
+    error: organisationsQuery.error,
+    rowCount: organisationsResult ? organisationItems.length : null,
+  });
 
-  const registrationStatusSegments = counts ? [
-    { key: "pending", label: t("statusPending"), value: counts.pending, tone: "pending" },
-    { key: "complements", label: t("statusComplements"), value: counts.complements, tone: "correction" },
-    { key: "approved", label: t("statusApproved"), value: counts.approved, tone: "approved" },
-    { key: "rejected", label: t("statusRejected"), value: counts.rejected, tone: "rejected" },
-  ] : [];
+  const statusSource = vue === "organisations" ? organisationCounts : counts;
+  const registrationStatusSegments = statusSource ? (vue === "organisations" ? [
+    { key: "approved", label: t("statusApproved"), value: statusSource.approved, tone: "approved" },
+    { key: "rejected", label: t("statusRejected"), value: statusSource.rejected, tone: "rejected" },
+  ] : [
+    { key: "pending", label: t("statusPending"), value: statusSource.pending, tone: "pending" },
+    { key: "complements", label: t("statusComplements"), value: statusSource.complements, tone: "correction" },
+    { key: "approved", label: t("statusApproved"), value: statusSource.approved, tone: "approved" },
+    { key: "rejected", label: t("statusRejected"), value: statusSource.rejected, tone: "rejected" },
+  ]) : [];
   const registrationStatusTotal = registrationStatusSegments.reduce((total, segment) => total + segment.value, 0);
-  const activeQueueFilters: string[] = [];
+  const activeQueueFilters: Array<{ key: string; label: string; clear: () => void }> = [];
   if (organisation || organisationInput.trim()) {
-    activeQueueFilters.push(`${t("organisationColumn")}: ${organisation || organisationInput.trim()}`);
+    activeQueueFilters.push({ key: "search", label: `${t("searchLabel")}: ${organisation || organisationInput.trim()}`, clear: () => { setOrganisationInput(""); setOrganisation(""); setUrlFilters({ search: null, organisation: null }); } });
   }
-  if (typeFilter) activeQueueFilters.push(`${t("establishmentTypeColumn")}: ${entityLabel(typeFilter)}`);
-  if (region) activeQueueFilters.push(`${t("regionColumn")}: ${region}`);
-  if (department) activeQueueFilters.push(`${t("departmentColumn")}: ${department}`);
+  if (typeFilter) activeQueueFilters.push({ key: "type", label: `${t("establishmentTypeColumn")}: ${entityLabel(typeFilter)}`, clear: () => { setTypeFilter(""); setUrlFilters({ type: null }); } });
+  if (region) activeQueueFilters.push({ key: "region", label: `${t("regionColumn")}: ${region}`, clear: () => { setRegion(""); setDepartment(""); setUrlFilters({ region: null, department: null }); } });
+  if (department) activeQueueFilters.push({ key: "department", label: `${t("departmentColumn")}: ${department}`, clear: () => { setDepartment(""); setUrlFilters({ department: null }); } });
   if (dateRange !== "all") {
     const dateLabel = dateRange === "30"
       ? t("last30Days")
@@ -500,12 +573,10 @@ function InscriptionsContent() {
         : customDateRange?.from && customDateRange.to
           ? `${formatQueueDate(customDateRange.from, locale)} – ${formatQueueDate(customDateRange.to, locale)}`
           : t("customDateRange");
-    activeQueueFilters.push(`${t("submissionDateColumn")}: ${dateLabel}`);
+    activeQueueFilters.push({ key: "dateRange", label: `${t("submissionDateColumn")}: ${dateLabel}`, clear: () => applyDateRange("all") });
   }
   if (registrationMethod) {
-    activeQueueFilters.push(
-      `${t("registrationSourceColumn")}: ${registrationMethodLabel(registrationMethod, locale) ?? registrationMethod}`,
-    );
+    activeQueueFilters.push({ key: "registrationMethod", label: `${t("registrationSourceColumn")}: ${registrationMethodLabel(registrationMethod, locale) ?? registrationMethod}`, clear: () => applyMethod("") });
   }
   if (statusFilter) {
     const statusLabel = statusFilter === "ALL"
@@ -519,15 +590,13 @@ function InscriptionsContent() {
             : statusFilter === "ACTIVE"
               ? t("statusApproved")
               : t("statusRejected");
-    activeQueueFilters.push(`${t("registrationStatusColumn")}: ${statusLabel}`);
+    activeQueueFilters.push({ key: "status", label: `${t("registrationStatusColumn")}: ${statusLabel}`, clear: () => applyStatus("") });
   }
   if (createdBy) {
-    activeQueueFilters.push(
-      `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`,
-    );
+    activeQueueFilters.push({ key: "createdBy", label: `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`, clear: () => setUrlFilters({ createdBy: null }) });
   }
   if (sortOrder !== "newest") {
-    activeQueueFilters.push(`${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`);
+    activeQueueFilters.push({ key: "sort", label: `${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`, clear: () => applySort("newest") });
   }
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
@@ -545,15 +614,7 @@ function InscriptionsContent() {
     setSortOrder("newest");
     setCustomDateRange(undefined);
     setPendingDateRange(undefined);
-    setPage(1);
-    const params = new URLSearchParams(currentQuery);
-    params.delete("createdBy");
-    params.delete("status");
-    // Also clear territory filters seeded by the coverage ranking.
-    params.delete("region");
-    params.delete("department");
-    params.delete("type");
-    router.replace(inscriptionsHref(params.toString(), "file"));
+    setUrlFilters({ createdBy: null, status: null, region: null, department: null, type: null, search: null, organisation: null, dateRange: null, from: null, to: null, registrationMethod: null, sort: null });
   };
 
   return (
@@ -561,21 +622,22 @@ function InscriptionsContent() {
       {/* Keep the registration action alongside its destinations, not in the sidebar. */}
       <AdminPageHeader
         title={tRoot("adminNav.hubs.inscriptions")}
-        tabsAction={vue === "file" && role && DIRECTORY_ROLES.includes(role) ? (
+        tabsAction={vue === "queue" && role && DIRECTORY_ROLES.includes(role) ? (
           <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
             <Plus aria-hidden="true" />
             {tRoot("adminNav.routes.nouvelleInscription")}
           </Link>
         ) : undefined}
         tabs={[
-          { label: t("viewQueue"), href: inscriptionsHref(currentQuery, "file"), isActive: vue === "file" },
-          { label: t("viewCoverage"), href: inscriptionsHref(currentQuery, "couverture"), isActive: vue === "couverture" },
+          { label: t("viewQueue"), href: inscriptionsHref(currentQuery, "queue"), isActive: vue === "queue" },
+          { label: t("viewOrganisations"), href: inscriptionsHref(currentQuery, "organisations"), isActive: vue === "organisations" },
+          { label: t("viewCoverage"), href: inscriptionsHref(currentQuery, "coverage"), isActive: vue === "coverage" },
           { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
         ]}
       />
 
-      {vue === "couverture" && (
-        <CoveragePanel year={year} semester={semester} quarter={quarter} onPeriodChange={(next) => router.replace(inscriptionsHref(currentQuery, "couverture", {
+      {vue === "coverage" && (
+        <CoveragePanel year={year} semester={semester} quarter={quarter} onPeriodChange={(next) => router.replace(inscriptionsHref(currentQuery, "coverage", {
           annee: next.year,
           semestre: next.semester,
           trimestre: next.quarter,
@@ -583,7 +645,42 @@ function InscriptionsContent() {
         }))} />
       )}
 
-      {vue === "file" && (<>
+      {vue === "organisations" && <>
+        {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
+        <Card className="cam-registration-organisations-card">
+          <CardContent>
+            <div className="grid gap-3 pb-5 md:grid-cols-4">
+              <div className="md:col-span-2"><Label htmlFor="organisations-search">{t("searchLabel")}</Label><Input id="organisations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} /></div>
+              <div><Label htmlFor="organisations-status">{t("registrationStatusColumn")}</Label><select id="organisations-status" className="cam-admin-input w-full" value={statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ALL"} onChange={(event) => applyStatus(event.target.value === "ALL" ? "" : event.target.value)}><option value="ALL">{t("bothStatuses")}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option></select></div>
+              <div><Label htmlFor="organisations-region">{t("regionColumn")}</Label><select id="organisations-region" className="cam-admin-input w-full" value={region} onChange={(event) => applyRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+            </div>
+            <details className="mb-4"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary><div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div><Label htmlFor="organisations-department">{t("departmentColumn")}</Label><select id="organisations-department" className="cam-admin-input w-full" value={department} onChange={(event) => applyDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div><Label htmlFor="organisations-type">{t("establishmentTypeColumn")}</Label><select id="organisations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}><option value="">{t("allTypes")}</option>{ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}</select></div>
+              <div><Label htmlFor="organisations-date">{t("dateFilterLabel")}</Label><select id="organisations-date" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option></select></div>
+            </div></details>
+            {hasActiveQueueFilters && <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeQueueFilters.map((filter) => <Button type="button" key={filter.key} variant="outline" size="sm" onClick={filter.clear} aria-label={t("removeFilterChip", { label: filter.label })}>{filter.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}<Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>{t("clearFilters")}</Button></div>}
+            <Table><TableHeader><TableRow><TableHead scope="col">{t("organisationColumn")}</TableHead><TableHead scope="col">{t("registrationStatusColumn")}</TableHead><TableHead scope="col">{t("territoryColumn")}</TableHead><TableHead scope="col">{t("decisionDateColumn")}</TableHead></TableRow></TableHeader><TableBody>
+              <DataStateRow colSpan={4} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error} onRetry={() => organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
+              {organisationItems.map((item) => {
+                const isRejected = item.status === "REJECTED";
+                const decisionAt = isRejected ? item.rejectedAt : item.approvedAt;
+                const actorId = isRejected ? item.rejectedBy : item.approvedBy;
+                const badge = STATUS_BADGE[item.status];
+                return <TableRow key={item.id}>
+                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><div className="mt-1 flex flex-wrap gap-3"><Link className="text-sm underline" href={`/admin/etablissement-detail?id=${encodeURIComponent(item.companyId)}`}>{t("openButton")}</Link><Link className="text-sm underline" href={`/admin/dossiers?vue=submissions&companyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></div></TableHead>
+                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge></TableCell>
+                  <TableCell>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</TableCell>
+                  <TableCell className="whitespace-nowrap">{decisionAt ? <>{stamp(decisionAt, true, locale)}<span className="block text-xs text-muted-foreground">{actorId ? t("decisionByLabel", { actor: actorId }) : t("notRecorded")}</span></> : NOT_PROVIDED}</TableCell>
+                </TableRow>;
+              })}
+            </TableBody></Table>
+            {organisationsResult && organisationsResult.total > PAGE_SIZE && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((n) => n - 1)}>{t("previousButton")}</Button><span className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</span><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total} onClick={() => setPage((n) => n + 1)}>{t("nextButton")}</Button></div>}
+          </CardContent>
+        </Card>
+      </>}
+
+      {vue === "queue" && (<>
       {createdBy && (
         <Alert role="status" variant="info" className="my-4 flex items-center gap-3">
           <span>
@@ -596,9 +693,8 @@ function InscriptionsContent() {
             size="sm"
             className="ms-auto h-auto px-0"
             onClick={() => {
-              setStatusFilter("");
-              setPage(1);
-              router.replace(inscriptionsHref(currentQuery, "file", { createdBy: null }));
+              applyStatus("");
+              setUrlFilters({ createdBy: null });
             }}
           >
             {t("removeFilter")}
@@ -626,7 +722,7 @@ function InscriptionsContent() {
         </Alert>
       )}
 
-      {vue === "file" && queueUpdating && (
+      {vue === "queue" && queueUpdating && (
         <p className="cam-registration-queue-updating" role="status" aria-live="polite">
           <span className="cam-registration-queue-spinner" aria-hidden="true" />
           {t("updatingQueue")}
@@ -643,312 +739,120 @@ function InscriptionsContent() {
             variant="link"
             size="sm"
             className="ms-auto h-auto px-0"
-            onClick={() => { setStatusFilter("OVERDUE"); setPage(1); }}
+            onClick={() => applyStatus("OVERDUE")}
           >
             {t("overdueShow")}
           </Button>
         </Alert>
       )}
 
-      {canReadQueue && (
+      </>)}
+
+      {canReadQueue && (vue === "queue" || vue === "organisations") && (
         <section className="cam-registration-status-panel" aria-labelledby="registration-status-title" aria-busy={queueUpdating}>
           <div className="cam-registration-status-head">
             <h2 id="registration-status-title">{t("statusDistributionTitle")}</h2>
             <span>{t("statusDistributionContext")}</span>
           </div>
-          {queueQuery.isError ? (
+          {(vue === "organisations" ? organisationsQuery.isError : queueQuery.isError) ? (
             <DataState
               state="error"
               resource={t("registrationStatusResource")}
-              error={queueQuery.error}
-              onRetry={() => queueQuery.refetch()}
+              error={vue === "organisations" ? organisationsQuery.error : queueQuery.error}
+              onRetry={() => (vue === "organisations" ? organisationsQuery.refetch() : queueQuery.refetch())}
             />
-          ) : queueQuery.isLoading || !counts ? (
+          ) : (vue === "organisations" ? organisationsQuery.isLoading || !organisationCounts : queueQuery.isLoading || !counts) ? (
             <DataState state="loading" resource={t("registrationStatusResource")} dense />
           ) : registrationStatusTotal === 0 ? (
             <DataState state="empty" resource={t("registrationStatusResource")} dense />
           ) : (
             <ul className="cam-registration-status-list" aria-label={t("statusDistributionAria", {
-              pending: counts.pending,
-              complements: counts.complements,
-              approved: counts.approved,
-              rejected: counts.rejected,
+              pending: statusSource?.pending ?? 0,
+              complements: statusSource?.complements ?? 0,
+              approved: statusSource?.approved ?? 0,
+              rejected: statusSource?.rejected ?? 0,
             })}>
                 {registrationStatusSegments.map((segment) => (
                   <li key={segment.key}>
-                    <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
-                    <span className="cam-dash-status-label">{segment.label}</span>
-                    <strong>{count(segment.value, locale)}</strong>
+                    <button type="button" className="cam-registration-status-button" onClick={() => applyStatus(segment.key === "approved" ? "ACTIVE" : segment.key === "rejected" ? "REJECTED" : segment.key === "pending" ? "PENDING_APPROVAL" : "COMPLEMENTS_REQUESTED")} aria-pressed={statusFilter === (segment.key === "approved" ? "ACTIVE" : segment.key === "rejected" ? "REJECTED" : segment.key === "pending" ? "PENDING_APPROVAL" : "COMPLEMENTS_REQUESTED")}>
+                      <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
+                      <span className="cam-dash-status-label">{segment.label}</span>
+                      <strong>{count(segment.value, locale)}</strong>
+                    </button>
                   </li>
                 ))}
             </ul>
           )}
-          {counts && registrationStatusTotal > 0 && (
+          {statusSource && registrationStatusTotal > 0 && vue === "queue" && (
               <p className="cam-dash-context cam-registration-overdue-summary">
-                {t("overdueSummary", { count: count(counts.overdue, locale), days: overdueDays })}
+                {t("overdueSummary", { count: count(statusSource.overdue, locale), days: overdueDays })}
               </p>
           )}
         </section>
       )}
 
+      {vue === "queue" && (<>
+
       <Card className="cam-registration-queue-card" aria-busy={queueUpdating}>
         <CardContent>
-          {hasActiveQueueFilters && (
-            <div className="cam-registration-filter-summary" role="group" aria-label={t("activeFiltersLabel")}>
-              <span className="cam-registration-filter-summary-title">{t("activeFiltersLabel")}</span>
-              <div className="cam-registration-filter-chips">
-                {activeQueueFilters.map((filter) => (
-                  <span className="cam-registration-filter-chip" key={filter}>{filter}</span>
-                ))}
+          <div className="grid gap-3 pb-5">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="md:col-span-2">
+                <Label htmlFor="registrations-search">{t("searchLabel")}</Label>
+                <Input id="registrations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} />
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>
-                {t("clearFilters")}
-              </Button>
+              <div>
+                <Label htmlFor="registrations-status">{t("registrationStatusColumn")}</Label>
+                <select id="registrations-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => applyStatus(event.target.value)}>
+                  <option value="">{t("statusInQueue")}</option><option value="ALL">{t("statusAll")}</option>
+                  <option value="PENDING_APPROVAL">{t("statusPending")}</option><option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
+                  <option value="OVERDUE">{t("statusOverdue", { days: overdueDays })}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="registrations-region">{t("regionColumn")}</Label>
+                <select id="registrations-region" className="cam-admin-input w-full" value={region} onChange={(event) => applyRegion(event.target.value)}>
+                  <option value="">{t("allRegions")}</option>{territoryRegions.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </div>
             </div>
-          )}
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-4">
+                <div><Label htmlFor="registrations-department">{t("departmentColumn")}</Label><select id="registrations-department" className="cam-admin-input w-full" value={department} onChange={(event) => applyDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+                <div><Label htmlFor="registrations-type">{t("establishmentTypeColumn")}</Label><select id="registrations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}><option value="">{t("allTypes")}</option>{ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}</select></div>
+                <div><Label htmlFor="registrations-date-range">{t("dateFilterLabel")}</Label><select id="registrations-date-range" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option><option value="custom">{t("customDateRange")}</option></select></div>
+                <div><Label htmlFor="registrations-method">{t("registrationMethodFilterLabel")}</Label><select id="registrations-method" className="cam-admin-input w-full" value={registrationMethod} onChange={(event) => applyMethod(event.target.value)}><option value="">{t("allRegistrationMethods")}</option>{REGISTRATION_METHOD_VALUES.map((value) => <option key={value} value={value}>{registrationMethodLabel(value, locale) ?? value}</option>)}</select></div>
+                {dateRange === "custom" && <div className="md:col-span-4"><RegistrationQueueDatePicker selected={pendingDateRange ?? customDateRange} onSelect={setPendingDateRange} locale={locale} /><Button type="button" size="sm" className="mt-2" disabled={!pendingDateRange?.from || !pendingDateRange.to} onClick={() => { if (!pendingDateRange?.from || !pendingDateRange.to) return; setCustomDateRange(pendingDateRange); setDateRange("custom"); setUrlFilters({ dateRange: "custom", from: dateBoundary(pendingDateRange.from), to: dateBoundary(pendingDateRange.to, true) }); }}>{t("applyDateRange")}</Button></div>}
+                <div><Label htmlFor="registrations-sort">{tRoot("adminDossiersPage.sortLabel")}</Label><select id="registrations-sort" className="cam-admin-input w-full" value={sortOrder} onChange={(event) => applySort(event.target.value)}><option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option><option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option></select></div>
+              </div>
+            </details>
+          </div>
+          {hasActiveQueueFilters && <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}>
+            <span className="text-sm font-medium">{t("activeFiltersLabel")}</span>
+            {activeQueueFilters.map((filter) => <Button type="button" key={filter.key} variant="outline" size="sm" onClick={filter.clear} aria-label={t("removeFilterChip", { label: filter.label })}>{filter.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}
+            <Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>{t("clearFilters")}</Button>
+          </div>}
           <Table>
-            <TableHeader>
-              <TableRow>
-                <FilterTableHead label={t("organisationColumn")} filterLabel={t("filterColumn", { column: t("organisationColumn") })} active={!!organisation}>
-                  {(close) => (
-                    <div className="grid gap-2">
-                      <Label htmlFor="queue-organisation-filter">{t("organisationFilterLabel")}</Label>
-                      <Input
-                        id="queue-organisation-filter"
-                        value={organisationInput}
-                        onChange={(event) => setOrganisationInput(event.target.value)}
-                        placeholder={t("organisationFilterPlaceholder")}
-                        onKeyDown={(event) => { if (event.key === "Enter") close(); }}
-                      />
-                    </div>
-                  )}
-                </FilterTableHead>
-                <FilterTableHead label={t("establishmentTypeColumn")} filterLabel={t("filterColumn", { column: t("establishmentTypeColumn") })} active={!!typeFilter}>
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("typeFilterLabel")}
-                      value={typeFilter}
-                      onChange={(value) => { setTypeFilter(value); setPage(1); }}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("allTypes") },
-                        ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: entityLabel(value) })),
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                {/* One column shows "Région / Département", so it carries both
-                    selectors rather than splitting the cell in two. The
-                    department list follows the chosen region; with no region
-                    chosen it is every department, which the server still
-                    narrows to the reader's own territory. */}
-                <FilterTableHead label={t("regionColumn")} filterLabel={t("filterColumn", { column: t("regionColumn") })} active={!!region || !!department}>
-                  {(close) => (
-                    <div className="grid gap-3">
-                      <FilterTableOptions
-                        label={t("regionColumn")}
-                        value={region}
-                        onChange={(value) => { setRegion(value); setDepartment(""); setPage(1); }}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("allRegions") },
-                          ...territoryRegions.map((item) => ({ value: item, label: item })),
-                        ]}
-                      />
-                      <FilterTableOptions
-                        label={t("departmentColumn")}
-                        value={department}
-                        onChange={(value) => { setDepartment(value); setPage(1); }}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("allDepartments") },
-                          ...territoryDepartments.map((item) => ({ value: item, label: item })),
-                        ]}
-                      />
-                    </div>
-                  )}
-                </FilterTableHead>
-                <FilterTableHead label={t("submissionDateColumn")} filterLabel={t("filterColumn", { column: t("submissionDateColumn") })} active={dateRange !== "all" || sortOrder !== "newest"} contentClassName="w-[19rem] p-3">
-                  {(close) => (
-                    <div className="grid gap-3">
-                      <div className="grid gap-1" role="group" aria-label={t("dateFilterLabel")}>
-                        {[
-                          { value: "all", label: t("allDates") },
-                          { value: "30", label: t("last30Days") },
-                          { value: "90", label: t("last90Days") },
-                        ].map((option) => (
-                          <Button
-                            key={option.value}
-                            type="button"
-                            variant={dateRange === option.value ? "secondary" : "ghost"}
-                            size="sm"
-                            className="w-full justify-start"
-                            aria-pressed={dateRange === option.value}
-                            onClick={() => {
-                              setDateRange(option.value);
-                              setCustomDateRange(undefined);
-                              setPendingDateRange(undefined);
-                              setPage(1);
-                              close();
-                            }}
-                          >
-                            {option.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="border-t pt-3">
-                        <p className="mb-2 text-sm font-medium">{t("customDateRange")}</p>
-                        <RegistrationQueueDatePicker
-                          selected={pendingDateRange}
-                          onSelect={setPendingDateRange}
-                          locale={locale}
-                        />
-                        <p className="mt-2 min-h-5 text-xs text-muted-foreground" aria-live="polite">
-                          {pendingDateRange?.from
-                            ? pendingDateRange.to
-                              ? `${formatQueueDate(pendingDateRange.from, locale)} – ${formatQueueDate(pendingDateRange.to, locale)}`
-                              : t("selectEndDate")
-                            : t("selectDateRange")}
-                        </p>
-                        <div className="mt-2 flex justify-end">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={!pendingDateRange?.from || !pendingDateRange.to}
-                            onClick={() => {
-                              if (!pendingDateRange?.from || !pendingDateRange.to) return;
-                              setCustomDateRange(pendingDateRange);
-                              setDateRange("custom");
-                              setPage(1);
-                              close();
-                            }}
-                          >
-                            {t("applyDateRange")}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="border-t pt-2">
-                        <FilterTableOptions
-                          label={tRoot("adminDossiersPage.sortLabel")}
-                          value={sortOrder}
-                          onChange={(value) => {
-                            setSortOrder(value === "oldest" ? "oldest" : "newest");
-                            setPage(1);
-                          }}
-                          onSelect={close}
-                          options={[
-                            { value: "newest", label: tRoot("adminDossiersPage.sortNewest") },
-                            { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </FilterTableHead>
-                <FilterTableHead label={t("registrationSourceColumn")} filterLabel={t("filterColumn", { column: t("registrationSourceColumn") })} active={!!registrationMethod || !!createdBy}>
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("registrationMethodFilterLabel")}
-                      value={registrationMethod}
-                      onChange={(value) => { setRegistrationMethod(value); setPage(1); }}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("allRegistrationMethods") },
-                        ...REGISTRATION_METHOD_VALUES.map((value) => ({
-                          value,
-                          label: registrationMethodLabel(value, locale) ?? value,
-                        })),
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <FilterTableHead label={t("registrationStatusColumn")} filterLabel={t("filterColumn", { column: t("registrationStatusColumn") })} active={!!statusFilter}>
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("statusFilterLabel")}
-                      value={statusFilter}
-                      onChange={(value) => { setStatusFilter(value); setPage(1); }}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("statusInQueue") },
-                        { value: "ALL", label: t("statusAll") },
-                        { value: "PENDING_APPROVAL", label: t("statusPending") },
-                        { value: "COMPLEMENTS_REQUESTED", label: t("statusComplements") },
-                        { value: "OVERDUE", label: t("statusOverdue", { days: overdueDays }) },
-                        { value: "ACTIVE", label: t("statusApproved") },
-                        { value: "REJECTED", label: t("statusRejected") },
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <TableHead scope="col">{t("duplicatesColumn")}</TableHead>
-                <TableHead scope="col">{t("actionColumn")}</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow>
+              <TableHead scope="col">{t("organisationReferenceColumn")}</TableHead>
+              <TableHead scope="col">{t("registrationStatusColumn")}</TableHead>
+              <TableHead scope="col">{t("duplicatesColumn")}</TableHead>
+              <TableHead scope="col">{t("submissionDateColumn")}</TableHead>
+            </TableRow></TableHeader>
             <TableBody>
-              {/* Loading, failure, no access and "nothing matches" are four
-                  distinct renders. */}
-              <DataStateRow
-                colSpan={8}
-                state={tableState}
-                resource={tRoot("adminNav.routes.inscriptions")}
-                error={queueQuery.error}
-                onRetry={() => queueQuery.refetch()}
-                title={
-                  tableState === "loading"
-                    ? tRoot("common.loading")
-                    : tableState === "error"
-                      ? t("loadError")
-                      : tableState === "forbidden"
-                        ? t("noQueueAccess")
-                        : tableState === "empty"
-                          ? t("emptyTitle")
-                          : undefined
-                }
-              />
+              <DataStateRow colSpan={4} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error} onRetry={() => queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
               {items.map((item) => {
                 const badge = STATUS_BADGE[item.status];
-                return (
-                  <TableRow key={item.id}>
-                    <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">{item.organisation}</TableHead>
-                    <TableCell>{entityLabel(item.entityType)}</TableCell>
-                    <TableCell>{[item.region, item.department].filter(Boolean).join(" / ")}</TableCell>
-                    <TableCell className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</TableCell>
-                    <TableCell>
-                      {/* An assisted or admin-created file names its author; a
-                          self-service one has none, which reads as the method
-                          badge alone rather than as a missing name. */}
-                      {item.createdByName && <span className="block text-muted-foreground">{item.createdByName}</span>}
-                      <MethodBadge method={item.registrationMethod} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={badge?.tone ?? "neutral"}>
-                        {badge ? t(badge.textKey) : item.status}
-                      </Badge>
-                      {item.overdue && (
-                        <Badge variant="danger" className="mt-1 flex w-fit">
-                          {t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{item.duplicateHints.length > 0 ? count(item.duplicateHints.length, locale) : NOT_PROVIDED}</TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={queueUpdating}
-                        onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}
-                      >
-                        {t("reviewButton")}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
+                return <TableRow key={item.id}>
+                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={queueUpdating} onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{t("openButton")}</Button></TableHead>
+                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="danger" className="mt-1 flex w-fit">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}</TableCell>
+                  <TableCell>{item.duplicateHints.length > 0 ? <details><summary className="cursor-pointer">{t("possibleMatches", { count: item.duplicateHints.length })}</summary><ul className="mt-1 list-disc ps-5">{item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}</ul></details> : NOT_PROVIDED}</TableCell>
+                  <TableCell className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</TableCell>
+                </TableRow>;
               })}
             </TableBody>
-          </Table>
-        </CardContent>
+          </Table></CardContent>
       </Card>
 
       {/* Only once the queue has answered (G10) and has rows: "0–0 sur 0"

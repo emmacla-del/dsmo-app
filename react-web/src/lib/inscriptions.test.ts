@@ -28,41 +28,42 @@ test("social capital accepts an empty value or a non-negative integer only", () 
   assert.equal(isValidSocialCapital("not a number"), false);
 });
 
-test("the queue is the default view: no ?vue=", () => {
-  assert.equal(inscriptionsHref("", "file"), "/admin/inscriptions");
-  assert.equal(inscriptionsHref("vue=couverture", "file"), "/admin/inscriptions");
+test("view links emit canonical values and preserve legacy filters", () => {
+  assert.equal(inscriptionsHref("", "queue"), "/admin/inscriptions?vue=queue");
+  assert.equal(inscriptionsHref("vue=couverture", "queue"), "/admin/inscriptions?vue=queue");
+  assert.equal(inscriptionsHref("vue=queue", "organisations"), "/admin/inscriptions?vue=organisations");
 });
 
 test("switching views keeps ?createdBy= and ?annee=", () => {
   assert.equal(
-    inscriptionsHref("createdBy=agent-1", "couverture"),
-    "/admin/inscriptions?createdBy=agent-1&vue=couverture",
+    inscriptionsHref("createdBy=agent-1", "coverage"),
+    "/admin/inscriptions?createdBy=agent-1&vue=coverage",
   );
   // And back: the agent filter and the year both survive the round trip.
   assert.equal(
-    inscriptionsHref("createdBy=agent-1&vue=couverture&annee=2025", "file"),
-    "/admin/inscriptions?createdBy=agent-1&annee=2025",
+    inscriptionsHref("createdBy=agent-1&vue=coverage&annee=2025", "queue"),
+    "/admin/inscriptions?createdBy=agent-1&vue=queue&annee=2025",
   );
 });
 
 test("a year change sets ?annee= and keeps the rest", () => {
   assert.equal(
-    inscriptionsHref("vue=couverture&createdBy=agent-1&annee=2024", "couverture", { annee: 2025 }),
-    "/admin/inscriptions?vue=couverture&createdBy=agent-1&annee=2025",
+    inscriptionsHref("vue=coverage&createdBy=agent-1&annee=2024", "coverage", { annee: 2025 }),
+    "/admin/inscriptions?vue=coverage&createdBy=agent-1&annee=2025",
   );
 });
 
 test("removing the agent filter keeps the other parameters", () => {
   assert.equal(
-    inscriptionsHref("createdBy=agent-1&annee=2025", "file", { createdBy: null }),
-    "/admin/inscriptions?annee=2025",
+    inscriptionsHref("createdBy=agent-1&annee=2025", "queue", { createdBy: null }),
+    "/admin/inscriptions?annee=2025&vue=queue",
   );
 });
 
 test("parameter values are encoded, not concatenated", () => {
   assert.equal(
-    inscriptionsHref("createdBy=a%26vue%3Dx", "couverture"),
-    "/admin/inscriptions?createdBy=a%26vue%3Dx&vue=couverture",
+    inscriptionsHref("createdBy=a%26vue%3Dx", "coverage"),
+    "/admin/inscriptions?createdBy=a%26vue%3Dx&vue=coverage",
   );
 });
 

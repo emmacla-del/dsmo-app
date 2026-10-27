@@ -41,17 +41,28 @@ export function parseDossierSort(raw: string | null): DossierSort {
   return raw === "oldest" ? "oldest" : "";
 }
 
-// ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
-// organisations | coverage; declarations: submissions | completed | coverage.
-// vue is presentation only and grants no permission. Update parsers, tabs,
-// link helpers, and labels together. See docs/plans/admin-modules-refactor.md
-// Phase 3.
-/** ?vue= on /admin/dossiers; the file list unless coverage is asked for. */
-export const DOSSIER_VUES = ["dossiers", "couverture"] as const;
+/** Registration views. Legacy values remain parser aliases for saved links. */
+export const REGISTRATION_VUES = ["queue", "organisations", "coverage"] as const;
+export type RegistrationVue = (typeof REGISTRATION_VUES)[number];
+
+export function parseRegistrationVue(raw: string | null): RegistrationVue {
+  if (raw === "file") return "queue";
+  if (raw === "couverture") return "coverage";
+  return (REGISTRATION_VUES as readonly string[]).includes(raw ?? "")
+    ? (raw as RegistrationVue)
+    : "queue";
+}
+
+/** Dossier views. Legacy values remain parser aliases for saved links. */
+export const DOSSIER_VUES = ["submissions", "completed", "coverage"] as const;
 export type DossierVue = (typeof DOSSIER_VUES)[number];
 
 export function parseDossierVue(raw: string | null): DossierVue {
-  return (DOSSIER_VUES as readonly string[]).includes(raw ?? "") ? (raw as DossierVue) : "dossiers";
+  if (raw === "dossiers") return "submissions";
+  if (raw === "couverture") return "coverage";
+  return (DOSSIER_VUES as readonly string[]).includes(raw ?? "")
+    ? (raw as DossierVue)
+    : "submissions";
 }
 
 /**

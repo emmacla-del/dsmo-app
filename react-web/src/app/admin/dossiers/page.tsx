@@ -1,16 +1,18 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download } from "lucide-react";
-import { API_BASE_URL, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueues, getToken, listAdminQuestionnaires, localeHeader } from "@/lib/api-client";
+import { Download, X } from "lucide-react";
+import { API_BASE_URL, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-import { resolveEntityName } from "@/lib/onefop-entity-name";
+import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
+import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
+import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -26,9 +28,8 @@ import {
   count,
   resolveDataState,
   stamp,
-  shortRecordId,
 } from "@/lib/admin-data-state";
-import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
+import { AUDIT_ROLES, NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import {
   hrefWith,
   parseDossierFlag,
@@ -40,7 +41,6 @@ import {
   type DossierSort,
   type DossierStatus,
 } from "@/lib/admin-url";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,10 +75,35 @@ interface DossierItem {
   department: string | null;
   formType: string | null;
   adminStatus: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | "SUPERSEDED" | null;
+  campaignName: string | null;
+  quarterCode: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  updatedAt: string | null;
   blockingCount: number;
   warningCount: number;
   submittedAt: string | null;
   isLate: boolean;
+}
+
+interface QuestionnaireListItem extends NamedSubmission {
+  id: string;
+  submissionId?: string | null;
+  respondent?: { respondentName?: string | null } | null;
+  region?: string | null;
+  department?: string | null;
+  formType?: string | null;
+  status?: DossierItem["adminStatus"];
+  campaignName?: string | null;
+  quarterCode?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  updatedAt?: string | null;
+  submissionDate?: string | null;
+  isLate?: boolean;
+  anomalies?: Array<{ isBlocking?: boolean; status?: string }> | null;
 }
 
 const PAGE_SIZE = 10;
@@ -150,6 +175,8 @@ function DossiersContent() {
   // Central agents consult: no selection column, no visa / reject / export
   // toolbar. The server refuses all three to the role regardless.
   const readOnly = isReadOnlyRole(user?.role);
+  const canReopen = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN_ONEFOP" || user?.role === "ADMIN_ONEFOP_SUBMISSIONS";
+  const canReadAudit = hasRole(user?.role, AUDIT_ROLES);
   const t = useTranslations("adminDossiersPage");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
@@ -197,7 +224,7 @@ function DossiersContent() {
   const vue = parseDossierVue(searchParams.get("vue"));
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
-  const requestedQuery = searchParams.get("q") ?? "";
+  const requestedQuery = searchParams.get("search") ?? searchParams.get("q") ?? "";
   // /admin/questionnaires links here with ?formType= ("Voir dossiers").
   const requestedFormType = searchParams.get("formType") ?? "";
   const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined);
@@ -206,13 +233,14 @@ function DossiersContent() {
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
-  const [typeFilter, setTypeFilter] = useState(FORM_TYPES.includes(requestedFormType) ? requestedFormType : "");
-  const [periodFilter, setPeriodFilter] = useState("");
+  const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
+  const periodFilter = searchParams.get("period") ?? "";
   const [offset, setOffset] = useState(0);
 
   // Any URL filter change, including the browser's back button, starts again
   // at the first page.
   const filterSignature = [
+    vue,
     statusFilter,
     sortOrder,
     regionFilter,
@@ -221,6 +249,9 @@ function DossiersContent() {
     quarterCodeFilter,
     lateFilter ? "late" : "",
     overdueFilter ? "overdue" : "",
+    typeFilter,
+    periodFilter,
+    requestedQuery,
   ].join("|");
   const [offsetSignature, setOffsetSignature] = useState(filterSignature);
   if (offsetSignature !== filterSignature) {
@@ -230,27 +261,32 @@ function DossiersContent() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // A new ?q= (the header search box pushing while already on this page)
-  // replaces the box contents. Both searchInput and `search` are set together
-  // so the debounce effect below sees no pending change and stays quiet.
-  useEffect(() => {
+  // A new ?q= from the header replaces the search box without an effect-driven
+  // cascading render. This component-local render adjustment mirrors the URL.
+  const [searchUrlValue, setSearchUrlValue] = useState(requestedQuery);
+  if (searchUrlValue !== requestedQuery) {
+    setSearchUrlValue(requestedQuery);
     setSearchInput(requestedQuery);
     setSearch(requestedQuery.trim());
     setOffset(0);
     setSelectedIds(new Set());
-  }, [requestedQuery]);
+  }
 
   // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [certifiedBulk, setCertifiedBulk] = useState(false);
   const [bulkNotes, setBulkNotes] = useState("");
-  const [bulkResult, setBulkResult] = useState<any | null>(null);
+  const [bulkResult, setBulkResult] = useState<Awaited<ReturnType<typeof bulkVisaDeclarations>> | null>(null);
 
   // Modal state — bulk reject
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [certifiedReject, setCertifiedReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [rejectResult, setRejectResult] = useState<any | null>(null);
+  const [rejectResult, setRejectResult] = useState<Awaited<ReturnType<typeof bulkRejectDeclarations>> | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<DossierItem | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
+  const [certifiedReopen, setCertifiedReopen] = useState(false);
+  const [reopenNotice, setReopenNotice] = useState("");
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
@@ -277,10 +313,14 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
-        status: statusFilter || undefined,
+        status: vue === "completed" ? undefined : statusFilter || undefined,
+        statuses: vue === "completed"
+          ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
+          : undefined,
+        view: vue === "completed" ? "completed" : "queue",
         formType: typeFilter || undefined,
         period: periodFilter || undefined,
         region: regionFilter || undefined,
@@ -295,13 +335,13 @@ function DossiersContent() {
         limit: PAGE_SIZE,
         offset,
       }),
-    enabled: vue === "dossiers",
+    enabled: vue !== "coverage",
     placeholderData: keepPreviousData,
   });
 
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues"],
-    queryFn: getPilotageQueues,
+    queryKey: ["admin", "pilotage", "queues", vue === "completed" ? "completed" : "queue"],
+    queryFn: () => getPilotageQueuesForView(vue === "completed" ? "completed" : "queue"),
   });
   const queues = queuesQuery.data ?? null;
 
@@ -335,25 +375,35 @@ function DossiersContent() {
     },
   });
 
-  // A selection only means something for the rows currently shown — drop it
-  // whenever the filters or the page change so the count never includes
-  // hidden rows. Any filter change also returns to the first page.
-  const changeFilter = (apply: () => void) => {
-    apply();
-    setOffset(0);
-    setSelectedIds(new Set());
-  };
+  const reopenMutation = useMutation({
+    mutationFn: () => reopenDossierForCorrection(
+      reopenTarget?.id ?? "",
+      reopenReason.trim(),
+      certifiedReopen,
+      reopenTarget?.updatedAt ?? "",
+    ),
+    onSuccess: () => {
+      setReopenNotice(t("reopenSuccess"));
+      setReopenTarget(null);
+      setReopenReason("");
+      setCertifiedReopen(false);
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+    },
+  });
 
   // Writes a URL filter, keeping every other parameter, and drops a stale
   // selection. The list follows from the URL, so a reload reopens the same view.
-  const setUrlFilter = (changes: Record<string, string | null>) => {
+  const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
     setSelectedIds(new Set());
     setOffset(0);
     router.replace(hrefWith(pathname, searchParams.toString(), changes));
-  };
+  }, [pathname, router, searchParams]);
 
   const setStatus = (status: DossierStatus | "") => setUrlFilter({ status });
   const setSort = (sort: DossierSort) => setUrlFilter({ sort });
+  const setType = (type: string) => setUrlFilter({ formType: type || null });
+  const setPeriod = (period: string) => setUrlFilter({ period: period || null });
   // A region and a department belong together: changing the region clears a
   // department that may not be inside it.
   const setRegion = (region: string) => setUrlFilter({ region, department: null });
@@ -375,18 +425,19 @@ function DossiersContent() {
       setSearch(trimmed);
       setOffset(0);
       setSelectedIds(new Set());
+      setUrlFilter({ search: trimmed || null, q: null });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [searchInput, search]);
+  }, [searchInput, search, setUrlFilter]);
 
   const page = questionnairesQuery.data;
 
   const rawItems = page?.items ?? [];
   // Real rows only. An empty result renders an empty state; there is no
   // sample dataset to substitute, and an error never becomes "no dossiers".
-  const dossiers: DossierItem[] = rawItems.map((sub: any) => {
-    const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
-    const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
+  const dossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
+    const blockingCount = sub.anomalies?.filter((anomaly) => anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
+    const warningCount = sub.anomalies?.filter((anomaly) => !anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
     const name = resolveEntityName(sub) ?? t("fileFallbackName", { id: sub.submissionId || sub.id });
 
     return {
@@ -400,12 +451,33 @@ function DossiersContent() {
       // No default form type — an unset formType is reported, not guessed.
       formType: sub.formType ?? null,
       adminStatus: sub.status ?? null,
+      campaignName: sub.campaignName ?? null,
+      quarterCode: sub.quarterCode ?? null,
+      reviewedBy: sub.reviewedBy ?? null,
+      reviewedAt: sub.reviewedAt ?? null,
+      rejectionReason: sub.rejectionReason ?? null,
+      updatedAt: sub.updatedAt ?? null,
       blockingCount,
       warningCount,
       submittedAt: sub.submissionDate ?? null,
       isLate: sub.isLate === true,
     };
   });
+
+  const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
+  if (search) activeFilterChips.push({ key: "search", label: `${t("freeSearchLabel")}: ${search}`, remove: () => { setSearchInput(""); setSearch(""); setUrlFilter({ search: null, q: null }); } });
+  if (statusFilter) activeFilterChips.push({ key: "status", label: `${t("statusFilterAriaLabel")}: ${t(STATUS_VIEWS.find((v) => v.status === statusFilter)?.labelKey ?? "statusAll")}`, remove: () => setStatus("") });
+  if (typeFilter) activeFilterChips.push({ key: "formType", label: `${t("typeColumn")}: ${typeLabel(typeFilter)}`, remove: () => setType("") });
+  if (periodFilter) activeFilterChips.push({ key: "period", label: `${t("periodLabel")}: ${t(PERIODS.find((p) => p.value === periodFilter)?.labelKey ?? "allPeriods")}`, remove: () => setPeriod("") });
+  if (regionFilter) activeFilterChips.push({ key: "region", label: `${t("regionColumn")}: ${regionFilter}`, remove: () => setRegion("") });
+  if (departmentFilter) activeFilterChips.push({ key: "department", label: `${t("departmentLabel")}: ${departmentFilter}`, remove: () => setDepartment("") });
+  if (campaignIdFilter) activeFilterChips.push({ key: "campaignId", label: `${t("campaignLabel")}: ${campaignOptions.find((o) => o.value === campaignIdFilter)?.label ?? campaignIdFilter}`, remove: () => setCampaign("") });
+  if (quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
+  if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
+  if (overdueFilter) activeFilterChips.push({ key: "overdue", label: t("overdueOnly"), remove: () => setOverdue(false) });
+  if (companyIdFilter) activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${companyIdFilter}`, remove: () => setUrlFilter({ companyId: null }) });
+  if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
+  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, campaignId: null, quarterCode: null, late: null, overdue: null, companyId: null, sort: null, search: null, q: null });
 
   /**
    * Source: GET /admin/questionnaires → `total`.
@@ -432,21 +504,14 @@ function DossiersContent() {
     ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} — ${scopeLabel}`
     : NOT_PROVIDED;
 
-  const cleanPendingSelected = dossiers.filter(
-    (d) => selectedIds.has(d.id) && d.adminStatus === "PENDING_REVIEW" && d.blockingCount === 0
+  const bulkPreflight = assessBulkEligibility(
+    dossiers.map((d) => ({ ...d, status: d.adminStatus })),
+    selectedIds,
   );
-
-  const rejectableSelected = dossiers.filter(
-    (d) => selectedIds.has(d.id) && (d.adminStatus === "PENDING_REVIEW" || d.adminStatus === "CORRECTION_REQUESTED")
-  );
-
-  const toggleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(dossiers.map((d) => d.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  };
+  const cleanPendingSelected = bulkPreflight.endorsementEligible;
+  const bulkEligibleSelected = bulkPreflight.eligible;
+  const excludedSelected = bulkPreflight.excluded;
+  const rejectableSelected = bulkPreflight.rejectionEligible;
 
   const toggleSelect = (id: string, checked: boolean) => {
     const next = new Set(selectedIds);
@@ -491,8 +556,6 @@ function DossiersContent() {
     });
   };
 
-  const allShownSelected = dossiers.length > 0 && dossiers.every((d) => selectedIds.has(d.id));
-
   const [exportInProgress, setExportInProgress] = useState(false);
 
   async function handleExport(fmt: "csv" | "xlsx") {
@@ -500,7 +563,9 @@ function DossiersContent() {
     setExportInProgress(true);
     try {
       const params = new URLSearchParams({ format: fmt });
-      if (statusFilter) params.set("status", statusFilter);
+      if (vue === "completed") {
+        params.set("statuses", statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED");
+      } else if (statusFilter) params.set("status", statusFilter);
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
       if (departmentFilter) params.set("department", departmentFilter);
@@ -541,25 +606,30 @@ function DossiersContent() {
     <AdminPageHeader
       breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.dossiers") }]}
       title={tRoot("adminNav.routes.dossiers")}
-      subtitle={vue === "couverture" ? t("subtitleCoverage") : t("subtitle")}
+      subtitle={vue === "coverage" ? t("subtitleCoverage") : vue === "completed" ? t("completedSubtitle") : t("subtitle")}
       actions={<AdminHeaderActions />}
       tabs={[
         {
-          label: t("viewFiles"),
-          href: hrefWith(pathname, searchParams.toString(), { vue: null }),
-          isActive: vue === "dossiers",
-          badge: queues?.totalSubmissionsCount,
+          label: t("viewSubmissions"),
+          href: hrefWith(pathname, searchParams.toString(), { vue: "submissions", status: null }),
+          isActive: vue === "submissions",
+          badge: selectAdminViewCounts(queues?.countsView, "queue", queues?.totalSubmissionsCount) ?? undefined,
+        },
+        {
+          label: t("viewCompleted"),
+          href: hrefWith(pathname, searchParams.toString(), { vue: "completed", status: null }),
+          isActive: vue === "completed",
         },
         {
           label: t("viewCoverage"),
-          href: hrefWith(pathname, searchParams.toString(), { vue: "couverture" }),
-          isActive: vue === "couverture",
+          href: hrefWith(pathname, searchParams.toString(), { vue: "coverage", status: null }),
+          isActive: vue === "coverage",
         },
       ]}
     />
   );
 
-  if (vue === "couverture") {
+  if (vue === "coverage") {
     return (
       <div className="cam-admin-page">
         {pageHeader}
@@ -571,12 +641,16 @@ function DossiersContent() {
   return (
     <div className="cam-admin-page">
       {pageHeader}
+      {reopenNotice && <Alert variant="success" className="my-4"><AlertDescription>{reopenNotice}</AlertDescription></Alert>}
 
       <ViewSwitch
         label={t("statusFilterAriaLabel")}
-        items={STATUS_VIEWS.map((view) => {
-          const statusCounts = queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined;
-          const value = view.status ? statusCounts?.[view.status] : queues?.totalSubmissionsCount;
+        items={(vue === "completed" ? STATUS_VIEWS.filter((view) => !view.status || ["APPROVED", "REJECTED", "SUPERSEDED"].includes(view.status)) : STATUS_VIEWS.filter((view) => view.status !== "SUPERSEDED")).map((view) => {
+          const expectedView = vue === "completed" ? "completed" : "queue";
+          const statusCounts = selectAdminViewCounts(queues?.countsView, expectedView, queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined);
+          const value = view.status
+            ? statusCounts?.[view.status]
+            : selectAdminViewCounts(queues?.countsView, expectedView, queues?.totalSubmissionsCount) ?? undefined;
           return {
             key: view.status || "all",
             label: t(view.labelKey),
@@ -608,7 +682,7 @@ function DossiersContent() {
       {/* ── Status filter: one control, URL-backed (?status=) ── */}
       {/* The queue's own note, carried over from /admin/files-attente. Shown
           only for the status it describes. */}
-      {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
+      {STATUS_VIEWS.filter((view) => vue === "submissions" && view.noteKey && view.status === statusFilter).map((view) => (
         <Alert key={view.labelKey} variant="info" className="my-4">
           <AlertDescription>{view.noteKey && t(view.noteKey)}</AlertDescription>
         </Alert>
@@ -619,346 +693,73 @@ function DossiersContent() {
           overflowing, the way the fixed four-column grid it replaces did. ──
           Statut is not here: the control above sets it. */}
       <Card>
-
-        {/* ── Action toolbar. Says how many dossiers are selected; the visa
-            (the one primary action) and reject appear only once at least one
-            is, so a decision is never offered on an empty selection. Export
-            is the secondary action and is always there. ── */}
-        {!readOnly && (
-          <CardContent className="flex flex-wrap items-center gap-3 border-t pt-6" aria-live="polite">
-            {selectedIds.size > 0 ? (
-              <>
-                <span className="text-sm font-medium text-foreground">{t("selectionCount", { count: selectedIds.size })}</span>
-                <Button type="button" size="sm" onClick={handleOpenBulkModal}>
-                  <span aria-hidden="true">✓</span> {t("endorseSelectionButton")}
-                </Button>
-                <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal}>
-                  <span aria-hidden="true">✕</span> {t("rejectSelectionButton")}
-                </Button>
-              </>
-            ) : (
-              <span className="text-sm text-muted-foreground">{t("selectionHint")}</span>
-            )}
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="ms-auto"
-              onClick={() => handleExport("csv")}
-              disabled={exportInProgress}
-            >
-              <Download aria-hidden="true" />
-              {t("exportButton")}
-            </Button>
+        {vue === "submissions" && !readOnly && (
+          <CardContent className="flex flex-wrap items-center gap-3 border-b pt-6" aria-live="polite">
+            {selectedIds.size > 0 ? <>
+              <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
+              {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
+              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
+            </> : <span className="text-sm text-muted-foreground">{t("selectionHint")}</span>}
           </CardContent>
         )}
-
-        {/* ── Table. The component's own container carries the horizontal
-            scroll this nine-column table needs on a narrow viewport; the
-            inline card it replaces had no scroll at all. ── */}
-        <CardContent className="border-t pt-6">
+        {!readOnly && <CardContent className="flex justify-end border-b pt-4"><Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button></CardContent>}
+        <CardContent className="border-b pt-5">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-2"><Label htmlFor="dossiers-search">{t("freeSearchLabel")}</Label><Input id="dossiers-search" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></div>
+            <div><Label htmlFor="dossiers-status">{t("statusFilterAriaLabel")}</Label><select id="dossiers-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
+              <option value="">{t("statusAll")}</option>
+              {(vue === "completed" ? ["APPROVED", "REJECTED", "SUPERSEDED"] : ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED"]).map((status) => <option key={status} value={status}>{t(STATUS_VIEWS.find((view) => view.status === status)?.labelKey ?? "statusAll")}</option>)}
+            </select></div>
+            <div><Label htmlFor="dossiers-campaign">{t("campaignLabel")}</Label><select id="dossiers-campaign" className="cam-admin-input w-full" value={campaignIdFilter} onChange={(event) => setCampaign(event.target.value)}><option value="">{t("allCampaigns")}</option>{campaignOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div><Label htmlFor="dossiers-region">{t("regionLabel")}</Label><select id="dossiers-region" className="cam-admin-input w-full" value={regionFilter} onChange={(event) => setRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((region) => <option key={region} value={region}>{region}</option>)}</select></div>
+          </div>
+          <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary><div className="mt-3 grid gap-3 md:grid-cols-4">
+            <div><Label htmlFor="dossiers-type">{t("typeColumn")}</Label><select id="dossiers-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}><option value="">{t("allFormTypes")}</option>{FORM_TYPES.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}</select></div>
+            <div><Label htmlFor="dossiers-period">{t("periodLabel")}</Label><select id="dossiers-period" className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>
+            <div><Label htmlFor="dossiers-department">{t("departmentLabel")}</Label><select id="dossiers-department" className="cam-admin-input w-full" value={departmentFilter} onChange={(event) => setDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>
+            <div><Label htmlFor="dossiers-quarter">{t("quarterLabel")}</Label><select id="dossiers-quarter" className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
+            <div><Label htmlFor="dossiers-late">{t("lateLabel")}</Label><select id="dossiers-late" className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
+            <div><Label htmlFor="dossiers-overdue">{t("overdueLabel")}</Label><select id="dossiers-overdue" className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>
+            <div><Label htmlFor="dossiers-sort">{t("sortLabel")}</Label><select id="dossiers-sort" className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
+          </div></details>
+          {activeFilterChips.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeFilterChips.map((chip) => <Button type="button" key={chip.key} variant="outline" size="sm" onClick={chip.remove} aria-label={t("removeFilterChip", { label: chip.label })}>{chip.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}<Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button></div>}
+        </CardContent>
+        <CardContent className="overflow-x-auto pt-5">
           <Table>
-            <TableHeader>
-              <TableRow>
-                {!readOnly && (
-                  <TableHead scope="col" className="text-center">
-                    <Checkbox
-                      checked={allShownSelected}
-                      onCheckedChange={(c) => toggleSelectAll(c === true)}
-                      aria-label={t("selectAllAria")}
-                    />
-                  </TableHead>
-                )}
-                <TableHead scope="col">{t("formIdColumn")}</TableHead>
-                <FilterTableHead
-                  label={t("respondentColumn")}
-                  filterLabel={t("filterColumn", { column: t("respondentColumn") })}
-                  active={!!search}
-                >
-                  {(close) => (
-                    <div className="grid gap-2">
-                      <Label htmlFor="dossiers-search">{t("freeSearchLabel")}</Label>
-                      <Input
-                        id="dossiers-search"
-                        type="search"
-                        placeholder={t("freeSearchPlaceholder")}
-                        value={searchInput}
-                        onChange={(event) => setSearchInput(event.target.value)}
-                        onKeyDown={(event) => { if (event.key === "Enter") close(); }}
-                      />
-                    </div>
-                  )}
-                </FilterTableHead>
-                <TableHead scope="col">{t("organisationColumn")}</TableHead>
-                <FilterTableHead
-                  label={t("typeColumn")}
-                  filterLabel={t("filterColumn", { column: t("typeColumn") })}
-                  active={!!typeFilter}
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("formTypeLabel")}
-                      value={typeFilter}
-                      onChange={(value) => changeFilter(() => setTypeFilter(value))}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("allFormTypes") },
-                        ...FORM_TYPES.map((type) => ({ value: type, label: typeLabel(type) })),
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={t("regionColumn")}
-                  filterLabel={t("filterColumn", { column: t("regionColumn") })}
-                  active={!!regionFilter || !!departmentFilter}
-                >
-                  {(close) => (
-                    <div className="grid gap-2">
-                      <FilterTableOptions
-                        label={t("regionLabel")}
-                        value={regionFilter}
-                        onChange={setRegion}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("allRegions") },
-                          ...territoryRegions.map((regionName) => ({ value: regionName, label: regionName })),
-                        ]}
-                      />
-                      <FilterTableOptions
-                        label={t("departmentLabel")}
-                        value={departmentFilter}
-                        onChange={setDepartment}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("allDepartments") },
-                          ...territoryDepartments.map((departmentName) => ({ value: departmentName, label: departmentName })),
-                        ]}
-                      />
-                    </div>
-                  )}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={t("submittedAtColumn")}
-                  filterLabel={t("filterColumn", { column: t("submittedAtColumn") })}
-                  active={!!periodFilter || !!sortOrder || lateFilter || overdueFilter || !!campaignIdFilter || !!quarterCodeFilter}
-                >
-                  {(close) => (
-                    <div className="grid gap-2">
-                      <FilterTableOptions
-                        label={t("periodLabel")}
-                        value={periodFilter}
-                        onChange={(value) => changeFilter(() => setPeriodFilter(value))}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("allPeriods") },
-                          ...PERIODS.map((period) => ({ value: period.value, label: t(period.labelKey) })),
-                        ]}
-                      />
-                      <FilterTableOptions
-                        label={t("lateLabel")}
-                        value={lateFilter ? "late" : ""}
-                        onChange={(value) => setLate(value === "late")}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("lateAll") },
-                          { value: "late", label: t("lateOnly") },
-                        ]}
-                      />
-                      <FilterTableOptions
-                        label={t("overdueLabel")}
-                        value={overdueFilter ? "overdue" : ""}
-                        onChange={(value) => setOverdue(value === "overdue")}
-                        onSelect={close}
-                        options={[
-                          { value: "", label: t("overdueAll") },
-                          { value: "overdue", label: t("overdueOnly") },
-                        ]}
-                      />
-                      <div className="border-t pt-2">
-                        <FilterTableOptions
-                          label={t("campaignLabel")}
-                          value={campaignIdFilter}
-                          onChange={setCampaign}
-                          onSelect={close}
-                          options={[
-                            { value: "", label: t("allCampaigns") },
-                            ...campaignOptions,
-                          ]}
-                        />
-                        <FilterTableOptions
-                          label={t("quarterLabel")}
-                          value={quarterCodeFilter}
-                          onChange={setQuarter}
-                          onSelect={close}
-                          options={[
-                            { value: "", label: t("allQuarters") },
-                            ...quarterOptions.map((code) => ({ value: code, label: quarterLabel(code) })),
-                          ]}
-                        />
-                      </div>
-                      <div className="border-t pt-2">
-                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t("sortLabel")}</p>
-                        <FilterTableOptions
-                          label={t("sortLabel")}
-                          value={sortOrder || "newest"}
-                          onChange={(value) => setSort(parseDossierSort(value === "newest" ? "" : value))}
-                          onSelect={close}
-                          options={[
-                            { value: "newest", label: t("sortNewest") },
-                            { value: "oldest", label: t("sortOldest") },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </FilterTableHead>
-                <TableHead scope="col">{t("endorsementColumn")}</TableHead>
-                <TableHead scope="col">{t("dataQualityColumn")}</TableHead>
-                <TableHead scope="col" className="text-center">{t("eligibilityColumn")}</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow>
+              <TableHead scope="col">{vue === "completed" ? t("organisationColumn") : t("organisationReferenceColumn")}</TableHead>
+              <TableHead scope="col">{vue === "completed" ? t("reviewDecisionColumn") : t("reviewDecisionColumn")}</TableHead>
+              <TableHead scope="col">{vue === "completed" ? t("decisionDateColumn") : <>{t("dataIssuesColumn")}<span className="block text-xs font-normal text-muted-foreground">{t("dataIssuesHelp")}</span></>}</TableHead>
+              <TableHead scope="col">{vue === "completed" ? t("campaignPeriodColumn") : t("statisticalEligibilityColumn")}</TableHead>
+              <TableHead scope="col">{vue === "completed" ? t("historyColumn") : t("submittedAtColumn")}</TableHead>
+            </TableRow></TableHeader>
             <TableBody>
-              {/* Loading, error, authorization refusal and "no dossiers" are
-                  reported separately; no branch substitutes sample rows. */}
-              <DataStateRow
-                colSpan={readOnly ? 9 : 10}
-                state={tableState}
-                resource={t("filesResource")}
-                error={questionnairesQuery.error}
-                onRetry={() => questionnairesQuery.refetch()}
-                title={tableState === "empty" ? t("noFilesTitle") : undefined}
-                hint={tableState === "empty" ? t("noFilesHint") : undefined}
-              />
+              <DataStateRow colSpan={5} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
-                /**
-                 * Visa state, mapped from the stored enum to one badge tone
-                 * each. Five states, five tones: CORRECTION_REQUESTED is
-                 * `info` rather than a second amber because the dossier is
-                 * waiting on the respondent, while PENDING_REVIEW is the one
-                 * waiting on the reviewer reading this row.
-                 */
-                const visaBadge: { label: string; tone: ToneName } =
-                  d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } :
-                  d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } :
-                  d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } :
-                  d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } :
-                  d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } :
-                  // An item with no stored status is reported as such rather
-                  // than defaulted into the pending queue.
-                  { label: t("badgeNoStatus"), tone: "neutral" };
-
-                /**
-                 * Data quality, derived from the dossier own anomaly rows
-                 * (`anomalies`, included by QuestionnairesService.listForAdmin):
-                 *   blockingCount = OPEN && isBlocking
-                 *   warningCount  = OPEN && !isBlocking
-                 *
-                 * An empty anomaly list means "no anomaly recorded", which is
-                 * not the same claim as "conforme" — nothing has certified this
-                 * dossier, and detection results are not persisted today
-                 * (docs/admin-data-integrity-inventory.md §7.1).
-                 */
-                const quality: { tone: ToneName; glyph: string | null; text: string } =
-                  d.blockingCount > 0
-                    ? { tone: "error", glyph: "▲", text: t("blockingAnomalies", { count: d.blockingCount }) }
-                    : d.warningCount > 0
-                      ? { tone: "warning", glyph: "⚐", text: t("warnings", { count: d.warningCount }) }
-                      : { tone: "neutral", glyph: null, text: t("noAnomaly") };
-
-                /**
-                 * Statistical eligibility, mirroring the backend own rule
-                 * (EligibilityEngineService.isStatisticallyEligible): APPROVED
-                 * **and** zero open blocking anomalies. Any other status is
-                 * pending; a rejected dossier is excluded. A dossier with no
-                 * stored status yields no claim at all.
-                 */
-                const eligibility: "eligible" | "notEligible" | "pending" | null =
-                  d.adminStatus === null
-                    ? null
-                    : d.adminStatus === "REJECTED"
-                      ? "notEligible"
-                      : d.adminStatus === "APPROVED"
-                        ? (d.blockingCount === 0 ? "eligible" : "notEligible")
-                        : "pending";
-                const eligibilityLabel =
-                  eligibility === "eligible" ? t("eligible")
-                    : eligibility === "notEligible" ? t("notEligible")
-                      : eligibility === "pending" ? t("eligibilityPending")
-                        : null;
-                const eligibilityTone: ToneName =
-                  eligibility === "eligible" ? "success"
-                    : eligibility === "pending" ? "warning"
-                      : "neutral";
-
-                return (
-                  <TableRow key={d.id}>
-                    {!readOnly && (
-                      <TableCell className="text-center">
-                        <Checkbox
-                          checked={selectedIds.has(d.id)}
-                          onCheckedChange={(c) => toggleSelect(d.id, c === true)}
-                          aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <Link
-                        href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
-                        className="cam-admin-code font-medium text-foreground"
-                        title={d.submissionId}
-                        aria-label={d.submissionId}
-                      >
-                        {shortRecordId(d.submissionId)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      {d.respondentName ?? NOT_PROVIDED}
-                    </TableCell>
-                    <TableCell>
-                      {d.companyName ?? NOT_PROVIDED}
-                    </TableCell>
-                    <TableCell>
-                      {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}
-                    </TableCell>
-                    <TableCell>
-                      {/* Territory as stored on the submission. A dossier with
-                          no region is reported as such: inferring one would
-                          invent an authorization-sensitive fact. */}
-                      {d.region ?? NOT_PROVIDED}
-                      {d.department && (
-                        <span className="block text-muted-foreground">{d.department}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {stamp(d.submittedAt, true, locale)}
-                      {d.isLate && (
-                        <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={BADGE_VARIANT[quality.tone]}>
-                        {quality.glyph && <span aria-hidden="true">{quality.glyph}</span>}
-                        {quality.text}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={BADGE_VARIANT[eligibilityTone]}>
-                        {eligibilityLabel ?? NOT_PROVIDED}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
+                const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
+                const qualityTone: ToneName = d.blockingCount > 0 ? "error" : d.warningCount > 0 ? "warning" : "neutral";
+                const qualityText = d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : d.warningCount > 0 ? t("warnings", { count: d.warningCount }) : t("noAnomaly");
+                const eligibility: "eligible" | "notEligible" | "pending" = d.adminStatus === "APPROVED" ? (d.blockingCount === 0 ? "eligible" : "notEligible") : d.adminStatus === "REJECTED" || d.adminStatus === "SUPERSEDED" ? "notEligible" : "pending";
+                const eligibilityText = eligibility === "eligible" ? t("eligible") : eligibility === "notEligible" ? t("notEligible") : t("eligibilityPending");
+                return vue === "completed" ? <TableRow key={d.id}>
+                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
+                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.rejectionReason && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{d.rejectionReason}</span>}{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</TableCell>
+                  <TableCell className="whitespace-nowrap">{d.reviewedAt ? <>{stamp(d.reviewedAt, true, locale)}<span className="block text-xs text-muted-foreground">{d.reviewedBy ?? NOT_PROVIDED}</span></> : NOT_PROVIDED}</TableCell>
+                  <TableCell>{d.campaignName ?? NOT_PROVIDED}<span className="block text-xs text-muted-foreground">{d.quarterCode ?? NOT_PROVIDED}</span></TableCell>
+                  <TableCell>{canReadAudit ? <Link className="underline" href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link> : NOT_PROVIDED}</TableCell>
+                </TableRow> : <TableRow key={d.id}>
+                  <TableCell className="font-medium">{!readOnly && <Checkbox className="me-2 align-middle" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}<span>{d.companyName ?? d.submissionId}</span><div className="text-xs text-muted-foreground">{d.respondentName ?? NOT_PROVIDED} · {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</div><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
+                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge></TableCell>
+                  <TableCell><Badge variant={BADGE_VARIANT[qualityTone]}>{qualityText}</Badge></TableCell>
+                  <TableCell><Badge variant={eligibility === "eligible" ? "success" : eligibility === "pending" ? "warning" : "neutral"}>{eligibilityText}</Badge></TableCell>
+                  <TableCell className="whitespace-nowrap">{stamp(d.submittedAt, true, locale)}{d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}</TableCell>
+                </TableRow>;
               })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. The range reflects the rows actually returned, and
           the page count is whatever the real total implies. */}
@@ -1025,6 +826,7 @@ function DossiersContent() {
           </>
         }
       >
+        <p>{t("confirmSelectedDecision", { decision: t("bulkEndorseAction"), count: cleanPendingSelected.length, records: cleanPendingSelected.map((d) => d.companyName ?? d.submissionId).join(", ") })}</p>
         <div className="flex items-start gap-3">
           <Checkbox
             id="bulk-endorse-certify"
@@ -1125,6 +927,7 @@ function DossiersContent() {
               {t("bulkRejectIntroBefore")} <strong>{t("bulkRejectIntroCount", { count: rejectableSelected.length })}</strong>{" "}
               {t("bulkRejectIntroAfter", { count: rejectableSelected.length })}
             </p>
+            <p className="m-0 text-sm text-muted-foreground">{t("confirmSelectedDecision", { decision: t("bulkRejectAction"), count: rejectableSelected.length, records: rejectableSelected.map((d) => d.companyName ?? d.submissionId).join(", ") })}</p>
 
             <div className="grid gap-2">
               <Label htmlFor="bulk-reject-reason">
@@ -1170,6 +973,23 @@ function DossiersContent() {
             )}
           </div>
         )}
+      </AdminDialog>
+      <AdminDialog
+        open={!!reopenTarget}
+        onClose={() => setReopenTarget(null)}
+        title={t("reopenConfirmTitle")}
+        eyebrow={reopenTarget?.companyName ?? ""}
+        footer={<>
+          <Button type="button" size="sm" variant="outline" onClick={() => setReopenTarget(null)}>{tRoot("common.cancel")}</Button>
+          <Button type="button" size="sm" onClick={() => reopenMutation.mutate()} disabled={!certifiedReopen || reopenReason.trim().length < 10 || reopenMutation.isPending}>{reopenMutation.isPending ? t("reopening") : t("confirmReopen")}</Button>
+        </>}
+      >
+        <div className="grid gap-4">
+          <p className="m-0">{reopenTarget && t("confirmSelectedDecision", { decision: t("reopenButton").toLowerCase(), count: 1, records: reopenTarget.companyName ?? reopenTarget.submissionId })}</p>
+          <div className="grid gap-2"><Label htmlFor="completed-reopen-reason">{t("reopenReasonLabel")}</Label><Textarea id="completed-reopen-reason" rows={3} value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} placeholder={t("reopenReasonPlaceholder")} />{reopenReason.trim().length > 0 && reopenReason.trim().length < 10 && <p className="cam-field-error m-0">{t("reasonTooShort", { length: reopenReason.trim().length })}</p>}</div>
+          <div className="flex items-start gap-3"><Checkbox id="completed-reopen-certify" checked={certifiedReopen} onCheckedChange={(checked) => setCertifiedReopen(checked === true)} /><Label htmlFor="completed-reopen-certify" className="font-normal leading-snug">{t("reopenCertify")}</Label></div>
+          {reopenMutation.isError && <Alert variant="destructive"><AlertDescription>{t("reopenFailed", { message: (reopenMutation.error as Error)?.message ?? t("unknownError") })}</AlertDescription></Alert>}
+        </div>
       </AdminDialog>
     </div>
   );

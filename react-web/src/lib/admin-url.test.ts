@@ -16,6 +16,7 @@ import {
   parseDossierSort,
   parseDossierStatus,
   parseDossierVue,
+  parseRegistrationVue,
   parseQualiteVue,
   parseSeverityFilter,
   recentDossierQuarters,
@@ -36,6 +37,14 @@ test("hrefWith sets and removes parameters and keeps the rest", () => {
 
 test("hrefWith encodes values instead of concatenating them", () => {
   assert.equal(hrefWith("/admin/annuaire", "", { tab: "users&x=1" }), "/admin/annuaire?tab=users%26x%3D1");
+});
+
+test("dossier filter changes keep the rest of the URL state for reload", () => {
+  const filters = "vue=completed&status=REJECTED&formType=CTD&period=2025&region=Centre&department=Mfoundi&campaignId=c1&quarterCode=2025-T4&late=1&overdue=1&search=atelier";
+  assert.equal(
+    hrefWith("/admin/dossiers", filters, { formType: null }),
+    "/admin/dossiers?vue=completed&status=REJECTED&period=2025&region=Centre&department=Mfoundi&campaignId=c1&quarterCode=2025-T4&late=1&overdue=1&search=atelier",
+  );
 });
 
 test("dossier status: the five statuses (replaced files included), else every status", () => {
@@ -82,12 +91,22 @@ test("parseDossierSort keeps oldest-first and falls back to newest first", () =>
   assert.equal(parseDossierSort("OLDEST"), "");
 });
 
-test("dossier view: coverage only when named", () => {
-  assert.equal(parseDossierVue("couverture"), "couverture");
-  assert.equal(parseDossierVue("dossiers"), "dossiers");
-  for (const v of [null, "", "coverage", "files"]) {
-    assert.equal(parseDossierVue(v), "dossiers");
-  }
+test("dossier view aliases map to canonical submissions/completed/coverage", () => {
+  assert.equal(parseDossierVue("dossiers"), "submissions");
+  assert.equal(parseDossierVue("submissions"), "submissions");
+  assert.equal(parseDossierVue("completed"), "completed");
+  assert.equal(parseDossierVue("couverture"), "coverage");
+  assert.equal(parseDossierVue("coverage"), "coverage");
+  for (const v of [null, "", "files"]) assert.equal(parseDossierVue(v), "submissions");
+});
+
+test("registration view aliases map to canonical queue/organisations/coverage", () => {
+  assert.equal(parseRegistrationVue("file"), "queue");
+  assert.equal(parseRegistrationVue("queue"), "queue");
+  assert.equal(parseRegistrationVue("organisations"), "organisations");
+  assert.equal(parseRegistrationVue("couverture"), "coverage");
+  assert.equal(parseRegistrationVue("coverage"), "coverage");
+  for (const v of [null, "", "files"]) assert.equal(parseRegistrationVue(v), "queue");
 });
 
 test("dossier flags are active only on an explicit true", () => {
