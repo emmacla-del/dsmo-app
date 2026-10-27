@@ -882,6 +882,7 @@ export interface AdminDossier {
   submissionId: string;
   formType: string;
   status: string;
+  updatedAt: string;
   region: string | null;
   department: string | null;
   subdivision: string | null;
@@ -920,23 +921,24 @@ export function getDossierDiagnostic(id: string) {
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic`);
 }
 
-export function approveDossier(id: string) {
+export function approveDossier(id: string, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/approve`, {
     method: "PATCH",
+    body: JSON.stringify({ expectedRevision }),
   });
 }
 
-export function rejectDossier(id: string, reason: string, certified: boolean) {
+export function rejectDossier(id: string, reason: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reject`, {
     method: "PATCH",
-    body: JSON.stringify({ reason, certified }),
+    body: JSON.stringify({ reason, certified, expectedRevision }),
   });
 }
 
-export function requestCorrectionDossier(id: string, comments: string, certified: boolean) {
+export function requestCorrectionDossier(id: string, comments: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/request-correction`, {
     method: "PATCH",
-    body: JSON.stringify({ comments, certified }),
+    body: JSON.stringify({ comments, certified, expectedRevision }),
   });
 }
 
@@ -946,10 +948,10 @@ export function requestCorrectionDossier(id: string, comments: string, certified
  * enforced server-side; the reason and the attestation are required and
  * recorded (AUDIT_REOPEN).
  */
-export function reopenDossierForCorrection(id: string, reason: string, certified: boolean) {
+export function reopenDossierForCorrection(id: string, reason: string, certified: boolean, expectedRevision: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reopen-for-correction`, {
     method: "PATCH",
-    body: JSON.stringify({ reason, certified }),
+    body: JSON.stringify({ reason, certified, expectedRevision }),
   });
 }
 

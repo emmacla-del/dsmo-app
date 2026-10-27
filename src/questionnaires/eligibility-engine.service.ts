@@ -23,11 +23,15 @@ import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-doss
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
+import {
+  REVIEW_DELAY_THRESHOLD_DAYS,
+  REVIEW_DELAY_WINDOW_DAYS,
+  reviewOverdueBefore,
+} from './review-delay';
 
-/** A file awaiting a decision longer than this is overdue (owner, 2026-10-17). */
-export const REVIEW_DELAY_THRESHOLD_DAYS = 7;
-/** The decision median covers the decisions of the last 90 days. */
-export const REVIEW_DELAY_WINDOW_DAYS = 90;
+// Kept exported for existing callers; the definitions live in review-delay.ts
+// so the dossier list's overdue filter cannot drift from this queue.
+export { REVIEW_DELAY_THRESHOLD_DAYS, REVIEW_DELAY_WINDOW_DAYS };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -356,7 +360,7 @@ export class EligibilityEngineService {
    */
   private async getReviewDelay(territory?: Territory, now: Date = new Date()): Promise<ReviewDelay> {
     const pendingWhere = { AND: [territoryWhere(territory), { status: OnefopStatus.PENDING_REVIEW }] };
-    const overdueBefore = new Date(now.getTime() - REVIEW_DELAY_THRESHOLD_DAYS * DAY_MS);
+    const overdueBefore = reviewOverdueBefore(now);
     const windowStart = new Date(now.getTime() - REVIEW_DELAY_WINDOW_DAYS * DAY_MS);
 
     const [oldest, pendingOverThresholdCount] = await Promise.all([

@@ -6,6 +6,7 @@ import { buildAdminListWhere } from './admin-list-filter';
 type ListArgs = {
   status?: string; limit?: string; offset?: string; region?: string;
   search?: string; formType?: string; period?: string; companyId?: string; sort?: string;
+  department?: string; campaignId?: string; quarterCode?: string; late?: string; overdue?: string;
 };
 
 describe('AdminQuestionnairesController.getAll — list params', () => {
@@ -13,7 +14,11 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   let controller: AdminQuestionnairesController;
   const req = { user: { id: 'a1', role: 'REGIONAL_ADMIN', region: 'Littoral' } };
   const getAll = (a: ListArgs = {}) =>
-    controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, a.companyId, a.sort, req);
+    controller.getAll(
+      a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period,
+      a.companyId, a.sort, a.department, a.campaignId, a.quarterCode,
+      a.late, a.overdue, req,
+    );
 
   beforeEach(() => {
     service = { listForAdmin: jest.fn(async () => ({ items: [], total: 0 })) };
@@ -30,12 +35,31 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   it('parses string query params and passes every filter through', async () => {
     await getAll({
       status: 'APPROVED', limit: '10', offset: '30', region: ' Centre ', search: ' mbarga ',
-      formType: 'COOPERATIVE', period: '30d', companyId: 'comp-1',
+      formType: 'COOPERATIVE', period: '30d', companyId: 'comp-1', department: ' Moungo ',
+      campaignId: 'campaign-1', quarterCode: '2026-T4', late: '1', overdue: 'true',
     });
     expect(service.listForAdmin).toHaveBeenCalledWith(
-      { status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre', search: 'mbarga', companyId: 'comp-1', limit: 10, offset: 30 },
+      {
+        status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre',
+        department: 'Moungo', search: 'mbarga', companyId: 'comp-1',
+        campaignId: 'campaign-1', quarterCode: '2026-T4', late: true, overdue: true,
+        limit: 10, offset: 30,
+      },
       expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Littoral' }),
     );
+  });
+
+  it('accepts both flag spellings and treats explicit false as absent', async () => {
+    await getAll({ late: 'true', overdue: '1' });
+    await getAll({ late: 'false', overdue: '0' });
+    expect(service.listForAdmin.mock.calls[0][0]).toMatchObject({ late: true, overdue: true });
+    expect(service.listForAdmin.mock.calls[1][0]).toMatchObject({ late: undefined, overdue: undefined });
+  });
+
+  it('rejects an unknown late or overdue flag with 400', async () => {
+    await expect(getAll({ late: 'yes' })).rejects.toThrow('Le paramètre « late » doit valoir true ou false.');
+    await expect(getAll({ overdue: 'oui' })).rejects.toThrow('Le paramètre « overdue » doit valoir true ou false.');
+    expect(service.listForAdmin).not.toHaveBeenCalled();
   });
 
   it('answers 400 with a French message for invalid paging, before querying', async () => {
@@ -94,10 +118,53 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   });
 
   it('treats blank filters as absent', async () => {
-    await getAll({ status: '', limit: '', offset: '', region: '   ', search: '   ', formType: ' ', period: '' });
-    expect(service.listForAdmin.mock.calls[0][0]).toEqual({
-      status: undefined, formType: undefined, period: undefined, region: undefined, search: undefined, limit: 100, offset: 0,
+    await getAll({
+      status: '', limit: '', offset: '', region: '   ', search: '   ', formType: ' ',
+      period: '', department: ' ', campaignId: '', quarterCode: '  ', late: '', overdue: '',
     });
+    expect(service.listForAdmin.mock.calls[0][0]).toEqual({
+      status: undefined, formType: undefined, period: undefined, region: undefined,
+      department: undefined, search: undefined, companyId: undefined,
+      campaignId: undefined, quarterCode: undefined, late: undefined, overdue: undefined,
+      limit: 100, offset: 0,
+    });
+  });
+});
+
+describe('AdminQuestionnairesController.exportDossiers', () => {
+  let service: { streamDossiersExport: jest.Mock };
+  let controller: AdminQuestionnairesController;
+  const req = { user: { id: 'a1', role: 'REGIONAL_ADMIN', region: 'Littoral' } };
+  const res = {};
+
+  beforeEach(() => {
+    service = { streamDossiersExport: jest.fn(async () => undefined) };
+    controller = new AdminQuestionnairesController(service as unknown as QuestionnairesService, {} as any);
+  });
+
+  it('exports exactly the rows the list filters select', async () => {
+    await controller.exportDossiers(
+      'xlsx', 'APPROVED', 'Centre', 'Moungo', 'mbarga', 'COOPERATIVE', '30d',
+      'comp-1', 'campaign-1', '2026-T4', '1', 'true', req, res as any,
+    );
+    expect(service.streamDossiersExport).toHaveBeenCalledWith(
+      {
+        status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre',
+        department: 'Moungo', search: 'mbarga', companyId: 'comp-1',
+        campaignId: 'campaign-1', quarterCode: '2026-T4', late: true, overdue: true,
+      },
+      'xlsx',
+      expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Littoral' }),
+      'a1',
+      res,
+    );
+  });
+
+  it('refuses an invalid filter rather than streaming a wider export', async () => {
+    await expect(
+      controller.exportDossiers('csv', 'APPROVED', undefined, undefined, undefined, undefined, 'all', undefined, undefined, undefined, undefined, undefined, req, res as any),
+    ).rejects.toThrow('Période inconnue.');
+    expect(service.streamDossiersExport).not.toHaveBeenCalled();
   });
 });
 
