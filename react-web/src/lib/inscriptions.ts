@@ -197,6 +197,13 @@ export function adminRegisterCompany(payload: AssistedRegistrationPayload) {
   });
 }
 
+/** Optional share capital must satisfy the assisted-registration DTO's @IsInt() and @Min(0). */
+export function isValidSocialCapital(value: string | undefined): boolean {
+  if (!value?.trim()) return true;
+  const amount = Number(value);
+  return Number.isInteger(amount) && amount >= 0;
+}
+
 /**
  * Which of the two territory fields /admin/inscriptions/nouvelle lets the
  * acting admin choose. A field it does not choose is read from the account,

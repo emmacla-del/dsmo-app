@@ -27,6 +27,7 @@ import {
 import {
   adminRegisterCompany,
   buildAssistedRegistrationPayload,
+  isValidSocialCapital,
   registrationTerritoryChoice,
   type AssistedRegistrationResult,
 } from "@/lib/inscriptions";
@@ -154,11 +155,30 @@ export default function NouvelleInscriptionPage() {
   // The branches of activity (the `sectors` table), the same list and query
   // key as the public wizard.
   const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
-  const { regions } = useTerritoryRegions();
+  const territoryQuery = useTerritoryRegions();
+  const { regions } = territoryQuery;
   const { departments } = useTerritoryDepartments(region || null);
   const { subdivisions } = useTerritorySubdivisions(department || null, region || null);
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
+  const sectorLookupRequired = Boolean(config?.fields.some((field) => field.kind === "branch"));
+  const territoryLookupReady = regions.length > 0;
+  const sectorLookupReady = !sectorLookupRequired || Boolean(sectorsQuery.data?.length);
+  const requiredLookupsReady = territoryLookupReady && sectorLookupReady;
+  const territoryLookupState = !territoryQuery.data && territoryQuery.isPending
+    ? "loading"
+    : territoryQuery.isError
+      ? "error"
+      : !territoryLookupReady
+        ? "empty"
+        : "ready";
+  const sectorLookupState = !sectorsQuery.data && sectorsQuery.isPending
+    ? "loading"
+    : sectorsQuery.isError
+      ? "error"
+      : !sectorsQuery.data?.length
+        ? "empty"
+        : "ready";
   const visibleFields = useMemo(
     () => (config ? config.fields.filter((f) => isFieldVisible(f, entityData, config.fields)) : []),
     [config, entityData],
@@ -220,6 +240,7 @@ export default function NouvelleInscriptionPage() {
 
   /** The first unmet requirement, or null when the form may be sent. */
   function firstProblem(): string | null {
+    if (!requiredLookupsReady) return null;
     if (!entityType || !config) return t("adminInscriptionsNouvellePage.errorEntityTypeRequired");
     if (!respondent.firstName.trim() || !respondent.lastName.trim()) {
       return t("adminInscriptionsNouvellePage.errorRespondentNameRequired");
@@ -234,10 +255,14 @@ export default function NouvelleInscriptionPage() {
         return t("adminInscriptionsNouvellePage.errorFieldRequired", { field: localized(field.label, locale) });
       }
     }
+    if (!isValidSocialCapital(entityData.socialCapital)) {
+      return t("adminInscriptionsNouvellePage.errorSocialCapitalInteger");
+    }
     return null;
   }
 
   function submit() {
+    if (!requiredLookupsReady) return;
     const problem = firstProblem();
     if (problem || !entityType) {
       reportError(problem);
@@ -360,6 +385,19 @@ export default function NouvelleInscriptionPage() {
               entityType: entityOption ? t(entityOption.labelKey) : localized(config.title, locale),
             })}
           >
+            {sectorLookupState !== "ready" && sectorLookupRequired && (
+              <DataState
+                state={sectorLookupState}
+                resource={t("adminInscriptionsNouvellePage.sectorLookupResource")}
+                title={sectorLookupState === "loading"
+                  ? t("adminInscriptionsNouvellePage.sectorLookupLoading")
+                  : sectorLookupState === "error"
+                    ? t("adminInscriptionsNouvellePage.sectorLookupError")
+                    : t("adminInscriptionsNouvellePage.sectorLookupEmpty")}
+                error={sectorsQuery.error}
+                onRetry={sectorLookupState === "error" ? () => void sectorsQuery.refetch() : undefined}
+              />
+            )}
             <FieldGrid>
               {visibleFields.map((field) => (
                 <EntityFieldInput
@@ -377,6 +415,19 @@ export default function NouvelleInscriptionPage() {
         )}
 
         <Section title={t("registerPage.locationTitle")}>
+          {territoryLookupState !== "ready" && (
+            <DataState
+              state={territoryLookupState}
+              resource={t("adminInscriptionsNouvellePage.territoryLookupResource")}
+              title={territoryLookupState === "loading"
+                ? t("adminInscriptionsNouvellePage.territoryLookupLoading")
+                : territoryLookupState === "error"
+                  ? t("adminInscriptionsNouvellePage.territoryLookupError")
+                  : t("adminInscriptionsNouvellePage.territoryLookupEmpty")}
+              error={territoryQuery.error}
+              onRetry={territoryLookupState === "error" ? () => void territoryQuery.refetch() : undefined}
+            />
+          )}
           {/* What the note says must match the fields below it: a regional
               admin is told its region is fixed, not its department. */}
           {!choosesRegion && (
@@ -423,7 +474,7 @@ export default function NouvelleInscriptionPage() {
         </Section>
 
         <div className="mb-10 mt-2 flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending || !requiredLookupsReady}>
             {mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
               : t("adminInscriptionsNouvellePage.submitButton")}
@@ -558,6 +609,8 @@ function Text({
   onChange,
   required,
   type = "text",
+  step,
+  min,
   hint,
   after,
 }: {
@@ -566,6 +619,8 @@ function Text({
   onChange: (value: string) => void;
   required?: boolean;
   type?: "text" | "email" | "tel" | "number";
+  step?: number;
+  min?: number;
   hint?: string;
   /** Rendered under the input, before the hint (e.g. a live status line). */
   after?: ReactNode;
@@ -575,6 +630,8 @@ function Text({
       <span>{label}{required && <span aria-hidden="true"> *</span>}</span>
       <Input
         type={type}
+        step={step}
+        min={min}
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
@@ -755,6 +812,8 @@ function EntityFieldInput({
       onChange={onChange}
       required={field.required}
       type={field.kind === "number" ? "number" : field.kind === "tel" ? "tel" : "text"}
+      step={field.kind === "number" ? 1 : undefined}
+      min={field.kind === "number" ? 0 : undefined}
       hint={hint}
     />
   );
