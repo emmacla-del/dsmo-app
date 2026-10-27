@@ -358,6 +358,10 @@ export class AuthController {
         promoterPhone2: body.promoterPhone2,
       },
       { ...territoryFromUser(req.user), id: req.user.id },
+      {
+        ipAddress: req.ip ?? req.socket?.remoteAddress,
+        userAgent: req.get?.('user-agent') ?? req.headers?.['user-agent'],
+      },
     );
   }
 

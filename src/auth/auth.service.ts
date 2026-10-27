@@ -639,6 +639,8 @@ export class AuthService {
       registrationRequestId?: string;
       createdBy?: string | null;
       assigneeId?: string | null;
+      ipAddress?: string;
+      userAgent?: string;
       /**
        * Forces the file into the review queue even when its entity type is in
        * AUTO_APPROVE_ENTITY_TYPES. Set by the assisted route per DECISION 2:
@@ -805,20 +807,17 @@ export class AuthService {
           establishmentIdGeneratedAt: new Date(),
         },
       });
-        return { user, company };
-      });
-
-      // Issuance journal. The migration's sequence seed also reads these
-      // rows, so a number whose company is later deleted is never reissued.
-      // Attributed to the acting admin on the assisted route, to the
-      // registrant otherwise. Losing it must not undo the registration.
-      await this.prisma.auditLog
-        .create({
+        // Keep both registration journal entries in the same transaction as
+        // the account and company. If either audit insert fails, none of the
+        // registration writes may commit without its audit trail.
+        await tx.auditLog.create({
           data: {
             userId: attribution.createdBy ?? user.id,
             action: 'COMPANY_ESTABLISHMENT_ID_ISSUED',
             resourceType: 'Company',
             resourceId: company.id,
+            ipAddress: attribution.ipAddress,
+            userAgent: attribution.userAgent,
             details: {
               establishmentId,
               companyId: company.id,
@@ -827,12 +826,32 @@ export class AuthService {
               registrationMethod: attribution.registrationMethod,
             },
           },
-        })
-        .catch((error: any) => {
-          this.logger.error(
-            `Failed to audit establishment ID ${establishmentId} issuance: ${(error as Error).message}`,
-          );
         });
+
+        if (attribution.registrationMethod === 'ASSISTED') {
+          await tx.auditLog.create({
+            data: {
+              userId: attribution.createdBy ?? user.id,
+              action: 'COMPANY_REGISTRATION_ASSISTED',
+              resourceType: 'User',
+              resourceId: user.id,
+              ipAddress: attribution.ipAddress,
+              userAgent: attribution.userAgent,
+              details: {
+                email,
+                companyId: company.id,
+                organisation: company.name,
+                entityType: company.entityType,
+                region: resolvedTerritory.region,
+                department: resolvedTerritory.department,
+                registrationMethod: 'ASSISTED',
+              },
+            },
+          });
+        }
+
+        return { user, company };
+      });
 
       // Auto-approval: activate the account and create its -01 Establishment
       // in one transaction, reusing the ID generated above, so a failure here
@@ -983,6 +1002,7 @@ export class AuthService {
   async adminRegisterCompany(
     companyData: CompanyRegistrationData & { email: string },
     actor: Territory & { id: string },
+    requestMetadata: { ipAddress?: string; userAgent?: string } = {},
   ) {
     const resolved = await resolveAndValidateTerritory(
       this.prisma,
@@ -1013,33 +1033,11 @@ export class AuthService {
         registrationMethod: 'ASSISTED',
         createdBy: actor.id,
         assigneeId: actor.id,
+        ipAddress: requestMetadata.ipAddress,
+        userAgent: requestMetadata.userAgent,
         skipAutoApproval: true,
       },
     );
-
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actor.id,
-        action: 'COMPANY_REGISTRATION_ASSISTED',
-        resourceType: 'User',
-        resourceId: created.user.id,
-        details: {
-          email,
-          companyId: created.company.id,
-          organisation: created.company.name,
-          entityType: created.company.entityType,
-          region: resolved.region,
-          department: resolved.department,
-          registrationMethod: 'ASSISTED',
-        },
-      },
-    }).catch((error: any) => {
-      // The registration itself succeeded; losing its journal entry must not
-      // undo it or fail the admin's request.
-      this.logger.error(
-        `Failed to audit assisted registration of user ${created.user.id}: ${(error as Error).message}`,
-      );
-    });
 
     return {
       user: toPublicUser(created.user),
