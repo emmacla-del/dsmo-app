@@ -4,7 +4,7 @@ import { QuestionnairesService } from './questionnaires.service';
 import { buildAdminListWhere } from './admin-list-filter';
 
 type ListArgs = {
-  status?: string; limit?: string; offset?: string; region?: string;
+  status?: string; statuses?: string; limit?: string; offset?: string; region?: string;
   search?: string; formType?: string; period?: string; companyId?: string; sort?: string;
   department?: string; campaignId?: string; quarterCode?: string; late?: string; overdue?: string;
 };
@@ -15,7 +15,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   const req = { user: { id: 'a1', role: 'REGIONAL_ADMIN', region: 'Littoral' } };
   const getAll = (a: ListArgs = {}) =>
     controller.getAll(
-      a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period,
+      a.status, a.statuses, a.limit, a.offset, a.region, a.search, a.formType, a.period,
       a.companyId, a.sort, a.department, a.campaignId, a.quarterCode,
       a.late, a.overdue, req,
     );
@@ -145,7 +145,7 @@ describe('AdminQuestionnairesController.exportDossiers', () => {
   it('exports exactly the rows the list filters select', async () => {
     await controller.exportDossiers(
       'xlsx', 'APPROVED', 'Centre', 'Moungo', 'mbarga', 'COOPERATIVE', '30d',
-      'comp-1', 'campaign-1', '2026-T4', '1', 'true', req, res as any,
+      'comp-1', 'campaign-1', '2026-T4', '1', 'true', undefined, req, res as any,
     );
     expect(service.streamDossiersExport).toHaveBeenCalledWith(
       {
@@ -162,7 +162,7 @@ describe('AdminQuestionnairesController.exportDossiers', () => {
 
   it('refuses an invalid filter rather than streaming a wider export', async () => {
     await expect(
-      controller.exportDossiers('csv', 'APPROVED', undefined, undefined, undefined, undefined, 'all', undefined, undefined, undefined, undefined, undefined, req, res as any),
+      controller.exportDossiers('csv', 'APPROVED', undefined, undefined, undefined, undefined, 'all', undefined, undefined, undefined, undefined, undefined, undefined, req, res as any),
     ).rejects.toThrow('Période inconnue.');
     expect(service.streamDossiersExport).not.toHaveBeenCalled();
   });

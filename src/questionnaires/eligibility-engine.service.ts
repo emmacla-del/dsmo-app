@@ -270,11 +270,22 @@ export class EligibilityEngineService {
   // (queue | completed | all). Completed includes SUPERSEDED; queue excludes it.
   // Counts are territory-scoped and ignore type/region/period/search filters.
   // See docs/plans/admin-modules-phase1-contract.md C.2.
-  async getPilotageQueues(territory?: Territory): Promise<PilotageQueues> {
-    // Drafts are respondents' unsubmitted work, and a replaced file
-    // (SUPERSEDED) is counted once, as the file that replaced it.
+  async getPilotageQueues(
+    territory?: Territory,
+    view: PilotageQueues['countsView'] | string = 'all',
+  ): Promise<PilotageQueues> {
+    if (!['queue', 'completed', 'all'].includes(view)) {
+      throw new BadRequestException(`Unknown dossier counts view: ${view}.`);
+    }
+    const countsView = view as PilotageQueues['countsView'];
+    // Drafts are respondents' unsubmitted work. Queue/all preserve the
+    // current status set; completed deliberately counts terminal decisions,
+    // including replaced records (SUPERSEDED).
+    const statusFilter = countsView === 'completed'
+      ? { status: { in: [OnefopStatus.APPROVED, OnefopStatus.REJECTED, OnefopStatus.SUPERSEDED] } }
+      : { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } };
     const baseWhere: any = {
-      AND: [territoryWhere(territory), { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } }],
+      AND: [territoryWhere(territory), statusFilter],
     };
 
     // Kept deliberately narrow: four round trips, never more than two at once.
@@ -333,6 +344,7 @@ export class EligibilityEngineService {
       APPROVED: 0,
       CORRECTION_REQUESTED: 0,
       REJECTED: 0,
+      SUPERSEDED: 0,
     };
     let totalSubmissionsCount = 0;
     for (const g of statusGroups) {
@@ -344,6 +356,7 @@ export class EligibilityEngineService {
     const reviewDelay = await this.getReviewDelay(territory);
 
     return {
+      countsView,
       totalSubmissionsCount,
       blockingAnomaliesCount,
       pendingNationalVisasCount: statusCounts.PENDING_REVIEW,

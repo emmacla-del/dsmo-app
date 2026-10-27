@@ -505,11 +505,14 @@ import { QuestionnairesService } from './questionnaires.service';
 
 describe('QuestionnairesService.reject — companion fixes', () => {
   function buildService(existingStatus: string) {
-    const submission = { id: 's1', status: existingStatus, region: 'Centre', department: 'Mfoundi' };
+    const submission = { id: 's1', status: existingStatus, updatedAt: new Date('2026-01-01T00:00:00.000Z'), region: 'Centre', department: 'Mfoundi' };
     const prisma: any = {
+      $transaction: jest.fn(async (callback: any) => callback(prisma)),
       onefopSubmission: {
         findFirst: jest.fn(async () => submission),
         update: jest.fn(async (args: any) => ({ ...submission, ...args.data })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUnique: jest.fn(async () => submission),
       },
       auditLog: { create: jest.fn(async () => ({})) },
     };
@@ -579,7 +582,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
 
     const queues = await engine.getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
 
-    expect(queues.statusCounts).toEqual({ PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 100 });
+    expect(queues.statusCounts).toEqual({ PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 100, SUPERSEDED: 0 });
     expect(queues.approvedCount).toBe(700);
     expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
     // Aggregates use the same territory filter as the other queue counts,
@@ -701,7 +704,8 @@ describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', (
       pendingNationalVisasCount: 400,
       correctionsUnderReviewCount: 0,
       statisticallyReadyCount: 650,
-      statusCounts: { PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 0 },
+      countsView: 'all',
+      statusCounts: { PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 0, SUPERSEDED: 0 },
       approvedCount: 700,
       regionCounts: [{ region: 'Littoral', count: 1100 }],
       reviewDelay: {

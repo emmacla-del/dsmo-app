@@ -71,6 +71,7 @@ function optionalFlag(raw: unknown, message: string): boolean | undefined {
  */
 function parseAdminListFilters(params: {
   status?: unknown;
+  statuses?: unknown;
   formType?: unknown;
   period?: unknown;
   region?: unknown;
@@ -82,10 +83,27 @@ function parseAdminListFilters(params: {
   late?: unknown;
   overdue?: unknown;
 }): AdminListFilters {
-  // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
   const statusFilter = optionalText(params.status);
   if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
     throw new BadRequestException('Statut de dossier inconnu.');
+  }
+  let statusesFilter: string[] | undefined;
+  if (params.statuses !== undefined) {
+    if (params.status !== undefined && params.status !== null) {
+      throw new BadRequestException('Les paramètres status et statuses ne peuvent pas être utilisés ensemble.');
+    }
+    const requested = typeof params.statuses === 'string'
+      ? params.statuses.split(',').map((value) => value.trim()).filter(Boolean)
+      : [];
+    if (requested.length === 0) {
+      throw new BadRequestException('Le paramètre statuses doit contenir au moins un statut.');
+    }
+    const invalid = requested.find((value) => value === 'OVERDUE' || !ADMIN_LIST_STATUSES.includes(value));
+    if (invalid === 'OVERDUE') {
+      throw new BadRequestException('OVERDUE est un statut dérivé; utilisez overdue=true.');
+    }
+    if (invalid) throw new BadRequestException(`Statut de dossier inconnu: ${invalid}.`);
+    statusesFilter = [...new Set(requested)];
   }
   const typeFilter = optionalText(params.formType);
   if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
@@ -97,6 +115,7 @@ function parseAdminListFilters(params: {
   }
   return {
     status: statusFilter,
+    ...(statusesFilter ? { statuses: statusesFilter } : {}),
     formType: typeFilter,
     period: periodFilter as AdminListPeriod | undefined,
     region: optionalText(params.region),
@@ -158,9 +177,9 @@ export class AdminQuestionnairesController {
    */
   @Get('pilotage/queues')
   @Roles(...DOSSIER_READ_ROLES)
-  async getQueues(@Request() req: any) {
+  async getQueues(@Query('view') view: string | undefined, @Request() req: any) {
     const territory = territoryFromUser(req.user);
-    return this.eligibilityEngine.getPilotageQueues(territory);
+    return this.eligibilityEngine.getPilotageQueues(territory, view);
   }
 
   /**
@@ -223,6 +242,7 @@ export class AdminQuestionnairesController {
   @Roles(...DOSSIER_READ_ROLES)
   async getAll(
     @Query('status') status?: string,
+    @Query('statuses') statuses?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('region') region?: string,
@@ -243,7 +263,7 @@ export class AdminQuestionnairesController {
       throw new BadRequestException('Ordre de tri inconnu.');
     }
     const filters = parseAdminListFilters({
-      status, formType, period, region, department, search, companyId,
+      status, statuses, formType, period, region, department, search, companyId,
       campaignId, quarterCode, late, overdue,
     });
     return this.service.listForAdmin(
@@ -299,12 +319,13 @@ export class AdminQuestionnairesController {
     @Query('quarterCode') quarterCode?: string,
     @Query('late') late?: string,
     @Query('overdue') overdue?: string,
+    @Query('statuses') statuses?: string,
     @Request() req?: any,
     @Res() res?: Response,
   ) {
     const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
     const filters = parseAdminListFilters({
-      status, formType, period, region, department, search, companyId,
+      status, statuses, formType, period, region, department, search, companyId,
       campaignId, quarterCode, late, overdue,
     });
     await this.service.streamDossiersExport(

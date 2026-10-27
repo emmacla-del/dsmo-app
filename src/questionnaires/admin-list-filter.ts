@@ -9,6 +9,7 @@ import { reviewOverdueBefore } from './review-delay';
  */
 export interface AdminListFilters {
   status?: string;
+  statuses?: string[];
   region?: string;
   department?: string;
   search?: string;
@@ -66,9 +67,14 @@ export function buildAdminListWhere(
   // docs/plans/admin-modules-phase1-contract.md C.2.
   // A file replaced by a newer submission (SUPERSEDED) is closed: out of the
   // list unless asked for by its status, as the file it points to is there.
-  const hidden = filters.status === OnefopStatus.SUPERSEDED ? [OnefopStatus.DRAFT] : [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED];
+  const explicitlyIncludesSuperseded = filters.status === OnefopStatus.SUPERSEDED
+    || filters.statuses?.includes(OnefopStatus.SUPERSEDED) === true;
+  const hidden = explicitlyIncludesSuperseded
+    ? [OnefopStatus.DRAFT]
+    : [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED];
   const and: Record<string, unknown>[] = [territoryWhere(territory), { status: { notIn: hidden } }];
-  if (filters.status) and.push({ status: filters.status });
+  if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
+  else if (filters.status) and.push({ status: filters.status });
   if (filters.formType) and.push({ formType: filters.formType });
   if (filters.companyId) and.push({ companyId: filters.companyId });
   if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });

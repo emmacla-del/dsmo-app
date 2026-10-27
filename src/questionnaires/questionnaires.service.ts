@@ -3592,12 +3592,20 @@ export class QuestionnairesService {
           administrationDetail: true,
           projectProgramDetail: true,
           vocationalTrainingDetail: true,
+          campaign: { select: { name: true } },
           anomalies: true,
         },
       }),
       (this.prisma as any).onefopSubmission.count({ where }),
     ]);
-    return { items, total };
+    const projectedItems = items.map(({ campaign, ...item }: any) => ({
+      ...item,
+      campaignName: campaign?.name ?? null,
+      reviewedBy: item.reviewedBy ?? null,
+      reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
+      rejectionReason: item.rejectionReason ?? null,
+    }));
+    return { items: projectedItems, total };
   }
 
   async listByStatus(status: string, limit: number, offset: number, territory?: Territory) {
