@@ -31,6 +31,7 @@ function sequenceQueryRaw() {
 }
 
 function makePrisma() {
+  const persisted = { users: [] as any[], companies: [] as any[] };
   const prisma: any = {
     user: {
       findUnique: jest.fn(async () => null),
@@ -71,8 +72,35 @@ function makePrisma() {
     },
     auditLog: { create: jest.fn(async () => ({})) },
     $queryRaw: sequenceQueryRaw(),
+    persisted,
   };
-  prisma.$transaction = jest.fn(async (callback: (tx: any) => any) => callback(prisma));
+  prisma.$transaction = jest.fn(async (callback: (tx: any) => any) => {
+    const users: any[] = [];
+    const companies: any[] = [];
+    const tx = {
+      ...prisma,
+      user: {
+        ...prisma.user,
+        create: jest.fn(async (args: any) => {
+          const user = await prisma.user.create(args);
+          users.push(user);
+          return user;
+        }),
+      },
+      company: {
+        ...prisma.company,
+        create: jest.fn(async (args: any) => {
+          const company = await prisma.company.create(args);
+          companies.push(company);
+          return company;
+        }),
+      },
+    };
+    const result = await callback(tx);
+    persisted.users.push(...users);
+    persisted.companies.push(...companies);
+    return result;
+  });
   return prisma;
 }
 
@@ -189,7 +217,10 @@ describe('AuthService.adminRegisterCompany', () => {
   });
 
   it('journals the assisted registration against the acting admin', async () => {
-    await service.adminRegisterCompany(body(), LITTORAL_ADMIN as any);
+    await service.adminRegisterCompany(body(), LITTORAL_ADMIN as any, {
+      ipAddress: '192.0.2.10',
+      userAgent: 'Mozilla/5.0 test',
+    });
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -198,9 +229,35 @@ describe('AuthService.adminRegisterCompany', () => {
           action: 'COMPANY_REGISTRATION_ASSISTED',
           resourceType: 'User',
           resourceId: 'new-user',
+          ipAddress: '192.0.2.10',
+          userAgent: 'Mozilla/5.0 test',
         }),
       }),
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'COMPANY_ESTABLISHMENT_ID_ISSUED',
+          ipAddress: '192.0.2.10',
+          userAgent: 'Mozilla/5.0 test',
+        }),
+      }),
+    );
+  });
+
+  it('rolls back the account and company if an audit insert fails', async () => {
+    prisma.auditLog.create
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('audit storage unavailable'));
+
+    await expect(service.adminRegisterCompany(body(), LITTORAL_ADMIN as any)).rejects.toThrow(
+      'audit storage unavailable',
+    );
+
+    expect(prisma.user.create).toHaveBeenCalledTimes(1);
+    expect(prisma.company.create).toHaveBeenCalledTimes(1);
+    expect(prisma.persisted.users).toHaveLength(0);
+    expect(prisma.persisted.companies).toHaveLength(0);
   });
 });
 
