@@ -1,5 +1,5 @@
 /* Cache only the public registration shell and immutable Next.js assets. */
-const CACHE_NAME = "camleap-registration-v1";
+const CACHE_NAME = "camleap-registration-v2";
 const REGISTRATION_PATH = /(?:^|\/)register\/?$/;
 const STATIC_PREFIX = "/_next/static/";
 
@@ -87,6 +87,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith(STATIC_PREFIX)) {
+    // Next.js development chunks can change at a stable URL between restarts.
+    // Keep them network-only on localhost so the worker cannot mask HMR/source updates.
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return;
+
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(request);

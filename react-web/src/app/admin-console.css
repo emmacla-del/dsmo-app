@@ -1044,6 +1044,206 @@
   padding: var(--cam-space-5);
 }
 
+/* Assisted registration: a guided, compact form that keeps the steps easy to scan. */
+.cam-assisted-registration-page {
+  --cam-registration-content-width: 760px;
+}
+
+.cam-assisted-registration-lede,
+.cam-registration-steps,
+.cam-assisted-registration-form {
+  width: min(100%, var(--cam-registration-content-width));
+  margin-inline: auto;
+}
+
+.cam-registration-steps {
+  overflow-x: auto;
+  padding: 0 0 var(--cam-space-1);
+  scrollbar-width: thin;
+}
+
+.cam-registration-steps ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(max-content, 1fr));
+  min-width: 620px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-registration-steps li {
+  position: relative;
+}
+
+.cam-registration-steps li:not(:last-child)::after {
+  position: absolute;
+  top: 16px;
+  left: calc(50% + 22px);
+  width: calc(100% - 44px);
+  height: 1px;
+  background: var(--cam-border);
+  content: "";
+}
+
+.cam-registration-steps a {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: 0 var(--cam-space-2);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cam-registration-steps a:hover,
+.cam-registration-steps a:focus-visible {
+  color: var(--cam-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cam-registration-step-number,
+.cam-registration-section-number {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: 50%;
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-assisted-registration-form {
+  display: grid;
+  gap: var(--cam-space-5);
+  padding-bottom: 96px;
+}
+
+.cam-registration-form-section {
+  scroll-margin-top: calc(var(--cam-space-5) + 16px);
+}
+
+.cam-registration-form-section .cam-admin-section-head {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+}
+
+.cam-registration-section-number {
+  border-color: var(--cam-border-strong, var(--cam-border));
+}
+
+.cam-registration-section-heading {
+  display: grid;
+  gap: var(--cam-space-1);
+}
+
+.cam-registration-section-heading p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-base);
+}
+
+.cam-entity-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+}
+
+.cam-entity-type-option {
+  display: flex;
+  min-height: 76px;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
+  cursor: pointer;
+  font-weight: 400;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.cam-entity-type-option:hover {
+  border-color: var(--cam-text-muted);
+  background: var(--cam-surface-subtle, var(--cam-surface));
+}
+
+.cam-entity-type-option[data-selected="true"] {
+  border-color: var(--cam-primary);
+  background: var(--cam-primary-subtle, var(--cam-surface));
+  box-shadow: 0 0 0 1px var(--cam-primary);
+}
+
+.cam-entity-type-option:has([role="radio"]:focus-visible) {
+  outline: 2px solid var(--cam-focus-ring, var(--cam-primary));
+  outline-offset: 2px;
+}
+
+.cam-entity-type-option > span:last-child {
+  min-width: 0;
+}
+
+.cam-assisted-registration-form .cam-assisted-field-grid {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 640px;
+  gap: 0;
+  align-items: start;
+}
+
+.cam-assisted-registration-form .cam-admin-kv {
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-registration-form-actions {
+  position: sticky;
+  z-index: 10;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-3);
+  margin-inline: calc(-1 * var(--cam-space-4));
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: color-mix(in srgb, var(--cam-surface) 94%, transparent);
+  box-shadow: 0 -8px 24px rgb(15 23 42 / 8%);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 639px) {
+  .cam-entity-type-grid,
+  .cam-assisted-registration-form .cam-assisted-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-registration-steps ol {
+    min-width: 560px;
+  }
+
+  .cam-registration-steps a {
+    gap: var(--cam-space-1);
+    padding-inline: var(--cam-space-1);
+  }
+
+  .cam-registration-form-actions {
+    margin-inline: calc(-1 * var(--cam-space-3));
+    border-radius: var(--cam-radius-md);
+  }
+}
+
 /* A table directly inside a section drops its own frame. */
 .cam-admin-section > .cam-table-wrapper {
   border: none;

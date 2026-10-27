@@ -321,9 +321,15 @@ export default function NouvelleInscriptionPage() {
 
   const entityOption = entityType ? ENTITY_OPTIONS.find((option) => option.type === entityType) : undefined;
   const selectPlaceholder = t("adminInscriptionsNouvellePage.selectPlaceholder");
+  const registrationSteps = [
+    { id: "registration-step-entity", label: t("adminInscriptionsNouvellePage.stepEntity") },
+    { id: "registration-step-identification", label: t("adminInscriptionsNouvellePage.stepIdentification") },
+    { id: "registration-step-respondent", label: t("adminInscriptionsNouvellePage.stepRespondent") },
+    { id: "registration-step-location", label: t("adminInscriptionsNouvellePage.stepLocation") },
+  ];
 
   return (
-    <div className="cam-admin-page">
+    <div className="cam-admin-page cam-assisted-registration-page">
       <AdminPageHeader
         breadcrumb={[
           { label: t("adminNav.hubs.inscriptions") },
@@ -334,7 +340,20 @@ export default function NouvelleInscriptionPage() {
         backHref="/admin/inscriptions"
       />
 
-      <p className="cam-admin-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
+      <p className="cam-admin-lede cam-assisted-registration-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
+
+      <nav className="cam-registration-steps" aria-label={t("adminInscriptionsNouvellePage.stepsAriaLabel")}>
+        <ol>
+          {registrationSteps.map(({ id, label }, index) => (
+            <li key={id}>
+              <a href={`#${id}`}>
+                <span className="cam-registration-step-number" aria-hidden="true">{index + 1}</span>
+                <span>{label}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
       {error && (
         <Alert ref={errorRef} tabIndex={-1} variant="destructive" className="mb-6 flex items-center justify-between gap-4">
@@ -344,15 +363,16 @@ export default function NouvelleInscriptionPage() {
       )}
 
       <form
+        className="cam-assisted-registration-form"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
       >
-        <Section title={t("adminInscriptionsNouvellePage.entityTypeTitle")}>
-          <RadioGroup aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} value={entityType ?? ""} onValueChange={(value) => chooseEntityType(value as EntityType)} className="grid gap-x-6 sm:grid-cols-2">
+        <Section id="registration-step-entity" step={1} title={t("adminInscriptionsNouvellePage.entityTypeTitle")} description={t("adminInscriptionsNouvellePage.entityTypeDescription")}>
+          <RadioGroup aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} value={entityType ?? ""} onValueChange={(value) => chooseEntityType(value as EntityType)} className="cam-entity-type-grid">
             {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }) => (
-              <Label key={type} htmlFor={`entity-${type}`} className="flex cursor-pointer items-start gap-3 py-2 font-normal">
+              <Label key={type} htmlFor={`entity-${type}`} data-selected={entityType === type} className="cam-entity-type-option">
                 <RadioGroupItem id={`entity-${type}`} value={type} />
                 <span className="grid gap-1"><span className="font-medium">{t(labelKey)}</span>{hintKey && <span className="text-sm text-muted-foreground">{t(hintKey)}</span>}</span>
               </Label>
@@ -360,31 +380,17 @@ export default function NouvelleInscriptionPage() {
           </RadioGroup>
         </Section>
 
-        <Section title={t("registerPage.respondentTitle")}>
-          <FieldGrid>
-            <Text label={t("registerPage.firstNameLabel")} required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
-            <Text label={t("registerPage.lastNameLabel")} required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
-            <Text label={t("adminInscriptionsNouvellePage.emailLabel")} required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
-              hint={t("adminInscriptionsNouvellePage.emailRoleHint")}
-              after={
-                <span aria-live="polite" aria-atomic="true">
-                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("registerPage.emailUnavailable")}</span>}
-                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("registerPage.emailAvailable")}</span>}
-                </span>
-              }
-            />
-            <Text label={t("registerPage.functionLabel")} value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
-            <Text label={t("adminInscriptionsNouvellePage.phone1Label")} type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
-            <Text label={t("registerPage.phone2Label")} type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
-          </FieldGrid>
-        </Section>
-
-        {config && (
-          <Section
-            title={t("adminInscriptionsNouvellePage.identificationTitle", {
-              entityType: entityOption ? t(entityOption.labelKey) : localized(config.title, locale),
-            })}
-          >
+        <Section
+          id="registration-step-identification"
+          step={2}
+          title={config
+            ? t("adminInscriptionsNouvellePage.identificationTitle", {
+                entityType: entityOption ? t(entityOption.labelKey) : localized(config.title, locale),
+              })
+            : t("adminInscriptionsNouvellePage.identificationStepTitle")}
+          description={t(config ? "adminInscriptionsNouvellePage.identificationDescription" : "adminInscriptionsNouvellePage.chooseEntityFirst")}
+        >
+          {config ? <>
             {sectorLookupState !== "ready" && sectorLookupRequired && (
               <DataState
                 state={sectorLookupState}
@@ -411,10 +417,29 @@ export default function NouvelleInscriptionPage() {
                 />
               ))}
             </FieldGrid>
-          </Section>
-        )}
+          </> : null}
+        </Section>
 
-        <Section title={t("registerPage.locationTitle")}>
+        <Section id="registration-step-respondent" step={3} title={t("registerPage.respondentTitle")} description={t("adminInscriptionsNouvellePage.respondentDescription")}>
+          <FieldGrid>
+            <Text label={t("registerPage.firstNameLabel")} required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
+            <Text label={t("registerPage.lastNameLabel")} required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
+            <Text label={t("adminInscriptionsNouvellePage.emailLabel")} required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
+              hint={t("adminInscriptionsNouvellePage.emailRoleHint")}
+              after={
+                <span aria-live="polite" aria-atomic="true">
+                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("registerPage.emailUnavailable")}</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("registerPage.emailAvailable")}</span>}
+                </span>
+              }
+            />
+            <Text label={t("registerPage.functionLabel")} value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
+            <Text label={t("adminInscriptionsNouvellePage.phone1Label")} type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
+            <Text label={t("registerPage.phone2Label")} type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
+          </FieldGrid>
+        </Section>
+
+        <Section id="registration-step-location" step={4} title={t("registerPage.locationTitle")} description={t("adminInscriptionsNouvellePage.locationDescription")}>
           {territoryLookupState !== "ready" && (
             <DataState
               state={territoryLookupState}
@@ -473,7 +498,7 @@ export default function NouvelleInscriptionPage() {
           </FieldGrid>
         </Section>
 
-        <div className="mb-10 mt-2 flex flex-wrap items-center gap-3">
+        <div className="cam-registration-form-actions">
           <Button type="submit" disabled={mutation.isPending || !requiredLookupsReady}>
             {mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
@@ -573,11 +598,15 @@ export default function NouvelleInscriptionPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, step, title, description, children }: { id: string; step: number; title: string; description?: string; children: React.ReactNode }) {
   return (
-    <section className="cam-admin-section mb-6">
+    <section id={id} className="cam-admin-section cam-registration-form-section" aria-labelledby={`${id}-title`}>
       <div className="cam-admin-section-head">
-        <h2 className="cam-admin-h2">{title}</h2>
+        <span className="cam-registration-section-number" aria-hidden="true">{step}</span>
+        <div className="cam-registration-section-heading">
+          <h2 id={`${id}-title`} className="cam-admin-h2">{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
       </div>
       <div className="cam-admin-section-body">{children}</div>
     </section>
@@ -586,7 +615,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FieldGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-4">
+    <div className="cam-assisted-field-grid grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-4">
       {children}
     </div>
   );

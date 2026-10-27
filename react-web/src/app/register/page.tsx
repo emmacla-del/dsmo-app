@@ -19,7 +19,6 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
-  REGISTRATION_STEPS,
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
@@ -59,7 +58,6 @@ import {
 import { bundledSubdivisions } from "@/lib/location-nomenclature";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
-  lastFieldId,
   missingFieldsToReport,
   type NameResolvers,
 } from "@/lib/register-required";
@@ -87,25 +85,20 @@ import {
   passwordStrengthBand,
   validatePassword,
 } from "@/lib/password-strength";
-import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
+import { type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { BlankOption } from "@/components/auth/BlankOption";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
-import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { StepHeader } from "@/components/auth/StepHeader";
 
-// CAM-LEAP Official Administrative Registration Wizard
-// 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
-// Visual standard: Serious, structured national administrative interface with emerald administrative frame
+// CAM-LEAP public self-registration form.
+// Sections stay in one vertical form; validation runs when the respondent submits.
 
-// Single source of truth lives in register-constants.ts, shared with
-// RegistrationProgress so the navigation order and the rail labels cannot drift.
 const STEPS = REGISTRATION_STEP_IDS;
-const LAST_INDEX = STEPS.length - 1;
 
 // How long a reset notice stays on screen. Long enough to read a sentence,
 // short enough not to sit over the form the respondent went back to.
@@ -199,11 +192,8 @@ export default function RegisterPage() {
   // src/i18n/request.ts and handed down by NextIntlClientProvider.
   const locale = asUiLocale(useLocale());
   const router = useRouter();
-  // `reached` is the highest revealed section index: everything past it is
-  // locked on the rail. `current` is the one section the frame shows. Both
-  // are needed, and neither derives from the other -- the rail lets the
-  // respondent go back to an answered section without un-revealing the ones
-  // after it.
+  // Retained in the saved-draft format so older drafts restore cleanly.
+  // Sections are all visible regardless of these cursor values.
   const [reached, setReached] = useState(0);
   const [current, setCurrent] = useState(0);
   const [certified, setCertified] = useState(false);
@@ -235,12 +225,8 @@ export default function RegisterPage() {
   // Continuer. A flag only, like flaggedIds: the message is re-derived from
   // the value, so it goes the moment the answer is corrected.
   const [leftIds, setLeftIds] = useState<readonly string[]>([]);
-  // Focus on a section change. The section being left is `hidden`, so
-  // whatever had focus inside it drops to <body> and a keyboard or
-  // screen-reader user is nowhere. Every navigation that changes the section
-  // sets this flag, and an effect below moves focus to
-  // the new section's heading once it is on screen -- which also has the
-  // screen reader announce where the respondent now is.
+  // Focus the heading after a review edit jump so the respondent knows where
+  // they landed in the continuous form.
   //
   // A ref, not state: it must not cause a render. Navigation that has to
   // focus a specific control instead (a failed submit lands on the failing
@@ -925,35 +911,48 @@ export default function RegisterPage() {
   async function handleSubmitPress() {
     setSubmitError(null);
     const failure = firstFailure();
-    if (!failure) {
-      await submit();
+    if (failure) {
+      const missing = STEPS.flatMap((step) =>
+        missingFieldsToReport(step, regState, nameResolvers)
+      );
+      setFlaggedIds(missing.map((field) => field.id));
+      setMissingAnnounced(missing.length);
+      setFormatFlagId(failure.focusId ?? null);
+      const focusId = failure.focusId;
+      if (focusId) {
+        setLeftIds((previous) => previous.includes(focusId)
+          ? previous
+          : [...previous, focusId]);
+      }
+      setSubmitError(failure.message);
+      setReached((previous) => Math.max(previous, failure.index));
+      headingFocusPendingRef.current = false;
+      setCurrent(failure.index);
+      requestAnimationFrame(() => {
+        const control = failure.focusId ? document.getElementById(failure.focusId) : null;
+        openDetailsAround(control);
+        if (control) {
+          control.focus();
+        } else {
+          firstEntityRadioRef.current?.focus();
+        }
+      });
       return;
     }
 
-    setSubmitError(failure.message);
-    // The failing section may not be revealed yet (a restored draft can reach
-    // review with an earlier gap), so open it before showing it.
-    setReached((prev) => Math.max(prev, failure.index));
-    // The failing control takes focus below, not the section heading.
-    headingFocusPendingRef.current = false;
-    setCurrent(failure.index);
-    requestAnimationFrame(() => {
-      // The frame swaps to the failing section; put the page back to the top
-      // so the error banner above the section is the first thing on screen,
-      // then let focusing the control scroll the page the rest of the way if
-      // the field sits below the fold.
-      scrollPageTop();
-      const control = failure.focusId ? document.getElementById(failure.focusId) : null;
-      openDetailsAround(control);
-      if (control) {
-        control.focus();
-      } else {
-        firstEntityRadioRef.current?.focus();
-      }
-    });
+    if (!certified) {
+      setCertifyFlagged(true);
+      const box = document.getElementById("reg-certify");
+      box?.focus();
+      box?.scrollIntoView({ block: "nearest" });
+      return;
+    }
+
+    await submit();
   }
 
-  // Intercept Enter key to navigate sequentially between form fields
+  // Enter moves through the vertical form; on the last control, the browser
+  // submits through the same validation path as the visible submit button.
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== "Enter") return;
 
@@ -976,21 +975,14 @@ export default function RegisterPage() {
     const fieldIndex = formFields.indexOf(target);
     if (fieldIndex === -1) return;
 
-    e.preventDefault();
-
     if (e.shiftKey) {
+      e.preventDefault();
       if (fieldIndex > 0) {
         formFields[fieldIndex - 1].focus();
       }
     } else if (fieldIndex < formFields.length - 1) {
+      e.preventDefault();
       formFields[fieldIndex + 1].focus();
-    } else if (target.id && target.id === currentLastFieldId) {
-      // Trigger (c). Enter on the section's last field is the keyboard way of
-      // saying "done here": if something required is missing it says so, and
-      // if not it moves on, which is what the respondent asked for. Reading
-      // currentLastFieldId straight from the render closure is safe -- a
-      // keydown can only arrive after the component body has finished.
-      if (current < LAST_INDEX) tryContinue();
     }
   };
 
@@ -1241,12 +1233,9 @@ export default function RegisterPage() {
   // Which of the four requirements are met, for the tips under the input.
 
   // ── Progressive disclosure ─────────────────────────────────────────────
-  const completed = STEPS.map((id) => isSectionComplete(id, regState));
-
   const hasEnteredData = draftHasData(regState);
 
-  // regState plus the administrative names: the snapshot the review card and
-  // the rail's per-section summaries are both built from.
+  // regState plus the administrative names used by the final review.
   const summaryState: SummaryState = {
     ...regState,
     regionName: resolvedRegionName || "",
@@ -1256,47 +1245,21 @@ export default function RegisterPage() {
     branchNameEn: resolvedBranchNameEn,
   };
 
-  // One line per section for the rail's tooltips, from the same rows the
-  // review card prints. Derived at render time, never cached, so an edit
-  // elsewhere cannot leave a stale line on a circle.
-  const railSummaries = STEPS.map((id) =>
-    sectionSummary(summaryRows(id, summaryState, (k) => t(k), locale))
-  );
-
   // ── Navigation ─────────────────────────────────────────────────────────
-  // The DOCUMENT is the only scroll container (no scroller inside the frame --
-  // owner's decision, 2026-10-10), so "go to a section" is a scroll of the
-  // page back to its top. Instant, not smooth: the frame's content is swapped
-  // at the same moment, so there is nothing to animate past.
-  function scrollPageTop() {
-    window.scrollTo({ top: 0, behavior: "instant" });
+  function scrollToSection(step: RegistrationStepId) {
+    document
+      .getElementById(`registration-section-${step}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // Called by the rail. A locked section is not reachable -- the rail renders
-  // it as a disabled button, and this is the second line of that defence.
+  // Review edits jump back to the corresponding section in the form.
   function goToSection(index: number) {
-    // Trigger (d): a locked item is a question, not a dead end. The rail
-    // renders it aria-disabled rather than disabled precisely so the click
-    // lands here and can say WHY it is locked.
-    if (index < 0 || index > reached) {
-      promptMissing();
-      return;
-    }
+    const step = STEPS[index];
+    if (!step) return;
     clearFlags();
     if (index !== current) headingFocusPendingRef.current = true;
     setCurrent(index);
-    requestAnimationFrame(scrollPageTop);
-  }
-
-  // Move forward from `index`, revealing the next section if it was locked.
-  function advanceFrom(index: number) {
-    const next = Math.min(index + 1, LAST_INDEX);
-    if (next === index) return;
-    clearFlags();
-    headingFocusPendingRef.current = true;
-    setReached((prev) => Math.max(prev, next));
-    setCurrent(next);
-    requestAnimationFrame(scrollPageTop);
+    requestAnimationFrame(() => scrollToSection(step));
   }
 
   // ── Entity-type change ─────────────────────────────────────────────────
@@ -1324,7 +1287,7 @@ export default function RegisterPage() {
       setReached((prev) => Math.max(prev, infoIndex));
       if (current !== infoIndex) headingFocusPendingRef.current = true;
       setCurrent(infoIndex);
-      requestAnimationFrame(scrollPageTop);
+      requestAnimationFrame(() => scrollToSection("entityInfo"));
       setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
       forceSaveRef.current = true;
     } else {
@@ -1395,8 +1358,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!headingFocusPendingRef.current) return;
     headingFocusPendingRef.current = false;
-    // preventScroll: the page is put back to its top by the navigation
-    // itself, and the heading is the first thing in the frame.
+    // The edit action already scrolls the destination section into view.
     document
       .getElementById(`reg-section-title-${STEPS[current]}`)
       ?.focus({ preventScroll: true });
@@ -1411,38 +1373,26 @@ export default function RegisterPage() {
     entityLabel: (field) => localized(entityFieldLabel(field, entityData), locale),
   };
 
-  const currentStep = STEPS[current];
-  const currentLastFieldId = lastFieldId(currentStep, entityType, entityData);
-
   // Re-derived every render from the values, never stored: a flagged field
   // loses its error line the moment it is filled, with nothing to clear.
-  // These are the fields that say so under themselves -- see
-  // missingFieldsToReport for why a cascade field waiting on its parent is
-  // not one. Continuer asks the same question when it is clicked.
+  // Missing answers across the whole form are shown under their fields after
+  // the single submit attempt.
+  const allMissingFields = STEPS.flatMap((step) =>
+    missingFieldsToReport(step, regState, nameResolvers)
+  );
   const shownMissingIds = new Set(
-    missingFieldsToReport(currentStep, regState, nameResolvers)
+    allMissingFields
       .filter((f) => flaggedIds.includes(f.id))
       .map((f) => f.id)
   );
 
-  // Shown while the control Continuer flagged is still the one at fault.
-  const currentFormatFailure = formatFailure(currentStep);
   const shownFormatError =
-    formatFlagId && currentFormatFailure?.focusId === formatFlagId ? currentFormatFailure : null;
+    formatFlagId
+      ? STEPS.map((step) => formatFailure(step)).find((failure) => failure?.focusId === formatFlagId) ?? null
+      : null;
 
-  // The four triggers in item 11 all call this. Returns true when it actually
-  // stopped something, so a caller can use it as a guard.
-  function promptMissing(): boolean {
-    const missing = missingFieldsToReport(currentStep, regState, nameResolvers);
-    if (missing.length === 0) return false;
-    setFlaggedIds(missing.map((f) => f.id));
-    setMissingAnnounced(missing.length);
-    requestAnimationFrame(() => focusField(missing[0].id));
-    return true;
-  }
-
-  // Focuses a field by id and brings it into view. Used by promptMissing for
-  // the first gap, and by the format notice's link.
+  // Focus a field by id and bring it into view, including fields inside the
+  // optional details disclosure.
   function focusField(id: string) {
     {
       const first = document.getElementById(id);
@@ -1566,27 +1516,6 @@ export default function RegisterPage() {
   // different control and keeps it until the certification box is ticked.)
   //
   // It is the one way forward: no section moves on by itself.
-  const showContinueLink = current < LAST_INDEX && current === reached;
-
-  // Continuer, and Enter on a section's last field. Missing answers first
-  // (the notice names them all), then an answer in the wrong shape, which
-  // the step explains here rather than leaving it to Submit steps later.
-  // On a section the respondent came back to, the same checks run before
-  // moving on: going back to fix one answer must not be a way to leave
-  // another one broken.
-  function tryContinue() {
-    if (promptMissing()) return;
-    const failure = formatFailure(STEPS[current]);
-    if (failure && !isSectionComplete(STEPS[current], regState)) {
-      setFormatFlagId(failure.focusId);
-      requestAnimationFrame(() => focusField(failure.focusId));
-      return;
-    }
-    setSubmitError(null);
-    if (showContinueLink) advanceFrom(current);
-    else goToSection(current + 1);
-  }
-
   // ── Draft ──────────────────────────────────────────────────────────────
   const draftLoadedRef = useRef(false);
 
@@ -2463,39 +2392,26 @@ export default function RegisterPage() {
       <header className="flow-header">
         <div className="flow-header-inner">
           <AuthHeader onHomeClick={guardLeave("/")} />
-          <RegistrationProgress
-            currentIndex={current}
-            reached={reached}
-            completed={completed}
-            summaries={railSummaries}
-            onSelect={goToSection}
-          />
         </div>
       </header>
 
-      {/* The step announcement, outside the rail: the rail's caption is
-          aria-hidden, and this live region is what says the step changed.
-          Visually hidden, so it is in the tree at every width. */}
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {t("registerPage.stepIndicator", { current: current + 1, total: STEPS.length })}
-        {" — "}
-        {t(`registerPage.${REGISTRATION_STEPS[current].labelKey}`)}
-      </p>
-
       <div className="flow-split">
         <div className="flow-body">
-          {/* The frame: the section and its buttons, in one column. */}
+          {/* The frame contains the full vertically stacked registration form. */}
           <div className="flow-frame">
             <div className="flow-frame-content">
+              <div className="registration-form-intro">
+                <h1>{t("registerPage.formTitle")}</h1>
+                <p>{t("registerPage.formIntro")}</p>
+              </div>
               {/* Reset and restore notices. Announced, because the change they
                   report happened somewhere the respondent may not be looking. */}
               <div className="wizard-snackbar-region" role="status" aria-live="polite">
                 {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
               </div>
 
-              {/* No box for missing fields: each one says so under itself
-                  (fieldError). This line gives a screen reader the count once,
-                  when Continuer is pressed; nothing is shown. */}
+              {/* Field errors appear under each control. Announce the count
+                  once after the final submit attempt. */}
               <p className="sr-only" role="status" aria-live="polite">
                 {missingAnnounced > 0 &&
                   shownMissingIds.size > 0 &&
@@ -2555,135 +2471,49 @@ export default function RegisterPage() {
                 }}
                 onChangeCapture={(event) => {
                   const id = (event.target as HTMLElement).id;
-                  if (!id || !serverFieldErrors[id]) return;
-                  setServerFieldErrors((previous) => {
-                    const next = { ...previous };
-                    delete next[id];
-                    return next;
-                  });
+                  if (submitError) setSubmitError(null);
+                  if (id && serverFieldErrors[id]) {
+                    setServerFieldErrors((previous) => {
+                      const next = { ...previous };
+                      delete next[id];
+                      return next;
+                    });
+                  }
                 }}
                 onKeyDown={handleFormKeyDown}
               >
-                {STEPS.slice(0, reached + 1).map((id, idx) => (
-                  <section
-                    key={id}
-                    className="wizard-section"
-                    hidden={idx !== current}
-                    aria-labelledby={`reg-section-title-${id}`}
-                    // Trigger (a): focus leaving the section's LAST field for
-                    // somewhere outside the section. Capture, because blur does
-                    // not bubble. relatedTarget is what distinguishes "moved on"
-                    // from "moved to another field in here" -- tabbing between
-                    // the section's own fields must never raise errors, and a
-                    // null relatedTarget (clicked the page chrome, switched
-                    // windows) is deliberately NOT treated as leaving.
-                    onBlurCapture={(e) => {
-                      if (idx !== current) return;
-                      const target = e.target as HTMLElement;
-                      // Any control left with an answer in the wrong shape
-                      // says so under itself from now on (leftFieldError).
-                      if (target.id && isFormField(target)) markLeft(target.id);
-                      if (!currentLastFieldId) return;
-                      if (target.id !== currentLastFieldId) return;
-                      const next = e.relatedTarget as HTMLElement | null;
-                      if (!next) return;
-                      // The frame footer's Retour and Continuer are in the
-                      // dock below the content, outside this <section> in
-                      // the DOM, but they are still this section's own
-                      // controls: Continuer runs its own check, and a
-                      // respondent heading for Retour must not be stopped.
-                      if (
-                        e.currentTarget.contains(next) ||
-                        next.closest("[data-flow-back]") ||
-                        next.closest("[data-flow-continue]")
-                      ) {
-                        return;
-                      }
-                      promptMissing();
-                    }}
-                  >
-                    {renderSection(id)}
-                  </section>
-                ))}
-              </form>
-            </div>
+                {STEPS.map((id) => {
+                  if ((id === "entityInfo" || id === "review") && !config) return null;
+                  return (
+                    <section
+                      key={id}
+                      id={`registration-section-${id}`}
+                      className="wizard-section"
+                      aria-labelledby={`reg-section-title-${id}`}
+                      onBlurCapture={(event) => {
+                        const target = event.target as HTMLElement;
+                        if (target.id && isFormField(target)) markLeft(target.id);
+                      }}
+                    >
+                      {renderSection(id)}
+                    </section>
+                  );
+                })}
 
-            {/* The frame footer: Retour / Continuer at the end of the form,
-                where respondents finish the section. Not pinned: a sticky bar
-                covered the field being filled (WCAG 2.2, 2.4.11) and, on a
-                phone, sat on the keyboard. Owner's decision, 2026-10-10. */}
-            <div className="flow-frame-dock">
-              {/* Retour: every section but the first. The step list (or the
-                  rail) can jump anywhere already revealed; this is the plain
-                  one-step-back respondents look for at the bottom of a form.
-
-                  Continuer: the step's one primary action, on every section
-                  but the review. At the frontier it is trigger (b) -- shown
-                  whether or not the section is complete, because a control
-                  that disappears until the form is correct cannot tell anyone
-                  what is wrong with the form. On a section the respondent has
-                  come back to, it moves on to the next revealed one, which
-                  nothing on screen used to offer. The class name is kept from
-                  the text link this replaced, which the layout test selects
-                  by. */}
-              <div className="flow-frame-foot">
-                {current > 0 && (
+                <div className="registration-form-submit">
                   <button
-                    type="button"
-                    className="btn-secondary flow-back"
-                    data-flow-back
-                    onClick={() => goToSection(current - 1)}
-                  >
-                    <span aria-hidden="true">←</span>
-                    {t("registerPage.backButton")}
-                  </button>
-                )}
-                {current < LAST_INDEX && (
-                  <button
-                    type="button"
-                    className="btn-primary btn-primary--inline flow-continue-link"
-                    data-flow-continue
-                    // No aria-disabled and no disabled attribute. Either one
-                    // swallows the click, and the click is how the respondent
-                    // asks what is missing. A screen reader must be able to
-                    // reach this button too.
-                    onClick={tryContinue}
-                  >
-                    {t("registerPage.continueButton")}
-                    <span aria-hidden="true">→</span>
-                  </button>
-                )}
-                {/* Soumettre: the review's primary action, in the same place
-                    as Continuer on every other step. aria-disabled until the
-                    box is ticked, so a screen reader does not offer a submit
-                    the click would only refuse. Continuer does not use
-                    aria-disabled; do not copy this attribute onto it.
-                    Truly disabled only while in flight. */}
-                {current === LAST_INDEX && (
-                  <button
-                    type="button"
+                    type="submit"
                     className="btn-primary btn-primary--inline btn-primary--submit"
                     aria-disabled={!certified || undefined}
                     aria-busy={submitting || undefined}
                     disabled={submitting}
-                    onClick={() => {
-                      if (!certified) {
-                        setCertifyFlagged(true);
-                        const box = document.getElementById("reg-certify");
-                        box?.focus();
-                        box?.scrollIntoView({ block: "nearest" });
-                        return;
-                      }
-                      handleSubmitPress();
-                    }}
                   >
-                    {submitting
-                      ? t("registerPage.submittingLabel")
-                      : t("registerPage.submitButton")}
+                    {submitting ? t("registerPage.submittingLabel") : t("registerPage.submitButton")}
                   </button>
-                )}
-              </div>
+                </div>
+              </form>
             </div>
+
           </div>
         </div>
       </div>

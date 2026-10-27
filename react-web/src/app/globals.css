@@ -1242,6 +1242,17 @@ html:has(.cam-auth-page--wizard) {
   scroll-padding-top: 9rem;
 }
 
+@media (min-width: 1240px) {
+  .cam-auth-page--wizard .flow-header-inner {
+    display: block;
+    max-width: var(--cam-container-wizard);
+  }
+
+  .cam-auth-page--wizard .masthead {
+    display: flex;
+  }
+}
+
 /* The cascade affordance on the location step. It used to be a separate flex
    sibling of the .field with a marginTop: 28px tuned by hand to the height of
    a stacked label -- which broke the moment a label wrapped. Folded into the
@@ -1862,6 +1873,49 @@ html:has(.cam-auth-page--wizard) {
    render. */
 .cam-auth-page--wizard .wizard-section[hidden] {
   display: none;
+}
+
+/* One long application: keep every section visible as the document scrolls. */
+.cam-auth-page--wizard .cam-form-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-7);
+}
+
+.cam-auth-page--wizard .wizard-section {
+  scroll-margin-top: 10rem;
+  padding-bottom: var(--cam-space-6);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-auth-page--wizard .wizard-section:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.cam-auth-page--wizard .registration-form-intro {
+  margin: 0 0 var(--cam-space-6);
+}
+
+.cam-auth-page--wizard .registration-form-intro h1 {
+  margin: 0;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-2xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-heading);
+}
+
+.cam-auth-page--wizard .registration-form-intro p {
+  max-width: 64ch;
+  margin: var(--cam-space-2) 0 0;
+  color: var(--cam-text-muted);
+  line-height: var(--cam-line-height-copy);
+}
+
+.cam-auth-page--wizard .registration-form-submit {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--cam-space-2);
 }
 
 /* The error banner sits above the section inside the frame, so a failure
