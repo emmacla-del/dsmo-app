@@ -15,7 +15,12 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataStateRow } from "@/components/admin/DataState";
-import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { DossiersCoverage } from "@/components/admin/DossiersCoverage";
+import { ViewSwitch } from "@/components/admin/ViewSwitch";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { formatCampaignDisplayName } from "@/lib/campaigns";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
+import { getActiveCollectionCampaigns } from "@/lib/pilotage-targets";
 import {
   NOT_PROVIDED,
   count,
@@ -24,7 +29,17 @@ import {
   shortRecordId,
 } from "@/lib/admin-data-state";
 import { NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
-import { hrefWith, parseDossierStatus, type DossierStatus, parseDossierSort, type DossierSort } from "@/lib/admin-url";
+import {
+  hrefWith,
+  parseDossierFlag,
+  parseDossierQuarter,
+  parseDossierSort,
+  parseDossierStatus,
+  parseDossierVue,
+  recentDossierQuarters,
+  type DossierSort,
+  type DossierStatus,
+} from "@/lib/admin-url";
 import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +78,7 @@ interface DossierItem {
   blockingCount: number;
   warningCount: number;
   submittedAt: string | null;
+  isLate: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -160,39 +176,50 @@ function DossiersContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  // The status filter is URL state (?status=): read here, written by
-  // setStatus. Other parameters (?companyId=, ?formType=, ?q=) are kept.
+  // Filters that belong to a shared or bookmarked view live in the URL.
+  // The status filter is ?status=, written by setStatus.
   const statusFilter = parseDossierStatus(searchParams.get("status"));
   // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
   // files first; URL state like the status, written by setSort.
   const sortOrder = parseDossierSort(searchParams.get("sort"));
   const companyIdFilter = searchParams.get("companyId") ?? "";
+  const regionFilter = searchParams.get("region") ?? "";
+  const departmentFilter = searchParams.get("department") ?? "";
+  const campaignIdFilter = searchParams.get("campaignId")?.trim() ?? "";
+  const quarterCodeFilter = parseDossierQuarter(searchParams.get("quarterCode")) ?? "";
+  const lateFilter = parseDossierFlag(searchParams.get("late"));
+  const overdueFilter = parseDossierFlag(searchParams.get("overdue"));
+  const vue = parseDossierVue(searchParams.get("vue"));
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
   const requestedQuery = searchParams.get("q") ?? "";
   // /admin/questionnaires links here with ?formType= ("Voir dossiers").
   const requestedFormType = searchParams.get("formType") ?? "";
+  const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined);
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
-  const [regionFilter, setRegionFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState(FORM_TYPES.includes(requestedFormType) ? requestedFormType : "");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
 
-  // A status change from anywhere — this control, a pilotage tile, the
-  // browser's back button — starts again at the first page.
-  const [offsetStatus, setOffsetStatus] = useState(statusFilter);
-  if (offsetStatus !== statusFilter) {
-    setOffsetStatus(statusFilter);
-    setOffset(0);
-  }
-  // So does a change of order.
-  const [offsetSort, setOffsetSort] = useState(sortOrder);
-  if (offsetSort !== sortOrder) {
-    setOffsetSort(sortOrder);
+  // Any URL filter change, including the browser's back button, starts again
+  // at the first page.
+  const filterSignature = [
+    statusFilter,
+    sortOrder,
+    regionFilter,
+    departmentFilter,
+    campaignIdFilter,
+    quarterCodeFilter,
+    lateFilter ? "late" : "",
+    overdueFilter ? "overdue" : "",
+  ].join("|");
+  const [offsetSignature, setOffsetSignature] = useState(filterSignature);
+  if (offsetSignature !== filterSignature) {
+    setOffsetSignature(filterSignature);
     setOffset(0);
   }
 
@@ -222,22 +249,48 @@ function DossiersContent() {
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
+  const campaignsQuery = useQuery({
+    queryKey: ["admin", "pilotage", "active-campaigns"],
+    queryFn: getActiveCollectionCampaigns,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const campaigns = campaignsQuery.data ?? [];
+  const campaignOptions = campaigns.map((campaign) => ({
+    value: campaign.id,
+    label: `${referencePeriodLabel(campaign.code, locale)} - ${formatCampaignDisplayName(campaign.name)}`,
+  }));
+  if (campaignIdFilter && !campaignOptions.some((option) => option.value === campaignIdFilter)) {
+    campaignOptions.unshift({ value: campaignIdFilter, label: campaignIdFilter });
+  }
+  const quarterOptions = [
+    quarterCodeFilter,
+    ...recentDossierQuarters(new Date()).filter((code) => code !== quarterCodeFilter),
+  ].filter(Boolean);
+  const quarterLabel = (code: string) => `${code.slice(-2)} ${code.slice(0, 4)}`;
+
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: statusFilter || undefined,
         formType: typeFilter || undefined,
         period: periodFilter || undefined,
         region: regionFilter || undefined,
+        department: departmentFilter || undefined,
+        campaignId: campaignIdFilter || undefined,
+        quarterCode: quarterCodeFilter || undefined,
+        late: lateFilter || undefined,
+        overdue: overdueFilter || undefined,
         search: search || undefined,
         companyId: companyIdFilter || undefined,
         sort: sortOrder || undefined,
         limit: PAGE_SIZE,
         offset,
       }),
+    enabled: vue === "dossiers",
     placeholderData: keepPreviousData,
   });
 
@@ -286,16 +339,24 @@ function DossiersContent() {
     setSelectedIds(new Set());
   };
 
-  // Writes ?status=, keeping every other parameter. The list follows from the
-  // URL (statusFilter above), so a reload reopens the same status.
-  const setStatus = (status: DossierStatus | "") =>
-    router.replace(hrefWith(pathname, searchParams.toString(), { status }));
-
-  // Writes ?sort=, keeping every other parameter; newest first removes it.
-  const setSort = (sort: DossierSort) => {
+  // Writes a URL filter, keeping every other parameter, and drops a stale
+  // selection. The list follows from the URL, so a reload reopens the same view.
+  const setUrlFilter = (changes: Record<string, string | null>) => {
     setSelectedIds(new Set());
-    router.replace(hrefWith(pathname, searchParams.toString(), { sort }));
+    setOffset(0);
+    router.replace(hrefWith(pathname, searchParams.toString(), changes));
   };
+
+  const setStatus = (status: DossierStatus | "") => setUrlFilter({ status });
+  const setSort = (sort: DossierSort) => setUrlFilter({ sort });
+  // A region and a department belong together: changing the region clears a
+  // department that may not be inside it.
+  const setRegion = (region: string) => setUrlFilter({ region, department: null });
+  const setDepartment = (department: string) => setUrlFilter({ department });
+  const setCampaign = (campaignId: string) => setUrlFilter({ campaignId });
+  const setQuarter = (quarterCode: string) => setUrlFilter({ quarterCode });
+  const setLate = (late: boolean) => setUrlFilter({ late: late ? "1" : null });
+  const setOverdue = (overdue: boolean) => setUrlFilter({ overdue: overdue ? "1" : null });
 
   const goToOffset = (next: number) => {
     setOffset(next);
@@ -337,6 +398,7 @@ function DossiersContent() {
       blockingCount,
       warningCount,
       submittedAt: sub.submissionDate ?? null,
+      isLate: sub.isLate === true,
     };
   });
 
@@ -436,6 +498,11 @@ function DossiersContent() {
       if (statusFilter) params.set("status", statusFilter);
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
+      if (departmentFilter) params.set("department", departmentFilter);
+      if (campaignIdFilter) params.set("campaignId", campaignIdFilter);
+      if (quarterCodeFilter) params.set("quarterCode", quarterCodeFilter);
+      if (lateFilter) params.set("late", "1");
+      if (overdueFilter) params.set("overdue", "1");
       if (periodFilter) params.set("period", periodFilter);
       if (search) params.set("search", search);
       const token = getToken();
@@ -465,15 +532,73 @@ function DossiersContent() {
     }
   }
 
+  const pageHeader = (
+    <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.dossiers") }]}
+      title={tRoot("adminNav.routes.dossiers")}
+      subtitle={vue === "couverture" ? t("subtitleCoverage") : t("subtitle")}
+      actions={<AdminHeaderActions />}
+      tabs={[
+        {
+          label: t("viewFiles"),
+          href: hrefWith(pathname, searchParams.toString(), { vue: null }),
+          isActive: vue === "dossiers",
+          badge: queues?.totalSubmissionsCount,
+        },
+        {
+          label: t("viewCoverage"),
+          href: hrefWith(pathname, searchParams.toString(), { vue: "couverture" }),
+          isActive: vue === "couverture",
+        },
+      ]}
+    />
+  );
+
+  if (vue === "couverture") {
+    return (
+      <div className="cam-admin-page">
+        {pageHeader}
+        <DossiersCoverage campaignId={campaignIdFilter} onCampaignChange={setCampaign} />
+      </div>
+    );
+  }
+
   return (
     <div className="cam-admin-page">
-      {/* ── Page Header matching Figma supervision/dossiers.png ── */}
-      <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.dossiers") }]}
-        title={tRoot("adminNav.routes.dossiers")}
-        subtitle={t("subtitle")}
-        actions={<AdminHeaderActions />}
+      {pageHeader}
+
+      <ViewSwitch
+        label={t("statusFilterAriaLabel")}
+        items={STATUS_VIEWS.map((view) => {
+          const statusCounts = queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined;
+          const value = view.status ? statusCounts?.[view.status] : queues?.totalSubmissionsCount;
+          return {
+            key: view.status || "all",
+            label: t(view.labelKey),
+            active: statusFilter === view.status,
+            count: value ?? null,
+            onClick: () => setStatus(view.status),
+          };
+        })}
       />
+
+      {queues && queues.reviewDelay.pendingOverThresholdCount > 0 && (
+        <Alert variant="warning" className="my-4">
+          <AlertDescription>
+            {t("reviewDelayBanner", { count: queues.reviewDelay.pendingOverThresholdCount })}{" "}
+            <Link
+              href={hrefWith(pathname, searchParams.toString(), {
+                status: "PENDING_REVIEW",
+                overdue: "1",
+                sort: "oldest",
+              })}
+            >
+              {t("reviewDelayLink")}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
 
       {/* ── Status filter: one control, URL-backed (?status=) ── */}
       {/* The queue's own note, carried over from /admin/files-attente. Shown
@@ -582,25 +707,37 @@ function DossiersContent() {
                 <FilterTableHead
                   label={t("regionColumn")}
                   filterLabel={t("filterColumn", { column: t("regionColumn") })}
-                  active={!!regionFilter}
+                  active={!!regionFilter || !!departmentFilter}
                 >
                   {(close) => (
-                    <FilterTableOptions
-                      label={t("regionLabel")}
-                      value={regionFilter}
-                      onChange={(value) => changeFilter(() => setRegionFilter(value))}
-                      onSelect={close}
-                      options={[
-                        { value: "", label: t("allRegions") },
-                        ...territoryRegions.map((regionName) => ({ value: regionName, label: regionName })),
-                      ]}
-                    />
+                    <div className="grid gap-2">
+                      <FilterTableOptions
+                        label={t("regionLabel")}
+                        value={regionFilter}
+                        onChange={setRegion}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("allRegions") },
+                          ...territoryRegions.map((regionName) => ({ value: regionName, label: regionName })),
+                        ]}
+                      />
+                      <FilterTableOptions
+                        label={t("departmentLabel")}
+                        value={departmentFilter}
+                        onChange={setDepartment}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("allDepartments") },
+                          ...territoryDepartments.map((departmentName) => ({ value: departmentName, label: departmentName })),
+                        ]}
+                      />
+                    </div>
                   )}
                 </FilterTableHead>
                 <FilterTableHead
                   label={t("submittedAtColumn")}
                   filterLabel={t("filterColumn", { column: t("submittedAtColumn") })}
-                  active={!!periodFilter || !!sortOrder}
+                  active={!!periodFilter || !!sortOrder || lateFilter || overdueFilter || !!campaignIdFilter || !!quarterCodeFilter}
                 >
                   {(close) => (
                     <div className="grid gap-2">
@@ -614,6 +751,48 @@ function DossiersContent() {
                           ...PERIODS.map((period) => ({ value: period.value, label: t(period.labelKey) })),
                         ]}
                       />
+                      <FilterTableOptions
+                        label={t("lateLabel")}
+                        value={lateFilter ? "late" : ""}
+                        onChange={(value) => setLate(value === "late")}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("lateAll") },
+                          { value: "late", label: t("lateOnly") },
+                        ]}
+                      />
+                      <FilterTableOptions
+                        label={t("overdueLabel")}
+                        value={overdueFilter ? "overdue" : ""}
+                        onChange={(value) => setOverdue(value === "overdue")}
+                        onSelect={close}
+                        options={[
+                          { value: "", label: t("overdueAll") },
+                          { value: "overdue", label: t("overdueOnly") },
+                        ]}
+                      />
+                      <div className="border-t pt-2">
+                        <FilterTableOptions
+                          label={t("campaignLabel")}
+                          value={campaignIdFilter}
+                          onChange={setCampaign}
+                          onSelect={close}
+                          options={[
+                            { value: "", label: t("allCampaigns") },
+                            ...campaignOptions,
+                          ]}
+                        />
+                        <FilterTableOptions
+                          label={t("quarterLabel")}
+                          value={quarterCodeFilter}
+                          onChange={setQuarter}
+                          onSelect={close}
+                          options={[
+                            { value: "", label: t("allQuarters") },
+                            ...quarterOptions.map((code) => ({ value: code, label: quarterLabel(code) })),
+                          ]}
+                        />
+                      </div>
                       <div className="border-t pt-2">
                         <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t("sortLabel")}</p>
                         <FilterTableOptions
@@ -630,32 +809,7 @@ function DossiersContent() {
                     </div>
                   )}
                 </FilterTableHead>
-                <FilterTableHead
-                  label={t("endorsementColumn")}
-                  filterLabel={t("filterColumn", { column: t("endorsementColumn") })}
-                  active={!!statusFilter}
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("statusFilterAriaLabel")}
-                      value={statusFilter}
-                      onChange={(value) => changeFilter(() => setStatus(value as DossierStatus | ""))}
-                      onSelect={close}
-                      options={STATUS_VIEWS.map((view) => {
-                        const statusCounts = queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined;
-                        const value = view.status
-                          ? statusCounts?.[view.status]
-                          : queues?.totalSubmissionsCount;
-                        return {
-                          value: view.status,
-                          label: value === undefined
-                            ? t(view.labelKey)
-                            : `${t(view.labelKey)} (${count(value, locale)})`,
-                        };
-                      })}
-                    />
-                  )}
-                </FilterTableHead>
+                <TableHead scope="col">{t("endorsementColumn")}</TableHead>
                 <TableHead scope="col">{t("dataQualityColumn")}</TableHead>
                 <TableHead scope="col" className="text-center">{t("eligibilityColumn")}</TableHead>
               </TableRow>
@@ -772,7 +926,12 @@ function DossiersContent() {
                         <span className="block text-muted-foreground">{d.department}</span>
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{stamp(d.submittedAt, true, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {stamp(d.submittedAt, true, locale)}
+                      {d.isLate && (
+                        <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
                     </TableCell>
