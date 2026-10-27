@@ -1,4 +1,5 @@
 import { ADMIN_LIST_FORM_TYPES, ADMIN_LIST_STATUSES, buildAdminListWhere, periodStart } from './admin-list-filter';
+import { reviewOverdueBefore } from './review-delay';
 
 // Drafts never listed; replaced files (SUPERSEDED) only when asked for.
 const NOT_DRAFT = { status: { notIn: ['DRAFT', 'SUPERSEDED'] } };
@@ -55,6 +56,32 @@ describe('buildAdminListWhere', () => {
   it('filters by companyId under AND when provided', () => {
     const where = buildAdminListWhere({ companyId: 'comp-123' });
     expect(where.AND).toContainEqual({ companyId: 'comp-123' });
+  });
+
+  it('filters department, campaign, quarter and late files under AND', () => {
+    const where = buildAdminListWhere({
+      department: 'Moungo',
+      campaignId: 'campaign-1',
+      quarterCode: '2026-T4',
+      late: true,
+    });
+    expect(where.AND).toContainEqual({ department: { equals: 'Moungo', mode: 'insensitive' } });
+    expect(where.AND).toContainEqual({ campaignId: 'campaign-1' });
+    expect(where.AND).toContainEqual({ quarterCode: '2026-T4' });
+    expect(where.AND).toContainEqual({ isLate: true });
+  });
+
+  it('treats late=false as no filter', () => {
+    const where = buildAdminListWhere({ late: false });
+    expect(where.AND.some((condition) => 'isLate' in condition)).toBe(false);
+  });
+
+  it('filters overdue files with the pilotage queue threshold, pending only', () => {
+    const where = buildAdminListWhere({ overdue: true }, undefined, NOW);
+    expect(where.AND).toContainEqual({
+      status: 'PENDING_REVIEW',
+      submissionDate: { lt: reviewOverdueBefore(NOW) },
+    });
   });
 });
 

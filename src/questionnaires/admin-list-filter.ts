@@ -1,5 +1,6 @@
 import { OnefopEntityType, OnefopStatus } from '@prisma/client';
 import { Territory, territoryWhere } from '../auth/territory';
+import { reviewOverdueBefore } from './review-delay';
 
 /**
  * Filters of the admin dossier list. The single source of the list's Prisma
@@ -9,10 +10,15 @@ import { Territory, territoryWhere } from '../auth/territory';
 export interface AdminListFilters {
   status?: string;
   region?: string;
+  department?: string;
   search?: string;
   formType?: string;
   period?: AdminListPeriod;
   companyId?: string;
+  campaignId?: string;
+  quarterCode?: string;
+  late?: boolean;
+  overdue?: boolean;
 }
 
 export const ADMIN_LIST_PERIODS = ['7d', '30d', '3m', '12m'] as const;
@@ -45,6 +51,8 @@ export function periodStart(period: AdminListPeriod, now: Date): Date {
  * must narrow the caller's territory, never replace its region key and escape
  * it. Drafts are respondents' unsubmitted work and are never part of the list;
  * replaced files (SUPERSEDED) only when the status filter asks for them.
+ * `overdue` is one more clause under the same AND, so no filter can widen the
+ * caller's territory.
  */
 export function buildAdminListWhere(
   filters: AdminListFilters,
@@ -59,6 +67,19 @@ export function buildAdminListWhere(
   if (filters.formType) and.push({ formType: filters.formType });
   if (filters.companyId) and.push({ companyId: filters.companyId });
   if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });
+  if (filters.department) and.push({ department: { equals: filters.department, mode: 'insensitive' } });
+  if (filters.campaignId) and.push({ campaignId: filters.campaignId });
+  if (filters.quarterCode) and.push({ quarterCode: filters.quarterCode });
+  if (filters.late) and.push({ isLate: true });
+  // "Overdue" is the pilotage queue's measure, repeated here under the same
+  // AND: pending files submitted before the shared threshold. Repeating the
+  // status keeps the clause meaningful if a caller combines it with a status.
+  if (filters.overdue) {
+    and.push({
+      status: OnefopStatus.PENDING_REVIEW,
+      submissionDate: { lt: reviewOverdueBefore(now) },
+    });
+  }
   // createdAt: indexed, the list's sort key, and the same instant as the
   // "Reçu le" submissionDate (both set when the row is created).
   if (filters.period) and.push({ createdAt: { gte: periodStart(filters.period, now) } });

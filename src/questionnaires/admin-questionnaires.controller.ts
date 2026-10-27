@@ -27,6 +27,7 @@ import {
   ADMIN_LIST_PERIODS,
   ADMIN_LIST_SORTS,
   ADMIN_LIST_STATUSES,
+  AdminListFilters,
   AdminListPeriod,
   AdminListSort,
 } from './admin-list-filter';
@@ -50,6 +51,63 @@ function optionalText(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const text = raw.trim().slice(0, SEARCH_MAX_LENGTH);
   return text || undefined;
+}
+
+// Query booleans arrive as strings. Accept the two usual spellings and treat
+// an explicit false as "no filter", so `late=false` never asks for on-time only.
+function optionalFlag(raw: unknown, message: string): boolean | undefined {
+  const text = optionalText(raw);
+  if (!text) return undefined;
+  if (text === 'true' || text === '1') return true;
+  if (text === 'false' || text === '0') return undefined;
+  throw new BadRequestException(message);
+}
+
+/**
+ * One parser for the list and its export: the export must select exactly the
+ * rows the reviewer saw, so both read the filters through the same validation.
+ * `sort` is deliberately separate: it orders the list and cannot change which
+ * rows an export contains.
+ */
+function parseAdminListFilters(params: {
+  status?: unknown;
+  formType?: unknown;
+  period?: unknown;
+  region?: unknown;
+  department?: unknown;
+  search?: unknown;
+  companyId?: unknown;
+  campaignId?: unknown;
+  quarterCode?: unknown;
+  late?: unknown;
+  overdue?: unknown;
+}): AdminListFilters {
+  // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
+  const statusFilter = optionalText(params.status);
+  if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
+    throw new BadRequestException('Statut de dossier inconnu.');
+  }
+  const typeFilter = optionalText(params.formType);
+  if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
+    throw new BadRequestException('Type de questionnaire inconnu.');
+  }
+  const periodFilter = optionalText(params.period);
+  if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
+    throw new BadRequestException('Période inconnue.');
+  }
+  return {
+    status: statusFilter,
+    formType: typeFilter,
+    period: periodFilter as AdminListPeriod | undefined,
+    region: optionalText(params.region),
+    department: optionalText(params.department),
+    search: optionalText(params.search),
+    companyId: optionalText(params.companyId),
+    campaignId: optionalText(params.campaignId),
+    quarterCode: optionalText(params.quarterCode),
+    late: optionalFlag(params.late, 'Le paramètre « late » doit valoir true ou false.'),
+    overdue: optionalFlag(params.overdue, 'Le paramètre « overdue » doit valoir true ou false.'),
+  };
 }
 
 // The class list is the default for every handler, mutations included.
@@ -150,8 +208,9 @@ export class AdminQuestionnairesController {
 
   /**
    * Paginated dossier list: { items, total }. `total` counts the filtered
-   * query (territory + status + type + region + period + search, drafts
-   * excluded), not the whole table.
+   * query (territory + status + type + region + department + campaign +
+   * quarter + late/overdue + period + search, drafts excluded), not the whole
+   * table.
    */
   @Get()
   @Roles(...DOSSIER_READ_ROLES)
@@ -165,34 +224,25 @@ export class AdminQuestionnairesController {
     @Query('period') period?: string,
     @Query('companyId') companyId?: string,
     @Query('sort') sort?: string,
+    @Query('department') department?: string,
+    @Query('campaignId') campaignId?: string,
+    @Query('quarterCode') quarterCode?: string,
+    @Query('late') late?: string,
+    @Query('overdue') overdue?: string,
     @Request() req?: any,
   ) {
-    // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
-    const statusFilter = optionalText(status);
-    if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
-      throw new BadRequestException('Statut de dossier inconnu.');
-    }
-    const typeFilter = optionalText(formType);
-    if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
-      throw new BadRequestException('Type de questionnaire inconnu.');
-    }
-    const periodFilter = optionalText(period);
-    if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
-      throw new BadRequestException('Période inconnue.');
-    }
     const sortOrder = optionalText(sort);
     if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
       throw new BadRequestException('Ordre de tri inconnu.');
     }
+    const filters = parseAdminListFilters({
+      status, formType, period, region, department, search, companyId,
+      campaignId, quarterCode, late, overdue,
+    });
     return this.service.listForAdmin(
       {
+        ...filters,
         sort: sortOrder as AdminListSort | undefined,
-        status: statusFilter,
-        formType: typeFilter,
-        period: periodFilter as AdminListPeriod | undefined,
-        region: optionalText(region),
-        search: optionalText(search),
-        companyId: optionalText(companyId),
         // limit=0 asks for the count alone: the caller wants `total` and no
         // rows, and a listed row is a whole declaration with its rawData.
         limit: parseIntParam(limit, LIST_MAX_LIMIT, 0, LIST_MAX_LIMIT,
@@ -233,33 +283,25 @@ export class AdminQuestionnairesController {
     @Query('format') format: string,
     @Query('status') status?: string,
     @Query('region') region?: string,
+    @Query('department') department?: string,
     @Query('search') search?: string,
     @Query('formType') formType?: string,
     @Query('period') period?: string,
+    @Query('companyId') companyId?: string,
+    @Query('campaignId') campaignId?: string,
+    @Query('quarterCode') quarterCode?: string,
+    @Query('late') late?: string,
+    @Query('overdue') overdue?: string,
     @Request() req?: any,
     @Res() res?: Response,
   ) {
     const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
-    const statusFilter = optionalText(status);
-    if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
-      throw new BadRequestException('Statut de dossier inconnu.');
-    }
-    const typeFilter = optionalText(formType);
-    if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
-      throw new BadRequestException('Type de questionnaire inconnu.');
-    }
-    const periodFilter = optionalText(period);
-    if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
-      throw new BadRequestException('Période inconnue.');
-    }
+    const filters = parseAdminListFilters({
+      status, formType, period, region, department, search, companyId,
+      campaignId, quarterCode, late, overdue,
+    });
     await this.service.streamDossiersExport(
-      {
-        status: statusFilter,
-        formType: typeFilter,
-        period: periodFilter as AdminListPeriod | undefined,
-        region: optionalText(region),
-        search: optionalText(search),
-      },
+      filters,
       exportFormat,
       territoryFromUser(req?.user),
       req?.user?.id,
