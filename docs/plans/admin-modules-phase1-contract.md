@@ -78,7 +78,7 @@ Query param `statuses` (comma-separated set of OnefopStatus values):
   - SUPERSEDED inclusion rule (CRITICAL):
       * If SUPERSEDED is explicitly present in `statuses`, it IS included
         (mirrors admin-list-filter.ts:69 explicit-request behaviour).
-      * If SUPERSEDED is NOT in `statuses`, it remains EXCLUDED â€” exactly
+      * If SUPERSEDED is NOT in `statuses`, it remains EXCLUDED — exactly
         as the default list does today.
       * This must be deliberate and tested; it must NOT be incidental.
   - "OVERDUE" is not a stored status -> 400 pointing to overdue=true.
@@ -89,7 +89,7 @@ questionnaires.service.ts:3579):
     schema.prisma:891, :897)
   - reviewedBy / reviewedAt / rejectionReason: confirm they are projected;
     add if not (schema.prisma:874).
-  Do NOT add inline decision history â€” that stays behind the audit link.
+  Do NOT add inline decision history — that stays behind the audit link.
 
 Counts: getPilotageQueues (eligibility-engine.service.ts:273-276) accepts
   `view`:
@@ -123,6 +123,9 @@ Acceptance tests (D-series):
        -> 403 (existing exclusion preserved).
   D-13 items include campaignName; null where no campaign.
   D-14 DIVISIONAL_ADMIN territory B with statuses -> only B's records.
+     Note: "territory B" means a territory (region + department) assigned
+     to a different DIVISIONAL_ADMIN. The test uses Region A + Department B
+     to exercise the divisional scope rule.
 
 ## C.3 Phase 1 exit criteria (nine gates, all must pass)
 
