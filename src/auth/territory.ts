@@ -15,6 +15,11 @@ export interface Territory {
   departmentId?: string | null;
 }
 
+// ADR-0001: Module separation stays in the existing controller guard role
+// sets. Keep registrations out of survey roles and submissions out of
+// registration roles. CENTRAL_AGENT is read-only: no mutations or export.
+// Do not create a parallel capability model; extend these sets. See
+// docs/adr/0001-admin-modules-restructure.md.
 const NATIONAL_ROLES: string[] = [
   UserRole.SUPER_ADMIN,
   UserRole.ADMIN_ONEFOP,

@@ -1665,6 +1665,10 @@ export class AuthService {
       createdAt.lte = to;
     }
 
+    // ADR-0001 / Phase 1: status (single) and statuses (set) are mutually
+    // exclusive. status=ALL intentionally includes every status. Do not add
+    // implicit set behaviour to status. See
+    // docs/plans/admin-modules-phase1-contract.md C.1.
     const userWhere: Record<string, unknown> = { role: 'COMPANY' };
     // No status = the review queue (pending + complements). 'ALL' lifts the
     // status filter, for "every file this agent registered" (/admin/equipe).
@@ -1714,6 +1718,9 @@ export class AuthService {
       ];
     }
 
+    // ADR-0001 / Phase 1: approvedAt/approvedBy/rejectedAt/rejectedBy are
+    // part of the vue=organisations list contract. Null when not applicable;
+    // do not omit keys. See docs/plans/admin-modules-phase1-contract.md C.1.
     const [total, companies] = await Promise.all([
       this.prisma.company.count({ where }),
       this.prisma.company.findMany({
@@ -1757,6 +1764,10 @@ export class AuthService {
         overdue: isOverdue(since, overdueDays),
       };
     });
+    // ADR-0001 / Phase 1: companyRegistrationCounts is view-aware via view
+    // (queue | organisations | all). Counts are territory-scoped and ignore
+    // search/type/date filters by design; the response exposes countsView. See
+    // docs/plans/admin-modules-phase1-contract.md C.1.
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
     const counts = await this.companyRegistrationCounts(regionScope, cutoff);
@@ -1988,6 +1999,10 @@ export class AuthService {
     });
   }
 
+  // ADR-0001 / Phase 1: companyRegistrationCounts is view-aware via view
+  // (queue | organisations | all). Counts are territory-scoped and ignore
+  // search/type/date filters by design; the response exposes countsView. See
+  // docs/plans/admin-modules-phase1-contract.md C.1.
   private async companyRegistrationCounts(scope: Record<string, unknown>, cutoff: Date) {
     // One groupBy instead of four parallel counts: the session-mode pool is
     // small (15), Prisma opens a connection per concurrent query, and wide

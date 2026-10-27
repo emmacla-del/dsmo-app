@@ -41,6 +41,11 @@ export function parseDossierSort(raw: string | null): DossierSort {
   return raw === "oldest" ? "oldest" : "";
 }
 
+// ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
+// organisations | coverage; declarations: submissions | completed | coverage.
+// vue is presentation only and grants no permission. Update parsers, tabs,
+// link helpers, and labels together. See docs/plans/admin-modules-refactor.md
+// Phase 3.
 /** ?vue= on /admin/dossiers; the file list unless coverage is asked for. */
 export const DOSSIER_VUES = ["dossiers", "couverture"] as const;
 export type DossierVue = (typeof DOSSIER_VUES)[number];

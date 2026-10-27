@@ -266,6 +266,10 @@ export class EligibilityEngineService {
    * Action-oriented work queues powering "Que dois-je traiter aujourd'hui ?"
    * Scoped by territory if the user is regional or divisional.
    */
+  // ADR-0001 / Phase 1: getPilotageQueues is view-aware via view
+  // (queue | completed | all). Completed includes SUPERSEDED; queue excludes it.
+  // Counts are territory-scoped and ignore type/region/period/search filters.
+  // See docs/plans/admin-modules-phase1-contract.md C.2.
   async getPilotageQueues(territory?: Territory): Promise<PilotageQueues> {
     // Drafts are respondents' unsubmitted work, and a replaced file
     // (SUPERSEDED) is counted once, as the file that replaced it.

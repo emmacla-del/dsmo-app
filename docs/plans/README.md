@@ -1,0 +1,1 @@
+These documents record the approved two-module restructure of the CAMLEAP admin back-office. Start with [ADR-0001](../adr/0001-admin-modules-restructure.md), then the [phased plan](admin-modules-refactor.md), then the [action inventory](admin-modules-actions.md), then the [Phase 1 contract](admin-modules-phase1-contract.md) before writing code.

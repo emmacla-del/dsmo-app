@@ -219,6 +219,11 @@ function InscriptionsContent() {
   // registration-campaign targets (moved here from /admin/cibles, which
   // forwards its old ?vue=couverture links). Both live in the URL, so a
   // reload keeps the view and the year.
+  // ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
+  // organisations | coverage; declarations: submissions | completed | coverage.
+  // vue is presentation only and grants no permission. Update parsers, tabs,
+  // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
+  // Phase 3.
   const vue: "file" | "couverture" = searchParams.get("vue") === "couverture" ? "couverture" : "file";
   const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
   const currentQuery = searchParams.toString();

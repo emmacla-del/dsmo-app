@@ -59,6 +59,11 @@ export function buildAdminListWhere(
   territory?: Territory,
   now: Date = new Date(),
 ): { AND: Record<string, unknown>[] } {
+  // ADR-0001 / Phase 1: SUPERSEDED is excluded by default and included
+  // only when explicitly requested via status=SUPERSEDED or
+  // statuses=...,SUPERSEDED. vue=completed relies on deliberate inclusion;
+  // never leak replaced records into the default queue or counts. See
+  // docs/plans/admin-modules-phase1-contract.md C.2.
   // A file replaced by a newer submission (SUPERSEDED) is closed: out of the
   // list unless asked for by its status, as the file it points to is there.
   const hidden = filters.status === OnefopStatus.SUPERSEDED ? [OnefopStatus.DRAFT] : [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED];
@@ -71,6 +76,9 @@ export function buildAdminListWhere(
   if (filters.campaignId) and.push({ campaignId: filters.campaignId });
   if (filters.quarterCode) and.push({ quarterCode: filters.quarterCode });
   if (filters.late) and.push({ isLate: true });
+  // ADR-0001: OVERDUE is derived (PENDING_REVIEW + cutoff), not stored. It is
+  // never valid in status/statuses; use overdue=true. See
+  // docs/plans/admin-modules-phase1-contract.md C.2.
   // "Overdue" is the pilotage queue's measure, repeated here under the same
   // AND: pending files submitted before the shared threshold. Repeating the
   // status keeps the clause meaningful if a caller combines it with a status.

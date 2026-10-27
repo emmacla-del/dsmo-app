@@ -173,6 +173,11 @@ function DossiersContent() {
           : t("scopeUnassigned");
   const { regions: territoryRegions } = useTerritoryRegions();
 
+  // ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
+  // organisations | coverage; declarations: submissions | completed | coverage.
+  // vue is presentation only and grants no permission. Update parsers, tabs,
+  // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
+  // Phase 3.
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

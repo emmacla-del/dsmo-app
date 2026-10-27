@@ -37,6 +37,11 @@ export const ONEFOP_STAFF_ROLES = [
 export const READ_ONLY_NATIONAL_ROLES = ['CENTRAL_AGENT'] as const;
 
 /** National account-registration specialists. */
+// ADR-0001: Module separation stays in the existing controller guard role
+// sets. Keep registrations out of survey roles and submissions out of
+// registration roles. CENTRAL_AGENT is read-only: no mutations or export.
+// Do not create a parallel capability model; extend these sets. See
+// docs/adr/0001-admin-modules-restructure.md.
 export const REGISTRATION_ADMIN_ROLES = [
   'SUPER_ADMIN',
   'ADMIN_ONEFOP',
@@ -46,6 +51,11 @@ export const REGISTRATION_ADMIN_ROLES = [
 ] as const;
 
 /** ONEFOP survey workflow staff, before read-only observers are added. */
+// ADR-0001: Module separation stays in the existing controller guard role
+// sets. Keep registrations out of survey roles and submissions out of
+// registration roles. CENTRAL_AGENT is read-only: no mutations or export.
+// Do not create a parallel capability model; extend these sets. See
+// docs/adr/0001-admin-modules-restructure.md.
 export const SURVEY_ADMIN_ROLES = [
   'SUPER_ADMIN',
   'ADMIN_ONEFOP',
