@@ -74,16 +74,20 @@ describe('getById for the admin file page', () => {
 });
 
 describe('review decisions read only what they need', () => {
+  const REVISION = new Date('2026-10-27T09:30:00.000Z');
+
   const setup = () => {
     const prisma: any = {
       onefopSubmission: {
         findFirst: jest.fn(),
-        update: jest.fn().mockResolvedValue({ id: 'db-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'db-1', status: 'APPROVED' }),
       },
       onefopAnomaly: { createMany: jest.fn(), findMany: jest.fn() },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
-      campaignSubmission: { updateMany: jest.fn() },
+      campaignSubmission: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
+    prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
     const service = new QuestionnairesService(prisma, undefined, new EligibilityEngineService(prisma));
     return { prisma, service };
   };
@@ -91,27 +95,40 @@ describe('review decisions read only what they need', () => {
   it('approve, opened from the receipt reference, selects a few fields and writes under the dossier id', async () => {
     const { prisma, service } = setup();
     prisma.onefopSubmission.findFirst
-      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', campaignId: null, establishmentId: 'e-1' })
-      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', anomalies: [] });
+      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', campaignId: null, establishmentId: 'e-1', updatedAt: REVISION })
+      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', anomalies: [], updatedAt: REVISION });
 
-    await service.approve('ref-1', 'admin-1', territory('ADMIN_ONEFOP'));
+    await service.approve('ref-1', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString());
 
     const lookup = prisma.onefopSubmission.findFirst.mock.calls[0][0];
     expect(lookup.select).toEqual(expect.objectContaining({ id: true, status: true }));
     expect(lookup.include).toBeUndefined();
     expect(prisma.onefopSubmission.findFirst.mock.calls[1][0].where.AND[0]).toEqual({ OR: [{ id: 'db-1' }, { submissionId: 'db-1' }] });
     expect(prisma.auditLog.create.mock.calls[0][0].data.resourceId).toBe('db-1');
-    expect(prisma.onefopSubmission.update.mock.calls[0][0].where).toEqual({ id: 'db-1' });
+    expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].where).toEqual({
+      id: 'db-1',
+      status: 'PENDING_REVIEW',
+      updatedAt: REVISION,
+    });
   });
 
   it('reject and request-correction use the same lean lookup', async () => {
     for (const act of ['reject', 'correction'] as const) {
       const { prisma, service } = setup();
-      prisma.onefopSubmission.findFirst.mockResolvedValue({ id: 'db-1', status: 'PENDING_REVIEW' });
-      if (act === 'reject') await service.reject('ref-1', 'Motif suffisamment long', 'admin-1');
-      else await service.requestCorrection('ref-1', 'Commentaire assez long', true, 'admin-1');
+      prisma.onefopSubmission.findFirst.mockResolvedValue({ id: 'db-1', status: 'PENDING_REVIEW', updatedAt: REVISION });
+      if (act === 'reject') {
+        await service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString());
+      } else {
+        await service.requestCorrection(
+          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+        );
+      }
       expect(prisma.onefopSubmission.findFirst.mock.calls[0][0].select).toBeDefined();
-      expect(prisma.onefopSubmission.update.mock.calls[0][0].where).toEqual({ id: 'db-1' });
+      expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].where).toEqual({
+        id: 'db-1',
+        status: 'PENDING_REVIEW',
+        updatedAt: REVISION,
+      });
     }
   });
 });

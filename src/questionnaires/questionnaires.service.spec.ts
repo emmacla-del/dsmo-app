@@ -1079,17 +1079,24 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     let service: QuestionnairesService;
     let prisma: any;
     let eligibilityEngine: EligibilityEngineService;
+    const REVISION = new Date('2026-10-27T09:30:00.000Z');
 
     beforeEach(() => {
+      let written: Record<string, unknown> = {};
       prisma = {
         onefopSubmission: {
           findFirst: jest.fn(),
-          update: jest.fn(),
+          updateMany: jest.fn().mockImplementation(async ({ data }: any) => {
+            written = data;
+            return { count: 1 };
+          }),
+          findUnique: jest.fn().mockImplementation(async ({ where }: any) => ({ id: where.id, ...written })),
         },
         auditLog: {
           create: jest.fn().mockResolvedValue({}),
         },
       };
+      prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
       eligibilityEngine = new EligibilityEngineService(prisma);
       service = new QuestionnairesService(prisma, undefined, eligibilityEngine);
     });
@@ -1097,7 +1104,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     it('throws NotFoundException when submission does not exist', async () => {
       prisma.onefopSubmission.findFirst.mockResolvedValue(null);
       await expect(service.approve('non-existent', 'admin-1')).rejects.toThrow(NotFoundException);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
@@ -1117,7 +1124,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       });
 
       await expect(service.approve('sub-blocking', 'admin-1')).rejects.toThrow(BadRequestException);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     });
 
     it('approval of a clean submission must succeed and set status to APPROVED with review metadata', async () => {
@@ -1125,18 +1132,13 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [],
-      });
-      prisma.onefopSubmission.update.mockResolvedValue({
-        id: 'sub-clean',
-        status: OnefopStatus.APPROVED,
-        reviewedBy: 'admin-1',
-        reviewedAt: new Date(),
+        updatedAt: REVISION,
       });
 
-      const result = await service.approve('sub-clean', 'admin-1');
+      const result = await service.approve('sub-clean', 'admin-1', undefined, REVISION.toISOString());
 
-      expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
-        where: { id: 'sub-clean' },
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
+        where: { id: 'sub-clean', status: OnefopStatus.PENDING_REVIEW, updatedAt: REVISION },
         data: expect.objectContaining({
           status: 'APPROVED',
           reviewedBy: 'admin-1',
@@ -1154,15 +1156,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         establishmentId: 'est-456',
         region: 'Centre',
         anomalies: [],
-      });
-      prisma.onefopSubmission.update.mockResolvedValue({
-        id: 'sub-clean',
-        status: OnefopStatus.APPROVED,
-        reviewedBy: 'reg-admin-1',
-        reviewedAt: new Date(),
+        updatedAt: REVISION,
       });
 
-      await service.approve('sub-clean', 'reg-admin-1', { role: 'REGIONAL_ADMIN', region: 'Centre' });
+      await service.approve(
+        'sub-clean', 'reg-admin-1', { role: 'REGIONAL_ADMIN', region: 'Centre' }, REVISION.toISOString(),
+      );
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -1189,15 +1188,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         establishmentId: 'est-012',
         region: 'Littoral',
         anomalies: [],
-      });
-      prisma.onefopSubmission.update.mockResolvedValue({
-        id: 'sub-clean',
-        status: OnefopStatus.APPROVED,
-        reviewedBy: 'central-admin-1',
-        reviewedAt: new Date(),
+        updatedAt: REVISION,
       });
 
-      await service.approve('sub-clean', 'central-admin-1', { role: 'ADMIN_ONEFOP' });
+      await service.approve(
+        'sub-clean', 'central-admin-1', { role: 'ADMIN_ONEFOP' }, REVISION.toISOString(),
+      );
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -1229,14 +1225,11 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
             severity: AnomalySeverity.WARNING,
           },
         ],
-      });
-      prisma.onefopSubmission.update.mockResolvedValue({
-        id: 'sub-warning',
-        status: OnefopStatus.APPROVED,
+        updatedAt: REVISION,
       });
 
-      const result = await service.approve('sub-warning', 'admin-1');
-      expect(prisma.onefopSubmission.update).toHaveBeenCalled();
+      const result = await service.approve('sub-warning', 'admin-1', undefined, REVISION.toISOString());
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalled();
       expect(result.status).toBe(OnefopStatus.APPROVED);
     });
 
@@ -1253,14 +1246,11 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
             severity: AnomalySeverity.CRITICAL,
           },
         ],
-      });
-      prisma.onefopSubmission.update.mockResolvedValue({
-        id: 'sub-resolved',
-        status: OnefopStatus.APPROVED,
+        updatedAt: REVISION,
       });
 
-      const result = await service.approve('sub-resolved', 'admin-1');
-      expect(prisma.onefopSubmission.update).toHaveBeenCalled();
+      const result = await service.approve('sub-resolved', 'admin-1', undefined, REVISION.toISOString());
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalled();
       expect(result.status).toBe(OnefopStatus.APPROVED);
     });
 
@@ -1271,7 +1261,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         anomalies: [],
       });
       await expect(service.approve('sub-correction', 'admin-1')).rejects.toThrow(BadRequestException);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     });
 
     it('throws 400 when status is REJECTED', async () => {
@@ -1281,24 +1271,31 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         anomalies: [],
       });
       await expect(service.approve('sub-rejected', 'admin-1')).rejects.toThrow(BadRequestException);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     });
   });
 
   describe('QuestionnairesService.requestCorrection (status precondition + audit)', () => {
     let service: QuestionnairesService;
     let prisma: any;
+    const REVISION = new Date('2026-10-27T09:30:00.000Z');
 
     beforeEach(() => {
+      let written: Record<string, unknown> = {};
       prisma = {
         onefopSubmission: {
           findFirst: jest.fn(),
-          update: jest.fn(),
+          updateMany: jest.fn().mockImplementation(async ({ data }: any) => {
+            written = data;
+            return { count: 1 };
+          }),
+          findUnique: jest.fn().mockImplementation(async ({ where }: any) => ({ id: where.id, ...written })),
         },
         auditLog: {
           create: jest.fn(),
         },
       };
+      prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
       service = new QuestionnairesService(prisma);
     });
 
@@ -1307,9 +1304,10 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         id: 'sub-approved',
         status: OnefopStatus.APPROVED,
         anomalies: [],
+        updatedAt: REVISION,
       });
       await expect(service.requestCorrection('sub-approved', 'Motif valide de correction', true, 'actor-1')).rejects.toThrow(BadRequestException);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
@@ -1318,10 +1316,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         id: 'sub-pending',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [],
+        updatedAt: REVISION,
       });
-      prisma.onefopSubmission.update.mockResolvedValue({ id: 'sub-pending', status: 'CORRECTION_REQUESTED' });
 
-      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1');
+      await service.requestCorrection(
+        'sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1', undefined, REVISION.toISOString(),
+      );
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -1332,7 +1332,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
           details: expect.objectContaining({ previousStatus: OnefopStatus.PENDING_REVIEW, certified: true }),
         }),
       });
-      expect(prisma.onefopSubmission.update).toHaveBeenCalledWith(
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'CORRECTION_REQUESTED' }) }),
       );
     });
@@ -1342,7 +1342,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         service.requestCorrection('sub-any', 'Justification suffisante pour la correction.', false, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
@@ -1351,7 +1351,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         service.requestCorrection('sub-any', 'court', true, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
@@ -1360,10 +1360,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         id: 'sub-pending',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [],
+        updatedAt: REVISION,
       });
-      prisma.onefopSubmission.update.mockResolvedValue({ id: 'sub-pending', status: 'CORRECTION_REQUESTED' });
 
-      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1');
+      await service.requestCorrection(
+        'sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1', undefined, REVISION.toISOString(),
+      );
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -2147,15 +2149,23 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
 describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', () => {
 
 
+  const REVISION = new Date('2026-10-27T09:30:00.000Z');
+
   function buildPrisma(submission: Record<string, unknown>) {
+    let written: Record<string, unknown> = {};
     const prisma: any = {
       onefopSubmission: {
-        findFirst: jest.fn(async () => ({ anomalies: [], ...submission })),
-        update: jest.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
+        findFirst: jest.fn(async () => ({ anomalies: [], updatedAt: REVISION, ...submission })),
+        updateMany: jest.fn(async ({ data }: any) => {
+          written = data;
+          return { count: 1 };
+        }),
+        findUnique: jest.fn(async ({ where }: any) => ({ id: where.id, ...written })),
       },
       auditLog: { create: jest.fn(async () => ({})) },
       campaignSubmission: { updateMany: jest.fn(async () => ({ count: 1 })) },
     };
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
     return prisma;
   }
 
@@ -2167,7 +2177,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
 
   it('approve: CampaignSubmission -> VALIDATED, submittedAt untouched', async () => {
     const prisma = buildPrisma(linked);
-    const result = await buildService(prisma).approve('sub-1', 'admin-1');
+    const result = await buildService(prisma).approve('sub-1', 'admin-1', undefined, REVISION.toISOString());
 
     expect(result.status).toBe('APPROVED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
@@ -2176,27 +2186,31 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     expect(args.data).toEqual({ status: 'VALIDATED' });
     expect(args.data).not.toHaveProperty('submittedAt');
     // Runs after the OnefopSubmission status is written.
-    expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
+    expect(prisma.onefopSubmission.updateMany.mock.invocationCallOrder[0])
       .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
 
   });
 
   it('reject: CampaignSubmission -> NOT_STARTED, submittedAt = null', async () => {
     const prisma = buildPrisma(linked);
-    const result = await buildService(prisma).reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1');
+    const result = await buildService(prisma).reject(
+      'sub-1', 'Motif de rejet suffisamment long', 'admin-1', undefined, REVISION.toISOString(),
+    );
 
     expect(result.status).toBe('REJECTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
       where: { campaignId: 'camp-1', establishmentId: 'est-1' },
       data: { status: 'NOT_STARTED', submittedAt: null },
     });
-    expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
+    expect(prisma.onefopSubmission.updateMany.mock.invocationCallOrder[0])
       .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
   });
 
   it('request-correction: CampaignSubmission -> IN_PROGRESS, submittedAt = null', async () => {
     const prisma = buildPrisma(linked);
-    const result = await buildService(prisma).requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1');
+    const result = await buildService(prisma).requestCorrection(
+      'sub-1', 'Veuillez préciser le secteur.', true, 'admin-1', undefined, REVISION.toISOString(),
+    );
 
     expect(result.status).toBe('CORRECTION_REQUESTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
@@ -2210,9 +2224,13 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     const service = buildService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
-    await expect(service.approve('sub-1', 'admin-1')).resolves.toMatchObject({ status: 'APPROVED' });
-    await expect(service.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1')).resolves.toMatchObject({ status: 'REJECTED' });
-    await expect(service.requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1')).resolves.toMatchObject({ status: 'CORRECTION_REQUESTED' });
+    await expect(service.approve('sub-1', 'admin-1', undefined, REVISION.toISOString()))
+      .resolves.toMatchObject({ status: 'APPROVED' });
+    await expect(service.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1', undefined, REVISION.toISOString()))
+      .resolves.toMatchObject({ status: 'REJECTED' });
+    await expect(service.requestCorrection(
+      'sub-1', 'Veuillez préciser le secteur.', true, 'admin-1', undefined, REVISION.toISOString(),
+    )).resolves.toMatchObject({ status: 'CORRECTION_REQUESTED' });
 
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
@@ -2220,7 +2238,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
 
   it('establishmentId null: no CampaignSubmission update', async () => {
     const prisma = buildPrisma({ ...linked, establishmentId: null });
-    await buildService(prisma).approve('sub-1', 'admin-1');
+    await buildService(prisma).approve('sub-1', 'admin-1', undefined, REVISION.toISOString());
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
 
@@ -2230,14 +2248,17 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     const service = buildService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
-    await expect(service.approve('sub-1', 'admin-1')).resolves.toMatchObject({ status: 'APPROVED' });
+    await expect(service.approve('sub-1', 'admin-1', undefined, REVISION.toISOString()))
+      .resolves.toMatchObject({ status: 'APPROVED' });
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['approve', (s: QuestionnairesService) => s.approve('sub-1', 'admin-1'), 'APPROVED'],
-    ['reject', (s: QuestionnairesService) => s.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1'), 'REJECTED'],
-    ['requestCorrection', (s: QuestionnairesService) => s.requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1'), 'CORRECTION_REQUESTED'],
+    ['approve', (s: QuestionnairesService) => s.approve('sub-1', 'admin-1', undefined, REVISION.toISOString()), 'APPROVED'],
+    ['reject', (s: QuestionnairesService) => s.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1', undefined, REVISION.toISOString()), 'REJECTED'],
+    ['requestCorrection', (s: QuestionnairesService) => s.requestCorrection(
+      'sub-1', 'Veuillez préciser le secteur.', true, 'admin-1', undefined, REVISION.toISOString(),
+    ), 'CORRECTION_REQUESTED'],
   ])('%s: a failing CampaignSubmission update is logged and does not fail the review', async (_name, act, expectedStatus) => {
     const prisma = buildPrisma(linked);
     const boom = new Error('campaign_submissions unavailable');

@@ -9,6 +9,8 @@ import { QuestionnairesService } from './questionnaires.service';
  */
 const territory = (role: string) => ({ role, region: 'Littoral', department: 'Wouri', regionId: null, departmentId: null }) as any;
 
+const REVISION = new Date('2026-10-27T09:30:00.000Z');
+
 function setup({ status = 'APPROVED', roundOpen = true } = {}) {
   const submission = {
     id: 'db-1',
@@ -21,17 +23,24 @@ function setup({ status = 'APPROVED', roundOpen = true } = {}) {
     regionId: null,
     department: 'Wouri',
     departmentId: null,
+    updatedAt: REVISION,
   };
-  const prisma = {
+  let written: Record<string, unknown> = {};
+  const prisma: any = {
     onefopSubmission: {
       findFirst: jest.fn().mockResolvedValue(submission),
-      update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...submission, ...data })),
+      updateMany: jest.fn().mockImplementation(({ data }) => {
+        written = data;
+        return Promise.resolve({ count: 1 });
+      }),
+      findUnique: jest.fn().mockImplementation(({ where }) => Promise.resolve({ ...submission, ...written, id: where.id })),
     },
     submissionRound: { findFirst: jest.fn().mockResolvedValue(roundOpen ? { id: 'round-1' } : null) },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
     campaignSubmission: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
   };
-  const service = new QuestionnairesService(prisma as any);
+  prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
+  const service = new QuestionnairesService(prisma);
   return { service, prisma };
 }
 
@@ -40,11 +49,13 @@ const REASON = 'Effectifs 4.2 erronés, à reprendre.';
 describe('QuestionnairesService.reopenForCorrection', () => {
   it('returns an endorsed file for correction, with the reason, and records AUDIT_REOPEN', async () => {
     const { service, prisma } = setup();
-    const updated: any = await service.reopenForCorrection('db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'));
+    const updated: any = await service.reopenForCorrection(
+      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+    );
 
     expect(updated.status).toBe('CORRECTION_REQUESTED');
-    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
-      where: { id: 'db-1' },
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
+      where: { id: 'db-1', status: 'APPROVED', updatedAt: REVISION },
       data: expect.objectContaining({ status: 'CORRECTION_REQUESTED', rejectionReason: REASON, reviewedBy: 'admin-1' }),
     });
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
@@ -63,12 +74,18 @@ describe('QuestionnairesService.reopenForCorrection', () => {
 
   it('is open to SUPER_ADMIN too', async () => {
     const { service } = setup();
-    await expect(service.reopenForCorrection('db-1', REASON, true, 'sa-1', territory('SUPER_ADMIN'))).resolves.toBeTruthy();
+    await expect(
+      service.reopenForCorrection('db-1', REASON, true, 'sa-1', territory('SUPER_ADMIN'), REVISION.toISOString()),
+    ).resolves.toBeTruthy();
   });
 
   it('is open to the submissions administrator', async () => {
     const { service } = setup();
-    await expect(service.reopenForCorrection('db-1', REASON, true, 'sub-admin-1', territory('ADMIN_ONEFOP_SUBMISSIONS'))).resolves.toBeTruthy();
+    await expect(
+      service.reopenForCorrection(
+        'db-1', REASON, true, 'sub-admin-1', territory('ADMIN_ONEFOP_SUBMISSIONS'), REVISION.toISOString(),
+      ),
+    ).resolves.toBeTruthy();
   });
 
   it('refuses every other role, before reading the file', async () => {
@@ -76,7 +93,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
       const { service, prisma } = setup();
       await expect(service.reopenForCorrection('db-1', REASON, true, 'x', territory(role))).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     }
     const { service } = setup();
     await expect(service.reopenForCorrection('db-1', REASON, true, 'x', undefined)).rejects.toBeInstanceOf(ForbiddenException);
@@ -86,25 +103,29 @@ describe('QuestionnairesService.reopenForCorrection', () => {
     const { service, prisma } = setup();
     await expect(service.reopenForCorrection('db-1', REASON, false, 'a', territory('SUPER_ADMIN'))).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.reopenForCorrection('db-1', '  court  ', true, 'a', territory('SUPER_ADMIN'))).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it('reopens endorsed files only', async () => {
     for (const status of ['PENDING_REVIEW', 'CORRECTION_REQUESTED', 'REJECTED', 'DRAFT']) {
       const { service, prisma } = setup({ status });
-      await expect(service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'))).rejects.toThrow(/Seul un dossier visé/);
-      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      await expect(
+        service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), REVISION.toISOString()),
+      ).rejects.toThrow(/Seul un dossier visé/);
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     }
   });
 
   it('refuses when the period is closed: the respondent could not resubmit', async () => {
     const { service, prisma } = setup({ roundOpen: false });
-    await expect(service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'))).rejects.toThrow(/n'est plus ouverte/);
+    await expect(
+      service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), REVISION.toISOString()),
+    ).rejects.toThrow(/n'est plus ouverte/);
     expect(prisma.submissionRound.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ quarterCode: 'QUARTERLY_2026_T4_001' }) }),
     );
-    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
