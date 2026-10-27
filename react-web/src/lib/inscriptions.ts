@@ -40,6 +40,7 @@ import {
  * AssistedRegistrationDto is the enforcing copy.
  */
 export interface AssistedRegistrationPayload {
+  clientRequestId?: string;
   email: string;
   firstName?: string;
   lastName?: string;
@@ -179,7 +180,7 @@ export interface AssistedRegistrationResult {
     name: string;
     /** Generated at registration for every file; null only for legacy files. */
     establishmentId: string | null;
-    taxNumber: string;
+    taxNumber: string | null;
     entityType: string | null;
   };
   /**
@@ -192,6 +193,28 @@ export interface AssistedRegistrationResult {
 
 export function adminRegisterCompany(payload: AssistedRegistrationPayload) {
   return apiFetch<AssistedRegistrationResult>("/auth/admin/register-company", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type AssistedRegistrationDuplicateReason = "TAX_NUMBER" | "CNPS_NUMBER" | "NAME_AND_SUBDIVISION";
+
+export interface AssistedRegistrationDuplicateMatch {
+  companyId: string;
+  name: string;
+  entityType: string | null;
+  region: string;
+  department: string;
+  subdivision: string;
+  establishmentId: string | null;
+  status: string;
+  submittedAt: string;
+  matchReasons: AssistedRegistrationDuplicateReason[];
+}
+
+export function findAssistedRegistrationDuplicates(payload: AssistedRegistrationPayload) {
+  return apiFetch<AssistedRegistrationDuplicateMatch[]>("/auth/admin/register-company/duplicates", {
     method: "POST",
     body: JSON.stringify(payload),
   });

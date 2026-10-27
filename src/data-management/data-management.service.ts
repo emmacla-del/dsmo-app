@@ -1706,7 +1706,7 @@ export class DataManagementService {
             surveyYear: s.surveyYear,
             quarterCode: s.quarterCode,
             companyName: s.company?.name ?? null,
-            // A synthetic NA-<uuid> placeholder exports as an empty cell.
+            // A legacy synthetic NA-<uuid> placeholder exports as an empty cell.
             taxNumber: resolveTaxNumber(s),
             establishmentId: s.company?.establishmentId ?? s.establishmentId ?? null,
             region: s.region ?? s.company?.region ?? null,

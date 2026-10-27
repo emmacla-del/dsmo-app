@@ -17,7 +17,7 @@ import {
 import { asUiLocale, localized, type UiLocale } from "@/lib/register-i18n";
 import { dateForCalendar, dateFromCalendar } from "@/lib/register-date";
 import { branchesFor, dropUnofferedBranch, type BranchRow } from "@/lib/register-activity";
-import { getSectors } from "@/lib/api-client";
+import { apiErrorCode, getSectors } from "@/lib/api-client";
 import { sectorLabel } from "@/lib/display-labels";
 import {
   useTerritoryDepartments,
@@ -27,8 +27,11 @@ import {
 import {
   adminRegisterCompany,
   buildAssistedRegistrationPayload,
+  findAssistedRegistrationDuplicates,
   isValidSocialCapital,
   registrationTerritoryChoice,
+  type AssistedRegistrationDuplicateMatch,
+  type AssistedRegistrationPayload,
   type AssistedRegistrationResult,
 } from "@/lib/inscriptions";
 import { useEmailAvailability } from "@/lib/use-email-availability";
@@ -88,6 +91,29 @@ const EMPTY_RESPONDENT: Respondent = {
   phone2: "",
 };
 
+const ASSISTED_REGISTRATION_REQUEST_KEY = "camleap.admin-registration.pending-request-id";
+
+function assistedRegistrationRequestId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  try {
+    const existing = window.sessionStorage.getItem(ASSISTED_REGISTRATION_REQUEST_KEY);
+    if (existing) return existing;
+    const created = window.crypto.randomUUID();
+    window.sessionStorage.setItem(ASSISTED_REGISTRATION_REQUEST_KEY, created);
+    return created;
+  } catch {
+    return window.crypto.randomUUID();
+  }
+}
+
+function clearAssistedRegistrationRequestId(): void {
+  try {
+    window.sessionStorage.removeItem(ASSISTED_REGISTRATION_REQUEST_KEY);
+  } catch {
+    // Storage may be disabled; the current form still has in-memory state.
+  }
+}
+
 export default function NouvelleInscriptionPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(DIRECTORY_ROLES);
   const t = useTranslations();
@@ -139,6 +165,8 @@ export default function NouvelleInscriptionPage() {
   const [result, setResult] = useState<AssistedRegistrationResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [credentialsAcknowledged, setCredentialsAcknowledged] = useState(false);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<AssistedRegistrationDuplicateMatch[]>([]);
+  const [duplicatePayload, setDuplicatePayload] = useState<AssistedRegistrationPayload | null>(null);
   const formHasUnsavedChanges = !result && (
     Boolean(entityType)
     || Object.values(entityData).some((value) => value.trim() !== "")
@@ -187,14 +215,47 @@ export default function NouvelleInscriptionPage() {
   const mutation = useMutation({
     mutationFn: adminRegisterCompany,
     onSuccess: (data) => {
+      clearAssistedRegistrationRequestId();
       setResult(data);
       setCredentialsAcknowledged(false);
       setError(null);
       setCopied(false);
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
     },
+    onError: (e: unknown) => {
+      if (apiErrorCode(e) === "IDEMPOTENCY_KEY_REUSED") {
+        clearAssistedRegistrationRequestId();
+        reportError(t("adminInscriptionsNouvellePage.errorRequestKeyReused"));
+      } else {
+        reportError(formatApiError(e, locale));
+      }
+    },
+  });
+
+  const duplicateCheckMutation = useMutation({
+    mutationFn: findAssistedRegistrationDuplicates,
+    onSuccess: (matches, payload) => {
+      if (matches.length === 0) {
+        submitRegistration(payload);
+        return;
+      }
+      setDuplicateCandidates(matches);
+      setDuplicatePayload(payload);
+    },
     onError: (e: unknown) => reportError(formatApiError(e, locale)),
   });
+
+  function submitRegistration(payload: AssistedRegistrationPayload) {
+    mutation.mutate({ ...payload, clientRequestId: assistedRegistrationRequestId() });
+  }
+
+  function continueAfterDuplicateReview() {
+    if (!duplicatePayload) return;
+    const payload = duplicatePayload;
+    setDuplicatePayload(null);
+    setDuplicateCandidates([]);
+    submitRegistration(payload);
+  }
 
   // The error summary sits at the top of the form (government-form
   // convention). A failed submit moves focus to it, which also scrolls it into
@@ -231,6 +292,9 @@ export default function NouvelleInscriptionPage() {
     setResult(null);
     setCopied(false);
     setCredentialsAcknowledged(false);
+    setDuplicateCandidates([]);
+    setDuplicatePayload(null);
+    clearAssistedRegistrationRequestId();
   }
 
   function closeResult() {
@@ -270,7 +334,7 @@ export default function NouvelleInscriptionPage() {
     }
     // Hidden dependent fields must not reach the payload — the same gate the
     // public wizard applies (visibleEntityDataForType).
-    mutation.mutate(
+    duplicateCheckMutation.mutate(
       buildAssistedRegistrationPayload({
         entityType,
         entityData,
@@ -474,14 +538,77 @@ export default function NouvelleInscriptionPage() {
         </Section>
 
         <div className="mb-10 mt-2 flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={mutation.isPending || !requiredLookupsReady}>
-            {mutation.isPending
+          <Button type="submit" disabled={mutation.isPending || duplicateCheckMutation.isPending || !requiredLookupsReady}>
+            {duplicateCheckMutation.isPending
+              ? t("adminInscriptionsNouvellePage.checkingDuplicatesButton")
+              : mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
               : t("adminInscriptionsNouvellePage.submitButton")}
           </Button>
           <Button asChild variant="outline"><Link href="/admin/inscriptions">{t("common.cancel")}</Link></Button>
         </div>
       </form>
+
+      <AdminDialog
+        open={Boolean(duplicatePayload)}
+        onClose={() => {
+          setDuplicatePayload(null);
+          setDuplicateCandidates([]);
+        }}
+        eyebrow={t("adminInscriptionsNouvellePage.duplicateEyebrow")}
+        title={t("adminInscriptionsNouvellePage.duplicateTitle")}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => {
+              setDuplicatePayload(null);
+              setDuplicateCandidates([]);
+            }}>
+              {t("adminInscriptionsNouvellePage.reviewDuplicatesButton")}
+            </Button>
+            <Button type="button" onClick={continueAfterDuplicateReview} disabled={mutation.isPending}>
+              {t("adminInscriptionsNouvellePage.continueDespiteDuplicatesButton")}
+            </Button>
+          </>
+        }
+      >
+        <p>{t("adminInscriptionsNouvellePage.duplicateIntro")}</p>
+        <ul className="grid gap-3 pl-5">
+          {duplicateCandidates.map((candidate) => (
+            <li key={candidate.companyId}>
+              <strong>{candidate.name}</strong>
+              <div className="text-sm text-muted-foreground">
+                {[candidate.entityType, candidate.region, candidate.department, candidate.subdivision]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {t("adminInscriptionsNouvellePage.duplicateCandidateStatus", { status: candidate.status })}
+                {" · "}
+                {t("adminInscriptionsNouvellePage.duplicateSubmittedAt", {
+                  date: new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" })
+                    .format(new Date(candidate.submittedAt)),
+                })}
+              </div>
+              {candidate.establishmentId && (
+                <div className="text-sm text-muted-foreground">
+                  {t("adminInscriptionsNouvellePage.duplicateEstablishmentId", { id: candidate.establishmentId })}
+                </div>
+              )}
+              <div className="text-sm">
+                {candidate.matchReasons.map((reason) => (
+                  <span key={reason} className="mr-2">
+                    {reason === "TAX_NUMBER"
+                      ? t("adminInscriptionsNouvellePage.duplicateMatchTaxNumber")
+                      : reason === "CNPS_NUMBER"
+                        ? t("adminInscriptionsNouvellePage.duplicateMatchCnps")
+                        : t("adminInscriptionsNouvellePage.duplicateMatchName")}
+                  </span>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </AdminDialog>
 
       <AdminDialog
         open={!!result}

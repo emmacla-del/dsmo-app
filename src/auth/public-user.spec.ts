@@ -15,6 +15,7 @@ const SECRETS: Record<(typeof SECRET_USER_FIELDS)[number], unknown> = {
   tokenVersion: 0,
   registrationNumber: 'INS-2026-0847',
   registrationRequestId: 'req-1',
+  registrationRequestHash: 'request-hash',
   assigneeId: 'agent-1',
   lastReminderAt: new Date(),
   approvalComment: 'reviewer note',

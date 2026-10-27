@@ -34,13 +34,34 @@ function makePrisma() {
   const persisted = { users: [] as any[], companies: [] as any[] };
   const prisma: any = {
     user: {
-      findUnique: jest.fn(async () => null),
+      findUnique: jest.fn(async ({ where }: any) => {
+        const user = persisted.users.find((row) =>
+          where?.registrationRequestId
+            ? row.registrationRequestId === where.registrationRequestId
+            : where?.id
+              ? row.id === where.id
+              : where?.email
+                ? row.email === where.email
+                : false,
+        );
+        if (!user) return null;
+        return { ...user, company: persisted.companies.find((row) => row.userId === user.id) ?? null };
+      }),
       findFirst: jest.fn(async () => null),
       create: jest.fn(async ({ data }: any) => ({ id: 'new-user', ...data })),
-      update: jest.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
+      update: jest.fn(async ({ where, data }: any) => {
+        const user = persisted.users.find((row) => row.id === where.id);
+        if (user) Object.assign(user, data);
+        return { id: where.id, ...(user ?? {}), ...data };
+      }),
     },
     company: {
-      findUnique: jest.fn(async () => null),
+      findUnique: jest.fn(async ({ where }: any) =>
+        persisted.companies.find((row) =>
+          where?.userId ? row.userId === where.userId : where?.taxNumber ? row.taxNumber === where.taxNumber : false,
+        ) ?? null,
+      ),
+      findMany: jest.fn(async () => []),
       create: jest.fn(async ({ data }: any) => ({ id: 'new-company', ...data })),
     },
     region: {
@@ -71,6 +92,7 @@ function makePrisma() {
       findFirst: jest.fn(async () => null),
     },
     auditLog: { create: jest.fn(async () => ({})) },
+    onefopSubmission: { findMany: jest.fn(async () => []) },
     $queryRaw: sequenceQueryRaw(),
     persisted,
   };
@@ -152,6 +174,12 @@ describe('AuthService.adminRegisterCompany', () => {
     expect(data.createdBy).toBe('regional-littoral');
     expect(data.assigneeId).toBe('regional-littoral');
     expect(data.role).toBe('COMPANY');
+  });
+
+  it('stores an absent NIU as null instead of manufacturing an identifier', async () => {
+    await service.adminRegisterCompany(body({ entityType: 'ADMINISTRATION', taxNumber: '' }), LITTORAL_ADMIN as any);
+
+    expect(prisma.company.create.mock.calls[0][0].data.taxNumber).toBeNull();
   });
 
   it('queues for approval and issues no session', async () => {
@@ -258,6 +286,74 @@ describe('AuthService.adminRegisterCompany', () => {
     expect(prisma.company.create).toHaveBeenCalledTimes(1);
     expect(prisma.persisted.users).toHaveLength(0);
     expect(prisma.persisted.companies).toHaveLength(0);
+  });
+
+  it('replays the same request for its author and reissues a one-time temporary password', async () => {
+    const request = { clientRequestId: '2b8e7096-2210-4a75-ae7d-e13a1669fc6c' };
+    const first = await service.adminRegisterCompany(body(), LITTORAL_ADMIN as any, request);
+    const second = await service.adminRegisterCompany(body(), LITTORAL_ADMIN as any, request);
+
+    expect(prisma.user.create).toHaveBeenCalledTimes(1);
+    expect(prisma.company.create).toHaveBeenCalledTimes(1);
+    expect(first.user.id).toBe(second.user.id);
+    expect(second.temporaryPassword).not.toBe(first.temporaryPassword);
+    expect(prisma.persisted.users[0].mustChangePassword).toBe(true);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'COMPANY_REGISTRATION_ASSISTED_CREDENTIALS_REISSUED',
+          resourceId: 'new-user',
+          userId: LITTORAL_ADMIN.id,
+        }),
+      }),
+    );
+  });
+
+  it('rejects a reused request key when the payload or acting admin differs', async () => {
+    const request = { clientRequestId: '2b8e7096-2210-4a75-ae7d-e13a1669fc6c' };
+    await service.adminRegisterCompany(body(), LITTORAL_ADMIN as any, request);
+
+    await expect(
+      service.adminRegisterCompany(body({ name: 'Different organization' }), LITTORAL_ADMIN as any, request),
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }) });
+    await expect(
+      service.adminRegisterCompany(body(), { ...LITTORAL_ADMIN, id: 'another-admin' } as any, request),
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }) });
+
+    expect(prisma.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns duplicate hints without exposing identifiers or contact details', async () => {
+    prisma.company.findMany.mockResolvedValueOnce([
+      {
+        id: 'existing-company',
+        name: 'Societe Test',
+        entityType: 'ENTREPRISE',
+        region: 'Littoral',
+        department: 'Wouri',
+        subdivision: 'Douala 1',
+        subdivisionId: 'sub-douala1',
+        taxNumber: 'M012345678901A',
+        cnpsNumber: 'CNPS-1',
+        establishmentId: 'EN00000112',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        user: { status: 'PENDING_APPROVAL', email: 'private@example.cm' },
+      },
+    ]);
+
+    const matches = await service.findAssistedRegistrationDuplicates(
+      body({ cnpsNumber: 'CNPS-1' }),
+      LITTORAL_ADMIN as any,
+    );
+
+    expect(matches[0]).toMatchObject({
+      companyId: 'existing-company',
+      matchReasons: ['TAX_NUMBER', 'CNPS_NUMBER', 'NAME_AND_SUBDIVISION'],
+      status: 'PENDING_APPROVAL',
+    });
+    expect(matches[0]).not.toHaveProperty('taxNumber');
+    expect(matches[0]).not.toHaveProperty('cnpsNumber');
+    expect(matches[0]).not.toHaveProperty('email');
   });
 });
 

@@ -41,8 +41,8 @@ export function isTrainingCentre(entityType: string | null | undefined): boolean
  * Registration asks for a NIU from enterprises, cooperatives, CTDs, NGOs and
  * training centres only (ENTITY_CONFIGS in register-constants.ts): an
  * administration and a project/programme do not declare one. Company.taxNumber
- * is NOT NULL and unique all the same, so those accounts carry a synthetic
- * `NA-<uuid>` (AuthService). It is an internal identifier, not a number the
+ * is nullable now; legacy accounts may carry a synthetic `NA-<uuid>` from
+ * AuthService. It is an internal identifier, not a number the
  * respondent could recognise, and §8 keeps technical codes off their screens —
  * a project respondent was shown « NIU : NA-6ff0ebd0-4f9f-… » (E2E
  * 2026-10-17, B6). Every admin screen already hides it; this is the same rule

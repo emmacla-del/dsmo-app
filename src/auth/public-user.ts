@@ -62,6 +62,7 @@ export const SECRET_USER_FIELDS = [
   'tokenVersion',
   'registrationNumber',
   'registrationRequestId',
+  'registrationRequestHash',
   'assigneeId',
   'lastReminderAt',
   'approvalComment',

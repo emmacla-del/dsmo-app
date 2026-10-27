@@ -361,7 +361,29 @@ export class AuthController {
       {
         ipAddress: req.ip ?? req.socket?.remoteAddress,
         userAgent: req.get?.('user-agent') ?? req.headers?.['user-agent'],
+        clientRequestId: body.clientRequestId,
       },
+    );
+  }
+
+  @Post('admin/register-company/duplicates')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_REGISTRATIONS', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN')
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
+  async findAssistedRegistrationDuplicates(@Request() req: any, @Body() body: AssistedRegistrationDto) {
+    return this.authService.findAssistedRegistrationDuplicates(
+      {
+        name: body.companyName,
+        taxNumber: body.taxNumber,
+        cnpsNumber: body.cnpsNumber,
+        region: body.region,
+        regionId: body.regionId,
+        department: body.department,
+        departmentId: body.departmentId,
+        subdivision: body.subdivision,
+        subdivisionId: body.subdivisionId,
+      },
+      territoryFromUser(req.user),
     );
   }
 

@@ -214,6 +214,9 @@ model User {
   // A retry after an uncertain connection reuses this key instead of creating
   // a second account.
   registrationRequestId      String?            @unique
+  /// SHA-256 fingerprint of the request body bound to registrationRequestId.
+  /// Used to reject retries that reuse a key for different registration data.
+  registrationRequestHash    String?
   // Reserved for session invalidation ("réinitialiser la session"); not read yet.
   tokenVersion               Int                @default(0)
   // Human-readable registration number (e.g. INS-2026-0847); no generator yet.
@@ -272,7 +275,7 @@ model Company {
   department                 String
   subdivision                String
   address                    String
-  taxNumber                  String                  @unique
+  taxNumber                  String?                 @unique
   cnpsNumber                 String?
   socialCapital              Float?
   totalEmployees             Int

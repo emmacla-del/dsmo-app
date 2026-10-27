@@ -83,6 +83,17 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right));
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
 /** Case-insensitive match on User.email, for lookups by a typed address. */
 export function emailMatch(email: string) {
   return { email: { equals: email.trim(), mode: 'insensitive' as const } };
@@ -140,7 +151,7 @@ export interface CompanyRegistrationData {
   departmentId?: string;
   subdivisionId?: string;
   address: string;
-  taxNumber: string;
+  taxNumber?: string | null;
   cnpsNumber?: string;
   socialCapital?: number;
   contactName?: string;
@@ -637,6 +648,7 @@ export class AuthService {
     attribution: {
       registrationMethod: string;
       registrationRequestId?: string;
+      registrationRequestHash?: string;
       createdBy?: string | null;
       assigneeId?: string | null;
       ipAddress?: string;
@@ -656,18 +668,12 @@ export class AuthService {
       throw emailExistsConflict();
     }
 
-    // Only enforce the NIU-uniqueness check for entity types that actually
-    // collect one (enterprise/cooperative/CTD/ONG/VT). Administration and
-    // ProjectProgram registration has no taxNumber field in the UI (public
-    // administrations and supervised projects/programs don't have a
-    // taxpayer number), so companyData.taxNumber arrives as ''. Company.
-    // taxNumber is @unique, so checking/storing '' verbatim would let the
-    // first such registration through and reject every subsequent one with
-    // a false "already exists" — skip the check, and see the synthetic
-    // fallback generated below instead of storing the empty string.
-    if (companyData.taxNumber) {
+    // NIU is optional for some entity types. Check uniqueness only when a
+    // non-empty value was supplied; absence remains null in Company.taxNumber.
+    const submittedTaxNumber = companyData.taxNumber?.trim();
+    if (submittedTaxNumber) {
       const existingCompany = await this.prisma.company.findUnique({
-        where: { taxNumber: companyData.taxNumber },
+        where: { taxNumber: submittedTaxNumber },
       });
       if (existingCompany) {
         throw new BadRequestException(
@@ -718,9 +724,7 @@ export class AuthService {
       !attribution.skipAutoApproval &&
       !!companyData.entityType &&
       (AUTO_APPROVE_ENTITY_TYPES as readonly string[]).includes(companyData.entityType);
-    const resolvedTaxNumber =
-      companyData.taxNumber ||
-      `NA-${crypto.randomUUID()}`;
+    const resolvedTaxNumber = submittedTaxNumber || null;
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -737,9 +741,11 @@ export class AuthService {
           department: resolvedTerritory.department,
           status: 'PENDING_APPROVAL',
           isActive: true,
+          mustChangePassword: attribution.registrationMethod === 'ASSISTED',
           emailVerified: false,
           registrationMethod: attribution.registrationMethod,
           registrationRequestId: attribution.registrationRequestId,
+          registrationRequestHash: attribution.registrationRequestHash,
           createdBy: attribution.createdBy ?? null,
           assigneeId: attribution.assigneeId ?? null,
         },
@@ -976,6 +982,160 @@ export class AuthService {
     };
   }
 
+  private assistedRegistrationHash(
+    email: string,
+    companyData: CompanyRegistrationData,
+  ): string {
+    return crypto
+      .createHash('sha256')
+      .update(stableJson({ ...companyData, email: normalizeEmail(email) }))
+      .digest('hex');
+  }
+
+  /**
+   * Replays an assisted request by rotating the temporary password for the
+   * same authenticated creator and same payload. The password itself is never
+   * stored in recoverable form; a retry receives a fresh one and invalidates
+   * any temporary credential whose original response may have been lost.
+   */
+  private async replayAssistedRegistration(
+    requestId: string,
+    email: string,
+    requestHash: string,
+    actorId: string,
+    requestMetadata: { ipAddress?: string; userAgent?: string },
+  ) {
+    const existing = await this.prisma.user.findUnique({
+      where: { registrationRequestId: requestId },
+    });
+    if (!existing) return null;
+
+    if (
+      existing.registrationMethod !== 'ASSISTED' ||
+      existing.createdBy !== actorId ||
+      normalizeEmail(existing.email) !== normalizeEmail(email) ||
+      existing.registrationRequestHash !== requestHash
+    ) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'Cette clé de demande est déjà associée à une autre inscription.',
+      });
+    }
+
+    const company = await this.prisma.company.findUnique({ where: { userId: existing.id } });
+    if (!company) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_PENDING',
+        message: 'Cette inscription est en cours de traitement. Réessayez dans un instant.',
+      });
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    const user = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: existing.id },
+        data: { passwordHash, mustChangePassword: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'COMPANY_REGISTRATION_ASSISTED_CREDENTIALS_REISSUED',
+          resourceType: 'User',
+          resourceId: existing.id,
+          ipAddress: requestMetadata.ipAddress,
+          userAgent: requestMetadata.userAgent,
+          details: {
+            companyId: company.id,
+            registrationRequestId: requestId,
+            registrationMethod: 'ASSISTED',
+          },
+        },
+      });
+      return updated;
+    });
+
+    return {
+      user,
+      company,
+      establishmentId: company.establishmentId,
+      temporaryPassword,
+    };
+  }
+
+  async findAssistedRegistrationDuplicates(
+    companyData: Pick<CompanyRegistrationData, 'name' | 'taxNumber' | 'cnpsNumber' | 'region' | 'regionId' | 'department' | 'departmentId' | 'subdivision' | 'subdivisionId'>,
+    actor: Territory,
+  ) {
+    const resolved = await resolveAndValidateTerritory(
+      this.prisma,
+      {
+        regionId: companyData.regionId,
+        departmentId: companyData.departmentId,
+        subdivisionId: companyData.subdivisionId,
+        region: companyData.region,
+        department: companyData.department,
+        subdivision: companyData.subdivision,
+      },
+      { requireSubdivision: true },
+    );
+    assertTerritorialAuthority(actor, {
+      region: resolved.region,
+      department: resolved.department,
+      regionId: resolved.regionId,
+      departmentId: resolved.departmentId,
+    });
+
+    const taxNumber = companyData.taxNumber?.trim();
+    const cnpsNumber = companyData.cnpsNumber?.trim();
+    const conditions: Prisma.CompanyWhereInput[] = [];
+    if (taxNumber) conditions.push({ taxNumber });
+    if (cnpsNumber) conditions.push({ cnpsNumber });
+    conditions.push({
+      name: { equals: companyData.name.trim(), mode: 'insensitive' },
+      subdivisionId: resolved.subdivisionId,
+    });
+    const matches = await this.prisma.company.findMany({
+      where: { OR: conditions, user: { is: { role: 'COMPANY' } } },
+      select: {
+        id: true,
+        name: true,
+        entityType: true,
+        region: true,
+        department: true,
+        subdivision: true,
+        subdivisionId: true,
+        taxNumber: true,
+        cnpsNumber: true,
+        establishmentId: true,
+        createdAt: true,
+        user: { select: { status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    return matches.map((match) => ({
+      companyId: match.id,
+      name: match.name,
+      entityType: match.entityType,
+      region: match.region,
+      department: match.department,
+      subdivision: match.subdivision,
+      establishmentId: match.establishmentId,
+      status: match.user.status,
+      submittedAt: match.createdAt.toISOString(),
+      matchReasons: [
+        ...(taxNumber && match.taxNumber === taxNumber ? ['TAX_NUMBER'] : []),
+        ...(cnpsNumber && match.cnpsNumber === cnpsNumber ? ['CNPS_NUMBER'] : []),
+        ...(match.subdivisionId === resolved.subdivisionId &&
+        match.name.localeCompare(companyData.name.trim(), 'fr', { sensitivity: 'accent' }) === 0
+          ? ['NAME_AND_SUBDIVISION']
+          : []),
+      ],
+    }));
+  }
+
   /**
    * Staff registers a declarant on its behalf — the field-work path.
    *
@@ -1002,7 +1162,7 @@ export class AuthService {
   async adminRegisterCompany(
     companyData: CompanyRegistrationData & { email: string },
     actor: Territory & { id: string },
-    requestMetadata: { ipAddress?: string; userAgent?: string } = {},
+    requestMetadata: { ipAddress?: string; userAgent?: string; clientRequestId?: string } = {},
   ) {
     const resolved = await resolveAndValidateTerritory(
       this.prisma,
@@ -1024,20 +1184,72 @@ export class AuthService {
     });
 
     const email = normalizeEmail(companyData.email);
+    const requestId = requestMetadata.clientRequestId?.trim() || undefined;
+    const requestHash = requestId ? this.assistedRegistrationHash(email, companyData) : undefined;
+    if (requestId && requestHash) {
+      const replay = await this.replayAssistedRegistration(
+        requestId,
+        email,
+        requestHash,
+        actor.id,
+        requestMetadata,
+      );
+      if (replay) {
+        return {
+          user: toPublicUser(replay.user),
+          company: {
+            id: replay.company.id,
+            name: replay.company.name,
+            establishmentId: replay.establishmentId,
+            taxNumber: replay.company.taxNumber,
+            entityType: replay.company.entityType,
+          },
+          temporaryPassword: replay.temporaryPassword,
+        };
+      }
+    }
+
     const temporaryPassword = this.generateTemporaryPassword();
-    const created = await this.createCompanyRegistration(
-      email,
-      temporaryPassword,
-      companyData,
-      {
+    let created: Awaited<ReturnType<AuthService['createCompanyRegistration']>>;
+    try {
+      created = await this.createCompanyRegistration(email, temporaryPassword, companyData, {
         registrationMethod: 'ASSISTED',
+        registrationRequestId: requestId,
+        registrationRequestHash: requestHash,
         createdBy: actor.id,
         assigneeId: actor.id,
         ipAddress: requestMetadata.ipAddress,
         userAgent: requestMetadata.userAgent,
         skipAutoApproval: true,
-      },
-    );
+      });
+    } catch (error) {
+      // A concurrent retry can lose the unique-key race after the winning
+      // transaction commits. Read the committed row and reissue credentials
+      // instead of returning a misleading duplicate-email conflict.
+      if (requestId && requestHash) {
+        const replay = await this.replayAssistedRegistration(
+          requestId,
+          email,
+          requestHash,
+          actor.id,
+          requestMetadata,
+        );
+        if (replay) {
+          return {
+            user: toPublicUser(replay.user),
+            company: {
+              id: replay.company.id,
+              name: replay.company.name,
+              establishmentId: replay.establishmentId,
+              taxNumber: replay.company.taxNumber,
+              entityType: replay.company.entityType,
+            },
+            temporaryPassword: replay.temporaryPassword,
+          };
+        }
+      }
+      throw error;
+    }
 
     return {
       user: toPublicUser(created.user),
@@ -1968,14 +2180,14 @@ export class AuthService {
   private async issueAttestation(
     companyId: string,
     establishmentId: string,
-    company: { name: string; entityType: string | null; taxNumber: string; region: string; department: string; subdivision: string; createdAt: Date },
+    company: { name: string; entityType: string | null; taxNumber: string | null; region: string; department: string; subdivision: string; createdAt: Date },
     email: string,
   ) {
     const attestation = await this.pdfService.generateRegistrationAttestation({
       establishmentId,
       companyName: company.name,
       entityType: company.entityType ?? 'N/A',
-      taxNumber: company.taxNumber,
+      taxNumber: company.taxNumber ?? '',
       region: company.region,
       department: company.department,
       subdivision: company.subdivision,
@@ -2042,7 +2254,7 @@ export class AuthService {
     companies: Array<{
       id: string;
       name: string;
-      taxNumber: string;
+      taxNumber: string | null;
       cnpsNumber: string | null;
       subdivisionId: string | null;
       entityType: string | null;

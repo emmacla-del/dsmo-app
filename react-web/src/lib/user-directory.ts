@@ -167,7 +167,7 @@ export interface CompanyRegistrationItem {
   region: string;
   department: string;
   status: string;
-  taxNumber: string;
+  taxNumber: string | null;
   cnpsNumber: string | null;
   /** The entity's phone ("Téléphone / WhatsApp"), a verified review row. */
   phone: string | null;

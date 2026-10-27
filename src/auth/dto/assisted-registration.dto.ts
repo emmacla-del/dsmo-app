@@ -1,4 +1,5 @@
 import { CompanyRegistrationFieldsDto } from './register-company.dto';
+import { IsOptional, IsUUID } from 'class-validator';
 
 /**
  * POST /auth/admin/register-company — a staff member registering a declarant
@@ -12,4 +13,9 @@ import { CompanyRegistrationFieldsDto } from './register-company.dto';
  * from the request, so a caller cannot claim a method or an author it does not
  * have (DECISION 1 resolves the method to the single value 'ASSISTED').
  */
-export class AssistedRegistrationDto extends CompanyRegistrationFieldsDto {}
+export class AssistedRegistrationDto extends CompanyRegistrationFieldsDto {
+  /** Stable across retries by the assisted-registration client. */
+  @IsOptional()
+  @IsUUID()
+  clientRequestId?: string;
+}

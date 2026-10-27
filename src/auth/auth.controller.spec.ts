@@ -18,6 +18,7 @@ describe('AuthController.adminRegisterCompany', () => {
     };
 
     await controller.adminRegisterCompany(req, {
+      clientRequestId: '2b8e7096-2210-4a75-ae7d-e13a1669fc6c',
       email: 'declarant@example.cm',
       companyName: 'Test organization',
       region: 'Centre',
@@ -33,6 +34,7 @@ describe('AuthController.adminRegisterCompany', () => {
       {
         ipAddress: '203.0.113.24',
         userAgent: 'Assisted registration test client',
+        clientRequestId: '2b8e7096-2210-4a75-ae7d-e13a1669fc6c',
       },
     );
   });

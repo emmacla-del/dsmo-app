@@ -179,7 +179,7 @@ export default function HomeEstablishmentPage() {
               <dt>{t("homeEstablishmentPage.entityType")}</dt>
               <dd>{typeLabel}</dd>
               {/* An administration and a project/programme are never asked
-                  for a NIU; their row holds an internal `NA-<uuid>`
+                  for a NIU; legacy rows may hold an internal `NA-<uuid>`
                   placeholder, which is not a number to show them (B6). */}
               {niu && (
                 <>

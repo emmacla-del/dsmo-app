@@ -509,9 +509,9 @@ describe('DataManagementService — onefopSheetDefs (P2: Administration/Projects
   });
 });
 
-// Administration / Projet-Programme companies carry a synthetic NA-<uuid>
-// in Company.taxNumber (the column is NOT NULL @unique). The register
-// exports must show an empty cell for it, never the placeholder.
+// Legacy Administration / Projet-Programme companies may carry synthetic
+// NA-<uuid> values. New registrations store missing NIU as null; exports
+// show both as empty cells.
 describe('DataManagementService — synthetic NA-<uuid> taxpayer numbers', () => {
   const SYNTHETIC = 'NA-3f2b6c1e-0000-4000-8000-000000000000';
 

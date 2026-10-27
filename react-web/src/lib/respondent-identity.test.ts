@@ -34,7 +34,7 @@ test("a NIU is shown only when the account declared one", () => {
   assert.equal(respondentNiu("P058812345678A"), "P058812345678A");
   assert.equal(respondentNiu("  P058812345678A  "), "P058812345678A");
   // The placeholder an administration or a project/programme carries,
-  // because Company.taxNumber is NOT NULL and unique (AuthService).
+  // because legacy rows stored a synthetic unique placeholder in AuthService.
   assert.equal(respondentNiu("NA-6ff0ebd0-4f9f-44c1-97be-c8caa06e6d98"), null);
   assert.equal(respondentNiu(""), null);
   assert.equal(respondentNiu(null), null);
