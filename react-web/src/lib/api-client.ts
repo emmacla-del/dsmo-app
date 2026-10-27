@@ -888,6 +888,8 @@ export function listAdminQuestionnaires(
     quarterCode?: string;
     late?: boolean;
     overdue?: boolean;
+    /** Only dossiers assigned to the signed-in agent (phase 5). */
+    assignedToMe?: boolean;
     includeArchived?: boolean;
     /** "oldest" lists the longest-waiting first; the server default is newest first. */
     sort?: "oldest";
@@ -908,6 +910,7 @@ export function listAdminQuestionnaires(
   if (params.quarterCode) query.set("quarterCode", params.quarterCode);
   if (params.late) query.set("late", "1");
   if (params.overdue) query.set("overdue", "1");
+  if (params.assignedToMe) query.set("assignedToMe", "1");
   if (params.includeArchived !== undefined) query.set("includeArchived", String(params.includeArchived));
   if (params.sort) query.set("sort", params.sort);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
@@ -1027,6 +1030,31 @@ export function bulkRejectDeclarations(payload: { submissionIds: string[]; certi
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function bulkRequestCorrectionDeclarations(payload: { submissionIds: string[]; certified: boolean; reason: string }) {
+  return apiFetch<{
+    success: boolean;
+    processedCount: number;
+    skippedCount: number;
+    correctedIds: string[];
+    skippedItems: Array<{ id: string; reason: string }>;
+    timestamp: string;
+  }>("/admin/questionnaires/bulk-request-correction", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Claims (assigneeId) or releases (null) a dossier's review. */
+export function assignDossier(id: string, assigneeId: string | null) {
+  return apiFetch<{ id: string; assigneeId: string | null; assigneeName: string | null }>(
+    `/admin/questionnaires/${encodeURIComponent(id)}/assign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ assigneeId }),
+    },
+  );
 }
 
 export function getSpssManifest(filters: Record<string, any> = {}) {

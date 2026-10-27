@@ -11,7 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { Prisma } from '@prisma/client';
-import { UserStatus } from '../types/prisma.types';
+import { UserStatus, OnefopStatus } from '../types/prisma.types';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
@@ -22,8 +22,9 @@ import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 import { ARCHIVED_ONLY, ANY_ARCHIVE_STATE, NOT_ARCHIVED } from '../common/archive-predicate';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
-import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
+import { TERRITORIAL_APPROVER_ROLES, REGISTRATION_ADMIN_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
+import { resolveAssignee } from './assignee';
 import { toPublicUser } from './public-user';
 import { isOverdue, overdueCutoff, overdueDaysFrom, waitingSince } from './registration-overdue';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
@@ -1605,6 +1606,8 @@ export class AuthService {
       // Only files the reviewers have left waiting past
       // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
       overdue?: boolean;
+      // Only files assigned to this staff agent (phase 5, team workflow).
+      assigneeId?: string;
       sortOrder?: 'oldest' | 'newest';
       page?: number;
       pageSize?: number;
@@ -1720,6 +1723,8 @@ export class AuthService {
     // own region.
     const createdBy = params.createdBy?.trim();
     if (createdBy) userWhere.createdBy = createdBy;
+    const assigneeId = params.assigneeId?.trim();
+    if (assigneeId) userWhere.assigneeId = assigneeId;
     const registrationMethod = params.registrationMethod?.trim();
     if (registrationMethod) userWhere.registrationMethod = registrationMethod;
 
@@ -1787,7 +1792,17 @@ export class AuthService {
               // a name without a second round trip per row.
               registrationMethod: true,
               createdBy: true,
+              assigneeId: true,
+              assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
               createdByUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+            },
+          },
+          // Whether the entity has already filed a declaration: the
+          // "Reporting" badge on the registration queue. A draft does not
+          // count — only a file actually submitted to the reviewers.
+          _count: {
+            select: {
+              onefopSubmissions: { where: { status: { not: OnefopStatus.DRAFT } } },
             },
           },
         },
@@ -1821,6 +1836,62 @@ export class AuthService {
     // overdueDays travels with the list so the screen words "plus de N jours"
     // with the threshold actually applied.
     return { items: itemsWithResubmission, total, page, pageSize, counts, countsView, overdueDays };
+  }
+
+  /**
+   * Claims, reassigns or releases a registration file (phase 5, team
+   * workflow). The assignee must be an active agent of the registrations
+   * module with jurisdiction over the file; null releases it. The previous
+   * holder is recorded, so a reassignment leaves a trace.
+   */
+  async assignRegistration(registrationId: string, assigneeId: string | null, actorId: string, actor: Territory) {
+    return this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.findFirst({
+        where: {
+          AND: [
+            { user: { id: registrationId, role: 'COMPANY', ...NOT_ARCHIVED } },
+            territoryWhere(actor),
+          ],
+        },
+        select: {
+          id: true,
+          region: true,
+          department: true,
+          regionId: true,
+          departmentId: true,
+          user: { select: { id: true, assigneeId: true } },
+        },
+      });
+      if (!company) throw new NotFoundException('Inscription introuvable.');
+      assertTerritorialAuthority(actor, company);
+
+      const assignee = await resolveAssignee(tx, assigneeId, company as Territory, REGISTRATION_ADMIN_ROLES);
+      await tx.user.update({
+        where: { id: company.user.id },
+        data: { assigneeId: assignee?.id ?? null },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'REGISTRATION_ASSIGNED',
+          resourceType: 'User',
+          resourceId: company.user.id,
+          details: {
+            companyId: company.id,
+            assigneeId: assignee?.id ?? null,
+            assigneeName: assignee?.name ?? null,
+            previousAssigneeId: company.user.assigneeId ?? null,
+            actorRole: actor?.role ?? null,
+          },
+        },
+      });
+      return {
+        id: company.user.id,
+        companyId: company.id,
+        assigneeId: assignee?.id ?? null,
+        assigneeName: assignee?.name ?? null,
+      };
+    });
   }
 
   async exportCompanyRegistrations(
@@ -2226,6 +2297,7 @@ export class AuthService {
       respondentFunction: string | null;
       respondentPhone: string | null;
       respondentPhone2: string | null;
+      _count?: { onefopSubmissions: number };
       user: {
         id: string;
         email: string;
@@ -2245,6 +2317,8 @@ export class AuthService {
         registrationNumber: string | null;
         registrationMethod: string | null;
         createdBy: string | null;
+        assigneeId: string | null;
+        assignee: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
         createdByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
       };
     }>,
@@ -2321,6 +2395,9 @@ export class AuthService {
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,
         createdByName: displayNameOf(row.user.createdByUser),
+        assigneeId: row.user.assigneeId ?? null,
+        assigneeName: displayNameOf(row.user.assignee),
+        hasSubmitted: (row._count?.onefopSubmissions ?? 0) > 0,
         updatedAt: row.updatedAt,
       };
     });

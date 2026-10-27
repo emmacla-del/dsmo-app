@@ -72,6 +72,21 @@ export class NotificationsService {
   }
 
   /**
+   * Marks every unread notification of the caller read.
+   *
+   * `userId` stays in the filter, so the sweep can never touch another user's
+   * inbox. Only rows still unread are updated: an already-read notification
+   * keeps its original readAt. Repeating the call changes nothing.
+   */
+  async markAllRead(userId: string): Promise<{ count: number }> {
+    const result = await this.prisma.userNotification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { count: result.count };
+  }
+
+  /**
    * Marks one of the caller's own notifications read.
    *
    * `updateMany` with both ids in the filter, not `update` by id: a row

@@ -155,10 +155,11 @@ describe('ActiveCompanyGuard completeness', () => {
       // The exemption is narrower than it looks: isActive=false is still
       // denied by the guard whatever this list says, and every route is
       // scoped to req.user.id server-side, so a company reads its own inbox
-      // and nothing else. Class-level decorator, hence all three handlers.
+      // and nothing else. Class-level decorator, hence all four handlers.
       'NotificationsController.list': 'ANY_STATUS',
       'NotificationsController.unreadCount': 'ANY_STATUS',
       'NotificationsController.markRead': 'ANY_STATUS',
+      'NotificationsController.markAllRead': 'ANY_STATUS',
     });
   });
 

@@ -275,6 +275,34 @@ describe('EligibilityEngineService', () => {
     });
   });
 
+  describe('listAnomalies (anomaly register)', () => {
+    it('filters by rule family and keeps the caller territory', async () => {
+      prisma.onefopSubmission.findMany.mockResolvedValue([]);
+      prisma.onefopAnomaly.count.mockResolvedValue(0);
+      prisma.onefopAnomaly.findMany.mockResolvedValue([]);
+
+      await service.listAnomalies(
+        { ruleFamily: 'VT_COHERENCE' },
+        { role: UserRole.REGIONAL_ADMIN, region: 'Centre' } as any,
+      );
+
+      const where = prisma.onefopAnomaly.count.mock.calls[0][0].where;
+      expect(where.ruleFamily).toBe('VT_COHERENCE');
+      expect(where.submission).toBeDefined();
+    });
+
+    it('leaves the family unconstrained when none is asked for', async () => {
+      prisma.onefopSubmission.findMany.mockResolvedValue([]);
+      prisma.onefopAnomaly.count.mockResolvedValue(0);
+      prisma.onefopAnomaly.findMany.mockResolvedValue([]);
+
+      await service.listAnomalies({}, { role: UserRole.ADMIN_ONEFOP } as any);
+
+      const where = prisma.onefopAnomaly.count.mock.calls[0][0].where;
+      expect(where.ruleFamily).toBeUndefined();
+    });
+  });
+
   describe('executeBulkVisa (Atomic Transaction)', () => {
     it('throws BadRequestException if certified checkbox is not checked', async () => {
       await expect(

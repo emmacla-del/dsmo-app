@@ -67,10 +67,26 @@ export interface AnomalyRegistryPage {
   items: AnomalyRecord[];
 }
 
+/**
+ * Rule families the register can be filtered on. Mirrors the families the
+ * rule catalogue declares (EligibilityEngineService.getValidationRules), plus
+ * ARITHMETIC, which older rows may still carry. An unknown stored family is
+ * shown as stored and is not offered as a filter.
+ */
+export const ANOMALY_RULE_FAMILIES = [
+  "COHERENCE",
+  "VT_COHERENCE",
+  "COMPLETENESS",
+  "ELIGIBILITY",
+  "ARITHMETIC",
+] as const;
+export type AnomalyRuleFamily = (typeof ANOMALY_RULE_FAMILIES)[number];
+
 export interface AnomalyRegistryParams {
   submissionId?: string;
   status?: AnomalyStatus;
   isBlocking?: boolean;
+  ruleFamily?: AnomalyRuleFamily;
   limit?: number;
   offset?: number;
 }
@@ -80,6 +96,7 @@ export function listAnomalyRegistry(params: AnomalyRegistryParams = {}) {
   if (params.submissionId) query.set("submissionId", params.submissionId);
   if (params.status) query.set("status", params.status);
   if (params.isBlocking !== undefined) query.set("isBlocking", String(params.isBlocking));
+  if (params.ruleFamily) query.set("ruleFamily", params.ruleFamily);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   const qs = query.toString();
@@ -121,6 +138,8 @@ export function anomalyDossierRef(a: AnomalyRecord): string {
 const RULE_FAMILY_LABELS: Record<string, { fr: string; en: string }> = {
   COHERENCE: { fr: "Cohérence", en: "Consistency" },
   VT_COHERENCE: { fr: "Cohérence (formation professionnelle)", en: "Consistency (vocational training)" },
+  COMPLETENESS: { fr: "Complétude", en: "Completeness" },
+  ELIGIBILITY: { fr: "Éligibilité", en: "Eligibility" },
   ARITHMETIC: { fr: "Contrôles arithmétiques", en: "Arithmetic checks" },
 };
 

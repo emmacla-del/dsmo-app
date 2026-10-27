@@ -19,9 +19,6 @@ import { NotificationsService } from './notifications.service';
  * A pending or complements-requested company must still reach its inbox, which
  * is where it will be told what to correct, so AllowInactiveCompany applies
  * here as it does on GET /auth/me.
- *
- * Deliberately omitted for v1: PATCH read-all. Users mark each notification
- * read by clicking it; the bulk route arrives in Phase 3-full if it is missed.
  */
 @Controller('auth/me/notifications')
 @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
@@ -44,6 +41,11 @@ export class NotificationsController {
   @Get('unread-count')
   async unreadCount(@Request() req: any) {
     return this.notifications.unreadCount(req.user.id);
+  }
+
+  @Patch('read-all')
+  async markAllRead(@Request() req: any) {
+    return this.notifications.markAllRead(req.user.id);
   }
 
   @Patch(':id/read')

@@ -5,7 +5,7 @@
 // filters. Pure functions, no React: each page reads its parameters through
 // a parser here and writes them back through `hrefWith`.
 
-import type { AnomalyStatus } from "./anomaly-registry";
+import { ANOMALY_RULE_FAMILIES, type AnomalyRuleFamily, type AnomalyStatus } from "./anomaly-registry";
 
 /**
  * `pathname` with the current query string, after setting (or, for null /
@@ -116,6 +116,13 @@ export function parseAnomalyStatusFilter(raw: string | null): "ALL" | AnomalySta
 /** Register ?severity=; "ALL" for absent or unknown values. */
 export function parseSeverityFilter(raw: string | null): "ALL" | "BLOCKING" | "WARNING" {
   return raw === "BLOCKING" || raw === "WARNING" ? raw : "ALL";
+}
+
+/** Register ?family=; "ALL" for absent or unknown values. */
+export function parseAnomalyFamilyFilter(raw: string | null): "ALL" | AnomalyRuleFamily {
+  return (ANOMALY_RULE_FAMILIES as readonly string[]).includes(raw ?? "")
+    ? (raw as AnomalyRuleFamily)
+    : "ALL";
 }
 
 /**

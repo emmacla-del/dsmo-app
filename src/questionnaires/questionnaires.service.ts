@@ -25,6 +25,8 @@ import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { OnefopShadowValidatorService, isVtSectionWaived } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, assertTerritorialAuthority, territoryWhere } from '../auth/territory';
+import { SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
+import { assigneeName, resolveAssignee } from '../auth/assignee';
 import { AdminListFilters, AdminListSort, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
@@ -3595,15 +3597,20 @@ export class QuestionnairesService {
           projectProgramDetail: true,
           vocationalTrainingDetail: true,
           campaign: { select: { name: true } },
+          company: { select: { user: { select: { status: true } } } },
           archivedByUser: { select: { id: true, firstName: true, lastName: true } },
+          assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
           anomalies: true,
         },
       }),
       (this.prisma as any).onefopSubmission.count({ where }),
     ]);
-    const projectedItems = items.map(({ campaign, ...item }: any) => ({
+    const projectedItems = items.map(({ campaign, assignee, company, ...item }: any) => ({
       ...item,
       campaignName: campaign?.name ?? null,
+      companyRegistrationStatus: company?.user?.status ?? null,
+      assigneeId: item.assigneeId ?? null,
+      assigneeName: assigneeName(assignee),
       reviewedBy: item.reviewedBy ?? null,
       reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
       rejectionReason: item.rejectionReason ?? null,
@@ -3717,6 +3724,55 @@ export class QuestionnairesService {
         },
       });
       return { id: submission.id, archivedAt: null, archivedBy: null, archiveReason: null };
+    });
+  }
+
+  /**
+   * Claims, reassigns or releases a dossier (phase 5, team workflow). The
+   * assignee must be an active agent of the survey module with jurisdiction
+   * over the file; null releases it. The previous holder is recorded, so a
+   * reassignment leaves a trace.
+   */
+  async assignSubmission(id: string, assigneeId: string | null, actorId: string, territory?: Territory) {
+    return this.prisma.$transaction(async (tx) => {
+      const submission = await tx.onefopSubmission.findFirst({
+        where: { AND: [{ OR: [{ id }, { submissionId: id }] }, NOT_ARCHIVED] },
+        select: {
+          id: true,
+          assigneeId: true,
+          region: true,
+          department: true,
+          regionId: true,
+          departmentId: true,
+        },
+      });
+      if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
+      assertTerritorialAuthority(territory, submission);
+
+      const assignee = await resolveAssignee(tx, assigneeId, submission as Territory, SURVEY_ADMIN_ROLES);
+      await tx.onefopSubmission.update({
+        where: { id: submission.id },
+        data: { assigneeId: assignee?.id ?? null },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'DOSSIER_ASSIGNED',
+          resourceType: 'OnefopSubmission',
+          resourceId: submission.id,
+          details: {
+            assigneeId: assignee?.id ?? null,
+            assigneeName: assignee?.name ?? null,
+            previousAssigneeId: submission.assigneeId ?? null,
+            actorRole: territory?.role ?? null,
+          },
+        },
+      });
+      return {
+        id: submission.id,
+        assigneeId: assignee?.id ?? null,
+        assigneeName: assignee?.name ?? null,
+      };
     });
   }
 

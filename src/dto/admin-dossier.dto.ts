@@ -17,6 +17,22 @@ export class BulkRejectDto {
   reason: string;
 }
 
+/** Same shape as a bulk reject: a written reason and the reviewer's attestation. */
+export class BulkRequestCorrectionDto {
+  @IsArray()
+  @IsNotEmpty()
+  @IsString({ each: true })
+  submissionIds: string[];
+
+  @IsBoolean()
+  certified: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10, { message: 'La justification doit comporter au moins 10 caractères.' })
+  reason: string;
+}
+
 export class BulkVisaDto {
   @IsArray()
   @IsNotEmpty()

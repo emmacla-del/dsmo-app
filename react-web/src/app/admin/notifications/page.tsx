@@ -9,6 +9,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import {
   NOTIFICATIONS_QUERY_KEY,
   listNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
   notificationKindLabel,
   type UserNotification,
@@ -53,12 +54,22 @@ export default function NotificationsPage() {
     onError: (e: Error) => setError(e.message),
   });
 
+  const markAllRead = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
   function open(notification: UserNotification) {
     if (!notification.readAt) markRead.mutate(notification.id);
     if (notification.linkHref) router.push(notification.linkHref);
   }
 
   const items = listQuery.data ?? [];
+  const hasUnread = items.some((item) => !item.readAt);
   const title = tRoot("adminNav.routes.notifications");
 
   const listState = resolveDataState({
@@ -74,6 +85,18 @@ export default function NotificationsPage() {
         breadcrumb={[{ label: title }]}
         title={title}
         hideTabs={true}
+        actions={
+          hasUnread ? (
+            <button
+              type="button"
+              className="cam-button cam-button-secondary"
+              disabled={markAllRead.isPending}
+              onClick={() => markAllRead.mutate()}
+            >
+              {t("markAllRead")}
+            </button>
+          ) : undefined
+        }
       />
 
       {error && (

@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, X } from "lucide-react";
-import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -86,6 +86,9 @@ interface DossierItem {
   warningCount: number;
   submittedAt: string | null;
   isLate: boolean;
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  companyRegistrationStatus?: string | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
   archiveReason?: string | null;
@@ -108,6 +111,9 @@ interface QuestionnaireListItem extends NamedSubmission {
   updatedAt?: string | null;
   submissionDate?: string | null;
   isLate?: boolean;
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  companyRegistrationStatus?: string | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
   archiveReason?: string | null;
@@ -131,6 +137,17 @@ const BADGE_VARIANT = {
 } as const;
 
 type ToneName = keyof typeof BADGE_VARIANT;
+
+// The organisation's own registration (account) status, as stored on
+// Company.user.status. It is not the dossier's status: a file can be endorsed
+// while its organisation's account is still under review. Unknown statuses are
+// shown as stored, neutral, rather than guessed at.
+const ORG_STATUS_BADGE: Record<string, { textKey: string; tone: ToneName }> = {
+  PENDING_APPROVAL: { textKey: "orgStatusPending", tone: "warning" },
+  COMPLEMENTS_REQUESTED: { textKey: "orgStatusComplements", tone: "info" },
+  ACTIVE: { textKey: "orgStatusActive", tone: "success" },
+  REJECTED: { textKey: "orgStatusRejected", tone: "error" },
+};
 
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
 const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
@@ -230,6 +247,7 @@ function DossiersContent() {
   const quarterCodeFilter = parseDossierQuarter(searchParams.get("quarterCode")) ?? "";
   const lateFilter = parseDossierFlag(searchParams.get("late"));
   const overdueFilter = parseDossierFlag(searchParams.get("overdue"));
+  const assignedToMeFilter = parseDossierFlag(searchParams.get("assignedToMe"));
   const vue = parseDossierVue(searchParams.get("vue"));
   const includeArchived = vue === "completed" && searchParams.get("includeArchived") !== "false";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
@@ -259,6 +277,7 @@ function DossiersContent() {
     quarterCodeFilter,
     lateFilter ? "late" : "",
     overdueFilter ? "overdue" : "",
+    assignedToMeFilter ? "assigned" : "",
     typeFilter,
     periodFilter,
     requestedQuery,
@@ -297,6 +316,12 @@ function DossiersContent() {
   const [reopenReason, setReopenReason] = useState("");
   const [certifiedReopen, setCertifiedReopen] = useState(false);
   const [reopenNotice, setReopenNotice] = useState("");
+  const [assignNotice, setAssignNotice] = useState("");
+  const [archiveNotice, setArchiveNotice] = useState("");
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [certifiedCorrection, setCertifiedCorrection] = useState(false);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionResult, setCorrectionResult] = useState<Awaited<ReturnType<typeof bulkRequestCorrectionDeclarations>> | null>(null);
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
@@ -323,7 +348,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, assignedToMeFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: vue === "completed" ? undefined : statusFilter || undefined,
@@ -340,6 +365,7 @@ function DossiersContent() {
         quarterCode: quarterCodeFilter || undefined,
         late: lateFilter || undefined,
         overdue: overdueFilter || undefined,
+        assignedToMe: assignedToMeFilter || undefined,
         search: search || undefined,
         companyId: companyIdFilter || undefined,
         sort: sortOrder || undefined,
@@ -352,16 +378,16 @@ function DossiersContent() {
 
   const archiveMutation = useMutation({
     mutationFn: (target: { item: DossierItem; reason: string }) => archiveDossier(target.item.id, target.reason),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
+    onSuccess: () => { setArchiveNotice(""); void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
     onError: (error) => {
-      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+      setArchiveNotice(`${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim());
     },
   });
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreDossier(id),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
+    onSuccess: () => { setArchiveNotice(""); void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
     onError: (error) => {
-      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+      setArchiveNotice(`${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim());
     },
   });
 
@@ -418,6 +444,27 @@ function DossiersContent() {
     },
   });
 
+  const assignMutation = useMutation({
+    mutationFn: (target: { id: string; assigneeId: string | null }) => assignDossier(target.id, target.assigneeId),
+    onMutate: () => setAssignNotice(""),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+    },
+    onError: (error) => setAssignNotice(error instanceof Error ? error.message : t("assignFailed")),
+  });
+
+  const correctionMutation = useMutation({
+    mutationFn: bulkRequestCorrectionDeclarations,
+    onSuccess: (data) => {
+      setCorrectionResult(data);
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      setSelectedIds(new Set());
+      setOffset(0);
+    },
+  });
+
   // Writes a URL filter, keeping every other parameter, and drops a stale
   // selection. The list follows from the URL, so a reload reopens the same view.
   const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
@@ -438,6 +485,7 @@ function DossiersContent() {
   const setQuarter = (quarterCode: string) => setUrlFilter({ quarterCode });
   const setLate = (late: boolean) => setUrlFilter({ late: late ? "1" : null });
   const setOverdue = (overdue: boolean) => setUrlFilter({ overdue: overdue ? "1" : null });
+  const setAssignedToMe = (assignedToMe: boolean) => setUrlFilter({ assignedToMe: assignedToMe ? "1" : null });
 
   const goToOffset = (next: number) => {
     setOffset(next);
@@ -491,6 +539,9 @@ function DossiersContent() {
       warningCount,
       submittedAt: sub.submissionDate ?? null,
       isLate: sub.isLate === true,
+      assigneeId: sub.assigneeId ?? null,
+      assigneeName: sub.assigneeName ?? null,
+      companyRegistrationStatus: sub.companyRegistrationStatus ?? null,
     };
   });
 
@@ -505,9 +556,10 @@ function DossiersContent() {
   if (quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
   if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
   if (overdueFilter) activeFilterChips.push({ key: "overdue", label: t("overdueOnly"), remove: () => setOverdue(false) });
+  if (assignedToMeFilter) activeFilterChips.push({ key: "assignedToMe", label: t("assignedToMeOnly"), remove: () => setAssignedToMe(false) });
   if (companyIdFilter) activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${companyIdFilter}`, remove: () => setUrlFilter({ companyId: null }) });
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
-  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, campaignId: null, quarterCode: null, late: null, overdue: null, companyId: null, sort: null, search: null, q: null });
+  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, campaignId: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, companyId: null, sort: null, search: null, q: null });
 
   /**
    * Source: GET /admin/questionnaires → `total`.
@@ -542,6 +594,7 @@ function DossiersContent() {
   const bulkEligibleSelected = bulkPreflight.eligible;
   const excludedSelected = bulkPreflight.excluded;
   const rejectableSelected = bulkPreflight.rejectionEligible;
+  const correctableSelected = bulkPreflight.correctionEligible;
 
   const toggleSelect = (id: string, checked: boolean) => {
     const next = new Set(selectedIds);
@@ -586,6 +639,23 @@ function DossiersContent() {
     });
   };
 
+  const handleOpenCorrectionModal = () => {
+    setCorrectionResult(null);
+    correctionMutation.reset();
+    setCertifiedCorrection(false);
+    setCorrectionReason("");
+    setIsCorrectionModalOpen(true);
+  };
+
+  const handleConfirmBulkCorrection = () => {
+    if (!certifiedCorrection || correctionReason.trim().length < 10) return;
+    correctionMutation.mutate({
+      submissionIds: correctableSelected.map((d) => d.id),
+      reason: correctionReason.trim(),
+      certified: true,
+    });
+  };
+
   const [exportInProgress, setExportInProgress] = useState(false);
 
   async function handleExport(fmt: "csv" | "xlsx") {
@@ -604,6 +674,7 @@ function DossiersContent() {
       if (quarterCodeFilter) params.set("quarterCode", quarterCodeFilter);
       if (lateFilter) params.set("late", "1");
       if (overdueFilter) params.set("overdue", "1");
+      if (assignedToMeFilter) params.set("assignedToMe", "1");
       if (periodFilter) params.set("period", periodFilter);
       if (search) params.set("search", search);
       const token = getToken();
@@ -673,6 +744,8 @@ function DossiersContent() {
     <div className="cam-admin-page">
       {pageHeader}
       {reopenNotice && <Alert variant="success" className="my-4"><AlertDescription>{reopenNotice}</AlertDescription></Alert>}
+      {assignNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{assignNotice}</AlertDescription></Alert>}
+      {archiveNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{archiveNotice}</AlertDescription></Alert>}
 
       <ViewSwitch
         label={t("statusFilterAriaLabel")}
@@ -730,6 +803,7 @@ function DossiersContent() {
               <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
               {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
               <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
               <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
             </> : <span className="text-sm text-muted-foreground">{t("selectionHint")}</span>}
           </CardContent>
@@ -753,6 +827,7 @@ function DossiersContent() {
             <div><Label htmlFor="dossiers-quarter">{t("quarterLabel")}</Label><select id="dossiers-quarter" className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
             <div><Label htmlFor="dossiers-late">{t("lateLabel")}</Label><select id="dossiers-late" className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
             <div><Label htmlFor="dossiers-overdue">{t("overdueLabel")}</Label><select id="dossiers-overdue" className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>
+            <div><Label htmlFor="dossiers-assigned">{t("assignedLabel")}</Label><select id="dossiers-assigned" className="cam-admin-input w-full" value={assignedToMeFilter ? "1" : ""} onChange={(event) => setAssignedToMe(event.target.value === "1")}><option value="">{t("assignedAll")}</option><option value="1">{t("assignedToMeOnly")}</option></select></div>
             <div><Label htmlFor="dossiers-sort">{t("sortLabel")}</Label><select id="dossiers-sort" className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
           </div></details>
           {activeFilterChips.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeFilterChips.map((chip) => <Button type="button" key={chip.key} variant="outline" size="sm" onClick={chip.remove} aria-label={t("removeFilterChip", { label: chip.label })}>{chip.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}<Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button></div>}
@@ -774,14 +849,16 @@ function DossiersContent() {
                 const qualityText = d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : d.warningCount > 0 ? t("warnings", { count: d.warningCount }) : t("noAnomaly");
                 const eligibility: "eligible" | "notEligible" | "pending" = d.adminStatus === "APPROVED" ? (d.blockingCount === 0 ? "eligible" : "notEligible") : d.adminStatus === "REJECTED" || d.adminStatus === "SUPERSEDED" ? "notEligible" : "pending";
                 const eligibilityText = eligibility === "eligible" ? t("eligible") : eligibility === "notEligible" ? t("notEligible") : t("eligibilityPending");
+                const orgStatus = d.companyRegistrationStatus ? ORG_STATUS_BADGE[d.companyRegistrationStatus] : null;
+                const orgStatusNode = d.companyRegistrationStatus ? <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">{t("orgStatusLabel")} :{orgStatus ? <Badge variant={BADGE_VARIANT[orgStatus.tone]}>{t(orgStatus.textKey)}</Badge> : <Badge variant="neutral">{d.companyRegistrationStatus}</Badge>}</span> : null;
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${includeArchived ? "?includeArchived=true" : ""}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
+                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span>{orgStatusNode}<Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${includeArchived ? "?includeArchived=true" : ""}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
                   <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.archivedAt && <Badge className="ms-2" variant="neutral">{t("archivedBadge")}</Badge>}{d.archivedAt && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{t("archivedMeta", { actor: [d.archivedByUser?.firstName, d.archivedByUser?.lastName].filter(Boolean).join(" ") || d.archivedBy || "—", date: stamp(d.archivedAt, true, locale), reason: d.archiveReason || "—" })}</span>}{d.rejectionReason && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{d.rejectionReason}</span>}<ArchiveActions archived={!!d.archivedAt} canManage={hasRole(user?.role, DOSSIER_ARCHIVE_ROLES)} resourceName={d.companyName ?? d.submissionId} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item: d, reason })} onRestore={() => restoreMutation.mutate(d.id)} />{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</TableCell>
                   <TableCell className="whitespace-nowrap">{d.reviewedAt ? <>{stamp(d.reviewedAt, true, locale)}<span className="block text-xs text-muted-foreground">{d.reviewedBy ?? NOT_PROVIDED}</span></> : NOT_PROVIDED}</TableCell>
                   <TableCell>{d.campaignName ?? NOT_PROVIDED}<span className="block text-xs text-muted-foreground">{d.quarterCode ?? NOT_PROVIDED}</span></TableCell>
                   <TableCell>{canReadAudit ? <Link className="underline" href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link> : NOT_PROVIDED}</TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  <TableCell className="font-medium">{!readOnly && <Checkbox className="me-2 align-middle" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}<span>{d.companyName ?? d.submissionId}</span><div className="text-xs text-muted-foreground">{d.respondentName ?? NOT_PROVIDED} · {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</div><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
+                  <TableCell className="font-medium">{!readOnly && <Checkbox className="me-2 align-middle" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}<span>{d.companyName ?? d.submissionId}</span>{orgStatusNode}<div className="text-xs text-muted-foreground">{d.respondentName ?? NOT_PROVIDED} · {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</div><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{d.assigneeId ? <span>{t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED })}</span> : <span>{t("unassigned")}</span>}{!readOnly && !d.archivedAt && (d.assigneeId == null || d.assigneeId === user?.id) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: d.assigneeId ? null : user?.id ?? null })}>{d.assigneeId ? t("unclaimButton") : t("claimButton")}</Button>}</div><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
                   <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge></TableCell>
                   <TableCell><Badge variant={BADGE_VARIANT[qualityTone]}>{qualityText}</Badge></TableCell>
                   <TableCell><Badge variant={eligibility === "eligible" ? "success" : eligibility === "pending" ? "warning" : "neutral"}>{eligibilityText}</Badge></TableCell>
@@ -1000,6 +1077,101 @@ function DossiersContent() {
               <Alert variant="destructive">
                 <AlertDescription>
                   {t("bulkRejectFailed", { message: (rejectMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+      </AdminDialog>
+
+      {/* ── Bulk request correction (phase 5) ── */}
+      <AdminDialog
+        open={isCorrectionModalOpen}
+        onClose={() => setIsCorrectionModalOpen(false)}
+        title={t("bulkCorrectionTitle")}
+        eyebrow={t("territoryLine", { scope: scopeLabel })}
+        footer={
+          <>
+            <Button type="button" size="sm" variant="outline" onClick={() => setIsCorrectionModalOpen(false)}>
+              {correctionResult ? t("closeButton") : tRoot("common.cancel")}
+            </Button>
+            {!correctionResult && correctableSelected.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmBulkCorrection}
+                disabled={!certifiedCorrection || correctionReason.trim().length < 10 || correctionMutation.isPending}
+              >
+                {correctionMutation.isPending ? t("correcting") : t("requestCorrectionCountButton", { count: correctableSelected.length })}
+              </Button>
+            )}
+          </>
+        }
+      >
+        {correctionResult ? (
+          <Alert variant="success">
+            <AlertDescription>
+              <div>
+                <strong>{t("bulkCorrectionResult", { count: count(correctionResult.processedCount, locale) })}</strong>{" "}
+                {t("operationTimestamped", { date: stamp(correctionResult.timestamp, true, locale) })}
+              </div>
+              {correctionResult.skippedCount > 0 && (
+                <div className="mt-2">{t("bulkCorrectionSkipped", { count: count(correctionResult.skippedCount, locale) })}</div>
+              )}
+              {correctionResult.skippedItems?.length > 0 && (
+                <ul className="mt-2 ps-4 list-disc">
+                  {correctionResult.skippedItems.map((item: { id: string; reason: string }) => (
+                    <li key={item.id}>{item.id} — {item.reason}</li>
+                  ))}
+                </ul>
+              )}
+            </AlertDescription>
+          </Alert>
+        ) : correctableSelected.length === 0 ? (
+          <p className="cam-admin-empty">{t("noneCorrectable")}</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p className="m-0">
+              {t("bulkCorrectionIntro", { count: correctableSelected.length })}
+            </p>
+            <p className="m-0 text-sm text-muted-foreground">{t("confirmSelectedDecision", { decision: t("bulkCorrectionAction"), count: correctableSelected.length, records: correctableSelected.map((d) => d.companyName ?? d.submissionId).join(", ") })}</p>
+
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-correction-reason">
+                {t("bulkCorrectionReasonLabel")} <span aria-hidden="true">*</span>
+              </Label>
+              <Textarea
+                id="bulk-correction-reason"
+                rows={3}
+                required
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                placeholder={t("bulkCorrectionReasonPlaceholder")}
+              />
+              {correctionReason.trim().length > 0 && correctionReason.trim().length < 10 && (
+                <p className="cam-field-error m-0">
+                  {t("reasonTooShort", { length: correctionReason.trim().length })}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="bulk-correction-certify"
+                checked={certifiedCorrection}
+                onCheckedChange={(c) => setCertifiedCorrection(c === true)}
+              />
+              <Label htmlFor="bulk-correction-certify" className="font-normal leading-snug">
+                <span>
+                  <strong>{t("certifyStrong")}</strong> {t("bulkCorrectionCertifyRest", { count: correctableSelected.length })}
+                </span>
+              </Label>
+            </div>
+
+            {correctionMutation.isError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {t("bulkCorrectionFailed", { message: (correctionMutation.error as Error)?.message ?? t("unknownErrorCapital") })}
                 </AlertDescription>
               </Alert>
             )}

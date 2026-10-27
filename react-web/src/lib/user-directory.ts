@@ -196,6 +196,11 @@ export interface CompanyRegistrationItem {
   registrationMethod: string | null;
   createdBy: string | null;
   createdByName: string | null;
+  // Phase 5 team workflow: the agent reviewing the file, and whether the
+  // entity has already filed a declaration. A draft does not count.
+  assigneeId: string | null;
+  assigneeName: string | null;
+  hasSubmitted: boolean;
   // The corrections the company last sent, when that resubmission is newer
   // than the last complements request on the same file. null when the company
   // has not corrected anything since the reviewer last wrote to it.
@@ -240,6 +245,8 @@ export function listCompanyRegistrations(params: {
   createdBy?: string;
   /** Only files left waiting past the overdue threshold (/admin/parametres); overrides `status`. */
   overdue?: boolean;
+  /** Only files assigned to the signed-in agent (phase 5). */
+  assignedToMe?: boolean;
   /** Sort registration records by their submission date, across all pages. */
   sortOrder?: "oldest" | "newest";
   page?: number;
@@ -260,12 +267,27 @@ export function listCompanyRegistrations(params: {
   if (params.status) query.set("status", params.status);
   if (params.createdBy) query.set("createdBy", params.createdBy);
   if (params.overdue) query.set("overdue", "true");
+  if (params.assignedToMe) query.set("assignedToMe", "true");
   if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   if (params.includeArchived !== undefined) query.set("includeArchived", String(params.includeArchived));
   const qs = query.toString();
   return apiFetch<CompanyRegistrationsResult>(`/auth/company-registrations${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * Claims (assigneeId) or releases (null) a registration file's review.
+ * `id` is the registration row's user id (CompanyRegistrationItem.id).
+ */
+export function assignRegistrationUser(id: string, assigneeId: string | null) {
+  return apiFetch<{ id: string; companyId: string; assigneeId: string | null; assigneeName: string | null }>(
+    `/auth/users/${encodeURIComponent(id)}/assign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ assigneeId }),
+    },
+  );
 }
 
 /**

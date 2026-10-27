@@ -20,7 +20,7 @@ import {
   ReviewDelay,
   StatisticalExclusionReason,
 } from '../types/eligibility.types';
-import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
@@ -943,6 +943,155 @@ export class EligibilityEngineService {
   }
 
   /**
+   * Protected Transactional Bulk Request Correction.
+   *
+   * Mirrors executeBulkReject, but only PENDING_REVIEW files are eligible: a
+   * file already awaiting its respondent's corrections is not asked twice.
+   * Every corrected file gets its own AUDIT_CORRECTION row, the action the
+   * pilotage history counts per file; a single bulk row would hide them.
+   */
+  async executeBulkRequestCorrection(actor: any, dto: BulkRequestCorrectionDto) {
+    if (!dto.certified) {
+      throw new BadRequestException(
+        'La demande de correction groupée requiert une certification formelle de la part de l’officier ministériel.',
+      );
+    }
+
+    if (!dto.submissionIds || dto.submissionIds.length === 0) {
+      throw new BadRequestException('Aucun dossier sélectionné pour la demande de correction groupée.');
+    }
+
+    if (!dto.reason || dto.reason.trim().length < 10) {
+      throw new BadRequestException('La justification doit comporter au moins 10 caractères.');
+    }
+
+    const campaignTargets: Array<{ id: string; campaignId: string | null; establishmentId: string | null; companyId: string | null }> = [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const candidates = await tx.onefopSubmission.findMany({
+        where: { id: { in: dto.submissionIds } },
+        select: {
+          id: true,
+          status: true,
+          region: true,
+          department: true,
+          campaignId: true,
+          establishmentId: true,
+          companyId: true,
+        },
+      });
+
+      const correctedIds: string[] = [];
+      const skippedItems: Array<{ id: string; reason: string }> = [];
+
+      // Missing IDs — same message as out-of-territory (no info leak)
+      const foundSet = new Set(candidates.map((c) => c.id));
+      for (const requestedId of dto.submissionIds) {
+        if (!foundSet.has(requestedId)) {
+          skippedItems.push({ id: requestedId, reason: 'Dossier introuvable ou hors ressort.' });
+        }
+      }
+
+      for (const candidate of candidates) {
+        // Territory FIRST — out-of-territory rows get the same generic message
+        try {
+          assertTerritorialAuthority(actor, candidate);
+        } catch {
+          skippedItems.push({ id: candidate.id, reason: 'Dossier introuvable ou hors ressort.' });
+          continue;
+        }
+
+        // Only a file still waiting for a first decision may be sent back.
+        if (candidate.status !== OnefopStatus.PENDING_REVIEW) {
+          skippedItems.push({
+            id: candidate.id,
+            reason: `Statut administratif invalide (${candidate.status}).`,
+          });
+          continue;
+        }
+
+        correctedIds.push(candidate.id);
+        campaignTargets.push({
+          id: candidate.id,
+          campaignId: candidate.campaignId,
+          establishmentId: candidate.establishmentId,
+          companyId: candidate.companyId,
+        });
+      }
+
+      if (correctedIds.length > 0) {
+        // Status condition inside where prevents concurrent overwrites.
+        await tx.onefopSubmission.updateMany({
+          where: {
+            id: { in: correctedIds },
+            status: OnefopStatus.PENDING_REVIEW,
+          },
+          data: {
+            status: OnefopStatus.CORRECTION_REQUESTED,
+            rejectionReason: dto.reason,
+            reviewedBy: actor.id,
+            reviewedAt: new Date(),
+          },
+        });
+
+        const timestamp = new Date().toISOString();
+        for (const id of correctedIds) {
+          await tx.auditLog.create({
+            data: {
+              userId: actor.id,
+              action: 'AUDIT_CORRECTION',
+              resourceType: 'OnefopSubmission',
+              resourceId: id,
+              details: {
+                comments: dto.reason,
+                previousStatus: OnefopStatus.PENDING_REVIEW,
+                certified: true,
+                bulk: true,
+                actorRole: actor.role,
+                actorEmail: actor.email,
+              },
+            },
+          });
+        }
+        // One summary row for the batch itself, as bulk visa and reject do.
+        await tx.auditLog.create({
+          data: {
+            userId: actor.id,
+            action: 'AUDIT_BULK_REQUEST_CORRECTION',
+            resourceType: 'OnefopSubmission',
+            resourceId: `BULK_${Date.now()}`,
+            details: {
+              actorRole: actor.role,
+              actorEmail: actor.email,
+              totalRequested: dto.submissionIds.length,
+              correctedCount: correctedIds.length,
+              skippedCount: skippedItems.length,
+              correctedIds,
+              skippedItems,
+              reason: dto.reason,
+              timestamp,
+            },
+          },
+        });
+      }
+
+      return {
+        success: true,
+        processedCount: correctedIds.length,
+        skippedCount: skippedItems.length,
+        correctedIds,
+        skippedItems,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    for (const target of campaignTargets) {
+      await syncCampaignSubmissionOnReview(this.prisma, this.logger, target, 'IN_PROGRESS');
+    }
+    return result;
+  }
+
+  /**
    * Legacy `flags` -> `OnefopAnomaly` migration sweep, run before an anomaly
    * listing is served.
    *
@@ -1011,6 +1160,7 @@ export class EligibilityEngineService {
     submissionId?: string;
     status?: AnomalyStatus;
     isBlocking?: boolean;
+    ruleFamily?: string;
     limit?: number;
     offset?: number;
   }, territory?: Territory) {
@@ -1018,6 +1168,7 @@ export class EligibilityEngineService {
     if (filters.submissionId) where.submissionId = filters.submissionId;
     if (filters.status) where.status = filters.status;
     if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
+    if (filters.ruleFamily) where.ruleFamily = filters.ruleFamily;
     where.submission = { AND: [territoryWhere(territory), NOT_ARCHIVED] };
 
     await this.backfillLegacyFlagAnomalies();

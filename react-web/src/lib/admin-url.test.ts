@@ -10,6 +10,7 @@ import test from "node:test";
 import {
   anomalyRegisterHref,
   hrefWith,
+  parseAnomalyFamilyFilter,
   parseAnomalyStatusFilter,
   parseDossierFlag,
   parseDossierQuarter,
@@ -74,6 +75,11 @@ test("register filters: known values, else ALL", () => {
   assert.equal(parseSeverityFilter("WARNING"), "WARNING");
   assert.equal(parseSeverityFilter("CRITICAL"), "ALL");
   assert.equal(parseSeverityFilter(null), "ALL");
+  assert.equal(parseAnomalyFamilyFilter("COHERENCE"), "COHERENCE");
+  assert.equal(parseAnomalyFamilyFilter("VT_COHERENCE"), "VT_COHERENCE");
+  assert.equal(parseAnomalyFamilyFilter("ARITHMETIC"), "ARITHMETIC");
+  assert.equal(parseAnomalyFamilyFilter("UNKNOWN"), "ALL");
+  assert.equal(parseAnomalyFamilyFilter(null), "ALL");
 });
 
 test("register links open the register, pre-filtered when asked", () => {

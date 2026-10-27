@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import {
   ANOMALY_DEROGATION_ROLES,
   ANOMALY_REGISTRY_ROLES,
+  ANOMALY_RULE_FAMILIES,
   anomalyCompanyName,
   anomalyDossierRef,
   listAnomalyRegistry,
@@ -30,6 +31,7 @@ import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
   hrefWith,
+  parseAnomalyFamilyFilter,
   parseAnomalyStatusFilter,
   parseQualiteVue,
   parseSeverityFilter,
@@ -98,13 +100,15 @@ function CentreQualiteContent() {
   const canReadRegistry = !!role && ANOMALY_REGISTRY_ROLES.includes(role);
   const canGrantDerogation = !!role && ANOMALY_DEROGATION_ROLES.includes(role);
 
-  // Both filters are sent to the server, so `total` always describes the same
-  // query as the rows on screen and there is no client-side re-filtering that
-  // could make the two disagree. They live in the URL (?status=, ?severity=),
-  // so "open blocking anomalies" is a link that can be reloaded and shared.
+  // All three filters are sent to the server, so `total` always describes the
+  // same query as the rows on screen and there is no client-side re-filtering
+  // that could make the two disagree. They live in the URL
+  // (?status=, ?severity=, ?family=), so "open blocking coherence anomalies"
+  // is a link that can be reloaded and shared.
   const filterStatus = parseAnomalyStatusFilter(searchParams.get("status"));
   const filterSeverity = parseSeverityFilter(searchParams.get("severity"));
-  const setRegisterFilter = (key: "status" | "severity", value: string) =>
+  const filterFamily = parseAnomalyFamilyFilter(searchParams.get("family"));
+  const setRegisterFilter = (key: "status" | "severity" | "family", value: string) =>
     router.replace(hrefWith(pathname, searchParams.toString(), { [key]: value === "ALL" ? null : value }));
 
   const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
@@ -128,13 +132,14 @@ function CentreQualiteContent() {
    */
   // Each of the three queries runs only on its own tab (?vue=).
   const anomaliesQuery = useQuery({
-    queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity],
+    queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity, filterFamily],
     queryFn: () =>
       listAnomalyRegistry({
         limit: REGISTRY_PAGE_SIZE,
         status: filterStatus === "ALL" ? undefined : filterStatus,
         isBlocking:
           filterSeverity === "BLOCKING" ? true : filterSeverity === "WARNING" ? false : undefined,
+        ruleFamily: filterFamily === "ALL" ? undefined : filterFamily,
       }),
     enabled: canReadRegistry && vue === "registre",
   });
@@ -395,6 +400,20 @@ function CentreQualiteContent() {
                   <option value="ALL">{t("allSeverities")}</option>
                   <option value="BLOCKING">{t("blockingOnly")}</option>
                   <option value="WARNING">{t("warningsOnly")}</option>
+                </select>
+              </div>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="registre-family">{t("familyColumn")}</label>
+                <select
+                  id="registre-family"
+                  className="cam-select"
+                  value={filterFamily}
+                  onChange={(e) => setRegisterFilter("family", e.target.value)}
+                >
+                  <option value="ALL">{t("allFamilies")}</option>
+                  {ANOMALY_RULE_FAMILIES.map((family) => (
+                    <option key={family} value={family}>{ruleFamilyLabel(family, locale)}</option>
+                  ))}
                 </select>
               </div>
               <div>

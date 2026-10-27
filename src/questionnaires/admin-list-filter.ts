@@ -21,6 +21,8 @@ export interface AdminListFilters {
   quarterCode?: string;
   late?: boolean;
   overdue?: boolean;
+  /** Only files assigned to this agent (phase 5, team workflow). */
+  assigneeId?: string;
 }
 
 export const ADMIN_LIST_PERIODS = ['7d', '30d', '3m', '12m'] as const;
@@ -87,6 +89,7 @@ export function buildAdminListWhere(
   if (filters.department) and.push({ department: { equals: filters.department, mode: 'insensitive' } });
   if (filters.campaignId) and.push({ campaignId: filters.campaignId });
   if (filters.quarterCode) and.push({ quarterCode: filters.quarterCode });
+  if (filters.assigneeId) and.push({ assigneeId: filters.assigneeId });
   if (filters.late) and.push({ isLate: true });
   // ADR-0001: OVERDUE is derived (PENDING_REVIEW + cutoff), not stored. It is
   // never valid in status/statuses; use overdue=true. See

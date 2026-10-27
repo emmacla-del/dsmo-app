@@ -105,6 +105,19 @@ describe('NotificationsService', () => {
     });
   });
 
+  it('marks every unread row of the caller read, and only the caller\'s', async () => {
+    const prisma = makePrisma([{ id: 'n-1', userId: 'user-1', readAt: null }]);
+    const service = new NotificationsService(prisma);
+
+    const result = await service.markAllRead('user-1');
+
+    expect(prisma.userNotification.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', readAt: null },
+      data: { readAt: expect.any(Date) },
+    });
+    expect(result).toEqual({ count: 1 });
+  });
+
   it('reports not-found for another user\'s notification, revealing nothing', async () => {
     const prisma = makePrisma();
     prisma.userNotification.updateMany = jest.fn(async () => ({ count: 0 }));

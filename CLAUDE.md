@@ -1362,6 +1362,29 @@ Approved changes on record:
   is ONEFOP's typing rather than a delegate account's own; that is the other
   half of 2026-10-07 and is still the owner's to decide.
 
+- 2026-10-27 — Phase 5 team workflow: a dossier has an assignee, and
+  correction can be requested in bulk (schema change; migration
+  `20261027140000_phase5_submission_assignee`, NOT applied). Issue: the
+  registration queue has carried `users.assigneeId` since the B1 rebuild, but
+  the dossier queue had none, so two officers reading one pending file could
+  not say who was handling it; and a reviewer could only send files back one
+  at a time. Decision: `OnefopSubmission.assigneeId`, nullable, with
+  `PATCH /admin/questionnaires/:id/assign` (claim, reassign or release),
+  `assignedToMe` on the list and its export, and
+  `POST /admin/questionnaires/bulk-request-correction`, which only accepts
+  PENDING_REVIEW files, a written reason (10+ characters) and the reviewer's
+  attestation, and writes one AUDIT_CORRECTION row per file plus an
+  AUDIT_BULK_REQUEST_CORRECTION summary. The registration file gains
+  `PATCH /auth/users/:id/assign`, `assignedToMe` on
+  `GET /auth/company-registrations`, and `assigneeId`, `assigneeName` and
+  `hasSubmitted` (a non-DRAFT declaration exists) on each row. An assignee
+  must be an active, non-company agent of the module with jurisdiction over
+  the record; reassignment is last-write-wins and records the previous holder
+  (DOSSIER_ASSIGNED / REGISTRATION_ASSIGNED). Additive and nullable: every row
+  written before today reads NULL and nothing is rewritten. No statistical
+  variable, export, PDF or dataset version changes — this is administrative
+  routing. Approved by the owner in chat, 2026-10-27; the migration was applied to production on 2026-10-27.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE

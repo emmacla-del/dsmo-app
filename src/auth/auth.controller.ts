@@ -18,6 +18,7 @@ import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 import { UserStatus } from '../types/prisma.types';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
+import { AssignRecordDto } from '../common/assign.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -452,6 +453,7 @@ export class AuthController {
     @Query('view') view?: string,
     @Query('createdBy') createdBy?: string,
     @Query('overdue') overdue?: string,
+    @Query('assignedToMe') assignedToMe?: string,
     @Query('sortOrder') sortOrder?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -475,6 +477,7 @@ export class AuthController {
       includeArchived: includeArchived === 'true',
       createdBy,
       overdue: overdue === 'true',
+      assigneeId: assignedToMe === 'true' ? req.user.id : undefined,
       sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
@@ -592,6 +595,18 @@ export class AuthController {
   @Roles(...USER_ADMIN_ROLES)
   async getUserById(@Param('id') id: string, @Request() req: any) {
     return this.authService.getUserByIdForAdmin(id, req.user.role);
+  }
+
+  @Patch('users/:id/assign')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...REGISTRATION_ADMIN_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async assignRegistration(
+    @Param('id') id: string,
+    @Body() body: AssignRecordDto,
+    @Request() req: any,
+  ) {
+    return this.authService.assignRegistration(id, body.assigneeId ?? null, req.user.id, territoryFromUser(req.user));
   }
 
   @Patch('users/:id/role')

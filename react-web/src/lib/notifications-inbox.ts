@@ -43,6 +43,12 @@ export function markNotificationRead(id: string) {
   });
 }
 
+export function markAllNotificationsRead() {
+  return apiFetch<{ count: number }>("/auth/me/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
 /** Shared query key, so the bell badge and the page invalidate each other. */
 export const NOTIFICATIONS_QUERY_KEY = ["auth", "me", "notifications"] as const;
 

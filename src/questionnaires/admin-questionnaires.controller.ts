@@ -22,7 +22,8 @@ import { Roles } from '../auth/roles.decorator';
 import { READ_ONLY_NATIONAL_ROLES, SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
-import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { AssignRecordDto } from '../common/assign.dto';
 import { territoryFromUser } from '../auth/territory';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
 import {
@@ -93,6 +94,7 @@ function parseAdminListFilters(params: {
   quarterCode?: unknown;
   late?: unknown;
   overdue?: unknown;
+  assigneeId?: unknown;
 }): AdminListFilters {
   const statusFilter = optionalText(params.status);
   if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
@@ -137,6 +139,7 @@ function parseAdminListFilters(params: {
     quarterCode: optionalText(params.quarterCode),
     late: optionalFlag(params.late, 'Le paramètre « late » doit valoir true ou false.'),
     overdue: optionalFlag(params.overdue, 'Le paramètre « overdue » doit valoir true ou false.'),
+    assigneeId: optionalText(params.assigneeId),
   };
 }
 
@@ -218,6 +221,17 @@ export class AdminQuestionnairesController {
   }
 
   /**
+   * Protected Transactional Bulk Request Correction: only PENDING_REVIEW
+   * files, with a written reason and the reviewer's attestation. Each file
+   * gets its own AUDIT_CORRECTION row so the pilotage history counts it.
+   */
+  @Post('bulk-request-correction')
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async bulkRequestCorrection(@Body() dto: BulkRequestCorrectionDto, @Request() req: any) {
+    return this.eligibilityEngine.executeBulkRequestCorrection(req.user, dto);
+  }
+
+  /**
    * Anomalies Registry (Data Quality Axis 2)
    */
   @Get('anomalies/registry')
@@ -226,6 +240,7 @@ export class AdminQuestionnairesController {
     @Query('submissionId') submissionId?: string,
     @Query('status') status?: any,
     @Query('isBlocking') isBlocking?: string,
+    @Query('ruleFamily') ruleFamily?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
     @Request() req?: any,
@@ -234,6 +249,7 @@ export class AdminQuestionnairesController {
       submissionId,
       status,
       isBlocking: isBlocking !== undefined ? isBlocking === 'true' : undefined,
+      ruleFamily,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     }, territoryFromUser(req?.user));
@@ -278,6 +294,7 @@ export class AdminQuestionnairesController {
     @Request() req?: any,
     @Query('view') view?: string,
     @Query('includeArchived') includeArchived?: string,
+    @Query('assignedToMe') assignedToMe?: string,
   ) {
     const sortOrder = optionalText(sort);
     if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
@@ -286,6 +303,9 @@ export class AdminQuestionnairesController {
     const filters = parseAdminListFilters({
       status, statuses, formType, period, region, department, search, companyId,
       campaignId, quarterCode, late, overdue,
+      assigneeId: optionalFlag(assignedToMe, 'Le paramètre « assignedToMe » doit valoir true ou false.')
+        ? req?.user?.id
+        : undefined,
     });
     return this.service.listForAdmin(
       {
@@ -345,11 +365,15 @@ export class AdminQuestionnairesController {
     @Request() req?: any,
     @Res() res?: Response,
     @Query('includeArchived') includeArchived?: string,
+    @Query('assignedToMe') assignedToMe?: string,
   ) {
     const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
     const filters = parseAdminListFilters({
       status, statuses, formType, period, region, department, search, companyId,
       campaignId, quarterCode, late, overdue,
+      assigneeId: optionalFlag(assignedToMe, 'Le paramètre « assignedToMe » doit valoir true ou false.')
+        ? req?.user?.id
+        : undefined,
     });
     await this.service.streamDossiersExport(
       filters,
@@ -388,6 +412,18 @@ export class AdminQuestionnairesController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   async restore(@Param('id') id: string, @Body() body: RestoreRecordDto, @Request() req: any) {
     return this.service.restoreSubmission(id, body?.reason, req.user.id, territoryFromUser(req.user));
+  }
+
+  /**
+   * Claims, reassigns or releases a dossier's review (phase 5, team workflow).
+   * A null assigneeId releases it; the service checks that the assignee is an
+   * active agent of this module with jurisdiction over the file.
+   */
+  @Patch(':id/assign')
+  @Roles(...SURVEY_ADMIN_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async assign(@Param('id') id: string, @Body() body: AssignRecordDto, @Request() req: any) {
+    return this.service.assignSubmission(id, body.assigneeId ?? null, req.user.id, territoryFromUser(req.user));
   }
 
   @Patch(':id/approve')

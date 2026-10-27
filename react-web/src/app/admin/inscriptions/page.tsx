@@ -19,6 +19,7 @@ import {
   restoreUser,
   suspendUser,
   activateUser,
+  assignRegistrationUser,
   type ApproveUserOptions,
   type CompanyRegistrationItem,
   type CompanyRegistrationsResult,
@@ -235,6 +236,7 @@ function InscriptionsContent() {
   const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
   const currentQuery = searchParams.toString();
   const role = useAuthStore((s) => s.user?.role);
+  const userId = useAuthStore((s) => s.user?.id);
   const includeArchived = vue === "organisations" && searchParams.get("includeArchived") === "true";
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
   const queryClient = useQueryClient();
@@ -267,6 +269,8 @@ function InscriptionsContent() {
   // department, and the server narrows to the reader's territory regardless.
   const { departments: territoryDepartments } = useTerritoryDepartments(region || null);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const requestedAssignedToMe = searchParams.get("assignedToMe") === "1" || searchParams.get("assignedToMe") === "true";
+  const [assignedToMe, setAssignedToMe] = useState(requestedAssignedToMe);
   const [typeFilter, setTypeFilter] = useState(initialType);
   const [registrationMethod, setRegistrationMethod] = useState(requestedMethod);
   const [dateRange, setDateRange] = useState(requestedDateRange);
@@ -293,6 +297,7 @@ function InscriptionsContent() {
   const applyRegion = (value: string) => { setRegion(value); setDepartment(""); setUrlFilters({ region: value || null, department: null }); };
   const applyDepartment = (value: string) => { setDepartment(value); setUrlFilters({ department: value || null }); };
   const applyMethod = (value: string) => { setRegistrationMethod(value); setUrlFilters({ registrationMethod: value || null }); };
+  const applyAssignedToMe = (value: boolean) => { setAssignedToMe(value); setUrlFilters({ assignedToMe: value ? "1" : null }); };
   const applySort = (value: string) => {
     const next = value === "oldest" ? "oldest" : "newest";
     setSortOrder(next);
@@ -336,11 +341,12 @@ function InscriptionsContent() {
    * which an effect would turn into a cascading render (and which
    * react-hooks/set-state-in-effect refuses).
    */
-  const urlFilters = `${initialStatus}\u0000${initialRegion}\u0000${initialDepartment}\u0000${initialType}\u0000${requestedMethod}\u0000${requestedDateRange}\u0000${searchParams.get("sort") ?? ""}\u0000${requestedSearch}\u0000${dateFromParam ?? ""}\u0000${dateToParam ?? ""}`;
+  const urlFilters = `${initialStatus}\u0000${initialRegion}\u0000${initialDepartment}\u0000${initialType}\u0000${requestedMethod}\u0000${requestedDateRange}\u0000${searchParams.get("sort") ?? ""}\u0000${requestedSearch}\u0000${dateFromParam ?? ""}\u0000${dateToParam ?? ""}\u0000${requestedAssignedToMe ? "1" : ""}`;
   const [appliedUrlFilters, setAppliedUrlFilters] = useState(urlFilters);
   if (appliedUrlFilters !== urlFilters) {
     setAppliedUrlFilters(urlFilters);
     setStatusFilter(initialStatus);
+    setAssignedToMe(requestedAssignedToMe);
     setRegion(initialRegion);
     setDepartment(initialDepartment);
     setTypeFilter(initialType);
@@ -380,6 +386,7 @@ function InscriptionsContent() {
     to,
     createdBy,
     registrationMethod,
+    assignedToMe,
     sortOrder,
     page,
   ] as const;
@@ -396,6 +403,7 @@ function InscriptionsContent() {
         region: region || undefined,
         department: department || undefined,
         registrationMethod: registrationMethod || undefined,
+        assignedToMe: assignedToMe || undefined,
         sortOrder,
         from,
         to,
@@ -429,21 +437,29 @@ function InscriptionsContent() {
 
   const archiveMutation = useMutation({
     mutationFn: (target: { item: CompanyRegistrationItem; reason: string }) => archiveUser(target.item.id, target.reason),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onSuccess: () => { setNotice(null); void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }); },
     onError: (error) => {
-      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+      setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
     },
   });
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreUser(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onSuccess: () => { setNotice(null); void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }); },
     onError: (error) => {
-      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+      setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
     },
   });
   const lifecycleMutation = useMutation({
     mutationFn: (target: { id: string; active: boolean }) => target.active ? suspendUser(target.id) : activateUser(target.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (target: { id: string; assigneeId: string | null }) => assignRegistrationUser(target.id, target.assigneeId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onError: (error) => {
+      setNotice({ tone: "error", text: `${tRoot("adminDossiersPage.assignFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
+    },
   });
 
   const closeReview = () => {
@@ -622,12 +638,15 @@ function InscriptionsContent() {
   if (createdBy) {
     activeQueueFilters.push({ key: "createdBy", label: `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`, clear: () => setUrlFilters({ createdBy: null }) });
   }
+  if (assignedToMe) {
+    activeQueueFilters.push({ key: "assignedToMe", label: t("assignedToMeOnly"), clear: () => applyAssignedToMe(false) });
+  }
   if (sortOrder !== "newest") {
     activeQueueFilters.push({ key: "sort", label: `${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`, clear: () => applySort("newest") });
   }
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
-    registrationMethod || dateRange !== "all" || createdBy || sortOrder !== "newest",
+    registrationMethod || dateRange !== "all" || createdBy || assignedToMe || sortOrder !== "newest",
   );
   const clearQueueFilters = () => {
     setOrganisationInput("");
@@ -637,11 +656,12 @@ function InscriptionsContent() {
     setStatusFilter("");
     setTypeFilter("");
     setRegistrationMethod("");
+    setAssignedToMe(false);
     setDateRange("all");
     setSortOrder("newest");
     setCustomDateRange(undefined);
     setPendingDateRange(undefined);
-    setUrlFilters({ createdBy: null, status: null, region: null, department: null, type: null, search: null, organisation: null, dateRange: null, from: null, to: null, registrationMethod: null, sort: null });
+    setUrlFilters({ createdBy: null, status: null, region: null, department: null, type: null, search: null, organisation: null, dateRange: null, from: null, to: null, registrationMethod: null, assignedToMe: null, sort: null });
   };
 
   return (
@@ -856,6 +876,7 @@ function InscriptionsContent() {
                 <div><Label htmlFor="registrations-method">{t("registrationMethodFilterLabel")}</Label><select id="registrations-method" className="cam-admin-input w-full" value={registrationMethod} onChange={(event) => applyMethod(event.target.value)}><option value="">{t("allRegistrationMethods")}</option>{REGISTRATION_METHOD_VALUES.map((value) => <option key={value} value={value}>{registrationMethodLabel(value, locale) ?? value}</option>)}</select></div>
                 {dateRange === "custom" && <div className="md:col-span-4"><RegistrationQueueDatePicker selected={pendingDateRange ?? customDateRange} onSelect={setPendingDateRange} locale={locale} /><Button type="button" size="sm" className="mt-2" disabled={!pendingDateRange?.from || !pendingDateRange.to} onClick={() => { if (!pendingDateRange?.from || !pendingDateRange.to) return; setCustomDateRange(pendingDateRange); setDateRange("custom"); setUrlFilters({ dateRange: "custom", from: dateBoundary(pendingDateRange.from), to: dateBoundary(pendingDateRange.to, true) }); }}>{t("applyDateRange")}</Button></div>}
                 <div><Label htmlFor="registrations-sort">{tRoot("adminDossiersPage.sortLabel")}</Label><select id="registrations-sort" className="cam-admin-input w-full" value={sortOrder} onChange={(event) => applySort(event.target.value)}><option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option><option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option></select></div>
+                <div><Label htmlFor="registrations-assigned">{tRoot("adminDossiersPage.assignedLabel")}</Label><select id="registrations-assigned" className="cam-admin-input w-full" value={assignedToMe ? "1" : ""} onChange={(event) => applyAssignedToMe(event.target.value === "1")}><option value="">{tRoot("adminDossiersPage.assignedAll")}</option><option value="1">{tRoot("adminDossiersPage.assignedToMeOnly")}</option></select></div>
               </div>
             </details>
           </div>
@@ -876,7 +897,7 @@ function InscriptionsContent() {
               {items.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 return <TableRow key={item.id}>
-                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={queueUpdating} onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{t("openButton")}</Button></TableHead>
+                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{item.assigneeId ? <span>{tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED })}</span> : <span>{tRoot("adminDossiersPage.unassigned")}</span>}{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}{item.status === "ACTIVE" && (item.hasSubmitted ? <Badge variant="success">{t("reportingBadge")}</Badge> : <Badge variant="neutral">{t("noReportingBadge")}</Badge>)}</span><Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={queueUpdating} onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{t("openButton")}</Button></TableHead>
                   <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="danger" className="mt-1 flex w-fit">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}</TableCell>
                   <TableCell>{item.duplicateHints.length > 0 ? <details><summary className="cursor-pointer">{t("possibleMatches", { count: item.duplicateHints.length })}</summary><ul className="mt-1 list-disc ps-5">{item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}</ul></details> : NOT_PROVIDED}</TableCell>
                   <TableCell className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</TableCell>
