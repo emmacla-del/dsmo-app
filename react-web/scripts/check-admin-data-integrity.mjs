@@ -110,6 +110,11 @@ const TEXT_SCAN_DIRS = [
 ];
 const TEXT_SCAN_CATALOGUES = ["fr", "en"].map((locale) => join(root, "messages", `${locale}.json`));
 
+// This module contains authoritative administrative names, identifiers, and
+// historical dates rather than interface copy; do not scan it for text rules.
+const INTEGRITY_IGNORE_FILES = new Set(["src/lib/location-nomenclature.ts"]);
+const isIgnoredFile = (file) => INTEGRITY_IGNORE_FILES.has(relative(root, file).replace(/\\/g, "/"));
+
 // "<path>#<message key>" for catalogue entries, "<path>#<literal text>" for
 // source text. Each entry says why the text may keep its figure.
 const TEXT_ALLOWLIST = new Map([
@@ -158,7 +163,7 @@ function collectFiles(dir) {
   return results;
 }
 
-const allFiles = PRODUCTION_SCAN_DIRS.flatMap((dir) => collectFiles(dir));
+const allFiles = PRODUCTION_SCAN_DIRS.flatMap((dir) => collectFiles(dir)).filter((file) => !isIgnoredFile(file));
 
 let violationsCount = 0;
 
@@ -198,7 +203,7 @@ function reportText(location, allowKey, text) {
   }
 }
 
-const textFiles = TEXT_SCAN_DIRS.flatMap((dir) => collectFiles(dir));
+const textFiles = TEXT_SCAN_DIRS.flatMap((dir) => collectFiles(dir)).filter((file) => !isIgnoredFile(file));
 
 for (const file of textFiles) {
   const rel = relative(root, file).replace(/\\/g, "/");
