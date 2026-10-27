@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { count, percent } from "@/lib/admin-data-state";
@@ -9,17 +10,36 @@ import type {
   ReturnMetrics,
 } from "@/lib/pilotage-targets";
 
+export interface CampaignTerritoryTarget {
+  region?: string;
+  department?: string;
+}
+
 export function CampaignReturnsTable({
   data,
   expanded,
   onToggle,
+  territoryHref,
 }: {
   data: CampaignReturnsResponse;
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
+  /** When given, each territory name links to its files under the campaign. */
+  territoryHref?: (target: CampaignTerritoryTarget) => string;
 }) {
   const t = useTranslations("adminTargets");
+  const tDossiers = useTranslations("adminDossiersPage");
   const national = data.central != null || data.unassigned != null;
+  const scopeLink = (target: CampaignTerritoryTarget, name: string) =>
+    territoryHref ? (
+      <Link
+        href={territoryHref(target)}
+        className="cam-target-scope-link"
+        aria-label={tDossiers("openTerritoryFilesAria", { territory: name })}
+      >
+        {tDossiers("openTerritoryFiles")}
+      </Link>
+    ) : null;
 
   if (data.regions.length === 0 && !national) {
     return <p className="cam-admin-lede">{t("noTerritory")}</p>;
@@ -57,13 +77,17 @@ export function CampaignReturnsTable({
                       <span aria-hidden="true">{open ? "▾" : "▸"}</span>
                       {region.name}
                     </button>
+                    {scopeLink({ region: region.name }, region.name)}
                   </th>
                   <MetricCells metrics={region} />
                 </tr>
                 {open &&
                   region.departments.map((department) => (
                     <tr key={department.departmentId} className="cam-target-dept">
-                      <th scope="row">{department.name}</th>
+                      <th scope="row">
+                        {department.name}
+                        {scopeLink({ region: region.name, department: department.name }, department.name)}
+                      </th>
                       <MetricCells metrics={department} />
                     </tr>
                   ))}

@@ -11,10 +11,14 @@ import {
   anomalyRegisterHref,
   hrefWith,
   parseAnomalyStatusFilter,
+  parseDossierFlag,
+  parseDossierQuarter,
   parseDossierSort,
   parseDossierStatus,
+  parseDossierVue,
   parseQualiteVue,
   parseSeverityFilter,
+  recentDossierQuarters,
 } from "./admin-url";
 
 test("hrefWith sets and removes parameters and keeps the rest", () => {
@@ -76,4 +80,32 @@ test("parseDossierSort keeps oldest-first and falls back to newest first", () =>
   assert.equal(parseDossierSort(null), "");
   assert.equal(parseDossierSort("newest"), "");
   assert.equal(parseDossierSort("OLDEST"), "");
+});
+
+test("dossier view: coverage only when named", () => {
+  assert.equal(parseDossierVue("couverture"), "couverture");
+  assert.equal(parseDossierVue("dossiers"), "dossiers");
+  for (const v of [null, "", "coverage", "files"]) {
+    assert.equal(parseDossierVue(v), "dossiers");
+  }
+});
+
+test("dossier flags are active only on an explicit true", () => {
+  for (const raw of ["1", "true", "TRUE"]) assert.equal(parseDossierFlag(raw), true);
+  for (const raw of [null, "", "0", "false", "yes"]) assert.equal(parseDossierFlag(raw), false);
+});
+
+test("dossier quarter: YYYY-Tn only", () => {
+  assert.equal(parseDossierQuarter("2026-T4"), "2026-T4");
+  assert.equal(parseDossierQuarter("2025-T1"), "2025-T1");
+  for (const raw of [null, "", "2026-T5", "2026-Q4", "2026-T0", "26-T4"]) {
+    assert.equal(parseDossierQuarter(raw), null);
+  }
+});
+
+test("recent dossier quarters cross the year boundary", () => {
+  assert.deepEqual(
+    recentDossierQuarters(new Date("2026-01-15T00:00:00Z"), 5),
+    ["2026-T1", "2025-T4", "2025-T3", "2025-T2", "2025-T1"],
+  );
 });
