@@ -167,10 +167,15 @@ export interface CompanyRegistrationItem {
   region: string;
   department: string;
   status: string;
+  isActive: boolean;
   approvedAt: string | null;
   approvedBy: string | null;
   rejectedAt: string | null;
   rejectedBy: string | null;
+  archivedAt: string | null;
+  archivedBy: string | null;
+  archiveReason: string | null;
+  archivedByUser: { id: string; firstName: string | null; lastName: string | null } | null;
   taxNumber: string;
   cnpsNumber: string | null;
   /** The entity's phone ("Téléphone / WhatsApp"), a verified review row. */
@@ -239,6 +244,7 @@ export function listCompanyRegistrations(params: {
   sortOrder?: "oldest" | "newest";
   page?: number;
   pageSize?: number;
+  includeArchived?: boolean;
 }) {
   const query = new URLSearchParams();
   if (params.entityType) query.set("entityType", params.entityType);
@@ -257,6 +263,7 @@ export function listCompanyRegistrations(params: {
   if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  if (params.includeArchived !== undefined) query.set("includeArchived", String(params.includeArchived));
   const qs = query.toString();
   return apiFetch<CompanyRegistrationsResult>(`/auth/company-registrations${qs ? `?${qs}` : ""}`);
 }
@@ -310,6 +317,20 @@ export function suspendUser(id: string) {
 
 export function activateUser(id: string) {
   return apiFetch(`/auth/users/${id}/activate`, { method: "PATCH" });
+}
+
+export function archiveUser(id: string, reason: string) {
+  return apiFetch(`/auth/users/${encodeURIComponent(id)}/archive`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function restoreUser(id: string, reason?: string) {
+  return apiFetch(`/auth/users/${encodeURIComponent(id)}/restore`, {
+    method: "PATCH",
+    body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+  });
 }
 
 export function deleteUser(id: string) {

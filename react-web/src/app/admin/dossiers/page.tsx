@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, X } from "lucide-react";
-import { API_BASE_URL, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -16,6 +16,7 @@ import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataStateRow } from "@/components/admin/DataState";
 import { DossiersCoverage } from "@/components/admin/DossiersCoverage";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
@@ -29,7 +30,7 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
-import { AUDIT_ROLES, NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
+import { AUDIT_ROLES, DOSSIER_ARCHIVE_ROLES, NATIONAL_READ_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import {
   hrefWith,
   parseDossierFlag,
@@ -85,6 +86,10 @@ interface DossierItem {
   warningCount: number;
   submittedAt: string | null;
   isLate: boolean;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archiveReason?: string | null;
+  archivedByUser?: { id: string; firstName: string | null; lastName: string | null } | null;
 }
 
 interface QuestionnaireListItem extends NamedSubmission {
@@ -103,6 +108,10 @@ interface QuestionnaireListItem extends NamedSubmission {
   updatedAt?: string | null;
   submissionDate?: string | null;
   isLate?: boolean;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archiveReason?: string | null;
+  archivedByUser?: { id: string; firstName: string | null; lastName: string | null } | null;
   anomalies?: Array<{ isBlocking?: boolean; status?: string }> | null;
 }
 
@@ -222,6 +231,7 @@ function DossiersContent() {
   const lateFilter = parseDossierFlag(searchParams.get("late"));
   const overdueFilter = parseDossierFlag(searchParams.get("overdue"));
   const vue = parseDossierVue(searchParams.get("vue"));
+  const includeArchived = vue === "completed" && searchParams.get("includeArchived") !== "false";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
   const requestedQuery = searchParams.get("search") ?? searchParams.get("q") ?? "";
@@ -313,7 +323,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset }],
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: vue === "completed" ? undefined : statusFilter || undefined,
@@ -321,6 +331,7 @@ function DossiersContent() {
           ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
           : undefined,
         view: vue === "completed" ? "completed" : "queue",
+        includeArchived,
         formType: typeFilter || undefined,
         period: periodFilter || undefined,
         region: regionFilter || undefined,
@@ -339,9 +350,24 @@ function DossiersContent() {
     placeholderData: keepPreviousData,
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (target: { item: DossierItem; reason: string }) => archiveDossier(target.item.id, target.reason),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => restoreDossier(id),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+    },
+  });
+
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues", vue === "completed" ? "completed" : "queue"],
-    queryFn: () => getPilotageQueuesForView(vue === "completed" ? "completed" : "queue"),
+    queryKey: ["admin", "pilotage", "queues", vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : false],
+    queryFn: () => getPilotageQueuesForView(vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : undefined),
   });
   const queues = queuesQuery.data ?? null;
 
@@ -456,6 +482,10 @@ function DossiersContent() {
       reviewedBy: sub.reviewedBy ?? null,
       reviewedAt: sub.reviewedAt ?? null,
       rejectionReason: sub.rejectionReason ?? null,
+      archivedAt: sub.archivedAt ?? null,
+      archivedBy: sub.archivedBy ?? null,
+      archiveReason: sub.archiveReason ?? null,
+      archivedByUser: sub.archivedByUser ?? null,
       updatedAt: sub.updatedAt ?? null,
       blockingCount,
       warningCount,
@@ -565,6 +595,7 @@ function DossiersContent() {
       const params = new URLSearchParams({ format: fmt });
       if (vue === "completed") {
         params.set("statuses", statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED");
+        params.set("includeArchived", String(includeArchived));
       } else if (statusFilter) params.set("status", statusFilter);
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
@@ -704,6 +735,7 @@ function DossiersContent() {
           </CardContent>
         )}
         {!readOnly && <CardContent className="flex justify-end border-b pt-4"><Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button></CardContent>}
+        {vue === "completed" && <CardContent className="border-b pt-4"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
         <CardContent className="border-b pt-5">
           <div className="grid gap-3 md:grid-cols-4">
             <div className="md:col-span-2"><Label htmlFor="dossiers-search">{t("freeSearchLabel")}</Label><Input id="dossiers-search" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></div>
@@ -743,8 +775,8 @@ function DossiersContent() {
                 const eligibility: "eligible" | "notEligible" | "pending" = d.adminStatus === "APPROVED" ? (d.blockingCount === 0 ? "eligible" : "notEligible") : d.adminStatus === "REJECTED" || d.adminStatus === "SUPERSEDED" ? "notEligible" : "pending";
                 const eligibilityText = eligibility === "eligible" ? t("eligible") : eligibility === "notEligible" ? t("notEligible") : t("eligibilityPending");
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
-                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.rejectionReason && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{d.rejectionReason}</span>}{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</TableCell>
+                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${includeArchived ? "?includeArchived=true" : ""}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
+                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.archivedAt && <Badge className="ms-2" variant="neutral">{t("archivedBadge")}</Badge>}{d.archivedAt && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{t("archivedMeta", { actor: [d.archivedByUser?.firstName, d.archivedByUser?.lastName].filter(Boolean).join(" ") || d.archivedBy || "—", date: stamp(d.archivedAt, true, locale), reason: d.archiveReason || "—" })}</span>}{d.rejectionReason && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{d.rejectionReason}</span>}<ArchiveActions archived={!!d.archivedAt} canManage={hasRole(user?.role, DOSSIER_ARCHIVE_ROLES)} resourceName={d.companyName ?? d.submissionId} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item: d, reason })} onRestore={() => restoreMutation.mutate(d.id)} />{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</TableCell>
                   <TableCell className="whitespace-nowrap">{d.reviewedAt ? <>{stamp(d.reviewedAt, true, locale)}<span className="block text-xs text-muted-foreground">{d.reviewedBy ?? NOT_PROVIDED}</span></> : NOT_PROVIDED}</TableCell>
                   <TableCell>{d.campaignName ?? NOT_PROVIDED}<span className="block text-xs text-muted-foreground">{d.quarterCode ?? NOT_PROVIDED}</span></TableCell>
                   <TableCell>{canReadAudit ? <Link className="underline" href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link> : NOT_PROVIDED}</TableCell>

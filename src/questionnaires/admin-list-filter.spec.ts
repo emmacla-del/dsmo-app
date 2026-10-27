@@ -7,7 +7,7 @@ const NOW = new Date('2026-09-29T12:00:00.000Z');
 
 describe('buildAdminListWhere', () => {
   it('always excludes drafts, even with no filter and no territory', () => {
-    expect(buildAdminListWhere({})).toEqual({ AND: [{}, NOT_DRAFT] });
+    expect(buildAdminListWhere({})).toEqual({ AND: [{}, NOT_DRAFT, { archivedAt: null }] });
   });
 
   it('lists replaced files (SUPERSEDED) only when the status filter asks for them', () => {

@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { archiveReadPredicate } from '../common/archive-predicate';
 import { retryLostConnectionReads } from './transient-db-error';
 
 // Prisma's own default connection_limit, when DATABASE_URL doesn't specify
@@ -43,6 +44,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // P1017; sent again, it gets a fresh connection. Once, reads only, and
     // never inside a transaction (transient-db-error.ts says why).
     this.$use(retryLostConnectionReads(new Logger('Database')));
+    // User and submission reads hide archived records unless the query
+    // explicitly supplies an archivedAt condition (completed/restore flows).
+    this.$use(archiveReadPredicate as any);
   }
 
   async onModuleInit() {

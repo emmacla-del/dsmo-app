@@ -1,5 +1,6 @@
 import { OnefopEntityType, OnefopStatus } from '@prisma/client';
 import { Territory, territoryWhere } from '../auth/territory';
+import { archiveState } from '../common/archive-predicate';
 import { reviewOverdueBefore } from './review-delay';
 
 /**
@@ -59,6 +60,7 @@ export function buildAdminListWhere(
   filters: AdminListFilters,
   territory?: Territory,
   now: Date = new Date(),
+  includeArchived = false,
 ): { AND: Record<string, unknown>[] } {
   // ADR-0001 / Phase 1: SUPERSEDED is excluded by default and included
   // only when explicitly requested via status=SUPERSEDED or
@@ -72,7 +74,11 @@ export function buildAdminListWhere(
   const hidden = explicitlyIncludesSuperseded
     ? [OnefopStatus.DRAFT]
     : [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED];
-  const and: Record<string, unknown>[] = [territoryWhere(territory), { status: { notIn: hidden } }];
+  const and: Record<string, unknown>[] = [
+    territoryWhere(territory),
+    { status: { notIn: hidden } },
+    archiveState(includeArchived),
+  ];
   if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
   else if (filters.status) and.push({ status: filters.status });
   if (filters.formType) and.push({ formType: filters.formType });

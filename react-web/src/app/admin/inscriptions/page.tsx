@@ -9,11 +9,16 @@ import { useLocale, useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/lib/auth-store";
+import { API_BASE_URL, getToken, localeHeader } from "@/lib/api-client";
 import {
   approveUser,
   listCompanyRegistrations,
   rejectUser,
   requestComplements,
+  archiveUser,
+  restoreUser,
+  suspendUser,
+  activateUser,
   type ApproveUserOptions,
   type CompanyRegistrationItem,
   type CompanyRegistrationsResult,
@@ -28,7 +33,7 @@ import {
 import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel } from "@/lib/display-labels";
-import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
+import { APPROVAL_ROLES, DIRECTORY_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES, hasRole } from "@/lib/roles";
 import {
   approvalGate,
   inscriptionsHref,
@@ -43,6 +48,7 @@ import {
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import type { CoverageSelection } from "@/components/admin/CoveragePanel";
@@ -229,6 +235,7 @@ function InscriptionsContent() {
   const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
   const currentQuery = searchParams.toString();
   const role = useAuthStore((s) => s.user?.role);
+  const includeArchived = vue === "organisations" && searchParams.get("includeArchived") === "true";
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
   const queryClient = useQueryClient();
   const { regions: territoryRegions } = useTerritoryRegions();
@@ -401,11 +408,12 @@ function InscriptionsContent() {
   });
 
   const organisationsQuery = useQuery({
-    queryKey: ["auth", "company-registrations", "organisations", organisation, typeFilter, region, department, statusFilter, from, to, page],
+    queryKey: ["auth", "company-registrations", "organisations", organisation, typeFilter, region, department, statusFilter, from, to, page, includeArchived],
     queryFn: () => listCompanyRegistrations({
       search: organisation || undefined,
       statuses: statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ACTIVE,REJECTED",
       view: "organisations",
+      includeArchived,
       entityType: typeFilter || undefined,
       region: region || undefined,
       department: department || undefined,
@@ -417,6 +425,25 @@ function InscriptionsContent() {
     enabled: canReadQueue && vue === "organisations",
     placeholderData: keepPreviousData,
     staleTime: 15_000,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (target: { item: CompanyRegistrationItem; reason: string }) => archiveUser(target.item.id, target.reason),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onError: (error) => {
+      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => restoreUser(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onError: (error) => {
+      toast({ variant: 'destructive', title: t('archiveFailed'), description: error instanceof Error ? error.message : '' });
+    },
+  });
+  const lifecycleMutation = useMutation({
+    mutationFn: (target: { id: string; active: boolean }) => target.active ? suspendUser(target.id) : activateUser(target.id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
   });
 
   const closeReview = () => {
@@ -654,6 +681,10 @@ function InscriptionsContent() {
               <div><Label htmlFor="organisations-status">{t("registrationStatusColumn")}</Label><select id="organisations-status" className="cam-admin-input w-full" value={statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ALL"} onChange={(event) => applyStatus(event.target.value === "ALL" ? "" : event.target.value)}><option value="ALL">{t("bothStatuses")}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option></select></div>
               <div><Label htmlFor="organisations-region">{t("regionColumn")}</Label><select id="organisations-region" className="cam-admin-input w-full" value={region} onChange={(event) => applyRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
             </div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilters({ includeArchived: checked === true ? "true" : null })} />{t("showArchived")}</label>
+              <Button type="button" size="sm" variant="outline" onClick={async () => { const token = getToken(); const params = new URLSearchParams(); if (includeArchived) params.set("includeArchived", "true"); const response = await fetch(`${API_BASE_URL}/auth/company-registrations/export?${params}`, { headers: { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) } }); if (!response.ok) { setNotice({ tone: "error", text: t("exportFailed") }); return; } const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = `registrations_${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url); }}>{t("exportRegistrations")}</Button>
+            </div>
             <details className="mb-4"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary><div className="mt-3 grid gap-3 md:grid-cols-3">
               <div><Label htmlFor="organisations-department">{t("departmentColumn")}</Label><select id="organisations-department" className="cam-admin-input w-full" value={department} onChange={(event) => applyDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
               <div><Label htmlFor="organisations-type">{t("establishmentTypeColumn")}</Label><select id="organisations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}><option value="">{t("allTypes")}</option>{ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}</select></div>
@@ -669,9 +700,9 @@ function InscriptionsContent() {
                 const badge = STATUS_BADGE[item.status];
                 return <TableRow key={item.id}>
                   <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><div className="mt-1 flex flex-wrap gap-3"><Link className="text-sm underline" href={`/admin/etablissement-detail?id=${encodeURIComponent(item.companyId)}`}>{t("openButton")}</Link><Link className="text-sm underline" href={`/admin/dossiers?vue=submissions&companyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></div></TableHead>
-                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge></TableCell>
+                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge className="ms-2" variant="neutral">{t("archivedBadge")}</Badge>}{item.archivedAt && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{t("archivedMeta", { actor: [item.archivedByUser?.firstName, item.archivedByUser?.lastName].filter(Boolean).join(" ") || item.archivedBy || t("notRecorded"), date: stamp(item.archivedAt, true, locale), reason: item.archiveReason || t("notRecorded") })}</span>}</TableCell>
                   <TableCell>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</TableCell>
-                  <TableCell className="whitespace-nowrap">{decisionAt ? <>{stamp(decisionAt, true, locale)}<span className="block text-xs text-muted-foreground">{actorId ? t("decisionByLabel", { actor: actorId }) : t("notRecorded")}</span></> : NOT_PROVIDED}</TableCell>
+                  <TableCell className="whitespace-nowrap">{decisionAt ? <>{stamp(decisionAt, true, locale)}<span className="block text-xs text-muted-foreground">{actorId ? t("decisionByLabel", { actor: actorId }) : t("notRecorded")}</span></> : NOT_PROVIDED}<div className="mt-2 flex flex-wrap gap-2"><ArchiveActions archived={!!item.archivedAt} canManage={hasRole(role, USER_ARCHIVE_ROLES)} resourceName={item.organisation} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item, reason })} onRestore={() => restoreMutation.mutate(item.id)} />{!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES) && <Button size="sm" variant="outline" onClick={() => lifecycleMutation.mutate({ id: item.id, active: item.isActive })}>{item.isActive ? t("suspendButton") : t("activateButton")}</Button>}</div></TableCell>
                 </TableRow>;
               })}
             </TableBody></Table>

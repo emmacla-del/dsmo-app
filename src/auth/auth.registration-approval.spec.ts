@@ -873,19 +873,20 @@ describe('AuthService.listCompanyRegistrations — createdBy and status=ALL', ()
     expect(whereOf(prisma).user).toEqual({
       role: 'COMPANY',
       status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] },
+      archivedAt: null,
     });
   });
 
   it('lifts the status filter for status=ALL', async () => {
     const { service, prisma } = makeService();
     await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { status: 'ALL' });
-    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY' });
+    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY', archivedAt: null });
   });
 
   it('filters on the registering admin', async () => {
     const { service, prisma } = makeService();
     await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { status: 'ALL', createdBy: ' agent-1 ' });
-    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY', createdBy: 'agent-1' });
+    expect(whereOf(prisma).user).toEqual({ role: 'COMPANY', createdBy: 'agent-1', archivedAt: null });
   });
 
   it('keeps the territory scope when filtering by createdBy', async () => {

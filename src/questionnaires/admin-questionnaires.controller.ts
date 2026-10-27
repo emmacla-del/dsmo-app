@@ -8,6 +8,8 @@ import {
   Param,
   Body,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
   Request,
   Query,
   Res,
@@ -17,11 +19,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
-import { READ_ONLY_NATIONAL_ROLES } from '../auth/staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { territoryFromUser } from '../auth/territory';
+import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
 import {
   ADMIN_LIST_FORM_TYPES,
   ADMIN_LIST_PERIODS,
@@ -61,6 +64,14 @@ function optionalFlag(raw: unknown, message: string): boolean | undefined {
   if (text === 'true' || text === '1') return true;
   if (text === 'false' || text === '0') return undefined;
   throw new BadRequestException(message);
+}
+
+function includeArchivedFlag(raw: unknown, defaultValue: boolean): boolean {
+  const text = optionalText(raw);
+  if (!text) return defaultValue;
+  if (text === 'true' || text === '1') return true;
+  if (text === 'false' || text === '0') return false;
+  throw new BadRequestException('includeArchived must be true or false.');
 }
 
 /**
@@ -177,9 +188,17 @@ export class AdminQuestionnairesController {
    */
   @Get('pilotage/queues')
   @Roles(...DOSSIER_READ_ROLES)
-  async getQueues(@Query('view') view: string | undefined, @Request() req: any) {
+  async getQueues(
+    @Query('view') view: string | undefined,
+    @Request() req: any,
+    @Query('includeArchived') includeArchived?: string,
+  ) {
     const territory = territoryFromUser(req.user);
-    return this.eligibilityEngine.getPilotageQueues(territory, view);
+    return this.eligibilityEngine.getPilotageQueues(
+      territory,
+      view,
+      includeArchivedFlag(includeArchived, view === 'completed'),
+    );
   }
 
   /**
@@ -257,6 +276,8 @@ export class AdminQuestionnairesController {
     @Query('late') late?: string,
     @Query('overdue') overdue?: string,
     @Request() req?: any,
+    @Query('view') view?: string,
+    @Query('includeArchived') includeArchived?: string,
   ) {
     const sortOrder = optionalText(sort);
     if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
@@ -278,6 +299,7 @@ export class AdminQuestionnairesController {
           'Le paramètre « offset » doit être un entier positif ou nul.'),
       },
       territoryFromUser(req?.user),
+      includeArchivedFlag(includeArchived, view === 'completed'),
     );
   }
 
@@ -322,6 +344,7 @@ export class AdminQuestionnairesController {
     @Query('statuses') statuses?: string,
     @Request() req?: any,
     @Res() res?: Response,
+    @Query('includeArchived') includeArchived?: string,
   ) {
     const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
     const filters = parseAdminListFilters({
@@ -334,6 +357,7 @@ export class AdminQuestionnairesController {
       territoryFromUser(req?.user),
       req?.user?.id,
       res!,
+      includeArchivedFlag(includeArchived, false),
     );
   }
 
@@ -342,14 +366,28 @@ export class AdminQuestionnairesController {
    */
   @Get(':id/diagnostic')
   @Roles(...DOSSIER_READ_ROLES)
-  async getDiagnostic(@Param('id') id: string, @Request() req: any) {
-    return this.eligibilityEngine.evaluateDossier(id, territoryFromUser(req.user));
+  async getDiagnostic(@Param('id') id: string, @Request() req: any, @Query('includeArchived') includeArchived?: string) {
+    return this.eligibilityEngine.evaluateDossier(id, territoryFromUser(req.user), includeArchivedFlag(includeArchived, false));
   }
 
   @Get(':id')
   @Roles(...DOSSIER_READ_ROLES)
-  async getOne(@Param('id') id: string, @Request() req: any) {
-    return this.service.getById(id, territoryFromUser(req.user));
+  async getOne(@Param('id') id: string, @Request() req: any, @Query('includeArchived') includeArchived?: string) {
+    return this.service.getById(id, territoryFromUser(req.user), includeArchivedFlag(includeArchived, false));
+  }
+
+  @Patch(':id/archive')
+  @Roles(...SURVEY_ADMIN_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async archive(@Param('id') id: string, @Body() body: ArchiveRecordDto, @Request() req: any) {
+    return this.service.archiveSubmission(id, body.reason, req.user.id, territoryFromUser(req.user));
+  }
+
+  @Patch(':id/restore')
+  @Roles(...SURVEY_ADMIN_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async restore(@Param('id') id: string, @Body() body: RestoreRecordDto, @Request() req: any) {
+    return this.service.restoreSubmission(id, body?.reason, req.user.id, territoryFromUser(req.user));
   }
 
   @Patch(':id/approve')

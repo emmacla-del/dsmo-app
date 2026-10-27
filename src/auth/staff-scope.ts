@@ -78,6 +78,15 @@ export const USER_LIFECYCLE_ROLES = [
   'DIVISIONAL_ADMIN',
 ] as const;
 
+/** Roles allowed to archive/restore registrations; service checks territory. */
+export const USER_ARCHIVE_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP_REGISTRATIONS',
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
+] as const;
+
 
 /**
  * Roles allowed to read the establishment directory (GET /companies,

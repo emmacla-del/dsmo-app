@@ -177,6 +177,9 @@ model User {
   rejectionReason            String?
   rejectedAt                 DateTime?
   rejectedBy                 String?
+  archivedAt                 DateTime?
+  archivedBy                 String?
+  archiveReason              String?
   passwordResetTokenHash     String?
   passwordResetExpires       DateTime?
   failedLoginAttempts        Int                @default(0)
@@ -231,6 +234,9 @@ model User {
   approvedUsers              User[]             @relation("UserApprovedBy")
   rejectedByUser             User?              @relation("UserRejectedBy", fields: [rejectedBy], references: [id], onDelete: SetNull)
   rejectedUsers              User[]             @relation("UserRejectedBy")
+  archivedByUser             User?              @relation("UserArchive", fields: [archivedBy], references: [id], onDelete: SetNull)
+  archivedUsers              User[]             @relation("UserArchive")
+  archivedOnefop             OnefopSubmission[] @relation("OnefopArchive")
   assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assignedUsers              User[]             @relation("UserAssignee")
   auditLogs                  AuditLog[]
@@ -261,6 +267,7 @@ model User {
   @@index([createdBy])
   @@index([approvedBy])
   @@index([assigneeId])
+  @@index([archivedAt])
   @@map("users")
 }
 
@@ -903,6 +910,9 @@ model OnefopSubmission {
   registrationNumber    String?
   metaJson              Json?
   supersededById        String?
+  archivedAt            DateTime?
+  archivedBy            String?
+  archiveReason         String?
   administrationDetail  OnefopAdministrationDetail?
   projectProgramDetail  OnefopProjectProgramDetail?
   projectProgramActivities ProjectProgramActivity[]
@@ -943,6 +953,7 @@ model OnefopSubmission {
   // Set with status SUPERSEDED: the submission that replaced this one.
   supersededBy          OnefopSubmission?             @relation("OnefopSupersession", fields: [supersededById], references: [id], onDelete: SetNull)
   supersedes            OnefopSubmission[]            @relation("OnefopSupersession")
+  archivedByUser        User?                         @relation("OnefopArchive", fields: [archivedBy], references: [id], onDelete: SetNull)
   departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
   subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
@@ -969,6 +980,7 @@ model OnefopSubmission {
   // scan of the whole table.
   @@index([department])
   @@index([createdAt])
+  @@index([archivedAt])
   @@map("onefop_submissions")
 }
 

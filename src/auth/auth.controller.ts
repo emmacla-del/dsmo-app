@@ -1,4 +1,5 @@
-import { BadRequestException, Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { StaffInvitationService } from './staff-invitation.service';
@@ -7,7 +8,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, STAFF_LIST_ROLES, USER_ADMIN_ROLES, USER_LIFECYCLE_ROLES } from './staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, STAFF_LIST_ROLES, USER_ADMIN_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
@@ -16,6 +17,7 @@ import { ApproveRegistrationDto } from './dto/approve-registration.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 import { UserStatus } from '../types/prisma.types';
+import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -453,7 +455,11 @@ export class AuthController {
     @Query('sortOrder') sortOrder?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('includeArchived') includeArchived?: string,
   ) {
+    if (includeArchived !== undefined && includeArchived !== 'true' && includeArchived !== 'false') {
+      throw new BadRequestException('includeArchived must be true or false.');
+    }
     return this.authService.listCompanyRegistrations(territoryFromUser(req.user), {
       entityType,
       region,
@@ -466,12 +472,61 @@ export class AuthController {
       status,
       statuses,
       view,
+      includeArchived: includeArchived === 'true',
       createdBy,
       overdue: overdue === 'true',
       sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });
+  }
+
+  @Get('company-registrations/export')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...REGISTRATION_ADMIN_ROLES)
+  async exportCompanyRegistrations(
+    @Request() req: any,
+    @Res() res: Response,
+    @Query('includeArchived') includeArchived?: string,
+    @Query('entityType') entityType?: string,
+    @Query('region') region?: string,
+    @Query('department') department?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('organisation') organisation?: string,
+    @Query('registrationMethod') registrationMethod?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('statuses') statuses?: string,
+    @Query('view') view?: string,
+    @Query('createdBy') createdBy?: string,
+    @Query('overdue') overdue?: string,
+  ) {
+    if (includeArchived !== undefined && includeArchived !== 'true' && includeArchived !== 'false') {
+      throw new BadRequestException('includeArchived must be true or false.');
+    }
+    const csv = await this.authService.exportCompanyRegistrations(
+      territoryFromUser(req.user),
+      includeArchived === 'true',
+      {
+        entityType,
+        region,
+        department,
+        from,
+        to,
+        organisation,
+        registrationMethod,
+        search,
+        status,
+        statuses,
+        view,
+        createdBy,
+        overdue,
+      },
+    );
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="registrations_${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
   }
 
   @Post('resubmit-registration')
@@ -523,14 +578,20 @@ export class AuthController {
 
   // Autocomplete for the audit journal's actor filter, which matches
   // AuditLog.userId exactly and therefore needs an id, not a typed name.
-  // Declared ahead of the `users/:id/*` block: no GET takes an :id today,
-  // but a literal segment registered after a parameterised one is read as
-  // an id, so keeping the order makes adding GET users/:id safe.
+  // Keep this literal route before GET users/:id so "search" is never read
+  // as a user id.
   @Get('users/search')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async searchUsers(@Request() req: any, @Query('q') q?: string) {
     return this.authService.searchUsers(q, req.user.role);
+  }
+
+  @Get('users/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES)
+  async getUserById(@Param('id') id: string, @Request() req: any) {
+    return this.authService.getUserByIdForAdmin(id, req.user.role);
   }
 
   @Patch('users/:id/role')
@@ -571,6 +632,22 @@ export class AuthController {
   @Roles(...USER_LIFECYCLE_ROLES)
   async suspendUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.setUserActive(id, false, req.user.id, req.user.role, territoryFromUser(req.user));
+  }
+
+  @Patch('users/:id/archive')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ARCHIVE_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async archiveUser(@Param('id') id: string, @Body() body: ArchiveRecordDto, @Request() req: any) {
+    return this.authService.archiveUser(id, body.reason, req.user.id, req.user.role, territoryFromUser(req.user));
+  }
+
+  @Patch('users/:id/restore')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ARCHIVE_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async restoreUser(@Param('id') id: string, @Body() body: RestoreRecordDto, @Request() req: any) {
+    return this.authService.restoreUser(id, body?.reason, req.user.id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('users/:id/activate')

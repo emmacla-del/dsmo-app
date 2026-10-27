@@ -24,12 +24,13 @@ import {
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { OnefopShadowValidatorService, isVtSectionWaived } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
-import { Territory, territoryWhere } from '../auth/territory';
+import { Territory, assertTerritorialAuthority, territoryWhere } from '../auth/territory';
 import { AdminListFilters, AdminListSort, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import { withoutStaffNames } from './staff-names';
 import { computeDoualaEndOfDay } from './douala-deadline';
+import { ARCHIVED_ONLY, NOT_ARCHIVED } from '../common/archive-predicate';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 
@@ -3569,8 +3570,9 @@ export class QuestionnairesService {
   async listForAdmin(
     filters: AdminListFilters & { limit: number; offset: number; sort?: AdminListSort },
     territory?: Territory,
+    includeArchived = false,
   ): Promise<{ items: any[]; total: number }> {
-    const where = buildAdminListWhere(filters, territory);
+    const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
     const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
 
     // limit=0 is a count-only request (the admin questionnaires page shows
@@ -3593,6 +3595,7 @@ export class QuestionnairesService {
           projectProgramDetail: true,
           vocationalTrainingDetail: true,
           campaign: { select: { name: true } },
+          archivedByUser: { select: { id: true, firstName: true, lastName: true } },
           anomalies: true,
         },
       }),
@@ -3604,6 +3607,10 @@ export class QuestionnairesService {
       reviewedBy: item.reviewedBy ?? null,
       reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
       rejectionReason: item.rejectionReason ?? null,
+      archivedAt: item.archivedAt?.toISOString?.() ?? null,
+      archivedBy: item.archivedBy ?? null,
+      archiveReason: item.archiveReason ?? null,
+      archivedByUser: item.archivedByUser ?? null,
     }));
     return { items: projectedItems, total };
   }
@@ -3625,7 +3632,7 @@ export class QuestionnairesService {
     });
   }
 
-  async getById(id: string, territory?: Territory) {
+  async getById(id: string, territory?: Territory, includeArchived = false) {
     // Out-of-territory rows are reported as not found (no existence leak).
     // `id` may also be the submission reference printed on the respondent's
     // receipt (submissionId), so a dossier is found from it too (F12).
@@ -3636,7 +3643,7 @@ export class QuestionnairesService {
     // client read them, and Prisma ran one query per relation, which made
     // the page take ~25 s through the session-mode pooler.
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
-      where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
+      where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory), includeArchived ? { OR: [NOT_ARCHIVED, ARCHIVED_ONLY] } : NOT_ARCHIVED] },
       include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
@@ -3650,6 +3657,67 @@ export class QuestionnairesService {
       rawData: withoutStaffNames(rest.rawData, territory?.role),
       yearOfCreation: establishment?.company?.yearOfCreation ?? null,
     };
+  }
+
+  private async findSubmissionForArchive(tx: any, id: string) {
+    const identity = { OR: [{ id }, { submissionId: id }] };
+    return (await tx.onefopSubmission.findFirst({ where: { AND: [identity, NOT_ARCHIVED] } })) ??
+      (await tx.onefopSubmission.findFirst({ where: { AND: [identity, ARCHIVED_ONLY] } }));
+  }
+
+  async archiveSubmission(id: string, reason: string, actorId: string, territory?: Territory) {
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (!normalizedReason) throw new BadRequestException('Une raison d’archivage est obligatoire.');
+
+    return this.prisma.$transaction(async (tx) => {
+      const submission = await this.findSubmissionForArchive(tx, id);
+      if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
+      assertTerritorialAuthority(territory, submission);
+      if (submission.archivedAt) throw new BadRequestException('Ce dossier est déjà archivé.');
+
+      const archivedAt = new Date();
+      const updated = await tx.onefopSubmission.updateMany({
+        where: { id: submission.id, ...NOT_ARCHIVED },
+        data: { archivedAt, archivedBy: actorId, archiveReason: normalizedReason },
+      });
+      if (updated.count !== 1) throw new ConflictException('Le statut d’archivage a changé. Rechargez la page.');
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'DOSSIER_ARCHIVED',
+          resourceType: 'OnefopSubmission',
+          resourceId: submission.id,
+          details: { reason: normalizedReason, actorRole: territory?.role ?? null },
+        },
+      });
+      return { id: submission.id, archivedAt, archivedBy: actorId, archiveReason: normalizedReason };
+    });
+  }
+
+  async restoreSubmission(id: string, reason: string | undefined, actorId: string, territory?: Territory) {
+    const normalizedReason = reason?.trim() || null;
+    return this.prisma.$transaction(async (tx) => {
+      const submission = await this.findSubmissionForArchive(tx, id);
+      if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
+      assertTerritorialAuthority(territory, submission);
+      if (!submission.archivedAt) throw new BadRequestException('Ce dossier n’est pas archivé.');
+
+      const updated = await tx.onefopSubmission.updateMany({
+        where: { id: submission.id, ...ARCHIVED_ONLY },
+        data: { archivedAt: null, archivedBy: null, archiveReason: null },
+      });
+      if (updated.count !== 1) throw new ConflictException('Le statut d’archivage a changé. Rechargez la page.');
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'DOSSIER_RESTORED',
+          resourceType: 'OnefopSubmission',
+          resourceId: submission.id,
+          details: { reason: normalizedReason, previousReason: submission.archiveReason, actorRole: territory?.role ?? null },
+        },
+      });
+      return { id: submission.id, archivedAt: null, archivedBy: null, archiveReason: null };
+    });
   }
 
   /**
@@ -3971,10 +4039,11 @@ export class QuestionnairesService {
     territory: Territory | undefined,
     userId: string | undefined,
     res: Response,
+    includeArchived = false,
   ): Promise<void> {
     const EXPORT_MAX_ROWS = 50_000;
     const BATCH_SIZE = 500;
-    const where = buildAdminListWhere(filters, territory);
+    const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
 
     const count: number = await (this.prisma as any).onefopSubmission.count({ where });
     if (count > EXPORT_MAX_ROWS) {

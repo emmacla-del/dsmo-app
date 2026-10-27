@@ -526,7 +526,10 @@ export class DataManagementService {
             orderBy: { name: 'asc' },
             include: {
                 _count: {
-                    select: { companies: true, departments: true },
+                    select: {
+                        companies: { where: { user: { is: { archivedAt: null } } } },
+                        departments: true,
+                    },
                 },
                 // Needed by the frontend's export filter (Région → Département
                 // cascade) — cheap to include since a region has at most a few
@@ -544,7 +547,7 @@ export class DataManagementService {
             orderBy: { name: 'asc' },
             include: {
                 _count: {
-                    select: { companies: true },
+                    select: { companies: { where: { user: { is: { archivedAt: null } } } } },
                 },
             },
         });

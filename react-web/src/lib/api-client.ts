@@ -847,9 +847,26 @@ export function getPilotageQueues() {
   return apiFetch<PilotageQueues>("/admin/questionnaires/pilotage/queues");
 }
 
-export function getPilotageQueuesForView(view: "queue" | "completed" | "all") {
-  const query = view ? `?view=${encodeURIComponent(view)}` : "";
+export function getPilotageQueuesForView(view: "queue" | "completed" | "all", includeArchived?: boolean) {
+  const params = new URLSearchParams();
+  if (view) params.set("view", view);
+  if (includeArchived !== undefined) params.set("includeArchived", String(includeArchived));
+  const query = params.size ? `?${params.toString()}` : "";
   return apiFetch<PilotageQueues>(`/admin/questionnaires/pilotage/queues${query}`);
+}
+
+export function archiveDossier(id: string, reason: string) {
+  return apiFetch(`/admin/questionnaires/${encodeURIComponent(id)}/archive`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function restoreDossier(id: string, reason?: string) {
+  return apiFetch(`/admin/questionnaires/${encodeURIComponent(id)}/restore`, {
+    method: "PATCH",
+    body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+  });
 }
 
 export interface AdminQuestionnairesPage {
@@ -871,6 +888,7 @@ export function listAdminQuestionnaires(
     quarterCode?: string;
     late?: boolean;
     overdue?: boolean;
+    includeArchived?: boolean;
     /** "oldest" lists the longest-waiting first; the server default is newest first. */
     sort?: "oldest";
     limit?: number; offset?: number;
@@ -890,6 +908,7 @@ export function listAdminQuestionnaires(
   if (params.quarterCode) query.set("quarterCode", params.quarterCode);
   if (params.late) query.set("late", "1");
   if (params.overdue) query.set("overdue", "1");
+  if (params.includeArchived !== undefined) query.set("includeArchived", String(params.includeArchived));
   if (params.sort) query.set("sort", params.sort);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
@@ -912,6 +931,10 @@ export interface AdminDossier {
   rejectionReason: string | null;
   /** With status SUPERSEDED: the id of the file that replaced this one. */
   supersededById?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archivedByUser?: { id: string; firstName: string | null; lastName: string | null } | null;
+  archiveReason?: string | null;
   quarterCode: string | null;
   taxNumber: string | null;
   cnpsNumber: string | null;
@@ -934,12 +957,14 @@ export interface AdminDossier {
   rawData?: Record<string, unknown> | null;
 }
 
-export function getAdminDossier(id: string) {
-  return apiFetch<AdminDossier>(`/admin/questionnaires/${encodeURIComponent(id)}`);
+export function getAdminDossier(id: string, includeArchived = false) {
+  const suffix = includeArchived ? "?includeArchived=true" : "";
+  return apiFetch<AdminDossier>(`/admin/questionnaires/${encodeURIComponent(id)}${suffix}`);
 }
 
-export function getDossierDiagnostic(id: string) {
-  return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic`);
+export function getDossierDiagnostic(id: string, includeArchived = false) {
+  const suffix = includeArchived ? "?includeArchived=true" : "";
+  return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic${suffix}`);
 }
 
 export function approveDossier(id: string, expectedRevision: string) {

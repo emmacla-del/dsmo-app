@@ -587,7 +587,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
     // Aggregates use the same territory filter as the other queue counts,
     // and never count drafts (unsubmitted work).
-    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { notIn: ['DRAFT', 'SUPERSEDED'] } }] };
+    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { notIn: ['DRAFT', 'SUPERSEDED'] } }, { archivedAt: null }] };
     for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
       expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
     }
@@ -775,19 +775,20 @@ describe('EligibilityEngineService.getPilotageQueues — review delay', () => {
 
     const territory = { region: { equals: 'Littoral', mode: 'insensitive' } };
     const [{ where: oldestWhere }] = prisma.onefopSubmission.aggregate.mock.calls[0];
-    expect(oldestWhere).toEqual({ AND: [territory, { status: 'PENDING_REVIEW' }] });
+    expect(oldestWhere).toEqual({ AND: [territory, { status: 'PENDING_REVIEW' }, { archivedAt: null }] });
 
     const overdue = prisma.onefopSubmission.count.mock.calls
       .map(([args]: any) => args.where)
       .find((w: any) => w.AND?.some((c: any) => c.submissionDate));
-    expect(overdue.AND.slice(0, 2)).toEqual([territory, { status: 'PENDING_REVIEW' }]);
-    const cutoff = overdue.AND[2].submissionDate.lt.getTime();
+    expect(overdue.AND.slice(0, 3)).toEqual([territory, { status: 'PENDING_REVIEW' }, { archivedAt: null }]);
+    const cutoff = overdue.AND[3].submissionDate.lt.getTime();
     expect(Math.abs(cutoff - daysAgo(7).getTime())).toBeLessThan(5000);
 
     const [{ where: decidedWhere, select }] = prisma.onefopSubmission.findMany.mock.calls[0];
     expect(select).toEqual({ id: true, submissionDate: true, reviewedAt: true });
     expect(decidedWhere.AND[0]).toEqual(territory);
     expect(decidedWhere.AND[1]).toEqual({ status: { in: ['APPROVED', 'REJECTED', 'CORRECTION_REQUESTED', 'SUPERSEDED'] } });
+    expect(decidedWhere.AND.some((c: any) => c.archivedAt === null)).toBe(true);
     expect(Math.abs(decidedWhere.AND[2].reviewedAt.gte.getTime() - daysAgo(90).getTime())).toBeLessThan(5000);
   });
 
@@ -826,6 +827,7 @@ describe('EligibilityEngineService.getQualitySummary — aggregates', () => {
   const scoped = {
     AND: [
       { region: { equals: 'Littoral', mode: 'insensitive' } },
+      { archivedAt: null },
       { status: { notIn: ['DRAFT', 'SUPERSEDED'] } },
       { campaignId: 'camp-1' },
     ],

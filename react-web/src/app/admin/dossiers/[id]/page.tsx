@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -214,6 +214,8 @@ function entityName(detail: Detail): string | null {
 
 function SubmissionDetailContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const includeArchived = searchParams.get("includeArchived") === "true";
   // No default id: without one there is no dossier to show, and substituting a
   // known identifier would load someone else's record.
   const id = typeof params.id === "string" ? params.id : "";
@@ -249,14 +251,14 @@ function SubmissionDetailContent() {
   const canSeeStaffNames = typeof role === "string" && STAFF_NAME_ROLES.includes(role);
 
   const dossierQuery = useQuery({
-    queryKey: ["admin", "dossier", id],
-    queryFn: () => getAdminDossier(id),
+    queryKey: ["admin", "dossier", id, includeArchived],
+    queryFn: () => getAdminDossier(id, includeArchived),
     retry: false,
   });
 
   const diagnosticQuery = useQuery({
-    queryKey: ["admin", "diagnostic", id],
-    queryFn: () => getDossierDiagnostic(id),
+    queryKey: ["admin", "diagnostic", id, includeArchived],
+    queryFn: () => getDossierDiagnostic(id, includeArchived),
     retry: false,
   });
 

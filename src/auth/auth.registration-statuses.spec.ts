@@ -121,7 +121,7 @@ describe('Phase 1 registrations statuses and counts contract', () => {
   it('R-5 preserves status=ALL as an unfiltered status condition', async () => {
     const { service, prisma } = makeService();
     const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { status: 'ALL' });
-    expect(prisma.company.findMany.mock.calls[0][0].where.user).toEqual({ role: 'COMPANY' });
+    expect(prisma.company.findMany.mock.calls[0][0].where.user).toEqual({ role: 'COMPANY', archivedAt: null });
     expect(result.countsView).toBe('all');
   });
 

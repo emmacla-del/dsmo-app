@@ -276,7 +276,7 @@ export class ActorSummaryService {
       (async () => {
         const fieldRows = await this.prisma.user.findMany({
           where: { createdBy: { in: ids }, registrationMethod: 'ASSISTED', createdAt: { gte: start, lte: now } },
-          select: { createdBy: true, createdAt: true, _count: { select: { onefopSubmissions: true } } },
+          select: { createdBy: true, createdAt: true, _count: { select: { onefopSubmissions: { where: { archivedAt: null } } } } },
         });
         const registrants = registrantIds.length
           ? await this.prisma.user.findMany({

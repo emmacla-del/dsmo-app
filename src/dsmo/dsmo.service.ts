@@ -194,7 +194,7 @@ export class DsmoService {
    * up to the total.
    */
   async getCompanyStats(territory?: Territory) {
-    const where: any = territoryWhere(territory);
+    const where: any = { ...territoryWhere(territory), user: { is: { archivedAt: null } } };
     const pendingStatuses = [
       UserStatus.PENDING_APPROVAL,
       UserStatus.UNDER_REVIEW,
@@ -283,6 +283,7 @@ export class DsmoService {
         FROM "companies" c
         WHERE ((c."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
           AND ((c."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date
+          AND EXISTS (SELECT 1 FROM "users" u WHERE u.id = c."userId" AND u."archivedAt" IS NULL)
           ${scope}
         GROUP BY 1
       ), approved AS (
@@ -290,6 +291,7 @@ export class DsmoService {
         FROM "users" u
         JOIN "companies" c ON c."userId" = u.id
         WHERE u.role = 'COMPANY'
+          AND u."archivedAt" IS NULL
           AND u."approvedAt" IS NOT NULL
           AND ((u."approvedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
           AND ((u."approvedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date
@@ -300,6 +302,7 @@ export class DsmoService {
         FROM "audit_logs" a
         JOIN "companies" c ON c."userId" = a."resourceId"
         WHERE a."resourceType" = 'User'
+          AND EXISTS (SELECT 1 FROM "users" u WHERE u.id = a."resourceId" AND u."archivedAt" IS NULL)
           AND a.action = 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED'
           AND ((a."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date >= ${firstDayKey}::date
           AND ((a."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Douala')::date <= ${today}::date

@@ -46,6 +46,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
         limit: 10, offset: 30,
       },
       expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Littoral' }),
+      false,
     );
   });
 
@@ -157,6 +158,7 @@ describe('AdminQuestionnairesController.exportDossiers', () => {
       expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Littoral' }),
       'a1',
       res,
+      false,
     );
   });
 

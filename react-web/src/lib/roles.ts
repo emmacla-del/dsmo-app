@@ -117,6 +117,21 @@ export const SURVEY_ROLES: readonly UserRole[] = [
   "SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
 ];
 
+/** Archive and restore registrations, narrowed by territory on the server. */
+export const USER_ARCHIVE_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
+];
+
+/** Suspend and activate users, with territorial checks on the server. */
+export const USER_LIFECYCLE_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
+];
+
+/** Archive and restore declarations, narrowed by territory on the server. */
+export const DOSSIER_ARCHIVE_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN",
+];
+
 /** Survey workflow readers, including read-only central observers. */
 export const SURVEY_READ_ROLES: readonly UserRole[] = [...SURVEY_ROLES, ...READ_ONLY_ROLES];
 

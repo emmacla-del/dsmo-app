@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NOT_ARCHIVED, archiveState } from '../common/archive-predicate';
 import {
   AnomalyResolutionType,
   AnomalyStatus,
@@ -52,11 +53,11 @@ export class EligibilityEngineService {
    * Pure deterministic projection of Axis 1 (Administrative) and Axis 2 (Quality)
    * into Axis 3 (Statistical Eligibility). Axis 3 is NEVER directly written to DB.
    */
-  async evaluateDossier(submissionId: string, territory?: Territory): Promise<DossierDiagnostic> {
+  async evaluateDossier(submissionId: string, territory?: Territory, includeArchived = false): Promise<DossierDiagnostic> {
     // Out-of-territory dossiers are reported as not found (no existence leak).
     // `submissionId` may be the dossier id or the receipt's reference (F12).
     const submission = await this.prisma.onefopSubmission.findFirst({
-      where: { AND: [{ OR: [{ id: submissionId }, { submissionId }] }, territoryWhere(territory)] },
+      where: { AND: [{ OR: [{ id: submissionId }, { submissionId }] }, territoryWhere(territory), archiveState(includeArchived)] },
       include: {
         anomalies: {
           orderBy: { detectedAt: 'desc' },
@@ -66,6 +67,9 @@ export class EligibilityEngineService {
 
     if (!submission) {
       throw new NotFoundException(`Dossier #${submissionId} introuvable.`);
+    }
+    if ((submission as any).archivedAt) {
+      throw new BadRequestException('Cette fiche est archivée.');
     }
 
     if (
@@ -273,6 +277,7 @@ export class EligibilityEngineService {
   async getPilotageQueues(
     territory?: Territory,
     view: PilotageQueues['countsView'] | string = 'all',
+    includeArchived = view === 'completed',
   ): Promise<PilotageQueues> {
     if (!['queue', 'completed', 'all'].includes(view)) {
       throw new BadRequestException(`Unknown dossier counts view: ${view}.`);
@@ -285,7 +290,7 @@ export class EligibilityEngineService {
       ? { status: { in: [OnefopStatus.APPROVED, OnefopStatus.REJECTED, OnefopStatus.SUPERSEDED] } }
       : { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } };
     const baseWhere: any = {
-      AND: [territoryWhere(territory), statusFilter],
+      AND: [territoryWhere(territory), statusFilter, archiveState(includeArchived)],
     };
 
     // Kept deliberately narrow: four round trips, never more than two at once.
@@ -376,7 +381,7 @@ export class EligibilityEngineService {
    * flight (see the pool note in getPilotageQueues).
    */
   private async getReviewDelay(territory?: Territory, now: Date = new Date()): Promise<ReviewDelay> {
-    const pendingWhere = { AND: [territoryWhere(territory), { status: OnefopStatus.PENDING_REVIEW }] };
+    const pendingWhere = { AND: [territoryWhere(territory), { status: OnefopStatus.PENDING_REVIEW }, NOT_ARCHIVED] };
     const overdueBefore = reviewOverdueBefore(now);
     const windowStart = new Date(now.getTime() - REVIEW_DELAY_WINDOW_DAYS * DAY_MS);
 
@@ -411,6 +416,7 @@ export class EligibilityEngineService {
               },
             },
             { reviewedAt: { gte: windowStart } },
+            NOT_ARCHIVED,
           ],
         },
         select: { id: true, submissionDate: true, reviewedAt: true },
@@ -444,6 +450,7 @@ export class EligibilityEngineService {
     const baseWhere: any = {
       AND: [
         territoryWhere(territory),
+        NOT_ARCHIVED,
         // Not drafts, and not replaced files: see getPilotageQueues.
         { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } },
         ...(campaignId ? [{ campaignId }] : []),
@@ -614,6 +621,9 @@ export class EligibilityEngineService {
 
     if (!anomaly) {
       throw new NotFoundException(`Anomalie #${anomalyId} introuvable.`);
+    }
+    if ((anomaly.submission as any)?.archivedAt) {
+      throw new BadRequestException('Cette fiche est archivée.');
     }
 
     if (anomaly.status !== AnomalyStatus.OPEN) {
@@ -1008,7 +1018,7 @@ export class EligibilityEngineService {
     if (filters.submissionId) where.submissionId = filters.submissionId;
     if (filters.status) where.status = filters.status;
     if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
-    where.submission = territoryWhere(territory);
+    where.submission = { AND: [territoryWhere(territory), NOT_ARCHIVED] };
 
     await this.backfillLegacyFlagAnomalies();
 

@@ -131,7 +131,7 @@ describe('Phase 1b dossier contract', () => {
     const routeEngine = { getPilotageQueues: jest.fn(async () => counts) };
     await controllerFor({}, routeEngine).getQueues('completed', { user: regionalA });
     expect(routeEngine.getPilotageQueues).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Territory A' }), 'completed',
+      expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Territory A' }), 'completed', true,
     );
   });
 

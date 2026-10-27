@@ -2,7 +2,9 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +20,7 @@ import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
+import { ARCHIVED_ONLY, ANY_ARCHIVE_STATE, NOT_ARCHIVED } from '../common/archive-predicate';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
@@ -1597,6 +1600,7 @@ export class AuthService {
       status?: string;
       statuses?: string;
       view?: string;
+      includeArchived?: boolean;
       createdBy?: string;
       // Only files the reviewers have left waiting past
       // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
@@ -1632,6 +1636,7 @@ export class AuthService {
       throw new BadRequestException(`Unknown registration counts view: ${params.view}.`);
     }
     const scope = territoryWhere(actor);
+    const includeArchived = countsView === 'organisations' && params.includeArchived === true;
 
     // Narrowing the queue to one region is a filter, not a widening: the
     // requested region is checked against the actor's own jurisdiction with
@@ -1698,7 +1703,10 @@ export class AuthService {
     // exclusive. status=ALL intentionally includes every status. Do not add
     // implicit set behaviour to status. See
     // docs/plans/admin-modules-phase1-contract.md C.1.
-    const userWhere: Record<string, unknown> = { role: 'COMPANY' };
+    const userWhere: Record<string, unknown> = {
+      role: 'COMPANY',
+      ...(includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
+    };
     // No status = the review queue (pending + complements). 'ALL' lifts the
     // status filter, for "every file this agent registered" (/admin/equipe).
     if (params.status === 'ALL') {
@@ -1761,11 +1769,16 @@ export class AuthService {
               id: true,
               email: true,
               status: true,
+              isActive: true,
               createdAt: true,
               approvedAt: true,
               approvedBy: true,
               rejectedAt: true,
               rejectedBy: true,
+              archivedAt: true,
+              archivedBy: true,
+              archiveReason: true,
+              archivedByUser: { select: { id: true, firstName: true, lastName: true } },
               approvalComment: true,
               rejectionReason: true,
               registrationNumber: true,
@@ -1804,10 +1817,106 @@ export class AuthService {
     // docs/plans/admin-modules-phase1-contract.md C.1.
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
-    const counts = await this.companyRegistrationCounts(regionScope, cutoff, countsView);
+    const counts = await this.companyRegistrationCounts(regionScope, cutoff, countsView, includeArchived);
     // overdueDays travels with the list so the screen words "plus de N jours"
     // with the threshold actually applied.
     return { items: itemsWithResubmission, total, page, pageSize, counts, countsView, overdueDays };
+  }
+
+  async exportCompanyRegistrations(
+    actor: Territory,
+    includeArchived = false,
+    filters: Record<string, any> = {},
+  ): Promise<string> {
+    const archiveFilter = includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED;
+    const regionScope = territoryWhere(actor);
+    let userFilter: any = { role: 'COMPANY', ...archiveFilter };
+    const statusesParam = filters.statuses ?? filters.status;
+    if (filters.view === 'organisations' || (!filters.view && statusesParam === 'ALL')) {
+      userFilter = { role: 'COMPANY', ...archiveFilter };
+    } else if (filters.view === 'queue' || (statusesParam && String(statusesParam).includes('PENDING'))) {
+      const statusList = typeof statusesParam === 'string'
+        ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'];
+      userFilter = { role: 'COMPANY', status: { in: statusList }, ...archiveFilter };
+    } else if (statusesParam && statusesParam !== 'ALL') {
+      const statusList = typeof statusesParam === 'string'
+        ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [statusesParam];
+      userFilter = { role: 'COMPANY', status: { in: statusList }, ...archiveFilter };
+    } else {
+      userFilter = { role: 'COMPANY', status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] }, ...archiveFilter };
+    }
+    if (filters.createdBy) userFilter.createdBy = filters.createdBy.trim();
+    const where: any = {
+      ...regionScope,
+      user: { is: userFilter },
+    };
+    if (filters.entityType) where.entityType = filters.entityType;
+    if (filters.department) where.department = { equals: filters.department, mode: 'insensitive' };
+    if (filters.region && !(actor as any)?.region) where.region = { equals: filters.region, mode: 'insensitive' };
+    if (filters.from || filters.to) {
+      where.createdAt = {};
+      if (filters.from) where.createdAt.gte = new Date(filters.from);
+      if (filters.to) where.createdAt.lte = new Date(filters.to);
+    }
+    const search = filters.search || filters.organisation;
+    if (search) {
+      const contains = { contains: search, mode: 'insensitive' };
+      where.OR = [
+        { name: contains },
+        { taxNumber: contains },
+        { establishmentId: contains },
+      ];
+    }
+    const companies = await this.prisma.company.findMany({
+      where,
+      select: {
+        name: true,
+        taxNumber: true,
+        region: true,
+        department: true,
+        subdivision: true,
+        createdAt: true,
+        user: {
+          select: {
+            status: true,
+            approvedAt: true,
+            approvedBy: true,
+            rejectedAt: true,
+            rejectedBy: true,
+            archivedAt: true,
+            archivedBy: true,
+            archivedByUser: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const columns = [
+      'organisation', 'NIU', 'status', 'territory', 'submittedAt',
+      'approvedAt', 'approvedBy', 'rejectedAt', 'rejectedBy', 'archivedAt', 'archivedBy',
+    ];
+    const cell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = companies.map((company) => {
+      const archivedByName = company.user.archivedByUser
+        ? `${company.user.archivedByUser.firstName ?? ''} ${company.user.archivedByUser.lastName ?? ''}`.trim()
+        : '';
+      return [
+        company.name,
+        company.taxNumber,
+        company.user.status,
+        [company.region, company.department, company.subdivision].filter(Boolean).join(' / '),
+        company.createdAt.toISOString(),
+        company.user.approvedAt?.toISOString() ?? '',
+        company.user.approvedBy ?? '',
+        company.user.rejectedAt?.toISOString() ?? '',
+        company.user.rejectedBy ?? '',
+        company.user.archivedAt?.toISOString() ?? '',
+        archivedByName || (company.user.archivedBy ?? ''),
+      ];
+    });
+    return `\uFEFF${[columns, ...rows].map((row) => row.map(cell).join(',')).join('\r\n')}\r\n`;
   }
 
   /**
@@ -2041,6 +2150,7 @@ export class AuthService {
     scope: Record<string, unknown>,
     cutoff: Date,
     view: RegistrationCountsView = 'all',
+    includeArchived = false,
   ) {
     // One groupBy instead of four parallel counts: the session-mode pool is
     // small (15), Prisma opens a connection per concurrent query, and wide
@@ -2062,6 +2172,7 @@ export class AuthService {
       where: {
         role: 'COMPANY',
         status: { in: viewStatuses },
+        ...(includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
         company: { is: scope as Prisma.CompanyWhereInput },
       },
       _count: { _all: true },
@@ -2080,6 +2191,7 @@ export class AuthService {
         user: {
           role: 'COMPANY',
           status: 'PENDING_APPROVAL',
+          ...NOT_ARCHIVED,
           ...(recentlyResubmitted.length > 0 ? { id: { notIn: recentlyResubmitted } } : {}),
         },
       },
@@ -2123,6 +2235,11 @@ export class AuthService {
         approvedBy: string | null;
         rejectedAt: Date | null;
         rejectedBy: string | null;
+        isActive: boolean;
+        archivedAt: Date | null;
+        archivedBy: string | null;
+        archiveReason: string | null;
+        archivedByUser: { id: string; firstName: string | null; lastName: string | null } | null;
         approvalComment: string | null;
         rejectionReason: string | null;
         registrationNumber: string | null;
@@ -2177,10 +2294,15 @@ export class AuthService {
         region: row.region,
         department: row.department,
         status: row.user.status,
+        isActive: row.user.isActive,
         approvedAt: row.user.approvedAt?.toISOString() ?? null,
         approvedBy: row.user.approvedBy ?? null,
         rejectedAt: row.user.rejectedAt?.toISOString() ?? null,
         rejectedBy: row.user.rejectedBy ?? null,
+        archivedAt: row.user.archivedAt?.toISOString() ?? null,
+        archivedBy: row.user.archivedBy ?? null,
+        archiveReason: row.user.archiveReason ?? null,
+        archivedByUser: row.user.archivedByUser,
         taxNumber: row.taxNumber,
         cnpsNumber: row.cnpsNumber,
         phone: row.phone,
@@ -2334,7 +2456,7 @@ export class AuthService {
           createdByUser: { select: { id: true, firstName: true, lastName: true, email: true } },
           _count: {
             select: {
-              onefopSubmissions: true,
+              onefopSubmissions: { where: NOT_ARCHIVED },
             },
           },
         },
@@ -2407,6 +2529,17 @@ export class AuthService {
       id: u.id,
       displayName: [u.firstName, u.lastName].filter(Boolean).join(' ').trim(),
     }));
+  }
+
+  /** User detail for the same nationally scoped administrators as the roster. */
+  async getUserByIdForAdmin(id: string, actorRole: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Utilisateur non trouvé.');
+    const allowedRoles = manageableRolesFor(actorRole);
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+      throw new NotFoundException('Utilisateur non trouvé.');
+    }
+    return toPublicUser(user);
   }
 
   async updateUserRole(id: string, role: string, actingUserId: string, actorRole: string) {
@@ -2530,6 +2663,102 @@ export class AuthService {
       },
     });
     return toPublicUser(updated);
+  }
+
+  private assertCanArchiveUser(actorRole: string, user: { role: string }) {
+    if (user.role !== 'COMPANY') {
+      throw new ForbiddenException(
+        "Seuls les comptes d'organisation peuvent être archivés depuis ce module."
+      );
+    }
+  }
+
+  private async findUserForArchiveState(tx: any, id: string) {
+    return (await tx.user.findUnique({ where: { id, ...NOT_ARCHIVED } })) ??
+      (await tx.user.findUnique({ where: { id, ...ARCHIVED_ONLY } }));
+  }
+
+  async archiveUser(
+    id: string,
+    reason: string,
+    actingUserId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+  ) {
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (!normalizedReason) throw new BadRequestException("Une raison d'archivage est obligatoire.");
+
+    return this.prisma.$transaction(async (tx) => {
+      if (id === actingUserId) {
+        throw new BadRequestException('Vous ne pouvez pas archiver votre propre compte.');
+      }
+      const user = await this.findUserForArchiveState(tx, id);
+      if (!user) throw new BadRequestException('Utilisateur non trouvé.');
+      assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, user);
+      this.assertCanArchiveUser(actorRole, user);
+      if (user.archivedAt) throw new BadRequestException("Le compte est déjà archivé.");
+      if (user.role === 'SUPER_ADMIN') {
+        const superAdminCount = await tx.user.count({
+          where: { role: 'SUPER_ADMIN', isActive: true, archivedAt: null },
+        });
+        if (superAdminCount <= 1) {
+          throw new BadRequestException("Impossible d'archiver le dernier administrateur actif.");
+        }
+      }
+
+      const archivedAt = new Date();
+      const updated = await tx.user.updateMany({
+        where: { id, ...NOT_ARCHIVED },
+        data: { archivedAt, archivedBy: actingUserId, archiveReason: normalizedReason },
+      });
+      if (updated.count !== 1) throw new ConflictException("Le statut d'archivage a changé. Rechargez la page.");
+      await tx.auditLog.create({
+        data: {
+          userId: actingUserId,
+          action: 'REGISTRATION_ARCHIVED',
+          resourceType: 'User',
+          resourceId: id,
+          details: { reason: normalizedReason, actorRole },
+        },
+      });
+      return { id, archivedAt, archivedBy: actingUserId, archiveReason: normalizedReason };
+    });
+  }
+
+  async restoreUser(
+    id: string,
+    reason: string | undefined,
+    actingUserId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+  ) {
+    const normalizedReason = reason?.trim() || null;
+    return this.prisma.$transaction(async (tx) => {
+      if (id === actingUserId) {
+        throw new BadRequestException('Vous ne pouvez pas restaurer votre propre compte.');
+      }
+      const user = await this.findUserForArchiveState(tx, id);
+      if (!user) throw new BadRequestException('Utilisateur non trouvé.');
+      assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, user);
+      this.assertCanArchiveUser(actorRole, user);
+      if (!user.archivedAt) throw new BadRequestException("Le compte n'est pas archivé.");
+
+      const updated = await tx.user.updateMany({
+        where: { id, ...ARCHIVED_ONLY },
+        data: { archivedAt: null, archivedBy: null, archiveReason: null },
+      });
+      if (updated.count !== 1) throw new ConflictException("Le statut d'archivage a changé. Rechargez la page.");
+      await tx.auditLog.create({
+        data: {
+          userId: actingUserId,
+          action: 'REGISTRATION_RESTORED',
+          resourceType: 'User',
+          resourceId: id,
+          details: { reason: normalizedReason, previousReason: user.archiveReason, actorRole },
+        },
+      });
+      return { id, archivedAt: null, archivedBy: null, archiveReason: null };
+    });
   }
 
   /**
