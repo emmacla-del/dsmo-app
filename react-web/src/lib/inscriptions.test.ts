@@ -12,10 +12,21 @@ import {
   buildAssistedRegistrationPayload,
   daysWaiting,
   inscriptionsHref,
+  isValidSocialCapital,
   registrationTerritoryChoice,
   verificationFlags,
   verificationRows,
 } from "./inscriptions";
+
+test("social capital accepts an empty value or a non-negative integer only", () => {
+  assert.equal(isValidSocialCapital(undefined), true);
+  assert.equal(isValidSocialCapital("   "), true);
+  assert.equal(isValidSocialCapital("0"), true);
+  assert.equal(isValidSocialCapital("125000"), true);
+  assert.equal(isValidSocialCapital("125000.5"), false);
+  assert.equal(isValidSocialCapital("-1"), false);
+  assert.equal(isValidSocialCapital("not a number"), false);
+});
 
 test("the queue is the default view: no ?vue=", () => {
   assert.equal(inscriptionsHref("", "file"), "/admin/inscriptions");
