@@ -1,9 +1,16 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { ONEFOP_STAFF_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
+import { ONEFOP_STAFF_ROLES, USER_ADMIN_ROLES, USER_LIFECYCLE_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { buildUserListWhere } from './user-list-filter';
 
 describe('staff administration scope', () => {
+  it('keeps USER_ADMIN_ROLES narrow and grants lifecycle routes to territorial admins', () => {
+    expect(USER_ADMIN_ROLES).toEqual(['SUPER_ADMIN', 'ADMIN_ONEFOP']);
+    expect(USER_LIFECYCLE_ROLES).toEqual([
+      'SUPER_ADMIN', 'ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN',
+    ]);
+  });
+
   it('leaves SUPER_ADMIN unrestricted, limits SUPER_ADMIN_ONEFOP, and grants nothing to anyone else', () => {
     expect(manageableRolesFor('SUPER_ADMIN')).toBeNull();
     expect(manageableRolesFor('ADMIN_ONEFOP')).toEqual(ONEFOP_STAFF_ROLES);
@@ -52,6 +59,7 @@ describe('AuthService user management enforces the scope server-side', () => {
     noTerritory: { id: 'noTerritory', role: 'ADMIN_ONEFOP', status: 'ACTIVE', region: null, department: null },
     blankRegion: { id: 'blankRegion', role: 'ADMIN_ONEFOP', status: 'ACTIVE', region: '', department: null },
     dsmoAdmin: { id: 'dsmoAdmin', role: 'SUPER_ADMIN', status: 'ACTIVE' },
+    otherRegional: { id: 'otherRegional', role: 'REGIONAL_ADMIN', status: 'ACTIVE', region: 'Centre', department: 'Mfoundi' },
   };
   let prisma: any;
   let service: AuthService;
@@ -131,6 +139,45 @@ describe('AuthService user management enforces the scope server-side', () => {
   it('keeps SUPER_ADMIN unrestricted', async () => {
     await expect(service.setUserActive('dsmoAdmin', false, 'me', 'SUPER_ADMIN')).resolves.toMatchObject({ isActive: false });
     await expect(service.updateUserRole('regional', 'ADMIN_ONEFOP', 'me', 'SUPER_ADMIN')).resolves.toMatchObject({ role: 'ADMIN_ONEFOP' });
+  });
+
+  it('P2-23 REGIONAL_ADMIN cannot suspend an account outside its region', async () => {
+    await expect(service.setUserActive(
+      'otherRegional', false, 'actor', 'REGIONAL_ADMIN',
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+    )).rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('P2-24 REGIONAL_ADMIN can suspend an account inside its region', async () => {
+    await expect(service.setUserActive(
+      'regional', false, 'actor', 'REGIONAL_ADMIN',
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+    )).resolves.toMatchObject({ isActive: false });
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'regional' }, data: { isActive: false } });
+  });
+
+  it('P2-25 SUPER_ADMIN can suspend and activate users across territories', async () => {
+    await expect(service.setUserActive('otherRegional', false, 'admin', 'SUPER_ADMIN')).resolves.toMatchObject({ isActive: false });
+    await expect(service.setUserActive('regional', true, 'admin', 'SUPER_ADMIN')).resolves.toMatchObject({ isActive: true });
+  });
+
+  it('P2-26 audits successful suspend and activate operations', async () => {
+    await service.setUserActive('regional', false, 'actor', 'ADMIN_ONEFOP');
+    await service.setUserActive('regional', true, 'actor', 'ADMIN_ONEFOP');
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(1, {
+      data: expect.objectContaining({
+        userId: 'actor', action: 'USER_SUSPENDED', resourceType: 'User', resourceId: 'regional',
+        details: { isActive: false, actorRole: 'ADMIN_ONEFOP' },
+      }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        userId: 'actor', action: 'USER_ACTIVATED', resourceType: 'User', resourceId: 'regional',
+        details: { isActive: true, actorRole: 'ADMIN_ONEFOP' },
+      }),
+    });
   });
 
   it('lists only in-scope roles for the ONEFOP administrator', async () => {

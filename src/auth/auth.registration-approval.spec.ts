@@ -460,6 +460,71 @@ describe('AuthService company registration approval', () => {
   });
 });
 
+describe('Phase 2 registration mutation territory checks', () => {
+  const user = { id: 'company-user', email: 'target@example.cm', role: 'COMPANY', status: 'PENDING_APPROVAL' };
+  const targetCompany = {
+    id: 'company-1', userId: user.id, name: 'Target Company', entityType: 'ENTREPRISE',
+    taxNumber: 'TAX-1', phone: '699000000', cnpsNumber: 'CNPS1', subdivisionId: 'sub-1',
+    region: 'Territory B', department: 'Division B', regionId: 'region-b', departmentId: 'department-b',
+    subdivision: 'Sub B', establishmentId: null, createdAt: new Date('2026-01-01'),
+  };
+  let prisma: any;
+  let service: AuthService;
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({ ...user })),
+        update: jest.fn(async ({ data }: any) => ({ ...user, ...data })),
+      },
+      company: { findUnique: jest.fn(async () => ({ ...targetCompany })) },
+      auditLog: { create: jest.fn(async () => ({})) },
+      subdivision: { findUnique: jest.fn(async () => ({ id: 'sub-1', code: '01' })) },
+      establishment: { create: jest.fn(async () => ({ id: 'est-1' })) },
+      $queryRaw: jest.fn(async () => [{ serial: 1n }]),
+      $transaction: jest.fn(async (callback: any) => callback(prisma)),
+    };
+    service = new AuthService(
+      prisma,
+      {} as any,
+      {
+        sendRegistrationApprovedEmail: jest.fn(async () => undefined),
+        sendRegistrationRejectedEmail: jest.fn(async () => undefined),
+        sendRegistrationComplementsEmail: jest.fn(async () => undefined),
+      } as any,
+      { generateRegistrationAttestation: jest.fn(async () => ({ storagePath: 'p', signedUrl: 'u' })) } as any,
+      {} as any,
+    );
+  });
+
+  it('P2-17 refuses REGIONAL_ADMIN approval of an out-of-region company by id', async () => {
+    await expect(service.approveUser('company-user', 'actor', 'REGIONAL_ADMIN', { region: 'Territory A' }, VERIFIED))
+      .rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('P2-18 refuses REGIONAL_ADMIN rejection and complements for an out-of-region company by id', async () => {
+    await expect(service.rejectUser('company-user', 'actor', 'REGIONAL_ADMIN', { region: 'Territory A' }, 'Reason long enough'))
+      .rejects.toThrow(ForbiddenException);
+    await expect(service.requestComplements('company-user', 'actor', 'REGIONAL_ADMIN', { region: 'Territory A' }, 'Please complete this file'))
+      .rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('P2-19 refuses all three DIVISIONAL_ADMIN registration decisions outside region and department', async () => {
+    const territory = { region: 'Territory A', department: 'Division A' };
+    await expect(service.approveUser('company-user', 'actor', 'DIVISIONAL_ADMIN', territory, VERIFIED))
+      .rejects.toThrow(ForbiddenException);
+    await expect(service.rejectUser('company-user', 'actor', 'DIVISIONAL_ADMIN', territory, 'Reason long enough'))
+      .rejects.toThrow(ForbiddenException);
+    await expect(service.requestComplements('company-user', 'actor', 'DIVISIONAL_ADMIN', territory, 'Please complete this file'))
+      .rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('AuthService.validateUser company pending login', () => {
   it('lets a COMPANY in PENDING_APPROVAL through after password checks', async () => {
     const prisma = {

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { SystemSettingsService, validateIdentityFields } from './system-settings.service';
+import { SystemSettingsController } from './system-settings.controller';
 
 describe('validateIdentityFields', () => {
   it('passes the original fields through untouched', () => {
@@ -40,15 +41,29 @@ describe('validateIdentityFields', () => {
 });
 
 describe('SystemSettingsService.updateSettings', () => {
-  it('writes validated identity fields and refreshes the cache', async () => {
+  it('P2-28 writes an audit row for validated settings updates and refreshes the cache', async () => {
     const upsert = jest.fn().mockImplementation(({ update }) => Promise.resolve({ id: 'singleton', ...update }));
-    const service = new SystemSettingsService({ systemSettings: { upsert } } as any);
+    const auditCreate = jest.fn(async () => ({}));
+    const service = new SystemSettingsService({ systemSettings: { upsert }, auditLog: { create: auditCreate } } as any);
+    const controller = new SystemSettingsController(service);
 
-    const row = await service.updateSettings({ observatoryName: ' ONEFOP ', defaultLanguage: 'fr' }, 'admin-1');
+    const row = await controller.updateSettings(
+      { observatoryName: ' ONEFOP ', defaultLanguage: 'fr' },
+      { user: { id: 'admin-1' } },
+    );
 
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
       update: { observatoryName: 'ONEFOP', defaultLanguage: 'fr', updatedBy: 'admin-1' },
     }));
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        userId: 'admin-1',
+        action: 'SYSTEM_SETTINGS_UPDATED',
+        resourceType: 'SystemSettings',
+        resourceId: 'singleton',
+        details: { updatedFields: ['observatoryName', 'defaultLanguage'] },
+      },
+    });
     expect(await service.getSettings()).toBe(row);
   });
 

@@ -69,6 +69,15 @@ export const SURVEY_READ_ROLES = [...SURVEY_ADMIN_ROLES, ...READ_ONLY_NATIONAL_R
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
 export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 
+// Suspend/activate only. Territorial scope enforced by
+// assertTerritorialAuthority in the service. Do NOT reuse for role
+// assignment, user deletion, or user search.
+export const USER_LIFECYCLE_ROLES = [
+  ...USER_ADMIN_ROLES,
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
+] as const;
+
 
 /**
  * Roles allowed to read the establishment directory (GET /companies,
@@ -105,9 +114,9 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
  * Territorial roles that review COMPANY registrations in their own territory
  * (role-decisions D3): the company-registration list and the approve /
  * reject / request-complements routes. Deliberately NOT part of
- * USER_ADMIN_ROLES or manageableRolesFor: these roles get no user
- * management power at all -- they neither create staff accounts nor
- * approve them (decision of 2026-10-07; see assertCanApproveRegistration).
+ * USER_ADMIN_ROLES or manageableRolesFor: this set grants no staff role
+ * assignment or creation rights. Delegate staff approval is separately
+ * scoped by staffApprovalScope; suspend/activate use USER_LIFECYCLE_ROLES.
  */
 export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
 
@@ -119,8 +128,8 @@ export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN']
  * AuthService.listUsers gives a delegate their own territory and the roles
  * in their staffApprovalScope, and gives a territorial admin who is NOT a
  * délégué nothing at all, since manageableRolesFor returns [] for them.
- * Every mutation keeps USER_ADMIN_ROLES of its own, so this widens a read
- * and nothing else.
+ * User search, role assignment, and deletion keep USER_ADMIN_ROLES. Suspend
+ * and activate use USER_LIFECYCLE_ROLES, with territorial checks in service.
  */
 export const STAFF_LIST_ROLES = [...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES] as const;
 

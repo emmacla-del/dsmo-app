@@ -62,9 +62,8 @@ D5. Module separation is enforced at the EXISTING controller-guard level
 - Assignment: assigneeId already exists on registration
   (prisma/schema.prisma:221). Assignment is [MODIFY], not a schema change.
 - Deactivate/reactivate: PATCH /auth/users/:id/suspend and /activate exist
-  (src/auth/auth.controller.ts:564, :571) but are USER-account level and
-  have NO territory check. Extending them to organisations and adding the
-  territory guard is [MODIFY] with a security fix.
+  (src/auth/auth.controller.ts:564, :571) as USER-account operations. They
+  use USER_LIFECYCLE_ROLES and enforce territorial authority in the service.
 - Export from completed view: export endpoint exists
   (src/questionnaires/admin-questionnaires.controller.ts:288) and accepts
   one status; extending it to a status set is [MODIFY].
@@ -78,6 +77,8 @@ D5. Module separation is enforced at the EXISTING controller-guard level
 
 
 - Decision actor fields on User are extended in Phase 1 as a single additive group: approvedAt, approvedBy, rejectedAt, rejectedBy — all nullable. No index is added or changed; the existing approvedBy index is retained. The group has no constraints beyond its self-reference to User. This does not touch the OnefopSubmission partial unique index that is the actual schema risk in this project. Only fields that are missing today are added; existing ones are reused. Historic rejected records will have rejectedBy = null; the view displays “not recorded” for them. Backfilling from AuditLog is out of scope; the audit trail remains authoritative for historic decisions.
+
+- Regional admins (REGIONAL_ADMIN, DIVISIONAL_ADMIN) have both registration and declaration admin capabilities, scoped to their territory. They may suspend or activate users within their territory via USER_LIFECYCLE_ROLES, a narrower set than USER_ADMIN_ROLES. Role assignment and user deletion remain national via USER_ADMIN_ROLES. User search visibility for territorial admins remains an open product question. Cross-territory suspend/activate is refused by assertTerritorialAuthority.
 
 No capability/grant model is introduced. Phase 1 must meet the contract in [the Phase 1 contract](../plans/admin-modules-phase1-contract.md) before frontend work proceeds.
 

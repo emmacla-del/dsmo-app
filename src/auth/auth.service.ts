@@ -2496,7 +2496,13 @@ export class AuthService {
     return toPublicUser(updated);
   }
 
-  async setUserActive(id: string, isActive: boolean, actingUserId: string, actorRole: string) {
+  async setUserActive(
+    id: string,
+    isActive: boolean,
+    actingUserId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+  ) {
     if (id === actingUserId) {
       throw new BadRequestException(
         isActive
@@ -2506,11 +2512,24 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
-    assertCanManageRole(actorRole, user.role);
-    return toPublicUser(await this.prisma.user.update({
+    assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, user);
+    if (actorRole !== 'REGIONAL_ADMIN' && actorRole !== 'DIVISIONAL_ADMIN') {
+      assertCanManageRole(actorRole, user.role);
+    }
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { isActive },
-    }));
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actingUserId,
+        action: isActive ? 'USER_ACTIVATED' : 'USER_SUSPENDED',
+        resourceType: 'User',
+        resourceId: id,
+        details: { isActive, actorRole },
+      },
+    });
+    return toPublicUser(updated);
   }
 
   /**
@@ -2764,6 +2783,15 @@ export class AuthService {
    * endpoint's replacement behavior hasn't been decided yet.
    */
   async adminResetPassword(_email: string, _adminUserId: string) {
+    await this.prisma.auditLog.create({
+      data: {
+        userId: _adminUserId,
+        action: 'ADMIN_PASSWORD_RESET_UNAVAILABLE',
+        resourceType: 'AdminPasswordReset',
+        resourceId: _adminUserId,
+        details: { outcome: 'unavailable' },
+      },
+    });
     throw new BadRequestException(
       'La réinitialisation par administrateur est temporairement ' +
         'indisponible. Utilisez le flux de questions de sécurité côté ' +

@@ -7,7 +7,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, STAFF_LIST_ROLES, USER_ADMIN_ROLES } from './staff-scope';
+import { READ_ONLY_NATIONAL_ROLES, REGISTRATION_ADMIN_ROLES, STAFF_LIST_ROLES, USER_ADMIN_ROLES, USER_LIFECYCLE_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
@@ -376,8 +376,9 @@ export class AuthController {
   // in their territory (assertTerritorialAuthority in the company path).
   // They may not approve or reject STAFF accounts: the staff path,
   // assertCanApproveRegistration, refuses them (decision of 2026-10-07).
-  // Added alongside USER_ADMIN_ROLES, which also guards list / suspend /
-  // delete / re-role.
+  // Registration review is separate from user lifecycle administration.
+  // USER_ADMIN_ROLES continues to guard user search, role assignment, and
+  // deletion; suspend/activate use the territory-checked lifecycle role set.
   // The former 'ADMIN_ONEFOP' entry is dropped: it now maps to ADMIN_ONEFOP,
   // which USER_ADMIN_ROLES already covers.
   @Patch('approve-user/:id')
@@ -488,8 +489,8 @@ export class AuthController {
   // STAFF_LIST_ROLES, not USER_ADMIN_ROLES: a territory's délégué reads the
   // accounts they approve. The service decides what they see -- their own
   // territory, the roles they may approve, and nothing for a territorial
-  // admin who is not a délégué. Every mutation below keeps
-  // USER_ADMIN_ROLES.
+  // admin who is not a délégué. User search, role assignment, and deletion
+  // keep USER_ADMIN_ROLES; suspend and activate use USER_LIFECYCLE_ROLES.
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...STAFF_LIST_ROLES)
@@ -567,16 +568,16 @@ export class AuthController {
 
   @Patch('users/:id/suspend')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_LIFECYCLE_ROLES)
   async suspendUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.setUserActive(id, false, req.user.id, req.user.role);
+    return this.authService.setUserActive(id, false, req.user.id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('users/:id/activate')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_LIFECYCLE_ROLES)
   async activateUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.setUserActive(id, true, req.user.id, req.user.role);
+    return this.authService.setUserActive(id, true, req.user.id, req.user.role, territoryFromUser(req.user));
   }
 
   @Delete('users/:id')

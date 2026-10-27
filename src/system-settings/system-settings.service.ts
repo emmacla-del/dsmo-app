@@ -107,6 +107,15 @@ export class SystemSettingsService {
       create: { id: SINGLETON_ID, ...data, updatedBy },
       update: { ...data, updatedBy },
     });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: updatedBy,
+        action: 'SYSTEM_SETTINGS_UPDATED',
+        resourceType: 'SystemSettings',
+        resourceId: SINGLETON_ID,
+        details: { updatedFields: Object.keys(data) },
+      },
+    });
     this.cached = row;
     return row;
   }
